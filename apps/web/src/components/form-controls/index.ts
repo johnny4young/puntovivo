@@ -1,5 +1,7 @@
+// Re-export UI primitives for backward compatibility
+export { Input, type InputProps } from '@/components/ui';
+
 // Form Components
-export { Input, type InputProps } from './Input';
 export { Select, type SelectProps, type SelectOption } from './Select';
 export { Checkbox, type CheckboxProps } from './Checkbox';
 export { DatePicker, type DatePickerProps } from './DatePicker';

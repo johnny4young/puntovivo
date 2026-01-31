@@ -1,7 +1,39 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
+const inputVariants = cva(
+  [
+    'w-full rounded-lg border px-3 py-2 text-sm transition-colors',
+    'placeholder:text-secondary-400',
+    'focus:outline-none focus:ring-2 focus:ring-offset-0',
+  ],
+  {
+    variants: {
+      variant: {
+        default: [
+          'border-secondary-300',
+          'focus:border-primary-500 focus:ring-primary-500/20',
+          'hover:border-secondary-400',
+        ],
+        error: ['border-danger-500', 'focus:border-danger-500 focus:ring-danger-500/20'],
+      },
+      inputSize: {
+        default: 'h-10',
+        sm: 'h-9 text-xs',
+        lg: 'h-12',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      inputSize: 'default',
+    },
+  }
+);
+
+export interface InputProps
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix' | 'size'>,
+    VariantProps<typeof inputVariants> {
   /** Input label */
   label?: string;
   /** Error message to display */
@@ -16,7 +48,7 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   wrapperClassName?: string;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
+const Input = forwardRef<HTMLInputElement, InputProps>(
   (
     {
       type = 'text',
@@ -30,12 +62,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       className,
       wrapperClassName,
       id,
+      variant,
+      inputSize,
       ...props
     },
     ref
   ) => {
     const inputId = id || props.name;
     const hasError = !!error;
+    const computedVariant = hasError ? 'error' : variant;
 
     return (
       <div className={cn('w-full', wrapperClassName)}>
@@ -66,18 +101,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             disabled={disabled}
             readOnly={readOnly}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-colors',
-              'placeholder:text-secondary-400',
-              'focus:outline-none focus:ring-2 focus:ring-offset-0',
-              // Default state
-              !hasError &&
-                !disabled && [
-                  'border-secondary-300',
-                  'focus:border-primary-500 focus:ring-primary-500/20',
-                  'hover:border-secondary-400',
-                ],
-              // Error state
-              hasError && ['border-danger-500', 'focus:border-danger-500 focus:ring-danger-500/20'],
+              inputVariants({ variant: computedVariant, inputSize }),
               // Disabled state
               disabled && [
                 'bg-secondary-100 border-secondary-200',
@@ -104,13 +128,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
 
-        {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-danger-600">
+        {hasError && (
+          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-danger-600" role="alert">
             {error}
           </p>
         )}
 
-        {helperText && !error && (
+        {!hasError && helperText && (
           <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-secondary-500">
             {helperText}
           </p>
@@ -121,3 +145,5 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 
 Input.displayName = 'Input';
+
+export { Input, inputVariants };
