@@ -4,7 +4,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     rollupOptions: {
-      external: ['better-sqlite3', 'electron'],
+      external: ['better-sqlite3', 'electron', 'electron-squirrel-startup'],
+      output: {
+        entryFileNames: '[name].cjs',
+      },
     },
   },
   resolve: {
