@@ -207,6 +207,67 @@ go run . migrate --source /path/to/POSSolutions.db
 | `AUTO_UPDATE_INTERVAL`| Update check interval                | `1 hour`        |
 | `POCKETBASE_PORT`     | PocketBase server port               | `8090`          |
 
+## Troubleshooting
+
+### Native Module Errors (electron-rebuild)
+
+If you encounter errors like:
+
+```
+Error: The module '.../better_sqlite3.node'
+was compiled against a different Node.js version using
+NODE_MODULE_VERSION 127. This version of Node.js requires
+NODE_MODULE_VERSION 143.
+```
+
+This happens because native modules (like `better-sqlite3`) were compiled for your system's Node.js version, not Electron's embedded Node.js version. **Run `electron-rebuild` to fix this:**
+
+```bash
+# Rebuild native modules for Electron (from project root)
+npx electron-rebuild -m apps/desktop
+```
+
+#### When to Run electron-rebuild
+
+| Scenario | Command |
+| -------- | ------- |
+| After `npm install` | `npx electron-rebuild -m apps/desktop` |
+| After upgrading Electron | `npx electron-rebuild -m apps/desktop` |
+| After upgrading native packages (better-sqlite3, etc.) | `npx electron-rebuild -m apps/desktop` |
+| After switching Node.js versions (nvm, fnm, etc.) | `npx electron-rebuild -m apps/desktop` |
+| CI/CD builds | Include in build script before packaging |
+
+#### Common Options
+
+```bash
+# Rebuild for specific module only
+npx electron-rebuild -m apps/desktop -o better-sqlite3
+
+# Force rebuild all modules
+npx electron-rebuild -m apps/desktop -f
+
+# Specify Electron version explicitly
+npx electron-rebuild -m apps/desktop -v 40.1.0
+
+# Show verbose output for debugging
+npx electron-rebuild -m apps/desktop --debug
+```
+
+#### Automated Rebuild (Recommended)
+
+Add a `postinstall` script to automatically rebuild after `npm install`:
+
+```json
+// apps/desktop/package.json
+{
+  "scripts": {
+    "postinstall": "electron-rebuild"
+  }
+}
+```
+
+> **Note**: The `-m apps/desktop` flag specifies the module directory. When running from inside `apps/desktop`, you can omit it.
+
 ## Development Notes
 
 ### Architecture
