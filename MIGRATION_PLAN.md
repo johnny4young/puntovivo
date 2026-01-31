@@ -6,24 +6,26 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 
 ## Target Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | ReactJS |
-| Styling | Tailwind CSS |
-| Data Tables | TanStack Table |
-| Backend | Golang |
-| Backend Framework | PocketBase |
-| Database | SQLite |
-| Desktop | Electron |
+| Layer             | Technology     |
+| ----------------- | -------------- |
+| Frontend          | ReactJS        |
+| Styling           | Tailwind CSS   |
+| Data Tables       | TanStack Table |
+| Backend           | Golang         |
+| Backend Framework | PocketBase     |
+| Database          | SQLite         |
+| Desktop           | Electron       |
 
 ## Architecture Requirements
 
 ### Multi-Tenant Architecture
+
 - Preserve existing multi-tenant architecture patterns
 - Tenant isolation at data and application levels
 - Configurable tenant-specific features and branding
 
 ### Offline Support
+
 - Full offline functionality using SQLite local storage
 - Background sync when connectivity is restored
 - Conflict resolution strategies for data synchronization
@@ -33,18 +35,21 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 1: Foundation Setup
 
 ### 1.1 Project Initialization
+
 - [ ] Initialize ReactJS project with TypeScript
 - [ ] Configure Tailwind CSS
 - [ ] Set up Electron shell
 - [ ] Configure build pipelines for web and desktop targets
 
 ### 1.2 Backend Setup
+
 - [ ] Initialize Golang project structure
 - [ ] Set up PocketBase integration
 - [ ] Configure SQLite database schema
 - [ ] Implement multi-tenant data isolation
 
 ### 1.3 Core Infrastructure
+
 - [ ] Authentication and authorization system
 - [ ] Tenant context management
 - [ ] API client with offline queue support
@@ -55,6 +60,7 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 2: Feature Parity - Data Tables
 
 ### 2.1 TanStack Table Implementation
+
 - [ ] Set up TanStack Table core configuration
 - [ ] Implement column definitions matching existing WinForms grids
 - [ ] Add sorting, filtering, and pagination
@@ -63,6 +69,7 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 - [ ] Implement virtual scrolling for large datasets
 
 ### 2.2 Table Features
+
 - [ ] Export functionality (CSV, Excel, PDF)
 - [ ] Print support
 - [ ] Column visibility toggles
@@ -74,18 +81,21 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 3: Feature Migration
 
 ### 3.1 UI Components
+
 - [ ] Migrate forms and input components
 - [ ] Implement navigation structure
 - [ ] Create dashboard layouts
 - [ ] Build reporting views
 
 ### 3.2 Business Logic
+
 - [ ] Port validation rules
 - [ ] Migrate calculation logic
 - [ ] Implement workflow processes
 - [ ] Preserve MEF plugin architecture patterns (if applicable)
 
 ### 3.3 Data Management
+
 - [ ] Implement CRUD operations
 - [ ] Set up real-time updates
 - [ ] Configure data caching strategies
@@ -95,11 +105,13 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 4: Offline & Sync
 
 ### 4.1 Offline Storage
+
 - [ ] Configure SQLite for Electron
 - [ ] Implement IndexedDB for web browser support
 - [ ] Create offline data access layer
 
 ### 4.2 Synchronization
+
 - [ ] Implement background sync service
 - [ ] Create conflict detection and resolution
 - [ ] Add sync status indicators
@@ -110,12 +122,14 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 5: Testing & Validation
 
 ### 5.1 Testing Strategy
+
 - [ ] Unit tests for business logic
 - [ ] Integration tests for API endpoints
 - [ ] E2E tests for critical workflows
 - [ ] Offline scenario testing
 
 ### 5.2 Feature Parity Validation
+
 - [ ] Create feature comparison checklist
 - [ ] User acceptance testing
 - [ ] Performance benchmarking against WinForms app
@@ -125,16 +139,19 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Phase 6: Deployment & Migration
 
 ### 6.1 Deployment Setup
+
 - [ ] Configure CI/CD pipelines
 - [ ] Set up staging environments
 - [ ] Prepare production infrastructure
 
 ### 6.2 Data Migration
+
 - [ ] Create data migration scripts
 - [ ] Plan rollback procedures
 - [ ] Schedule migration windows
 
 ### 6.3 Rollout Strategy
+
 - [ ] Pilot with select tenants
 - [ ] Phased rollout plan
 - [ ] Documentation and training materials
@@ -144,16 +161,19 @@ This document outlines the migration strategy from a .NET WinForms desktop appli
 ## Key Considerations
 
 ### Feature Parity Priorities
+
 1. **Data Grid Functionality** - TanStack Table provides feature-rich table capabilities matching WinForms DataGridView
 2. **Offline Support** - Critical for field operations
 3. **Multi-Tenant Isolation** - Security and data separation requirements
 
 ### Risk Mitigation
+
 - Maintain parallel operation during transition
 - Incremental feature releases
 - Comprehensive testing at each phase
 
 ### Success Metrics
+
 - Feature completeness vs. original application
 - Performance benchmarks
 - User adoption rates
@@ -369,19 +389,19 @@ export function useDataTable<T>(options: UseDataTableOptions<T>) {
 
 ### Feature Parity Checklist: WinForms DataGridView → TanStack Table
 
-| WinForms Feature | TanStack Implementation |
-|-----------------|------------------------|
-| Column sorting | `getSortedRowModel()` |
-| Column filtering | `getFilteredRowModel()` + custom filter UI |
-| Row selection | `enableRowSelection` + `onRowSelectionChange` |
-| Multi-select | `enableMultiRowSelection` |
-| Column reorder | `@tanstack/react-table` column order state |
-| Column resize | `enableColumnResizing` + `columnResizeMode` |
-| Virtual scroll | `@tanstack/react-virtual` integration |
-| Cell editing | Custom cell renderer with edit mode |
-| Context menu | Custom right-click handler |
-| Export to Excel | `xlsx` library integration |
-| Print | Custom print stylesheet + `window.print()` |
+| WinForms Feature | TanStack Implementation                       |
+| ---------------- | --------------------------------------------- |
+| Column sorting   | `getSortedRowModel()`                         |
+| Column filtering | `getFilteredRowModel()` + custom filter UI    |
+| Row selection    | `enableRowSelection` + `onRowSelectionChange` |
+| Multi-select     | `enableMultiRowSelection`                     |
+| Column reorder   | `@tanstack/react-table` column order state    |
+| Column resize    | `enableColumnResizing` + `columnResizeMode`   |
+| Virtual scroll   | `@tanstack/react-virtual` integration         |
+| Cell editing     | Custom cell renderer with edit mode           |
+| Context menu     | Custom right-click handler                    |
+| Export to Excel  | `xlsx` library integration                    |
+| Print            | Custom print stylesheet + `window.print()`    |
 
 ---
 
@@ -501,14 +521,14 @@ BACKGROUND_SYNC=true
 
 ## Timeline Estimates
 
-| Phase | Duration | Dependencies |
-|-------|----------|--------------|
-| Phase 1: Foundation | 3-4 weeks | None |
-| Phase 2: Data Tables | 2-3 weeks | Phase 1 |
-| Phase 3: Feature Migration | 6-8 weeks | Phase 2 |
-| Phase 4: Offline & Sync | 3-4 weeks | Phase 1, 3 |
-| Phase 5: Testing | 2-3 weeks | Phase 3, 4 |
-| Phase 6: Deployment | 2-3 weeks | Phase 5 |
+| Phase                      | Duration  | Dependencies |
+| -------------------------- | --------- | ------------ |
+| Phase 1: Foundation        | 3-4 weeks | None         |
+| Phase 2: Data Tables       | 2-3 weeks | Phase 1      |
+| Phase 3: Feature Migration | 6-8 weeks | Phase 2      |
+| Phase 4: Offline & Sync    | 3-4 weeks | Phase 1, 3   |
+| Phase 5: Testing           | 2-3 weeks | Phase 3, 4   |
+| Phase 6: Deployment        | 2-3 weeks | Phase 5      |
 
 **Total Estimated Duration: 18-25 weeks**
 
@@ -609,9 +629,7 @@ export class TenantAwareApiClient {
   }
 
   async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const url = this.tenantId
-      ? `/api/${this.tenantId}${endpoint}`
-      : `/api${endpoint}`;
+    const url = this.tenantId ? `/api/${this.tenantId}${endpoint}` : `/api${endpoint}`;
 
     return this.fetch<T>(url, {
       ...options,
@@ -723,11 +741,11 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    set => ({
       sidebarOpen: true,
       theme: 'system',
-      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      setTheme: (theme) => set({ theme }),
+      toggleSidebar: () => set(state => ({ sidebarOpen: !state.sidebarOpen })),
+      setTheme: theme => set({ theme }),
     }),
     {
       name: 'app-storage',
@@ -753,24 +771,23 @@ interface SyncState {
 
 export const useSyncStore = create<SyncState>()(
   persist(
-    (set) => ({
+    set => ({
       pendingChanges: [],
       lastSyncTime: null,
       isSyncing: false,
       syncErrors: [],
 
-      addPendingChange: (change) =>
-        set((state) => ({
-          pendingChanges: [...state.pendingChanges, change]
+      addPendingChange: change =>
+        set(state => ({
+          pendingChanges: [...state.pendingChanges, change],
         })),
-      removePendingChanges: (ids) =>
-        set((state) => ({
-          pendingChanges: state.pendingChanges.filter(c => !ids.includes(c.id))
+      removePendingChanges: ids =>
+        set(state => ({
+          pendingChanges: state.pendingChanges.filter(c => !ids.includes(c.id)),
         })),
-      setSyncing: (syncing) => set({ isSyncing: syncing }),
-      setLastSyncTime: (time) => set({ lastSyncTime: time }),
-      addSyncError: (error) =>
-        set((state) => ({ syncErrors: [...state.syncErrors, error] })),
+      setSyncing: syncing => set({ isSyncing: syncing }),
+      setLastSyncTime: time => set({ lastSyncTime: time }),
+      addSyncError: error => set(state => ({ syncErrors: [...state.syncErrors, error] })),
       clearSyncErrors: () => set({ syncErrors: [] }),
     }),
     {
@@ -795,7 +812,7 @@ export const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, // 5 minutes
       gcTime: 1000 * 60 * 60 * 24, // 24 hours
       retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
       networkMode: 'offlineFirst',
     },
     mutations: {
@@ -935,7 +952,7 @@ export class DatabaseManager {
 
   query<T>(sql: string, params?: unknown[]): T[] {
     const stmt = this.db.prepare(sql);
-    return params ? stmt.all(...params) as T[] : stmt.all() as T[];
+    return params ? (stmt.all(...params) as T[]) : (stmt.all() as T[]);
   }
 
   execute(sql: string, params?: unknown[]): Database.RunResult {
@@ -958,10 +975,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   // Database operations
   db: {
-    query: (sql: string, params?: unknown[]) =>
-      ipcRenderer.invoke('db:query', sql, params),
-    execute: (sql: string, params?: unknown[]) =>
-      ipcRenderer.invoke('db:execute', sql, params),
+    query: (sql: string, params?: unknown[]) => ipcRenderer.invoke('db:query', sql, params),
+    execute: (sql: string, params?: unknown[]) => ipcRenderer.invoke('db:execute', sql, params),
   },
 
   // Sync operations
@@ -1192,7 +1207,7 @@ describe('SyncService', () => {
   describe('pushChanges', () => {
     it('should push pending changes to server', async () => {
       const pendingChanges = [
-        { id: '1', entityType: 'users', operation: 'update', data: { name: 'Test' } }
+        { id: '1', entityType: 'users', operation: 'update', data: { name: 'Test' } },
       ];
       mockSyncQueue.getPending.mockResolvedValue(pendingChanges);
       mockApi.sync.push.mockResolvedValue({ success: true });
@@ -1264,13 +1279,15 @@ test.describe('Offline Sync', () => {
 
     // Create a conflict by modifying same record
     await page.evaluate(() => {
-      window.dispatchEvent(new CustomEvent('sync:conflict', {
-        detail: {
-          entityId: '123',
-          local: { name: 'Local Version' },
-          remote: { name: 'Remote Version' },
-        }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('sync:conflict', {
+          detail: {
+            entityId: '123',
+            local: { name: 'Local Version' },
+            remote: { name: 'Remote Version' },
+          },
+        })
+      );
     });
 
     // Verify conflict dialog appears
@@ -1298,7 +1315,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8090:8090"
+      - '8090:8090'
     volumes:
       - pb_data:/pb_data
     environment:
@@ -1310,7 +1327,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - backend
     environment:
@@ -1478,10 +1495,7 @@ export default {
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-    require('@tailwindcss/typography'),
-  ],
+  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/typography')],
 } satisfies Config;
 ```
 
@@ -1848,9 +1862,9 @@ export function exportToCsv<T extends Record<string, unknown>>(
   columns: { key: keyof T; header: string }[],
   filename: string
 ): void {
-  const headers = columns.map((col) => col.header);
-  const rows = data.map((row) =>
-    columns.map((col) => {
+  const headers = columns.map(col => col.header);
+  const rows = data.map(row =>
+    columns.map(col => {
       const value = row[col.key];
       if (value === null || value === undefined) return '';
       if (typeof value === 'string' && value.includes(',')) {
@@ -1860,7 +1874,7 @@ export function exportToCsv<T extends Record<string, unknown>>(
     })
   );
 
-  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
   downloadFile(csv, `${filename}.csv`, 'text/csv');
 }
 
@@ -1889,17 +1903,14 @@ export function exportToExcel<T extends Record<string, unknown>>(
   filename: string,
   sheetName = 'Sheet1'
 ): void {
-  const headers = columns.map((col) => col.header);
-  const rows = data.map((row) => columns.map((col) => row[col.key]));
+  const headers = columns.map(col => col.header);
+  const rows = data.map(row => columns.map(col => row[col.key]));
 
   const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
   // Auto-size columns
   const colWidths = columns.map((col, i) => ({
-    wch: Math.max(
-      col.header.length,
-      ...rows.map((row) => String(row[i] ?? '').length)
-    ),
+    wch: Math.max(col.header.length, ...rows.map(row => String(row[i] ?? '').length)),
   }));
   worksheet['!cols'] = colWidths;
 
@@ -1931,8 +1942,8 @@ export function exportToPdf<T extends Record<string, unknown>>(
 
   autoTable(doc, {
     startY: title ? 30 : 14,
-    head: [columns.map((col) => col.header)],
-    body: data.map((row) => columns.map((col) => String(row[col.key] ?? ''))),
+    head: [columns.map(col => col.header)],
+    body: data.map(row => columns.map(col => String(row[col.key] ?? ''))),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [59, 130, 246] },
   });
