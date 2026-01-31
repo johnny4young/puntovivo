@@ -1,10 +1,20 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
-import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './database';
 import { setupSyncService } from './sync';
+import { PocketBaseManager } from './pocketbase';
+import { initAutoUpdater } from './auto-updater';
+
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
+declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
+const pocketbase = new PocketBaseManager();
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -33,28 +43,26 @@ function createWindow(): void {
   });
 
   // Load the renderer
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 }
 
 // Initialize the application
 app.whenReady().then(async () => {
-  // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.openyojob.pos');
+  // Initialize auto-updater (configurable via env)
+  initAutoUpdater();
 
-  // Initialize database
+  // Start PocketBase embedded backend
+  await pocketbase.start();
+
+  // Initialize local SQLite database for offline support
   await initDatabase();
 
   // Setup sync service for offline support
   setupSyncService();
-
-  // Watch for shortcut keys in development
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window);
-  });
 
   createWindow();
 
@@ -64,8 +72,9 @@ app.whenReady().then(async () => {
 });
 
 // Quit when all windows are closed
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   closeDatabase();
+  await pocketbase.stop();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -74,3 +83,4 @@ app.on('window-all-closed', () => {
 // IPC Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
+ipcMain.handle('get-pocketbase-url', () => pocketbase.getUrl());

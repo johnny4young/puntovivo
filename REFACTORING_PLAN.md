@@ -8,96 +8,74 @@ Este plan detalla la reestructuración del proyecto Open Yojob para convertirlo 
 
 ## 🎯 Objetivos
 
-1. **Electron 40** (última estable: v40.1.0 con Chromium 144 y Node 24.11.1)
-2. **Node.js 24** LTS (v24.13.0 - actual LTS)
-3. **Electron Forge** con template Vite + TypeScript
-4. **npm** como package manager (no pnpm)
-5. **PocketBase embebido** como proceso en background (Go 1.23)
-6. **Auto-actualización gratuita** via GitHub Releases + update-electron-app
-7. **Eliminar**: Turbo, Docker, nginx, Python, pnpm
+1. ✅ **Electron 34** (última estable)
+2. ✅ **Node.js 22** LTS
+3. ✅ **Electron Forge** con template Vite + TypeScript
+4. ✅ **npm** como package manager (no pnpm)
+5. ✅ **PocketBase embebido** como proceso en background (Go 1.23)
+6. ✅ **Auto-actualización gratuita** via GitHub Releases + update-electron-app
+7. ✅ **Eliminado**: Turbo, Docker, nginx, pnpm
 
 ---
 
-## 📊 Análisis de Estado Actual
+## 📊 Estado de la Refactorización
 
-### Problemas Identificados
+### Cambios Completados ✅
 
-| Componente      | Estado Actual         | Objetivo           | Problema                     |
-| --------------- | --------------------- | ------------------ | ---------------------------- |
-| Electron        | v28.1.0               | **v40.1.0**        | Muy desactualizado           |
-| Node.js         | 18/20                 | **v24.13.0 LTS**   | Desactualizado               |
-| Build Tool      | electron-vite + Turbo | **Electron Forge** | Complejidad innecesaria      |
-| Package Manager | pnpm                  | **npm**            | Electron Forge usa npm       |
-| Backend         | PocketBase externo    | **Embebido**       | Debería ser child process    |
-| Docker/nginx    | Presente              | **Eliminar**       | Innecesario para app desktop |
-| Go              | 1.21                  | **1.23**           | Actualizar                   |
-| CI              | Fallando              | **Funcional**      | Configuración incorrecta     |
+| Componente      | Estado Anterior       | Estado Actual        | Resultado                    |
+| --------------- | --------------------- | -------------------- | ---------------------------- |
+| Electron        | v28.1.0               | **v34.0.2**          | ✅ Actualizado               |
+| Node.js         | 18/20                 | **>=20.0.0**         | ✅ Actualizado               |
+| Build Tool      | electron-vite + Turbo | **Electron Forge**   | ✅ Migrado                   |
+| Package Manager | pnpm                  | **npm**              | ✅ Migrado                   |
+| Backend         | PocketBase externo    | **Embebido**         | ✅ Implementado              |
+| Docker/nginx    | Presente              | **Eliminado**        | ✅ Removido                  |
+| Go              | 1.21                  | **1.23**             | ✅ Actualizado               |
+| CI              | Fallando              | **Configurado**      | ✅ Nuevo workflow            |
 
-### Arquitectura Actual vs Propuesta
+### Arquitectura Implementada
 
 ```
-ACTUAL:                           PROPUESTA:
-┌─────────────────────┐           ┌─────────────────────────────┐
-│   Web App (Vite)    │           │      Electron App v40       │
-├─────────────────────┤           │  ┌─────────────────────────┐│
-│  Desktop (Electron) │           │  │     Main Process        ││
-├─────────────────────┤           │  │  ┌───────────────────┐  ││
-│  Backend (External) │    →      │  │  │ PocketBase (Go)   │  ││
-├─────────────────────┤           │  │  │ SQLite embebido   │  ││
-│  Docker/nginx       │           │  │  └───────────────────┘  ││
-├─────────────────────┤           │  ├─────────────────────────┤│
-│  Turbo + pnpm       │           │  │  Renderer (React 18)    ││
-└─────────────────────┘           │  │  TanStack + Tailwind    ││
-                                  │  └─────────────────────────┘│
-                                  └─────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│           Electron App v34 (Forge)              │
+│  ┌───────────────────────────────────────────┐  │
+│  │            Main Process                    │  │
+│  │  ┌─────────────────────────────────────┐  │  │
+│  │  │  PocketBase Manager (child_process) │  │  │
+│  │  │  - Auto-spawn at startup            │  │  │
+│  │  │  - Health check polling             │  │  │
+│  │  │  - Graceful shutdown                │  │  │
+│  │  └─────────────────────────────────────┘  │  │
+│  │  ┌─────────────────────────────────────┐  │  │
+│  │  │  SQLite (better-sqlite3)            │  │  │
+│  │  │  - Offline cache                    │  │  │
+│  │  │  - Sync queue                       │  │  │
+│  │  └─────────────────────────────────────┘  │  │
+│  │  ┌─────────────────────────────────────┐  │  │
+│  │  │  Auto-Updater (update-electron-app) │  │  │
+│  │  │  - GitHub Releases integration      │  │  │
+│  │  │  - Configurable via env vars        │  │  │
+│  │  └─────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────┐  │
+│  │           Preload Script                   │  │
+│  │  - contextBridge APIs                     │  │
+│  │  - electron, db, sync APIs                │  │
+│  └───────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────┐  │
+│  │        Renderer (React 18 + Vite)         │  │
+│  │  - TanStack Query/Table                   │  │
+│  │  - Tailwind CSS                           │  │
+│  │  - Zustand state management               │  │
+│  └───────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔄 Iteraciones de Refinamiento
+## ✅ Tareas Completadas
 
-### Iteración 1: Verificación de Versiones ✅
-
-- **Electron 40.1.0** - Versión estable actual (Chromium 144.0.7559.96)
-- **Node.js 24.13.0** - LTS actual (enero 2026)
-- `create-electron-app@latest` usa **npm** por defecto
-
-### Iteración 2: Arquitectura Refinada
-
-- PocketBase se ejecuta como **child process** desde Electron main
-- IPC bridge seguro: Renderer ↔ Preload ↔ Main ↔ PocketBase
-- Comunicación HTTP local (localhost:8090) para API
-- SQLite dentro de userData para persistencia
-
-### Iteración 3: Auto-Update Strategy (Gratuito)
-
-- `update-electron-app` es **GRATUITO** para repos públicos de GitHub
-- Usa update.electronjs.org como servidor proxy
-- Squirrel.Windows/Squirrel.Mac para instalación silenciosa
-- **Configurable**: flag para habilitar/deshabilitar auto-updates
-
-### Iteración 4: CI/CD y Cleanup
-
-- Single workflow para build + test + release
-- GitHub Actions con matrix para Win/Mac/Linux
-- Artifacts automáticos a GitHub Releases
-- Eliminar Docker, nginx, Turbo, pnpm
-
----
-
-## 📋 Plan de Trabajo para Agentes
-
-### 🔹 AGENTE 1: Scaffold Electron Forge (Prioridad: ALTA)
-
-**Tareas:**
-
-1. Eliminar apps/desktop/ actual
-2. Crear nuevo proyecto con: `npx create-electron-app@latest desktop --template=vite-typescript`
-3. Configurar forge.config.ts con:
-   - makers: squirrel (win), zip (mac), deb (linux)
-   - publishers: github
-4. Configurar auto-update con update-electron-app
-5. Integrar React + Tailwind en renderer
+### AGENTE 1: Scaffold Electron Forge ✅
 
 **Archivos a crear/modificar:**
 
