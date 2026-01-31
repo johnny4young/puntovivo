@@ -1,0 +1,38 @@
+node_modules
+dist
+.next
+.turbo
+*.log
+.DS_Store
+*.local
+.env
+.env.local
+.env.*.local
+
+# Backend
+backend/bin
+backend/tmp
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+
+# IDE
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Test
+coverage
+*.test.js
+
+# Build
+build
+out

@@ -1,0 +1,16 @@
+# Backend data directory
+pb_data/
+data/
+
+# OS files
+.DS_Store
+*.db
+*.db-journal
+
+# IDE
+.idea/
+.vscode/
+
+# Build
+bin/
+tmp/
