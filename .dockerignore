@@ -1,0 +1,45 @@
+# Node
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+out/
+.turbo/
+.next/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# PocketBase data (for local dev)
+pb_data/
+
+# Test coverage
+coverage/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional, remove if needed)
+*.md
+!README.md
+
+# Development configs
+docker-compose.override.yml

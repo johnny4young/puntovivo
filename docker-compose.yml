@@ -1,0 +1,140 @@
+version: "3.8"
+
+services:
+  # ==========================================================================
+  # Main Application (Backend + Static Web)
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8090}
+    container_name: open-yojob-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8090}:8090"
+    volumes:
+      - pb_data:/app/pb_data
+    environment:
+      - PB_DATA_DIR=/app/pb_data
+      - PB_PUBLIC_DIR=/app/web
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8090/api/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Web App Development Server (for development only)
+  # ==========================================================================
+  web-dev:
+    image: node:20-alpine
+    container_name: open-yojob-web-dev
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install && pnpm dev:web"
+    profiles:
+      - development
+    ports:
+      - "${WEB_DEV_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - web_node_modules:/app/apps/web/node_modules
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8090}
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Backup Service (scheduled backups)
+  # ==========================================================================
+  backup:
+    image: alpine:3.19
+    container_name: open-yojob-backup
+    profiles:
+      - production
+    volumes:
+      - pb_data:/data:ro
+      - backups:/backups
+    environment:
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}
+    entrypoint: |
+      sh -c '
+        apk add --no-cache sqlite
+        echo "$${BACKUP_SCHEDULE} sqlite3 /data/data.db \".backup /backups/backup-\$$(date +%Y%m%d-%H%M%S).db\"" | crontab -
+        crond -f
+      '
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Nginx Reverse Proxy (for production with SSL)
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: open-yojob-nginx
+    profiles:
+      - production
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+  # ==========================================================================
+  # Certbot for SSL certificates
+  # ==========================================================================
+  certbot:
+    image: certbot/certbot
+    container_name: open-yojob-certbot
+    profiles:
+      - production
+    volumes:
+      - ./docker/nginx/ssl:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - app-network
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  app-network:
+    driver: bridge
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  pb_data:
+    driver: local
+  backups:
+    driver: local
+  node_modules:
+    driver: local
+  web_node_modules:
+    driver: local
+  certbot_webroot:
+    driver: local
