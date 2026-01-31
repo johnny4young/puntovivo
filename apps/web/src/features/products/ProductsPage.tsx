@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import type { Product } from '@/types';
 import { formatCurrency } from '@/lib/utils';
