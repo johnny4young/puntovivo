@@ -120,7 +120,7 @@ async function performSync(): Promise<{ success: boolean; synced: number; errors
   }
 }
 
-async function simulateSyncItem(item: { operation: string }): Promise<void> {
+async function simulateSyncItem(_item: { operation: string }): Promise<void> {
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 100));
 

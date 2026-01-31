@@ -1,8 +1,8 @@
 # Open Yojob
 
 <p align="center">
-  <strong>Modern POS (Point of Sale) Solutions System</strong><br>
-  Built with React, Golang/PocketBase, and Electron
+  <strong>Modern POS (Point of Sale) Desktop Application</strong><br>
+  Built with Electron Forge, React, and PocketBase
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#development">Development</a> •
-  <a href="#deployment">Deployment</a> •
+  <a href="#building">Building</a> •
   <a href="#migration">Migration</a>
 </p>
 
@@ -18,65 +18,72 @@
 
 ## Features
 
-- 🏢 **Multi-Tenant Architecture** - Complete tenant isolation for SaaS deployment
+- 🏢 **Multi-Tenant Architecture** - Complete tenant isolation for business management
 - 📴 **Offline Support** - Full functionality without internet, with automatic sync
-- 🖥️ **Cross-Platform** - Web app + Desktop (Windows, macOS, Linux via Electron)
+- 🖥️ **Cross-Platform Desktop** - Windows, macOS, Linux via Electron
 - 📊 **Advanced Data Tables** - Sorting, filtering, pagination, export (CSV, Excel, PDF)
 - 🔐 **Secure Authentication** - JWT-based auth with role-based access control
-- 🔄 **Real-time Updates** - Live data synchronization via WebSockets
-- 📱 **Responsive Design** - Works on desktop and tablet devices
+- 🔄 **Auto-Updates** - Automatic updates from GitHub Releases
+- 🚀 **Embedded Backend** - PocketBase runs as a child process (no external server needed)
 
 ## Tech Stack
 
-| Layer       | Technology               | Purpose               |
-| ----------- | ------------------------ | --------------------- |
-| Frontend    | React 18 + TypeScript    | UI Framework          |
-| Styling     | Tailwind CSS             | Utility-first CSS     |
-| Data Tables | TanStack Table           | Feature-rich tables   |
-| State       | TanStack Query + Zustand | Server & client state |
-| Backend     | Golang + PocketBase      | API & database        |
-| Database    | SQLite                   | Embedded database     |
-| Desktop     | Electron                 | Native desktop app    |
-| Build       | Turborepo + pnpm         | Monorepo tooling      |
+| Layer       | Technology               | Purpose                    |
+| ----------- | ------------------------ | -------------------------- |
+| Desktop     | Electron 34 + Forge      | Native desktop app         |
+| Frontend    | React 18 + TypeScript    | UI Framework               |
+| Styling     | Tailwind CSS             | Utility-first CSS          |
+| Data Tables | TanStack Table           | Feature-rich tables        |
+| State       | TanStack Query + Zustand | Server & client state      |
+| Backend     | PocketBase (embedded)    | API & database (Go binary) |
+| Database    | SQLite                   | Embedded database          |
+| Build       | Electron Forge + Vite    | Build & packaging          |
+| Updates     | update-electron-app      | Auto-updates from GitHub   |
 
 ## Project Structure
 
 ```
 open_yojob/
 ├── apps/
-│   ├── web/                    # React web application
-│   │   ├── src/
-│   │   │   ├── components/     # Reusable UI components
-│   │   │   ├── features/       # Feature modules
-│   │   │   ├── hooks/          # Custom React hooks
-│   │   │   ├── services/       # API & storage services
-│   │   │   └── pages/          # Route pages
-│   │   └── package.json
-│   └── desktop/                # Electron desktop app
-│       ├── src/
-│       │   ├── main/           # Electron main process
-│       │   ├── preload/        # Preload scripts
-│       │   └── renderer/       # Renderer (uses web app)
-│       └── package.json
-├── backend/                    # Golang + PocketBase backend
-│   ├── cmd/server/             # Server entry point
-│   └── migrations/             # Database schema
+│   └── desktop/                # Electron Forge desktop app
+│       ├── forge.config.ts     # Electron Forge configuration
+│       ├── package.json
+│       ├── index.html          # Renderer entry HTML
+│       ├── vite.*.config.ts    # Vite configs (main, preload, renderer)
+│       ├── resources/
+│       │   └── pocketbase/     # PocketBase binaries per platform
+│       └── src/
+│           ├── main/           # Electron main process
+│           │   ├── index.ts    # App entry point
+│           │   ├── pocketbase.ts  # PocketBase manager
+│           │   ├── auto-updater.ts
+│           │   ├── database.ts # Local SQLite for offline
+│           │   └── sync.ts     # Sync service
+│           ├── preload/        # Preload scripts (IPC bridge)
+│           └── renderer/       # React UI
+│               ├── App.tsx
+│               ├── index.tsx
+│               └── index.css
+├── backend/                    # Go source (for custom PocketBase builds)
+│   ├── go.mod
+│   ├── cmd/server/
+│   └── migrations/
 ├── scripts/
+│   ├── download-pocketbase.sh  # Download PocketBase binaries
 │   └── migration/              # Data migration tools
-├── docker/                     # Docker configs
-├── .github/workflows/          # CI/CD pipelines
-├── docker-compose.yml
-├── turbo.json
-└── package.json
+├── .github/workflows/
+│   └── build.yml               # CI/CD: build & release
+├── package.json                # Root workspace config
+└── REFACTORING_PLAN.md
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
-- **pnpm** >= 8.0.0
-- **Go** >= 1.21 (for backend development)
+- **Node.js** >= 20.0.0
+- **npm** >= 10.0.0
+- **Go** >= 1.23 (for backend development only)
 
 ### Installation
 
@@ -86,226 +93,120 @@ git clone https://github.com/johnny4young/open_yojob.git
 cd open_yojob
 
 # Install dependencies
-pnpm install
+npm install
+
+# Download PocketBase binaries
+./scripts/download-pocketbase.sh
 ```
 
 ### Development
 
 ```bash
-# Start web app (http://localhost:3000)
-pnpm dev:web
+# Start Electron app in development mode
+npm run dev
 
-# Start backend (http://localhost:8090)
-pnpm dev:backend
-
-# Start desktop app
-pnpm dev:desktop
-
-# Run all together
-pnpm dev
+# Or from the desktop directory
+cd apps/desktop && npm start
 ```
 
-### Testing
+## Building
+
+### Create Distributable Packages
 
 ```bash
-# Run all tests
-pnpm test
+# Build for current platform
+npm run make
 
-# Run web tests with coverage
-pnpm --filter @open-yojob/web test:coverage
+# Build for all platforms (from apps/desktop)
+cd apps/desktop
+npm run make
 ```
 
-### Building
+### Output
+
+Packages are created in `apps/desktop/out/make/`:
+
+- **Windows**: `.exe` installer (Squirrel)
+- **macOS**: `.dmg` and `.zip`
+- **Linux**: `.deb` and `.rpm`
+
+## Auto-Updates
+
+The app automatically checks for updates from GitHub Releases using `update-electron-app`.
+
+### Configuration
+
+Auto-updates can be disabled via environment variable:
 
 ```bash
-# Build all packages
-pnpm build
-
-# Build web app only
-pnpm build:web
-
-# Build desktop for current platform
-pnpm --filter @open-yojob/desktop package
+# Disable auto-updates
+AUTO_UPDATE=false npm run start
 ```
 
-## Development
+### Creating a Release
 
-### Environment Variables
+1. Tag the commit: `git tag v1.0.0`
+2. Push the tag: `git push origin v1.0.0`
+3. GitHub Actions will automatically build and create a release
 
-Create `.env` files in respective directories:
+## Documentation
 
-**apps/web/.env**
+### Architecture Guide
 
-```env
-VITE_API_URL=http://localhost:8090
-```
+See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documentation including:
+- System architecture diagrams
+- Component deep dive
+- How to run & debug
+- Development workflow
+- Considerations & limitations
 
-**Root .env** (for Docker)
+### Migration
 
-```env
-APP_PORT=8090
-VITE_API_URL=http://localhost:8090
-PB_ADMIN_EMAIL=admin@example.com
-PB_ADMIN_PASSWORD=your-password
-```
+#### From Legacy .NET WinForms Application
 
-### Available Scripts
-
-| Command            | Description                        |
-| ------------------ | ---------------------------------- |
-| `pnpm dev`         | Start all apps in development mode |
-| `pnpm dev:web`     | Start web app only                 |
-| `pnpm dev:desktop` | Start desktop app only             |
-| `pnpm dev:backend` | Start backend server               |
-| `pnpm build`       | Build all packages                 |
-| `pnpm test`        | Run all tests                      |
-| `pnpm lint`        | Lint all packages                  |
-| `pnpm clean`       | Clean all build outputs            |
-
-### Code Quality
+See [MIGRATION_PLAN.md](./MIGRATION_PLAN.md) for detailed instructions on migrating data from the original Yojob application.
 
 ```bash
-# Lint
-pnpm lint
-
-# Format
-pnpm format
-
-# Type check
-pnpm --filter @open-yojob/web exec tsc --noEmit
-```
-
-## Deployment
-
-### Docker (Recommended)
-
-```bash
-# Production build and run
-docker-compose up -d
-
-# With SSL (requires domain)
-docker-compose --profile production up -d
-
-# Development with hot reload
-docker-compose --profile development up
-```
-
-### Manual Deployment
-
-1. **Build the web app:**
-
-   ```bash
-   pnpm build:web
-   ```
-
-2. **Build the backend:**
-
-   ```bash
-   cd backend
-   go build -o server ./cmd/server
-   ```
-
-3. **Run:**
-   ```bash
-   ./server serve --http=0.0.0.0:8090 --publicDir=../apps/web/dist
-   ```
-
-### Desktop Distribution
-
-```bash
-# Build for all platforms
-pnpm --filter @open-yojob/desktop dist
-
-# Platform-specific
-pnpm --filter @open-yojob/desktop dist:mac
-pnpm --filter @open-yojob/desktop dist:win
-pnpm --filter @open-yojob/desktop dist:linux
-```
-
-## Migration
-
-### From Legacy .NET Application
-
-Migration scripts are provided to transfer data from the legacy .NET WinForms SQLite database:
-
-```bash
+# Run migration tool
 cd scripts/migration
-pip install -r requirements.txt
-
-# Dry run first
-python migrate.py --source /path/to/POSSolutions.db --dry-run
-
-# Run migration
-python migrate.py --source /path/to/POSSolutions.db --target http://localhost:8090
+go run . migrate --source /path/to/POSSolutions.db
 ```
 
-See [scripts/migration/README.md](scripts/migration/README.md) for detailed instructions.
+## Environment Variables
 
-## Architecture
+| Variable              | Description                          | Default         |
+| --------------------- | ------------------------------------ | --------------- |
+| `AUTO_UPDATE`         | Enable/disable auto-updates          | `true`          |
+| `AUTO_UPDATE_INTERVAL`| Update check interval                | `1 hour`        |
+| `POCKETBASE_PORT`     | PocketBase server port               | `8090`          |
 
-### Multi-Tenant Design
+## Development Notes
 
+### Architecture
+
+The application uses a unique architecture where PocketBase runs as an embedded child process:
+
+1. **Main Process** (`src/main/index.ts`): Manages the Electron lifecycle and spawns PocketBase
+2. **PocketBase Manager** (`src/main/pocketbase.ts`): Handles starting/stopping the Go backend
+3. **Preload Script** (`src/preload/index.ts`): Exposes safe IPC bridges to the renderer
+4. **Renderer** (`src/renderer/`): React application with full access to the API
+
+### IPC APIs
+
+The preload script exposes three main APIs:
+
+```typescript
+window.electron  // App info (version, paths)
+window.db        // Database operations (local SQLite)
+window.sync      // Sync status and triggers
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Application                       │
-├──────────────┬───────────────────┬──────────────────┤
-│   Tenant A   │     Tenant B      │    Tenant C      │
-├──────────────┴───────────────────┴──────────────────┤
-│              Tenant Isolation Layer                  │
-├─────────────────────────────────────────────────────┤
-│              PocketBase + SQLite                     │
-└─────────────────────────────────────────────────────┘
-```
-
-### Offline Architecture
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Browser   │     │  IndexedDB  │     │  Sync Queue │
-│   / Electron│────▶│   Storage   │────▶│  (pending)  │
-└─────────────┘     └─────────────┘     └──────┬──────┘
-                                                │
-                    ┌───────────────────────────┘
-                    ▼
-              ┌─────────────┐
-              │   Server    │
-              │ (PocketBase)│
-              └─────────────┘
-```
-
-## API Documentation
-
-Once the server is running, access PocketBase Admin UI:
-
-- **URL:** http://localhost:8090/\_/
-- Create admin account on first run
-
-### Key Endpoints
-
-| Endpoint                             | Description                 |
-| ------------------------------------ | --------------------------- |
-| `/api/collections/products/records`  | Products CRUD               |
-| `/api/collections/customers/records` | Customers CRUD              |
-| `/api/collections/sales/records`     | Sales CRUD                  |
-| `/api/collections/inventory/records` | Inventory CRUD              |
-| `/api/realtime`                      | WebSocket real-time updates |
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](./LICENSE) for details.
 
-## Acknowledgments
+---
 
-- Original .NET WinForms application (Yojob)
-- [PocketBase](https://pocketbase.io/) - Backend framework
-- [TanStack](https://tanstack.com/) - React Table & Query
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Electron](https://www.electronjs.org/) - Desktop framework
+<p align="center">
+  Made with ❤️ by the Open Yojob team
+</p>
