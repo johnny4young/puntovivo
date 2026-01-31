@@ -1430,3 +1430,1002 @@ jobs:
 - [ ] File uploads scoped to tenant directories
 - [ ] Audit logs include tenant context
 - [ ] Rate limiting per tenant
+
+---
+
+## UI Component Library
+
+### Design System Tokens
+
+```typescript
+// tailwind.config.ts
+import type { Config } from 'tailwindcss';
+
+export default {
+  content: ['./src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        },
+        success: {
+          50: '#f0fdf4',
+          500: '#22c55e',
+          600: '#16a34a',
+        },
+        warning: {
+          50: '#fffbeb',
+          500: '#f59e0b',
+          600: '#d97706',
+        },
+        danger: {
+          50: '#fef2f2',
+          500: '#ef4444',
+          600: '#dc2626',
+        },
+      },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.75rem' }],
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+  ],
+} satisfies Config;
+```
+
+### Base Components
+
+```typescript
+// components/ui/Button.tsx
+import { cva, type VariantProps } from 'class-variance-authority';
+import { forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+
+const buttonVariants = cva(
+  'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  {
+    variants: {
+      variant: {
+        default: 'bg-primary-600 text-white hover:bg-primary-700',
+        secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
+        outline: 'border border-gray-300 bg-transparent hover:bg-gray-100',
+        ghost: 'hover:bg-gray-100',
+        destructive: 'bg-danger-600 text-white hover:bg-danger-700',
+      },
+      size: {
+        sm: 'h-8 px-3 text-xs',
+        md: 'h-10 px-4',
+        lg: 'h-12 px-6 text-base',
+        icon: 'h-10 w-10',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'md',
+    },
+  }
+);
+
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  isLoading?: boolean;
+}
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, isLoading, children, ...props }, ref) => {
+    return (
+      <button
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={isLoading || props.disabled}
+        {...props}
+      >
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {children}
+      </button>
+    );
+  }
+);
+```
+
+### Form Components
+
+```typescript
+// components/ui/Input.tsx
+import { forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  hint?: string;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, label, error, hint, id, ...props }, ref) => {
+    const inputId = id || props.name;
+
+    return (
+      <div className="space-y-1">
+        {label && (
+          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
+            {label}
+          </label>
+        )}
+        <input
+          id={inputId}
+          className={cn(
+            'block w-full rounded-md border-gray-300 shadow-sm',
+            'focus:border-primary-500 focus:ring-primary-500',
+            'disabled:bg-gray-50 disabled:text-gray-500',
+            error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500',
+            className
+          )}
+          ref={ref}
+          {...props}
+        />
+        {error && <p className="text-sm text-danger-600">{error}</p>}
+        {hint && !error && <p className="text-sm text-gray-500">{hint}</p>}
+      </div>
+    );
+  }
+);
+
+// components/ui/Select.tsx
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  error?: string;
+  options: { value: string; label: string }[];
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, label, error, options, id, ...props }, ref) => {
+    const selectId = id || props.name;
+
+    return (
+      <div className="space-y-1">
+        {label && (
+          <label htmlFor={selectId} className="block text-sm font-medium text-gray-700">
+            {label}
+          </label>
+        )}
+        <select
+          id={selectId}
+          className={cn(
+            'block w-full rounded-md border-gray-300 shadow-sm',
+            'focus:border-primary-500 focus:ring-primary-500',
+            error && 'border-danger-500',
+            className
+          )}
+          ref={ref}
+          {...props}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {error && <p className="text-sm text-danger-600">{error}</p>}
+      </div>
+    );
+  }
+);
+```
+
+### Data Table Component
+
+```typescript
+// components/tables/DataTable.tsx
+import {
+  flexRender,
+  type Table as TanstackTable,
+} from '@tanstack/react-table';
+import { cn } from '@/lib/utils';
+
+interface DataTableProps<T> {
+  table: TanstackTable<T>;
+  isLoading?: boolean;
+  emptyMessage?: string;
+  onRowClick?: (row: T) => void;
+}
+
+export function DataTable<T>({
+  table,
+  isLoading,
+  emptyMessage = 'No data available',
+  onRowClick,
+}: DataTableProps<T>) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className={cn(
+                      'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500',
+                      header.column.getCanSort() && 'cursor-pointer select-none'
+                    )}
+                    onClick={header.column.getToggleSortingHandler()}
+                    style={{ width: header.getSize() }}
+                  >
+                    <div className="flex items-center gap-1">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() === 'asc' && <ChevronUp className="h-4 w-4" />}
+                      {header.column.getIsSorted() === 'desc' && <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {isLoading ? (
+              <tr>
+                <td colSpan={table.getAllColumns().length} className="px-4 py-8 text-center">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-gray-400" />
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={table.getAllColumns().length} className="px-4 py-8 text-center text-gray-500">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={cn(
+                    'hover:bg-gray-50',
+                    onRowClick && 'cursor-pointer',
+                    row.getIsSelected() && 'bg-primary-50'
+                  )}
+                  onClick={() => onRowClick?.(row.original)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
+        <div className="text-sm text-gray-700">
+          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
+          {Math.min(
+            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+            table.getFilteredRowModel().rows.length
+          )}{' '}
+          of {table.getFilteredRowModel().rows.length} results
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Table Toolbar
+
+```typescript
+// components/tables/TableToolbar.tsx
+interface TableToolbarProps<T> {
+  table: TanstackTable<T>;
+  onExport?: (format: 'csv' | 'excel' | 'pdf') => void;
+  onPrint?: () => void;
+  searchPlaceholder?: string;
+}
+
+export function TableToolbar<T>({
+  table,
+  onExport,
+  onPrint,
+  searchPlaceholder = 'Search...',
+}: TableToolbarProps<T>) {
+  const [globalFilter, setGlobalFilter] = useState('');
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-4">
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder={searchPlaceholder}
+          value={globalFilter}
+          onChange={(e) => {
+            setGlobalFilter(e.target.value);
+            table.setGlobalFilter(e.target.value);
+          }}
+          className="w-64"
+        />
+
+        {/* Column visibility dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Columns className="mr-2 h-4 w-4" />
+              Columns
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {table.getAllColumns().filter(col => col.getCanHide()).map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              >
+                {column.id}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {onExport && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onExport('csv')}>
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('excel')}>
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('pdf')}>
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {onPrint && (
+          <Button variant="outline" size="sm" onClick={onPrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Export Utilities
+
+### CSV Export
+
+```typescript
+// utils/export/csv.ts
+export function exportToCsv<T extends Record<string, unknown>>(
+  data: T[],
+  columns: { key: keyof T; header: string }[],
+  filename: string
+): void {
+  const headers = columns.map((col) => col.header);
+  const rows = data.map((row) =>
+    columns.map((col) => {
+      const value = row[col.key];
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string' && value.includes(',')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return String(value);
+    })
+  );
+
+  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  downloadFile(csv, `${filename}.csv`, 'text/csv');
+}
+
+function downloadFile(content: string, filename: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+```
+
+### Excel Export
+
+```typescript
+// utils/export/excel.ts
+import * as XLSX from 'xlsx';
+
+export function exportToExcel<T extends Record<string, unknown>>(
+  data: T[],
+  columns: { key: keyof T; header: string }[],
+  filename: string,
+  sheetName = 'Sheet1'
+): void {
+  const headers = columns.map((col) => col.header);
+  const rows = data.map((row) => columns.map((col) => row[col.key]));
+
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Auto-size columns
+  const colWidths = columns.map((col, i) => ({
+    wch: Math.max(
+      col.header.length,
+      ...rows.map((row) => String(row[i] ?? '').length)
+    ),
+  }));
+  worksheet['!cols'] = colWidths;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, `${filename}.xlsx`);
+}
+```
+
+### PDF Export
+
+```typescript
+// utils/export/pdf.ts
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+export function exportToPdf<T extends Record<string, unknown>>(
+  data: T[],
+  columns: { key: keyof T; header: string }[],
+  filename: string,
+  title?: string
+): void {
+  const doc = new jsPDF();
+
+  if (title) {
+    doc.setFontSize(16);
+    doc.text(title, 14, 22);
+  }
+
+  autoTable(doc, {
+    startY: title ? 30 : 14,
+    head: [columns.map((col) => col.header)],
+    body: data.map((row) => columns.map((col) => String(row[col.key] ?? ''))),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [59, 130, 246] },
+  });
+
+  doc.save(`${filename}.pdf`);
+}
+```
+
+---
+
+## Routing & Navigation
+
+### Route Configuration
+
+```typescript
+// routes/index.tsx
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+
+const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    path: '/',
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <DashboardPage /> },
+      { path: 'resources', element: <ResourceListPage /> },
+      { path: 'resources/:id', element: <ResourceDetailPage /> },
+      { path: 'resources/new', element: <ResourceCreatePage /> },
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/tenant', element: <TenantSettingsPage /> },
+    ],
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
+  },
+]);
+
+export function AppRouter() {
+  return <RouterProvider router={router} />;
+}
+```
+
+### App Layout
+
+```typescript
+// components/layout/AppLayout.tsx
+export function AppLayout() {
+  const { sidebarOpen, toggleSidebar } = useAppStore();
+  const { currentTenant } = useTenant();
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform lg:static lg:translate-x-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex h-16 items-center justify-between px-4 border-b">
+          <Logo />
+          <button onClick={toggleSidebar} className="lg:hidden">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <nav className="p-4 space-y-1">
+          <NavLink to="/" icon={<Home />}>Dashboard</NavLink>
+          <NavLink to="/resources" icon={<Database />}>Resources</NavLink>
+          <NavLink to="/settings" icon={<Settings />}>Settings</NavLink>
+        </nav>
+
+        {/* Tenant selector */}
+        <div className="absolute bottom-0 left-0 right-0 border-t p-4">
+          <TenantSelector />
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <header className="flex h-16 items-center justify-between border-b bg-white px-4 shadow-sm">
+          <button onClick={toggleSidebar} className="lg:hidden">
+            <Menu className="h-6 w-6" />
+          </button>
+
+          <div className="flex items-center gap-4">
+            <SyncStatus />
+            <UserMenu />
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Error Handling & Logging
+
+### Error Boundary
+
+```typescript
+// components/ErrorBoundary.tsx
+import { Component, type ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false };
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    // Send to error tracking service
+    logError(error, { componentStack: errorInfo.componentStack });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900">Something went wrong</h1>
+            <p className="mt-2 text-gray-600">{this.state.error?.message}</p>
+            <Button
+              className="mt-4"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+### Logger Service
+
+```typescript
+// services/logger.ts
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+interface LogEntry {
+  level: LogLevel;
+  message: string;
+  timestamp: string;
+  context?: Record<string, unknown>;
+}
+
+class Logger {
+  private logs: LogEntry[] = [];
+  private maxLogs = 1000;
+
+  private log(level: LogLevel, message: string, context?: Record<string, unknown>) {
+    const entry: LogEntry = {
+      level,
+      message,
+      timestamp: new Date().toISOString(),
+      context,
+    };
+
+    this.logs.push(entry);
+    if (this.logs.length > this.maxLogs) {
+      this.logs.shift();
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console[level](message, context);
+    }
+
+    // In production, send errors to monitoring service
+    if (level === 'error' && process.env.NODE_ENV === 'production') {
+      this.sendToMonitoring(entry);
+    }
+  }
+
+  debug(message: string, context?: Record<string, unknown>) {
+    this.log('debug', message, context);
+  }
+
+  info(message: string, context?: Record<string, unknown>) {
+    this.log('info', message, context);
+  }
+
+  warn(message: string, context?: Record<string, unknown>) {
+    this.log('warn', message, context);
+  }
+
+  error(message: string, context?: Record<string, unknown>) {
+    this.log('error', message, context);
+  }
+
+  getLogs(): LogEntry[] {
+    return [...this.logs];
+  }
+
+  private async sendToMonitoring(entry: LogEntry) {
+    // Integration with Sentry, LogRocket, etc.
+  }
+}
+
+export const logger = new Logger();
+```
+
+---
+
+## Performance Optimization
+
+### Virtual Scrolling for Large Tables
+
+```typescript
+// components/tables/VirtualDataTable.tsx
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+export function VirtualDataTable<T>({ table }: { table: TanstackTable<T> }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rows = table.getRowModel().rows;
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 48, // row height
+    overscan: 10,
+  });
+
+  return (
+    <div ref={parentRef} className="h-[600px] overflow-auto">
+      <table className="min-w-full">
+        <thead className="sticky top-0 bg-gray-50 z-10">
+          {/* Header rows */}
+        </thead>
+        <tbody>
+          <tr style={{ height: `${virtualizer.getTotalSize()}px` }}>
+            <td colSpan={table.getAllColumns().length} className="relative">
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                return (
+                  <tr
+                    key={row.id}
+                    className="absolute w-full"
+                    style={{
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+### Code Splitting
+
+```typescript
+// routes/lazy.tsx
+import { lazy, Suspense } from 'react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+
+// Lazy load heavy components
+const ResourceListPage = lazy(() => import('@/pages/ResourceListPage'));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+
+// Wrapper for lazy components
+export function LazyPage({ component: Component }: { component: React.LazyExoticComponent<() => JSX.Element> }) {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <Component />
+    </Suspense>
+  );
+}
+```
+
+---
+
+## Monitoring & Analytics
+
+### Application Metrics
+
+```typescript
+// services/metrics.ts
+interface Metric {
+  name: string;
+  value: number;
+  tags?: Record<string, string>;
+  timestamp: number;
+}
+
+class MetricsService {
+  private metrics: Metric[] = [];
+  private flushInterval = 60000; // 1 minute
+
+  constructor() {
+    setInterval(() => this.flush(), this.flushInterval);
+  }
+
+  track(name: string, value: number, tags?: Record<string, string>) {
+    this.metrics.push({
+      name,
+      value,
+      tags,
+      timestamp: Date.now(),
+    });
+  }
+
+  // Timing helper
+  async time<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    const start = performance.now();
+    try {
+      return await fn();
+    } finally {
+      this.track(name, performance.now() - start, { unit: 'ms' });
+    }
+  }
+
+  private async flush() {
+    if (this.metrics.length === 0) return;
+
+    const toSend = [...this.metrics];
+    this.metrics = [];
+
+    // Send to analytics backend
+    try {
+      await fetch('/api/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSend),
+      });
+    } catch (error) {
+      // Re-add metrics on failure
+      this.metrics.unshift(...toSend);
+    }
+  }
+}
+
+export const metrics = new MetricsService();
+
+// Usage
+metrics.track('sync.push.count', pendingChanges.length);
+const result = await metrics.time('sync.push.duration', () => api.sync.push(changes));
+```
+
+---
+
+## Migration Checklist
+
+### Pre-Migration
+
+- [ ] Complete feature inventory of WinForms application
+- [ ] Document all business rules and validation logic
+- [ ] Map data structures and relationships
+- [ ] Identify integration points (APIs, databases, files)
+- [ ] Plan user training and documentation
+
+### Phase 1 Completion Criteria
+
+- [ ] Authentication working with PocketBase
+- [ ] Multi-tenant context switching
+- [ ] Basic CRUD operations functional
+- [ ] SQLite database initialized in Electron
+- [ ] Offline detection working
+
+### Phase 2 Completion Criteria
+
+- [ ] TanStack Table renders all column types
+- [ ] Sorting, filtering, pagination working
+- [ ] Row selection and bulk actions
+- [ ] Export to CSV/Excel/PDF
+- [ ] Column visibility and reordering
+
+### Phase 3 Completion Criteria
+
+- [ ] All forms migrated with validation
+- [ ] Navigation matches original structure
+- [ ] Reports generating correctly
+- [ ] Business logic verified against original
+
+### Phase 4 Completion Criteria
+
+- [ ] Offline CRUD operations queued
+- [ ] Sync push/pull working
+- [ ] Conflict resolution UI functional
+- [ ] Background sync in Electron
+
+### Phase 5 Completion Criteria
+
+- [ ] Unit test coverage > 80%
+- [ ] E2E tests for critical paths
+- [ ] Performance benchmarks met
+- [ ] Security audit completed
+
+### Phase 6 Completion Criteria
+
+- [ ] CI/CD pipelines operational
+- [ ] Staging environment validated
+- [ ] Data migration scripts tested
+- [ ] Rollback procedures documented
+- [ ] User documentation complete
+
+---
+
+## Appendix
+
+### Package Dependencies
+
+```json
+{
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "@tanstack/react-table": "^8.15.0",
+    "@tanstack/react-query": "^5.24.0",
+    "@tanstack/react-virtual": "^3.1.0",
+    "zustand": "^4.5.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.0",
+    "lucide-react": "^0.344.0",
+    "xlsx": "^0.18.5",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vite": "^5.1.0",
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/forms": "^0.5.0",
+    "vitest": "^1.3.0",
+    "@playwright/test": "^1.42.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
+```
+
+### Useful Commands
+
+```bash
+# Development
+npm run dev              # Start Vite dev server
+npm run dev:electron     # Start Electron in dev mode
+npm run test             # Run unit tests
+npm run test:e2e         # Run E2E tests
+
+# Build
+npm run build            # Build web app
+npm run build:electron   # Build Electron app
+npm run build:all        # Build all targets
+
+# Backend
+cd backend && go run ./cmd/server  # Run PocketBase
+cd backend && go test ./...         # Run backend tests
+```
