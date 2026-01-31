@@ -1,10 +1,22 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
-.next
-.turbo
+out
+.vite
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System files
 .DS_Store
 *.local
+
+# Environment
 .env
 .env.local
 .env.*.local
@@ -12,16 +24,21 @@ dist
 # Backend
 backend/bin
 backend/tmp
+backend/server
+
+# Binaries (but keep the placeholder .gitkeep)
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+!resources/pocketbase/**/.gitkeep
 
 # Database
 *.db
 *.db-journal
 *.sqlite
+pb_data
 
 # IDE
 .idea
@@ -36,3 +53,4 @@ coverage
 # Build
 build
 out
+backend/server

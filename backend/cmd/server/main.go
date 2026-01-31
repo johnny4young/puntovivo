@@ -42,7 +42,7 @@ func main() {
 		// Health check endpoint
 		e.Router.GET("/api/health", func(c echo.Context) error {
 			return c.JSON(200, map[string]string{
-				"status": "healthy",
+				"status":  "healthy",
 				"version": "1.0.0",
 			})
 		}, apis.ActivityLogger(app))

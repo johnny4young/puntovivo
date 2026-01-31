@@ -169,8 +169,8 @@ func handleSyncPull(c echo.Context, app *pocketbase.PocketBase) error {
 // handleSyncResolve processes conflict resolution
 func handleSyncResolve(c echo.Context, app *pocketbase.PocketBase) error {
 	var req struct {
-		ConflictID string `json:"conflictId"`
-		Resolution string `json:"resolution"` // local_wins, remote_wins, merged
+		ConflictID string                 `json:"conflictId"`
+		Resolution string                 `json:"resolution"` // local_wins, remote_wins, merged
 		MergedData map[string]interface{} `json:"mergedData,omitempty"`
 	}
 
