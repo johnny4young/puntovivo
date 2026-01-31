@@ -53,27 +53,24 @@ export function Modal({
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
   // Focus trap
-  const handleTabKey = useCallback(
-    (e: KeyboardEvent) => {
-      if (!modalRef.current) return;
+  const handleTabKey = useCallback((e: KeyboardEvent) => {
+    if (!modalRef.current) return;
 
-      const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
+    const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
 
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
 
-      if (e.shiftKey && document.activeElement === firstElement) {
-        e.preventDefault();
-        lastElement?.focus();
-      } else if (!e.shiftKey && document.activeElement === lastElement) {
-        e.preventDefault();
-        firstElement?.focus();
-      }
-    },
-    []
-  );
+    if (e.shiftKey && document.activeElement === firstElement) {
+      e.preventDefault();
+      lastElement?.focus();
+    } else if (!e.shiftKey && document.activeElement === lastElement) {
+      e.preventDefault();
+      firstElement?.focus();
+    }
+  }, []);
 
   // Handle keyboard events
   useEffect(() => {
@@ -162,10 +159,7 @@ export function Modal({
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
             {title && (
-              <h2
-                id="modal-title"
-                className="text-lg font-semibold text-secondary-900"
-              >
+              <h2 id="modal-title" className="text-lg font-semibold text-secondary-900">
                 {title}
               </h2>
             )}
@@ -186,14 +180,7 @@ export function Modal({
         )}
 
         {/* Body */}
-        <div
-          className={cn(
-            'flex-1 overflow-y-auto px-6 py-4',
-            contentClassName
-          )}
-        >
-          {children}
-        </div>
+        <div className={cn('flex-1 overflow-y-auto px-6 py-4', contentClassName)}>{children}</div>
 
         {/* Footer */}
         {footer && (
@@ -229,7 +216,8 @@ export function ModalButton({
 }: ModalButtonProps) {
   const variantClasses = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500/20',
-    secondary: 'bg-white text-secondary-700 border border-secondary-300 hover:bg-secondary-50 focus:ring-secondary-500/20',
+    secondary:
+      'bg-white text-secondary-700 border border-secondary-300 hover:bg-secondary-50 focus:ring-secondary-500/20',
     danger: 'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500/20',
   };
 
@@ -286,11 +274,7 @@ export function ConfirmModal({
           <ModalButton onClick={onClose} disabled={loading}>
             {cancelText}
           </ModalButton>
-          <ModalButton
-            variant={variant}
-            onClick={onConfirm}
-            disabled={loading}
-          >
+          <ModalButton variant={variant} onClick={onConfirm} disabled={loading}>
             {loading ? 'Loading...' : confirmText}
           </ModalButton>
         </>

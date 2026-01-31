@@ -1,5 +1,11 @@
 import { type ReactElement, type ReactNode, cloneElement, isValidElement } from 'react';
-import { Controller, type Control, type FieldValues, type Path, type RegisterOptions } from 'react-hook-form';
+import {
+  Controller,
+  type Control,
+  type FieldValues,
+  type Path,
+  type RegisterOptions,
+} from 'react-hook-form';
 import { cn } from '@/lib/utils';
 
 export interface FormFieldProps<TFieldValues extends FieldValues = FieldValues> {
@@ -68,9 +74,7 @@ export function FormField<TFieldValues extends FieldValues = FieldValues>({
             <p className="mt-1.5 text-sm text-secondary-500">{helperText}</p>
           )}
 
-          {error && (
-            <p className="mt-1.5 text-sm text-danger-600">{error.message}</p>
-          )}
+          {error && <p className="mt-1.5 text-sm text-danger-600">{error.message}</p>}
         </div>
       )}
     />
@@ -123,13 +127,9 @@ export function SimpleFormField({
 
       {children}
 
-      {helperText && !error && (
-        <p className="mt-1.5 text-sm text-secondary-500">{helperText}</p>
-      )}
+      {helperText && !error && <p className="mt-1.5 text-sm text-secondary-500">{helperText}</p>}
 
-      {error && (
-        <p className="mt-1.5 text-sm text-danger-600">{error}</p>
-      )}
+      {error && <p className="mt-1.5 text-sm text-danger-600">{error}</p>}
     </div>
   );
 }

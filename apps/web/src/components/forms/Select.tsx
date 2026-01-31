@@ -63,13 +63,11 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
     const searchInputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
 
-    const selectedOption = options.find((opt) => opt.value === value);
+    const selectedOption = options.find(opt => opt.value === value);
     const hasError = !!error;
 
     const filteredOptions = searchTerm
-      ? options.filter((opt) =>
-          opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+      ? options.filter(opt => opt.label.toLowerCase().includes(searchTerm.toLowerCase()))
       : options;
 
     const handleSelect = useCallback(
@@ -113,15 +111,13 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             if (!isOpen) {
               setIsOpen(true);
             } else {
-              setHighlightedIndex((prev) =>
-                prev < filteredOptions.length - 1 ? prev + 1 : prev
-              );
+              setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
             }
             break;
           case 'ArrowUp':
             e.preventDefault();
             if (isOpen) {
-              setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+              setHighlightedIndex(prev => (prev > 0 ? prev - 1 : prev));
             }
             break;
         }
@@ -189,11 +185,12 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             className={cn(
               'w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm text-left transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
-              !hasError && !disabled && [
-                'border-secondary-300 bg-white',
-                'hover:border-secondary-400',
-                'focus:border-primary-500 focus:ring-primary-500/20',
-              ],
+              !hasError &&
+                !disabled && [
+                  'border-secondary-300 bg-white',
+                  'hover:border-secondary-400',
+                  'focus:border-primary-500 focus:ring-primary-500/20',
+                ],
               hasError && [
                 'border-danger-500 bg-white',
                 'focus:border-danger-500 focus:ring-danger-500/20',
@@ -241,7 +238,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       ref={searchInputRef}
                       type="text"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={e => setSearchTerm(e.target.value)}
                       placeholder="Search..."
                       className="w-full pl-8 pr-3 py-1.5 text-sm border border-secondary-200 rounded-md focus:outline-none focus:border-primary-500"
                     />
@@ -249,11 +246,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                 </div>
               )}
 
-              <ul
-                ref={listRef}
-                role="listbox"
-                className="max-h-60 overflow-auto py-1"
-              >
+              <ul ref={listRef} role="listbox" className="max-h-60 overflow-auto py-1">
                 {filteredOptions.length === 0 ? (
                   <li className="px-3 py-2 text-sm text-secondary-500 text-center">
                     No options found
@@ -269,14 +262,14 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                         'flex items-center justify-between px-3 py-2 text-sm cursor-pointer',
                         option.value === value && 'bg-primary-50 text-primary-700',
                         option.value !== value && index === highlightedIndex && 'bg-secondary-100',
-                        option.value !== value && index !== highlightedIndex && 'hover:bg-secondary-50',
+                        option.value !== value &&
+                          index !== highlightedIndex &&
+                          'hover:bg-secondary-50',
                         option.disabled && 'text-secondary-400 cursor-not-allowed'
                       )}
                     >
                       {renderOption ? renderOption(option) : option.label}
-                      {option.value === value && (
-                        <Check className="h-4 w-4 text-primary-600" />
-                      )}
+                      {option.value === value && <Check className="h-4 w-4 text-primary-600" />}
                     </li>
                   ))
                 )}
@@ -285,9 +278,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           )}
         </div>
 
-        {error && (
-          <p className="mt-1.5 text-sm text-danger-600">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-sm text-danger-600">{error}</p>}
       </div>
     );
   }
