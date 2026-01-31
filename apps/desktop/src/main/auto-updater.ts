@@ -46,9 +46,6 @@ export function initAutoUpdater(): void {
         warn: (...args: unknown[]) => console.warn('[Auto-Update]', ...args),
         error: (...args: unknown[]) => console.error('[Auto-Update]', ...args),
         info: (...args: unknown[]) => console.info('[Auto-Update]', ...args),
-        verbose: (...args: unknown[]) => console.debug('[Auto-Update]', ...args),
-        debug: (...args: unknown[]) => console.debug('[Auto-Update]', ...args),
-        silly: (...args: unknown[]) => console.debug('[Auto-Update]', ...args),
       },
     });
 

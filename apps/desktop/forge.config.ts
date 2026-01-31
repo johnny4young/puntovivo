@@ -30,14 +30,14 @@ const config: ForgeConfig = {
         maintainer: 'Open Yojob',
         homepage: 'https://github.com/johnny4young/open_yojob',
         icon: './resources/icon.png',
-        categories: ['Office', 'Finance'],
+        categories: ['Office'],
       },
     }),
     new MakerRpm({
       options: {
         homepage: 'https://github.com/johnny4young/open_yojob',
         icon: './resources/icon.png',
-        categories: ['Office', 'Finance'],
+        categories: ['Office'],
       },
     }),
   ],
