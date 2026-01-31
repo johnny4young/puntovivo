@@ -26,7 +26,7 @@ export interface CreateProductData {
   imageUrl?: string;
 }
 
-export interface UpdateProductData extends Partial<CreateProductData> {}
+export type UpdateProductData = Partial<CreateProductData>;
 
 const COLLECTION = 'products';
 

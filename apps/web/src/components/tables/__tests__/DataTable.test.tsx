@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '../DataTable';

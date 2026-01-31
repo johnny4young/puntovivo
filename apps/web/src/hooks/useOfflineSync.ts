@@ -42,7 +42,7 @@ export function useOfflineSync() {
 
   // Get sync status from Electron
   const refreshStatus = useCallback(async () => {
-    if (isElectron) {
+    if (isElectron && window.api) {
       try {
         const syncStatus = await window.api.sync.getStatus();
         setStatus(prev => ({
@@ -59,7 +59,7 @@ export function useOfflineSync() {
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
-    if (!isElectron) {
+    if (!isElectron || !window.api) {
       // Web: use API client
       // TODO: Implement web sync
       return;
@@ -110,9 +110,9 @@ export function useOfflineCapability() {
 
   useEffect(() => {
     // Check for Electron API or IndexedDB support
-    const isElectron = typeof window !== 'undefined' && window.api;
+    const isElectron = typeof window !== 'undefined' && !!window.api;
     const hasIndexedDB = typeof indexedDB !== 'undefined';
-    setHasCapability(isElectron || hasIndexedDB);
+    setHasCapability(Boolean(isElectron) || hasIndexedDB);
   }, []);
 
   return hasCapability;

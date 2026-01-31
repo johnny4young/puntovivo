@@ -178,7 +178,7 @@ export async function exportToExcel<T extends Record<string, unknown>>(
   const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
   // Set column widths based on content
-  const colWidths = columns.map((col, index) => {
+  const colWidths = columns.map((col, _index) => {
     let maxWidth = col.header.length;
     data.forEach(row => {
       const value = getNestedValue(row, col.key);
@@ -253,7 +253,7 @@ export async function exportToPDF<T extends Record<string, unknown>>(
   );
 
   // Add table using autotable
-  (doc as jsPDF & { autoTable: (options: unknown) => void }).autoTable({
+  (doc as typeof jsPDF.prototype & { autoTable: (options: unknown) => void }).autoTable({
     head: [headers],
     body: tableData,
     startY,

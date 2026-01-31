@@ -24,7 +24,7 @@ export interface CreateCustomerData {
   isActive?: boolean;
 }
 
-export interface UpdateCustomerData extends Partial<CreateCustomerData> {}
+export type UpdateCustomerData = Partial<CreateCustomerData>;
 
 const COLLECTION = 'customers';
 

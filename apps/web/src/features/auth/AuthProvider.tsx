@@ -74,7 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Listen for auth changes
   useEffect(() => {
-    const unsubscribe = pb.authStore.onChange((token, model) => {
+    const unsubscribe = pb.authStore.onChange((_token, model) => {
       if (model) {
         setUser(model as unknown as User);
       } else {
