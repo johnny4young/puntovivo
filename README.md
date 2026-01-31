@@ -28,17 +28,28 @@
 
 ## Tech Stack
 
-| Layer       | Technology               | Purpose                    |
-| ----------- | ------------------------ | -------------------------- |
-| Desktop     | Electron 34 + Forge      | Native desktop app         |
-| Frontend    | React 18 + TypeScript    | UI Framework               |
-| Styling     | Tailwind CSS             | Utility-first CSS          |
-| Data Tables | TanStack Table           | Feature-rich tables        |
-| State       | TanStack Query + Zustand | Server & client state      |
-| Backend     | PocketBase (embedded)    | API & database (Go binary) |
-| Database    | SQLite                   | Embedded database          |
-| Build       | Electron Forge + Vite    | Build & packaging          |
-| Updates     | update-electron-app      | Auto-updates from GitHub   |
+| Layer       | Technology                      | Purpose                         |
+| ----------- | ------------------------------- | ------------------------------- |
+| Desktop     | Electron 34 + Forge             | Native desktop app              |
+| Frontend    | React 18 + TypeScript           | UI Framework                    |
+| Styling     | Tailwind CSS v4 + CVA           | Utility-first CSS + Variants    |
+| Data Tables | TanStack Table                  | Feature-rich tables             |
+| State       | TanStack Query + Zustand        | Server & client state           |
+| Backend     | PocketBase (embedded)           | API & database (Go binary)      |
+| Database    | SQLite                          | Embedded database               |
+| Build       | Electron Forge + Vite           | Build & packaging               |
+| Updates     | update-electron-app             | Auto-updates from GitHub        |
+
+### Styling Stack
+
+The project uses a modern CSS architecture:
+
+- **Tailwind CSS v4** - Native Vite plugin (no PostCSS)
+- **CVA (class-variance-authority)** - Type-safe component variants
+- **tailwind-merge v3** - Intelligent class merging
+- **CSS Variables** - Light/dark theme support
+
+See [docs/STYLING.md](./docs/STYLING.md) for detailed styling guidelines.
 
 ## Project Structure
 
@@ -159,6 +170,22 @@ See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documen
 - How to run & debug
 - Development workflow
 - Considerations & limitations
+
+### Styling Guide
+
+See **[docs/STYLING.md](./docs/STYLING.md)** for styling documentation including:
+- Tailwind CSS v4 configuration
+- CVA (class-variance-authority) patterns
+- Theme customization
+- Best practices
+
+### Components Guide
+
+See **[docs/COMPONENTS.md](./docs/COMPONENTS.md)** for UI component documentation including:
+- Available UI primitives (Button, Input, Card, etc.)
+- Form controls
+- Usage examples
+- Component conventions
 
 ### Migration
 

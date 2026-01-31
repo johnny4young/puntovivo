@@ -151,12 +151,17 @@ open_yojob/
 │   │       └── renderer/            # 🎨 RENDERER (REACT UI)
 │   │           ├── App.tsx          # Root React component
 │   │           ├── index.tsx        # React entry point
-│   │           └── index.css        # Tailwind styles
+│   │           └── index.css        # Tailwind v4 theme config
 │   │
 │   └── web/                         # 🌐 WEB APP (SHARED COMPONENTS)
+│       ├── vite.config.ts           # Vite + Tailwind v4 plugin
 │       └── src/
+│           ├── index.css            # Tailwind v4 @theme configuration
+│           ├── lib/
+│           │   └── utils.ts         # cn() helper (clsx + tailwind-merge v3)
 │           ├── components/          # Reusable UI components
-│           │   ├── forms/           # Form components
+│           │   ├── ui/              # CVA-based primitives (Button, Input, Card, etc.)
+│           │   ├── form-controls/   # Complex form components
 │           │   ├── layout/          # Layout components
 │           │   └── tables/          # DataTable, exports (CSV, PDF)
 │           ├── features/            # Feature modules
@@ -360,6 +365,70 @@ The UI is organized by **feature modules**:
 | `sales/`     | POS transactions, receipts               |
 | `inventory/` | Stock tracking, movements                |
 | `dashboard/` | Analytics, reports                       |
+
+### UI Component Architecture (`apps/web/src/components/`)
+
+```
+components/
+├── ui/                   # 🎨 Primitive UI components (CVA-based)
+│   ├── Button.tsx        # Button variants: primary, secondary, outline, ghost, destructive
+│   ├── Input.tsx         # Input with label, error states, prefix/suffix
+│   ├── Label.tsx         # Form labels with variant support
+│   ├── Badge.tsx         # Status badges: success, warning, danger
+│   ├── Card.tsx          # Card compound components
+│   ├── Table.tsx         # Table compound components
+│   └── index.ts          # Barrel export
+├── form-controls/        # 📝 Complex form components
+│   ├── Select.tsx
+│   ├── Checkbox.tsx
+│   ├── DatePicker.tsx
+│   ├── FormField.tsx
+│   └── Modal.tsx
+├── layout/               # 📐 Layout components
+│   └── ...
+└── tables/               # 📊 Data table components
+    └── ...
+```
+
+### Styling Architecture
+
+The project uses **Tailwind CSS v4** with the native Vite plugin and **CVA (class-variance-authority)** for component variants:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       STYLING ARCHITECTURE                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+  │  Tailwind CSS v4 │    │       CVA        │    │  tailwind-merge  │
+  │  (Vite Plugin)   │ +  │  (Variants API)  │ +  │  (Class Merging) │
+  └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘
+           │                       │                       │
+           ▼                       ▼                       ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                        Component Example                            │
+  │                                                                     │
+  │  const buttonVariants = cva(                                        │
+  │    "inline-flex items-center justify-center rounded-md ...",        │
+  │    {                                                                │
+  │      variants: {                                                    │
+  │        variant: { primary: "bg-primary-500", ghost: "bg-transparent" },│
+  │        size: { sm: "h-8 px-3", lg: "h-12 px-6" }                   │
+  │      },                                                             │
+  │      defaultVariants: { variant: "primary", size: "default" }       │
+  │    }                                                                │
+  │  );                                                                 │
+  │                                                                     │
+  │  <Button variant="primary" size="lg" className="custom-class" />    │
+  └─────────────────────────────────────────────────────────────────────┘
+```
+
+Key styling files:
+- **`index.css`**: Theme configuration via `@theme` block (colors, fonts, spacing)
+- **`lib/utils.ts`**: `cn()` utility combining `clsx` + `tailwind-merge`
+- **`components/ui/*.tsx`**: CVA-based primitive components
+
+See **[docs/STYLING.md](./STYLING.md)** for detailed styling guidelines.
 
 ### Backend (`backend/`)
 
