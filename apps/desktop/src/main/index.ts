@@ -26,7 +26,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     title: 'Open Yojob - POS Solutions',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,

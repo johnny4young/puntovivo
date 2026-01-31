@@ -54,3 +54,4 @@ coverage
 build
 out
 backend/server
+apps/desktop/resources/pocketbase
