@@ -63,10 +63,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               id={checkboxId}
               checked={checked}
               disabled={disabled}
-              className={cn(
-                'peer sr-only',
-                className
-              )}
+              className={cn('peer sr-only', className)}
               aria-invalid={hasError}
               {...props}
             />
@@ -76,30 +73,30 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
                 'h-5 w-5 rounded border-2 transition-colors cursor-pointer',
                 'flex items-center justify-center',
                 // Default unchecked state
-                !checked && !indeterminate && !disabled && [
-                  'border-secondary-300 bg-white',
-                  'peer-hover:border-secondary-400',
-                  'peer-focus:ring-2 peer-focus:ring-primary-500/20 peer-focus:border-primary-500',
-                ],
+                !checked &&
+                  !indeterminate &&
+                  !disabled && [
+                    'border-secondary-300 bg-white',
+                    'peer-hover:border-secondary-400',
+                    'peer-focus:ring-2 peer-focus:ring-primary-500/20 peer-focus:border-primary-500',
+                  ],
                 // Checked or indeterminate state
-                (checked || indeterminate) && !disabled && [
-                  'border-primary-600 bg-primary-600',
-                  'peer-focus:ring-2 peer-focus:ring-primary-500/20',
-                ],
+                (checked || indeterminate) &&
+                  !disabled && [
+                    'border-primary-600 bg-primary-600',
+                    'peer-focus:ring-2 peer-focus:ring-primary-500/20',
+                  ],
                 // Disabled state
-                disabled && !checked && !indeterminate && [
-                  'border-secondary-200 bg-secondary-100 cursor-not-allowed',
-                ],
-                disabled && (checked || indeterminate) && [
-                  'border-secondary-300 bg-secondary-300 cursor-not-allowed',
-                ],
+                disabled &&
+                  !checked &&
+                  !indeterminate && ['border-secondary-200 bg-secondary-100 cursor-not-allowed'],
+                disabled &&
+                  (checked || indeterminate) && [
+                    'border-secondary-300 bg-secondary-300 cursor-not-allowed',
+                  ],
                 // Error state
-                hasError && !checked && !indeterminate && [
-                  'border-danger-500',
-                ],
-                hasError && (checked || indeterminate) && [
-                  'border-danger-600 bg-danger-600',
-                ]
+                hasError && !checked && !indeterminate && ['border-danger-500'],
+                hasError && (checked || indeterminate) && ['border-danger-600 bg-danger-600']
               )}
               onClick={() => {
                 if (!disabled && internalRef.current) {
@@ -110,9 +107,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               {checked && !indeterminate && (
                 <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
               )}
-              {indeterminate && (
-                <Minus className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-              )}
+              {indeterminate && <Minus className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
             </div>
           </div>
         </div>
@@ -132,19 +127,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               </label>
             )}
             {description && (
-              <p className={cn(
-                'text-sm',
-                disabled ? 'text-secondary-400' : 'text-secondary-500'
-              )}>
+              <p className={cn('text-sm', disabled ? 'text-secondary-400' : 'text-secondary-500')}>
                 {description}
               </p>
             )}
           </div>
         )}
 
-        {error && !label && !description && (
-          <p className="ml-3 text-sm text-danger-600">{error}</p>
-        )}
+        {error && !label && !description && <p className="ml-3 text-sm text-danger-600">{error}</p>}
       </div>
     );
   }

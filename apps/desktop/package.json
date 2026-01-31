@@ -13,7 +13,8 @@
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
-    "clean": "rm -rf dist out node_modules .turbo"
+    "clean": "rm -rf dist out node_modules .turbo",
+    "test": "echo \"No tests configured for desktop app\""
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
@@ -24,6 +25,7 @@
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.2.1",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
     "electron-vite": "^2.0.0",

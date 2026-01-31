@@ -70,33 +70,30 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'placeholder:text-secondary-400',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
               // Default state
-              !hasError && !disabled && [
-                'border-secondary-300',
-                'focus:border-primary-500 focus:ring-primary-500/20',
-                'hover:border-secondary-400',
-              ],
+              !hasError &&
+                !disabled && [
+                  'border-secondary-300',
+                  'focus:border-primary-500 focus:ring-primary-500/20',
+                  'hover:border-secondary-400',
+                ],
               // Error state
-              hasError && [
-                'border-danger-500',
-                'focus:border-danger-500 focus:ring-danger-500/20',
-              ],
+              hasError && ['border-danger-500', 'focus:border-danger-500 focus:ring-danger-500/20'],
               // Disabled state
               disabled && [
                 'bg-secondary-100 border-secondary-200',
                 'text-secondary-400 cursor-not-allowed',
               ],
               // Readonly state
-              readOnly && [
-                'bg-secondary-50 border-secondary-200',
-                'focus:ring-0 cursor-default',
-              ],
+              readOnly && ['bg-secondary-50 border-secondary-200', 'focus:ring-0 cursor-default'],
               // Padding adjustments for icons
               prefix && 'pl-10',
               suffix && 'pr-10',
               className
             )}
             aria-invalid={hasError}
-            aria-describedby={hasError ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
+            aria-describedby={
+              hasError ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined
+            }
             {...props}
           />
 

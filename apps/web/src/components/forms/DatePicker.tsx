@@ -39,8 +39,18 @@ export interface DatePickerProps {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const formatDate = (date: Date | null, format: 'short' | 'medium' | 'long' = 'medium'): string => {
@@ -119,7 +129,8 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
     const [isOpen, setIsOpen] = useState(false);
     const [currentMonth, setCurrentMonth] = useState(() => {
       if (value) return new Date(value.getFullYear(), value.getMonth(), 1);
-      if (rangeValue?.start) return new Date(rangeValue.start.getFullYear(), rangeValue.start.getMonth(), 1);
+      if (rangeValue?.start)
+        return new Date(rangeValue.start.getFullYear(), rangeValue.start.getMonth(), 1);
       return new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     });
     const [hoverDate, setHoverDate] = useState<Date | null>(null);
@@ -242,11 +253,12 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
             className={cn(
               'w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm text-left transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
-              !hasError && !disabled && [
-                'border-secondary-300 bg-white',
-                'hover:border-secondary-400',
-                'focus:border-primary-500 focus:ring-primary-500/20',
-              ],
+              !hasError &&
+                !disabled && [
+                  'border-secondary-300 bg-white',
+                  'hover:border-secondary-400',
+                  'focus:border-primary-500 focus:ring-primary-500/20',
+                ],
               hasError && [
                 'border-danger-500 bg-white',
                 'focus:border-danger-500 focus:ring-danger-500/20',
@@ -313,7 +325,7 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
 
               {/* Day headers */}
               <div className="grid grid-cols-7 gap-1 mb-1">
-                {DAYS.map((day) => (
+                {DAYS.map(day => (
                   <div
                     key={day}
                     className="text-xs font-medium text-secondary-500 text-center py-1"
@@ -329,9 +341,13 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
                   const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
                   const isToday = isSameDay(date, new Date());
                   const isSelected = value ? isSameDay(date, value) : false;
-                  const isRangeStart = rangeValue?.start ? isSameDay(date, rangeValue.start) : false;
+                  const isRangeStart = rangeValue?.start
+                    ? isSameDay(date, rangeValue.start)
+                    : false;
                   const isRangeEnd = rangeValue?.end ? isSameDay(date, rangeValue.end) : false;
-                  const isInRange = range && isDateInRange(date, rangeValue?.start || null, rangeValue?.end || null);
+                  const isInRange =
+                    range &&
+                    isDateInRange(date, rangeValue?.start || null, rangeValue?.end || null);
                   const isInHoverRange =
                     range &&
                     selectingEnd &&
@@ -355,11 +371,27 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
                       className={cn(
                         'h-8 w-8 text-sm rounded-md transition-colors',
                         !isCurrentMonth && 'text-secondary-300',
-                        isCurrentMonth && !isSelected && !isRangeStart && !isRangeEnd && 'text-secondary-700',
-                        isCurrentMonth && !isSelected && !isRangeStart && !isRangeEnd && !isDisabled && 'hover:bg-secondary-100',
-                        isToday && !isSelected && !isRangeStart && !isRangeEnd && 'border border-primary-500',
+                        isCurrentMonth &&
+                          !isSelected &&
+                          !isRangeStart &&
+                          !isRangeEnd &&
+                          'text-secondary-700',
+                        isCurrentMonth &&
+                          !isSelected &&
+                          !isRangeStart &&
+                          !isRangeEnd &&
+                          !isDisabled &&
+                          'hover:bg-secondary-100',
+                        isToday &&
+                          !isSelected &&
+                          !isRangeStart &&
+                          !isRangeEnd &&
+                          'border border-primary-500',
                         (isSelected || isRangeStart || isRangeEnd) && 'bg-primary-600 text-white',
-                        (isInRange || isInHoverRange) && !isRangeStart && !isRangeEnd && 'bg-primary-100',
+                        (isInRange || isInHoverRange) &&
+                          !isRangeStart &&
+                          !isRangeEnd &&
+                          'bg-primary-100',
                         isDisabled && 'text-secondary-300 cursor-not-allowed hover:bg-transparent'
                       )}
                     >
@@ -372,9 +404,7 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
           )}
         </div>
 
-        {error && (
-          <p className="mt-1.5 text-sm text-danger-600">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-sm text-danger-600">{error}</p>}
       </div>
     );
   }
