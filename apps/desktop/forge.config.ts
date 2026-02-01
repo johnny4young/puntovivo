@@ -14,7 +14,11 @@ const config: ForgeConfig = {
     name: 'Open Yojob',
     executableName: 'open-yojob',
     icon: './resources/icon',
-    extraResource: ['./resources/pocketbase'],
+    extraResource: [
+      './resources/pocketbase',
+      // Include the built web app for production
+      '../web/dist',
+    ],
   },
   rebuildConfig: {},
   makers: [
@@ -71,12 +75,8 @@ const config: ForgeConfig = {
           target: 'preload',
         },
       ],
-      renderer: [
-        {
-          name: 'main_window',
-          config: 'vite.renderer.config.ts',
-        },
-      ],
+      // No renderer config - we use the web app (apps/web) instead
+      renderer: [],
     }),
     // Fuses are used to enable/disable various Electron functionality
     // at package time, before code signing the application

@@ -10,8 +10,12 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
-declare const MAIN_WINDOW_VITE_NAME: string;
+// Web app dev server URL (from apps/web)
+const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
+// Check if we're in development mode - electron-forge start sets app.isPackaged = false
+const isDev = !app.isPackaged;
+
+console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
 
 let mainWindow: BrowserWindow | null = null;
 const pocketbase = new PocketBaseManager();
@@ -42,11 +46,27 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  // Load the renderer
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+  // Load the renderer - use web app in development, built web in production
+  if (isDev) {
+    // In development, load from the web app's Vite dev server
+    console.log(`Loading web app from dev server: ${WEB_DEV_SERVER_URL}`);
+    mainWindow.loadURL(WEB_DEV_SERVER_URL);
+    // Open DevTools in development
+    mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    // In production, load from the built web app (extraResource)
+    // extraResource copies to: resources/dist/ on macOS, or resources/dist/ on Windows/Linux
+    const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
+    console.log(`Loading web app from: ${webAppPath}`);
+    mainWindow.loadFile(webAppPath);
+  }
+
+  // Forward renderer console logs to terminal in development
+  if (isDev) {
+    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      const levelStr = ['LOG', 'WARN', 'ERROR'][level] || 'INFO';
+      console.log(`[Renderer ${levelStr}] ${message} (${sourceId}:${line})`);
+    });
   }
 }
 
