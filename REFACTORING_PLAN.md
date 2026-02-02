@@ -22,16 +22,16 @@ Este plan detalla la reestructuración del proyecto Open Yojob para convertirlo 
 
 ### Cambios Completados ✅
 
-| Componente      | Estado Anterior       | Estado Actual        | Resultado                    |
-| --------------- | --------------------- | -------------------- | ---------------------------- |
-| Electron        | v28.1.0               | **v34.0.2**          | ✅ Actualizado               |
-| Node.js         | 18/20                 | **>=20.0.0**         | ✅ Actualizado               |
-| Build Tool      | electron-vite + Turbo | **Electron Forge**   | ✅ Migrado                   |
-| Package Manager | pnpm                  | **npm**              | ✅ Migrado                   |
-| Backend         | PocketBase externo    | **Embebido**         | ✅ Implementado              |
-| Docker/nginx    | Presente              | **Eliminado**        | ✅ Removido                  |
-| Go              | 1.21                  | **1.23**             | ✅ Actualizado               |
-| CI              | Fallando              | **Configurado**      | ✅ Nuevo workflow            |
+| Componente      | Estado Anterior       | Estado Actual      | Resultado         |
+| --------------- | --------------------- | ------------------ | ----------------- |
+| Electron        | v28.1.0               | **v34.0.2**        | ✅ Actualizado    |
+| Node.js         | 18/20                 | **>=20.0.0**       | ✅ Actualizado    |
+| Build Tool      | electron-vite + Turbo | **Electron Forge** | ✅ Migrado        |
+| Package Manager | pnpm                  | **npm**            | ✅ Migrado        |
+| Backend         | PocketBase externo    | **Embebido**       | ✅ Implementado   |
+| Docker/nginx    | Presente              | **Eliminado**      | ✅ Removido       |
+| Go              | 1.21                  | **1.23**           | ✅ Actualizado    |
+| CI              | Fallando              | **Configurado**    | ✅ Nuevo workflow |
 
 ### Arquitectura Implementada
 

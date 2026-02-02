@@ -1,8 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
-import { initDatabase, closeDatabase } from './database';
-import { setupSyncService } from './sync';
-import { PocketBaseManager } from './pocketbase';
+import { createServer, type OpenYojobServer } from '@open-yojob/server';
 import { initAutoUpdater } from './auto-updater';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -18,7 +16,11 @@ const isDev = !app.isPackaged;
 console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
 
 let mainWindow: BrowserWindow | null = null;
-const pocketbase = new PocketBaseManager();
+let server: OpenYojobServer | null = null;
+
+// Server configuration
+const SERVER_PORT = 8090;
+const DB_PATH = join(app.getPath('userData'), 'data', 'local.db');
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -75,14 +77,23 @@ app.whenReady().then(async () => {
   // Initialize auto-updater (configurable via env)
   initAutoUpdater();
 
-  // Start PocketBase embedded backend
-  await pocketbase.start();
+  // Start embedded Fastify server
+  try {
+    console.log(`[Server] Starting embedded server...`);
+    console.log(`[Server] Database path: ${DB_PATH}`);
 
-  // Initialize local SQLite database for offline support
-  await initDatabase();
+    server = await createServer({
+      dbPath: DB_PATH,
+      port: SERVER_PORT,
+      host: '127.0.0.1',
+      verbose: isDev,
+    });
 
-  // Setup sync service for offline support
-  setupSyncService();
+    await server.listen();
+    console.log(`[Server] ✓ Server started at ${server.getUrl()}`);
+  } catch (err) {
+    console.error('[Server] Failed to start:', err);
+  }
 
   createWindow();
 
@@ -93,8 +104,11 @@ app.whenReady().then(async () => {
 
 // Quit when all windows are closed
 app.on('window-all-closed', async () => {
-  closeDatabase();
-  await pocketbase.stop();
+  if (server) {
+    console.log('[Server] Shutting down...');
+    await server.close();
+    console.log('[Server] ✓ Server stopped');
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -103,4 +117,4 @@ app.on('window-all-closed', async () => {
 // IPC Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
-ipcMain.handle('get-pocketbase-url', () => pocketbase.getUrl());
+ipcMain.handle('get-server-url', () => server?.getUrl() || `http://127.0.0.1:${SERVER_PORT}`);

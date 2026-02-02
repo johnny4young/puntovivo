@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Modern POS (Point of Sale) Desktop Application</strong><br>
-  Built with Electron Forge, React, and PocketBase
+  Built with Electron Forge, React, and Node.js (Fastify + SQLite)
 </p>
 
 <p align="center">
@@ -24,21 +24,23 @@
 - 📊 **Advanced Data Tables** - Sorting, filtering, pagination, export (CSV, Excel, PDF)
 - 🔐 **Secure Authentication** - JWT-based auth with role-based access control
 - 🔄 **Auto-Updates** - Automatic updates from GitHub Releases
-- 🚀 **Embedded Backend** - PocketBase runs as a child process (no external server needed)
+- 🚀 **Embedded Backend** - Fastify + SQLite runs in-process (no external server needed)
 
 ## Tech Stack
 
-| Layer       | Technology                      | Purpose                         |
-| ----------- | ------------------------------- | ------------------------------- |
-| Desktop     | Electron 34 + Forge             | Native desktop app              |
-| Frontend    | React 18 + TypeScript           | UI Framework                    |
-| Styling     | Tailwind CSS v4 + CVA           | Utility-first CSS + Variants    |
-| Data Tables | TanStack Table                  | Feature-rich tables             |
-| State       | TanStack Query + Zustand        | Server & client state           |
-| Backend     | PocketBase (embedded)           | API & database (Go binary)      |
-| Database    | SQLite                          | Embedded database               |
-| Build       | Electron Forge + Vite           | Build & packaging               |
-| Updates     | update-electron-app             | Auto-updates from GitHub        |
+| Layer       | Technology               | Purpose                      |
+| ----------- | ------------------------ | ---------------------------- |
+| Desktop     | Electron 40 + Forge      | Native desktop app           |
+| Frontend    | React 18 + TypeScript    | UI Framework                 |
+| Styling     | Tailwind CSS v4 + CVA    | Utility-first CSS + Variants |
+| Data Tables | TanStack Table           | Feature-rich tables          |
+| State       | TanStack Query + Zustand | Server & client state        |
+| Backend     | Fastify (embedded)       | REST API server (in-process) |
+| ORM         | Drizzle ORM              | Type-safe database access    |
+| Database    | SQLite (better-sqlite3)  | Embedded database            |
+| Real-time   | Server-Sent Events (SSE) | Live updates                 |
+| Build       | Electron Forge + Vite    | Build & packaging            |
+| Updates     | update-electron-app      | Auto-updates from GitHub     |
 
 ### Styling Stack
 
@@ -56,36 +58,35 @@ See [docs/STYLING.md](./docs/STYLING.md) for detailed styling guidelines.
 ```
 open_yojob/
 ├── apps/
-│   └── desktop/                # Electron Forge desktop app
-│       ├── forge.config.ts     # Electron Forge configuration
-│       ├── package.json
-│       ├── index.html          # Renderer entry HTML
-│       ├── vite.*.config.ts    # Vite configs (main, preload, renderer)
-│       ├── resources/
-│       │   └── pocketbase/     # PocketBase binaries per platform
-│       └── src/
-│           ├── main/           # Electron main process
-│           │   ├── index.ts    # App entry point
-│           │   ├── pocketbase.ts  # PocketBase manager
-│           │   ├── auto-updater.ts
-│           │   ├── database.ts # Local SQLite for offline
-│           │   └── sync.ts     # Sync service
-│           ├── preload/        # Preload scripts (IPC bridge)
-│           └── renderer/       # React UI
-│               ├── App.tsx
-│               ├── index.tsx
-│               └── index.css
-├── backend/                    # Go source (for custom PocketBase builds)
-│   ├── go.mod
-│   ├── cmd/server/
-│   └── migrations/
+│   ├── desktop/                # Electron Forge desktop app
+│   │   ├── forge.config.ts     # Electron Forge configuration
+│   │   ├── package.json
+│   │   ├── index.html          # Renderer entry HTML
+│   │   ├── vite.*.config.ts    # Vite configs (main, preload, renderer)
+│   │   └── src/
+│   │       ├── main/           # Electron main process
+│   │       │   ├── index.ts    # App entry point + embedded server
+│   │       │   └── auto-updater.ts
+│   │       ├── preload/        # Preload scripts (IPC bridge)
+│   │       └── renderer/       # React UI
+│   │           ├── App.tsx
+│   │           ├── index.tsx
+│   │           └── index.css
+│   └── web/                    # Standalone web app (shares components)
+├── packages/
+│   └── server/                 # @open-yojob/server package
+│       ├── src/
+│       │   ├── index.ts        # Server factory (createServer)
+│       │   ├── db/             # Drizzle ORM schema & migrations
+│       │   ├── routes/         # Fastify routes (auth, collections, sync)
+│       │   └── realtime/       # SSE real-time module
+│       └── package.json
 ├── scripts/
-│   ├── download-pocketbase.sh  # Download PocketBase binaries
 │   └── migration/              # Data migration tools
 ├── .github/workflows/
 │   └── build.yml               # CI/CD: build & release
 ├── package.json                # Root workspace config
-└── REFACTORING_PLAN.md
+└── docs/                       # Documentation
 ```
 
 ## Quick Start
@@ -105,9 +106,6 @@ cd open_yojob
 
 # Install dependencies
 npm install
-
-# Download PocketBase binaries
-./scripts/download-pocketbase.sh
 ```
 
 ### Development
@@ -118,7 +116,23 @@ npm run dev
 
 # Or from the desktop directory
 cd apps/desktop && npm start
+
+# Run server standalone (for debugging)
+cd packages/server && npm run dev
 ```
+
+### Database Location
+
+The SQLite database is stored at:
+
+- **macOS**: `~/Library/Application Support/open-yojob/data/local.db`
+- **Windows**: `%APPDATA%\open-yojob\data\local.db`
+- **Linux**: `~/.config/open-yojob/data/local.db`
+
+### Default Credentials
+
+- **Email**: `admin@localhost`
+- **Password**: `admin123`
 
 ## Building
 
@@ -165,6 +179,7 @@ AUTO_UPDATE=false npm run start
 ### Architecture Guide
 
 See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documentation including:
+
 - System architecture diagrams
 - Component deep dive
 - How to run & debug
@@ -174,6 +189,7 @@ See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documen
 ### Styling Guide
 
 See **[docs/STYLING.md](./docs/STYLING.md)** for styling documentation including:
+
 - Tailwind CSS v4 configuration
 - CVA (class-variance-authority) patterns
 - Theme customization
@@ -182,6 +198,7 @@ See **[docs/STYLING.md](./docs/STYLING.md)** for styling documentation including
 ### Components Guide
 
 See **[docs/COMPONENTS.md](./docs/COMPONENTS.md)** for UI component documentation including:
+
 - Available UI primitives (Button, Input, Card, etc.)
 - Form controls
 - Usage examples
@@ -201,11 +218,11 @@ go run . migrate --source /path/to/POSSolutions.db
 
 ## Environment Variables
 
-| Variable              | Description                          | Default         |
-| --------------------- | ------------------------------------ | --------------- |
-| `AUTO_UPDATE`         | Enable/disable auto-updates          | `true`          |
-| `AUTO_UPDATE_INTERVAL`| Update check interval                | `1 hour`        |
-| `POCKETBASE_PORT`     | PocketBase server port               | `8090`          |
+| Variable               | Description                 | Default  |
+| ---------------------- | --------------------------- | -------- |
+| `AUTO_UPDATE`          | Enable/disable auto-updates | `true`   |
+| `AUTO_UPDATE_INTERVAL` | Update check interval       | `1 hour` |
+| `POCKETBASE_PORT`      | PocketBase server port      | `8090`   |
 
 ## Troubleshooting
 
@@ -229,13 +246,13 @@ npx electron-rebuild -m apps/desktop
 
 #### When to Run electron-rebuild
 
-| Scenario | Command |
-| -------- | ------- |
-| After `npm install` | `npx electron-rebuild -m apps/desktop` |
-| After upgrading Electron | `npx electron-rebuild -m apps/desktop` |
-| After upgrading native packages (better-sqlite3, etc.) | `npx electron-rebuild -m apps/desktop` |
-| After switching Node.js versions (nvm, fnm, etc.) | `npx electron-rebuild -m apps/desktop` |
-| CI/CD builds | Include in build script before packaging |
+| Scenario                                               | Command                                  |
+| ------------------------------------------------------ | ---------------------------------------- |
+| After `npm install`                                    | `npx electron-rebuild -m apps/desktop`   |
+| After upgrading Electron                               | `npx electron-rebuild -m apps/desktop`   |
+| After upgrading native packages (better-sqlite3, etc.) | `npx electron-rebuild -m apps/desktop`   |
+| After switching Node.js versions (nvm, fnm, etc.)      | `npx electron-rebuild -m apps/desktop`   |
+| CI/CD builds                                           | Include in build script before packaging |
 
 #### Common Options
 
@@ -284,9 +301,9 @@ The application uses a unique architecture where PocketBase runs as an embedded 
 The preload script exposes three main APIs:
 
 ```typescript
-window.electron  // App info (version, paths)
-window.db        // Database operations (local SQLite)
-window.sync      // Sync status and triggers
+window.electron; // App info (version, paths)
+window.db; // Database operations (local SQLite)
+window.sync; // Sync status and triggers
 ```
 
 ## License

@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
-  getPocketBaseUrl: () => Promise<string>;
+  getServerUrl: () => Promise<string>;
 }
 
 export interface DatabaseAPI {
@@ -28,7 +28,7 @@ export interface SyncAPI {
 const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
-  getPocketBaseUrl: () => ipcRenderer.invoke('get-pocketbase-url'),
+  getServerUrl: () => ipcRenderer.invoke('get-server-url'),
 };
 
 const dbAPI: DatabaseAPI = {

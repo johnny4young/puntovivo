@@ -1,4 +1,4 @@
-import api, { pb } from './client';
+import api from './client';
 import type {
   Sale,
   SaleItem,
@@ -114,29 +114,20 @@ export async function getSales(params: SaleListParams = {}): Promise<PaginatedRe
  * Get a single sale by ID with items expanded
  */
 export async function getSaleById(id: string): Promise<Sale> {
-  const sale = await pb.collection(SALES_COLLECTION).getOne<Sale>(id, {
-    expand: 'customerId,items,items.productId',
-  });
+  const sale = await api.getOne<Sale>(SALES_COLLECTION, id);
 
-  // Get sale items separately if not expanded properly
-  if (!sale.items || sale.items.length === 0) {
-    const items = await getSaleItems(id);
-    return { ...sale, items };
-  }
-
-  return sale;
+  // Get sale items separately
+  const items = await getSaleItems(id);
+  return { ...sale, items };
 }
 
 /**
  * Get items for a specific sale
  */
 export async function getSaleItems(saleId: string): Promise<SaleItem[]> {
-  const result = await pb.collection(SALE_ITEMS_COLLECTION).getFullList<SaleItem>({
-    filter: `saleId = "${saleId}"`,
-    expand: 'productId',
-  });
+  const result = await api.getList<SaleItem>(SALE_ITEMS_COLLECTION, 1, 100, `saleId = "${saleId}"`);
 
-  return result;
+  return result.items;
 }
 
 /**
@@ -183,7 +174,7 @@ export async function createSale(data: CreateSaleData): Promise<Sale> {
   // Create sale items
   const createdItems: SaleItem[] = [];
   for (const item of itemsWithTotals) {
-    const saleItem = await pb.collection(SALE_ITEMS_COLLECTION).create<SaleItem>({
+    const saleItem = await api.create<SaleItem>(SALE_ITEMS_COLLECTION, {
       saleId: sale.id,
       productId: item.productId,
       quantity: item.quantity,

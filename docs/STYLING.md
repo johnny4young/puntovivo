@@ -60,6 +60,7 @@ export default defineConfig({
 ```
 
 **Key differences from v3:**
+
 - No `tailwind.config.js` file needed
 - Theme configured via `@theme` block in CSS
 - No `@tailwind base/components/utilities` directives
@@ -117,11 +118,20 @@ const customTwMerge = extendTailwindMerge({
   extend: {
     theme: {
       color: [
-        'primary-50', 'primary-100', /* ... */ 'primary-950',
-        'secondary-50', /* ... */
-        'success-50', 'success-500', 'success-700',
-        'warning-50', 'warning-500', 'warning-700',
-        'danger-50', 'danger-500', 'danger-600', 'danger-700',
+        'primary-50',
+        'primary-100',
+        /* ... */ 'primary-950',
+        'secondary-50' /* ... */,
+        'success-50',
+        'success-500',
+        'success-700',
+        'warning-50',
+        'warning-500',
+        'warning-700',
+        'danger-50',
+        'danger-500',
+        'danger-600',
+        'danger-700',
       ],
     },
   },
@@ -137,7 +147,7 @@ const customTwMerge = extendTailwindMerge({
 All theme customization happens in `index.css` via the `@theme` block:
 
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Primary color palette */
@@ -205,9 +215,7 @@ Usage in components:
 
 ```tsx
 <div className="bg-background text-foreground">
-  <button className="bg-primary text-primary-foreground">
-    Click me
-  </button>
+  <button className="bg-primary text-primary-foreground">Click me</button>
 </div>
 ```
 
@@ -217,14 +225,14 @@ Usage in components:
 
 ### Available Components
 
-| Component | Path | Variants |
-|-----------|------|----------|
-| Button | `components/ui/Button.tsx` | `variant`, `size` |
-| Input | `components/ui/Input.tsx` | `variant`, `inputSize` |
-| Label | `components/ui/Label.tsx` | `variant` |
-| Badge | `components/ui/Badge.tsx` | `variant` |
-| Card | `components/ui/Card.tsx` | Compound components |
-| Table | `components/ui/Table.tsx` | Compound components |
+| Component | Path                       | Variants               |
+| --------- | -------------------------- | ---------------------- |
+| Button    | `components/ui/Button.tsx` | `variant`, `size`      |
+| Input     | `components/ui/Input.tsx`  | `variant`, `inputSize` |
+| Label     | `components/ui/Label.tsx`  | `variant`              |
+| Badge     | `components/ui/Badge.tsx`  | `variant`              |
+| Card      | `components/ui/Card.tsx`   | Compound components    |
+| Table     | `components/ui/Table.tsx`  | Compound components    |
 
 ### Button Variants
 
@@ -292,7 +300,14 @@ import { Badge } from '@/components/ui';
 ### Card Components
 
 ```tsx
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui';
 
 <Card>
   <CardHeader>
@@ -305,7 +320,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
   <CardFooter>
     <Button>Action</Button>
   </CardFooter>
-</Card>
+</Card>;
 ```
 
 ### Table Components
@@ -324,11 +339,13 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
   <TableBody>
     <TableRow>
       <TableCell>John Doe</TableCell>
-      <TableCell><Badge variant="success">Active</Badge></TableCell>
+      <TableCell>
+        <Badge variant="success">Active</Badge>
+      </TableCell>
       <TableCell className="text-right">$100.00</TableCell>
     </TableRow>
   </TableBody>
-</Table>
+</Table>;
 ```
 
 ---
@@ -345,7 +362,9 @@ import { extendTailwindMerge } from 'tailwind-merge';
 const customTwMerge = extendTailwindMerge({
   extend: {
     theme: {
-      color: [/* custom colors */],
+      color: [
+        /* custom colors */
+      ],
     },
   },
 });
@@ -413,19 +432,13 @@ const alertVariants = cva(
 
 ```tsx
 export interface AlertProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof alertVariants> {
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {
   title?: string;
 }
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
   ({ className, variant, title, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      role="alert"
-      className={cn(alertVariants({ variant }), className)}
-      {...props}
-    >
+    <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props}>
       {title && <h5 className="mb-1 font-medium">{title}</h5>}
       <div className="text-sm">{children}</div>
     </div>
@@ -451,21 +464,25 @@ export { Alert, alertVariants, type AlertProps } from './Alert';
 ### ✅ Do
 
 1. **Use CVA for variant-based components**
+
    ```tsx
    const variants = cva('base', { variants: { size: { sm: '...', lg: '...' } } });
    ```
 
 2. **Use `cn()` for class merging**
+
    ```tsx
    <div className={cn(baseClasses, conditionalClass, className)} />
    ```
 
 3. **Forward refs for DOM elements**
+
    ```tsx
    const Button = React.forwardRef<HTMLButtonElement, Props>((props, ref) => ...);
    ```
 
 4. **Export variant types for consumers**
+
    ```tsx
    export type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
    ```
@@ -479,6 +496,7 @@ export { Alert, alertVariants, type AlertProps } from './Alert';
 ### ❌ Don't
 
 1. **Don't use `@apply` directives** (migrated to CVA)
+
    ```css
    /* ❌ Avoid */
    .btn-primary {
@@ -487,6 +505,7 @@ export { Alert, alertVariants, type AlertProps } from './Alert';
    ```
 
 2. **Don't create CSS class utilities** (use Tailwind directly)
+
    ```css
    /* ❌ Avoid */
    .text-large { font-size: 1.25rem; }
@@ -496,12 +515,14 @@ export { Alert, alertVariants, type AlertProps } from './Alert';
    ```
 
 3. **Don't hardcode colors** (use theme variables)
+
    ```tsx
    <div className="bg-[#0ea5e9]" />  // ❌
    <div className="bg-primary-500" /> // ✅
    ```
 
 4. **Don't mix styling approaches** (pick one per component)
+
    ```tsx
    // ❌ Mixed
    <div style={{ padding: '10px' }} className="bg-white" />
@@ -518,17 +539,18 @@ export { Alert, alertVariants, type AlertProps } from './Alert';
 
 The project was migrated from Tailwind CSS v3 to v4 with the following changes:
 
-| Before (v3) | After (v4) |
-|-------------|------------|
-| `@tailwind base; @tailwind components; @tailwind utilities;` | `@import "tailwindcss";` |
-| `tailwind.config.js` | `@theme { }` block in CSS |
-| `postcss.config.js` | Removed (using Vite plugin) |
-| `theme()` function | CSS variables |
-| `@apply` directives | CVA components |
+| Before (v3)                                                  | After (v4)                  |
+| ------------------------------------------------------------ | --------------------------- |
+| `@tailwind base; @tailwind components; @tailwind utilities;` | `@import "tailwindcss";`    |
+| `tailwind.config.js`                                         | `@theme { }` block in CSS   |
+| `postcss.config.js`                                          | Removed (using Vite plugin) |
+| `theme()` function                                           | CSS variables               |
+| `@apply` directives                                          | CVA components              |
 
 ### From `@apply` to CVA
 
 Old approach (CSS classes with `@apply`):
+
 ```css
 .btn-primary {
   @apply bg-primary-500 text-white px-4 py-2 rounded;
@@ -536,6 +558,7 @@ Old approach (CSS classes with `@apply`):
 ```
 
 New approach (CVA components):
+
 ```tsx
 const buttonVariants = cva('px-4 py-2 rounded', {
   variants: {
@@ -570,12 +593,12 @@ extendTailwindMerge({
 
 ### File Locations
 
-| Purpose | File |
-|---------|------|
-| Theme configuration | `apps/web/src/index.css` |
-| Class merge utility | `apps/web/src/lib/utils.ts` |
-| UI primitives | `apps/web/src/components/ui/` |
-| Form controls | `apps/web/src/components/form-controls/` |
+| Purpose             | File                                     |
+| ------------------- | ---------------------------------------- |
+| Theme configuration | `apps/web/src/index.css`                 |
+| Class merge utility | `apps/web/src/lib/utils.ts`              |
+| UI primitives       | `apps/web/src/components/ui/`            |
+| Form controls       | `apps/web/src/components/form-controls/` |
 
 ### Import Patterns
 
@@ -592,14 +615,14 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 ### Color Palette Quick Reference
 
-| Prefix | Usage |
-|--------|-------|
-| `primary-*` | Brand colors, primary actions |
-| `secondary-*` | Secondary UI elements |
-| `success-*` | Success states, confirmations |
-| `warning-*` | Warnings, cautions |
-| `danger-*` | Errors, destructive actions |
-| `muted-*` | Disabled, placeholder text |
+| Prefix        | Usage                         |
+| ------------- | ----------------------------- |
+| `primary-*`   | Brand colors, primary actions |
+| `secondary-*` | Secondary UI elements         |
+| `success-*`   | Success states, confirmations |
+| `warning-*`   | Warnings, cautions            |
+| `danger-*`    | Errors, destructive actions   |
+| `muted-*`     | Disabled, placeholder text    |
 
 ---
 
