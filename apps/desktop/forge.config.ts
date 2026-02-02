@@ -20,7 +20,10 @@ const config: ForgeConfig = {
       '../web/dist',
     ],
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    force: true,
+    onlyModules: ['better-sqlite3', 'argon2'],
+  },
   makers: [
     new MakerSquirrel({
       name: 'OpenYojob',
