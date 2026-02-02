@@ -75,12 +75,8 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     logger: verbose
       ? {
           level: 'info',
-          transport: {
-            target: 'pino-pretty',
-            options: {
-              colorize: true,
-            },
-          },
+          // Skip pino-pretty in bundled/electron environment (causes module resolution issues)
+          // Use basic logging instead
         }
       : false,
   });
