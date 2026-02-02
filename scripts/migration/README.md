@@ -1,6 +1,8 @@
 # Migration Tool
 
-A CLI tool for migrating data from the legacy .NET WinForms SQLite database to Open Yojob PocketBase.
+> **⚠️ DEPRECATION NOTICE**: This migration tool was designed for PocketBase. The backend has been migrated to **Node.js/Fastify**. This tool may need updates to work with the new API endpoints. See the main [README.md](../../README.md) for current architecture details.
+
+A CLI tool for migrating data from the legacy .NET WinForms SQLite database to Open Yojob backend.
 
 ## Building
 

@@ -222,7 +222,7 @@ go run . migrate --source /path/to/POSSolutions.db
 | ---------------------- | --------------------------- | -------- |
 | `AUTO_UPDATE`          | Enable/disable auto-updates | `true`   |
 | `AUTO_UPDATE_INTERVAL` | Update check interval       | `1 hour` |
-| `POCKETBASE_PORT`      | PocketBase server port      | `8090`   |
+| `SERVER_PORT`          | Backend server port         | `8090`   |
 
 ## Troubleshooting
 
@@ -287,12 +287,21 @@ Add a `postinstall` script to automatically rebuild after `npm install`:
 
 ## Development Notes
 
+### Backend Migration
+
+The backend was migrated from PocketBase (Go) to Node.js/Fastify with Drizzle ORM. Key changes:
+
+- **Stack**: Fastify + Drizzle ORM + better-sqlite3
+- **Real-time**: Server-Sent Events (SSE) instead of WebSocket
+- **Authentication**: Argon2 password hashing + JWT sessions
+- **Database**: SQLite with Drizzle schema and migrations
+
 ### Architecture
 
-The application uses a unique architecture where PocketBase runs as an embedded child process:
+The application uses a unique architecture where a Fastify server runs as an embedded child process:
 
-1. **Main Process** (`src/main/index.ts`): Manages the Electron lifecycle and spawns PocketBase
-2. **PocketBase Manager** (`src/main/pocketbase.ts`): Handles starting/stopping the Go backend
+1. **Main Process** (`src/main/index.ts`): Manages the Electron lifecycle and spawns the backend server
+2. **Server Package** (`packages/server`): Node.js/Fastify backend with SQLite (Drizzle ORM) and SSE support
 3. **Preload Script** (`src/preload/index.ts`): Exposes safe IPC bridges to the renderer
 4. **Renderer** (`src/renderer/`): React application with full access to the API
 
