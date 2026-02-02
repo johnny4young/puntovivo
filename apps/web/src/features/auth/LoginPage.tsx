@@ -49,11 +49,11 @@ export function LoginPage() {
                 type="email"
                 autoComplete="email"
                 className="input mt-1"
-                placeholder="your@email.com"
+                placeholder="admin@localhost"
                 {...register('email', {
                   required: 'Email is required',
                   pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+(\.[A-Z]{2,})?$/i,
                     message: 'Invalid email address',
                   },
                 })}
