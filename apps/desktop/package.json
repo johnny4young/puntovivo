@@ -8,6 +8,9 @@
   "scripts": {
     "start": "electron-forge start",
     "dev": "npm run rebuild && electron-forge start",
+    "dev:debug": "npm run rebuild && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect=5858",
+    "dev:debug-brk": "npm run rebuild && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect-brk=5858",
+    "dev:server": "DEBUG=fastify:* npm run dev",
     "rebuild": "electron-rebuild -f -v 40.1.0",
     "package": "npm run build --workspace=@open-yojob/web && electron-forge package",
     "make": "npm run build --workspace=@open-yojob/web && electron-forge make",
@@ -16,7 +19,8 @@
     "format": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:fix": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .vite out node_modules"
+    "clean": "rm -rf .vite out node_modules",
+    "clean:cache": "rm -rf .vite && npm run dev"
   },
   "keywords": [
     "pos",
