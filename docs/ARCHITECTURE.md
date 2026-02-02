@@ -24,9 +24,10 @@ Open Yojob is a **modern Point of Sale (POS) desktop application** built with an
 
 - **Electron Forge** for cross-platform desktop delivery
 - **React + TypeScript** for the user interface
-- **PocketBase** (embedded Go binary) as the backend API
-- **SQLite** for local offline storage
-- **Automatic sync** when connectivity is restored
+- **Fastify** (embedded in-process) as the backend API
+- **Drizzle ORM + SQLite** for type-safe database access
+- **Server-Sent Events (SSE)** for real-time updates
+- **Automatic sync** when connectivity is restored (Phase 2)
 
 ### Key Design Principles
 
@@ -36,9 +37,10 @@ Open Yojob is a **modern Point of Sale (POS) desktop application** built with an
 ├─────────────────────────────────────────────────────────────────┤
 │  ✓ Offline-First    → Works without internet                    │
 │  ✓ Multi-Tenant     → Complete data isolation per business      │
-│  ✓ Embedded Backend → No external server setup required         │
+│  ✓ Embedded Backend → Fastify runs in-process (no binary)       │
 │  ✓ Cross-Platform   → Windows, macOS, Linux                     │
 │  ✓ Auto-Updates     → Seamless updates via GitHub Releases      │
+│  ✓ Type-Safe        → Drizzle ORM + TypeScript end-to-end       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,8 +69,8 @@ Open Yojob is a **modern Point of Sale (POS) desktop application** built with an
 │  │  │                                                              │  │  │
 │  │  │   ┌─────────────────────────────────────────────────────┐    │  │  │
 │  │  │   │               Services Layer                        │    │  │  │
-│  │  │   │  • PocketBase Client (API calls)                    │    │  │  │
-│  │  │   │  • Storage Service (IndexedDB for offline queue)    │    │  │  │
+│  │  │   │  • API Client (fetch-based REST + SSE)              │    │  │  │
+│  │  │   │  • Real-time Service (Server-Sent Events)           │    │  │  │
 │  │  │   │  • Sync Service (conflict resolution)               │    │  │  │
 │  │  │   └─────────────────────────────────────────────────────┘    │  │  │
 │  │  └──────────────────────────────────────────────────────────────┘  │  │
@@ -79,7 +81,7 @@ Open Yojob is a **modern Point of Sale (POS) desktop application** built with an
 │                                    │                                     │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │                        PRELOAD SCRIPT                              │  │
-│  │   Exposes safe APIs: electronAPI.getVersion(), getPocketBaseUrl()  │  │
+│  │   Exposes safe APIs: electronAPI.getVersion(), getServerUrl()      │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                     │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
@@ -87,37 +89,33 @@ Open Yojob is a **modern Point of Sale (POS) desktop application** built with an
 │  │                          (Node.js)                                 │  │
 │  │                                                                    │  │
 │  │   ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │  │
-│  │   │  Window      │  │  Auto        │  │  PocketBase Manager    │  │  │
-│  │   │  Management  │  │  Updater     │  │  (Child Process)       │  │  │
+│  │   │  Window      │  │  Auto        │  │  Fastify Server        │  │  │
+│  │   │  Management  │  │  Updater     │  │  (In-Process)          │  │  │
 │  │   └──────────────┘  └──────────────┘  └────────────────────────┘  │  │
 │  │                                                │                   │  │
-│  │   ┌──────────────────────────────────┐        │                   │  │
-│  │   │  Local SQLite (better-sqlite3)   │        │                   │  │
-│  │   │  For offline data & sync queue   │        │                   │  │
-│  │   └──────────────────────────────────┘        │                   │  │
-│  └───────────────────────────────────────────────│───────────────────┘  │
-│                                                  │                      │
-└──────────────────────────────────────────────────│──────────────────────┘
-                                                   │
-                                                   ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        POCKETBASE SERVER                                 │
-│                    (Embedded Go Binary)                                  │
-│                     http://127.0.0.1:8090                                │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌───────────────┐  ┌───────────────┐  ┌────────────────────────────┐  │
-│   │   REST API    │  │   Realtime    │  │   Admin Dashboard          │  │
-│   │   /api/*      │  │   /ws         │  │   /_/                      │  │
-│   └───────────────┘  └───────────────┘  └────────────────────────────┘  │
-│                                                                          │
-│   ┌──────────────────────────────────────────────────────────────────┐  │
-│   │                        SQLite Database                           │  │
-│   │   Collections: tenants, products, categories, customers,         │  │
-│   │                sales, inventory_movements, sync_queue            │  │
-│   └──────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+│  │   ┌──────────────────────────────────────┐    │                   │  │
+│  │   │  @open-yojob/server Package          │◄───┘                   │  │
+│  │   │  • Drizzle ORM + SQLite              │                        │  │
+│  │   │  • Auth Routes (JWT + argon2)        │                        │  │
+│  │   │  • Collections CRUD                  │                        │  │
+│  │   │  • Sync Queue                        │                        │  │
+│  │   │  • SSE Real-time                     │                        │  │
+│  │   └──────────────────────────────────────┘                        │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                           API: http://127.0.0.1:8090
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                        API ENDPOINTS                                 │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  /api/auth/*          → Authentication (login, logout, refresh)     │
+  │  /api/collections/*   → CRUD operations with tenant isolation       │
+  │  /api/sync/*          → Local sync queue (external sync Phase 2)    │
+  │  /api/realtime/*      → Server-Sent Events subscriptions            │
+  │  /health              → Health check                                │
+  └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Directory Structure
@@ -132,22 +130,41 @@ open_yojob/
 │   │   ├── vite.main.config.ts      # Vite config for main process
 │   │   ├── vite.preload.config.ts   # Vite config for preload
 │   │   ├── vite.renderer.config.ts  # Vite config for renderer
-│   │   ├── resources/
-│   │   │   └── pocketbase/          # PocketBase binaries per OS
-│   │   │       ├── darwin-arm64/    # macOS Apple Silicon
-│   │   │       ├── darwin-x64/      # macOS Intel
-│   │   │       ├── linux-x64/       # Linux
-│   │   │       └── win32-x64/       # Windows
 │   │   └── src/
 │   │       ├── main/                # ⚡ MAIN PROCESS
-│   │       │   ├── index.ts         # Entry point, window creation
-│   │       │   ├── pocketbase.ts    # PocketBase child process manager
-│   │       │   ├── auto-updater.ts  # GitHub releases auto-update
-│   │       │   ├── database.ts      # Local SQLite for offline
-│   │       │   └── sync.ts          # Sync service orchestration
+│   │       │   ├── index.ts         # Entry point + embedded server
+│   │       │   └── auto-updater.ts  # GitHub releases auto-update
 │   │       ├── preload/             # 🔒 PRELOAD (IPC BRIDGE)
 │   │       │   ├── index.ts         # Context bridge APIs
 │   │       │   └── index.d.ts       # TypeScript declarations
+│   │       └── renderer/            # 🎨 RENDERER (React)
+│   │           ├── App.tsx
+│   │           ├── index.tsx
+│   │           └── index.css
+│   └── web/                         # 🌐 STANDALONE WEB APP
+│       └── src/
+│           ├── components/
+│           ├── features/
+│           ├── services/api/        # API client (shared with desktop)
+│           └── hooks/
+│
+├── packages/
+│   └── server/                      # 📦 @open-yojob/server PACKAGE
+│       ├── package.json
+│       ├── drizzle.config.ts        # Drizzle ORM configuration
+│       └── src/
+│           ├── index.ts             # Server factory (createServer)
+│           ├── standalone.ts        # Standalone entry point
+│           ├── db/
+│           │   ├── schema.ts        # Drizzle schema definitions
+│           │   ├── index.ts         # Database initialization
+│           │   └── seed.ts          # Default data seeding
+│           ├── routes/
+│           │   ├── auth.ts          # Authentication (JWT + argon2)
+│           │   ├── collections.ts   # Generic CRUD with tenant isolation
+│           │   └── sync.ts          # Sync queue management
+│           └── realtime/
+│               └── sse.ts           # Server-Sent Events
 │   │       └── renderer/            # 🎨 RENDERER (REACT UI)
 │   │           ├── App.tsx          # Root React component
 │   │           ├── index.tsx        # React entry point
@@ -424,6 +441,7 @@ The project uses **Tailwind CSS v4** with the native Vite plugin and **CVA (clas
 ```
 
 Key styling files:
+
 - **`index.css`**: Theme configuration via `@theme` block (colors, fonts, spacing)
 - **`lib/utils.ts`**: `cn()` utility combining `clsx` + `tailwind-merge`
 - **`components/ui/*.tsx`**: CVA-based primitive components

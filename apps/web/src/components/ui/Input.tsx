@@ -32,7 +32,8 @@ const inputVariants = cva(
 );
 
 export interface InputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix' | 'size'>,
+  extends
+    Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix' | 'size'>,
     VariantProps<typeof inputVariants> {
   /** Input label */
   label?: string;

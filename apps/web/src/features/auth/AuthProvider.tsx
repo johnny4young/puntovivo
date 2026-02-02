@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User, Tenant, LoginCredentials } from '@/types';
-import api, { pb } from '@/services/api/client';
+import api from '@/services/api/client';
 
 interface AuthContextType {
   user: User | null;
@@ -38,24 +38,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (pb.authStore.isValid && pb.authStore.model) {
-          const userData = pb.authStore.model as unknown as User;
-          setUser(userData);
+        // Restore auth from localStorage
+        if (api.restoreAuth()) {
+          const currentUser = api.getUser();
+          const currentTenant = api.getTenant();
 
-          // Fetch tenant data
-          if (userData.tenantId) {
-            api.setTenantId(userData.tenantId);
-            // In a real app, fetch tenant from API
+          if (currentUser) {
+            setUser({
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.name,
+              role: currentUser.role,
+              tenantId: currentUser.tenantId,
+            } as User);
+          }
+
+          if (currentTenant) {
             setTenant({
-              id: userData.tenantId,
-              name: 'Default Tenant',
-              slug: 'default',
-              settings: {
-                currency: 'USD',
-                timezone: 'America/New_York',
-                dateFormat: 'MM/DD/YYYY',
-                taxRate: 0,
-              },
+              id: currentTenant.id,
+              name: currentTenant.name,
+              slug: currentTenant.slug,
+              settings: currentTenant.settings as unknown as Tenant['settings'],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -63,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (err) {
         console.error('Auth init error:', err);
-        pb.authStore.clear();
+        api.logout();
       } finally {
         setIsLoading(false);
       }
@@ -72,42 +75,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initAuth();
   }, []);
 
-  // Listen for auth changes
-  useEffect(() => {
-    const unsubscribe = pb.authStore.onChange((_token, model) => {
-      if (model) {
-        setUser(model as unknown as User);
-      } else {
-        setUser(null);
-        setTenant(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const authData = await api.login(credentials.email, credentials.password);
-      const userData = authData.record as unknown as User;
-      setUser(userData);
+      const userData = authData.user;
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        tenantId: userData.tenantId,
+      } as User);
 
       // Set tenant context
-      if (userData.tenantId) {
-        api.setTenantId(userData.tenantId);
+      if (authData.tenant) {
         setTenant({
-          id: userData.tenantId,
-          name: 'Default Tenant',
-          slug: 'default',
-          settings: {
-            currency: 'USD',
-            timezone: 'America/New_York',
-            dateFormat: 'MM/DD/YYYY',
-            taxRate: 0,
-          },
+          id: authData.tenant.id,
+          name: authData.tenant.name,
+          slug: authData.tenant.slug,
+          settings: authData.tenant.settings as unknown as Tenant['settings'],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });

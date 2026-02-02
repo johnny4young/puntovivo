@@ -1,4 +1,4 @@
-import api, { pb } from './client';
+import api from './client';
 import type { InventoryMovement, Product, PaginatedResponse, MovementType } from '@/types';
 
 export interface InventoryMovementListParams {
@@ -100,9 +100,7 @@ export async function getInventoryMovements(
  * Get a single inventory movement by ID
  */
 export async function getMovementById(id: string): Promise<InventoryMovement> {
-  return await pb.collection(MOVEMENTS_COLLECTION).getOne<InventoryMovement>(id, {
-    expand: 'productId',
-  });
+  return await api.getOne<InventoryMovement>(MOVEMENTS_COLLECTION, id);
 }
 
 /**

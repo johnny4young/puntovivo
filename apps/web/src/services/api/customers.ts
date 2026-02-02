@@ -94,7 +94,8 @@ export async function updateCustomer(id: string, data: UpdateCustomerData): Prom
  * Delete a customer by ID
  */
 export async function deleteCustomer(id: string): Promise<boolean> {
-  return await api.delete(COLLECTION, id);
+  const result = await api.delete(COLLECTION, id);
+  return result.success;
 }
 
 /**

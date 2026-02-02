@@ -108,7 +108,8 @@ export async function updateProduct(id: string, data: UpdateProductData): Promis
  * Delete a product by ID
  */
 export async function deleteProduct(id: string): Promise<boolean> {
-  return await api.delete(COLLECTION, id);
+  const result = await api.delete(COLLECTION, id);
+  return result.success;
 }
 
 /**

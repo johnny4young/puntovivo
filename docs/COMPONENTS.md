@@ -74,23 +74,23 @@ import { Button } from '@/components/ui';
 
 #### Variants
 
-| Variant | Description | Use Case |
-|---------|-------------|----------|
-| `primary` | Solid primary color | Main actions |
-| `secondary` | Muted background | Secondary actions |
-| `outline` | Border only | Tertiary actions |
-| `ghost` | Transparent | Subtle actions |
-| `destructive` | Red/danger color | Delete, remove |
-| `link` | Text with underline | Navigation |
+| Variant       | Description         | Use Case          |
+| ------------- | ------------------- | ----------------- |
+| `primary`     | Solid primary color | Main actions      |
+| `secondary`   | Muted background    | Secondary actions |
+| `outline`     | Border only         | Tertiary actions  |
+| `ghost`       | Transparent         | Subtle actions    |
+| `destructive` | Red/danger color    | Delete, remove    |
+| `link`        | Text with underline | Navigation        |
 
 #### Sizes
 
-| Size | Height | Use Case |
-|------|--------|----------|
-| `sm` | 32px | Compact UIs, tables |
-| `default` | 40px | Standard buttons |
-| `lg` | 48px | Hero sections, CTAs |
-| `icon` | 40x40px | Icon-only buttons |
+| Size      | Height  | Use Case            |
+| --------- | ------- | ------------------- |
+| `sm`      | 32px    | Compact UIs, tables |
+| `default` | 40px    | Standard buttons    |
+| `lg`      | 48px    | Hero sections, CTAs |
+| `icon`    | 40x40px | Icon-only buttons   |
 
 #### Examples
 
@@ -141,14 +141,14 @@ import { Input } from '@/components/ui';
 
 #### Props
 
-| Prop | Type | Description |
-|------|------|-------------|
-| `label` | `string` | Label text above input |
-| `error` | `string` | Error message below input |
-| `variant` | `'default' \| 'error'` | Visual variant |
-| `inputSize` | `'sm' \| 'default' \| 'lg'` | Size variant |
-| `prefix` | `ReactNode` | Element before input |
-| `suffix` | `ReactNode` | Element after input |
+| Prop        | Type                        | Description               |
+| ----------- | --------------------------- | ------------------------- |
+| `label`     | `string`                    | Label text above input    |
+| `error`     | `string`                    | Error message below input |
+| `variant`   | `'default' \| 'error'`      | Visual variant            |
+| `inputSize` | `'sm' \| 'default' \| 'lg'` | Size variant              |
+| `prefix`    | `ReactNode`                 | Element before input      |
+| `suffix`    | `ReactNode`                 | Element after input       |
 
 #### Examples
 
@@ -199,12 +199,12 @@ import { Label } from '@/components/ui';
 
 #### Variants
 
-| Variant | Description |
-|---------|-------------|
-| `default` | Standard label |
-| `error` | Red color for errors |
-| `disabled` | Muted color |
-| `muted` | Subtle text |
+| Variant    | Description          |
+| ---------- | -------------------- |
+| `default`  | Standard label       |
+| `error`    | Red color for errors |
+| `disabled` | Muted color          |
+| `muted`    | Subtle text          |
 
 #### Examples
 
@@ -234,15 +234,15 @@ import { Badge } from '@/components/ui';
 
 #### Variants
 
-| Variant | Color | Use Case |
-|---------|-------|----------|
-| `default` | Gray | Neutral status |
-| `primary` | Blue | Primary category |
-| `secondary` | Gray | Secondary info |
-| `success` | Green | Success, active |
-| `warning` | Yellow | Caution, pending |
-| `danger` | Red | Error, inactive |
-| `outline` | Border only | Subtle indicator |
+| Variant     | Color       | Use Case         |
+| ----------- | ----------- | ---------------- |
+| `default`   | Gray        | Neutral status   |
+| `primary`   | Blue        | Primary category |
+| `secondary` | Gray        | Secondary info   |
+| `success`   | Green       | Success, active  |
+| `warning`   | Yellow      | Caution, pending |
+| `danger`    | Red         | Error, inactive  |
+| `outline`   | Border only | Subtle indicator |
 
 #### Examples
 
@@ -279,19 +279,26 @@ import { Badge } from '@/components/ui';
 A container component for grouping related content.
 
 ```tsx
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui';
 ```
 
 #### Components
 
-| Component | Purpose |
-|-----------|---------|
-| `Card` | Container wrapper |
-| `CardHeader` | Header section |
-| `CardTitle` | Main heading |
+| Component         | Purpose              |
+| ----------------- | -------------------- |
+| `Card`            | Container wrapper    |
+| `CardHeader`      | Header section       |
+| `CardTitle`       | Main heading         |
 | `CardDescription` | Subtitle/description |
-| `CardContent` | Main content area |
-| `CardFooter` | Footer with actions |
+| `CardContent`     | Main content area    |
+| `CardFooter`      | Footer with actions  |
 
 #### Examples
 
@@ -349,22 +356,22 @@ import {
   TableRow,
   TableHead,
   TableCell,
-  TableCaption
+  TableCaption,
 } from '@/components/ui';
 ```
 
 #### Components
 
-| Component | HTML Element | Purpose |
-|-----------|--------------|---------|
-| `Table` | `<table>` | Table container |
-| `TableHeader` | `<thead>` | Header section |
-| `TableBody` | `<tbody>` | Body section |
-| `TableFooter` | `<tfoot>` | Footer section |
-| `TableRow` | `<tr>` | Table row |
-| `TableHead` | `<th>` | Header cell |
-| `TableCell` | `<td>` | Body cell |
-| `TableCaption` | `<caption>` | Table caption |
+| Component      | HTML Element | Purpose         |
+| -------------- | ------------ | --------------- |
+| `Table`        | `<table>`    | Table container |
+| `TableHeader`  | `<thead>`    | Header section  |
+| `TableBody`    | `<tbody>`    | Body section    |
+| `TableFooter`  | `<tfoot>`    | Footer section  |
+| `TableRow`     | `<tr>`       | Table row       |
+| `TableHead`    | `<th>`       | Header cell     |
+| `TableCell`    | `<td>`       | Body cell       |
+| `TableCaption` | `<caption>`  | Table caption   |
 
 #### Examples
 
@@ -438,7 +445,7 @@ import { Select } from '@/components/form-controls';
   ]}
   value={category}
   onChange={setCategory}
-/>
+/>;
 ```
 
 ### Checkbox
@@ -448,11 +455,7 @@ A checkbox input component.
 ```tsx
 import { Checkbox } from '@/components/form-controls';
 
-<Checkbox
-  label="Accept terms and conditions"
-  checked={accepted}
-  onChange={setAccepted}
-/>
+<Checkbox label="Accept terms and conditions" checked={accepted} onChange={setAccepted} />;
 ```
 
 ### DatePicker
@@ -462,11 +465,7 @@ A date selection component.
 ```tsx
 import { DatePicker } from '@/components/form-controls';
 
-<DatePicker
-  label="Start Date"
-  value={startDate}
-  onChange={setStartDate}
-/>
+<DatePicker label="Start Date" value={startDate} onChange={setStartDate} />;
 ```
 
 ### Modal
@@ -476,11 +475,7 @@ A modal dialog component.
 ```tsx
 import { Modal } from '@/components/form-controls';
 
-<Modal
-  open={isOpen}
-  onClose={() => setIsOpen(false)}
-  title="Confirm Delete"
->
+<Modal open={isOpen} onClose={() => setIsOpen(false)} title="Confirm Delete">
   <p>Are you sure you want to delete this item?</p>
   <div className="flex justify-end gap-2 mt-4">
     <Button variant="outline" onClick={() => setIsOpen(false)}>
@@ -490,7 +485,7 @@ import { Modal } from '@/components/form-controls';
       Delete
     </Button>
   </div>
-</Modal>
+</Modal>;
 ```
 
 ---
@@ -507,6 +502,7 @@ import { Modal } from '@/components/form-controls';
 ### Props Pattern
 
 All components should:
+
 1. Extend native HTML element props
 2. Include CVA variant props (if applicable)
 3. Support `className` override via `cn()`
@@ -514,18 +510,13 @@ All components should:
 
 ```tsx
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, ...props }, ref) => (
-    <button
-      ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
-    />
+    <button ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props} />
   )
 );
 ```
@@ -533,6 +524,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 ### Export Pattern
 
 Each component file should export:
+
 1. The component itself
 2. The variants function (for extending)
 3. The props type
@@ -542,6 +534,7 @@ export { Button, buttonVariants, type ButtonProps };
 ```
 
 Barrel exports in `index.ts`:
+
 ```tsx
 export { Button, buttonVariants, type ButtonProps } from './Button';
 export { Input, inputVariants, type InputProps } from './Input';

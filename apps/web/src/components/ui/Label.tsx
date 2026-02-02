@@ -17,8 +17,7 @@ const labelVariants = cva('text-sm font-medium leading-none', {
 });
 
 export interface LabelProps
-  extends LabelHTMLAttributes<HTMLLabelElement>,
-    VariantProps<typeof labelVariants> {
+  extends LabelHTMLAttributes<HTMLLabelElement>, VariantProps<typeof labelVariants> {
   /** Mark the field as required */
   required?: boolean;
 }
