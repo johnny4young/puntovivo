@@ -1,5 +1,7 @@
 # Open Yojob Architecture Guide
 
+> **⚠️ DOCUMENTATION UPDATE IN PROGRESS**: This document contains outdated references to PocketBase (Go backend). The backend was migrated to **Node.js/Fastify + Drizzle ORM** in 2025. Sections marked with "🔧 CUSTOM POCKETBASE" or mentioning Go are outdated. See [README.md](../README.md) for current architecture.
+
 > **For New Collaborators**: This document provides a comprehensive overview of the Open Yojob project architecture, designed to help you understand and contribute to the codebase effectively.
 
 ---

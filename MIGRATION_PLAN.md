@@ -1,5 +1,7 @@
 # Migration Plan: .NET WinForms to Modern Web Application
 
+> **⚠️ STATUS UPDATE (2025)**: The backend has been migrated from PocketBase (Go) to **Node.js/Fastify + Drizzle ORM**. This document reflects the original migration plan. See [README.md](README.md) for the current architecture.
+
 ## Overview
 
 This document outlines the migration strategy from a .NET WinForms desktop application to a modern web application with Electron support for desktop deployment.

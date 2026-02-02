@@ -1,8 +1,10 @@
 # Plan de Refactorización - Open Yojob
 
+> **⚠️ ACTUALIZACIÓN (2025)**: El backend fue migrado de PocketBase (Go) a **Node.js/Fastify + Drizzle ORM**. Este documento refleja el plan de refactorización original.
+
 ## Resumen Ejecutivo
 
-Este plan detalla la reestructuración del proyecto Open Yojob para convertirlo en una aplicación de escritorio pura usando Electron Forge con PocketBase como backend embebido.
+Este plan detalla la reestructuración del proyecto Open Yojob para convertirlo en una aplicación de escritorio pura usando Electron Forge con un backend embebido.
 
 ---
 
