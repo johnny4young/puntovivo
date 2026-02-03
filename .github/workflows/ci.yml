@@ -8,8 +8,6 @@ on:
 
 env:
   NODE_VERSION: "20"
-  PNPM_VERSION: "8"
-  GO_VERSION: "1.21"
 
 jobs:
   # ============================================================================
@@ -23,31 +21,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          cache: "npm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Type check
-        run: pnpm --filter @open-yojob/web exec tsc --noEmit
+        run: npm run build --workspace=@open-yojob/web -- --noEmit || (cd apps/web && npx tsc --noEmit)
 
       - name: Lint
-        run: pnpm --filter @open-yojob/web lint
+        run: npm run lint --workspace=@open-yojob/web
 
       - name: Run tests
-        run: pnpm --filter @open-yojob/web test -- --run
+        run: npm run test --workspace=@open-yojob/web -- --run
 
       - name: Build
-        run: pnpm --filter @open-yojob/web build
+        run: npm run build --workspace=@open-yojob/web
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -62,7 +55,6 @@ jobs:
   desktop:
     name: Desktop App (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: web
     strategy:
       fail-fast: false
       matrix:
@@ -79,80 +71,69 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          cache: "npm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
-      - name: Build desktop app
-        run: pnpm --filter @open-yojob/desktop build
+      # Install native dependencies on Linux
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev librsvg2-dev
 
-      - name: Package desktop app
-        run: pnpm --filter @open-yojob/desktop dist:${{ matrix.platform }}
+      - name: Rebuild native modules
+        run: npm run rebuild --workspace=@open-yojob/desktop
+
+      - name: Build and package desktop app
+        run: npm run make --workspace=@open-yojob/desktop
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.platform }}
-          path: |
-            apps/desktop/out/*.dmg
-            apps/desktop/out/*.exe
-            apps/desktop/out/*.AppImage
-            apps/desktop/out/*.deb
-            apps/desktop/out/*.zip
+          path: apps/desktop/out/make/**/*
           retention-days: 7
 
   # ============================================================================
-  # Backend Tests & Build
+  # Backend Server Tests & Build (Node.js)
   # ============================================================================
   backend:
-    name: Backend
+    name: Backend Server
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: backend/go.sum
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
 
-      - name: Download dependencies
-        working-directory: backend
-        run: go mod download
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Verify dependencies
-        working-directory: backend
-        run: go mod verify
+      - name: Type check
+        run: npm run build --workspace=@open-yojob/server
 
-      - name: Run go vet
-        working-directory: backend
-        run: go vet ./...
+      - name: Lint
+        run: npm run lint --workspace=@open-yojob/server
 
       - name: Run tests
-        working-directory: backend
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Build
-        working-directory: backend
-        run: go build -o server ./cmd/server
+        run: npm run test --workspace=@open-yojob/server
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-server
-          path: backend/server
+          path: packages/server/dist
           retention-days: 7
