@@ -11,7 +11,8 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#development">Development</a> •
   <a href="#building">Building</a> •
-  <a href="#migration">Migration</a>
+  <a href="#migration">Migration</a> •
+  <a href="#security">Security</a>
 </p>
 
 ---
@@ -131,8 +132,16 @@ The SQLite database is stored at:
 
 ### Default Credentials
 
+⚠️ **SECURITY WARNING**: Default credentials are for development only!
+
 - **Email**: `admin@localhost`
 - **Password**: `admin123`
+
+**Important:** 
+- These credentials are publicly known and documented
+- **Change the password immediately** after first login
+- See [Security Documentation](#security) for details
+- Do not use default credentials in production
 
 ## Building
 
@@ -314,6 +323,50 @@ window.electron; // App info (version, paths)
 window.db; // Database operations (local SQLite)
 window.sync; // Sync status and triggers
 ```
+
+## Security
+
+### 🔒 Security Analysis Available
+
+A comprehensive security analysis has been performed on this codebase. Please review the following documents:
+
+- **[SECURITY_README.md](./SECURITY_README.md)** - Start here for overview
+- **[SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md)** - Quick reference and stats
+- **[SECURITY_ANALYSIS.md](./SECURITY_ANALYSIS.md)** - Detailed vulnerability analysis
+- **[SECURITY_ISSUE_TEMPLATE.md](./SECURITY_ISSUE_TEMPLATE.md)** - GitHub issue template
+
+### ⚠️ Known Security Issues
+
+**Critical:**
+- Default credentials (`admin@localhost / admin123`) are publicly documented
+- **Action Required:** Change password immediately after first login
+
+**High Priority:**
+- No rate limiting on authentication endpoints
+- React Router XSS vulnerability (CVE)
+- node-tar path traversal vulnerabilities
+
+**See:** [SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md) for complete list and remediation steps.
+
+### Security Best Practices
+
+When deploying this application:
+
+1. **Change Default Credentials** immediately
+2. **Update Dependencies** regularly (`npm audit`)
+3. **Enable Rate Limiting** on authentication
+4. **Use Strong Passwords** (12+ characters, mixed case, numbers, symbols)
+5. **Keep Electron Updated** for security patches
+6. **Review** [SECURITY_ANALYSIS.md](./SECURITY_ANALYSIS.md) for detailed recommendations
+
+### Reporting Security Issues
+
+If you discover a security vulnerability:
+
+1. **Do NOT** create a public GitHub issue
+2. Review existing security documentation first
+3. Contact the maintainers privately
+4. Follow responsible disclosure practices
 
 ## License
 
