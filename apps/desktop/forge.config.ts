@@ -12,6 +12,7 @@ const config: ForgeConfig = {
     asar: true,
     appBundleId: 'com.openyojob.pos',
     name: 'Open Yojob',
+    executableName: 'open-yojob',
     extraResource: [
       // Include the built web app for production
       '../web/dist',
