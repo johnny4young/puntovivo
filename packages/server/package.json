@@ -42,8 +42,8 @@
     "prettier": "^3.4.2",
     "tinyrainbow": "^1.2.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "electron": ">=30.0.0"
