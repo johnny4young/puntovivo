@@ -301,10 +301,12 @@ npm run dev:web
 ```
 
 **Verify servers are running**:
+
 - Backend API: http://localhost:8090/api/health (should return `{"status":"ok"}`)
 - Frontend: http://localhost:3000 (should show login page)
 
 **Default Credentials**:
+
 - Email: `admin@localhost`
 - Password: `admin123`
 

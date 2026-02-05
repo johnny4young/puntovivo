@@ -201,6 +201,7 @@ export function StorageProvider({
   // Refresh count when tenant changes
   useEffect(() => {
     if (state.isInitialized && state.tenantId) {
+      // refreshPendingCount is a callback that updates state
       refreshPendingCount();
     }
   }, [state.isInitialized, state.tenantId, refreshPendingCount]);

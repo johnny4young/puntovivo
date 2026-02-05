@@ -18,7 +18,7 @@
     "@tanstack/react-virtual": "^3.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.303.0",
     "react": "^19.2.4",
@@ -26,7 +26,7 @@
     "react-hook-form": "^7.49.2",
     "react-router-dom": "~7.13.0",
     "tailwind-merge": "^3.0.0",
-    "xlsx": "^0.18.5",
+    "exceljs": "^4.4.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

@@ -126,8 +126,8 @@ export function exportToCSV<T extends Record<string, unknown>>(
 }
 
 /**
- * Export data to Excel format using xlsx library
- * Note: Requires xlsx library to be installed: npm install xlsx
+ * Export data to Excel format using ExcelJS library
+ * Note: Requires exceljs library to be installed: npm install exceljs
  */
 export async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
@@ -137,65 +137,80 @@ export async function exportToExcel<T extends Record<string, unknown>>(
 ): Promise<void> {
   const { title, includeTimestamp = true } = options;
 
-  // Dynamically import xlsx to keep bundle size small
-  const XLSX = await import('xlsx');
+  // Dynamically import exceljs to keep bundle size small
+  const ExcelJS = await import('exceljs');
 
-  // Prepare data for worksheet
-  const worksheetData: (string | number | boolean | null)[][] = [];
+  // Create a new workbook and worksheet
+  const workbook = new ExcelJS.Workbook();
+  const sheetName = title ? title.slice(0, 31) : 'Data'; // Excel limits sheet name to 31 chars
+  const worksheet = workbook.addWorksheet(sheetName);
+
+  let currentRow = 1;
 
   // Add title row if provided
   if (title) {
-    worksheetData.push([title]);
-    worksheetData.push([]); // Empty row for spacing
+    worksheet.mergeCells(currentRow, 1, currentRow, columns.length);
+    const titleCell = worksheet.getCell(currentRow, 1);
+    titleCell.value = title;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center' };
+    currentRow += 2; // Skip a row for spacing
   }
 
   // Add header row
-  worksheetData.push(columns.map(col => col.header));
+  const headerRow = worksheet.getRow(currentRow);
+  columns.forEach((col, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = col.header;
+    cell.font = { bold: true };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+  });
+  currentRow++;
 
   // Add data rows
   data.forEach(row => {
-    const rowData = columns.map(col => {
+    const dataRow = worksheet.getRow(currentRow);
+    columns.forEach((col, index) => {
       const value = getNestedValue(row, col.key);
+      let cellValue: string | number | boolean | Date | null = null;
+
       if (col.formatter) {
-        return col.formatter(value, row);
+        cellValue = col.formatter(value, row);
+      } else if (value === null || value === undefined) {
+        cellValue = null;
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        cellValue = value;
+      } else if (value instanceof Date) {
+        cellValue = value;
+      } else {
+        cellValue = String(value);
       }
-      if (value === null || value === undefined) {
-        return null;
-      }
-      if (typeof value === 'number' || typeof value === 'boolean') {
-        return value;
-      }
-      if (value instanceof Date) {
-        return value.toLocaleDateString();
-      }
-      return String(value);
+
+      dataRow.getCell(index + 1).value = cellValue;
     });
-    worksheetData.push(rowData);
+    currentRow++;
   });
 
-  // Create workbook and worksheet
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-  // Set column widths based on content
-  const colWidths = columns.map((col, _index) => {
-    let maxWidth = col.header.length;
-    data.forEach(row => {
-      const value = getNestedValue(row, col.key);
-      const formatted = formatValue(value, col, row);
-      maxWidth = Math.max(maxWidth, formatted.length);
-    });
-    return { wch: Math.min(maxWidth + 2, 50) }; // Cap at 50 characters
+  // Auto-fit columns based on content
+  worksheet.columns.forEach((column, index) => {
+    if (column) {
+      let maxLength = columns[index]?.header.length || 10;
+      data.forEach(row => {
+        const value = getNestedValue(row, columns[index]?.key || '');
+        const formatted = formatValue(value, columns[index]!, row);
+        maxLength = Math.max(maxLength, formatted.length);
+      });
+      column.width = Math.min(maxLength + 2, 50); // Cap at 50 characters
+    }
   });
-  worksheet['!cols'] = colWidths;
-
-  // Add worksheet to workbook
-  const sheetName = title ? title.slice(0, 31) : 'Data'; // Excel limits sheet name to 31 chars
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
   // Generate Excel file
-  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([excelBuffer], {
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
