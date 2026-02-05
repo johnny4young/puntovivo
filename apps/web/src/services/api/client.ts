@@ -60,17 +60,27 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     (headers as Record<string, string>)['X-Tenant-ID'] = currentTenant.id;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } catch (err) {
+    // Check if it's a network error (backend not reachable)
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      throw new Error(
+        `Cannot connect to server at ${API_URL}. Please ensure the backend server is running.`
+      );
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
 /**
