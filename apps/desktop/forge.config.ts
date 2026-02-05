@@ -15,7 +15,6 @@ const config: ForgeConfig = {
     executableName: 'open-yojob',
     icon: './resources/icon',
     extraResource: [
-      './resources/pocketbase',
       // Include the built web app for production
       '../web/dist',
     ],
