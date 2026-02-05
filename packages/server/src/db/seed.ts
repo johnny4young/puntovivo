@@ -62,7 +62,9 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
   });
 
   // Generate a cryptographically secure random password
-  const randomPassword = randomBytes(16).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
+  const randomPassword = randomBytes(16)
+    .toString('base64')
+    .replace(/[^a-zA-Z0-9]/g, '');
   const passwordHash = await argon2.hash(randomPassword);
 
   // Create admin user

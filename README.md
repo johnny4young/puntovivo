@@ -137,7 +137,8 @@ The SQLite database is stored at:
 - **Email**: `admin@localhost`
 - **Password**: `admin123`
 
-**Important:** 
+**Important:**
+
 - These credentials are publicly known and documented
 - **Change the password immediately** after first login
 - See [Security Documentation](#security) for details
@@ -338,10 +339,12 @@ A comprehensive security analysis has been performed on this codebase. Please re
 ### ⚠️ Known Security Issues
 
 **Critical:**
+
 - Default credentials (`admin@localhost / admin123`) are publicly documented
 - **Action Required:** Change password immediately after first login
 
 **High Priority:**
+
 - No rate limiting on authentication endpoints
 - React Router XSS vulnerability (CVE)
 - node-tar path traversal vulnerabilities

@@ -2,13 +2,13 @@
 
 ## Quick Stats
 
-| Category | Count |
-|----------|-------|
-| **CRITICAL** ⚠️ | 1 |
-| **HIGH** 🔴 | 4 |
-| **MEDIUM** 🟡 | 8 |
-| **LOW** 🔵 | 2 |
-| **TOTAL** | **15** |
+| Category        | Count  |
+| --------------- | ------ |
+| **CRITICAL** ⚠️ | 1      |
+| **HIGH** 🔴     | 4      |
+| **MEDIUM** 🟡   | 8      |
+| **LOW** 🔵      | 2      |
+| **TOTAL**       | **15** |
 
 ---
 
@@ -63,22 +63,26 @@ Data Security:                ██       (2)
 ## 📋 Quick Action Plan
 
 ### Week 1 (Critical)
+
 - [ ] Replace default credentials with secure random generation
 - [ ] Remove credentials from README.md
 - [ ] Implement forced password change
 
 ### Week 2 (High Priority)
+
 - [ ] Add rate limiting to auth endpoints
 - [ ] Update vulnerable dependencies (npm audit fix)
 - [ ] Fix JWT secret generation
 
 ### Month 1 (Medium Priority)
+
 - [ ] Implement password strength requirements
 - [ ] Add session invalidation on password change
 - [ ] Review and fix tenant isolation
 - [ ] Enable Electron sandbox if possible
 
 ### Ongoing
+
 - [ ] Regular dependency audits
 - [ ] Security testing
 - [ ] Implement 2FA
@@ -89,6 +93,7 @@ Data Security:                ██       (2)
 ## 📂 Files to Review
 
 ### Critical Files
+
 ```
 packages/server/src/db/seed.ts              ⚠️  Default credentials
 packages/server/src/routes/auth.ts          🔴 Authentication logic
@@ -103,6 +108,7 @@ apps/desktop/src/preload/index.ts           🟡 IPC handlers
 ## 🔧 Commands to Run
 
 ### Update Dependencies
+
 ```bash
 # Fix high severity issues
 npm audit fix
@@ -118,6 +124,7 @@ npm install @fastify/rate-limit
 ```
 
 ### Security Audit
+
 ```bash
 # Check for vulnerabilities
 npm audit

@@ -2,13 +2,14 @@
 
 **Project:** Open Yojob  
 **Date:** 2026-02-03  
-**Analysis Type:** Comprehensive Security Review  
+**Analysis Type:** Comprehensive Security Review
 
 ## Executive Summary
 
 This report documents security vulnerabilities identified in the Open Yojob POS system. The analysis covers dependency vulnerabilities, authentication/authorization issues, and application-specific security concerns.
 
 ### Severity Levels
+
 - **CRITICAL** ⚠️ - Requires immediate attention
 - **HIGH** 🔴 - Should be fixed soon
 - **MEDIUM** 🟡 - Should be addressed in upcoming releases
@@ -19,6 +20,7 @@ This report documents security vulnerabilities identified in the Open Yojob POS 
 ## 1. Dependency Vulnerabilities (HIGH 🔴)
 
 ### 1.1 React Router Open Redirect XSS (HIGH 🔴)
+
 **Package:** `@remix-run/router` <= 1.23.1  
 **Affected:** `react-router-dom@6.0.0 - 6.30.2`  
 **CVE:** GHSA-2w69-qvjg-hvjx  
@@ -28,6 +30,7 @@ This report documents security vulnerabilities identified in the Open Yojob POS 
 React Router is vulnerable to XSS via Open Redirects. An attacker could craft URLs that redirect users to malicious sites.
 
 **Remediation:**
+
 ```bash
 npm audit fix --force
 # Will update to react-router-dom@6.30.3+
@@ -38,6 +41,7 @@ npm audit fix --force
 ---
 
 ### 1.2 DOMPurify XSS Vulnerability (MEDIUM 🟡)
+
 **Package:** `dompurify` < 3.2.4  
 **Affected:** `jspdf` dependencies  
 **CVE:** GHSA-vhxf-7vqr-mrjg  
@@ -47,6 +51,7 @@ npm audit fix --force
 DOMPurify has a Cross-site Scripting (XSS) vulnerability that could allow malicious scripts to execute.
 
 **Remediation:**
+
 ```bash
 npm update dompurify@latest
 # May require updating jspdf to version 4.1.0+
@@ -57,6 +62,7 @@ npm update dompurify@latest
 ---
 
 ### 1.3 esbuild Development Server Vulnerability (MEDIUM 🟡)
+
 **Package:** `esbuild` <= 0.24.2  
 **CVE:** GHSA-67mh-4wv8-2f99  
 **Severity:** MEDIUM (Development only)
@@ -65,6 +71,7 @@ npm update dompurify@latest
 esbuild enables any website to send requests to the development server and read responses.
 
 **Remediation:**
+
 ```bash
 npm update esbuild@latest
 npm update vite@latest
@@ -76,17 +83,20 @@ npm update drizzle-kit@latest
 ---
 
 ### 1.4 node-tar Path Traversal Vulnerabilities (HIGH 🔴)
+
 **Package:** `tar` <= 7.5.6  
-**CVEs:** 
+**CVEs:**
+
 - GHSA-8qq5-rm4j-mr97 (Arbitrary File Overwrite)
 - GHSA-r6q2-hw4h-h46w (Race Condition)
 - GHSA-34x7-hfp2-rc4v (Hardlink Path Traversal)  
-**Severity:** HIGH
+  **Severity:** HIGH
 
 **Description:**  
 Multiple path traversal vulnerabilities in node-tar that could allow arbitrary file creation/overwrite.
 
 **Remediation:**
+
 ```bash
 npm update tar@latest
 # May require updating @electron-forge packages
@@ -108,18 +118,20 @@ The application uses weak, hardcoded default credentials that are documented in 
 ```typescript
 export const DEFAULT_ADMIN = {
   email: 'admin@localhost',
-  password: 'admin123',  // ⚠️ WEAK PASSWORD
+  password: 'admin123', // ⚠️ WEAK PASSWORD
   name: 'Administrator',
 };
 ```
 
 These credentials are also documented in:
+
 - `README.md` (line 133-135)
 - Database seed logs (printed to console)
 
 **Severity:** CRITICAL ⚠️
 
 **Vulnerabilities:**
+
 1. Weak password that can be easily guessed
 2. Well-known credentials documented publicly
 3. No forced password change on first login
@@ -134,19 +146,20 @@ These credentials are also documented in:
    - Add warning banner for default installations
 
 2. **Code Changes:**
+
 ```typescript
 // Generate secure random password
 import { randomBytes } from 'crypto';
 
 export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
   // ... existing code ...
-  
+
   // Generate a secure random password
   const randomPassword = randomBytes(16).toString('base64');
-  
+
   // Hash the password
   const passwordHash = await argon2.hash(randomPassword);
-  
+
   // Create admin user with requirePasswordChange flag
   await db.insert(users).values({
     id: userId,
@@ -156,11 +169,11 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
     passwordHash: passwordHash,
     role: 'admin',
     isActive: true,
-    requirePasswordChange: true,  // Add this field to schema
+    requirePasswordChange: true, // Add this field to schema
     createdAt: now,
     updatedAt: now,
   });
-  
+
   // Log the password securely (only during initial setup)
   console.log('[Database] ⚠️  IMPORTANT: Save these credentials!');
   console.log(`[Database] Email: ${DEFAULT_ADMIN.email}`);
@@ -185,7 +198,7 @@ function generateSecret(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < 64; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));  // ⚠️ NOT CRYPTOGRAPHICALLY SECURE
+    result += chars.charAt(Math.floor(Math.random() * chars.length)); // ⚠️ NOT CRYPTOGRAPHICALLY SECURE
   }
   return result;
 }
@@ -194,6 +207,7 @@ function generateSecret(): string {
 **Severity:** MEDIUM 🟡
 
 **Remediation:**
+
 ```typescript
 import { randomBytes } from 'crypto';
 
@@ -216,7 +230,9 @@ The login endpoint has no rate limiting, allowing unlimited login attempts:
 
 ```typescript
 app.post<{ Body: LoginBody }>('/login', {
-  schema: { /* ... */ },
+  schema: {
+    /* ... */
+  },
   handler: async (request, reply) => {
     // No rate limiting implemented
     const { email, password } = request.body;
@@ -228,6 +244,7 @@ app.post<{ Body: LoginBody }>('/login', {
 **Severity:** HIGH 🔴
 
 **Vulnerabilities:**
+
 1. Brute force attacks possible
 2. Credential stuffing attacks possible
 3. No account lockout mechanism
@@ -236,33 +253,35 @@ app.post<{ Body: LoginBody }>('/login', {
 **Remediation:**
 
 Install rate limiting package:
+
 ```bash
 npm install @fastify/rate-limit
 ```
 
 Implement rate limiting:
+
 ```typescript
 import rateLimit from '@fastify/rate-limit';
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Register rate limiter for auth routes
   await app.register(rateLimit, {
-    max: 5,  // 5 attempts
+    max: 5, // 5 attempts
     timeWindow: '15 minutes',
     errorResponseBuilder: function (request, context) {
       return {
         error: 'Too Many Requests',
         message: `Too many login attempts. Please try again in ${Math.ceil(context.ttl / 1000 / 60)} minutes.`,
       };
-    }
+    },
   });
 
   app.post<{ Body: LoginBody }>('/login', {
     config: {
       rateLimit: {
         max: 5,
-        timeWindow: '15 minutes'
-      }
+        timeWindow: '15 minutes',
+      },
     },
     // ... rest of handler
   });
@@ -289,10 +308,11 @@ newPassword: { type: 'string', minLength: 6 },  // ⚠️ Too weak
 **Remediation:**
 
 Add password validation:
+
 ```typescript
 function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (password.length < 12) {
     errors.push('Password must be at least 12 characters');
   }
@@ -308,19 +328,19 @@ function validatePasswordStrength(password: string): { valid: boolean; errors: s
   if (!/[^A-Za-z0-9]/.test(password)) {
     errors.push('Password must contain at least one special character');
   }
-  
+
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
 // In the handler
 const validation = validatePasswordStrength(newPassword);
 if (!validation.valid) {
-  return reply.status(400).send({ 
+  return reply.status(400).send({
     error: 'Weak password',
-    details: validation.errors 
+    details: validation.errors,
   });
 }
 ```
@@ -341,6 +361,7 @@ When a user changes their password, existing JWT tokens remain valid. There's no
 **Remediation:**
 
 Option 1: Add token version to user record:
+
 ```typescript
 // Update user schema to include tokenVersion
 // Increment on password change
@@ -348,7 +369,7 @@ await app.db
   .update(users)
   .set({
     passwordHash: newPasswordHash,
-    tokenVersion: (user.tokenVersion || 0) + 1,  // Invalidate old tokens
+    tokenVersion: (user.tokenVersion || 0) + 1, // Invalidate old tokens
     updatedAt: new Date().toISOString(),
   })
   .where(eq(users.id, payload.userId));
@@ -393,13 +414,14 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection) && request.tenantId) {
 **Severity:** MEDIUM 🟡
 
 **Remediation:**
+
 ```typescript
 // Make tenant isolation mandatory for protected collections
 if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
   if (!request.tenantId) {
-    return reply.status(403).send({ 
+    return reply.status(403).send({
       error: 'Forbidden',
-      message: 'Tenant context required' 
+      message: 'Tenant context required',
     });
   }
   query = query.where(eq(table.tenantId, request.tenantId));
@@ -452,6 +474,7 @@ The application correctly uses context isolation and disables node integration.
 **Location:** `apps/desktop/src/main/index.ts:36`
 
 **Description:**
+
 ```typescript
 sandbox: false,  // ⚠️ Sandbox is disabled
 ```
@@ -460,6 +483,7 @@ sandbox: false,  // ⚠️ Sandbox is disabled
 
 **Recommendation:**  
 Enable sandbox mode if possible:
+
 ```typescript
 sandbox: true,
 ```
@@ -488,11 +512,13 @@ const dbAPI: DatabaseAPI = {
 
 **Issue:**  
 These handlers are declared but never implemented, which could lead to:
+
 1. Runtime errors when called
 2. Security bypass if hastily implemented without proper validation
 
 **Remediation:**  
 Either:
+
 1. Remove unused IPC handlers from preload script
 2. Implement handlers with proper input validation and tenant isolation
 
