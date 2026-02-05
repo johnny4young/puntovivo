@@ -3,24 +3,23 @@
  *
  * Seeds the database with default data including:
  * - Default tenant
- * - Admin user (admin@localhost / admin123)
+ * - Admin user with secure random password
  *
  * @module db/seed
  */
 
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { randomBytes } from 'crypto';
 import * as argon2 from 'argon2';
 import type { DatabaseInstance } from './index.js';
 import { tenants, users } from './schema.js';
 
 /**
- * Default admin credentials
- * IMPORTANT: Change these on first login in production!
+ * Default admin email
  */
 export const DEFAULT_ADMIN = {
   email: 'admin@localhost',
-  password: 'admin123',
   name: 'Administrator',
 };
 
@@ -62,8 +61,11 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
     updatedAt: now,
   });
 
-  // Hash the default password
-  const passwordHash = await argon2.hash(DEFAULT_ADMIN.password);
+  // Generate a cryptographically secure random password
+  const randomPassword = randomBytes(16)
+    .toString('base64')
+    .replace(/[^a-zA-Z0-9]/g, '');
+  const passwordHash = await argon2.hash(randomPassword);
 
   // Create admin user
   await db.insert(users).values({
@@ -79,6 +81,13 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
   });
 
   console.log('[Database] Default data seeded successfully');
-  console.log(`[Database] Admin user: ${DEFAULT_ADMIN.email} / ${DEFAULT_ADMIN.password}`);
-  console.log('[Database] ⚠️  Please change the default password after first login!');
+  console.log('[Database] ═══════════════════════════════════════════════════════════');
+  console.log('[Database] ⚠️  IMPORTANT: Save these admin credentials securely!');
+  console.log('[Database] ═══════════════════════════════════════════════════════════');
+  console.log(`[Database] Email:    ${DEFAULT_ADMIN.email}`);
+  console.log(`[Database] Password: ${randomPassword}`);
+  console.log('[Database] ═══════════════════════════════════════════════════════════');
+  console.log('[Database] ⚠️  This password will NOT be shown again!');
+  console.log('[Database] ⚠️  Please change it immediately after first login.');
+  console.log('[Database] ═══════════════════════════════════════════════════════════');
 }
