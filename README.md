@@ -106,18 +106,50 @@ cd open_yojob
 
 # Install dependencies
 npm install
+
+# Optional: Verify your setup
+./scripts/check-setup.sh
 ```
 
 ### Development
 
+#### Option 1: Desktop App (Electron - Recommended)
+
 ```bash
-# Start Electron app in development mode
+# Start Electron app in development mode (includes embedded server)
 npm run dev
 
 # Or from the desktop directory
 cd apps/desktop && npm start
+```
 
-# Run server standalone (for debugging)
+The desktop app runs both the frontend and backend server embedded in Electron.
+
+#### Option 2: Web App (Browser-based)
+
+For web development, you need **both** the backend server and frontend server running:
+
+```bash
+# Option A: Run both servers with one command (recommended)
+npm run dev:fullstack
+
+# Option B: Run servers separately in different terminals
+
+# Terminal 1 - Backend Server (port 8090)
+npm run dev:server
+
+# Terminal 2 - Frontend Server (port 3000)
+npm run dev:web
+```
+
+Then open http://localhost:3000 in your browser.
+
+**Important**: The web app requires the backend server on port 8090 to be running. If you see connection errors, make sure both servers are running.
+
+#### Standalone Server (for debugging)
+
+```bash
+# Run server standalone
 cd packages/server && npm run dev
 ```
 
@@ -176,6 +208,16 @@ AUTO_UPDATE=false npm run start
 
 ## Documentation
 
+### Login & Authentication Guide
+
+See **[docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md)** for complete login system documentation including:
+
+- How login works (architecture & flow)
+- Running the application (desktop vs web)
+- Troubleshooting login issues
+- Default credentials and security
+- API endpoints and testing
+
 ### Architecture Guide
 
 See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documentation including:
@@ -225,6 +267,48 @@ go run . migrate --source /path/to/POSSolutions.db
 | `SERVER_PORT`          | Backend server port         | `8090`   |
 
 ## Troubleshooting
+
+### Login System Issues
+
+If you're experiencing login problems, follow these steps:
+
+#### For Web App Users
+
+**Problem**: Login button doesn't work or shows connection errors
+
+**Solution**: Ensure both servers are running:
+
+```bash
+# Run both servers together (recommended)
+npm run dev:fullstack
+
+# OR run them separately in two terminals:
+# Terminal 1:
+npm run dev:server
+
+# Terminal 2:
+npm run dev:web
+```
+
+**Verify servers are running**:
+- Backend API: http://localhost:8090/api/health (should return `{"status":"ok"}`)
+- Frontend: http://localhost:3000 (should show login page)
+
+**Default Credentials**:
+- Email: `admin@localhost`
+- Password: `admin123`
+
+#### For Desktop App Users
+
+**Problem**: Desktop app won't start or crashes
+
+**Solution**: The desktop app includes an embedded server. Make sure you:
+
+1. Run `npm install` first
+2. Rebuild native modules: `npx electron-rebuild -m apps/desktop`
+3. Start the app: `npm run dev`
+
+**Check logs**: Look for error messages in the console where you ran `npm run dev`.
 
 ### Native Module Errors (electron-rebuild)
 
