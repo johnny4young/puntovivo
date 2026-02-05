@@ -13,7 +13,6 @@ const config: ForgeConfig = {
     appBundleId: 'com.openyojob.pos',
     name: 'Open Yojob',
     executableName: 'open-yojob',
-    icon: './resources/icon',
     extraResource: [
       // Include the built web app for production
       '../web/dist',
@@ -26,23 +25,18 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: 'OpenYojob',
-      setupIcon: './resources/icon.ico',
-      iconUrl:
-        'https://raw.githubusercontent.com/johnny4young/open_yojob/main/apps/desktop/resources/icon.ico',
     }),
     new MakerZIP({}, ['darwin']),
     new MakerDeb({
       options: {
         maintainer: 'Open Yojob',
         homepage: 'https://github.com/johnny4young/open_yojob',
-        icon: './resources/icon.png',
         categories: ['Office'],
       },
     }),
     new MakerRpm({
       options: {
         homepage: 'https://github.com/johnny4young/open_yojob',
-        icon: './resources/icon.png',
         categories: ['Office'],
       },
     }),
