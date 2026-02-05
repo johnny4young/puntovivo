@@ -106,14 +106,12 @@ export function useOfflineSync() {
 
 // Hook to check if offline mode is available
 export function useOfflineCapability() {
-  const [hasCapability, setHasCapability] = useState(false);
-
-  useEffect(() => {
-    // Check for Electron API or IndexedDB support
+  // Check for Electron API or IndexedDB support on first render
+  const [hasCapability] = useState(() => {
     const isElectron = typeof window !== 'undefined' && !!window.api;
     const hasIndexedDB = typeof indexedDB !== 'undefined';
-    setHasCapability(Boolean(isElectron) || hasIndexedDB);
-  }, []);
+    return Boolean(isElectron) || hasIndexedDB;
+  });
 
   return hasCapability;
 }

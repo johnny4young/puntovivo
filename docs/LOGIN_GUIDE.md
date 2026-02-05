@@ -51,6 +51,7 @@ npm run dev
 ```
 
 **What it does**:
+
 - Starts Electron app
 - Automatically starts embedded Fastify server
 - Opens the login screen
@@ -66,6 +67,7 @@ npm run dev:fullstack
 ```
 
 This starts:
+
 - Backend server on http://localhost:8090
 - Frontend server on http://localhost:3000
 
@@ -77,7 +79,7 @@ Then open http://localhost:3000 in your browser.
 # Terminal 1 - Backend
 npm run dev:server
 
-# Terminal 2 - Frontend  
+# Terminal 2 - Frontend
 npm run dev:web
 ```
 
@@ -90,6 +92,7 @@ npm run dev:web
 **Cause**: Backend server is not running
 
 **Solution**:
+
 ```bash
 # For web app, run both servers:
 npm run dev:fullstack
@@ -104,6 +107,7 @@ curl http://localhost:8090/api/health
 **Symptoms**: Login form shows "Email or password is incorrect"
 
 **Possible causes**:
+
 1. Incorrect email or password
 2. User account is disabled
 3. Database is not seeded
@@ -115,19 +119,21 @@ curl http://localhost:8090/api/health
    - Password: `admin123`
 
 2. **Verify database is seeded**:
+
    ```bash
    # Check server logs when it starts
    # You should see: "[Database] Default data seeded successfully"
    ```
 
 3. **Reset database** (if needed):
+
    ```bash
    # For desktop app:
    # Delete the database file and restart
    # - macOS: ~/Library/Application Support/open-yojob/data/local.db
-   # - Windows: %APPDATA%\open-yojob\data\local.db  
+   # - Windows: %APPDATA%\open-yojob\data\local.db
    # - Linux: ~/.config/open-yojob/data/local.db
-   
+
    # For web/standalone server:
    rm packages/server/data/local.db
    npm run dev:server  # Will recreate with default admin
@@ -140,6 +146,7 @@ curl http://localhost:8090/api/health
 **Cause**: Native modules (like better-sqlite3) not compiled for Electron
 
 **Solution**:
+
 ```bash
 # Rebuild native modules for Electron
 npx electron-rebuild -m apps/desktop
@@ -155,6 +162,7 @@ npm run dev
 **Status**: This should NOT happen - the email validation regex accepts addresses without TLDs.
 
 **If it does happen**:
+
 1. Check browser console for JavaScript errors
 2. Verify you're using the latest code
 3. Try a different email format: `admin@example.com` (you'll need to create this user in the database)
@@ -168,6 +176,7 @@ Use the built-in verification script to check your setup:
 ```
 
 This checks:
+
 - Node.js and npm versions
 - Dependencies installation
 - Backend server status (port 8090)
@@ -177,6 +186,7 @@ This checks:
 ## API Endpoints
 
 ### Login
+
 ```
 POST /api/auth/login
 Body: { "email": "admin@localhost", "password": "admin123" }
@@ -184,6 +194,7 @@ Response: { "token": "...", "user": {...}, "tenant": {...} }
 ```
 
 ### Get Current User
+
 ```
 GET /api/auth/me
 Headers: Authorization: Bearer <token>
@@ -191,6 +202,7 @@ Response: { "user": {...}, "tenant": {...} }
 ```
 
 ### Logout
+
 ```
 POST /api/auth/logout
 Response: { "success": true }
@@ -198,6 +210,7 @@ Note: Token is cleared client-side in localStorage
 ```
 
 ### Change Password
+
 ```
 PUT /api/auth/password
 Headers: Authorization: Bearer <token>
@@ -236,7 +249,7 @@ curl http://localhost:8090/api/auth/me \
 const response = await fetch('http://localhost:8090/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'admin@localhost', password: 'admin123' })
+  body: JSON.stringify({ email: 'admin@localhost', password: 'admin123' }),
 });
 const data = await response.json();
 console.log('Token:', data.token);
@@ -258,6 +271,7 @@ A: Not currently implemented. You'd need to add OAuth providers to the backend.
 
 **Q: Is the login secure?**
 A: Yes, for local/internal use:
+
 - Passwords hashed with Argon2
 - JWT tokens for sessions
 - HTTPS recommended for production

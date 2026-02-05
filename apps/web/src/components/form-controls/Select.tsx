@@ -147,7 +147,10 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
 
     // Reset highlighted index when search changes
     useEffect(() => {
-      setHighlightedIndex(0);
+      // Reset index when search term changes to show first result
+      if (searchTerm !== '') {
+        setHighlightedIndex(0);
+      }
     }, [searchTerm]);
 
     // Scroll highlighted option into view
