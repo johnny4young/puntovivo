@@ -11,18 +11,22 @@
 ### 1. ✅ Fixed Weak Default Credentials (CRITICAL)
 
 **Before:**
+
 ```typescript
 export const DEFAULT_ADMIN = {
   email: 'admin@localhost',
-  password: 'admin123',  // Hardcoded, publicly known
+  password: 'admin123', // Hardcoded, publicly known
   name: 'Administrator',
 };
 ```
 
 **After:**
+
 ```typescript
 // Generate cryptographically secure random password
-const randomPassword = randomBytes(16).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
+const randomPassword = randomBytes(16)
+  .toString('base64')
+  .replace(/[^a-zA-Z0-9]/g, '');
 const passwordHash = await argon2.hash(randomPassword);
 
 // Password shown once in console with clear warnings
@@ -37,23 +41,25 @@ console.log('[Database] ⚠️  This password will NOT be shown again!');
 ### 2. ✅ Fixed Weak JWT Secret Generation (HIGH)
 
 **Before:**
+
 ```typescript
 function generateSecret(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < 64; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));  // NOT cryptographically secure
+    result += chars.charAt(Math.floor(Math.random() * chars.length)); // NOT cryptographically secure
   }
   return result;
 }
 ```
 
 **After:**
+
 ```typescript
 import { randomBytes } from 'crypto';
 
 function generateSecret(): string {
-  return randomBytes(32).toString('base64');  // Cryptographically secure
+  return randomBytes(32).toString('base64'); // Cryptographically secure
 }
 ```
 
@@ -64,6 +70,7 @@ function generateSecret(): string {
 ### 3. ✅ Added Rate Limiting to Authentication (HIGH)
 
 **Added:**
+
 ```typescript
 // In server/src/index.ts
 await app.register(rateLimit.default, {
@@ -76,7 +83,7 @@ await app.register(rateLimit.default, {
 app.post<{ Body: LoginBody }>('/login', {
   config: {
     rateLimit: {
-      max: 5,  // 5 attempts
+      max: 5, // 5 attempts
       timeWindow: '15 minutes',
     },
   },
@@ -91,21 +98,23 @@ app.post<{ Body: LoginBody }>('/login', {
 ### 4. ✅ Strengthened Password Policy (MEDIUM)
 
 **Added Password Validation:**
+
 ```typescript
 function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (password.length < 12) errors.push('Password must be at least 12 characters');
   if (!/[A-Z]/.test(password)) errors.push('Must contain uppercase letter');
   if (!/[a-z]/.test(password)) errors.push('Must contain lowercase letter');
   if (!/[0-9]/.test(password)) errors.push('Must contain number');
   if (!/[^A-Za-z0-9]/.test(password)) errors.push('Must contain special character');
-  
+
   return { valid: errors.length === 0, errors };
 }
 ```
 
 **Updated Schema:**
+
 ```typescript
 newPassword: { type: 'string', minLength: 12 },  // Was 6
 ```
@@ -117,6 +126,7 @@ newPassword: { type: 'string', minLength: 12 },  // Was 6
 ### 5. ✅ Improved Tenant Isolation (MEDIUM)
 
 **Before:**
+
 ```typescript
 // Optional tenant check
 if (TENANT_ISOLATED_COLLECTIONS.includes(collection) && request.tenantId) {
@@ -125,6 +135,7 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection) && request.tenantId) {
 ```
 
 **After:**
+
 ```typescript
 // Mandatory tenant check
 if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
@@ -145,9 +156,11 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
 ## Dependency Updates
 
 **Added:**
+
 - `@fastify/rate-limit@^10.3.0` - For authentication rate limiting
 
 **Ran:**
+
 - `npm audit fix` - Fixed non-breaking vulnerabilities
 
 ---
@@ -157,6 +170,7 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
 **Status:** 32/34 tests passing (94%)
 
 **Passing Tests:**
+
 - ✅ Authentication (login, logout, me endpoint)
 - ✅ Collections CRUD operations
 - ✅ Sync operations
@@ -165,6 +179,7 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
 - ✅ Tenant isolation
 
 **Failing Tests (Non-Critical):**
+
 - ⚠️ POST /api/auth/refresh (401) - Token refresh in test suite
 - ⚠️ PUT /api/auth/password (401) - Password change in test suite
 
@@ -187,6 +202,7 @@ if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
 ## README Updates
 
 The main README.md now includes:
+
 - ⚠️ Security warning on default credentials
 - Link to security documentation
 - Warning to change password immediately after first login
@@ -196,28 +212,31 @@ The main README.md now includes:
 ## Remaining Issues
 
 ### High Priority (Require Breaking Changes)
+
 - React Router XSS (GHSA-2w69-qvjg-hvjx) - Requires updating to react-router-dom@6.30.3+
 - node-tar vulnerabilities - Requires updating @electron-forge packages
 - DOMPurify XSS - Requires updating jspdf
 
 ### Medium Priority
+
 - Session invalidation on password change - Requires schema update (add tokenVersion field)
 - esbuild vulnerability - Development only, update when convenient
 
 ### Recommendation
+
 Address remaining HIGH priority dependency CVEs in a separate PR to avoid breaking changes mixed with security fixes.
 
 ---
 
 ## Security Posture Improvement
 
-| Issue | Before | After |
-|-------|--------|-------|
+| Issue               | Before                       | After                               |
+| ------------------- | ---------------------------- | ----------------------------------- |
 | Default credentials | ⚠️ CRITICAL - Publicly known | ✅ FIXED - Cryptographically random |
-| JWT secret | 🔴 HIGH - Predictable | ✅ FIXED - Crypto secure |
-| Rate limiting | 🔴 HIGH - Unlimited attempts | ✅ FIXED - 5 per 15 min |
-| Password policy | 🟡 MEDIUM - 6 chars min | ✅ FIXED - 12+ with complexity |
-| Tenant isolation | 🟡 MEDIUM - Optional | ✅ FIXED - Mandatory |
+| JWT secret          | 🔴 HIGH - Predictable        | ✅ FIXED - Crypto secure            |
+| Rate limiting       | 🔴 HIGH - Unlimited attempts | ✅ FIXED - 5 per 15 min             |
+| Password policy     | 🟡 MEDIUM - 6 chars min      | ✅ FIXED - 12+ with complexity      |
+| Tenant isolation    | 🟡 MEDIUM - Optional         | ✅ FIXED - Mandatory                |
 
 **Overall:** Moved from CRITICAL risk to MEDIUM risk. Remaining issues are mostly dependency updates.
 
