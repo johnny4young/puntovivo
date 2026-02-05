@@ -65,7 +65,7 @@ describe('Auth Routes', () => {
         url: '/api/auth/login',
         payload: {
           email: 'test@example.com',
-          password: 'TestPassword123!',
+          password: 'testpassword123',
         },
       });
 
@@ -125,7 +125,7 @@ describe('Auth Routes', () => {
         url: '/api/auth/login',
         payload: {
           email: 'test@example.com',
-          password: 'TestPassword123!',
+          password: 'testpassword123',
         },
       });
       const body = JSON.parse(response.body);
@@ -178,7 +178,7 @@ describe('Auth Routes', () => {
         url: '/api/auth/login',
         payload: {
           email: 'test@example.com',
-          password: 'TestPassword123!',
+          password: 'testpassword123',
         },
       });
       const body = JSON.parse(response.body);
@@ -213,7 +213,7 @@ describe('Auth Routes', () => {
         url: '/api/auth/login',
         payload: {
           email: 'test@example.com',
-          password: 'TestPassword123!',
+          password: 'testpassword123',
         },
       });
       const body = JSON.parse(response.body);
@@ -228,7 +228,7 @@ describe('Auth Routes', () => {
           Authorization: `Bearer ${authToken}`,
         },
         payload: {
-          currentPassword: 'TestPassword123!',
+          currentPassword: 'testpassword123',
           newPassword: 'NewPassword456!',
         },
       });
@@ -248,7 +248,7 @@ describe('Auth Routes', () => {
 
       // Reset password for other tests
       const db = getDatabase();
-      const passwordHash = await hash('TestPassword123!');
+      const passwordHash = await hash('testpassword123');
       await db.update(users).set({ passwordHash }).where(eq(users.id, testUserId));
     });
 
@@ -278,7 +278,7 @@ describe('Auth Routes', () => {
         url: '/api/auth/login',
         payload: {
           email: 'test@example.com',
-          password: 'TestPassword123!',
+          password: 'testpassword123',
         },
       });
       const body = JSON.parse(response.body);

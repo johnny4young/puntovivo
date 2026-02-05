@@ -7,6 +7,7 @@
  * @module server
  */
 
+import { randomBytes } from 'crypto';
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -97,6 +98,14 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     },
   });
 
+  // Register rate limiting (must be registered before routes that use it)
+  const rateLimit = await import('@fastify/rate-limit');
+  await app.register(rateLimit.default, {
+    global: false, // Don't apply to all routes
+    max: 100, // Default max for other routes
+    timeWindow: '1 minute',
+  });
+
   // Register SSE plugin
   await app.register(ssePlugin);
 
@@ -145,15 +154,11 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
 }
 
 /**
- * Generate a random JWT secret
+ * Generate a cryptographically secure random JWT secret
  */
 function generateSecret(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 64; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  // Use crypto.randomBytes for cryptographically secure random generation
+  return randomBytes(32).toString('base64');
 }
 
 // Type augmentations for Fastify
