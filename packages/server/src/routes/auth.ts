@@ -29,12 +29,47 @@ interface TokenPayload {
   role: string;
 }
 
+/**
+ * Validate password strength
+ */
+function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 12) {
+    errors.push('Password must be at least 12 characters');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    errors.push('Password must contain at least one special character');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/auth/login
    * Authenticate user with email and password
+   * Rate limited to 5 attempts per 15 minutes
    */
   app.post<{ Body: LoginBody }>('/login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+      },
+    },
     schema: {
       body: {
         type: 'object',
@@ -205,13 +240,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         required: ['currentPassword', 'newPassword'],
         properties: {
           currentPassword: { type: 'string', minLength: 1 },
-          newPassword: { type: 'string', minLength: 6 },
+          newPassword: { type: 'string', minLength: 12 }, // Updated to 12 chars minimum
         },
       },
     },
     handler: async (request, reply) => {
       const payload = request.user as TokenPayload;
       const { currentPassword, newPassword } = request.body;
+
+      // Validate password strength
+      const validation = validatePasswordStrength(newPassword);
+      if (!validation.valid) {
+        return reply.status(400).send({
+          error: 'Weak password',
+          message: 'Password does not meet security requirements',
+          details: validation.errors,
+        });
+      }
 
       // Get user
       const user = await app.db.select().from(users).where(eq(users.id, payload.userId)).get();

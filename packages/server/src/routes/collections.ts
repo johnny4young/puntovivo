@@ -102,8 +102,14 @@ export async function collectionsRoutes(app: FastifyInstance): Promise<void> {
       // Build query with tenant isolation
       let query = app.db.select().from(table);
 
-      // Apply tenant filter for isolated collections
-      if (TENANT_ISOLATED_COLLECTIONS.includes(collection) && request.tenantId) {
+      // Apply tenant filter for isolated collections (mandatory)
+      if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
+        if (!request.tenantId) {
+          return reply.status(403).send({
+            error: 'Forbidden',
+            message: 'Tenant context required for this operation',
+          });
+        }
         // @ts-ignore - Dynamic table access
         query = query.where(eq(table.tenantId, request.tenantId));
       }
@@ -156,20 +162,32 @@ export async function collectionsRoutes(app: FastifyInstance): Promise<void> {
     const table = COLLECTIONS[collection];
 
     try {
-      // @ts-ignore - Dynamic table access
-      let query = app.db.select().from(table).where(eq(table.id, id));
-
-      // Apply tenant filter for isolated collections
-      if (TENANT_ISOLATED_COLLECTIONS.includes(collection) && request.tenantId) {
+      // Apply tenant filter for isolated collections (mandatory)
+      if (TENANT_ISOLATED_COLLECTIONS.includes(collection)) {
+        if (!request.tenantId) {
+          return reply.status(403).send({
+            error: 'Forbidden',
+            message: 'Tenant context required for this operation',
+          });
+        }
         // @ts-ignore - Dynamic table access
-        query = app.db
+        const item = await app.db
           .select()
           .from(table)
           // @ts-ignore - Dynamic table access
-          .where(and(eq(table.id, id), eq(table.tenantId, request.tenantId)));
+          .where(and(eq(table.id, id), eq(table.tenantId, request.tenantId)))
+          .get();
+
+        if (!item) {
+          return reply.status(404).send({ error: 'Item not found' });
+        }
+
+        return item;
       }
 
-      const item = await query.get();
+      // For non-isolated collections
+      // @ts-ignore - Dynamic table access
+      const item = await app.db.select().from(table).where(eq(table.id, id)).get();
 
       if (!item) {
         return reply.status(404).send({ error: 'Item not found' });
