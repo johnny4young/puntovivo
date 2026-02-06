@@ -1,258 +1,258 @@
-# Plan de Implementación tRPC para Open Yojob
+# tRPC Implementation Plan for Open Yojob
 
-## Introducción
+## Introduction
 
-Este documento detalla el plan paso a paso para integrar tRPC en el proyecto Open Yojob, basado en el análisis positivo realizado. La implementación se dividirá en fases incrementales para minimizar riesgos y permitir validación continua.
+This document details the step-by-step plan for integrating tRPC into the Open Yojob project, based on the positive analysis conducted. The implementation will be divided into incremental phases to minimize risks and allow for continuous validation.
 
 ---
 
-## Resumen del Plan
+## Plan Summary
 
-| Fase | Duración | Objetivo | Riesgo |
+| Phase | Duration | Objective | Risk |
 |------|----------|----------|--------|
-| Fase 1: Configuración Base | 2-3 días | Setup de tRPC y PoC mínimo | Bajo |
-| Fase 2: Migración Colección Piloto | 3-4 días | Productos migrados completamente | Medio |
-| Fase 3: Migración Colecciones Restantes | 1-2 semanas | Todas las colecciones | Bajo |
-| Fase 4: Optimización y Limpieza | 3-4 días | Remover código legacy | Bajo |
+| Phase 1: Base Setup | 2-3 days | tRPC setup and minimal PoC | Low |
+| Phase 2: Pilot Collection Migration | 3-4 days | Products fully migrated | Medium |
+| Phase 3: Remaining Collections | 1-2 weeks | All collections | Low |
+| Phase 4: Optimization and Cleanup | 3-4 days | Remove legacy code | Low |
 
-**Tiempo Total Estimado**: 3-4 semanas
+**Total Estimated Time**: 3-4 weeks
 
 ---
 
-## Fase 1: Configuración Base (2-3 días)
+## Phase 1: Base Setup (2-3 days)
 
-### Objetivo
-Configurar la infraestructura base de tRPC sin afectar el código existente.
+### Objective
+Configure the base tRPC infrastructure without affecting existing code.
 
-### Tareas
+### Tasks
 
-#### 1.1 Instalar Dependencias
+#### 1.1 Install Dependencies
 
 ```bash
-# En el paquete server
+# In the server package
 cd packages/server
 npm install @trpc/server zod
 
-# En la aplicación web
+# In the web application
 cd ../../apps/web
 npm install @trpc/client @trpc/react-query @trpc/server
 ```
 
-#### 1.2 Crear Estructura de Carpetas
+#### 1.2 Create Folder Structure
 
 ```bash
-# En packages/server/src/
-mkdir -p api-trpc/{middleware,dominios,utilidades}
+# In packages/server/src/
+mkdir -p trpc/{middleware,routers,utils}
 
-# Estructura resultante:
-# packages/server/src/api-trpc/
-# ├── inicializador.ts          # Inicialización base de tRPC
-# ├── contexto-peticion.ts      # Context con DB, usuario, tenant
-# ├── enrutador-raiz.ts          # Router principal que combina todos
+# Resulting structure:
+# packages/server/src/trpc/
+# ├── init.ts                # Base tRPC initialization
+# ├── context.ts             # Context with DB, user, tenant
+# ├── router.ts              # Main router that combines all
 # ├── middleware/
-# │   ├── autenticacion.ts      # Verificación de JWT
-# │   └── tenant-guard.ts       # Aislamiento por tenant
-# ├── dominios/
-# │   └── (vacío por ahora)
-# └── utilidades/
-#     └── esquemas-comunes.ts   # Schemas Zod reutilizables
+# │   ├── auth.ts            # JWT verification
+# │   └── tenant.ts          # Tenant isolation
+# ├── routers/
+# │   └── (empty for now)
+# └── utils/
+#     └── common-schemas.ts  # Reusable Zod schemas
 ```
 
-#### 1.3 Configurar Inicializador tRPC Base
+#### 1.3 Configure Base tRPC Initializer
 
-Crear `packages/server/src/api-trpc/inicializador.ts`:
+Create `packages/server/src/trpc/init.ts`:
 
 ```typescript
 import { initTRPC } from '@trpc/server';
-import type { ContextoPeticion } from './contexto-peticion.js';
+import type { Context } from './context.js';
 
-const configuradorTRPC = initTRPC.context<ContextoPeticion>().create({
+const t = initTRPC.context<Context>().create({
   errorFormatter({ shape, error }) {
     return {
       ...shape,
       data: {
         ...shape.data,
-        codigoError: error.code,
+        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
     };
   },
 });
 
-export const enrutador = configuradorTRPC.router;
-export const procedimientoPublico = configuradorTRPC.procedure;
-export const middleware = configuradorTRPC.middleware;
+export const router = t.router;
+export const publicProcedure = t.procedure;
+export const middleware = t.middleware;
 ```
 
-#### 1.4 Configurar Contexto de Petición
+#### 1.4 Configure Request Context
 
-Crear `packages/server/src/api-trpc/contexto-peticion.ts`:
+Create `packages/server/src/trpc/context.ts`:
 
 ```typescript
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { DatabaseInstance } from '../db/index.js';
 
-export interface ContextoPeticion {
-  solicitud: FastifyRequest;
-  respuesta: FastifyReply;
-  baseDatos: DatabaseInstance;
-  usuarioActual: {
+export interface Context {
+  req: FastifyRequest;
+  res: FastifyReply;
+  db: DatabaseInstance;
+  user: {
     id: string;
     email: string;
-    rol: string;
-    idTenant: string;
+    role: string;
+    tenantId: string;
   } | null;
-  idTenant: string | null;
+  tenantId: string | null;
 }
 
-export async function crearContextoPeticion({
+export async function createContext({
   req,
   res,
 }: {
   req: FastifyRequest;
   res: FastifyReply;
-}): Promise<ContextoPeticion> {
-  let usuarioActual = null;
-  let idTenant = null;
+}): Promise<Context> {
+  let user = null;
+  let tenantId = null;
 
-  // Intentar extraer usuario del JWT si existe
+  // Try to extract user from JWT if it exists
   try {
     await req.jwtVerify();
     const payload = req.user as any;
-    usuarioActual = {
+    user = {
       id: payload.userId,
       email: payload.email,
-      rol: payload.role,
-      idTenant: payload.tenantId,
+      role: payload.role,
+      tenantId: payload.tenantId,
     };
-    idTenant = payload.tenantId;
+    tenantId = payload.tenantId;
   } catch {
-    // Sin token válido - permitir procedimientos públicos
+    // No valid token - allow public procedures
   }
 
   return {
-    solicitud: req,
-    respuesta: res,
-    baseDatos: req.server.db,
-    usuarioActual,
-    idTenant,
+    req,
+    res,
+    db: req.server.db,
+    user,
+    tenantId,
   };
 }
 ```
 
-#### 1.5 Crear Middlewares de Autenticación
+#### 1.5 Create Authentication Middlewares
 
-Crear `packages/server/src/api-trpc/middleware/autenticacion.ts`:
+Create `packages/server/src/trpc/middleware/auth.ts`:
 
 ```typescript
 import { TRPCError } from '@trpc/server';
-import { middleware, procedimientoPublico } from '../inicializador.js';
+import { middleware, publicProcedure } from '../init.js';
 
-const verificarAutenticacion = middleware(async ({ ctx, next }) => {
-  if (!ctx.usuarioActual) {
+const isAuthenticated = middleware(async ({ ctx, next }) => {
+  if (!ctx.user) {
     throw new TRPCError({
       code: 'UNAUTHORIZED',
-      message: 'Debes iniciar sesión para realizar esta acción',
+      message: 'You must be logged in to perform this action',
     });
   }
 
   return next({
     ctx: {
       ...ctx,
-      usuarioActual: ctx.usuarioActual, // Ya verificado que no es null
+      user: ctx.user, // Already verified to not be null
     },
   });
 });
 
-export const procedimientoProtegido = procedimientoPublico.use(verificarAutenticacion);
+export const protectedProcedure = publicProcedure.use(isAuthenticated);
 ```
 
-Crear `packages/server/src/api-trpc/middleware/tenant-guard.ts`:
+Create `packages/server/src/trpc/middleware/tenant.ts`:
 
 ```typescript
 import { TRPCError } from '@trpc/server';
-import { middleware } from '../inicializador.js';
-import { procedimientoProtegido } from './autenticacion.js';
+import { middleware } from '../init.js';
+import { protectedProcedure } from './auth.js';
 
-const verificarTenant = middleware(async ({ ctx, next }) => {
-  if (!ctx.idTenant) {
+const requireTenant = middleware(async ({ ctx, next }) => {
+  if (!ctx.tenantId) {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Acceso restringido - requiere contexto de tenant',
+      message: 'Restricted access - tenant context required',
     });
   }
 
   return next({
     ctx: {
       ...ctx,
-      idTenant: ctx.idTenant, // Ya verificado que no es null
+      tenantId: ctx.tenantId, // Already verified to not be null
     },
   });
 });
 
-export const procedimientoTenant = procedimientoProtegido.use(verificarTenant);
+export const tenantProcedure = protectedProcedure.use(requireTenant);
 ```
 
-#### 1.6 Crear Router Raíz Básico
+#### 1.6 Create Root Router
 
-Crear `packages/server/src/api-trpc/enrutador-raiz.ts`:
+Create `packages/server/src/trpc/router.ts`:
 
 ```typescript
-import { enrutador } from './inicializador.js';
+import { router } from './init.js';
 
-// Por ahora, router vacío
-export const enrutadorRaiz = enrutador({
-  // Los dominios se agregarán aquí
+// Empty router for now
+export const appRouter = router({
+  // Domain routers will be added here
 });
 
-export type EnrutadorRaiz = typeof enrutadorRaiz;
+export type AppRouter = typeof appRouter;
 ```
 
-#### 1.7 Integrar con Fastify
+#### 1.7 Integrate with Fastify
 
-Modificar `packages/server/src/index.ts` para agregar el adaptador de tRPC:
+Modify `packages/server/src/index.ts` to add the tRPC adapter:
 
 ```typescript
-// Agregar imports
+// Add imports
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { enrutadorRaiz } from './api-trpc/enrutador-raiz.js';
-import { crearContextoPeticion } from './api-trpc/contexto-peticion.js';
+import { appRouter } from './trpc/router.js';
+import { createContext } from './trpc/context.js';
 
-// En la función createServer, después de registrar JWT y antes de routes REST:
+// In the createServer function, after registering JWT and before REST routes:
   
-  // Registrar tRPC
+  // Register tRPC
   await app.register(fastifyTRPCPlugin, {
     prefix: '/api/trpc',
     trpcOptions: {
-      router: enrutadorRaiz,
-      createContext: crearContextoPeticion,
+      router: appRouter,
+      createContext,
       onError({ path, error }) {
-        console.error(`[tRPC] Error en ${path ?? 'unknown'}:`, error);
+        console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
       },
     },
   });
 
-  // ... registrar routes REST existentes (mantener por ahora)
+  // ... register existing REST routes (keep for now)
 ```
 
-#### 1.8 Configurar Cliente tRPC en Frontend
+#### 1.8 Configure tRPC Client in Frontend
 
-Crear `apps/web/src/infraestructura/cliente-trpc.ts`:
+Create `apps/web/src/lib/trpc.ts`:
 
 ```typescript
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
-import type { EnrutadorRaiz } from '@open-yojob/server';
+import type { AppRouter } from '@open-yojob/server';
 
-const URL_API = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 
-// Cliente React para hooks
-export const clienteAPI = createTRPCReact<EnrutadorRaiz>();
+// React client for hooks
+export const trpc = createTRPCReact<AppRouter>();
 
-// Cliente vanilla para uso fuera de componentes React
-export const clienteVanilla = createTRPCClient<EnrutadorRaiz>({
+// Vanilla client for use outside React components
+export const vanillaClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: `${URL_API}/api/trpc`,
+      url: `${API_URL}/api/trpc`,
       headers() {
         const token = localStorage.getItem('auth_token');
         return token ? { authorization: `Bearer ${token}` } : {};
@@ -262,20 +262,20 @@ export const clienteVanilla = createTRPCClient<EnrutadorRaiz>({
 });
 ```
 
-#### 1.9 Configurar Provider en App
+#### 1.9 Configure Provider in App
 
-Modificar `apps/web/src/App.tsx`:
+Modify `apps/web/src/App.tsx`:
 
 ```typescript
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
-import { clienteAPI } from './infraestructura/cliente-trpc';
+import { trpc } from './lib/trpc';
 
 function App() {
   const [queryClient] = useState(() => new QueryClient());
-  const [clienteTRPC] = useState(() =>
-    clienteAPI.createClient({
+  const [trpcClient] = useState(() =>
+    trpc.createClient({
       links: [
         httpBatchLink({
           url: `${import.meta.env.VITE_API_URL || 'http://localhost:8090'}/api/trpc`,
@@ -289,791 +289,792 @@ function App() {
   );
 
   return (
-    <clienteAPI.Provider client={clienteTRPC} queryClient={queryClient}>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        {/* Resto de la app */}
+        {/* Rest of the app */}
       </QueryClientProvider>
-    </clienteAPI.Provider>
+    </trpc.Provider>
   );
 }
 ```
 
-#### 1.10 Verificar Setup
+#### 1.10 Verify Setup
 
-Crear un procedimiento de prueba simple:
+Create a simple test procedure:
 
 ```typescript
-// En enrutador-raiz.ts
-export const enrutadorRaiz = enrutador({
-  salud: enrutador({
-    verificar: procedimientoPublico.query(() => {
+// In router.ts
+export const appRouter = router({
+  health: router({
+    check: publicProcedure.query(() => {
       return { 
-        estado: 'ok', 
+        status: 'ok', 
         timestamp: new Date().toISOString(),
-        mensaje: 'tRPC funcionando correctamente'
+        message: 'tRPC is working correctly'
       };
     }),
   }),
 });
 ```
 
-Probar en frontend:
+Test in frontend:
 
 ```typescript
-// En cualquier componente
-const { data } = clienteAPI.salud.verificar.useQuery();
-console.log(data); // Debería mostrar el objeto con tipado completo
+// In any component
+const { data } = trpc.health.check.useQuery();
+console.log(data); // Should display the object with full typing
 ```
 
-### Criterios de Éxito Fase 1
-- ✅ tRPC instalado en servidor y cliente
-- ✅ Contexto configurado con DB y autenticación
-- ✅ Middlewares de auth funcionando
-- ✅ Router integrado en Fastify
-- ✅ Cliente React configurado
-- ✅ Procedimiento de prueba funciona end-to-end
+### Phase 1 Success Criteria
+- ✅ tRPC installed on server and client
+- ✅ Context configured with DB and authentication
+- ✅ Auth middlewares working
+- ✅ Router integrated in Fastify
+- ✅ React client configured
+- ✅ Test procedure works end-to-end
 
 ---
 
-## Fase 2: Migración Colección Piloto - Productos (3-4 días)
+## Phase 2: Pilot Collection Migration - Products (3-4 days)
 
-### Objetivo
-Migrar completamente la colección de productos a tRPC como prueba de concepto.
+### Objective
+Fully migrate the products collection to tRPC as a proof of concept.
 
-### 2.1 Crear Esquemas de Validación
+### 2.1 Create Validation Schemas
 
-Crear `packages/server/src/api-trpc/utilidades/esquemas-productos.ts`:
+Create `packages/server/src/trpc/utils/product-schemas.ts`:
 
 ```typescript
 import { z } from 'zod';
 
-export const esquemaProductoBase = z.object({
-  nombre: z.string().min(1, 'El nombre es requerido').max(100),
-  codigoSKU: z.string().min(1).max(50),
-  descripcion: z.string().optional(),
-  idCategoria: z.string(),
-  precio: z.number().positive('El precio debe ser positivo'),
-  costo: z.number().nonnegative('El costo no puede ser negativo'),
-  tasaImpuesto: z.number().min(0).max(100),
+export const productBaseSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  sku: z.string().min(1).max(50),
+  description: z.string().optional(),
+  categoryId: z.string(),
+  price: z.number().positive('Price must be positive'),
+  cost: z.number().nonnegative('Cost cannot be negative'),
+  taxRate: z.number().min(0).max(100),
   stock: z.number().int().nonnegative().default(0),
-  stockMinimo: z.number().int().nonnegative().default(0),
-  activo: z.boolean().default(true),
-  codigoBarras: z.string().optional(),
-  urlImagen: z.string().url().optional().or(z.literal('')),
+  minStock: z.number().int().nonnegative().default(0),
+  isActive: z.boolean().default(true),
+  barcode: z.string().optional(),
+  imageUrl: z.string().url().optional().or(z.literal('')),
 });
 
-export const esquemaCrearProducto = esquemaProductoBase;
+export const createProductSchema = productBaseSchema;
 
-export const esquemaActualizarProducto = esquemaProductoBase.partial();
+export const updateProductSchema = productBaseSchema.partial();
 
-export const esquemaConsultarProducto = z.object({
+export const getProductSchema = z.object({
   id: z.string(),
 });
 
-export const esquemaListarProductos = z.object({
-  pagina: z.number().int().positive().default(1),
-  porPagina: z.number().int().min(1).max(100).default(50),
-  busqueda: z.string().optional(),
-  idCategoria: z.string().optional(),
-  activo: z.boolean().optional(),
-  ordenar: z.enum(['nombre', 'precio', 'stock', 'createdAt']).default('createdAt'),
-  direccion: z.enum(['asc', 'desc']).default('desc'),
+export const listProductsSchema = z.object({
+  page: z.number().int().positive().default(1),
+  perPage: z.number().int().min(1).max(100).default(50),
+  search: z.string().optional(),
+  categoryId: z.string().optional(),
+  isActive: z.boolean().optional(),
+  sortBy: z.enum(['name', 'price', 'stock', 'createdAt']).default('createdAt'),
+  sortDirection: z.enum(['asc', 'desc']).default('desc'),
 });
 ```
 
-### 2.2 Crear Router de Productos
+### 2.2 Create Products Router
 
-Crear `packages/server/src/api-trpc/dominios/productos.ts`:
+Create `packages/server/src/trpc/routers/products.ts`:
 
 ```typescript
 import { eq, and, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { enrutador } from '../inicializador.js';
-import { procedimientoTenant } from '../middleware/tenant-guard.js';
+import { TRPCError } from '@trpc/server';
+import { router } from '../init.js';
+import { tenantProcedure } from '../middleware/tenant.js';
 import { products, syncQueue } from '../../db/schema.js';
 import {
-  esquemaListarProductos,
-  esquemaConsultarProducto,
-  esquemaCrearProducto,
-  esquemaActualizarProducto,
-} from '../utilidades/esquemas-productos.js';
+  listProductsSchema,
+  getProductSchema,
+  createProductSchema,
+  updateProductSchema,
+} from '../utils/product-schemas.js';
 
-export const routerProductos = enrutador({
-  listar: procedimientoTenant
-    .input(esquemaListarProductos)
-    .query(async ({ input: parametros, ctx: contexto }) => {
-      const { pagina, porPagina, busqueda, idCategoria, activo, ordenar, direccion } = parametros;
+export const productsRouter = router({
+  list: tenantProcedure
+    .input(listProductsSchema)
+    .query(async ({ input, ctx }) => {
+      const { page, perPage, search, categoryId, isActive, sortBy, sortDirection } = input;
       
-      const desplazamiento = (pagina - 1) * porPagina;
+      const offset = (page - 1) * perPage;
       
-      // Construir condiciones WHERE
-      const condiciones = [eq(products.tenantId, contexto.idTenant)];
+      // Build WHERE conditions
+      const conditions = [eq(products.tenantId, ctx.tenantId)];
       
-      if (busqueda) {
-        condiciones.push(
+      if (search) {
+        conditions.push(
           or(
-            like(products.name, `%${busqueda}%`),
-            like(products.sku, `%${busqueda}%`),
-            like(products.barcode, `%${busqueda}%`)
+            like(products.name, `%${search}%`),
+            like(products.sku, `%${search}%`),
+            like(products.barcode, `%${search}%`)
           ) as any
         );
       }
       
-      if (idCategoria) {
-        condiciones.push(eq(products.categoryId, idCategoria));
+      if (categoryId) {
+        conditions.push(eq(products.categoryId, categoryId));
       }
       
-      if (activo !== undefined) {
-        condiciones.push(eq(products.isActive, activo));
+      if (isActive !== undefined) {
+        conditions.push(eq(products.isActive, isActive));
       }
       
-      // Obtener total
-      const [conteoResult] = await contexto.baseDatos
-        .select({ total: sql<number>`count(*)` })
+      // Get total count
+      const [countResult] = await ctx.db
+        .select({ count: sql<number>`count(*)` })
         .from(products)
-        .where(and(...condiciones));
+        .where(and(...conditions));
       
-      const totalElementos = conteoResult?.total ?? 0;
-      const totalPaginas = Math.ceil(totalElementos / porPagina);
+      const totalItems = countResult?.count ?? 0;
+      const totalPages = Math.ceil(totalItems / perPage);
       
-      // Obtener elementos
-      const elementos = await contexto.baseDatos
+      // Get items
+      const items = await ctx.db
         .select()
         .from(products)
-        .where(and(...condiciones))
-        .limit(porPagina)
-        .offset(desplazamiento)
+        .where(and(...conditions))
+        .limit(perPage)
+        .offset(offset)
         .orderBy(
-          direccion === 'asc' 
-            ? sql`${products[ordenar]} ASC` 
-            : sql`${products[ordenar]} DESC`
+          sortDirection === 'asc' 
+            ? sql`${products[sortBy]} ASC` 
+            : sql`${products[sortBy]} DESC`
         );
       
       return {
-        elementos,
-        paginacion: {
-          pagina,
-          porPagina,
-          totalElementos,
-          totalPaginas,
+        items,
+        pagination: {
+          page,
+          perPage,
+          totalItems,
+          totalPages,
         },
       };
     }),
 
-  consultarPorId: procedimientoTenant
-    .input(esquemaConsultarProducto)
-    .query(async ({ input: { id }, ctx: contexto }) => {
-      const [producto] = await contexto.baseDatos
+  getById: tenantProcedure
+    .input(getProductSchema)
+    .query(async ({ input: { id }, ctx }) => {
+      const [product] = await ctx.db
         .select()
         .from(products)
         .where(
           and(
             eq(products.id, id),
-            eq(products.tenantId, contexto.idTenant)
+            eq(products.tenantId, ctx.tenantId)
           )
         )
         .limit(1);
       
-      if (!producto) {
+      if (!product) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Producto no encontrado',
+          message: 'Product not found',
         });
       }
       
-      return producto;
+      return product;
     }),
 
-  crear: procedimientoTenant
-    .input(esquemaCrearProducto)
-    .mutation(async ({ input: datos, ctx: contexto }) => {
-      const ahora = new Date().toISOString();
-      const nuevoId = nanoid();
+  create: tenantProcedure
+    .input(createProductSchema)
+    .mutation(async ({ input, ctx }) => {
+      const now = new Date().toISOString();
+      const newId = nanoid();
       
-      const nuevoProducto = {
-        id: nuevoId,
-        ...datos,
-        tenantId: contexto.idTenant,
+      const newProduct = {
+        id: newId,
+        ...input,
+        tenantId: ctx.tenantId,
         syncStatus: 'pending' as const,
         syncVersion: 1,
-        createdAt: ahora,
-        updatedAt: ahora,
+        createdAt: now,
+        updatedAt: now,
       };
       
-      await contexto.baseDatos.insert(products).values(nuevoProducto);
+      await ctx.db.insert(products).values(newProduct);
       
-      // Agregar a cola de sync
-      await contexto.baseDatos.insert(syncQueue).values({
+      // Add to sync queue
+      await ctx.db.insert(syncQueue).values({
         id: nanoid(),
-        tenantId: contexto.idTenant,
+        tenantId: ctx.tenantId,
         entityType: 'products',
-        entityId: nuevoId,
+        entityId: newId,
         operation: 'create',
-        data: nuevoProducto,
+        data: newProduct,
         localVersion: 1,
         attempts: 0,
-        createdAt: ahora,
+        createdAt: now,
       });
       
-      // Emitir evento SSE (si está configurado)
-      if (contexto.solicitud.server.sse) {
-        contexto.solicitud.server.sse.broadcast('products.create', nuevoProducto);
+      // Emit SSE event (if configured)
+      if (ctx.req.server.sse) {
+        ctx.req.server.sse.broadcast('products.create', newProduct);
       }
       
-      return nuevoProducto;
+      return newProduct;
     }),
 
-  actualizar: procedimientoTenant
+  update: tenantProcedure
     .input(z.object({
       id: z.string(),
-      datos: esquemaActualizarProducto,
+      data: updateProductSchema,
     }))
-    .mutation(async ({ input: { id, datos }, ctx: contexto }) => {
-      // Verificar que existe y pertenece al tenant
-      const [existente] = await contexto.baseDatos
+    .mutation(async ({ input: { id, data }, ctx }) => {
+      // Verify exists and belongs to tenant
+      const [existing] = await ctx.db
         .select()
         .from(products)
         .where(
           and(
             eq(products.id, id),
-            eq(products.tenantId, contexto.idTenant)
+            eq(products.tenantId, ctx.tenantId)
           )
         )
         .limit(1);
       
-      if (!existente) {
+      if (!existing) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Producto no encontrado',
+          message: 'Product not found',
         });
       }
       
-      const ahora = new Date().toISOString();
-      const datosActualizados = {
-        ...datos,
+      const now = new Date().toISOString();
+      const updatedData = {
+        ...data,
         syncStatus: 'pending' as const,
-        syncVersion: existente.syncVersion + 1,
-        updatedAt: ahora,
+        syncVersion: existing.syncVersion + 1,
+        updatedAt: now,
       };
       
-      await contexto.baseDatos
+      await ctx.db
         .update(products)
-        .set(datosActualizados)
+        .set(updatedData)
         .where(eq(products.id, id));
       
-      // Agregar a cola de sync
-      await contexto.baseDatos.insert(syncQueue).values({
+      // Add to sync queue
+      await ctx.db.insert(syncQueue).values({
         id: nanoid(),
-        tenantId: contexto.idTenant,
+        tenantId: ctx.tenantId,
         entityType: 'products',
         entityId: id,
         operation: 'update',
-        data: datosActualizados,
-        localVersion: existente.syncVersion + 1,
+        data: updatedData,
+        localVersion: existing.syncVersion + 1,
         attempts: 0,
-        createdAt: ahora,
+        createdAt: now,
       });
       
-      // Emitir evento SSE
-      if (contexto.solicitud.server.sse) {
-        contexto.solicitud.server.sse.broadcast('products.update', {
+      // Emit SSE event
+      if (ctx.req.server.sse) {
+        ctx.req.server.sse.broadcast('products.update', {
           id,
-          ...datosActualizados,
+          ...updatedData,
         });
       }
       
-      // Retornar producto actualizado
-      const [productoActualizado] = await contexto.baseDatos
+      // Return updated product
+      const [updatedProduct] = await ctx.db
         .select()
         .from(products)
         .where(eq(products.id, id))
         .limit(1);
       
-      return productoActualizado!;
+      return updatedProduct!;
     }),
 
-  eliminar: procedimientoTenant
-    .input(esquemaConsultarProducto)
-    .mutation(async ({ input: { id }, ctx: contexto }) => {
-      // Solo admins pueden eliminar
-      if (contexto.usuarioActual.rol !== 'admin') {
+  delete: tenantProcedure
+    .input(getProductSchema)
+    .mutation(async ({ input: { id }, ctx }) => {
+      // Only admins can delete
+      if (ctx.user.role !== 'admin') {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'Solo los administradores pueden eliminar productos',
+          message: 'Only administrators can delete products',
         });
       }
       
-      // Verificar que existe y pertenece al tenant
-      const [existente] = await contexto.baseDatos
+      // Verify exists and belongs to tenant
+      const [existing] = await ctx.db
         .select()
         .from(products)
         .where(
           and(
             eq(products.id, id),
-            eq(products.tenantId, contexto.idTenant)
+            eq(products.tenantId, ctx.tenantId)
           )
         )
         .limit(1);
       
-      if (!existente) {
+      if (!existing) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Producto no encontrado',
+          message: 'Product not found',
         });
       }
       
-      await contexto.baseDatos
+      await ctx.db
         .delete(products)
         .where(eq(products.id, id));
       
-      const ahora = new Date().toISOString();
+      const now = new Date().toISOString();
       
-      // Agregar a cola de sync
-      await contexto.baseDatos.insert(syncQueue).values({
+      // Add to sync queue
+      await ctx.db.insert(syncQueue).values({
         id: nanoid(),
-        tenantId: contexto.idTenant,
+        tenantId: ctx.tenantId,
         entityType: 'products',
         entityId: id,
         operation: 'delete',
         data: { id },
         localVersion: 1,
         attempts: 0,
-        createdAt: ahora,
+        createdAt: now,
       });
       
-      // Emitir evento SSE
-      if (contexto.solicitud.server.sse) {
-        contexto.solicitud.server.sse.broadcast('products.delete', { id });
+      // Emit SSE event
+      if (ctx.req.server.sse) {
+        ctx.req.server.sse.broadcast('products.delete', { id });
       }
       
-      return { exito: true, id };
+      return { success: true, id };
     }),
 });
 ```
 
-### 2.3 Agregar Router de Productos al Router Raíz
+### 2.3 Add Products Router to Root Router
 
-Modificar `packages/server/src/api-trpc/enrutador-raiz.ts`:
+Modify `packages/server/src/trpc/router.ts`:
 
 ```typescript
-import { enrutador } from './inicializador.js';
-import { routerProductos } from './dominios/productos.js';
+import { router } from './init.js';
+import { productsRouter } from './routers/products.js';
 
-export const enrutadorRaiz = enrutador({
-  salud: enrutador({
-    verificar: procedimientoPublico.query(() => ({
-      estado: 'ok',
+export const appRouter = router({
+  health: router({
+    check: publicProcedure.query(() => ({
+      status: 'ok',
       timestamp: new Date().toISOString(),
     })),
   }),
-  productos: routerProductos,
+  products: productsRouter,
 });
 
-export type EnrutadorRaiz = typeof enrutadorRaiz;
+export type AppRouter = typeof appRouter;
 ```
 
-### 2.4 Crear Hooks React para Productos
+### 2.4 Create React Hooks for Products
 
-Crear `apps/web/src/hooks/api/ganchos-productos-trpc.ts`:
+Create `apps/web/src/hooks/api/useProductsTRPC.ts`:
 
 ```typescript
-import { clienteAPI } from '@/infraestructura/cliente-trpc';
+import { trpc } from '@/lib/trpc';
 
-// Query hooks con nombres descriptivos
-export const useListadoProductosTRPC = clienteAPI.productos.listar.useQuery;
-export const useDetalleProductoTRPC = clienteAPI.productos.consultarPorId.useQuery;
+// Query hooks with descriptive names
+export const useProductsList = trpc.products.list.useQuery;
+export const useProduct = trpc.products.getById.useQuery;
 
 // Mutation hooks
-export const useCrearProductoTRPC = clienteAPI.productos.crear.useMutation;
-export const useActualizarProductoTRPC = clienteAPI.productos.actualizar.useMutation;
-export const useEliminarProductoTRPC = clienteAPI.productos.eliminar.useMutation;
+export const useCreateProduct = trpc.products.create.useMutation;
+export const useUpdateProduct = trpc.products.update.useMutation;
+export const useDeleteProduct = trpc.products.delete.useMutation;
 
-// Hook personalizado con invalidación automática
-export function useCrearProductoConInvalidacion() {
-  const utils = clienteAPI.useUtils();
+// Custom hook with automatic invalidation
+export function useCreateProductWithInvalidation() {
+  const utils = trpc.useUtils();
   
-  return clienteAPI.productos.crear.useMutation({
+  return trpc.products.create.useMutation({
     onSuccess: () => {
-      // Invalidar lista de productos para refrescar
-      utils.productos.listar.invalidate();
+      // Invalidate product list to refresh
+      utils.products.list.invalidate();
     },
   });
 }
 
-export function useActualizarProductoConInvalidacion() {
-  const utils = clienteAPI.useUtils();
+export function useUpdateProductWithInvalidation() {
+  const utils = trpc.useUtils();
   
-  return clienteAPI.productos.actualizar.useMutation({
-    onSuccess: (datosActualizados) => {
-      // Invalidar tanto la lista como el detalle específico
-      utils.productos.listar.invalidate();
-      utils.productos.consultarPorId.invalidate({ id: datosActualizados.id });
+  return trpc.products.update.useMutation({
+    onSuccess: (updatedData) => {
+      // Invalidate both list and specific detail
+      utils.products.list.invalidate();
+      utils.products.getById.invalidate({ id: updatedData.id });
     },
   });
 }
 
-export function useEliminarProductoConInvalidacion() {
-  const utils = clienteAPI.useUtils();
+export function useDeleteProductWithInvalidation() {
+  const utils = trpc.useUtils();
   
-  return clienteAPI.productos.eliminar.useMutation({
+  return trpc.products.delete.useMutation({
     onSuccess: (_, { id }) => {
-      utils.productos.listar.invalidate();
-      utils.productos.consultarPorId.invalidate({ id });
+      utils.products.list.invalidate();
+      utils.products.getById.invalidate({ id });
     },
   });
 }
 ```
 
-### 2.5 Actualizar Componentes para Usar tRPC
+### 2.5 Update Components to Use tRPC
 
-Ejemplo de migración de componente:
+Example component migration:
 
 ```typescript
-// ANTES (con API REST)
+// BEFORE (with REST API)
 import { useProducts, useCreateProduct } from '@/hooks/api/useProducts';
 
-function ListaProductos() {
+function ProductsList() {
   const { data, isLoading } = useProducts({ page: 1, perPage: 50 });
-  const crearProducto = useCreateProduct();
+  const createProduct = useCreateProduct();
   
   // ...
 }
 
-// DESPUÉS (con tRPC)
+// AFTER (with tRPC)
 import { 
-  useListadoProductosTRPC, 
-  useCrearProductoConInvalidacion 
-} from '@/hooks/api/ganchos-productos-trpc';
+  useProductsList, 
+  useCreateProductWithInvalidation 
+} from '@/hooks/api/useProductsTRPC';
 
-function ListaProductos() {
-  const { data, isLoading } = useListadoProductosTRPC({ 
-    pagina: 1, 
-    porPagina: 50 
+function ProductsList() {
+  const { data, isLoading } = useProductsList({ 
+    page: 1, 
+    perPage: 50 
   });
-  const crearProducto = useCrearProductoConInvalidacion();
+  const createProduct = useCreateProductWithInvalidation();
   
-  // Tipado automático - 'data' tiene tipo completo inferido
-  // data.elementos es Product[]
-  // data.paginacion tiene pagina, totalElementos, etc.
+  // Automatic typing - 'data' has full type inference
+  // data.items is Product[]
+  // data.pagination has page, totalItems, etc.
 }
 ```
 
-### 2.6 Pruebas End-to-End
+### 2.6 End-to-End Testing
 
-1. **Prueba de lectura**: Verificar que la lista de productos se muestra correctamente
-2. **Prueba de creación**: Crear un nuevo producto y verificar que aparece en la lista
-3. **Prueba de actualización**: Modificar un producto y verificar cambios
-4. **Prueba de eliminación**: Eliminar un producto (como admin)
-5. **Prueba de tipos**: Verificar que TypeScript detecta errores en tiempo de compilación
+1. **Read test**: Verify products list displays correctly
+2. **Create test**: Create a new product and verify it appears in list
+3. **Update test**: Modify a product and verify changes
+4. **Delete test**: Delete a product (as admin)
+5. **Type test**: Verify TypeScript catches errors at compile-time
 
-### Criterios de Éxito Fase 2
-- ✅ Router de productos completo con todas las operaciones CRUD
-- ✅ Esquemas Zod validando correctamente la entrada
-- ✅ Hooks React funcionando con tipado completo
-- ✅ Componentes migrados funcionando sin errores
-- ✅ Aislamiento de tenant funcionando correctamente
-- ✅ Cola de sync funcionando
-- ✅ API REST de productos puede coexistir (no eliminada aún)
+### Phase 2 Success Criteria
+- ✅ Complete products router with all CRUD operations
+- ✅ Zod schemas validating input correctly
+- ✅ React hooks working with full typing
+- ✅ Migrated components working without errors
+- ✅ Tenant isolation working correctly
+- ✅ Sync queue functioning
+- ✅ REST API for products can coexist (not deleted yet)
 
 ---
 
-## Fase 3: Migración Colecciones Restantes (1-2 semanas)
+## Phase 3: Migrate Remaining Collections (1-2 weeks)
 
-### Objetivo
-Migrar las colecciones restantes usando el patrón establecido en Fase 2.
+### Objective
+Migrate remaining collections using the pattern established in Phase 2.
 
-### Orden de Migración Sugerido
+### Suggested Migration Order
 
-1. **Categorías** (1 día) - Simple, sin relaciones complejas
-2. **Clientes** (1 día) - Similar a productos
-3. **Ventas** (2 días) - Más complejo, incluye items de venta
-4. **Inventario** (2 días) - Movimientos de inventario
-5. **Autenticación** (1 día) - Migrar endpoints de auth
+1. **Categories** (1 day) - Simple, no complex relations
+2. **Customers** (1 day) - Similar to products
+3. **Sales** (2 days) - More complex, includes sale items
+4. **Inventory** (2 days) - Inventory movements
+5. **Authentication** (1 day) - Migrate auth endpoints
 
-### Plantilla de Migración
+### Migration Template
 
-Para cada colección, seguir este patrón:
+For each collection, follow this pattern:
 
-1. **Crear esquemas** en `api-trpc/utilidades/esquemas-{coleccion}.ts`
-2. **Crear router** en `api-trpc/dominios/{coleccion}.ts`
-3. **Agregar al router raíz** en `enrutador-raiz.ts`
-4. **Crear hooks React** en `hooks/api/ganchos-{coleccion}-trpc.ts`
-5. **Migrar componentes** uno por uno
-6. **Probar** funcionalidad end-to-end
-7. **Documentar** cualquier particularidad
+1. **Create schemas** in `trpc/utils/schemas-{collection}.ts`
+2. **Create router** in `trpc/routers/{collection}.ts`
+3. **Add to root router** in `router.ts`
+4. **Create React hooks** in `hooks/api/use{Collection}TRPC.ts`
+5. **Migrate components** one by one
+6. **Test** end-to-end functionality
+7. **Document** any particularities
 
-### Notas Específicas por Colección
+### Collection-Specific Notes
 
-#### Categorías
-- Estructura de árbol (padre-hijo)
-- Agregar procedimiento para obtener árbol completo
-- Validar que no se creen ciclos
+#### Categories
+- Tree structure (parent-child)
+- Add procedure to get complete tree
+- Validate no cycles are created
 
-#### Clientes
-- Similar a productos
-- Agregar búsqueda por nombre, email, teléfono
+#### Customers
+- Similar to products
+- Add search by name, email, phone
 
-#### Ventas
-- Transaccional - crear venta + items en una sola mutación
-- Usar transacciones de Drizzle
-- Actualizar stock de productos automáticamente
+#### Sales
+- Transactional - create sale + items in single mutation
+- Use Drizzle transactions
+- Update product stock automatically
 
 ```typescript
-crearVenta: procedimientoTenant
-  .input(esquemaCrearVenta)
+createSale: tenantProcedure
+  .input(createSaleSchema)
   .mutation(async ({ input, ctx }) => {
-    return ctx.baseDatos.transaction(async (transaccion) => {
-      // 1. Crear venta
-      const venta = await transaccion.insert(sales).values(/* ... */);
+    return ctx.db.transaction(async (tx) => {
+      // 1. Create sale
+      const sale = await tx.insert(sales).values(/* ... */);
       
-      // 2. Crear items de venta
-      await transaccion.insert(saleItems).values(input.items);
+      // 2. Create sale items
+      await tx.insert(saleItems).values(input.items);
       
-      // 3. Actualizar stock de productos
+      // 3. Update product stock
       for (const item of input.items) {
-        await transaccion
+        await tx
           .update(products)
           .set({ stock: sql`stock - ${item.quantity}` })
           .where(eq(products.id, item.productId));
       }
       
-      return venta;
+      return sale;
     });
   }),
 ```
 
-#### Inventario
-- Movimientos de entrada/salida
-- Validar que hay stock suficiente para salidas
-- Actualizar stock de productos
+#### Inventory
+- Entry/exit movements
+- Validate sufficient stock for exits
+- Update product stock
 
-### Criterios de Éxito Fase 3
-- ✅ Todas las colecciones migradas a tRPC
-- ✅ Frontend completamente funcional con tRPC
-- ✅ API REST aún disponible (no eliminada)
-- ✅ Todas las pruebas pasando
-- ✅ Performance equivalente o mejor que REST
+### Phase 3 Success Criteria
+- ✅ All collections migrated to tRPC
+- ✅ Frontend fully functional with tRPC
+- ✅ REST API still available (not deleted)
+- ✅ All tests passing
+- ✅ Performance equivalent or better than REST
 
 ---
 
-## Fase 4: Optimización y Limpieza (3-4 días)
+## Phase 4: Optimization and Cleanup (3-4 days)
 
-### Objetivo
-Optimizar la implementación y remover código legacy.
+### Objective
+Optimize implementation and remove legacy code.
 
-### 4.1 Optimizaciones
+### 4.1 Optimizations
 
-#### Implementar Batching
-El batching agrupa múltiples queries en una sola petición HTTP:
+#### Implement Batching
+Batching groups multiple queries into a single HTTP request:
 
 ```typescript
-// En cliente-trpc.ts
+// In trpc.ts
 links: [
   httpBatchLink({
-    url: `${URL_API}/api/trpc`,
+    url: `${API_URL}/api/trpc`,
     maxURLLength: 2083,
-    // Las queries se agrupan automáticamente
+    // Queries are automatically batched
   }),
 ],
 ```
 
-#### Implementar Subscriptions (Reemplazar SSE)
+#### Implement Subscriptions (Replace SSE)
 
 ```typescript
-// En servidor
+// On server
 import { observable } from '@trpc/server/observable';
 
-cambiosEnTiempoReal: procedimientoTenant
+onProductChange: tenantProcedure
   .subscription(({ ctx }) => {
-    return observable<CambioProducto>((emisor) => {
-      const manejador = (cambio: CambioProducto) => {
-        if (cambio.tenantId === ctx.idTenant) {
-          emisor.next(cambio);
+    return observable<ProductChange>((emit) => {
+      const handler = (change: ProductChange) => {
+        if (change.tenantId === ctx.tenantId) {
+          emit.next(change);
         }
       };
       
-      eventosCambios.on('producto:cambio', manejador);
+      changeEvents.on('product:change', handler);
       
       return () => {
-        eventosCambios.off('producto:cambio', manejador);
+        changeEvents.off('product:change', handler);
       };
     });
   }),
 
-// En cliente
-clienteAPI.productos.cambiosEnTiempoReal.useSubscription(undefined, {
-  onData: (cambio) => {
-    console.log('Cambio recibido:', cambio);
+// On client
+trpc.products.onProductChange.useSubscription(undefined, {
+  onData: (change) => {
+    console.log('Change received:', change);
   },
   onError: (error) => {
-    console.error('Error en subscripción:', error);
+    console.error('Subscription error:', error);
   },
 });
 ```
 
-### 4.2 Agregar tRPC Panel (Herramienta de Desarrollo)
+### 4.2 Add tRPC Panel (Development Tool)
 
 ```bash
 npm install trpc-panel
 ```
 
 ```typescript
-// En desarrollo, exponer tRPC Panel
+// In development, expose tRPC Panel
 if (process.env.NODE_ENV === 'development') {
   await app.register(import('@trpc/server/adapters/fastify'), {
     prefix: '/panel',
     trpcOptions: {
-      router: enrutadorRaiz,
-      createContext: crearContextoPeticion,
+      router: appRouter,
+      createContext,
     },
   });
 }
 ```
 
-Acceder a `http://localhost:8090/panel` para explorar y probar la API visualmente.
+Access `http://localhost:8090/panel` to visually explore and test the API.
 
-### 4.3 Eliminar Código Legacy
+### 4.3 Remove Legacy Code
 
-Una vez validado que tRPC funciona correctamente:
+Once tRPC is validated to work correctly:
 
-1. **Eliminar servicios API REST antiguos**:
+1. **Delete old REST API services**:
    - `apps/web/src/services/api/products.ts`
    - `apps/web/src/services/api/customers.ts`
    - Etc.
 
-2. **Eliminar hooks antiguos**:
+2. **Delete old hooks**:
    - `apps/web/src/hooks/api/useProducts.ts`
    - `apps/web/src/hooks/api/useCustomers.ts`
    - Etc.
 
-3. **Actualizar cliente API**:
-   - Simplificar `apps/web/src/services/api/client.ts`
-   - Mantener solo funciones de auth si es necesario
+3. **Update API client**:
+   - Simplify `apps/web/src/services/api/client.ts`
+   - Keep only auth functions if necessary
 
-4. **Considerar eliminar routes REST del servidor** (o mantener para APIs externas):
-   - `packages/server/src/routes/collections.ts` (si ya no se usa)
+4. **Consider removing REST routes from server** (or keep for external APIs):
+   - `packages/server/src/routes/collections.ts` (if no longer used)
 
-5. **Actualizar documentación**:
+5. **Update documentation**:
    - README.md
    - docs/ARCHITECTURE.md
-   - Agregar ejemplos de uso de tRPC
+   - Add tRPC usage examples
 
-### 4.4 Optimización de Bundle
+### 4.4 Bundle Optimization
 
-Analizar tamaño del bundle:
+Analyze bundle size:
 
 ```bash
 cd apps/web
 npm run build
-# Analizar output
+# Analyze output
 
-# Si es necesario, considerar:
-# - Tree-shaking de dependencias no usadas
-# - Code splitting de routers grandes
+# If necessary, consider:
+# - Tree-shaking of unused dependencies
+# - Code splitting of large routers
 ```
 
-### Criterios de Éxito Fase 4
-- ✅ Batching implementado y funcionando
-- ✅ Subscriptions funcionando (si se implementan)
-- ✅ tRPC Panel configurado para desarrollo
-- ✅ Código legacy eliminado
-- ✅ Documentación actualizada
-- ✅ Bundle size aceptable (<500KB total)
-- ✅ Performance igual o mejor que antes
+### Phase 4 Success Criteria
+- ✅ Batching implemented and working
+- ✅ Subscriptions working (if implemented)
+- ✅ tRPC Panel configured for development
+- ✅ Legacy code deleted
+- ✅ Documentation updated
+- ✅ Acceptable bundle size (<500KB total)
+- ✅ Performance equal to or better than before
 
 ---
 
-## Pruebas y Validación
+## Testing and Validation
 
-### Pruebas Funcionales
+### Functional Testing
 
-Crear suite de pruebas para cada router:
+Create test suite for each router:
 
 ```typescript
-// packages/server/src/api-trpc/__tests__/productos.test.ts
+// packages/server/src/trpc/__tests__/products.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { crearContextosPrueba } from '../utilidades/test-helpers';
-import { routerProductos } from '../dominios/productos';
+import { createTestContext } from '../utils/test-helpers';
+import { productsRouter } from '../routers/products';
 
-describe('Router de Productos', () => {
-  let contexto: ContextoPeticion;
+describe('Products Router', () => {
+  let context: Context;
   
   beforeEach(() => {
-    contexto = crearContextosPrueba();
+    context = createTestContext();
   });
   
-  it('debería listar productos', async () => {
-    const caller = routerProductos.createCaller(contexto);
-    const resultado = await caller.listar({ pagina: 1, porPagina: 10 });
+  it('should list products', async () => {
+    const caller = productsRouter.createCaller(context);
+    const result = await caller.list({ page: 1, perPage: 10 });
     
-    expect(resultado.elementos).toBeInstanceOf(Array);
-    expect(resultado.paginacion.totalElementos).toBeGreaterThanOrEqual(0);
+    expect(result.items).toBeInstanceOf(Array);
+    expect(result.pagination.totalItems).toBeGreaterThanOrEqual(0);
   });
   
-  it('debería crear un producto', async () => {
-    const caller = routerProductos.createCaller(contexto);
-    const nuevoProducto = await caller.crear({
-      nombre: 'Producto de Prueba',
-      codigoSKU: 'TEST-001',
-      idCategoria: 'cat-123',
-      precio: 10.99,
-      costo: 5.00,
-      tasaImpuesto: 16,
+  it('should create a product', async () => {
+    const caller = productsRouter.createCaller(context);
+    const newProduct = await caller.create({
+      name: 'Test Product',
+      sku: 'TEST-001',
+      categoryId: 'cat-123',
+      price: 10.99,
+      cost: 5.00,
+      taxRate: 16,
     });
     
-    expect(nuevoProducto.id).toBeDefined();
-    expect(nuevoProducto.nombre).toBe('Producto de Prueba');
+    expect(newProduct.id).toBeDefined();
+    expect(newProduct.name).toBe('Test Product');
   });
   
-  it('debería rechazar creación con datos inválidos', async () => {
-    const caller = routerProductos.createCaller(contexto);
+  it('should reject creation with invalid data', async () => {
+    const caller = productsRouter.createCaller(context);
     
     await expect(
-      caller.crear({
-        nombre: '', // Nombre vacío - inválido
-        codigoSKU: 'TEST-001',
-        idCategoria: 'cat-123',
-        precio: -10, // Precio negativo - inválido
-        costo: 5.00,
-        tasaImpuesto: 16,
+      caller.create({
+        name: '', // Empty name - invalid
+        sku: 'TEST-001',
+        categoryId: 'cat-123',
+        price: -10, // Negative price - invalid
+        cost: 5.00,
+        taxRate: 16,
       })
     ).rejects.toThrow();
   });
 });
 ```
 
-### Pruebas de Integración
+### Integration Testing
 
 ```typescript
-// apps/web/src/__tests__/integracion/productos.test.tsx
+// apps/web/src/__tests__/integration/products.test.tsx
 import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ListaProductos } from '@/features/productos/ListaProductos';
+import { ProductsList } from '@/features/products/ProductsList';
 
-describe('Integración de Productos con tRPC', () => {
-  it('debería cargar y mostrar productos', async () => {
+describe('Products Integration with tRPC', () => {
+  it('should load and display products', async () => {
     const queryClient = new QueryClient();
     
     render(
       <QueryClientProvider client={queryClient}>
-        <ListaProductos />
+        <ProductsList />
       </QueryClientProvider>
     );
     
     await waitFor(() => {
-      expect(screen.getByText(/productos/i)).toBeInTheDocument();
+      expect(screen.getByText(/products/i)).toBeInTheDocument();
     });
   });
 });
 ```
 
-### Pruebas de Performance
+### Performance Testing
 
-Comparar performance antes y después:
+Compare performance before and after:
 
 ```typescript
-// Script de benchmark
+// Benchmark script
 async function benchmarkAPI() {
   console.time('REST API - 100 requests');
   for (let i = 0; i < 100; i++) {
@@ -1083,132 +1084,132 @@ async function benchmarkAPI() {
   
   console.time('tRPC - 100 requests');
   for (let i = 0; i < 100; i++) {
-    await clienteVanilla.productos.listar.query({ pagina: 1, porPagina: 50 });
+    await vanillaClient.products.list.query({ page: 1, perPage: 50 });
   }
   console.timeEnd('tRPC - 100 requests');
   
-  console.time('tRPC con batching - 100 requests');
+  console.time('tRPC with batching - 100 requests');
   await Promise.all(
     Array.from({ length: 100 }, () =>
-      clienteVanilla.productos.listar.query({ pagina: 1, porPagina: 50 })
+      vanillaClient.products.list.query({ page: 1, perPage: 50 })
     )
   );
-  console.timeEnd('tRPC con batching - 100 requests');
+  console.timeEnd('tRPC with batching - 100 requests');
 }
 ```
 
 ---
 
-## Gestión de Riesgos
+## Risk Management
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|--------------|---------|------------|
-| Bugs durante migración | Media | Alto | Mantener REST en paralelo, migrar gradualmente |
-| Curva de aprendizaje del equipo | Alta | Medio | Documentación, pair programming, training |
-| Performance degradada | Baja | Alto | Benchmarks continuos, optimizaciones |
-| Incompatibilidad con tools existentes | Baja | Medio | Pruebas exhaustivas, investigación previa |
-| Aumento excesivo de bundle | Baja | Bajo | Tree-shaking, análisis de bundle |
+| Risk | Probability | Impact | Mitigation |
+|------|------------|---------|------------|
+| Bugs during migration | Medium | High | Keep REST in parallel, migrate gradually |
+| Team learning curve | High | Medium | Documentation, pair programming, training |
+| Degraded performance | Low | High | Continuous benchmarks, optimizations |
+| Incompatibility with existing tools | Low | Medium | Exhaustive testing, prior research |
+| Excessive bundle increase | Low | Low | Tree-shaking, bundle analysis |
 
 ---
 
 ## Rollback Plan
 
-Si es necesario revertir la migración:
+If you need to revert the migration:
 
-1. **Fase 1-2**: Simplemente desactivar tRPC en Fastify, el código REST sigue funcionando
-2. **Fase 3**: Revertir componentes a usar hooks REST antiguos (aún disponibles)
-3. **Fase 4**: Si ya se eliminó código legacy, usar Git para recuperarlo
+1. **Phase 1-2**: Simply disable tRPC in Fastify, REST code still works
+2. **Phase 3**: Revert components to use old REST hooks (still available)
+3. **Phase 4**: If legacy code already deleted, use Git to recover it
 
 ```bash
-# Revertir a commit antes de eliminar código legacy
+# Revert to commit before deleting legacy code
 git revert <commit-hash>
 
-# O crear rama de respaldo antes de Fase 4
-git branch respaldo-pre-limpieza
+# Or create backup branch before Phase 4
+git branch backup-pre-cleanup
 ```
 
 ---
 
-## Checklist de Implementación
+## Implementation Checklist
 
-### Preparación
-- [ ] Equipo capacitado en conceptos básicos de tRPC
-- [ ] Repositorio respaldado
-- [ ] Pruebas existentes documentadas
-- [ ] Plan de comunicación con stakeholders
+### Preparation
+- [ ] Team trained in basic tRPC concepts
+- [ ] Repository backed up
+- [ ] Existing tests documented
+- [ ] Communication plan with stakeholders
 
-### Fase 1: Setup
-- [ ] Dependencias instaladas
-- [ ] Estructura de carpetas creada
-- [ ] Inicializador y contexto configurados
-- [ ] Middlewares de auth implementados
-- [ ] Router raíz creado
-- [ ] Integración con Fastify completa
-- [ ] Cliente React configurado
-- [ ] Procedimiento de prueba funciona
+### Phase 1: Setup
+- [ ] Dependencies installed
+- [ ] Folder structure created
+- [ ] Initializer and context configured
+- [ ] Auth middlewares implemented
+- [ ] Root router created
+- [ ] Fastify integration complete
+- [ ] React client configured
+- [ ] Test procedure works
 
-### Fase 2: PoC Productos
-- [ ] Esquemas Zod creados
-- [ ] Router de productos implementado
-- [ ] Hooks React creados
-- [ ] Al menos un componente migrado
-- [ ] Pruebas end-to-end pasando
-- [ ] Performance aceptable
-- [ ] Equipo valida implementación
+### Phase 2: Products PoC
+- [ ] Zod schemas created
+- [ ] Products router implemented
+- [ ] React hooks created
+- [ ] At least one component migrated
+- [ ] End-to-end tests passing
+- [ ] Acceptable performance
+- [ ] Team validates implementation
 
-### Fase 3: Migración Completa
-- [ ] Categorías migradas
-- [ ] Clientes migrados
-- [ ] Ventas migradas
-- [ ] Inventario migrado
-- [ ] Autenticación migrada
-- [ ] Todos los componentes actualizados
-- [ ] Suite de pruebas actualizada
+### Phase 3: Full Migration
+- [ ] Categories migrated
+- [ ] Customers migrated
+- [ ] Sales migrated
+- [ ] Inventory migrated
+- [ ] Authentication migrated
+- [ ] All components updated
+- [ ] Test suite updated
 
-### Fase 4: Optimización
-- [ ] Batching implementado
-- [ ] Subscriptions evaluadas/implementadas
-- [ ] tRPC Panel configurado
-- [ ] Código legacy eliminado
-- [ ] Documentación actualizada
-- [ ] Bundle size optimizado
-- [ ] Performance benchmarks completados
+### Phase 4: Optimization
+- [ ] Batching implemented
+- [ ] Subscriptions evaluated/implemented
+- [ ] tRPC Panel configured
+- [ ] Legacy code deleted
+- [ ] Documentation updated
+- [ ] Bundle size optimized
+- [ ] Performance benchmarks completed
 
-### Post-Implementación
-- [ ] Monitoreo de errores en producción
-- [ ] Feedback del equipo recopilado
-- [ ] Lecciones aprendidas documentadas
-- [ ] Plan de mejora continua establecido
+### Post-Implementation
+- [ ] Error monitoring in production
+- [ ] Team feedback collected
+- [ ] Lessons learned documented
+- [ ] Continuous improvement plan established
 
 ---
 
-## Recursos y Referencias
+## Resources and References
 
-### Documentación
-- **tRPC Oficial**: https://trpc.io/docs
-- **Adaptador Fastify**: https://trpc.io/docs/server/adapters/fastify
+### Documentation
+- **Official tRPC**: https://trpc.io/docs
+- **Fastify Adapter**: https://trpc.io/docs/server/adapters/fastify
 - **React Query Integration**: https://trpc.io/docs/client/react
 - **Zod Documentation**: https://zod.dev
 
-### Herramientas de Desarrollo
+### Development Tools
 - **tRPC Panel**: https://github.com/iway1/trpc-panel
 - **tRPC Playground**: https://github.com/sachinraja/trpc-playground
-- **tRPC Chrome Extension**: Para debugging
+- **tRPC Chrome Extension**: For debugging
 
-### Ejemplos y Templates
-- Repositorio de ejemplos tRPC: https://github.com/trpc/examples-next-prisma-starter
-- Ejemplos con Fastify: https://github.com/trpc/trpc/tree/main/examples/fastify-server
-
----
-
-## Conclusión
-
-Este plan proporciona una ruta clara y segura para migrar Open Yojob a tRPC. La migración gradual minimiza riesgos mientras que permite validar beneficios en cada fase.
-
-**Próximo Paso**: Obtener aprobación del equipo y comenzar con Fase 1.
+### Examples and Templates
+- tRPC examples repository: https://github.com/trpc/examples-next-prisma-starter
+- Examples with Fastify: https://github.com/trpc/trpc/tree/main/examples/fastify-server
 
 ---
 
-**Versión del Plan**: 1.0  
-**Última Actualización**: Febrero 2026  
-**Estado**: Propuesta - Pendiente de aprobación
+## Conclusion
+
+This plan provides a clear and safe path to migrate Open Yojob to tRPC. Gradual migration minimizes risks while allowing validation of benefits at each phase.
+
+**Next Step**: Get team approval and start with Phase 1.
+
+---
+
+**Plan Version**: 1.0  
+**Last Updated**: February 2026  
+**Status**: Proposal - Pending approval
