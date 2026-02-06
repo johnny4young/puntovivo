@@ -33,7 +33,12 @@ export async function createContext({
   // Try to extract user from JWT if it exists
   try {
     await req.jwtVerify();
-    const payload = req.user as any;
+    const payload = req.user as {
+      userId: string;
+      email: string;
+      role: string;
+      tenantId: string;
+    };
     user = {
       id: payload.userId,
       email: payload.email,
