@@ -16,8 +16,12 @@
     "@tanstack/react-query": "^5.17.0",
     "@tanstack/react-table": "^8.11.0",
     "@tanstack/react-virtual": "^3.0.1",
+    "@trpc/client": "^11.9.0",
+    "@trpc/react-query": "^11.9.0",
+    "@trpc/server": "^11.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
+    "exceljs": "^4.4.0",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.303.0",
@@ -26,7 +30,6 @@
     "react-hook-form": "^7.49.2",
     "react-router-dom": "~7.13.0",
     "tailwind-merge": "^3.0.0",
-    "exceljs": "^4.4.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
