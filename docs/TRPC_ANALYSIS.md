@@ -1,543 +1,83 @@
-# Análisis de Integración tRPC para Open Yojob
+# tRPC Integration Analysis for Open Yojob
 
-## Resumen Ejecutivo
+## Executive Summary
 
-Este documento presenta un análisis detallado sobre la integración de **tRPC** en el sistema Open Yojob. La evaluación concluye que tRPC representa una mejora arquitectónica significativa que facilitaría el desarrollo y mantenimiento del proyecto.
+This document analyzes the potential integration of **tRPC** (TypeScript Remote Procedure Call) into the Open Yojob POS system. Based on the current architecture and requirements, **tRPC provides significant benefits** for this project and is **highly recommended** for adoption.
 
-**Recomendación Principal**: ✅ **Se recomienda implementar tRPC**
+**Key Recommendation**: ✅ **Proceed with tRPC integration**
 
 ---
 
-## Arquitectura Actual del Proyecto
+## Current Architecture Overview
 
-### Capa Backend
+### Backend Stack
 - **Framework**: Fastify 5.2.0
-- **Base de Datos**: SQLite con Drizzle ORM
-- **Estilo API**: REST tradicional
-- **Autenticación**: JWT mediante @fastify/jwt
-- **Tiempo Real**: Server-Sent Events (SSE)
-- **Tipado**: TypeScript completo
+- **Database**: SQLite with Drizzle ORM
+- **API Style**: RESTful endpoints
+- **Authentication**: JWT with @fastify/jwt
+- **Real-time**: Server-Sent Events (SSE)
+- **Type Safety**: TypeScript throughout
 
-### Capa Frontend
-- **Framework**: React 19 con TypeScript
-- **Estado**: TanStack Query + Zustand
-- **Cliente API**: Cliente personalizado basado en fetch
-- **Tipado**: Definiciones manuales de tipos
+### Frontend Stack
+- **Framework**: React 19 with TypeScript
+- **State Management**: TanStack Query + Zustand
+- **API Client**: Custom fetch-based client
+- **Type Safety**: Manual type definitions
 
-### Desafíos Identificados
-1. **Duplicación de Tipos**: Los tipos se definen por separado en backend y frontend
-2. **Gestión de Contratos API**: Sincronización manual entre respuestas del servidor y expectativas del cliente
-3. **Errores de Tipo en Tiempo de Ejecución**: No hay validación en tiempo de compilación
-4. **Código Repetitivo**: Capa de servicios extensa y hooks para cada colección
-5. **Descubrimiento de API**: No existe forma integrada de explorar endpoints disponibles
+### Current Pain Points
+1. **Type Duplication**: Types defined separately on backend and frontend
+2. **API Contract Management**: Manual synchronization between server responses and client expectations
+3. **Runtime Type Errors**: No compile-time validation of API calls
+4. **Boilerplate Code**: Extensive service layer and hook code for each collection
+5. **API Discovery**: No built-in way to explore available endpoints
 
 ---
 
-## Introducción a tRPC
+## What is tRPC?
 
-tRPC es una solución que permite crear **APIs completamente tipadas de extremo a extremo** sin necesidad de generación de código. Sus capacidades principales incluyen:
+tRPC is a library that enables **end-to-end type-safe APIs** without code generation. It allows you to:
 
-- **Compartir tipos automáticamente** entre servidor y cliente
-- **Invocar funciones del backend directamente** desde el frontend con IntelliSense completo
-- **Detectar errores en tiempo de compilación** en lugar de en tiempo de ejecución
-- **Eliminar código repetitivo** para clientes API y definiciones de tipos
+- **Share types automatically** between client and server
+- **Call backend functions directly** from the frontend with full IntelliSense
+- **Catch API errors at compile time** instead of runtime
+- **Eliminate boilerplate** for API clients and type definitions
 
-### Funcionamiento de tRPC
+### How tRPC Works
 
 ```typescript
-// Servidor (packages/server/src/api-procedures/inventory.ts)
-export const catalogoProcedures = defineProcedures({
-  obtenerArticulos: baseProcedure
-    .input(validacionPaginacion)
-    .query(async ({ parametros, contexto }) => {
-      return contexto.db.select().from(articulos).limit(parametros.limite);
+// Server (packages/server/src/trpc/routers/products.ts)
+export const productsRouter = router({
+  list: authenticatedProcedure
+    .input(z.object({ page: z.number(), perPage: z.number() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.select().from(products).limit(input.perPage);
     }),
     
-  agregarArticulo: baseProcedure
-    .input(validacionArticulo)
-    .mutation(async ({ parametros, contexto }) => {
-      return contexto.db.insert(articulos).values(parametros);
+  create: authenticatedProcedure
+    .input(z.object({ name: z.string(), price: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.insert(products).values(input);
     }),
 });
 
-export type CatalogoAPI = typeof catalogoProcedures;
+export type ProductsRouter = typeof productsRouter;
 
-// Cliente (apps/web/src/infraestructura/api-client.ts)
-import type { CatalogoAPI } from '@open-yojob/server';
+// Client (apps/web/src/lib/trpc.ts)
+import type { AppRouter } from '@open-yojob/server';
 
-const clienteAPI = inicializarCliente<CatalogoAPI>(configuracion);
+const trpc = createTRPCClient<AppRouter>({ /* ... */ });
 
-// Uso con tipado completo
-const listaArticulos = await clienteAPI.obtenerArticulos.query({ 
-  pagina: 1, 
-  limite: 50 
-});
+// Usage - fully typed!
+const products = await trpc.products.list.query({ page: 1, perPage: 50 });
+//    ^? Product[] - TypeScript knows this!
 
-const nuevoArticulo = await clienteAPI.agregarArticulo.mutate({ 
-  nombre: "Café Especial", 
-  precio: 2.50 
+const newProduct = await trpc.products.create.mutate({ 
+  name: "Coffee", 
+  price: 2.50 
 });
 ```
 
-Sin generación de código, sin sincronización manual - **los tipos fluyen automáticamente del servidor al cliente**.
-
----
-
-## Ventajas para Open Yojob
-
-### 1. **Seguridad de Tipos de Extremo a Extremo** ⭐⭐⭐⭐⭐
-
-**Estado Actual**: Duplicación manual de tipos
-```typescript
-// Servidor - definición independiente
-interface ArticuloInventario { 
-  identificador: string; 
-  descripcion: string; 
-  valorUnitario: number; 
-}
-
-// Cliente - misma definición repetida
-interface ArticuloInventario { 
-  identificador: string; 
-  descripcion: string; 
-  valorUnitario: number; 
-}
-```
-
-**Con tRPC**: Tipos inferidos automáticamente
-```typescript
-// El servidor define el esquema una sola vez
-const esquemaArticulo = esquemaValidacion.object({
-  identificador: esquemaValidacion.string(),
-  descripcion: esquemaValidacion.string(),
-  valorUnitario: esquemaValidacion.number(),
-});
-
-// El cliente obtiene los tipos automáticamente
-const articulo = await clienteAPI.inventario.consultarPorId.query({ id: 'abc123' });
-// TypeScript infiere: { identificador: string, descripcion: string, valorUnitario: number }
-```
-
-### 2. **Detección de Errores en Compilación** ⭐⭐⭐⭐⭐
-
-**Estado Actual**: Errores solo detectables en runtime
-```typescript
-// Error tipográfico - solo se detecta cuando la aplicación se ejecuta
-await clienteAPI.crear('productos', { 
-  nombr: 'Café Premium', // ❌ Debería ser 'nombre'
-  precio: 2.50 
-});
-```
-
-**Con tRPC**: Errores detectados inmediatamente
-```typescript
-// TypeScript marca el error antes de ejecutar
-await clienteAPI.productos.agregar.mutate({ 
-  nombr: 'Café Premium', // ❌ Error de TypeScript inmediato
-  precio: 2.50 
-});
-```
-
-### 3. **Reducción Drástica de Código Repetitivo** ⭐⭐⭐⭐
-
-**Estado Actual**: Aproximadamente 150 líneas por colección
-```typescript
-// servicios/api/gestion-productos.ts (50+ líneas)
-export async function consultarProductos(opciones) { /* implementación */ }
-export async function consultarProductoPorId(id) { /* implementación */ }
-export async function registrarProducto(datos) { /* implementación */ }
-export async function actualizarProducto(id, datos) { /* implementación */ }
-export async function eliminarProducto(id) { /* implementación */ }
-
-// hooks/api/ganchos-productos.ts (100+ líneas)
-export function useListadoProductos(opciones) { /* implementación */ }
-export function useDetalleProducto(id) { /* implementación */ }
-export function useCreacionProducto() { /* implementación */ }
-export function useActualizacionProducto() { /* implementación */ }
-export function useEliminacionProducto() { /* implementación */ }
-```
-
-**Con tRPC**: Aproximadamente 30 líneas
-```typescript
-// hooks/api/ganchos-productos.ts
-import { clienteAPI } from '@/infraestructura/api-client';
-
-// Los hooks se generan automáticamente con tipado completo
-export const useListadoProductos = clienteAPI.productos.listar.useQuery;
-export const useDetalleProducto = clienteAPI.productos.consultar.useQuery;
-export const useCreacionProducto = clienteAPI.productos.agregar.useMutation;
-export const useActualizacionProducto = clienteAPI.productos.modificar.useMutation;
-export const useEliminacionProducto = clienteAPI.productos.remover.useMutation;
-```
-
-**Reducción**: Aproximadamente 80% menos código para mantener
-
-### 4. **Integración Perfecta con Stack Existente** ⭐⭐⭐⭐⭐
-
-tRPC se integra sin problemas con las herramientas actuales:
-
-- ✅ **Fastify**: Adaptador oficial disponible
-- ✅ **TanStack Query**: Integración nativa para hooks de React
-- ✅ **Drizzle ORM**: Funcionan perfectamente juntos
-- ✅ **Zod**: Validación integrada
-- ✅ **JWT Auth**: Implementación sencilla mediante middleware
-- ✅ **SSE**: Pueden coexistir
-
-### 5. **Experiencia de Desarrollo Mejorada** ⭐⭐⭐⭐⭐
-
-- **Autocompletado**: IntelliSense completo para todos los endpoints
-- **Documentación Inline**: Los comentarios JSDoc fluyen del servidor al cliente
-- **Refactorización Segura**: Renombrar función en servidor actualiza cliente automáticamente
-- **Descubrimiento de API**: Ver endpoints disponibles con Cmd+Click
-- **Pruebas**: Más fácil mockear y probar con procedimientos tipados
-
-### 6. **Ideal para Aplicaciones Electron** ⭐⭐⭐⭐
-
-La aplicación ejecuta backend y frontend en el mismo proceso (Electron). tRPC es **perfecto** para esto:
-
-- **Base de código compartida**: Código de servidor y cliente en el mismo repositorio
-- **Iteración rápida**: Cambio en servidor → cliente se actualiza automáticamente
-- **Seguridad de tipos**: Crítico cuando ambas capas están en TypeScript
-- **Sin overhead de red**: Posibilidad de optimizar para llamadas in-process
-
----
-
-## Consideraciones y Trade-offs
-
-### Ventajas
-✅ **Seguridad de tipos end-to-end** elimina categorías enteras de bugs  
-✅ **80% menos código repetitivo** para mantener  
-✅ **Mejor experiencia de desarrollo** con IntelliSense y autocompletado  
-✅ **Detección de errores en compilación** en lugar de runtime  
-✅ **Ajuste perfecto** para TypeScript + TanStack Query + Fastify  
-✅ **Comunidad activa** y documentación excelente  
-✅ **Listo para producción** (usado por empresas como Cal.com, Ping.gg)  
-
-### Desventajas
-⚠️ **Curva de aprendizaje** para el equipo (1-2 semanas de proficiencia)  
-⚠️ **Esfuerzo de migración** para convertir endpoints REST existentes  
-⚠️ **Acoplamiento** al ecosistema TypeScript (ya comprometido)  
-⚠️ **Menos flexible** que REST para consumidores externos de API  
-⚠️ **Depuración** requiere entender abstracciones de tRPC  
-
-### Mitigaciones
-- **Migración gradual**: Ejecutar tRPC junto con API REST existente
-- **Documentación sólida**: Los docs de tRPC son excelentes
-- **Soporte comunitario**: Comunidad Discord amplia
-- **REST sigue disponible**: Mantener endpoints REST para uso externo
-
----
-
-## Comparación Detallada: REST Actual vs tRPC
-
-| Aspecto | Actual (REST + Fastify) | Con tRPC |
-|---------|-------------------------|----------|
-| Seguridad de Tipos | Definiciones manuales | Automático extremo a extremo |
-| Código Repetitivo | ~150 líneas/colección | ~30 líneas/colección |
-| Errores en Compilación | ❌ No | ✅ Sí |
-| IntelliSense | ❌ Limitado | ✅ Autocompletado completo |
-| Refactorización Segura | ⚠️ Actualización manual | ✅ TypeScript lo maneja |
-| Descubrimiento API | ❌ Documentación manual | ✅ Integrado vía tipos |
-| Tamaño Bundle | Más pequeño | +~15KB gzipped |
-| API Externa | ✅ Fácil (REST) | ⚠️ Requiere adaptador REST |
-| Curva Aprendizaje | Baja | Media |
-| Validación | Manual o Zod | Zod integrado |
-
----
-
-## Mejores Prácticas Recomendadas
-
-Si se decide adoptar tRPC, seguir estas mejores prácticas:
-
-### 1. **Migración Progresiva**
-- Comenzar con **una colección** (ej: productos)
-- Mantener endpoints REST en paralelo
-- Migrar colección por colección
-- Eliminar REST una vez todos los clientes migrados
-
-### 2. **Mantener REST para APIs Externas**
-- Conservar endpoints REST para APIs públicas/externas
-- Usar tRPC para comunicación interna frontend ↔ backend
-- Documentar qué endpoints son públicos vs. internos
-
-### 3. **Usar Middleware para Aspectos Transversales**
-```typescript
-// Middleware de autenticación
-const procedimientoProtegido = procedimientoBase.use(async ({ ctx, siguiente }) => {
-  if (!ctx.usuarioActual) {
-    throw new ErrorAPI({ codigo: 'NO_AUTORIZADO' });
-  }
-  return siguiente({ ctx: { ...ctx, usuarioActual: ctx.usuarioActual } });
-});
-
-// Middleware de aislamiento por tenant
-const procedimientoTenant = procedimientoProtegido.use(async ({ ctx, siguiente }) => {
-  return siguiente({ 
-    ctx: { ...ctx, idTenant: ctx.usuarioActual.idTenant } 
-  });
-});
-```
-
-### 4. **Organizar Routers por Dominio**
-```
-packages/server/src/procedimientos-api/
-├── enrutador-principal.ts     # Composición principal
-├── contexto-request.ts        # Contexto de petición
-├── middleware/
-│   ├── autenticacion.ts
-│   └── aislamiento-tenant.ts
-└── dominios/
-    ├── gestion-productos.ts
-    ├── gestion-clientes.ts
-    ├── procesamiento-ventas.ts
-    └── autenticacion.ts
-```
-
-### 5. **Aprovechar Zod para Validación**
-```typescript
-// Esquemas reutilizables
-const esquemaEntradaProducto = esquemaValidacion.object({
-  nombre: esquemaValidacion.string().min(1).max(100),
-  precio: esquemaValidacion.number().positive(),
-  codigoSKU: esquemaValidacion.string().regex(/^[A-Z0-9-]+$/),
-});
-
-// Usar en procedimientos
-agregarProducto: procedimientoTenant
-  .input(esquemaEntradaProducto)
-  .mutation(async ({ input: parametros, ctx: contexto }) => {
-    // parametros está validado y tipado
-  }),
-```
-
-### 6. **Usar Suscripciones para Actualizaciones en Tiempo Real**
-tRPC soporta suscripciones, que podrían **reemplazar la implementación SSE actual**:
-
-```typescript
-// Servidor
-cambiosProducto: procedimientoTenant
-  .subscription(({ ctx: contexto }) => {
-    return crearObservable<Producto>(emisor => {
-      const cancelarSuscripcion = contexto.db.productos.suscribirse(producto => {
-        emisor.siguiente(producto);
-      });
-      return cancelarSuscripcion;
-    });
-  }),
-
-// Cliente - reconexión automática
-clienteAPI.productos.cambiosProducto.useSubscription(undefined, {
-  alRecibirDatos: (producto) => {
-    console.log('Producto actualizado:', producto);
-  },
-});
-```
-
----
-
-## Evaluación de Mantenibilidad
-
-### Mantenibilidad del Código: ⭐⭐⭐⭐⭐ Excelente
-
-**Factores Positivos**:
-- **Fuente única de verdad**: Tipos definidos una sola vez en servidor
-- **Confianza en refactorización**: TypeScript detecta cambios incompatibles
-- **Menos código**: 80% de reducción en capa API
-- **Auto-documentado**: Firmas de funciones sirven como documentación
-- **Amigable con control de versiones**: Cambios explícitos y verificados por tipos
-
-**Comparación**:
-```typescript
-// Actual: 3 archivos por colección
-// - routes/products.ts (servidor)
-// - services/api/products.ts (servicio cliente)
-// - hooks/api/useProducts.ts (hooks cliente)
-// Total: ~250 líneas
-
-// Con tRPC: 2 archivos por colección
-// - dominios/gestion-productos.ts (servidor + tipos)
-// - hooks/api/ganchos-productos.ts (wrapper delgado - opcional)
-// Total: ~80 líneas
-```
-
-### Sostenibilidad a Largo Plazo: ⭐⭐⭐⭐ Muy Buena
-
-**Factores Positivos**:
-- **Desarrollo activo**: Releases regulares, mantenedores receptivos
-- **Adopción en producción**: Usado por empresas importantes
-- **TypeScript-first**: Se beneficia del crecimiento del ecosistema TS
-- **Framework agnóstico**: Cambiar frameworks frontend sin cambiar servidor
-- **API estable**: Pocos cambios incompatibles entre versiones
-
-**Preocupaciones**:
-- **Relativamente joven**: v10 (estable) lanzado en 2023
-- **Dependencia de mantenedores**: No respaldado por empresa grande (mitigado por licencia MIT)
-
----
-
-## Consideraciones de Seguridad
-
-tRPC mantiene **el mismo modelo de seguridad** que la API REST actual:
-
-### Autenticación y Autorización
-```typescript
-// Misma autenticación JWT, middleware diferente
-export const crearContextoPeticion = async ({ solicitud }: { solicitud: FastifyRequest }) => {
-  const tokenAuth = solicitud.headers.authorization?.replace('Bearer ', '');
-  const usuarioActual = tokenAuth ? await verificarJWT(tokenAuth) : null;
-  
-  return {
-    baseDatos: solicitud.server.db,
-    usuarioActual,
-    idTenant: usuarioActual?.idTenant,
-  };
-};
-
-const procedimientoProtegido = procedimientoBase.use(async ({ ctx, siguiente }) => {
-  if (!ctx.usuarioActual) {
-    throw new ErrorAPI({ codigo: 'NO_AUTORIZADO' });
-  }
-  return siguiente({ ctx: { ...ctx, usuarioActual: ctx.usuarioActual } });
-});
-```
-
-### Limitación de Tasa (Rate Limiting)
-Integración con rate limiting existente de Fastify:
-```typescript
-// Aplicar rate limiting a nivel Fastify antes de tRPC
-aplicacion.register(limitadorTasa, {
-  maximo: 100,
-  ventanaTiempo: '1 minute',
-});
-
-aplicacion.register(pluginTRPCFastify, {
-  prefijo: '/api/procedimientos',
-  opcionesTRPC: { 
-    enrutador: enrutadorPrincipal, 
-    crearContexto: crearContextoPeticion 
-  },
-});
-```
-
-### Validación de Entrada
-**Más fuerte** que el enfoque actual:
-- Los esquemas Zod fuerzan validación a nivel de tipos
-- Ningún dato llega al handler sin pasar validación
-- Mensajes de error detallados para entrada inválida
-
----
-
-## Impacto en Rendimiento
-
-### Tamaño del Bundle
-- **Cliente tRPC**: ~15KB gzipped
-- **Cliente fetch actual**: ~5KB gzipped
-- **Incremento neto**: ~10KB (despreciable para app desktop)
-
-### Rendimiento en Runtime
-- **Idéntico**: Ambos usan HTTP/JSON
-- **Optimización posible**: Batching JSON-RPC para reducir peticiones
-- **Optimización posible**: Multiplexing HTTP/2
-
-### Tiempo de Build
-- **Ligeramente más lento**: TypeScript necesita verificar tipos más complejos
-- **Impacto**: +5-10% tiempo de build (despreciable en práctica)
-
----
-
-## Comparación con Alternativas
-
-### Opción 1: Mantener API REST Actual
-**Pros**: Sin migración, familiar para todos  
-**Cons**: Brechas de seguridad de tipos, mucho boilerplate, sincronización manual  
-**Veredicto**: ❌ No recomendado para proyecto TypeScript-first
-
-### Opción 2: GraphQL
-**Pros**: Queries flexibles, estándar de industria  
-**Cons**: Setup complejo, requiere generación de código, overkill para este proyecto  
-**Veredicto**: ⚠️ Demasiado complejo para API interna
-
-### Opción 3: OpenAPI/Swagger
-**Pros**: REST con generación de tipos, estándar de industria  
-**Cons**: Generación de código, menos type-safe que tRPC, más boilerplate  
-**Veredicto**: ⚠️ Buena opción, pero tRPC mejor para TypeScript
-
-### Opción 4: tRPC (Recomendada)
-**Pros**: Integración perfecta con TypeScript, boilerplate mínimo, excelente DX  
-**Cons**: Curva de aprendizaje, solo TypeScript  
-**Veredicto**: ✅ **Mejor opción para este proyecto**
-
----
-
-## Conclusión
-
-### ¿Deberías Adoptar tRPC? **SÍ** ✅
-
-tRPC es una **excelente opción** para Open Yojob por las siguientes razones:
-
-1. **Tu stack ya es TypeScript-first** - tRPC maximiza esta inversión
-2. **Estás construyendo una app Electron** - perfecto para definiciones de tipos compartidas
-3. **Usas TanStack Query** - integración perfecta con tRPC
-4. **Tienes ~10 colecciones** - ahorrarás ~1000+ líneas de boilerplate
-5. **La seguridad de tipos es importante** - Las apps Electron se benefician enormemente
-6. **Desarrollo activo** - Te beneficiarás de mejoras continuas
-
-### Ruta Recomendada
-
-**Fase 1: Prueba de Concepto** (1 semana)
-- Configurar tRPC junto con API REST existente
-- Migrar **colección de productos** como PoC
-- Probar con frontend existente
-- Documentar aprendizajes
-
-**Fase 2: Migración Gradual** (2-3 semanas)
-- Migrar colecciones restantes una por una
-- Actualizar todo el código frontend
-- Mantener endpoints REST para APIs externas
-- Actualizar documentación
-
-**Fase 3: Optimización** (1 semana)
-- Agregar suscripciones tRPC para reemplazar SSE
-- Optimizar tamaño de bundle
-- Agregar tooling específico de tRPC
-- Entrenamiento del equipo y documentación
-
-**Esfuerzo Total**: 4-5 semanas para migración completa
-
-### Beneficios Esperados
-
-- **Experiencia de Desarrollo**: ⬆️ 90% mejora
-- **Seguridad de Tipos**: ⬆️ 100% mejora (end-to-end)
-- **Mantenimiento de Código**: ⬇️ 80% menos boilerplate
-- **Prevención de Bugs**: ⬆️ 50% menos errores en runtime
-- **Velocidad de Refactorización**: ⬆️ 3x más rápido con type safety
-
----
-
-## Recursos
-
-- **Documentación Oficial**: https://trpc.io
-- **Adaptador Fastify**: https://trpc.io/docs/server/adapters/fastify
-- **Integración TanStack Query**: https://trpc.io/docs/client/react
-- **Comunidad Discord**: https://trpc.io/discord
-
----
-
-## Próximos Pasos
-
-Si decides proceder con la integración de tRPC:
-
-1. **Revisar este análisis** con tu equipo
-2. **Leer el plan de implementación** en `TRPC_IMPLEMENTATION_PLAN.md`
-3. **Comenzar con Fase 1 PoC** (colección productos)
-4. **Evaluar resultados** antes de migración completa
-5. **Proceder con migración completa** si PoC es exitoso
-
----
-
-**Versión del Documento**: 1.0  
-**Fecha**: Febrero 2026  
-**Estado**: Recomendación - Pendiente de aprobación
+No code generation, no manual type syncing - **types flow automatically from server to client**.
 
 ---
 
@@ -556,7 +96,7 @@ interface Product { id: string; name: string; price: number; } // Duplicated!
 
 **With tRPC**: Types automatically inferred
 ```typescript
-// Server defines the schema
+// Server defines the schema once
 const productSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -710,7 +250,7 @@ If you decide to adopt tRPC, follow these best practices:
 ### 3. **Use Middleware for Cross-Cutting Concerns**
 ```typescript
 // Authentication middleware
-const protectedProcedure = procedure.use(async ({ ctx, next }) => {
+const protectedProcedure = publicProcedure.use(async ({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
@@ -836,7 +376,7 @@ export const createContext = async ({ req }: { req: FastifyRequest }) => {
   };
 };
 
-const protectedProcedure = procedure.use(async ({ ctx, next }) => {
+const protectedProcedure = publicProcedure.use(async ({ ctx, next }) => {
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });

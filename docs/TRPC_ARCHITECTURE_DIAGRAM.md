@@ -1,6 +1,6 @@
-# Arquitectura tRPC para Open Yojob
+# tRPC Architecture for Open Yojob
 
-## Diagrama de Arquitectura Propuesta
+## Proposed Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -8,7 +8,7 @@
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │           Componentes React                               │  │
+│  │           React Components                                │  │
 │  │  ┌────────────┐  ┌────────────┐  ┌────────────┐         │  │
 │  │  │  Products  │  │  Customers │  │   Sales    │  ...    │  │
 │  │  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘         │  │
@@ -18,30 +18,30 @@
 │  │                        ▼                                  │  │
 │  │  ┌────────────────────────────────────────────────────┐  │  │
 │  │  │        tRPC React Hooks (Auto-generated)           │  │  │
-│  │  │  • useListadoProductos()                           │  │  │
-│  │  │  • useCrearProducto()                              │  │  │
-│  │  │  • useActualizarProducto()                         │  │  │
-│  │  │  ✅ Tipos inferidos automáticamente                 │  │  │
-│  │  │  ✅ IntelliSense completo                           │  │  │
+│  │  │  • useProductsList()                               │  │  │
+│  │  │  • useCreateProduct()                              │  │  │
+│  │  │  • useUpdateProduct()                              │  │  │
+│  │  │  ✅ Types inferred automatically                    │  │  │
+│  │  │  ✅ Full IntelliSense                               │  │  │
 │  │  └────────────────────┬───────────────────────────────┘  │  │
 │  └───────────────────────┼───────────────────────────────────┘  │
 │                          │                                       │
 │  ┌───────────────────────┼───────────────────────────────────┐  │
 │  │     TanStack Query    │                                   │  │
-│  │  • Cache              │                                   │  │
+│  │  • Caching            │                                   │  │
 │  │  • Invalidation       │                                   │  │
 │  │  • Optimistic updates │                                   │  │
 │  └───────────────────────┼───────────────────────────────────┘  │
 │                          │                                       │
 │  ┌───────────────────────┼───────────────────────────────────┐  │
-│  │   Cliente tRPC        │                                   │  │
+│  │   tRPC Client         │                                   │  │
 │  │  • HTTP Batch Link    │                                   │  │
 │  │  • JWT Headers        │                                   │  │
 │  └───────────────────────┼───────────────────────────────────┘  │
 │                          │                                       │
 └──────────────────────────┼───────────────────────────────────────┘
                            │
-                           │ HTTP/JSON (Tipado)
+                           │ HTTP/JSON (Typed)
                            │ /api/trpc
                            │
 ┌──────────────────────────┼───────────────────────────────────────┐
@@ -83,20 +83,20 @@
 │                           │                                      │
 │                           ▼                                      │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │           Router Raíz (Composición)                       │  │
+│  │           Root Router (Composition)                       │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │  │
-│  │  │  productos  │  │  clientes   │  │   ventas    │ ...  │  │
+│  │  │  products   │  │  customers  │  │   sales     │ ...  │  │
 │  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘      │  │
 │  │         │                │                │              │  │
 │  │         └────────────────┴────────────────┘              │  │
 │  │                          │                                │  │
 │  │                          ▼                                │  │
 │  │  ┌──────────────────────────────────────────────────┐    │  │
-│  │  │          Procedimientos (Procedures)             │    │  │
-│  │  │  • Query: listar, consultarPorId                 │    │  │
-│  │  │  • Mutation: crear, actualizar, eliminar         │    │  │
-│  │  │  ✅ Validación con Zod                            │    │  │
-│  │  │  ✅ Tipos TypeScript nativos                      │    │  │
+│  │  │          Procedures                              │    │  │
+│  │  │  • Query: list, getById                          │    │  │
+│  │  │  • Mutation: create, update, delete              │    │  │
+│  │  │  ✅ Zod validation                                 │    │  │
+│  │  │  ✅ Native TypeScript types                       │    │  │
 │  │  └─────────────────────┬────────────────────────────┘    │  │
 │  └────────────────────────┼───────────────────────────────────┘  │
 │                           │                                      │
@@ -111,34 +111,34 @@
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-## Flujo de una Petición (Ejemplo: Crear Producto)
+## Request Flow Example: Create Product
 
 ```
 1. FRONTEND
    ┌────────────────────────────────────────────┐
-   │ Componente React                           │
+   │ React Component                           │
    │                                            │
-   │  const crear = useCrearProductoTRPC();     │
+   │  const createProduct = useCreateProduct(); │
    │                                            │
-   │  crear.mutate({                            │
-   │    nombre: "Café Premium",                 │
-   │    precio: 2.50,                           │
-   │    sku: "CAF-001"                          │
+   │  createProduct.mutate({                    │
+   │    name: "Premium Coffee",                 │
+   │    price: 2.50,                            │
+   │    sku: "COFFEE-001"                       │
    │  });                                       │
    └────────────────┬───────────────────────────┘
                     │
-                    │ ✅ TypeScript valida tipos
-                    │    antes de enviar
+                    │ ✅ TypeScript validates types
+                    │    before sending
                     │
                     ▼
    ┌────────────────────────────────────────────┐
-   │ Cliente tRPC                               │
-   │ • Serializa datos a JSON                   │
-   │ • Agrega JWT header                        │
-   │ • Agrega tenant ID header                  │
+   │ tRPC Client                                │
+   │ • Serializes data to JSON                  │
+   │ • Adds JWT header                          │
+   │ • Adds tenant ID header                    │
    └────────────────┬───────────────────────────┘
                     │
-                    │ POST /api/trpc/productos.crear
+                    │ POST /api/trpc/products.create
                     │ Content-Type: application/json
                     │ Authorization: Bearer <token>
                     │
@@ -152,16 +152,16 @@
 3. BACKEND
    ┌────────────────────────────────────────────┐
    │ Fastify Server                             │
-   │ • Recibe petición                          │
-   │ • Aplica rate limiting                     │
-   │ • Verifica CORS                            │
+   │ • Receives request                         │
+   │ • Applies rate limiting                    │
+   │ • Verifies CORS                            │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
    ┌────────────────────────────────────────────┐
    │ tRPC Adapter                               │
-   │ • Parsea request                           │
-   │ • Crea contexto                            │
+   │ • Parses request                           │
+   │ • Creates context                          │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
@@ -169,7 +169,7 @@
    │ Context Creator                            │
    │ ctx = {                                    │
    │   db: dbInstance,                          │
-   │   usuarioActual: { id, email, rol },       │
+   │   user: { id, email, role },               │
    │   tenantId: "tenant-123"                   │
    │ }                                          │
    └────────────────┬───────────────────────────┘
@@ -177,23 +177,23 @@
                     ▼
    ┌────────────────────────────────────────────┐
    │ Auth Middleware                            │
-   │ ✅ JWT válido → continuar                   │
-   │ ❌ JWT inválido → error 401                 │
+   │ ✅ Valid JWT → continue                     │
+   │ ❌ Invalid JWT → error 401                  │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
    ┌────────────────────────────────────────────┐
    │ Tenant Middleware                          │
-   │ ✅ tenantId presente → continuar            │
-   │ ❌ sin tenantId → error 403                 │
+   │ ✅ tenantId present → continue              │
+   │ ❌ no tenantId → error 403                  │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
    ┌────────────────────────────────────────────┐
    │ Zod Validation                             │
-   │ ✅ Datos válidos → continuar                │
-   │ ❌ Datos inválidos → error 400              │
-   │    con detalles del error                  │
+   │ ✅ Valid data → continue                    │
+   │ ❌ Invalid data → error 400                 │
+   │    with detailed error message             │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
@@ -201,7 +201,7 @@
    │ Procedure Handler                          │
    │                                            │
    │  async ({ input, ctx }) => {               │
-   │    const producto = {                      │
+   │    const product = {                       │
    │      id: nanoid(),                         │
    │      ...input,                             │
    │      tenantId: ctx.tenantId,               │
@@ -209,9 +209,9 @@
    │    };                                      │
    │                                            │
    │    await ctx.db.insert(products)           │
-   │      .values(producto);                    │
+   │      .values(product);                     │
    │                                            │
-   │    return producto;                        │
+   │    return product;                         │
    │  }                                         │
    └────────────────┬───────────────────────────┘
                     │
@@ -231,31 +231,31 @@
    ────────────────────────────────────────────────
                     │
                     │ 200 OK
-                    │ { id, nombre, precio, ... }
+                    │ { id, name, price, ... }
                     │
                     ▼
    ┌────────────────────────────────────────────┐
-   │ Cliente tRPC                               │
-   │ • Parsea respuesta                         │
-   │ • Valida tipos                             │
-   │ • Actualiza cache (TanStack Query)         │
+   │ tRPC Client                                │
+   │ • Parses response                          │
+   │ • Validates types                          │
+   │ • Updates cache (TanStack Query)           │
    └────────────────┬───────────────────────────┘
                     │
                     ▼
    ┌────────────────────────────────────────────┐
-   │ Componente React                           │
-   │ • onSuccess callback ejecutado             │
-   │ • UI actualizado automáticamente           │
-   │ • Producto aparece en lista                │
+   │ React Component                            │
+   │ • onSuccess callback executed              │
+   │ • UI updated automatically                 │
+   │ • Product appears in list                  │
    └────────────────────────────────────────────┘
 ```
 
-## Comparación: REST vs tRPC
+## Comparison: REST vs tRPC
 
-### ACTUAL (REST)
+### CURRENT (REST)
 
 ```typescript
-// ❌ BACKEND - Definir tipos manualmente
+// ❌ BACKEND - Define types manually
 interface Product {
   id: string;
   name: string;
@@ -263,22 +263,22 @@ interface Product {
 }
 
 app.post('/api/collections/products', async (req, res) => {
-  // Sin validación automática
+  // No automatic validation
   const data = req.body;
   
-  // Sin type checking
+  // No type checking
   const product = await db.insert(products).values(data);
   res.send(product);
 });
 
-// ❌ FRONTEND - Duplicar tipos
-interface Product {  // ⚠️ Duplicado!
+// ❌ FRONTEND - Duplicate types
+interface Product {  // ⚠️ Duplicated!
   id: string;
   name: string;
   price: number;
 }
 
-// ❌ Definir función API manualmente
+// ❌ Define API function manually
 export async function createProduct(data: CreateProductData): Promise<Product> {
   const response = await fetch('/api/collections/products', {
     method: 'POST',
@@ -288,7 +288,7 @@ export async function createProduct(data: CreateProductData): Promise<Product> {
   return response.json();
 }
 
-// ❌ Crear hook manualmente
+// ❌ Create hook manually
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   
@@ -300,179 +300,179 @@ export function useCreateProduct() {
   });
 }
 
-// ❌ Usar en componente (sin type checking)
-const crear = useCreateProduct();
-crear.mutate({ nam: 'Coffee' });  // ⚠️ Error solo en runtime!
+// ❌ Use in component (no type checking)
+const createProduct = useCreateProduct();
+createProduct.mutate({ nam: 'Coffee' });  // ⚠️ Error only at runtime!
 ```
 
-**Problemas:**
-- 3 archivos que mantener
-- Tipos duplicados
-- Sin validación automática
-- Errores solo en runtime
-- ~150 líneas de código
+**Problems:**
+- 3 files to maintain
+- Types duplicated
+- No automatic validation
+- Errors only at runtime
+- ~150 lines of code
 
 ---
 
-### PROPUESTO (tRPC)
+### PROPOSED (tRPC)
 
 ```typescript
-// ✅ BACKEND - Definir una sola vez
-const esquemaProducto = z.object({
-  nombre: z.string(),
-  precio: z.number(),
+// ✅ BACKEND - Define once
+const productSchema = z.object({
+  name: z.string(),
+  price: z.number(),
   sku: z.string(),
 });
 
-export const routerProductos = enrutador({
-  crear: procedimientoTenant
-    .input(esquemaProducto)  // ✅ Validación automática
+export const productsRouter = router({
+  create: tenantProcedure
+    .input(productSchema)  // ✅ Automatic validation
     .mutation(async ({ input, ctx }) => {
-      // ✅ input está validado y tipado
-      const producto = await ctx.db.insert(products).values(input);
-      return producto;  // ✅ Tipo inferido automáticamente
+      // ✅ input is validated and typed
+      const product = await ctx.db.insert(products).values(input);
+      return product;  // ✅ Type automatically inferred
     }),
 });
 
-// ✅ FRONTEND - Solo importar tipo
-import { clienteAPI } from '@/lib/trpc';
+// ✅ FRONTEND - Just import type
+import { trpc } from '@/lib/trpc';
 
-// ✅ Hook generado automáticamente
-const crear = clienteAPI.productos.crear.useMutation();
+// ✅ Hook auto-generated
+const createProduct = trpc.products.create.useMutation();
 
-// ✅ Usar en componente (type checking completo)
-crear.mutate({ 
-  nombre: 'Coffee',  // ✅ TypeScript valida
-  precio: 2.50,
-  sku: 'CAF-001'
+// ✅ Use in component (full type checking)
+createProduct.mutate({ 
+  name: 'Coffee',  // ✅ TypeScript validates
+  price: 2.50,
+  sku: 'COFFEE-001'
 });
 
-crear.mutate({ 
-  nam: 'Coffee'  // ❌ Error de TypeScript INMEDIATO
+createProduct.mutate({ 
+  nam: 'Coffee'  // ❌ TypeScript error IMMEDIATELY
 });
 ```
 
-**Ventajas:**
-- 2 archivos que mantener
-- Tipos definidos una vez
-- Validación automática con Zod
-- Errores en compile-time
-- ~30 líneas de código
+**Advantages:**
+- 2 files to maintain
+- Types defined once
+- Automatic validation with Zod
+- Errors at compile-time
+- ~30 lines of code
 
-**Reducción: 80% menos código, 100% más seguro**
+**Reduction: 80% less code, 100% safer**
 
-## Estructura de Archivos Propuesta
+## Proposed File Structure
 
 ```
 open_yojob/
 ├── packages/server/
 │   └── src/
-│       ├── api-trpc/                     # 🆕 Nueva carpeta tRPC
-│       │   ├── inicializador.ts          # Setup base tRPC
-│       │   ├── contexto-peticion.ts      # Context con DB, user, tenant
-│       │   ├── enrutador-raiz.ts         # Router principal
+│       ├── trpc/                     # 🆕 New tRPC folder
+│       │   ├── init.ts               # Base tRPC setup
+│       │   ├── context.ts            # Context with DB, user, tenant
+│       │   ├── router.ts             # Main router
 │       │   ├── middleware/
-│       │   │   ├── autenticacion.ts      # JWT verification
-│       │   │   └── tenant-guard.ts       # Tenant isolation
-│       │   ├── dominios/                 # Routers por dominio
-│       │   │   ├── productos.ts          # CRUD productos
-│       │   │   ├── categorias.ts
-│       │   │   ├── clientes.ts
-│       │   │   ├── ventas.ts
-│       │   │   └── inventario.ts
-│       │   └── utilidades/
-│       │       ├── esquemas-productos.ts  # Zod schemas
-│       │       ├── esquemas-clientes.ts
-│       │       └── esquemas-comunes.ts
-│       ├── routes/                       # 📦 Mantener por ahora (legacy)
+│       │   │   ├── auth.ts           # JWT verification
+│       │   │   └── tenant.ts         # Tenant isolation
+│       │   ├── routers/              # Routers by domain
+│       │   │   ├── products.ts       # CRUD products
+│       │   │   ├── categories.ts
+│       │   │   ├── customers.ts
+│       │   │   ├── sales.ts
+│       │   │   └── inventory.ts
+│       │   └── utils/
+│       │       ├── product-schemas.ts # Zod schemas
+│       │       ├── customer-schemas.ts
+│       │       └── common-schemas.ts
+│       ├── routes/                   # 📦 Keep for now (legacy)
 │       │   ├── auth.ts
 │       │   ├── collections.ts
 │       │   └── sync.ts
-│       └── index.ts                      # ✏️ Modificar: agregar tRPC adapter
+│       └── index.ts                  # ✏️ Modify: add tRPC adapter
 │
 └── apps/web/
     └── src/
-        ├── infraestructura/
-        │   └── cliente-trpc.ts           # 🆕 Cliente tRPC configurado
+        ├── lib/
+        │   └── trpc.ts               # 🆕 Configured tRPC client
         ├── hooks/
         │   └── api/
-        │       ├── ganchos-productos-trpc.ts  # 🆕 Hooks tRPC
-        │       ├── ganchos-clientes-trpc.ts
-        │       ├── useProducts.ts        # 📦 Mantener temporalmente
-        │       └── useCustomers.ts       # 📦 Mantener temporalmente
+        │       ├── useProductsTRPC.ts # 🆕 tRPC hooks
+        │       ├── useCustomersTRPC.ts
+        │       ├── useProducts.ts    # 📦 Keep temporarily
+        │       └── useCustomers.ts   # 📦 Keep temporarily
         ├── services/
         │   └── api/
-        │       ├── client.ts             # 📦 Simplificar después
-        │       ├── products.ts           # ❌ Eliminar en Fase 4
-        │       └── customers.ts          # ❌ Eliminar en Fase 4
-        └── App.tsx                       # ✏️ Modificar: agregar tRPC Provider
+        │       ├── client.ts         # 📦 Simplify later
+        │       ├── products.ts       # ❌ Delete in Phase 4
+        │       └── customers.ts      # ❌ Delete in Phase 4
+        └── App.tsx                   # ✏️ Modify: add tRPC Provider
 ```
 
-**Leyenda:**
-- 🆕 = Archivos nuevos
-- ✏️ = Archivos a modificar
-- 📦 = Mantener temporalmente (migración gradual)
-- ❌ = Eliminar en Fase 4 (limpieza final)
+**Legend:**
+- 🆕 = New files
+- ✏️ = Files to modify
+- 📦 = Keep temporarily (gradual migration)
+- ❌ = Delete in Phase 4 (final cleanup)
 
-## Beneficios Visualizados
+## Benefits Visualization
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                BENEFICIOS DE tRPC                       │
+│                BENEFITS OF tRPC                         │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  1. TYPE SAFETY END-TO-END                              │
 │     ┌────────┐                    ┌────────┐           │
 │     │ Server │ ══════════════════►│ Client │           │
-│     └────────┘   Tipos fluyen     └────────┘           │
-│                  automáticamente                        │
+│     └────────┘   Types flow       └────────┘           │
+│                  automatically                          │
 │                                                         │
-│  2. MENOS CÓDIGO                                        │
-│     ANTES: ~150 líneas/colección                        │
+│  2. LESS CODE                                           │
+│     BEFORE: ~150 lines/collection                       │
 │     ╔════════════════════════════════════╗              │
 │     ║░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░║              │
 │     ║░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░║              │
 │     ║░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░║              │
 │     ╚════════════════════════════════════╝              │
 │                                                         │
-│     DESPUÉS: ~30 líneas/colección (-80%)                │
+│     AFTER: ~30 lines/collection (-80%)                  │
 │     ╔═══════╗                                           │
 │     ║░░░░░░░║                                           │
 │     ╚═══════╝                                           │
 │                                                         │
-│  3. ERRORES DETECTADOS ANTES                            │
+│  3. ERRORS DETECTED EARLIER                             │
 │     Runtime Errors:  ▓▓▓▓▓▓▓▓▓▓ (10)                    │
 │     Compile Errors:  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ (20)          │
-│     ✅ Mejor detectar en compilación que en producción   │
+│     ✅ Better to catch in compilation than production    │
 │                                                         │
 │  4. DEVELOPER EXPERIENCE                                │
-│     ANTES:                                              │
+│     BEFORE:                                             │
 │     ┌─────────────┐                                     │
 │     │ No IntelliSense                                   │
-│     │ Tipos manuales                                    │
-│     │ Errores en runtime                                │
+│     │ Manual types                                      │
+│     │ Runtime errors                                    │
 │     └─────────────┘                                     │
 │                                                         │
-│     DESPUÉS:                                            │
+│     AFTER:                                              │
 │     ┌─────────────┐                                     │
-│     │ ✅ IntelliSense completo                          │
-│     │ ✅ Tipos automáticos                              │
-│     │ ✅ Errores en compile-time                        │
-│     │ ✅ Refactoring seguro                             │
+│     │ ✅ Full IntelliSense                               │
+│     │ ✅ Automatic types                                 │
+│     │ ✅ Compile-time errors                             │
+│     │ ✅ Safe refactoring                                │
 │     └─────────────┘                                     │
 │                                                         │
-│  5. MANTENIBILIDAD                                      │
-│     Archivos por colección:                             │
-│     ANTES: 3 archivos (~250 líneas)                     │
-│     DESPUÉS: 2 archivos (~80 líneas)                    │
-│     ✅ 68% menos código que mantener                     │
+│  5. MAINTAINABILITY                                     │
+│     Files per collection:                               │
+│     BEFORE: 3 files (~250 lines)                        │
+│     AFTER: 2 files (~80 lines)                          │
+│     ✅ 68% less code to maintain                         │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-**Documento**: Arquitectura y Flujos tRPC  
-**Fecha**: Febrero 2026  
-**Versión**: 1.0  
-**Estado**: Referencia técnica para implementación
+**Document**: Architecture and Flow Diagrams  
+**Date**: February 2026  
+**Version**: 1.0  
+**Status**: Technical reference for implementation
