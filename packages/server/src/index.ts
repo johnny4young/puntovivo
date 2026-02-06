@@ -11,11 +11,14 @@ import { randomBytes } from 'crypto';
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
 import { collectionsRoutes } from './routes/collections.js';
 import { syncRoutes } from './routes/sync.js';
 import { ssePlugin } from './realtime/sse.js';
+import { appRouter } from './trpc/router.js';
+import { createContext } from './trpc/context.js';
 
 export interface ServerOptions {
   /** Path to the SQLite database file */
@@ -122,6 +125,20 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     }
   });
 
+  // Register tRPC
+  await app.register(fastifyTRPCPlugin, {
+    prefix: '/api/trpc',
+    trpcOptions: {
+      router: appRouter,
+      createContext,
+      onError({ path, error }: { path?: string; error: any }) {
+        if (verbose) {
+          console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
+        }
+      },
+    },
+  });
+
   // Health check endpoint
   app.get('/api/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
@@ -175,3 +192,4 @@ declare module 'fastify' {
 export * from './db/schema.js';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
+export type { AppRouter } from './trpc/router.js';
