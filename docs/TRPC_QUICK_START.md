@@ -18,73 +18,49 @@ rm -rf node_modules package-lock.json apps/*/node_modules packages/*/node_module
 npm install
 ```
 
-## Running the Server
+## Running the Application
 
-### Option 1: Desktop App - Standalone (No Web Dev Server) ⭐ **NEW!**
+### Desktop App (Default)
 ```bash
-# Launches desktop app WITHOUT requiring a web dev server
-npm run dev:desktop-standalone
-
-# This will:
-# 1. Build the web app (apps/web/dist)
-# 2. Start Electron desktop with embedded server (port 8090)
-# 3. Load UI from built files (not a dev server)
-# 4. Show login page immediately
-```
-
-**Perfect for:**
-- ✅ Testing desktop app without web dev server
-- ✅ Fastest startup (no dev server overhead)
-- ✅ Working on backend/server features
-- ✅ **Answer to: "Can I run desktop without web dev server?"**
-
-See complete guide: **[docs/STANDALONE_DESKTOP_GUIDE.md](./STANDALONE_DESKTOP_GUIDE.md)**
-
-### Option 2: Desktop App with Hot Reload (Full Development)
-```bash
-# Starts both web dev server AND desktop app
 npm run dev
+```
+Starts Electron desktop app with embedded server (port 8090).
 
-# This will:
-# 1. Start web dev server on port 3000 (with hot reload)
-# 2. Wait 5 seconds for web to be ready
-# 3. Start Electron desktop app with embedded server (port 8090)
-# 4. Show login page with instant UI updates
+**Note:** Desktop app expects web dev server on port 3000 in development. To run web + desktop together:
+```bash
+npm run dev:all
 ```
 
-**Perfect for:**
-- ✅ Active UI development with hot reload
-- ✅ Seeing React changes instantly
-
-For complete desktop setup details, see: **[docs/DESKTOP_APP_SETUP.md](./DESKTOP_APP_SETUP.md)**
-
-### Option 3: Backend Server Only (For API Testing)
+### Web Dev Server
 ```bash
-# Start just the backend server:
-npm run dev:server
+npm run dev:web
+```
+Starts React dev server on port 3000 with hot reload.
 
-# Or start web + server together (no Electron):
+### Backend Server Only
+```bash
+npm run dev:server
+```
+Starts Fastify server on port 8090 for API testing.
+
+### Full Stack (Web + Server, No Desktop)
+```bash
 npm run dev:fullstack
 ```
-
-### Option 4: Desktop Only (If Web Already Running)
-```bash
-# If web dev server is already running on port 3000:
-npm run dev:desktop-only
-```
+Starts both web dev server and backend server concurrently.
 
 ## Testing tRPC Endpoints
 
 ### Quick Test (curl)
 ```bash
-# Once server is running (npm run dev:server or npm run dev):
+# Once server is running:
 curl http://localhost:8090/api/trpc/health.check
 
 # Expected response:
 # {"result":{"data":{"status":"ok","timestamp":"...","message":"tRPC is working correctly"}}}
 ```
 
-**Note**: tRPC query procedures use GET requests (not POST). Mutation procedures use POST.
+**Note**: tRPC query procedures use GET requests. Mutation procedures use POST.
 
 ### Browser Test
 Simply open in your browser:
@@ -105,14 +81,14 @@ http://localhost:8090/api/trpc/health.check
 ## Build Commands
 
 ```bash
-# Build server only:
-npm run build --workspace=@open-yojob/server
-
 # Build web only:
 npm run build:web
 
-# Build everything (requires Electron deps):
+# Build and package desktop app (includes web):
 npm run build
+
+# Package desktop app:
+npm run make
 ```
 
 ## Configuration
@@ -136,28 +112,19 @@ npm run dev:server
 
 ## Troubleshooting
 
-### `npm run dev:server` fails with "tsx: not found"
-
-**Solution:** Install dependencies
-```bash
-npm install
-```
-
-See complete troubleshooting guide: **[docs/TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
-
 ### Common Issues
 
-- **Blank desktop screen** → Use `npm run dev:desktop-standalone`
+- **Desktop shows blank screen** → Ensure web dev server is running on port 3000, or use `npm run dev:all`
 - **"METHOD_NOT_SUPPORTED" error** → Use GET for queries, POST for mutations
 - **"Cannot connect"** → Check server is running and URL matches
 - **Build failures** → Check Node v22 and run `npm install`
 
+See complete troubleshooting guide: **[docs/TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
+
 ## More Information
 
-- **Troubleshooting**: `docs/TROUBLESHOOTING.md` ⭐ **NEW**
-- **Environment Config**: `docs/ENVIRONMENT_CONFIGURATION.md` ⭐ **NEW**
-- **Standalone Desktop**: `docs/STANDALONE_DESKTOP_GUIDE.md`
-- **Desktop Setup**: `docs/DESKTOP_APP_SETUP.md`
+- **Troubleshooting**: `docs/TROUBLESHOOTING.md`
+- **Environment Config**: `docs/ENVIRONMENT_CONFIGURATION.md`
 - **Testing Guide**: `docs/TRPC_TESTING_GUIDE.md`
 - **Implementation Plan**: `docs/TRPC_IMPLEMENTATION_PLAN.md`
 - **Architecture**: `docs/TRPC_ARCHITECTURE_DIAGRAM.md`
