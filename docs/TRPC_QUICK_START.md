@@ -22,20 +22,33 @@ npm install
 
 ### Option 1: Desktop App with Embedded Server (Full Experience)
 ```bash
-# Start the Electron desktop app (includes embedded server):
+# UPDATED: Now automatically starts both web and desktop!
 npm run dev
 
-# Note: Requires all dependencies installed
-npm install  # Run this first if needed
+# This will:
+# 1. Start web dev server on port 3000
+# 2. Wait 5 seconds for web to be ready
+# 3. Start Electron desktop app with embedded server (port 8090)
+# 4. Show login page (no more blank screen!)
 ```
+
+**Fixed**: If you previously saw a blank screen with 404 errors, this is now resolved. The desktop app will properly load the web UI and show the login page.
+
+For complete desktop setup details, see: **[docs/DESKTOP_APP_SETUP.md](./DESKTOP_APP_SETUP.md)**
 
 ### Option 2: Backend Server Only (For API Testing)
 ```bash
 # Start just the backend server:
 npm run dev:server
 
-# Or start web + server together:
+# Or start web + server together (no Electron):
 npm run dev:fullstack
+```
+
+### Option 3: Desktop Only (If Web Already Running)
+```bash
+# If web dev server is already running on port 3000:
+npm run dev:desktop-only
 ```
 
 ## Testing tRPC Endpoints
