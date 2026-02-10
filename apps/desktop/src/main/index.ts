@@ -15,7 +15,9 @@ const isDev = !app.isPackaged;
 // Check if we're in standalone mode (development but using built files, not dev server)
 const isStandalone = process.env.STANDALONE_MODE === 'true';
 
-console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}, isStandalone: ${isStandalone}`);
+console.log(
+  `[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}, isStandalone: ${isStandalone}`
+);
 
 let mainWindow: BrowserWindow | null = null;
 let server: OpenYojobServer | null = null;
@@ -59,7 +61,7 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   } else if (isStandalone) {
     // Standalone development mode: load from built web files in workspace
-    const webAppPath = join(__dirname, '../../../../web/dist/index.html');
+    const webAppPath = join(__dirname, '../../../../apps/web/dist/index.html');
     console.log(`[Mode: Standalone Development] Loading from built files: ${webAppPath}`);
     mainWindow.loadFile(webAppPath);
     // Open DevTools for debugging
