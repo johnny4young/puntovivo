@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "Open Yojob - tRPC Endpoints",
+    "description": "Collection for testing tRPC endpoints in Open Yojob",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "http://localhost:8090/api/trpc/health.check",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8090",
+          "path": ["api", "trpc", "health.check"]
+        },
+        "description": "Test tRPC health check endpoint. Should return status 'ok'."
+      },
+      "response": []
+    },
+    {
+      "name": "REST Health Check (for comparison)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8090/api/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8090",
+          "path": ["api", "health"]
+        },
+        "description": "Traditional REST health check endpoint."
+      },
+      "response": []
+    },
+    {
+      "name": "Login (Get JWT Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8090/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8090",
+          "path": ["api", "auth", "login"]
+        },
+        "description": "Get JWT token for authenticated requests. Copy the 'token' from response for use in protected endpoints."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8090",
+      "type": "string"
+    }
+  ]
+}
