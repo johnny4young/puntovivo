@@ -8,17 +8,8 @@
     {
       "name": "Health Check",
       "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{}"
-        },
+        "method": "GET",
+        "header": [],
         "url": {
           "raw": "http://localhost:8090/api/trpc/health.check",
           "protocol": "http",
@@ -26,7 +17,7 @@
           "port": "8090",
           "path": ["api", "trpc", "health.check"]
         },
-        "description": "Test tRPC health check endpoint. Should return status 'ok'."
+        "description": "Test tRPC health check endpoint. Query procedures use GET requests. Should return status 'ok'."
       },
       "response": []
     },

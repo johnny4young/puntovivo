@@ -20,8 +20,16 @@ npm install
 
 ## Running the Server
 
-The default `npm run dev` starts the Electron desktop app. To test tRPC:
+### Option 1: Desktop App with Embedded Server (Full Experience)
+```bash
+# Start the Electron desktop app (includes embedded server):
+npm run dev
 
+# Note: Requires all dependencies installed
+npm install  # Run this first if needed
+```
+
+### Option 2: Backend Server Only (For API Testing)
 ```bash
 # Start just the backend server:
 npm run dev:server
@@ -34,13 +42,19 @@ npm run dev:fullstack
 
 ### Quick Test (curl)
 ```bash
-# Once server is running (npm run dev:server):
-curl -X POST http://localhost:8090/api/trpc/health.check \
-  -H "Content-Type: application/json" \
-  -d '{}'
+# Once server is running (npm run dev:server or npm run dev):
+curl http://localhost:8090/api/trpc/health.check
 
 # Expected response:
 # {"result":{"data":{"status":"ok","timestamp":"...","message":"tRPC is working correctly"}}}
+```
+
+**Note**: tRPC query procedures use GET requests (not POST). Mutation procedures use POST.
+
+### Browser Test
+Simply open in your browser:
+```
+http://localhost:8090/api/trpc/health.check
 ```
 
 ### Postman
