@@ -115,8 +115,49 @@ npm run build:web
 npm run build
 ```
 
+## Configuration
+
+### Change API URL/Port
+
+See **[docs/ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md)** for complete guide.
+
+**Quick example:**
+```bash
+# Change server port
+echo "PORT=3001" >> .env
+
+# Change web app URL
+echo "VITE_API_URL=http://localhost:3001" > apps/web/.env
+
+# Rebuild web and restart
+npm run build:web
+npm run dev:server
+```
+
+## Troubleshooting
+
+### `npm run dev:server` fails with "tsx: not found"
+
+**Solution:** Install dependencies
+```bash
+npm install
+```
+
+See complete troubleshooting guide: **[docs/TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
+
+### Common Issues
+
+- **Blank desktop screen** → Use `npm run dev:desktop-standalone`
+- **"METHOD_NOT_SUPPORTED" error** → Use GET for queries, POST for mutations
+- **"Cannot connect"** → Check server is running and URL matches
+- **Build failures** → Check Node v22 and run `npm install`
+
 ## More Information
 
+- **Troubleshooting**: `docs/TROUBLESHOOTING.md` ⭐ **NEW**
+- **Environment Config**: `docs/ENVIRONMENT_CONFIGURATION.md` ⭐ **NEW**
+- **Standalone Desktop**: `docs/STANDALONE_DESKTOP_GUIDE.md`
+- **Desktop Setup**: `docs/DESKTOP_APP_SETUP.md`
 - **Testing Guide**: `docs/TRPC_TESTING_GUIDE.md`
 - **Implementation Plan**: `docs/TRPC_IMPLEMENTATION_PLAN.md`
 - **Architecture**: `docs/TRPC_ARCHITECTURE_DIAGRAM.md`

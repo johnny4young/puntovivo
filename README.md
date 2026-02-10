@@ -246,6 +246,41 @@ AUTO_UPDATE=false npm run start
 
 ## Documentation
 
+### Quick References
+
+- **[Quick Start](./docs/TRPC_QUICK_START.md)** - Get started quickly ⭐
+- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes ⭐ **NEW**
+- **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports ⭐ **NEW**
+- **[Standalone Desktop Guide](./docs/STANDALONE_DESKTOP_GUIDE.md)** - Desktop app modes
+
+### Feature Documentation
+
+- **[Login & Authentication](./docs/LOGIN_GUIDE.md)** - Login system, credentials, security
+- **[Architecture](./docs/ARCHITECTURE.md)** - System design, components, workflow
+- **[Styling](./docs/STYLING.md)** - Tailwind CSS v4, CVA patterns, theming
+- **[Components](./docs/COMPONENTS.md)** - UI components, forms, usage examples
+
+### tRPC Integration (Phase 1 Complete)
+
+- **[tRPC Testing Guide](./docs/TRPC_TESTING_GUIDE.md)** - Test tRPC endpoints
+- **[tRPC Analysis](./docs/TRPC_ANALYSIS.md)** - Technical deep-dive
+- **[tRPC Implementation Plan](./docs/TRPC_IMPLEMENTATION_PLAN.md)** - Migration roadmap
+- **[tRPC Architecture](./docs/TRPC_ARCHITECTURE_DIAGRAM.md)** - Visual reference
+
+### Common Questions
+
+**Q: Can I run the desktop app without a web dev server?**  
+**A:** Yes! Use `npm run dev:desktop-standalone`. See [Standalone Desktop Guide](./docs/STANDALONE_DESKTOP_GUIDE.md).
+
+**Q: How do I change the API URL or port?**  
+**A:** Configure via environment variables. See [Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md).
+
+**Q: `npm run dev:server` fails with "tsx: not found"**  
+**A:** Run `npm install` to install dependencies. See [Troubleshooting](./docs/TROUBLESHOOTING.md).
+
+**Q: Desktop app shows blank screen**  
+**A:** Use `npm run dev:desktop-standalone` or `npm run dev`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
+
 ### Login & Authentication Guide
 
 See **[docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md)** for complete login system documentation including:
