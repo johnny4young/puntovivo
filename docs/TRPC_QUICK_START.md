@@ -20,23 +20,45 @@ npm install
 
 ## Running the Server
 
-### Option 1: Desktop App with Embedded Server (Full Experience)
+### Option 1: Desktop App - Standalone (No Web Dev Server) ⭐ **NEW!**
 ```bash
-# UPDATED: Now automatically starts both web and desktop!
+# Launches desktop app WITHOUT requiring a web dev server
+npm run dev:desktop-standalone
+
+# This will:
+# 1. Build the web app (apps/web/dist)
+# 2. Start Electron desktop with embedded server (port 8090)
+# 3. Load UI from built files (not a dev server)
+# 4. Show login page immediately
+```
+
+**Perfect for:**
+- ✅ Testing desktop app without web dev server
+- ✅ Fastest startup (no dev server overhead)
+- ✅ Working on backend/server features
+- ✅ **Answer to: "Can I run desktop without web dev server?"**
+
+See complete guide: **[docs/STANDALONE_DESKTOP_GUIDE.md](./STANDALONE_DESKTOP_GUIDE.md)**
+
+### Option 2: Desktop App with Hot Reload (Full Development)
+```bash
+# Starts both web dev server AND desktop app
 npm run dev
 
 # This will:
-# 1. Start web dev server on port 3000
+# 1. Start web dev server on port 3000 (with hot reload)
 # 2. Wait 5 seconds for web to be ready
 # 3. Start Electron desktop app with embedded server (port 8090)
-# 4. Show login page (no more blank screen!)
+# 4. Show login page with instant UI updates
 ```
 
-**Fixed**: If you previously saw a blank screen with 404 errors, this is now resolved. The desktop app will properly load the web UI and show the login page.
+**Perfect for:**
+- ✅ Active UI development with hot reload
+- ✅ Seeing React changes instantly
 
 For complete desktop setup details, see: **[docs/DESKTOP_APP_SETUP.md](./DESKTOP_APP_SETUP.md)**
 
-### Option 2: Backend Server Only (For API Testing)
+### Option 3: Backend Server Only (For API Testing)
 ```bash
 # Start just the backend server:
 npm run dev:server
@@ -45,7 +67,7 @@ npm run dev:server
 npm run dev:fullstack
 ```
 
-### Option 3: Desktop Only (If Web Already Running)
+### Option 4: Desktop Only (If Web Already Running)
 ```bash
 # If web dev server is already running on port 3000:
 npm run dev:desktop-only

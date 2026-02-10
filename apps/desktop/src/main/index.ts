@@ -12,8 +12,10 @@ if (require('electron-squirrel-startup')) {
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 // Check if we're in development mode - electron-forge start sets app.isPackaged = false
 const isDev = !app.isPackaged;
+// Check if we're in standalone mode (development but using built files, not dev server)
+const isStandalone = process.env.STANDALONE_MODE === 'true';
 
-console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
+console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}, isStandalone: ${isStandalone}`);
 
 let mainWindow: BrowserWindow | null = null;
 let server: OpenYojobServer | null = null;
@@ -48,18 +50,24 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  // Load the renderer - use web app in development, built web in production
-  if (isDev) {
-    // In development, load from the web app's Vite dev server
-    console.log(`Loading web app from dev server: ${WEB_DEV_SERVER_URL}`);
+  // Load the renderer based on mode
+  if (isDev && !isStandalone) {
+    // Development mode with hot reload: load from web dev server
+    console.log(`[Mode: Dev with Hot Reload] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
     mainWindow.loadURL(WEB_DEV_SERVER_URL);
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
+  } else if (isStandalone) {
+    // Standalone development mode: load from built web files in workspace
+    const webAppPath = join(__dirname, '../../../../web/dist/index.html');
+    console.log(`[Mode: Standalone Development] Loading from built files: ${webAppPath}`);
+    mainWindow.loadFile(webAppPath);
+    // Open DevTools for debugging
+    mainWindow.webContents.openDevTools();
   } else {
-    // In production, load from the built web app (extraResource)
-    // extraResource copies to: resources/dist/ on macOS, or resources/dist/ on Windows/Linux
+    // Production mode: load from packaged web app (extraResource)
     const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
-    console.log(`Loading web app from: ${webAppPath}`);
+    console.log(`[Mode: Production] Loading from: ${webAppPath}`);
     mainWindow.loadFile(webAppPath);
   }
 
