@@ -12,6 +12,7 @@
     "dev": "concurrently -n \"WEB,DESKTOP\" -c \"green,cyan\" \"npm run dev:web\" \"npm run dev:desktop-wait\"",
     "dev:desktop-wait": "sleep 5 && npm run start --workspace=@open-yojob/desktop",
     "dev:desktop-only": "npm run start --workspace=@open-yojob/desktop",
+    "dev:desktop-standalone": "npm run build:web && cross-env STANDALONE_MODE=true npm run start --workspace=@open-yojob/desktop",
     "dev:web": "npm run dev --workspace=@open-yojob/web",
     "dev:server": "npm run dev --workspace=@open-yojob/server",
     "dev:fullstack": "concurrently -n \"SERVER,WEB\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:web\"",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@types/node": "^22.10.5",
     "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "prettier": "^3.4.2",
     "typescript": "^5.9.3"
   },

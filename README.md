@@ -114,19 +114,47 @@ npm install
 
 ### Development
 
-#### Option 1: Desktop App (Electron - Recommended)
+#### Option 1: Desktop App - Standalone (No Web Dev Server) ⭐ **FASTEST**
 
 ```bash
-# Start Electron app in development mode (includes embedded server)
+# Launch desktop app WITHOUT web dev server
+npm run dev:desktop-standalone
+
+# What this does:
+# 1. Builds web app (apps/web/dist)
+# 2. Starts Electron with embedded server
+# 3. Loads UI from built files
+```
+
+**Best for:**
+- ✅ Testing desktop app functionality
+- ✅ Working on backend/server features  
+- ✅ Fastest startup (no dev server)
+- ✅ **No web dev server required!**
+
+See full guide: [docs/STANDALONE_DESKTOP_GUIDE.md](./docs/STANDALONE_DESKTOP_GUIDE.md)
+
+#### Option 2: Desktop App with Hot Reload (Full Development)
+
+```bash
+# Start Electron app with UI hot reload
 npm run dev
 
-# Or from the desktop directory
-cd apps/desktop && npm start
+# What this does:
+# 1. Starts web dev server on port 3000
+# 2. Waits 5 seconds for server to be ready
+# 3. Starts Electron with embedded backend
+# 4. Shows login page
 ```
+
+**Best for:**
+- ✅ Active UI development
+- ✅ Instant hot reload for React changes
+- ✅ Full development experience
 
 The desktop app runs both the frontend and backend server embedded in Electron.
 
-#### Option 2: Web App (Browser-based)
+#### Option 3: Web App (Browser-based)
 
 For web development, you need **both** the backend server and frontend server running:
 
