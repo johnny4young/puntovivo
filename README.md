@@ -114,49 +114,34 @@ npm install
 
 ### Development
 
-#### Option 1: Desktop App - Standalone (No Web Dev Server) ⭐ **FASTEST**
+#### Desktop App (Default)
 
 ```bash
-# Launch desktop app WITHOUT web dev server
-npm run dev:desktop-standalone
+# Launch desktop app with embedded server
+npm run dev
 
-# What this does:
-# 1. Builds web app (apps/web/dist)
-# 2. Starts Electron with embedded server
-# 3. Loads UI from built files
+# Note: In development, this expects web dev server on port 3000
+# To run web + desktop together:
+npm run dev:all
 ```
 
-**Best for:**
-- ✅ Testing desktop app functionality
-- ✅ Working on backend/server features  
-- ✅ Fastest startup (no dev server)
-- ✅ **No web dev server required!**
+The desktop app includes an embedded Fastify server (port 8090) and loads the React UI.
 
-See full guide: [docs/STANDALONE_DESKTOP_GUIDE.md](./docs/STANDALONE_DESKTOP_GUIDE.md)
-
-#### Option 2: Desktop App with Hot Reload (Full Development)
+#### Web App + Desktop Together
 
 ```bash
-# Start Electron app with UI hot reload
-npm run dev
+# Recommended: Start both web dev server and desktop
+npm run dev:all
 
 # What this does:
 # 1. Starts web dev server on port 3000
-# 2. Waits 5 seconds for server to be ready
+# 2. Waits 3 seconds for server to be ready
 # 3. Starts Electron with embedded backend
-# 4. Shows login page
 ```
 
-**Best for:**
-- ✅ Active UI development
-- ✅ Instant hot reload for React changes
-- ✅ Full development experience
+#### Web App (Browser-based)
 
-The desktop app runs both the frontend and backend server embedded in Electron.
-
-#### Option 3: Web App (Browser-based)
-
-For web development, you need **both** the backend server and frontend server running:
+For web development, you need **both** backend and frontend servers:
 
 ```bash
 # Option A: Run both servers with one command (recommended)
@@ -173,7 +158,7 @@ npm run dev:web
 
 Then open http://localhost:3000 in your browser.
 
-**Important**: The web app requires the backend server on port 8090 to be running. If you see connection errors, make sure both servers are running.
+**Important**: The web app requires the backend server on port 8090 to be running.
 
 #### Standalone Server (for debugging)
 
@@ -248,10 +233,9 @@ AUTO_UPDATE=false npm run start
 
 ### Quick References
 
-- **[Quick Start](./docs/TRPC_QUICK_START.md)** - Get started quickly ⭐
-- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes ⭐ **NEW**
-- **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports ⭐ **NEW**
-- **[Standalone Desktop Guide](./docs/STANDALONE_DESKTOP_GUIDE.md)** - Desktop app modes
+- **[Quick Start](./docs/TRPC_QUICK_START.md)** - Get started quickly
+- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes
+- **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports
 
 ### Feature Documentation
 
@@ -269,8 +253,8 @@ AUTO_UPDATE=false npm run start
 
 ### Common Questions
 
-**Q: Can I run the desktop app without a web dev server?**  
-**A:** Yes! Use `npm run dev:desktop-standalone`. See [Standalone Desktop Guide](./docs/STANDALONE_DESKTOP_GUIDE.md).
+**Q: How do I run web + desktop together?**  
+**A:** Use `npm run dev:all`. See [Quick Start](./docs/TRPC_QUICK_START.md).
 
 **Q: How do I change the API URL or port?**  
 **A:** Configure via environment variables. See [Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md).
@@ -279,7 +263,7 @@ AUTO_UPDATE=false npm run start
 **A:** Run `npm install` to install dependencies. See [Troubleshooting](./docs/TROUBLESHOOTING.md).
 
 **Q: Desktop app shows blank screen**  
-**A:** Use `npm run dev:desktop-standalone` or `npm run dev`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
+**A:** Ensure web dev server is running. Use `npm run dev:all`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
 
 ### Login & Authentication Guide
 

@@ -50,15 +50,15 @@ function createWindow(): void {
 
   // Load the renderer based on mode
   if (isDev) {
-    // Development mode with hot reload: load from web dev server
-    console.log(`[Mode: Dev with Hot Reload] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
+    // Development mode: load from web dev server
+    console.log(`[Dev Mode] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
     mainWindow.loadURL(WEB_DEV_SERVER_URL);
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode: load from packaged web app (extraResource)
+    // Production mode: load from packaged web app
     const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
-    console.log(`[Mode: Production] Loading from: ${webAppPath}`);
+    console.log(`[Production Mode] Loading from: ${webAppPath}`);
     mainWindow.loadFile(webAppPath);
   }
 
