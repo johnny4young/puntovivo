@@ -84,11 +84,10 @@ echo ""
 # Test the tRPC endpoint
 echo "5. Testing tRPC endpoint..."
 echo "   URL: http://localhost:8090/api/trpc/health.check"
+echo "   Note: Query procedures use GET requests"
 echo ""
 
-RESPONSE=$(curl -s -X POST http://localhost:8090/api/trpc/health.check \
-  -H "Content-Type: application/json" \
-  -d '{}' 2>/dev/null || echo "failed")
+RESPONSE=$(curl -s http://localhost:8090/api/trpc/health.check 2>/dev/null || echo "failed")
 
 if [[ "$RESPONSE" == "failed" ]]; then
     echo "   ❌ Request failed. Is the server running?"

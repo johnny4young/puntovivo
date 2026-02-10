@@ -46,8 +46,16 @@ npm run build
 
 ### 3. Running the Dev Server
 
-The default `npm run dev` tries to start the Electron desktop app. To test tRPC, you need the **backend server**:
+**Option A: Desktop App with Embedded Server (Full App)**
+```bash
+# Start the Electron desktop app (includes embedded server):
+npm run dev
 
+# Note: This requires all dependencies to be installed:
+npm install  # Run this first if you haven't
+```
+
+**Option B: Backend Server Only (For API Testing)**
 ```bash
 # Start just the backend server (recommended for tRPC testing):
 npm run dev:server
@@ -65,31 +73,26 @@ npm run dev:web
 
 ### Method 1: Using curl (Command Line)
 
-Once the server is running (`npm run dev:server`), test the health check endpoint:
+Once the server is running (`npm run dev:server` or `npm run dev`), test the health check endpoint:
 
 ```bash
-# Health check endpoint
-curl -X POST http://localhost:8090/api/trpc/health.check \
-  -H "Content-Type: application/json" \
-  -d '{}'
+# Health check endpoint (query procedures use GET)
+curl http://localhost:8090/api/trpc/health.check
 
 # Expected response:
 # {"result":{"data":{"status":"ok","timestamp":"2026-02-10T...","message":"tRPC is working correctly"}}}
 ```
 
+**Important**: tRPC query procedures (`.query()`) use GET requests, while mutation procedures (`.mutation()`) use POST requests.
+
 ### Method 2: Using Postman
 
-1. **Start the server**: `npm run dev:server`
+1. **Start the server**: `npm run dev:server` or `npm run dev`
 
-2. **Create a new POST request**:
+2. **Create a new GET request**:
    - **URL**: `http://localhost:8090/api/trpc/health.check`
-   - **Method**: POST
-   - **Headers**: 
-     - `Content-Type: application/json`
-   - **Body** (raw JSON):
-     ```json
-     {}
-     ```
+   - **Method**: GET
+   - **Headers**: None required for health check
 
 3. **Send the request**
 
@@ -106,24 +109,24 @@ curl -X POST http://localhost:8090/api/trpc/health.check \
    }
    ```
 
-### Method 3: Using Browser (Limited)
+### Method 3: Using Browser (Easy with GET requests)
 
-tRPC uses POST requests by default, so direct browser testing is limited. However, you can:
+Query procedures use GET requests, making browser testing straightforward:
 
-1. **Start the server**: `npm run dev:server`
+1. **Start the server**: `npm run dev:server` or `npm run dev`
 
-2. **Open browser DevTools Console** and run:
+2. **Option A - Direct URL in browser**:
+   - Open: `http://localhost:8090/api/trpc/health.check`
+   - You should see the JSON response directly
+
+3. **Option B - Browser DevTools Console**:
    ```javascript
-   fetch('http://localhost:8090/api/trpc/health.check', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: '{}'
-   })
+   fetch('http://localhost:8090/api/trpc/health.check')
    .then(r => r.json())
    .then(console.log)
    ```
 
-3. **Expected output in console**:
+4. **Expected output in console**:
    ```javascript
    {
      result: {
@@ -141,9 +144,11 @@ tRPC uses POST requests by default, so direct browser testing is limited. Howeve
 1. **Start both server and web**:
    ```bash
    npm run dev:fullstack
+   # Or for desktop app with embedded server:
+   npm run dev
    ```
 
-2. **Open the web app**: `http://localhost:5173`
+2. **Open the web app**: `http://localhost:5173` (or the Electron window)
 
 3. **Open browser DevTools Console** and test:
    ```javascript
@@ -171,11 +176,15 @@ POST http://localhost:8090/api/trpc/<router>.<procedure>
 ### Future Endpoints (Phase 2+):
 
 Will include:
-- `products.list` - List products (paginated)
-- `products.getById` - Get single product
-- `products.create` - Create product
-- `products.update` - Update product
-- `products.delete` - Delete product
+- `products.list` - List products (paginated) - **GET** (query)
+- `products.getById` - Get single product - **GET** (query)
+- `products.create` - Create product - **POST** (mutation)
+- `products.update` - Update product - **POST** (mutation)
+- `products.delete` - Delete product - **POST** (mutation)
+
+**Key Difference:**
+- **Query procedures** (`.query()`) use **GET** requests - for reading data
+- **Mutation procedures** (`.mutation()`) use **POST** requests - for creating/updating/deleting data
 
 ---
 
@@ -183,22 +192,31 @@ Will include:
 
 When testing authenticated endpoints (Phase 2+), include the JWT token:
 
-### Using curl:
+### Using curl for queries (GET):
 ```bash
-curl -X POST http://localhost:8090/api/trpc/products.list \
+# List products (query = GET request)
+curl http://localhost:8090/api/trpc/products.list?input=%7B%22page%22%3A1%2C%22perPage%22%3A50%7D \
+  -H "Authorization: ******
+```
+
+### Using curl for mutations (POST):
+```bash
+# Create product (mutation = POST request)
+curl -X POST http://localhost:8090/api/trpc/products.create \
   -H "Content-Type: application/json" \
   -H "Authorization: ******
-  -d '{"page":1,"perPage":50}'
+  -d '{"name":"Product Name","price":100}'
 ```
 
 ### Using Postman:
-1. Add header: `Authorization: ******
-2. Get the token from the login endpoint first:
+1. Get the token from the login endpoint first:
    ```bash
    curl -X POST http://localhost:8090/api/auth/login \
      -H "Content-Type: application/json" \
      -d '{"email":"admin@localhost","password":"admin123"}'
    ```
+2. For **queries** (GET): Add header `Authorization: ******
+3. For **mutations** (POST): Add header `Authorization: ******
 
 ---
 
