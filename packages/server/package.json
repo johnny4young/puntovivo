@@ -40,7 +40,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
-    "drizzle-kit": "^0.30.1",
+    "drizzle-kit": "^0.31.9",
     "eslint": "^9.0.0",
     "prettier": "^3.4.2",
     "tinyrainbow": "^1.2.0",
