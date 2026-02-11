@@ -48,18 +48,17 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  // Load the renderer - use web app in development, built web in production
+  // Load the renderer based on mode
   if (isDev) {
-    // In development, load from the web app's Vite dev server
-    console.log(`Loading web app from dev server: ${WEB_DEV_SERVER_URL}`);
+    // Development mode: load from web dev server
+    console.log(`[Dev Mode] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
     mainWindow.loadURL(WEB_DEV_SERVER_URL);
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load from the built web app (extraResource)
-    // extraResource copies to: resources/dist/ on macOS, or resources/dist/ on Windows/Linux
+    // Production mode: load from packaged web app
     const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
-    console.log(`Loading web app from: ${webAppPath}`);
+    console.log(`[Production Mode] Loading from: ${webAppPath}`);
     mainWindow.loadFile(webAppPath);
   }
 

@@ -114,21 +114,34 @@ npm install
 
 ### Development
 
-#### Option 1: Desktop App (Electron - Recommended)
+#### Desktop App (Default)
 
 ```bash
-# Start Electron app in development mode (includes embedded server)
+# Launch desktop app with embedded server
 npm run dev
 
-# Or from the desktop directory
-cd apps/desktop && npm start
+# Note: In development, this expects web dev server on port 3000
+# To run web + desktop together:
+npm run dev:all
 ```
 
-The desktop app runs both the frontend and backend server embedded in Electron.
+The desktop app includes an embedded Fastify server (port 8090) and loads the React UI.
 
-#### Option 2: Web App (Browser-based)
+#### Web App + Desktop Together
 
-For web development, you need **both** the backend server and frontend server running:
+```bash
+# Recommended: Start both web dev server and desktop
+npm run dev:all
+
+# What this does:
+# 1. Starts web dev server on port 3000
+# 2. Waits 3 seconds for server to be ready
+# 3. Starts Electron with embedded backend
+```
+
+#### Web App (Browser-based)
+
+For web development, you need **both** backend and frontend servers:
 
 ```bash
 # Option A: Run both servers with one command (recommended)
@@ -145,7 +158,7 @@ npm run dev:web
 
 Then open http://localhost:3000 in your browser.
 
-**Important**: The web app requires the backend server on port 8090 to be running. If you see connection errors, make sure both servers are running.
+**Important**: The web app requires the backend server on port 8090 to be running.
 
 #### Standalone Server (for debugging)
 
@@ -217,6 +230,40 @@ AUTO_UPDATE=false npm run start
 3. GitHub Actions will automatically build and create a release
 
 ## Documentation
+
+### Quick References
+
+- **[Quick Start](./docs/TRPC_QUICK_START.md)** - Get started quickly
+- **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes
+- **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports
+
+### Feature Documentation
+
+- **[Login & Authentication](./docs/LOGIN_GUIDE.md)** - Login system, credentials, security
+- **[Architecture](./docs/ARCHITECTURE.md)** - System design, components, workflow
+- **[Styling](./docs/STYLING.md)** - Tailwind CSS v4, CVA patterns, theming
+- **[Components](./docs/COMPONENTS.md)** - UI components, forms, usage examples
+
+### tRPC Integration (Phase 1 Complete)
+
+- **[tRPC Testing Guide](./docs/TRPC_TESTING_GUIDE.md)** - Test tRPC endpoints
+- **[tRPC Analysis](./docs/TRPC_ANALYSIS.md)** - Technical deep-dive
+- **[tRPC Implementation Plan](./docs/TRPC_IMPLEMENTATION_PLAN.md)** - Migration roadmap
+- **[tRPC Architecture](./docs/TRPC_ARCHITECTURE_DIAGRAM.md)** - Visual reference
+
+### Common Questions
+
+**Q: How do I run web + desktop together?**  
+**A:** Use `npm run dev:all`. See [Quick Start](./docs/TRPC_QUICK_START.md).
+
+**Q: How do I change the API URL or port?**  
+**A:** Configure via environment variables. See [Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md).
+
+**Q: `npm run dev:server` fails with "tsx: not found"**  
+**A:** Run `npm install` to install dependencies. See [Troubleshooting](./docs/TROUBLESHOOTING.md).
+
+**Q: Desktop app shows blank screen**  
+**A:** Ensure web dev server is running. Use `npm run dev:all`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
 
 ### Login & Authentication Guide
 
