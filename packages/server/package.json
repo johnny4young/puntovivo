@@ -31,7 +31,7 @@
     "@trpc/server": "^11.9.0",
     "argon2": "^0.41.1",
     "better-sqlite3": "^12.0.0",
-    "drizzle-orm": "^0.38.3",
+    "drizzle-orm": "^0.45.1",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.1.0",
     "nanoid": "^5.0.9",
