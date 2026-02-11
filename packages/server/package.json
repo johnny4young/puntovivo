@@ -29,7 +29,7 @@
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
     "@trpc/server": "^11.9.0",
-    "argon2": "^0.41.1",
+    "argon2": "^0.44.0",
     "better-sqlite3": "^12.0.0",
     "drizzle-orm": "^0.38.3",
     "fastify": "^5.2.0",
