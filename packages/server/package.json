@@ -41,12 +41,12 @@
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
     "drizzle-kit": "^0.30.1",
-    "eslint": "^9.0.0",
+    "eslint": "^10.0.3",
     "prettier": "^3.4.2",
     "tinyrainbow": "^1.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "electron": ">=30.0.0"
