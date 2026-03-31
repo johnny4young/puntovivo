@@ -91,7 +91,7 @@ cd ../web && npm run dev
 # 1. Start with debugging enabled
 npm run dev:debug
 
-# 2. In VSCode: F5 → "Electron Main Process"
+# 2. In VSCode: F5 -> "Electron Main Process"
 # 3. Set breakpoints in src/main/index.ts
 # 4. Trigger the issue
 # 5. Inspect variables in VSCode Debug panel
@@ -103,7 +103,7 @@ npm run dev:debug
 # 1. Start app normally
 npm run dev
 
-# 2. In VSCode: F5 → "Electron Renderer Process"
+# 2. In VSCode: F5 -> "Electron Renderer Process"
 # 3. Set breakpoints in src/renderer/*.tsx
 # 4. Interact with UI to trigger breakpoints
 ```
@@ -114,7 +114,7 @@ npm run dev
 # 1. Run with pause on start
 npm run dev:debug-brk
 
-# 2. In VSCode: F5 → "Electron Main Process"
+# 2. In VSCode: F5 -> "Electron Main Process"
 # 3. Debugger pauses on first line
 # 4. Step through initialization (F10 = step over, F11 = step into)
 ```
@@ -123,7 +123,7 @@ npm run dev:debug-brk
 
 ### Breakpoints Not Hitting
 
-- **Check**: Source maps enabled (✓ already configured)
+- **Check**: Source maps enabled (already configured)
 - **Fix**: Run `npm run clean:cache` to clear Vite cache
 - **Verify**: Look for `.map` files in `.vite/build/` directory
 
@@ -161,8 +161,8 @@ The Electron app also supports Chrome DevTools:
 ## Tips
 
 - **Use `npm run dev` normally** - only enable debugging when needed
-- **Set conditional breakpoints** - Right-click breakpoint → Edit Breakpoint
-- **Use logpoints** - Right-click in gutter → Add Logpoint (no code changes!)
+- **Set conditional breakpoints** - Right-click breakpoint -> Edit Breakpoint
+- **Use logpoints** - Right-click in gutter -> Add Logpoint (no code changes!)
 - **Watch expressions** - Add variables to Watch panel in VSCode
 - **Call stack inspection** - See full execution path in Debug panel
 
@@ -182,7 +182,7 @@ Source maps are already configured in:
 
 ```bash
 npm run dev:debug-brk  # Pauses before any code runs
-# F5 → "Electron Main Process"
+# F5 -> "Electron Main Process"
 # Step through initialization with F10
 ```
 
@@ -190,7 +190,7 @@ npm run dev:debug-brk  # Pauses before any code runs
 
 ```bash
 npm run dev  # Start app
-# F5 → "Electron Renderer Process"
+# F5 -> "Electron Renderer Process"
 # Set breakpoint in button click handler
 # Click button in app
 ```

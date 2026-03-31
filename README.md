@@ -11,7 +11,6 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#development">Development</a> •
   <a href="#building">Building</a> •
-  <a href="#migration">Migration</a> •
   <a href="#security">Security</a>
 </p>
 
@@ -31,8 +30,8 @@
 
 | Layer       | Technology               | Purpose                      |
 | ----------- | ------------------------ | ---------------------------- |
-| Desktop     | Electron 40 + Forge      | Native desktop app           |
-| Frontend    | React 18 + TypeScript    | UI Framework                 |
+| Desktop     | Electron 41 + Forge      | Native desktop app           |
+| Frontend    | React 19 + TypeScript    | UI Framework                 |
 | Styling     | Tailwind CSS v4 + CVA    | Utility-first CSS + Variants |
 | Data Tables | TanStack Table           | Feature-rich tables          |
 | State       | TanStack Query + Zustand | Server & client state        |
@@ -85,7 +84,8 @@ open_yojob/
 ├── scripts/
 │   └── migration/              # Data migration tools
 ├── .github/workflows/
-│   └── build.yml               # CI/CD: build & release
+│   ├── build.yml              # CI: lint & test
+│   └── release.yml            # CD: build & release desktop artifacts
 ├── package.json                # Root workspace config
 └── docs/                       # Documentation
 ```
@@ -94,9 +94,8 @@ open_yojob/
 
 ### Prerequisites
 
-- **Node.js** >= 20.0.0
+- **Node.js** >= 22.0.0
 - **npm** >= 10.0.0
-- **Go** >= 1.23 (for backend development only)
 
 ### Installation
 
@@ -233,8 +232,8 @@ AUTO_UPDATE=false npm run start
 
 ### Quick References
 
-- **[Quick Start](./docs/TRPC_QUICK_START.md)** - Get started quickly
 - **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes
+- **[Debugging](./docs/DEBUGGING.md)** - Debugging the Electron app
 - **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports
 
 ### Feature Documentation
@@ -244,17 +243,20 @@ AUTO_UPDATE=false npm run start
 - **[Styling](./docs/STYLING.md)** - Tailwind CSS v4, CVA patterns, theming
 - **[Components](./docs/COMPONENTS.md)** - UI components, forms, usage examples
 
-### tRPC Integration (Phase 1 Complete)
+### Security
 
-- **[tRPC Testing Guide](./docs/TRPC_TESTING_GUIDE.md)** - Test tRPC endpoints
-- **[tRPC Analysis](./docs/TRPC_ANALYSIS.md)** - Technical deep-dive
+- **[Security](./docs/SECURITY.md)** - Vulnerability analysis, fixes applied, and best practices
+
+### tRPC Integration (In Progress)
+
+- **[tRPC Architecture](./docs/TRPC_ARCHITECTURE.md)** - Analysis and architecture overview
 - **[tRPC Implementation Plan](./docs/TRPC_IMPLEMENTATION_PLAN.md)** - Migration roadmap
-- **[tRPC Architecture](./docs/TRPC_ARCHITECTURE_DIAGRAM.md)** - Visual reference
+- **[tRPC Testing Guide](./docs/TRPC_TESTING_GUIDE.md)** - Test tRPC endpoints
 
 ### Common Questions
 
 **Q: How do I run web + desktop together?**  
-**A:** Use `npm run dev:all`. See [Quick Start](./docs/TRPC_QUICK_START.md).
+**A:** Use `npm run dev:all`. See [Development](#development) above.
 
 **Q: How do I change the API URL or port?**  
 **A:** Configure via environment variables. See [Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md).
@@ -264,56 +266,6 @@ AUTO_UPDATE=false npm run start
 
 **Q: Desktop app shows blank screen**  
 **A:** Ensure web dev server is running. Use `npm run dev:all`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
-
-### Login & Authentication Guide
-
-See **[docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md)** for complete login system documentation including:
-
-- How login works (architecture & flow)
-- Running the application (desktop vs web)
-- Troubleshooting login issues
-- Default credentials and security
-- API endpoints and testing
-
-### Architecture Guide
-
-See **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** for comprehensive documentation including:
-
-- System architecture diagrams
-- Component deep dive
-- How to run & debug
-- Development workflow
-- Considerations & limitations
-
-### Styling Guide
-
-See **[docs/STYLING.md](./docs/STYLING.md)** for styling documentation including:
-
-- Tailwind CSS v4 configuration
-- CVA (class-variance-authority) patterns
-- Theme customization
-- Best practices
-
-### Components Guide
-
-See **[docs/COMPONENTS.md](./docs/COMPONENTS.md)** for UI component documentation including:
-
-- Available UI primitives (Button, Input, Card, etc.)
-- Form controls
-- Usage examples
-- Component conventions
-
-### Migration
-
-#### From Legacy .NET WinForms Application
-
-See [MIGRATION_PLAN.md](./MIGRATION_PLAN.md) for detailed instructions on migrating data from the original Yojob application.
-
-```bash
-# Run migration tool
-cd scripts/migration
-go run . migrate --source /path/to/POSSolutions.db
-```
 
 ## Environment Variables
 
@@ -407,7 +359,7 @@ npx electron-rebuild -m apps/desktop -o better-sqlite3
 npx electron-rebuild -m apps/desktop -f
 
 # Specify Electron version explicitly
-npx electron-rebuild -m apps/desktop -v 40.1.0
+npx electron-rebuild -m apps/desktop -v 41.1.0
 
 # Show verbose output for debugging
 npx electron-rebuild -m apps/desktop --debug
@@ -430,20 +382,11 @@ Add a `postinstall` script to automatically rebuild after `npm install`:
 
 ## Development Notes
 
-### Backend Migration
-
-The backend was migrated from PocketBase (Go) to Node.js/Fastify with Drizzle ORM. Key changes:
-
-- **Stack**: Fastify + Drizzle ORM + better-sqlite3
-- **Real-time**: Server-Sent Events (SSE) instead of WebSocket
-- **Authentication**: Argon2 password hashing + JWT sessions
-- **Database**: SQLite with Drizzle schema and migrations
-
 ### Architecture
 
-The application uses a unique architecture where a Fastify server runs as an embedded child process:
+The application uses a unique architecture where the Fastify server runs **in-process** inside the Electron main process (not as a separate child process):
 
-1. **Main Process** (`src/main/index.ts`): Manages the Electron lifecycle and spawns the backend server
+1. **Main Process** (`src/main/index.ts`): Manages the Electron lifecycle and starts the embedded Fastify server
 2. **Server Package** (`packages/server`): Node.js/Fastify backend with SQLite (Drizzle ORM) and SSE support
 3. **Preload Script** (`src/preload/index.ts`): Exposes safe IPC bridges to the renderer
 4. **Renderer** (`src/renderer/`): React application with full access to the API
@@ -460,47 +403,22 @@ window.sync; // Sync status and triggers
 
 ## Security
 
-### 🔒 Security Analysis Available
+For a comprehensive security analysis, fixes applied, and best practices, see **[docs/SECURITY.md](./docs/SECURITY.md)**.
 
-A comprehensive security analysis has been performed on this codebase. Please review the following documents:
+### Key Points
 
-- **[SECURITY_README.md](./SECURITY_README.md)** - Start here for overview
-- **[SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md)** - Quick reference and stats
-- **[SECURITY_ANALYSIS.md](./SECURITY_ANALYSIS.md)** - Detailed vulnerability analysis
-- **[SECURITY_ISSUE_TEMPLATE.md](./SECURITY_ISSUE_TEMPLATE.md)** - GitHub issue template
-
-### ⚠️ Known Security Issues
-
-**Critical:**
-
-- Default credentials (`admin@localhost / admin123`) are publicly documented
-- **Action Required:** Change password immediately after first login
-
-**High Priority:**
-
-- No rate limiting on authentication endpoints
-- React Router XSS vulnerability (CVE)
-- node-tar path traversal vulnerabilities
-
-**See:** [SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md) for complete list and remediation steps.
-
-### Security Best Practices
-
-When deploying this application:
-
-1. **Change Default Credentials** immediately
-2. **Update Dependencies** regularly (`npm audit`)
-3. **Enable Rate Limiting** on authentication
-4. **Use Strong Passwords** (12+ characters, mixed case, numbers, symbols)
-5. **Keep Electron Updated** for security patches
-6. **Review** [SECURITY_ANALYSIS.md](./SECURITY_ANALYSIS.md) for detailed recommendations
+- Default credentials (`admin@localhost / admin123`) are for **development only** — change them immediately
+- Rate limiting is enabled on authentication endpoints
+- Argon2 password hashing with strong password policy enforced
+- JWT-based sessions with secure token management
+- Multi-tenant data isolation
 
 ### Reporting Security Issues
 
 If you discover a security vulnerability:
 
 1. **Do NOT** create a public GitHub issue
-2. Review existing security documentation first
+2. Use the [security issue template](./.github/ISSUE_TEMPLATE/security.md) for guidance
 3. Contact the maintainers privately
 4. Follow responsible disclosure practices
 
