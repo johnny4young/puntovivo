@@ -34,7 +34,7 @@ describe('Collections Routes', () => {
       id: testTenantId,
       name: 'Test Tenant',
       slug: 'test-tenant',
-      settings: '{}',
+      settings: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -49,7 +49,7 @@ describe('Collections Routes', () => {
       passwordHash,
       name: 'Test User',
       role: 'admin',
-      active: 1,
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -62,8 +62,6 @@ describe('Collections Routes', () => {
       name: 'Test Category',
       description: 'A test category',
       parentId: null,
-      sortOrder: 0,
-      active: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -202,7 +200,6 @@ describe('Collections Routes', () => {
         payload: {
           name: 'New Category',
           description: 'A new test category',
-          sortOrder: 1,
         },
       });
 

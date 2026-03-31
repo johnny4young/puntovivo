@@ -8,13 +8,15 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, type OpenYojobServer } from '../index';
 import { getDatabase } from '../db';
 import { users, tenants } from '../db/schema';
-import { hash } from 'argon2';
+import { hash, verify } from 'argon2';
 import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 
 let server: OpenYojobServer;
 let testTenantId: string;
 let testUserId: string;
+/** Shared auth token obtained once to avoid triggering login rate limit (5 req / 15 min) */
+let sharedAuthToken: string;
 const testDbPath = ':memory:';
 
 describe('Auth Routes', () => {
@@ -33,7 +35,7 @@ describe('Auth Routes', () => {
       id: testTenantId,
       name: 'Test Tenant',
       slug: 'test-tenant',
-      settings: '{}',
+      settings: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -48,10 +50,23 @@ describe('Auth Routes', () => {
       passwordHash,
       name: 'Test User',
       role: 'admin',
-      active: 1,
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // Login once to get a shared token for authenticated endpoint tests.
+    // This avoids hitting the login rate limit (5 requests per 15 minutes)
+    // since the POST /api/auth/login tests already consume 4 attempts.
+    const loginResponse = await server.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: {
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      },
+    });
+    sharedAuthToken = JSON.parse(loginResponse.body).token;
   });
 
   afterAll(async () => {
@@ -117,27 +132,12 @@ describe('Auth Routes', () => {
   });
 
   describe('GET /api/auth/me', () => {
-    let authToken: string;
-
-    beforeAll(async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: {
-          email: 'test@example.com',
-          password: 'TestPassword123!',
-        },
-      });
-      const body = JSON.parse(response.body);
-      authToken = body.token;
-    });
-
     it('should return current user with valid token', async () => {
       const response = await server.app.inject({
         method: 'GET',
         url: '/api/auth/me',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${sharedAuthToken}`,
         },
       });
 
@@ -170,21 +170,6 @@ describe('Auth Routes', () => {
   });
 
   describe('POST /api/auth/refresh', () => {
-    let authToken: string;
-
-    beforeAll(async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: {
-          email: 'test@example.com',
-          password: 'TestPassword123!',
-        },
-      });
-      const body = JSON.parse(response.body);
-      authToken = body.token;
-    });
-
     it('should return a new token', async () => {
       // Wait a small amount to ensure different token timestamp
       await new Promise(resolve => setTimeout(resolve, 1100));
@@ -193,7 +178,7 @@ describe('Auth Routes', () => {
         method: 'POST',
         url: '/api/auth/refresh',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${sharedAuthToken}`,
         },
       });
 
@@ -205,27 +190,12 @@ describe('Auth Routes', () => {
   });
 
   describe('PUT /api/auth/password', () => {
-    let authToken: string;
-
-    beforeAll(async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: {
-          email: 'test@example.com',
-          password: 'TestPassword123!',
-        },
-      });
-      const body = JSON.parse(response.body);
-      authToken = body.token;
-    });
-
     it('should change password with correct current password', async () => {
       const response = await server.app.inject({
         method: 'PUT',
         url: '/api/auth/password',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${sharedAuthToken}`,
         },
         payload: {
           currentPassword: 'TestPassword123!',
@@ -235,19 +205,15 @@ describe('Auth Routes', () => {
 
       expect(response.statusCode).toBe(200);
 
-      // Verify new password works
-      const loginResponse = await server.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: {
-          email: 'test@example.com',
-          password: 'NewPassword456!',
-        },
-      });
-      expect(loginResponse.statusCode).toBe(200);
+      // Verify new password was stored correctly by checking the hash directly
+      // (avoids an extra login request that would hit the rate limit)
+      const db = getDatabase();
+      const updatedUser = await db.select().from(users).where(eq(users.id, testUserId)).get();
+      expect(updatedUser).toBeDefined();
+      const isNewPasswordValid = await verify(updatedUser!.passwordHash, 'NewPassword456!');
+      expect(isNewPasswordValid).toBe(true);
 
       // Reset password for other tests
-      const db = getDatabase();
       const passwordHash = await hash('TestPassword123!');
       await db.update(users).set({ passwordHash }).where(eq(users.id, testUserId));
     });
@@ -257,11 +223,11 @@ describe('Auth Routes', () => {
         method: 'PUT',
         url: '/api/auth/password',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${sharedAuthToken}`,
         },
         payload: {
-          currentPassword: 'wrongpassword',
-          newPassword: 'newpassword456',
+          currentPassword: 'WrongPassword99!',
+          newPassword: 'AnotherStrong123!',
         },
       });
 
@@ -270,27 +236,12 @@ describe('Auth Routes', () => {
   });
 
   describe('POST /api/auth/logout', () => {
-    let authToken: string;
-
-    beforeAll(async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: {
-          email: 'test@example.com',
-          password: 'TestPassword123!',
-        },
-      });
-      const body = JSON.parse(response.body);
-      authToken = body.token;
-    });
-
     it('should logout successfully', async () => {
       const response = await server.app.inject({
         method: 'POST',
         url: '/api/auth/logout',
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${sharedAuthToken}`,
         },
       });
 

@@ -32,7 +32,7 @@ describe('Sync Routes', () => {
       id: testTenantId,
       name: 'Test Tenant',
       slug: 'test-tenant',
-      settings: '{}',
+      settings: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -47,7 +47,7 @@ describe('Sync Routes', () => {
       passwordHash,
       name: 'Test User',
       role: 'admin',
-      active: 1,
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
