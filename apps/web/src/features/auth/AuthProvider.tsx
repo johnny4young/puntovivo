@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User, Tenant, LoginCredentials } from '@/types';
-import api from '@/services/api/client';
+import { vanillaClient } from '@/lib/trpc';
 
 interface AuthContextType {
   user: User | null;
@@ -23,6 +23,11 @@ export function useAuth() {
   return context;
 }
 
+/** localStorage keys for auth persistence */
+const AUTH_TOKEN_KEY = 'auth_token';
+const AUTH_USER_KEY = 'auth_user';
+const AUTH_TENANT_KEY = 'auth_tenant';
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -38,35 +43,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Restore auth from localStorage
-        if (api.restoreAuth()) {
-          const currentUser = api.getUser();
-          const currentTenant = api.getTenant();
+        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        const userStr = localStorage.getItem(AUTH_USER_KEY);
+        const tenantStr = localStorage.getItem(AUTH_TENANT_KEY);
 
-          if (currentUser) {
-            setUser({
-              id: currentUser.id,
-              email: currentUser.email,
-              name: currentUser.name,
-              role: currentUser.role,
-              tenantId: currentUser.tenantId,
-            } as User);
-          }
+        if (token && userStr && tenantStr) {
+          const storedUser = JSON.parse(userStr);
+          const storedTenant = JSON.parse(tenantStr);
 
-          if (currentTenant) {
-            setTenant({
-              id: currentTenant.id,
-              name: currentTenant.name,
-              slug: currentTenant.slug,
-              settings: currentTenant.settings as unknown as Tenant['settings'],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-          }
+          setUser({
+            id: storedUser.id,
+            email: storedUser.email,
+            name: storedUser.name,
+            role: storedUser.role,
+            tenantId: storedUser.tenantId,
+          } as User);
+
+          setTenant({
+            id: storedTenant.id,
+            name: storedTenant.name,
+            slug: storedTenant.slug,
+            settings: storedTenant.settings as unknown as Tenant['settings'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
         }
       } catch (err) {
         console.error('Auth init error:', err);
-        api.logout();
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        localStorage.removeItem(AUTH_TENANT_KEY);
       } finally {
         setIsLoading(false);
       }
@@ -80,27 +86,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
 
     try {
-      const authData = await api.login(credentials.email, credentials.password);
-      const userData = authData.user;
+      const authData = await vanillaClient.auth.login.mutate({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      // Persist to localStorage (the tRPC httpBatchLink reads from localStorage for the token)
+      localStorage.setItem(AUTH_TOKEN_KEY, authData.token);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authData.user));
+      localStorage.setItem(AUTH_TENANT_KEY, JSON.stringify(authData.tenant));
+
       setUser({
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        tenantId: userData.tenantId,
+        id: authData.user.id,
+        email: authData.user.email,
+        name: authData.user.name,
+        role: authData.user.role,
+        tenantId: authData.user.tenantId,
       } as User);
 
-      // Set tenant context
-      if (authData.tenant) {
-        setTenant({
-          id: authData.tenant.id,
-          name: authData.tenant.name,
-          slug: authData.tenant.slug,
-          settings: authData.tenant.settings as unknown as Tenant['settings'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      }
+      setTenant({
+        id: authData.tenant.id,
+        name: authData.tenant.name,
+        slug: authData.tenant.slug,
+      } as Tenant);
 
       navigate('/dashboard');
     } catch (err) {
@@ -115,12 +123,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     setIsLoading(true);
     try {
-      await api.logout();
+      await vanillaClient.auth.logout.mutate();
+    } catch {
+      // Ignore errors on logout — clear local state regardless
+    } finally {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_USER_KEY);
+      localStorage.removeItem(AUTH_TENANT_KEY);
       setUser(null);
       setTenant(null);
-      navigate('/login');
-    } finally {
       setIsLoading(false);
+      navigate('/login');
     }
   };
 

@@ -1,12 +1,12 @@
 /**
  * Root tRPC Router
- * 
+ *
  * Combines all tRPC routers
  */
 
 import { router, publicProcedure } from './init.js';
+import { authRouter } from './routers/auth.js';
 
-// Health check procedure for testing
 export const appRouter = router({
   health: router({
     check: publicProcedure.query(() => {
@@ -17,6 +17,7 @@ export const appRouter = router({
       };
     }),
   }),
+  auth: authRouter,
 });
 
 export type AppRouter = typeof appRouter;
