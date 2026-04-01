@@ -5,6 +5,7 @@ Operational guidance for AI agents. Only non-discoverable constraints are listed
 ## Commands
 
 Run workspace commands from the repo root:
+
 ```
 npm run dev              # Launch full desktop app (main dev entry)
 npm run dev:web          # Web only on port 3000
@@ -13,6 +14,7 @@ npm run build            # Build web + create desktop packages
 ```
 
 Run tests per workspace:
+
 ```
 npm run test --workspace=@open-yojob/web     # React + Vitest (watch mode)
 npm run test --workspace=@open-yojob/server  # Server + Vitest
@@ -21,9 +23,11 @@ npm run test --workspace=@open-yojob/server  # Server + Vitest
 ## Native module rebuild (non-obvious requirement)
 
 After `npm install`, you **must** rebuild native modules for Electron:
+
 ```
 npx electron-rebuild -m apps/desktop
 ```
+
 Or use the workspace shortcut: `npm run rebuild --workspace=@open-yojob/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
@@ -38,8 +42,7 @@ The Fastify server runs **in-process** inside the Electron main process — it i
 
 ## Stale files — do not rely on
 
-- `docs/ARCHITECTURE.md`: References PocketBase (Go backend). Real backend is Fastify + Drizzle + SQLite.
-- `.github/workflows/release.yml` backend job: References Go 1.21 / pnpm 8. Not applicable to current Node.js codebase.
+- `.github/workflows/release.yml` backend job: Has been rewritten for Node.js but may still have edge cases. Verify before modifying.
 
 ## Desktop artifact uploads
 

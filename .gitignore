@@ -26,13 +26,12 @@ backend/bin
 backend/tmp
 backend/server
 
-# Binaries (but keep the placeholder .gitkeep)
+# Binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-!resources/pocketbase/**/.gitkeep
 
 # Database
 *.db
@@ -56,7 +55,6 @@ coverage
 build
 out
 backend/server
-apps/desktop/resources/pocketbase
 
 # TypeScript incremental build info
 *.tsbuildinfo

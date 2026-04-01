@@ -1,7 +1,7 @@
 /**
  * Drizzle ORM Schema for Open Yojob POS System
  *
- * This schema mirrors the PocketBase collections defined in the Go migrations.
+ * This is the source-of-truth schema for the SQLite database.
  * All tables support multi-tenant isolation via tenant_id.
  *
  * @module db/schema

@@ -421,7 +421,8 @@ class ApiClient {
 // Export singleton instance
 export const api = new ApiClient();
 
-// Export for backwards compatibility with PocketBase SDK
+// Legacy compatibility shim (deprecated — use `api` directly)
+// TODO: Remove once all consumers have been migrated to use `api` directly
 export const pb = {
   authStore: {
     get isValid() {

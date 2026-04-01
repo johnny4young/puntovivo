@@ -8,7 +8,7 @@ export function useElectron() {
   const [inElectron, setInElectron] = useState(false);
   const [appInfo, setAppInfo] = useState<{
     version: string;
-    pocketbaseUrl: string;
+    serverUrl: string;
   } | null>(null);
 
   useEffect(() => {
@@ -16,11 +16,11 @@ export function useElectron() {
       if (isElectron() && window.electron) {
         setInElectron(true);
         try {
-          const [version, pocketbaseUrl] = await Promise.all([
+          const [version, serverUrl] = await Promise.all([
             window.electron.getAppVersion(),
-            window.electron.getPocketBaseUrl(),
+            window.electron.getServerUrl(),
           ]);
-          setAppInfo({ version, pocketbaseUrl });
+          setAppInfo({ version, serverUrl });
         } catch (error) {
           console.error('Failed to load Electron app info:', error);
         }

@@ -69,9 +69,10 @@ async function main(): Promise<void> {
     console.log(`  - Sync:        ${address}/api/sync/*`);
     console.log(`  - Realtime:    ${address}/api/realtime/subscribe`);
     console.log();
-    console.log('  Default credentials:');
+    console.log('  Default admin account:');
     console.log('  - Email: admin@localhost');
-    console.log('  - Password: admin123');
+    console.log('  - Password: (generated on first run, shown once in seed output)');
+    console.log('  - See docs/LOGIN_GUIDE.md for details');
     console.log();
     console.log('  Press Ctrl+C to stop');
     console.log('==========================================');
