@@ -6,7 +6,7 @@
 export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
-  getPocketBaseUrl: () => Promise<string>;
+  getServerUrl: () => Promise<string>;
 }
 
 export interface DatabaseAPI {

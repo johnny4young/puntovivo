@@ -6,7 +6,7 @@ declare global {
     electron: {
       getAppVersion: () => Promise<string>;
       getAppPath: () => Promise<string>;
-      getPocketBaseUrl: () => Promise<string>;
+      getServerUrl: () => Promise<string>;
     };
     db: {
       getAll: (table: string, tenantId: string) => Promise<unknown[]>;
@@ -30,21 +30,21 @@ declare global {
 function App() {
   const [appInfo, setAppInfo] = useState<{
     version: string;
-    pocketbaseUrl: string;
+    serverUrl: string;
     isOnline: boolean;
   } | null>(null);
 
   useEffect(() => {
     const loadAppInfo = async () => {
       try {
-        const [version, pocketbaseUrl, syncStatus] = await Promise.all([
+        const [version, serverUrl, syncStatus] = await Promise.all([
           window.electron.getAppVersion(),
-          window.electron.getPocketBaseUrl(),
+          window.electron.getServerUrl(),
           window.sync.getStatus(),
         ]);
         setAppInfo({
           version,
-          pocketbaseUrl,
+          serverUrl,
           isOnline: syncStatus.isOnline,
         });
       } catch (error) {
@@ -89,7 +89,7 @@ function App() {
             <div className="flex items-center justify-center space-x-2">
               <span className="font-medium">Backend:</span>
               <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                {appInfo.pocketbaseUrl}
+                {appInfo.serverUrl}
               </span>
             </div>
             <div className="flex items-center justify-center space-x-2">
@@ -111,7 +111,7 @@ function App() {
           </button>
         </div>
 
-        <p className="mt-6 text-xs text-gray-400">Built with Electron Forge + React + PocketBase</p>
+        <p className="mt-6 text-xs text-gray-400">Built with Electron Forge + React + Fastify</p>
       </div>
     </div>
   );

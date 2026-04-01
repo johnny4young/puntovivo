@@ -176,17 +176,14 @@ The SQLite database is stored at:
 
 ### Default Credentials
 
-⚠️ **SECURITY WARNING**: Default credentials are for development only!
-
 - **Email**: `admin@localhost`
-- **Password**: `admin123`
+- **Password**: A cryptographically random password is generated on first run and displayed **once** in the server console output.
 
 **Important:**
 
-- These credentials are publicly known and documented
-- **Change the password immediately** after first login
-- See [Security Documentation](#security) for details
-- Do not use default credentials in production
+- Copy the generated password immediately — it is only shown once
+- If you miss it, delete the database file and restart to re-seed
+- See [docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md) for details
 
 ## Building
 
@@ -307,7 +304,7 @@ npm run dev:web
 **Default Credentials**:
 
 - Email: `admin@localhost`
-- Password: `admin123`
+- Password: check the server console output on first run (randomly generated)
 
 #### For Desktop App Users
 
@@ -407,7 +404,7 @@ For a comprehensive security analysis, fixes applied, and best practices, see **
 
 ### Key Points
 
-- Default credentials (`admin@localhost / admin123`) are for **development only** — change them immediately
+- Admin password is randomly generated on first run — never hardcoded
 - Rate limiting is enabled on authentication endpoints
 - Argon2 password hashing with strong password policy enforced
 - JWT-based sessions with secure token management

@@ -49,7 +49,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"admin123\"\n}"
+          "raw": "{\n  \"email\": \"admin@localhost\",\n  \"password\": \"REPLACE_WITH_YOUR_GENERATED_PASSWORD\"\n}"
         },
         "url": {
           "raw": "http://localhost:8090/api/auth/login",
