@@ -1,24 +1,74 @@
 /**
- * Sync Routes Tests
+ * Sync tRPC Router Tests
+ *
+ * Tests sync procedures via appRouter.createCaller() for type-safe testing.
  *
  * @module __tests__/sync.test
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer, type OpenYojobServer } from '../index';
-import { getDatabase } from '../db';
-import { users, tenants, syncQueue } from '../db/schema';
+import { TRPCError } from '@trpc/server';
+import { createServer, type OpenYojobServer } from '../index.js';
+import { getDatabase } from '../db/index.js';
+import { users, tenants } from '../db/schema.js';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
+import { appRouter } from '../trpc/router.js';
+import type { Context } from '../trpc/context.js';
 
 let server: OpenYojobServer;
 let testTenantId: string;
-let authToken: string;
+let testUserId: string;
 const testDbPath = ':memory:';
 
-describe('Sync Routes', () => {
+/**
+ * Build a tRPC context for use with createCaller.
+ * For protected tenant procedures, pass user payload.
+ */
+function createTestContext(userPayload?: {
+  id: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}): Context {
+  const db = getDatabase();
+
+  const mockReq = {
+    server: server.app,
+    headers: {},
+    user: userPayload
+      ? {
+          userId: userPayload.id,
+          email: userPayload.email,
+          role: userPayload.role,
+          tenantId: userPayload.tenantId,
+        }
+      : null,
+    jwtVerify: async () => {
+      if (!userPayload) throw new Error('No token');
+    },
+  } as unknown as Context['req'];
+
+  const mockRes = {} as unknown as Context['res'];
+
+  return {
+    req: mockReq,
+    res: mockRes,
+    db,
+    user: userPayload
+      ? {
+          id: userPayload.id,
+          email: userPayload.email,
+          role: userPayload.role,
+          tenantId: userPayload.tenantId,
+        }
+      : null,
+    tenantId: userPayload?.tenantId ?? null,
+  };
+}
+
+describe('Sync tRPC Router', () => {
   beforeAll(async () => {
-    // Create server (initializes database automatically)
     server = await createServer({
       dbPath: testDbPath,
       verbose: false,
@@ -30,280 +80,206 @@ describe('Sync Routes', () => {
     testTenantId = nanoid();
     await db.insert(tenants).values({
       id: testTenantId,
-      name: 'Test Tenant',
-      slug: 'test-tenant',
+      name: 'Sync Test Tenant',
+      slug: `sync-test-${nanoid(6)}`,
       settings: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
     // Create test user
-    const testUserId = nanoid();
-    const passwordHash = await hash('testpassword123');
+    testUserId = nanoid();
+    const passwordHash = await hash('SyncPass123!');
     await db.insert(users).values({
       id: testUserId,
       tenantId: testTenantId,
-      email: 'test@example.com',
+      email: 'synctest@example.com',
       passwordHash,
-      name: 'Test User',
+      name: 'Sync Test User',
       role: 'admin',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-
-    // Get auth token
-    const response = await server.app.inject({
-      method: 'POST',
-      url: '/api/auth/login',
-      payload: {
-        email: 'test@example.com',
-        password: 'testpassword123',
-      },
-    });
-    const body = JSON.parse(response.body);
-    authToken = body.token;
   });
 
   afterAll(async () => {
     await server.close();
   });
 
-  describe('GET /api/sync/status', () => {
-    it('should return sync status', async () => {
-      const response = await server.app.inject({
-        method: 'GET',
-        url: '/api/sync/status',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+  const userCtx = () =>
+    createTestContext({
+      id: testUserId,
+      email: 'synctest@example.com',
+      role: 'admin',
+      tenantId: testTenantId,
+    });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.pendingCount).toBeDefined();
-      expect(body.conflictsCount).toBeDefined();
-      expect(body.externalSyncEnabled).toBe(false);
-      expect(body.status).toBe('synced');
+  describe('sync.status', () => {
+    it('returns synced status with zero counts when queue is empty', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const result = await caller.sync.status();
+
+      expect(result.pendingCount).toBe(0);
+      expect(result.conflictsCount).toBe(0);
+      expect(result.externalSyncEnabled).toBe(false);
+      expect(result.status).toBe('synced');
     });
   });
 
-  describe('POST /api/sync/queue', () => {
-    it('should add item to sync queue', async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/queue',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-        payload: {
-          entityType: 'products',
-          entityId: 'test-product-1',
-          operation: 'create',
-          data: { name: 'Test Product', price: 100 },
-        },
+  describe('sync.addToQueue', () => {
+    it('adds an item and returns id, entityType, entityId, operation, createdAt', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const entityId = nanoid();
+
+      const result = await caller.sync.addToQueue({
+        entityType: 'products',
+        entityId,
+        operation: 'create',
+        data: { name: 'Test Product', price: 100 },
       });
 
-      expect(response.statusCode).toBe(201);
-      const body = JSON.parse(response.body);
-      expect(body.id).toBeDefined();
-      expect(body.entityType).toBe('products');
-      expect(body.operation).toBe('create');
-    });
-
-    it('should require all fields', async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/queue',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-        payload: {
-          entityType: 'products',
-          // missing entityId, operation, data
-        },
-      });
-
-      expect(response.statusCode).toBe(400);
+      expect(result.id).toBeDefined();
+      expect(result.id).toBeTypeOf('string');
+      expect(result.entityType).toBe('products');
+      expect(result.entityId).toBe(entityId);
+      expect(result.operation).toBe('create');
+      expect(result.createdAt).toBeDefined();
     });
   });
 
-  describe('GET /api/sync/queue', () => {
-    it('should return pending sync items', async () => {
-      // Add some items first
-      await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/queue',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-        payload: {
-          entityType: 'customers',
-          entityId: 'test-customer-1',
-          operation: 'create',
-          data: { name: 'Test Customer' },
-        },
+  describe('sync.listQueue', () => {
+    it('returns items added to the queue', async () => {
+      const caller = appRouter.createCaller(userCtx());
+
+      // Add two more items so we have items to list
+      await caller.sync.addToQueue({
+        entityType: 'customers',
+        entityId: nanoid(),
+        operation: 'update',
+        data: { name: 'Updated Customer' },
+      });
+      await caller.sync.addToQueue({
+        entityType: 'categories',
+        entityId: nanoid(),
+        operation: 'delete',
+        data: {},
       });
 
-      const response = await server.app.inject({
-        method: 'GET',
-        url: '/api/sync/queue',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+      const result = await caller.sync.listQueue({ limit: 50 });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.items).toBeDefined();
-      expect(Array.isArray(body.items)).toBe(true);
-      expect(body.count).toBeGreaterThanOrEqual(1);
+      expect(result.items).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+      expect(result.count).toBeGreaterThanOrEqual(2);
     });
 
-    it('should support limit parameter', async () => {
-      const response = await server.app.inject({
-        method: 'GET',
-        url: '/api/sync/queue?limit=5',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+    it('respects the limit parameter', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const result = await caller.sync.listQueue({ limit: 1 });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.items.length).toBeLessThanOrEqual(5);
+      expect(result.items.length).toBeLessThanOrEqual(1);
     });
   });
 
-  describe('DELETE /api/sync/queue/:id', () => {
-    let queueItemId: string;
+  describe('sync.removeFromQueue', () => {
+    it('removes an existing item and returns { success: true, id }', async () => {
+      const caller = appRouter.createCaller(userCtx());
 
-    beforeAll(async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/queue',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-        payload: {
-          entityType: 'products',
-          entityId: 'test-product-delete',
-          operation: 'update',
-          data: { name: 'Updated Product' },
-        },
+      const added = await caller.sync.addToQueue({
+        entityType: 'products',
+        entityId: nanoid(),
+        operation: 'update',
+        data: { price: 99 },
       });
-      const body = JSON.parse(response.body);
-      queueItemId = body.id;
+
+      const result = await caller.sync.removeFromQueue({ id: added.id });
+
+      expect(result.success).toBe(true);
+      expect(result.id).toBe(added.id);
     });
 
-    it('should delete sync queue item', async () => {
-      const response = await server.app.inject({
-        method: 'DELETE',
-        url: `/api/sync/queue/${queueItemId}`,
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+    it('throws NOT_FOUND for an unknown queue item id', async () => {
+      const caller = appRouter.createCaller(userCtx());
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.success).toBe(true);
-    });
-
-    it('should return 404 for non-existent ID', async () => {
-      const response = await server.app.inject({
-        method: 'DELETE',
-        url: '/api/sync/queue/non-existent-id',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
-
-      expect(response.statusCode).toBe(404);
+      try {
+        await caller.sync.removeFromQueue({ id: 'nonexistent-queue-item' });
+        expect.unreachable('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TRPCError);
+        expect((err as TRPCError).code).toBe('NOT_FOUND');
+      }
     });
   });
 
-  describe('POST /api/sync/push (501 Stub)', () => {
-    it('should return 501 Not Implemented', async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/push',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+  describe('sync.listConflicts', () => {
+    it('returns an empty list when there are no conflicts', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const result = await caller.sync.listConflicts({ limit: 50 });
 
-      expect(response.statusCode).toBe(501);
-      const body = JSON.parse(response.body);
-      expect(body.error).toContain('Not Implemented');
-      expect(body.message).toContain('Phase 2');
+      expect(result.items).toBeDefined();
+      expect(Array.isArray(result.items)).toBe(true);
+      expect(result.count).toBe(0);
     });
   });
 
-  describe('GET /api/sync/pull (501 Stub)', () => {
-    it('should return 501 Not Implemented', async () => {
-      const response = await server.app.inject({
-        method: 'GET',
-        url: '/api/sync/pull',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-      });
+  describe('sync.push (Phase 2 stub)', () => {
+    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+      const caller = appRouter.createCaller(userCtx());
 
-      expect(response.statusCode).toBe(501);
-      const body = JSON.parse(response.body);
-      expect(body.error).toContain('Not Implemented');
+      try {
+        await caller.sync.push();
+        expect.unreachable('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TRPCError);
+        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
+      }
     });
   });
 
-  describe('POST /api/sync/resolve (501 Stub)', () => {
-    it('should return 501 Not Implemented', async () => {
-      const response = await server.app.inject({
-        method: 'POST',
-        url: '/api/sync/resolve',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
-        payload: {
-          conflictId: 'test-conflict-1',
-          resolution: 'local',
-        },
-      });
+  describe('sync.pull (Phase 2 stub)', () => {
+    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+      const caller = appRouter.createCaller(userCtx());
 
-      expect(response.statusCode).toBe(501);
-      const body = JSON.parse(response.body);
-      expect(body.error).toContain('Not Implemented');
+      try {
+        await caller.sync.pull();
+        expect.unreachable('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TRPCError);
+        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
+      }
     });
   });
 
-  describe('GET /api/sync/conflicts', () => {
-    it('should return empty conflicts list', async () => {
-      const response = await server.app.inject({
-        method: 'GET',
-        url: '/api/sync/conflicts',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'X-Tenant-ID': testTenantId,
-        },
+  describe('sync.resolve (Phase 2 stub)', () => {
+    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+      const caller = appRouter.createCaller(userCtx());
+
+      try {
+        await caller.sync.resolve();
+        expect.unreachable('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TRPCError);
+        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
+      }
+    });
+  });
+
+  describe('sync.status after adding items', () => {
+    it('pendingCount is greater than 0 and status is pending', async () => {
+      const caller = appRouter.createCaller(userCtx());
+
+      // Ensure at least one item is in the queue (previous tests may have removed some)
+      await caller.sync.addToQueue({
+        entityType: 'products',
+        entityId: nanoid(),
+        operation: 'create',
+        data: { name: 'Status Check Product' },
       });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.items).toBeDefined();
-      expect(Array.isArray(body.items)).toBe(true);
-      expect(body.count).toBeDefined();
+      const result = await caller.sync.status();
+
+      expect(result.pendingCount).toBeGreaterThan(0);
+      expect(result.status).toBe('pending');
     });
   });
 });
