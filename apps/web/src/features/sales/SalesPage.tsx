@@ -1,80 +1,9 @@
-import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Eye, FileText } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import type { Sale } from '@/types';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-
-// Sample data
-const sampleSales: Sale[] = [
-  {
-    id: '1',
-    tenantId: '1',
-    saleNumber: 'INV-001',
-    customerId: '1',
-    items: [],
-    subtotal: 119.98,
-    taxAmount: 8.4,
-    discountAmount: 0,
-    total: 128.38,
-    paymentMethod: 'card',
-    paymentStatus: 'paid',
-    status: 'completed',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T14:30:00Z',
-    updatedAt: '2024-01-15T14:30:00Z',
-  },
-  {
-    id: '2',
-    tenantId: '1',
-    saleNumber: 'INV-002',
-    customerId: '2',
-    items: [],
-    subtotal: 89.99,
-    taxAmount: 6.3,
-    discountAmount: 10,
-    total: 86.29,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    status: 'completed',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T15:45:00Z',
-    updatedAt: '2024-01-15T15:45:00Z',
-  },
-  {
-    id: '3',
-    tenantId: '1',
-    saleNumber: 'INV-003',
-    customerId: '3',
-    items: [],
-    subtotal: 249.97,
-    taxAmount: 17.5,
-    discountAmount: 0,
-    total: 267.47,
-    paymentMethod: 'transfer',
-    paymentStatus: 'pending',
-    status: 'completed',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T16:20:00Z',
-    updatedAt: '2024-01-15T16:20:00Z',
-  },
-  {
-    id: '4',
-    tenantId: '1',
-    saleNumber: 'INV-004',
-    items: [],
-    subtotal: 39.99,
-    taxAmount: 2.8,
-    discountAmount: 0,
-    total: 42.79,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    status: 'cancelled',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T17:00:00Z',
-    updatedAt: '2024-01-15T17:10:00Z',
-  },
-];
+import { trpc } from '@/lib/trpc';
 
 const statusColors: Record<string, string> = {
   completed: 'badge-success',
@@ -172,7 +101,20 @@ const columns: ColumnDef<Sale>[] = [
 ];
 
 export function SalesPage() {
-  const [sales] = useState<Sale[]>(sampleSales);
+  const { data, isLoading, error } = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
+
+  const items = (data?.items ?? []) as Sale[];
+
+  // Derive summary values from real data
+  const today = new Date().toDateString();
+  const todayItems = items.filter(s => new Date(s.createdAt).toDateString() === today);
+  const todaySalesTotal = todayItems.reduce((sum, s) => sum + s.total, 0);
+  const transactionCount = items.length;
+  const avgOrder =
+    transactionCount > 0 ? items.reduce((sum, s) => sum + s.total, 0) / transactionCount : 0;
+  const pendingTotal = items
+    .filter(s => s.paymentStatus === 'pending')
+    .reduce((sum, s) => sum + s.total, 0);
 
   return (
     <div className="space-y-6">
@@ -192,31 +134,43 @@ export function SalesPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Today's Sales</p>
-          <p className="mt-1 text-2xl font-bold text-secondary-900">$524.93</p>
+          <p className="mt-1 text-2xl font-bold text-secondary-900">
+            {isLoading ? '—' : formatCurrency(todaySalesTotal)}
+          </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Transactions</p>
-          <p className="mt-1 text-2xl font-bold text-secondary-900">4</p>
+          <p className="mt-1 text-2xl font-bold text-secondary-900">
+            {isLoading ? '—' : transactionCount}
+          </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Average Order</p>
-          <p className="mt-1 text-2xl font-bold text-secondary-900">$131.23</p>
+          <p className="mt-1 text-2xl font-bold text-secondary-900">
+            {isLoading ? '—' : formatCurrency(avgOrder)}
+          </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Pending Payments</p>
-          <p className="mt-1 text-2xl font-bold text-warning-500">$267.47</p>
+          <p className="mt-1 text-2xl font-bold text-warning-500">
+            {isLoading ? '—' : formatCurrency(pendingTotal)}
+          </p>
         </div>
       </div>
 
       {/* Sales Table */}
       <div className="card p-6">
-        <DataTable
-          columns={columns}
-          data={sales}
-          searchKey="saleNumber"
-          searchPlaceholder="Search by invoice..."
-          pageSize={10}
-        />
+        {isLoading && <p className="text-secondary-500 py-4">Loading sales...</p>}
+        {error && <p className="text-danger-500 py-4">{error.message}</p>}
+        {!isLoading && !error && (
+          <DataTable
+            columns={columns}
+            data={items}
+            searchKey="saleNumber"
+            searchPlaceholder="Search by invoice..."
+            pageSize={10}
+          />
+        )}
       </div>
     </div>
   );
