@@ -1,7 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react';
 import type { Tenant, TenantSettings } from '@/types';
 import { useAuth } from '@/features/auth/AuthProvider';
-import api from '@/services/api/client';
 
 interface TenantContextType {
   currentTenant: Tenant | null;
@@ -27,7 +26,6 @@ export function TenantProvider({ children }: TenantProviderProps) {
   const { tenant } = useAuth();
 
   const switchTenant = async (tenantId: string) => {
-    api.setTenantId(tenantId);
     // In a real app, this would fetch and update tenant data
     console.log('Switching to tenant:', tenantId);
   };

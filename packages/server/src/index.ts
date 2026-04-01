@@ -13,9 +13,6 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
-import { authRoutes } from './routes/auth.js';
-import { collectionsRoutes } from './routes/collections.js';
-import { syncRoutes } from './routes/sync.js';
 import { ssePlugin } from './realtime/sse.js';
 import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
@@ -143,11 +140,6 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   app.get('/api/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
-
-  // Register routes
-  await app.register(authRoutes, { prefix: '/api/auth' });
-  await app.register(collectionsRoutes, { prefix: '/api/collections' });
-  await app.register(syncRoutes, { prefix: '/api/sync' });
 
   let serverUrl = `http://${host}:${port}`;
 
