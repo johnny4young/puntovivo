@@ -1,63 +1,9 @@
-import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import type { InventoryMovement } from '@/types';
 import { formatDateTime } from '@/lib/utils';
-
-// Sample data
-const sampleMovements: InventoryMovement[] = [
-  {
-    id: '1',
-    tenantId: '1',
-    productId: '1',
-    type: 'purchase',
-    quantity: 50,
-    previousStock: 100,
-    newStock: 150,
-    reference: 'PO-001',
-    notes: 'Restocking order',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T09:00:00Z',
-  },
-  {
-    id: '2',
-    tenantId: '1',
-    productId: '1',
-    type: 'sale',
-    quantity: -2,
-    previousStock: 150,
-    newStock: 148,
-    reference: 'INV-001',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T14:30:00Z',
-  },
-  {
-    id: '3',
-    tenantId: '1',
-    productId: '2',
-    type: 'adjustment',
-    quantity: -5,
-    previousStock: 80,
-    newStock: 75,
-    notes: 'Damaged items removed',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T11:00:00Z',
-  },
-  {
-    id: '4',
-    tenantId: '1',
-    productId: '3',
-    type: 'return',
-    quantity: 3,
-    previousStock: 197,
-    newStock: 200,
-    reference: 'RET-001',
-    notes: 'Customer return',
-    createdBy: 'user1',
-    createdAt: '2024-01-15T16:00:00Z',
-  },
-];
+import { trpc } from '@/lib/trpc';
 
 const typeIcons: Record<string, React.ElementType> = {
   purchase: ArrowDownCircle,
@@ -154,7 +100,20 @@ const columns: ColumnDef<InventoryMovement>[] = [
 ];
 
 export function InventoryPage() {
-  const [movements] = useState<InventoryMovement[]>(sampleMovements);
+  const { data, isLoading, error } = trpc.inventory.listMovements.useQuery({
+    page: 1,
+    perPage: 50,
+  });
+
+  const movements = (data?.items ?? []) as InventoryMovement[];
+
+  // Derive summary values from real data
+  const stockIn = movements.filter(m => m.quantity > 0).reduce((sum, m) => sum + m.quantity, 0);
+  const stockOut = movements.filter(m => m.quantity < 0).reduce((sum, m) => sum + m.quantity, 0);
+  const adjustmentsCount = movements.filter(m => m.type === 'adjustment').length;
+  // Low stock: newStock < some threshold — we approximate using products where newStock drops below previousStock significantly
+  // Since we don't have minStock on movements, count movements that resulted in newStock === 0 or very low
+  const lowStockCount = movements.filter(m => m.newStock < 10 && m.newStock >= 0).length;
 
   return (
     <div className="space-y-6">
@@ -179,7 +138,9 @@ export function InventoryPage() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Stock In</p>
-              <p className="text-xl font-bold text-secondary-900">+53</p>
+              <p className="text-xl font-bold text-secondary-900">
+                {isLoading ? '—' : `+${stockIn}`}
+              </p>
             </div>
           </div>
         </div>
@@ -190,7 +151,7 @@ export function InventoryPage() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Stock Out</p>
-              <p className="text-xl font-bold text-secondary-900">-7</p>
+              <p className="text-xl font-bold text-secondary-900">{isLoading ? '—' : stockOut}</p>
             </div>
           </div>
         </div>
@@ -201,7 +162,9 @@ export function InventoryPage() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Adjustments</p>
-              <p className="text-xl font-bold text-secondary-900">1</p>
+              <p className="text-xl font-bold text-secondary-900">
+                {isLoading ? '—' : adjustmentsCount}
+              </p>
             </div>
           </div>
         </div>
@@ -212,7 +175,7 @@ export function InventoryPage() {
             </div>
             <div>
               <p className="text-sm text-secondary-500">Low Stock Items</p>
-              <p className="text-xl font-bold text-danger-500">1</p>
+              <p className="text-xl font-bold text-danger-500">{isLoading ? '—' : lowStockCount}</p>
             </div>
           </div>
         </div>
@@ -220,13 +183,17 @@ export function InventoryPage() {
 
       {/* Movements Table */}
       <div className="card p-6">
-        <DataTable
-          columns={columns}
-          data={movements}
-          searchKey="reference"
-          searchPlaceholder="Search by reference..."
-          pageSize={10}
-        />
+        {isLoading && <p className="text-secondary-500 py-4">Loading inventory...</p>}
+        {error && <p className="text-danger-500 py-4">{error.message}</p>}
+        {!isLoading && !error && (
+          <DataTable
+            columns={columns}
+            data={movements}
+            searchKey="reference"
+            searchPlaceholder="Search by reference..."
+            pageSize={10}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,74 +1,11 @@
-import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import type { Customer } from '@/types';
+import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/features/auth/AuthProvider';
 
-// Sample data
-const sampleCustomers: Customer[] = [
-  {
-    id: '1',
-    tenantId: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Main St',
-    city: 'New York',
-    state: 'NY',
-    postalCode: '10001',
-    country: 'USA',
-    isActive: true,
-    createdAt: '2024-01-10T10:00:00Z',
-    updatedAt: '2024-01-10T10:00:00Z',
-  },
-  {
-    id: '2',
-    tenantId: '1',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    phone: '+1 (555) 234-5678',
-    address: '456 Oak Ave',
-    city: 'Los Angeles',
-    state: 'CA',
-    postalCode: '90001',
-    country: 'USA',
-    isActive: true,
-    createdAt: '2024-01-11T10:00:00Z',
-    updatedAt: '2024-01-11T10:00:00Z',
-  },
-  {
-    id: '3',
-    tenantId: '1',
-    name: 'Bob Wilson',
-    email: 'bob@example.com',
-    phone: '+1 (555) 345-6789',
-    address: '789 Pine Rd',
-    city: 'Chicago',
-    state: 'IL',
-    postalCode: '60601',
-    country: 'USA',
-    isActive: true,
-    createdAt: '2024-01-12T10:00:00Z',
-    updatedAt: '2024-01-12T10:00:00Z',
-  },
-  {
-    id: '4',
-    tenantId: '1',
-    name: 'Alice Brown',
-    email: 'alice@example.com',
-    phone: '+1 (555) 456-7890',
-    address: '321 Elm St',
-    city: 'Houston',
-    state: 'TX',
-    postalCode: '77001',
-    country: 'USA',
-    isActive: false,
-    createdAt: '2024-01-13T10:00:00Z',
-    updatedAt: '2024-01-13T10:00:00Z',
-  },
-];
-
-const columns: ColumnDef<Customer>[] = [
+const columns = (onDelete: (id: string) => void, canDelete: boolean): ColumnDef<Customer>[] => [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -139,19 +76,31 @@ const columns: ColumnDef<Customer>[] = [
         >
           <Pencil className="h-4 w-4" />
         </button>
-        <button
-          className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-          onClick={() => console.log('Delete', row.original)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {canDelete && (
+          <button
+            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+            onClick={() => onDelete(row.original.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
     ),
   },
 ];
 
 export function CustomersPage() {
-  const [customers] = useState<Customer[]>(sampleCustomers);
+  const { user } = useAuth();
+  const utils = trpc.useUtils();
+
+  const { data, isLoading, error } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
+
+  const deleteMutation = trpc.customers.delete.useMutation({
+    onSuccess: () => utils.customers.list.invalidate(),
+  });
+
+  const canDelete = user?.role === 'admin';
+  const customers = (data?.items ?? []) as Customer[];
 
   return (
     <div className="space-y-6">
@@ -169,14 +118,18 @@ export function CustomersPage() {
 
       {/* Customers Table */}
       <div className="card p-6">
-        <DataTable
-          columns={columns}
-          data={customers}
-          searchKey="name"
-          searchPlaceholder="Search customers..."
-          enableRowSelection
-          pageSize={10}
-        />
+        {isLoading && <p className="text-secondary-500 py-4">Loading customers...</p>}
+        {error && <p className="text-danger-500 py-4">{error.message}</p>}
+        {!isLoading && !error && (
+          <DataTable
+            columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
+            data={customers}
+            searchKey="name"
+            searchPlaceholder="Search customers..."
+            enableRowSelection
+            pageSize={10}
+          />
+        )}
       </div>
     </div>
   );
