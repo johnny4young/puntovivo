@@ -1,7 +1,7 @@
 # Security Documentation
 
 **Project:** Open Yojob POS System
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-03-31
 
 ---
 
@@ -70,14 +70,15 @@ Changed tenant check from optional (`if (tenantId)`) to mandatory. Returns 403 i
 
 #### Dependency CVEs
 
-These require dependency updates that may introduce breaking changes:
+These are in transitive dependencies of `@electron-forge` and have no upstream fix available:
 
-| Package                       | CVE                                                           | Issue                   |
-| ----------------------------- | ------------------------------------------------------------- | ----------------------- |
-| `@remix-run/router` <= 1.23.1 | GHSA-2w69-qvjg-hvjx                                           | XSS via open redirect   |
-| `tar` <= 7.5.6                | GHSA-8qq5-rm4j-mr97, GHSA-r6q2-hw4h-h46w, GHSA-34x7-hfp2-rc4v | Path traversal (3 CVEs) |
+| Package        | CVE                                                           | Issue                   |
+| -------------- | ------------------------------------------------------------- | ----------------------- |
+| `tar` <= 7.5.6 | GHSA-8qq5-rm4j-mr97, GHSA-r6q2-hw4h-h46w, GHSA-34x7-hfp2-rc4v | Path traversal (3 CVEs) |
 
-**Remediation:** Update `react-router-dom` and `@electron-forge` packages.
+**Note:** `@remix-run/router` XSS vulnerability (GHSA-2w69-qvjg-hvjx) was resolved by upgrading to React Router v7, which no longer depends on that package.
+
+**Remediation:** Monitor `@electron-forge` releases for `tar` fixes. The 34 remaining npm audit vulnerabilities are all in `@electron-forge` transitive dependencies.
 
 ### MEDIUM Priority
 
@@ -133,7 +134,7 @@ Development origins (localhost:3000, localhost:5173) are always allowed. Add env
 
 ## Test Results After Fixes
 
-32 of 34 tests passing (94%). The 2 failures are test suite interactions with rate limiting, not production bugs.
+All 92 tests passing (34 server + 58 web) as of the latest dependency upgrade (March 2026).
 
 ---
 
@@ -172,7 +173,7 @@ npm audit
 
 ### Next Steps
 
-- [ ] Update dependencies with known CVEs (react-router-dom, tar, jspdf)
+- [ ] Update remaining dependencies with known CVEs (tar via @electron-forge, jspdf/dompurify)
 - [ ] Add session invalidation on password change (requires schema migration)
 - [ ] Enable Electron sandbox mode
 - [ ] Remove or implement unused IPC handlers
