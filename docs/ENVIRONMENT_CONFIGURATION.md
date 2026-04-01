@@ -49,18 +49,21 @@ VERBOSE=true
 ### Scenario 1: Change Port to 3001
 
 **Server side:**
+
 ```bash
 # .env (root)
 PORT=3001
 ```
 
 **Web app side:**
+
 ```bash
 # apps/web/.env
 VITE_API_URL=http://localhost:3001
 ```
 
 **Start server:**
+
 ```bash
 npm run dev:server
 # Server starts on http://localhost:3001
@@ -69,12 +72,14 @@ npm run dev:server
 ### Scenario 2: Connect to Remote Server
 
 **Web app:**
+
 ```bash
 # apps/web/.env
 VITE_API_URL=https://api.example.com
 ```
 
 **Rebuild web app to apply changes:**
+
 ```bash
 npm run build:web
 ```
@@ -82,18 +87,21 @@ npm run build:web
 ### Scenario 3: Desktop App with Custom Port
 
 **Server configuration:**
+
 ```bash
 # .env
 PORT=9000
 ```
 
 **Web app configuration:**
+
 ```bash
 # apps/web/.env
 VITE_API_URL=http://localhost:9000
 ```
 
 **Run standalone desktop:**
+
 ```bash
 npm run dev:desktop-standalone
 ```
@@ -101,6 +109,7 @@ npm run dev:desktop-standalone
 ### Scenario 4: Docker/Production Deployment
 
 **Server:**
+
 ```bash
 # .env
 PORT=8090
@@ -111,6 +120,7 @@ VERBOSE=false
 ```
 
 **Web app:**
+
 ```bash
 # apps/web/.env
 VITE_API_URL=https://your-domain.com
@@ -127,7 +137,7 @@ The tRPC client URL is configured in `apps/web/src/main.tsx`:
 httpBatchLink({
   url: `${import.meta.env.VITE_API_URL || 'http://localhost:8090'}/api/trpc`,
   // ...
-})
+});
 ```
 
 **Environment variable:** `VITE_API_URL`  
@@ -144,6 +154,7 @@ const host = process.env.HOST || '127.0.0.1';
 ```
 
 **Environment variables:**
+
 - `PORT` - Server port (default: 8090)
 - `HOST` - Server host (default: 127.0.0.1)
 
@@ -191,6 +202,7 @@ curl http://localhost:3001/api/trpc/health.check
 ⚠️ **Vite environment variables are bundled at BUILD time**
 
 This means:
+
 1. Changes to `.env` require rebuilding the web app
 2. Use `npm run build:web` or restart `npm run dev:web`
 3. Variables are embedded in the JavaScript bundle
@@ -200,6 +212,7 @@ This means:
 ✅ **Server environment variables are read at RUNTIME**
 
 This means:
+
 1. No rebuild needed for server
 2. Just restart the server process
 3. Can be changed on the fly
@@ -207,6 +220,7 @@ This means:
 ### Desktop App
 
 The desktop app embeds the server, so:
+
 - Server env vars work as usual (runtime)
 - Web app env vars require rebuild
 - Use `dev:desktop-standalone` after changing web env vars
@@ -216,11 +230,13 @@ The desktop app embeds the server, so:
 ### "Cannot connect to server"
 
 1. Check server is running:
+
    ```bash
    curl http://localhost:8090/api/health
    ```
 
 2. Check `VITE_API_URL` matches server port:
+
    ```bash
    # apps/web/.env
    VITE_API_URL=http://localhost:8090  # Must match server PORT
@@ -234,6 +250,7 @@ The desktop app embeds the server, so:
 ### "PORT already in use"
 
 Change the port:
+
 ```bash
 # .env
 PORT=8091  # Use different port
@@ -245,6 +262,7 @@ PORT=8091 npm run dev:server
 ### Changes not taking effect
 
 **For web app:**
+
 ```bash
 # Rebuild required
 npm run build:web
@@ -253,6 +271,7 @@ npm run dev:web
 ```
 
 **For server:**
+
 ```bash
 # Just restart
 npm run dev:server
@@ -260,18 +279,19 @@ npm run dev:server
 
 ## Default Values Summary
 
-| Variable | Location | Default | Rebuild Required |
-|----------|----------|---------|------------------|
-| `VITE_API_URL` | `apps/web/.env` | `http://localhost:8090` | Yes (web) |
-| `PORT` | `.env` (root) | `8090` | No |
-| `HOST` | `.env` (root) | `127.0.0.1` | No |
-| `DATABASE_URL` | `.env` (root) | `./data/local.db` | No |
-| `JWT_SECRET` | `.env` (root) | Auto-generated | No |
-| `VERBOSE` | `.env` (root) | `false` | No |
+| Variable       | Location        | Default                 | Rebuild Required |
+| -------------- | --------------- | ----------------------- | ---------------- |
+| `VITE_API_URL` | `apps/web/.env` | `http://localhost:8090` | Yes (web)        |
+| `PORT`         | `.env` (root)   | `8090`                  | No               |
+| `HOST`         | `.env` (root)   | `127.0.0.1`             | No               |
+| `DATABASE_URL` | `.env` (root)   | `./data/local.db`       | No               |
+| `JWT_SECRET`   | `.env` (root)   | Auto-generated          | No               |
+| `VERBOSE`      | `.env` (root)   | `false`                 | No               |
 
 ## Examples
 
 ### Development (default)
+
 ```bash
 # No configuration needed
 npm run dev:server  # Runs on :8090
@@ -279,11 +299,12 @@ npm run dev:web     # Connects to :8090
 ```
 
 ### Custom Port
+
 ```bash
 # .env
 PORT=3001
 
-# apps/web/.env  
+# apps/web/.env
 VITE_API_URL=http://localhost:3001
 
 npm run dev:server
@@ -292,6 +313,7 @@ npm run dev:desktop-standalone
 ```
 
 ### Network Access
+
 ```bash
 # .env
 PORT=8090
@@ -305,9 +327,9 @@ npm run dev:server
 
 ## See Also
 
-- [TRPC_QUICK_START.md](./TRPC_QUICK_START.md) - Quick start guide
-- [STANDALONE_DESKTOP_GUIDE.md](./STANDALONE_DESKTOP_GUIDE.md) - Desktop app modes
 - [TRPC_TESTING_GUIDE.md](./TRPC_TESTING_GUIDE.md) - Testing endpoints
+- [LOGIN_GUIDE.md](./LOGIN_GUIDE.md) - Authentication guide
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture
 
 ---
 

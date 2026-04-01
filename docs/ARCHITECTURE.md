@@ -184,7 +184,7 @@ open_yojob/
 |               +-- context.ts
 |
 +-- scripts/
-|   +-- migration/                   # Legacy PocketBase->Node migration tools
+|   +-- migration/                   # Legacy data migration tools (.NET WinForms -> Node)
 |
 +-- .github/
 |   +-- workflows/
@@ -207,6 +207,7 @@ open_yojob/
     +-- TRPC_ARCHITECTURE.md         # tRPC analysis and architecture
     +-- TRPC_IMPLEMENTATION_PLAN.md  # tRPC migration plan
     +-- TRPC_TESTING_GUIDE.md        # tRPC testing patterns
+    +-- MIGRATION_PLAN.md            # Full migration plan (.NET WinForms yojob -> open_yojob)
 ```
 
 ---

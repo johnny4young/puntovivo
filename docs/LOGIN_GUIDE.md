@@ -9,9 +9,9 @@ Open Yojob uses a JWT-based authentication system with secure password hashing (
 When you first run the application, a default admin account is automatically created:
 
 - **Email**: `admin@localhost`
-- **Password**: `admin123`
+- **Password**: A cryptographically random password is generated on first run and displayed **once** in the server console output. Copy it immediately.
 
-⚠️ **Important**: Change the default password after your first login for security!
+⚠️ **Important**: The generated password is only shown once in the console. If you miss it, delete the database file and restart to re-seed.
 
 ## How Login Works
 
@@ -114,9 +114,9 @@ curl http://localhost:8090/api/health
 
 **Solutions**:
 
-1. **Use correct default credentials**:
+1. **Use the correct default credentials**:
    - Email: `admin@localhost` (not `admin@localhost.com`)
-   - Password: `admin123`
+   - Password: the random password printed in the server console on first run
 
 2. **Verify database is seeded**:
 
@@ -189,7 +189,7 @@ This checks:
 
 ```
 POST /api/auth/login
-Body: { "email": "admin@localhost", "password": "admin123" }
+Body: { "email": "admin@localhost", "password": "<your-generated-password>" }
 Response: { "token": "...", "user": {...}, "tenant": {...} }
 ```
 
@@ -235,7 +235,7 @@ Response: { "success": true }
 # Login
 curl -X POST http://localhost:8090/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@localhost","password":"admin123"}'
+  -d '{"email":"admin@localhost","password":"<your-generated-password>"}'
 
 # Get user info (replace TOKEN with actual token from login response)
 curl http://localhost:8090/api/auth/me \
@@ -249,7 +249,7 @@ curl http://localhost:8090/api/auth/me \
 const response = await fetch('http://localhost:8090/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'admin@localhost', password: 'admin123' }),
+  body: JSON.stringify({ email: 'admin@localhost', password: '<your-generated-password>' }),
 });
 const data = await response.json();
 console.log('Token:', data.token);

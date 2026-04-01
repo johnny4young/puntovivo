@@ -9,6 +9,7 @@
 **Solution Options**:
 
 #### Option A: Use Node v22 (Recommended)
+
 ```bash
 # If you have nvm installed:
 nvm use 22
@@ -23,12 +24,13 @@ npm install
 ```
 
 #### Option B: Update .nvmrc to v24
+
 ```bash
 # If you prefer to use Node v24:
 echo "24" > .nvmrc
 
 # Then reinstall dependencies:
-rm -rf node_modules package-lock.json  
+rm -rf node_modules package-lock.json
 rm -rf apps/*/node_modules packages/*/node_modules
 npm install
 ```
@@ -36,6 +38,7 @@ npm install
 ### 2. Build Command Fix
 
 After fixing the Node version:
+
 ```bash
 # Build just the web app:
 npm run build:web
@@ -47,6 +50,7 @@ npm run build
 ### 3. Running the Dev Server
 
 **Option A: Desktop App with Embedded Server (Full App)**
+
 ```bash
 # Start the Electron desktop app (includes embedded server):
 npm run dev
@@ -56,6 +60,7 @@ npm install  # Run this first if you haven't
 ```
 
 **Option B: Backend Server Only (For API Testing)**
+
 ```bash
 # Start just the backend server (recommended for tRPC testing):
 npm run dev:server
@@ -120,10 +125,11 @@ Query procedures use GET requests, making browser testing straightforward:
    - You should see the JSON response directly
 
 3. **Option B - Browser DevTools Console**:
+
    ```javascript
    fetch('http://localhost:8090/api/trpc/health.check')
-   .then(r => r.json())
-   .then(console.log)
+     .then(r => r.json())
+     .then(console.log);
    ```
 
 4. **Expected output in console**:
@@ -142,6 +148,7 @@ Query procedures use GET requests, making browser testing straightforward:
 ### Method 4: Using the Web App (Best for full testing)
 
 1. **Start both server and web**:
+
    ```bash
    npm run dev:fullstack
    # Or for desktop app with embedded server:
@@ -169,13 +176,14 @@ POST http://localhost:8090/api/trpc/<router>.<procedure>
 
 ### Available Endpoints (Phase 1):
 
-| Endpoint | Type | Auth Required | Description |
-|----------|------|---------------|-------------|
-| `health.check` | query | No | Health check endpoint |
+| Endpoint       | Type  | Auth Required | Description           |
+| -------------- | ----- | ------------- | --------------------- |
+| `health.check` | query | No            | Health check endpoint |
 
 ### Future Endpoints (Phase 2+):
 
 Will include:
+
 - `products.list` - List products (paginated) - **GET** (query)
 - `products.getById` - Get single product - **GET** (query)
 - `products.create` - Create product - **POST** (mutation)
@@ -183,6 +191,7 @@ Will include:
 - `products.delete` - Delete product - **POST** (mutation)
 
 **Key Difference:**
+
 - **Query procedures** (`.query()`) use **GET** requests - for reading data
 - **Mutation procedures** (`.mutation()`) use **POST** requests - for creating/updating/deleting data
 
@@ -193,6 +202,7 @@ Will include:
 When testing authenticated endpoints (Phase 2+), include the JWT token:
 
 ### Using curl for queries (GET):
+
 ```bash
 # List products (query = GET request)
 curl http://localhost:8090/api/trpc/products.list?input=%7B%22page%22%3A1%2C%22perPage%22%3A50%7D \
@@ -200,6 +210,7 @@ curl http://localhost:8090/api/trpc/products.list?input=%7B%22page%22%3A1%2C%22p
 ```
 
 ### Using curl for mutations (POST):
+
 ```bash
 # Create product (mutation = POST request)
 curl -X POST http://localhost:8090/api/trpc/products.create \
@@ -209,20 +220,22 @@ curl -X POST http://localhost:8090/api/trpc/products.create \
 ```
 
 ### Using Postman:
+
 1. Get the token from the login endpoint first:
    ```bash
    curl -X POST http://localhost:8090/api/auth/login \
      -H "Content-Type: application/json" \
-     -d '{"email":"admin@localhost","password":"admin123"}'
+      -d '{"email":"admin@localhost","password":"<your-generated-password>"}'
    ```
-2. For **queries** (GET): Add header `Authorization: ******
-3. For **mutations** (POST): Add header `Authorization: ******
+2. For **queries** (GET): Add header `Authorization: **\*\***
+3. For **mutations** (POST): Add header `Authorization: **\*\***
 
 ---
 
 ## Troubleshooting
 
 ### Server won't start
+
 ```bash
 # Check if port 8090 is already in use:
 lsof -i :8090
@@ -234,17 +247,19 @@ kill -9 <PID>
 ```
 
 ### Dependencies missing
+
 ```bash
 # Reinstall all dependencies:
 npm install
 
 # Or clean install:
 rm -rf node_modules package-lock.json
-rm -rf apps/*/node_modules packages/*/node_modules  
+rm -rf apps/*/node_modules packages/*/node_modules
 npm install
 ```
 
 ### Build errors
+
 ```bash
 # Ensure correct Node version:
 node --version  # Should match .nvmrc (22.x)
@@ -280,6 +295,7 @@ echo "If you see a status 'ok', tRPC is working!"
 ```
 
 Make it executable and run:
+
 ```bash
 chmod +x test-trpc.sh
 ./test-trpc.sh

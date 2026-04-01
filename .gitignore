@@ -57,3 +57,6 @@ build
 out
 backend/server
 apps/desktop/resources/pocketbase
+
+# TypeScript incremental build info
+*.tsbuildinfo
