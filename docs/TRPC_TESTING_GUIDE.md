@@ -4,7 +4,7 @@
 
 ### 1. Node.js Version Mismatch
 
-**Problem**: You're running Node v24.x but the project requires Node v22 (as specified in `.nvmrc`).
+**Problem**: You're running an incompatible Node.js version. The project requires Node v22+ (as specified in `package.json` engines).
 
 **Solution Options**:
 
@@ -23,11 +23,12 @@ rm -rf apps/*/node_modules packages/*/node_modules
 npm install
 ```
 
-#### Option B: Update .nvmrc to v24
+#### Option B: Use the latest LTS
 
 ```bash
-# If you prefer to use Node v24:
-echo "24" > .nvmrc
+# If you prefer to use the latest LTS version (must be >= 22):
+nvm install --lts
+nvm use --lts
 
 # Then reinstall dependencies:
 rm -rf node_modules package-lock.json
@@ -155,7 +156,7 @@ Query procedures use GET requests, making browser testing straightforward:
    npm run dev
    ```
 
-2. **Open the web app**: `http://localhost:5173` (or the Electron window)
+2. **Open the web app**: `http://localhost:3000` (or the Electron window)
 
 3. **Open browser DevTools Console** and test:
    ```javascript
@@ -282,10 +283,8 @@ Save this as `test-trpc.sh`:
 echo "Testing tRPC endpoint..."
 echo ""
 
-# Test health check
-response=$(curl -s -X POST http://localhost:8090/api/trpc/health.check \
-  -H "Content-Type: application/json" \
-  -d '{}')
+# Test health check (query procedures use GET, not POST)
+response=$(curl -s http://localhost:8090/api/trpc/health.check)
 
 echo "Response:"
 echo $response | jq '.' 2>/dev/null || echo $response

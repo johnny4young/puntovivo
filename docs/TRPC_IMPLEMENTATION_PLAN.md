@@ -8,12 +8,12 @@ This document details the step-by-step plan for integrating tRPC into the Open Y
 
 ## Plan Summary
 
-| Phase | Duration | Objective | Risk |
-|------|----------|----------|--------|
-| Phase 1: Base Setup | 2-3 days | tRPC setup and minimal PoC | Low |
-| Phase 2: Pilot Collection Migration | 3-4 days | Products fully migrated | Medium |
-| Phase 3: Remaining Collections | 1-2 weeks | All collections | Low |
-| Phase 4: Optimization and Cleanup | 3-4 days | Remove legacy code | Low |
+| Phase                               | Duration  | Objective                  | Risk   |
+| ----------------------------------- | --------- | -------------------------- | ------ |
+| Phase 1: Base Setup                 | 2-3 days  | tRPC setup and minimal PoC | Low    |
+| Phase 2: Pilot Collection Migration | 3-4 days  | Products fully migrated    | Medium |
+| Phase 3: Remaining Collections      | 1-2 weeks | All collections            | Low    |
+| Phase 4: Optimization and Cleanup   | 3-4 days  | Remove legacy code         | Low    |
 
 **Total Estimated Time**: 3-4 weeks
 
@@ -22,6 +22,7 @@ This document details the step-by-step plan for integrating tRPC into the Open Y
 ## Phase 1: Base Setup (2-3 days)
 
 ### Objective
+
 Configure the base tRPC infrastructure without affecting existing code.
 
 ### Tasks
@@ -218,20 +219,20 @@ import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
 
 // In the createServer function, after registering JWT and before REST routes:
-  
-  // Register tRPC
-  await app.register(fastifyTRPCPlugin, {
-    prefix: '/api/trpc',
-    trpcOptions: {
-      router: appRouter,
-      createContext,
-      onError({ path, error }) {
-        console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
-      },
-    },
-  });
 
-  // ... register existing REST routes (keep for now)
+// Register tRPC
+await app.register(fastifyTRPCPlugin, {
+  prefix: '/api/trpc',
+  trpcOptions: {
+    router: appRouter,
+    createContext,
+    onError({ path, error }) {
+      console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
+    },
+  },
+});
+
+// ... register existing REST routes (keep for now)
 ```
 
 #### 1.8 Configure tRPC Client in Frontend
@@ -307,10 +308,10 @@ Create a simple test procedure:
 export const appRouter = router({
   health: router({
     check: publicProcedure.query(() => {
-      return { 
-        status: 'ok', 
+      return {
+        status: 'ok',
         timestamp: new Date().toISOString(),
-        message: 'tRPC is working correctly'
+        message: 'tRPC is working correctly',
       };
     }),
   }),
@@ -326,6 +327,7 @@ console.log(data); // Should display the object with full typing
 ```
 
 ### Phase 1 Success Criteria
+
 - ✅ tRPC installed on server and client
 - ✅ Context configured with DB and authentication
 - ✅ Auth middlewares working
@@ -338,6 +340,7 @@ console.log(data); // Should display the object with full typing
 ## Phase 2: Pilot Collection Migration - Products (3-4 days)
 
 ### Objective
+
 Fully migrate the products collection to tRPC as a proof of concept.
 
 ### 2.1 Create Validation Schemas
@@ -400,155 +403,139 @@ import {
 } from '../utils/product-schemas.js';
 
 export const productsRouter = router({
-  list: tenantProcedure
-    .input(listProductsSchema)
-    .query(async ({ input, ctx }) => {
-      const { page, perPage, search, categoryId, isActive, sortBy, sortDirection } = input;
-      
-      const offset = (page - 1) * perPage;
-      
-      // Build WHERE conditions
-      const conditions = [eq(products.tenantId, ctx.tenantId)];
-      
-      if (search) {
-        conditions.push(
-          or(
-            like(products.name, `%${search}%`),
-            like(products.sku, `%${search}%`),
-            like(products.barcode, `%${search}%`)
-          ) as any
-        );
-      }
-      
-      if (categoryId) {
-        conditions.push(eq(products.categoryId, categoryId));
-      }
-      
-      if (isActive !== undefined) {
-        conditions.push(eq(products.isActive, isActive));
-      }
-      
-      // Get total count
-      const [countResult] = await ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .where(and(...conditions));
-      
-      const totalItems = countResult?.count ?? 0;
-      const totalPages = Math.ceil(totalItems / perPage);
-      
-      // Get items
-      const items = await ctx.db
-        .select()
-        .from(products)
-        .where(and(...conditions))
-        .limit(perPage)
-        .offset(offset)
-        .orderBy(
-          sortDirection === 'asc' 
-            ? sql`${products[sortBy]} ASC` 
-            : sql`${products[sortBy]} DESC`
-        );
-      
-      return {
-        items,
-        pagination: {
-          page,
-          perPage,
-          totalItems,
-          totalPages,
-        },
-      };
-    }),
+  list: tenantProcedure.input(listProductsSchema).query(async ({ input, ctx }) => {
+    const { page, perPage, search, categoryId, isActive, sortBy, sortDirection } = input;
 
-  getById: tenantProcedure
-    .input(getProductSchema)
-    .query(async ({ input: { id }, ctx }) => {
-      const [product] = await ctx.db
-        .select()
-        .from(products)
-        .where(
-          and(
-            eq(products.id, id),
-            eq(products.tenantId, ctx.tenantId)
-          )
-        )
-        .limit(1);
-      
-      if (!product) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Product not found',
-        });
-      }
-      
-      return product;
-    }),
+    const offset = (page - 1) * perPage;
 
-  create: tenantProcedure
-    .input(createProductSchema)
-    .mutation(async ({ input, ctx }) => {
-      const now = new Date().toISOString();
-      const newId = nanoid();
-      
-      const newProduct = {
-        id: newId,
-        ...input,
-        tenantId: ctx.tenantId,
-        syncStatus: 'pending' as const,
-        syncVersion: 1,
-        createdAt: now,
-        updatedAt: now,
-      };
-      
-      await ctx.db.insert(products).values(newProduct);
-      
-      // Add to sync queue
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
-        entityType: 'products',
-        entityId: newId,
-        operation: 'create',
-        data: newProduct,
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
+    // Build WHERE conditions
+    const conditions = [eq(products.tenantId, ctx.tenantId)];
+
+    if (search) {
+      conditions.push(
+        or(
+          like(products.name, `%${search}%`),
+          like(products.sku, `%${search}%`),
+          like(products.barcode, `%${search}%`)
+        ) as any
+      );
+    }
+
+    if (categoryId) {
+      conditions.push(eq(products.categoryId, categoryId));
+    }
+
+    if (isActive !== undefined) {
+      conditions.push(eq(products.isActive, isActive));
+    }
+
+    // Get total count
+    const [countResult] = await ctx.db
+      .select({ count: sql<number>`count(*)` })
+      .from(products)
+      .where(and(...conditions));
+
+    const totalItems = countResult?.count ?? 0;
+    const totalPages = Math.ceil(totalItems / perPage);
+
+    // Get items
+    const items = await ctx.db
+      .select()
+      .from(products)
+      .where(and(...conditions))
+      .limit(perPage)
+      .offset(offset)
+      .orderBy(
+        sortDirection === 'asc' ? sql`${products[sortBy]} ASC` : sql`${products[sortBy]} DESC`
+      );
+
+    return {
+      items,
+      pagination: {
+        page,
+        perPage,
+        totalItems,
+        totalPages,
+      },
+    };
+  }),
+
+  getById: tenantProcedure.input(getProductSchema).query(async ({ input: { id }, ctx }) => {
+    const [product] = await ctx.db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, id), eq(products.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (!product) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Product not found',
       });
-      
-      // Emit SSE event (if configured)
-      if (ctx.req.server.sse) {
-        ctx.req.server.sse.broadcast('products.create', newProduct);
-      }
-      
-      return newProduct;
-    }),
+    }
+
+    return product;
+  }),
+
+  create: tenantProcedure.input(createProductSchema).mutation(async ({ input, ctx }) => {
+    const now = new Date().toISOString();
+    const newId = nanoid();
+
+    const newProduct = {
+      id: newId,
+      ...input,
+      tenantId: ctx.tenantId,
+      syncStatus: 'pending' as const,
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await ctx.db.insert(products).values(newProduct);
+
+    // Add to sync queue
+    await ctx.db.insert(syncQueue).values({
+      id: nanoid(),
+      tenantId: ctx.tenantId,
+      entityType: 'products',
+      entityId: newId,
+      operation: 'create',
+      data: newProduct,
+      localVersion: 1,
+      attempts: 0,
+      createdAt: now,
+    });
+
+    // Emit SSE event (if configured)
+    if (ctx.req.server.sse) {
+      ctx.req.server.sse.broadcast('products.create', newProduct);
+    }
+
+    return newProduct;
+  }),
 
   update: tenantProcedure
-    .input(z.object({
-      id: z.string(),
-      data: updateProductSchema,
-    }))
+    .input(
+      z.object({
+        id: z.string(),
+        data: updateProductSchema,
+      })
+    )
     .mutation(async ({ input: { id, data }, ctx }) => {
       // Verify exists and belongs to tenant
       const [existing] = await ctx.db
         .select()
         .from(products)
-        .where(
-          and(
-            eq(products.id, id),
-            eq(products.tenantId, ctx.tenantId)
-          )
-        )
+        .where(and(eq(products.id, id), eq(products.tenantId, ctx.tenantId)))
         .limit(1);
-      
+
       if (!existing) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found',
         });
       }
-      
+
       const now = new Date().toISOString();
       const updatedData = {
         ...data,
@@ -556,12 +543,9 @@ export const productsRouter = router({
         syncVersion: existing.syncVersion + 1,
         updatedAt: now,
       };
-      
-      await ctx.db
-        .update(products)
-        .set(updatedData)
-        .where(eq(products.id, id));
-      
+
+      await ctx.db.update(products).set(updatedData).where(eq(products.id, id));
+
       // Add to sync queue
       await ctx.db.insert(syncQueue).values({
         id: nanoid(),
@@ -574,7 +558,7 @@ export const productsRouter = router({
         attempts: 0,
         createdAt: now,
       });
-      
+
       // Emit SSE event
       if (ctx.req.server.sse) {
         ctx.req.server.sse.broadcast('products.update', {
@@ -582,73 +566,64 @@ export const productsRouter = router({
           ...updatedData,
         });
       }
-      
+
       // Return updated product
       const [updatedProduct] = await ctx.db
         .select()
         .from(products)
         .where(eq(products.id, id))
         .limit(1);
-      
+
       return updatedProduct!;
     }),
 
-  delete: tenantProcedure
-    .input(getProductSchema)
-    .mutation(async ({ input: { id }, ctx }) => {
-      // Only admins can delete
-      if (ctx.user.role !== 'admin') {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Only administrators can delete products',
-        });
-      }
-      
-      // Verify exists and belongs to tenant
-      const [existing] = await ctx.db
-        .select()
-        .from(products)
-        .where(
-          and(
-            eq(products.id, id),
-            eq(products.tenantId, ctx.tenantId)
-          )
-        )
-        .limit(1);
-      
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Product not found',
-        });
-      }
-      
-      await ctx.db
-        .delete(products)
-        .where(eq(products.id, id));
-      
-      const now = new Date().toISOString();
-      
-      // Add to sync queue
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
-        entityType: 'products',
-        entityId: id,
-        operation: 'delete',
-        data: { id },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
+  delete: tenantProcedure.input(getProductSchema).mutation(async ({ input: { id }, ctx }) => {
+    // Only admins can delete
+    if (ctx.user.role !== 'admin') {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Only administrators can delete products',
       });
-      
-      // Emit SSE event
-      if (ctx.req.server.sse) {
-        ctx.req.server.sse.broadcast('products.delete', { id });
-      }
-      
-      return { success: true, id };
-    }),
+    }
+
+    // Verify exists and belongs to tenant
+    const [existing] = await ctx.db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, id), eq(products.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Product not found',
+      });
+    }
+
+    await ctx.db.delete(products).where(eq(products.id, id));
+
+    const now = new Date().toISOString();
+
+    // Add to sync queue
+    await ctx.db.insert(syncQueue).values({
+      id: nanoid(),
+      tenantId: ctx.tenantId,
+      entityType: 'products',
+      entityId: id,
+      operation: 'delete',
+      data: { id },
+      localVersion: 1,
+      attempts: 0,
+      createdAt: now,
+    });
+
+    // Emit SSE event
+    if (ctx.req.server.sse) {
+      ctx.req.server.sse.broadcast('products.delete', { id });
+    }
+
+    return { success: true, id };
+  }),
 });
 ```
 
@@ -692,7 +667,7 @@ export const useDeleteProduct = trpc.products.delete.useMutation;
 // Custom hook with automatic invalidation
 export function useCreateProductWithInvalidation() {
   const utils = trpc.useUtils();
-  
+
   return trpc.products.create.useMutation({
     onSuccess: () => {
       // Invalidate product list to refresh
@@ -703,9 +678,9 @@ export function useCreateProductWithInvalidation() {
 
 export function useUpdateProductWithInvalidation() {
   const utils = trpc.useUtils();
-  
+
   return trpc.products.update.useMutation({
-    onSuccess: (updatedData) => {
+    onSuccess: updatedData => {
       // Invalidate both list and specific detail
       utils.products.list.invalidate();
       utils.products.getById.invalidate({ id: updatedData.id });
@@ -715,7 +690,7 @@ export function useUpdateProductWithInvalidation() {
 
 export function useDeleteProductWithInvalidation() {
   const utils = trpc.useUtils();
-  
+
   return trpc.products.delete.useMutation({
     onSuccess: (_, { id }) => {
       utils.products.list.invalidate();
@@ -736,23 +711,20 @@ import { useProducts, useCreateProduct } from '@/hooks/api/useProducts';
 function ProductsList() {
   const { data, isLoading } = useProducts({ page: 1, perPage: 50 });
   const createProduct = useCreateProduct();
-  
+
   // ...
 }
 
 // AFTER (with tRPC)
-import { 
-  useProductsList, 
-  useCreateProductWithInvalidation 
-} from '@/hooks/api/useProductsTRPC';
+import { useProductsList, useCreateProductWithInvalidation } from '@/hooks/api/useProductsTRPC';
 
 function ProductsList() {
-  const { data, isLoading } = useProductsList({ 
-    page: 1, 
-    perPage: 50 
+  const { data, isLoading } = useProductsList({
+    page: 1,
+    perPage: 50,
   });
   const createProduct = useCreateProductWithInvalidation();
-  
+
   // Automatic typing - 'data' has full type inference
   // data.items is Product[]
   // data.pagination has page, totalItems, etc.
@@ -768,6 +740,7 @@ function ProductsList() {
 5. **Type test**: Verify TypeScript catches errors at compile-time
 
 ### Phase 2 Success Criteria
+
 - ✅ Complete products router with all CRUD operations
 - ✅ Zod schemas validating input correctly
 - ✅ React hooks working with full typing
@@ -781,6 +754,7 @@ function ProductsList() {
 ## Phase 3: Migrate Remaining Collections (1-2 weeks)
 
 ### Objective
+
 Migrate remaining collections using the pattern established in Phase 2.
 
 ### Suggested Migration Order
@@ -806,15 +780,18 @@ For each collection, follow this pattern:
 ### Collection-Specific Notes
 
 #### Categories
+
 - Tree structure (parent-child)
 - Add procedure to get complete tree
 - Validate no cycles are created
 
 #### Customers
+
 - Similar to products
 - Add search by name, email, phone
 
 #### Sales
+
 - Transactional - create sale + items in single mutation
 - Use Drizzle transactions
 - Update product stock automatically
@@ -826,10 +803,10 @@ createSale: tenantProcedure
     return ctx.db.transaction(async (tx) => {
       // 1. Create sale
       const sale = await tx.insert(sales).values(/* ... */);
-      
+
       // 2. Create sale items
       await tx.insert(saleItems).values(input.items);
-      
+
       // 3. Update product stock
       for (const item of input.items) {
         await tx
@@ -837,18 +814,20 @@ createSale: tenantProcedure
           .set({ stock: sql`stock - ${item.quantity}` })
           .where(eq(products.id, item.productId));
       }
-      
+
       return sale;
     });
   }),
 ```
 
 #### Inventory
+
 - Entry/exit movements
 - Validate sufficient stock for exits
 - Update product stock
 
 ### Phase 3 Success Criteria
+
 - ✅ All collections migrated to tRPC
 - ✅ Frontend fully functional with tRPC
 - ✅ REST API still available (not deleted)
@@ -860,11 +839,13 @@ createSale: tenantProcedure
 ## Phase 4: Optimization and Cleanup (3-4 days)
 
 ### Objective
+
 Optimize implementation and remove legacy code.
 
 ### 4.1 Optimizations
 
 #### Implement Batching
+
 Batching groups multiple queries into a single HTTP request:
 
 ```typescript
@@ -884,32 +865,30 @@ links: [
 // On server
 import { observable } from '@trpc/server/observable';
 
-onProductChange: tenantProcedure
-  .subscription(({ ctx }) => {
-    return observable<ProductChange>((emit) => {
-      const handler = (change: ProductChange) => {
-        if (change.tenantId === ctx.tenantId) {
-          emit.next(change);
-        }
-      };
-      
-      changeEvents.on('product:change', handler);
-      
-      return () => {
-        changeEvents.off('product:change', handler);
-      };
-    });
-  }),
+onProductChange: (tenantProcedure.subscription(({ ctx }) => {
+  return observable<ProductChange>(emit => {
+    const handler = (change: ProductChange) => {
+      if (change.tenantId === ctx.tenantId) {
+        emit.next(change);
+      }
+    };
 
-// On client
-trpc.products.onProductChange.useSubscription(undefined, {
-  onData: (change) => {
-    console.log('Change received:', change);
-  },
-  onError: (error) => {
-    console.error('Subscription error:', error);
-  },
-});
+    changeEvents.on('product:change', handler);
+
+    return () => {
+      changeEvents.off('product:change', handler);
+    };
+  });
+}),
+  // On client
+  trpc.products.onProductChange.useSubscription(undefined, {
+    onData: change => {
+      console.log('Change received:', change);
+    },
+    onError: error => {
+      console.error('Subscription error:', error);
+    },
+  }));
 ```
 
 ### 4.2 Add tRPC Panel (Development Tool)
@@ -974,6 +953,7 @@ npm run build
 ```
 
 ### Phase 4 Success Criteria
+
 - ✅ Batching implemented and working
 - ✅ Subscriptions working (if implemented)
 - ✅ tRPC Panel configured for development
@@ -998,19 +978,19 @@ import { productsRouter } from '../routers/products';
 
 describe('Products Router', () => {
   let context: Context;
-  
+
   beforeEach(() => {
     context = createTestContext();
   });
-  
+
   it('should list products', async () => {
     const caller = productsRouter.createCaller(context);
     const result = await caller.list({ page: 1, perPage: 10 });
-    
+
     expect(result.items).toBeInstanceOf(Array);
     expect(result.pagination.totalItems).toBeGreaterThanOrEqual(0);
   });
-  
+
   it('should create a product', async () => {
     const caller = productsRouter.createCaller(context);
     const newProduct = await caller.create({
@@ -1018,24 +998,24 @@ describe('Products Router', () => {
       sku: 'TEST-001',
       categoryId: 'cat-123',
       price: 10.99,
-      cost: 5.00,
+      cost: 5.0,
       taxRate: 16,
     });
-    
+
     expect(newProduct.id).toBeDefined();
     expect(newProduct.name).toBe('Test Product');
   });
-  
+
   it('should reject creation with invalid data', async () => {
     const caller = productsRouter.createCaller(context);
-    
+
     await expect(
       caller.create({
         name: '', // Empty name - invalid
         sku: 'TEST-001',
         categoryId: 'cat-123',
         price: -10, // Negative price - invalid
-        cost: 5.00,
+        cost: 5.0,
         taxRate: 16,
       })
     ).rejects.toThrow();
@@ -1055,13 +1035,13 @@ import { ProductsList } from '@/features/products/ProductsList';
 describe('Products Integration with tRPC', () => {
   it('should load and display products', async () => {
     const queryClient = new QueryClient();
-    
+
     render(
       <QueryClientProvider client={queryClient}>
         <ProductsList />
       </QueryClientProvider>
     );
-    
+
     await waitFor(() => {
       expect(screen.getByText(/products/i)).toBeInTheDocument();
     });
@@ -1081,18 +1061,16 @@ async function benchmarkAPI() {
     await fetch('http://localhost:8090/api/collections/products');
   }
   console.timeEnd('REST API - 100 requests');
-  
+
   console.time('tRPC - 100 requests');
   for (let i = 0; i < 100; i++) {
     await vanillaClient.products.list.query({ page: 1, perPage: 50 });
   }
   console.timeEnd('tRPC - 100 requests');
-  
+
   console.time('tRPC with batching - 100 requests');
   await Promise.all(
-    Array.from({ length: 100 }, () =>
-      vanillaClient.products.list.query({ page: 1, perPage: 50 })
-    )
+    Array.from({ length: 100 }, () => vanillaClient.products.list.query({ page: 1, perPage: 50 }))
   );
   console.timeEnd('tRPC with batching - 100 requests');
 }
@@ -1102,13 +1080,13 @@ async function benchmarkAPI() {
 
 ## Risk Management
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|---------|------------|
-| Bugs during migration | Medium | High | Keep REST in parallel, migrate gradually |
-| Team learning curve | High | Medium | Documentation, pair programming, training |
-| Degraded performance | Low | High | Continuous benchmarks, optimizations |
-| Incompatibility with existing tools | Low | Medium | Exhaustive testing, prior research |
-| Excessive bundle increase | Low | Low | Tree-shaking, bundle analysis |
+| Risk                                | Probability | Impact | Mitigation                                |
+| ----------------------------------- | ----------- | ------ | ----------------------------------------- |
+| Bugs during migration               | Medium      | High   | Keep REST in parallel, migrate gradually  |
+| Team learning curve                 | High        | Medium | Documentation, pair programming, training |
+| Degraded performance                | Low         | High   | Continuous benchmarks, optimizations      |
+| Incompatibility with existing tools | Low         | Medium | Exhaustive testing, prior research        |
+| Excessive bundle increase           | Low         | Low    | Tree-shaking, bundle analysis             |
 
 ---
 
@@ -1133,22 +1111,25 @@ git branch backup-pre-cleanup
 ## Implementation Checklist
 
 ### Preparation
+
 - [ ] Team trained in basic tRPC concepts
 - [ ] Repository backed up
 - [ ] Existing tests documented
 - [ ] Communication plan with stakeholders
 
 ### Phase 1: Setup
-- [ ] Dependencies installed
-- [ ] Folder structure created
-- [ ] Initializer and context configured
-- [ ] Auth middlewares implemented
-- [ ] Root router created
-- [ ] Fastify integration complete
-- [ ] React client configured
-- [ ] Test procedure works
+
+- [x] Dependencies installed
+- [x] Folder structure created
+- [x] Initializer and context configured
+- [x] Auth middlewares implemented
+- [x] Root router created
+- [x] Fastify integration complete
+- [x] React client configured
+- [x] Test procedure works
 
 ### Phase 2: Products PoC
+
 - [ ] Zod schemas created
 - [ ] Products router implemented
 - [ ] React hooks created
@@ -1158,6 +1139,7 @@ git branch backup-pre-cleanup
 - [ ] Team validates implementation
 
 ### Phase 3: Full Migration
+
 - [ ] Categories migrated
 - [ ] Customers migrated
 - [ ] Sales migrated
@@ -1167,6 +1149,7 @@ git branch backup-pre-cleanup
 - [ ] Test suite updated
 
 ### Phase 4: Optimization
+
 - [ ] Batching implemented
 - [ ] Subscriptions evaluated/implemented
 - [ ] tRPC Panel configured
@@ -1176,6 +1159,7 @@ git branch backup-pre-cleanup
 - [ ] Performance benchmarks completed
 
 ### Post-Implementation
+
 - [ ] Error monitoring in production
 - [ ] Team feedback collected
 - [ ] Lessons learned documented
@@ -1186,17 +1170,20 @@ git branch backup-pre-cleanup
 ## Resources and References
 
 ### Documentation
+
 - **Official tRPC**: https://trpc.io/docs
 - **Fastify Adapter**: https://trpc.io/docs/server/adapters/fastify
 - **React Query Integration**: https://trpc.io/docs/client/react
 - **Zod Documentation**: https://zod.dev
 
 ### Development Tools
+
 - **tRPC Panel**: https://github.com/iway1/trpc-panel
 - **tRPC Playground**: https://github.com/sachinraja/trpc-playground
 - **tRPC Chrome Extension**: For debugging
 
 ### Examples and Templates
+
 - tRPC examples repository: https://github.com/trpc/examples-next-prisma-starter
 - Examples with Fastify: https://github.com/trpc/trpc/tree/main/examples/fastify-server
 
@@ -1212,4 +1199,4 @@ This plan provides a clear and safe path to migrate Open Yojob to tRPC. Gradual 
 
 **Plan Version**: 1.0  
 **Last Updated**: February 2026  
-**Status**: Proposal - Pending approval
+**Status**: Phase 1 Complete - Phase 2 pending

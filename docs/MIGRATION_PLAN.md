@@ -2,7 +2,7 @@
 
 > **Generated:** March 31, 2026
 > **Source:** `yojob` -- .NET WinForms + DevExpress + SQLite + EF6 + MEF plugins
-> **Target:** `open_yojob` -- Electron 40 + React 19 + Fastify 5 + Drizzle ORM + SQLite
+> **Target:** `open_yojob` -- Electron 41 + React 19 + Fastify 5 + Drizzle ORM + SQLite
 > **Estimated effort:** 12--19 weeks (solo developer)
 
 ---
@@ -29,14 +29,14 @@
 
 ### Projects (6 C# projects in `yojob.sln`)
 
-| Project | Role | Key Files |
-|---|---|---|
-| `yojob` | Shell / MDI host | `FormPrincipal.cs` (ribbon, MEF loader, login) |
-| `yojob.lib` | Shared library | 63 DAO entities, 99 DB static classes, `Utilidades.cs`, `DataNavigatorThink.cs`, `ProductosSearch.cs`, auth classes |
-| `yojob.administrador` | Admin plugin | `Productos.cs`, `Clientes.cs`, `Proveedores.cs`, `Categorias.cs`, `Empresas.cs`, `IVAs.cs`, `Consecutivos.cs`, `Unidades.cs`, `Usuarios.cs` |
-| `yojob.ventas` | Sales plugin | `Ventas.cs` (POS), `RegistraVenta.cs` (payment dialog), `reportTiraVenta.cs` (receipt), `DetallesVentas.cs` |
-| `yojob.compras` | Purchases plugin | `Compras.cs`, `DetallesCompras.cs` |
-| `yojob.inventarios` | Inventory plugin | `InventarioInicial.cs`, `ConsultaExistencia.cs` |
+| Project               | Role             | Key Files                                                                                                                                   |
+| --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yojob`               | Shell / MDI host | `FormPrincipal.cs` (ribbon, MEF loader, login)                                                                                              |
+| `yojob.lib`           | Shared library   | 63 DAO entities, 99 DB static classes, `Utilidades.cs`, `DataNavigatorThink.cs`, `ProductosSearch.cs`, auth classes                         |
+| `yojob.administrador` | Admin plugin     | `Productos.cs`, `Clientes.cs`, `Proveedores.cs`, `Categorias.cs`, `Empresas.cs`, `IVAs.cs`, `Consecutivos.cs`, `Unidades.cs`, `Usuarios.cs` |
+| `yojob.ventas`        | Sales plugin     | `Ventas.cs` (POS), `RegistraVenta.cs` (payment dialog), `reportTiraVenta.cs` (receipt), `DetallesVentas.cs`                                 |
+| `yojob.compras`       | Purchases plugin | `Compras.cs`, `DetallesCompras.cs`                                                                                                          |
+| `yojob.inventarios`   | Inventory plugin | `InventarioInicial.cs`, `ConsultaExistencia.cs`                                                                                             |
 
 ### Key Architectural Patterns
 
@@ -50,25 +50,32 @@
 ### Critical Business Logic
 
 #### VAT Extraction (Colombian model)
+
 Prices stored in DB are **VAT-inclusive**. Tax is extracted at sale time:
+
 ```
 basePrice = totalPrice / (1 + vatRate)
 vatAmount = totalPrice - basePrice
 ```
 
 #### 3-Tier Pricing Engine (Productos.cs)
+
 Products have 3 sale prices calculated from cost:
+
 - **Percentage mode:** `salePrice = cost + (cost * marginPercent / 100)`
 - **Amount mode:** `salePrice = cost + fixedMarginAmount`, then derive percent
 - Each tier (price1, price2, price3) is independently configurable
 
 #### Stock with Unit Equivalence
+
 Products can have multiple units of measure. Stock is normalized to the base unit using an `equivalencia` (equivalence) factor:
+
 ```
 normalizedQty = quantity * unitEquivalence
 ```
 
 #### Sequential Invoice Numbering
+
 Per-site, per-document-type sequential numbers stored in `consecutivos` table. Incremented atomically on each sale/purchase.
 
 ---
@@ -80,7 +87,7 @@ Per-site, per-document-type sequential numbers stored in `consecutivos` table. I
 ```
 open_yojob/
   apps/
-    desktop/          # Electron 40 + electron-forge (working shell)
+    desktop/          # Electron 41 + electron-forge (working shell)
     web/              # React 19 + Vite + TailwindCSS 4
       src/
         features/
@@ -112,15 +119,15 @@ open_yojob/
 
 ### Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Desktop shell | Electron 40 + electron-forge |
-| Frontend | React 19, Vite, TailwindCSS 4, React Router |
-| API | Fastify 5, tRPC (scaffolded) |
-| ORM | Drizzle ORM |
-| Database | better-sqlite3 (SQLite) |
-| Auth | argon2 (hashing) + JWT |
-| Sync | SSE realtime + local sync queue |
+| Layer         | Technology                                  |
+| ------------- | ------------------------------------------- |
+| Desktop shell | Electron 41 + electron-forge                |
+| Frontend      | React 19, Vite, TailwindCSS 4, React Router |
+| API           | Fastify 5, tRPC (scaffolded)                |
+| ORM           | Drizzle ORM                                 |
+| Database      | better-sqlite3 (SQLite)                     |
+| Auth          | argon2 (hashing) + JWT                      |
+| Sync          | SSE realtime + local sync queue             |
 
 ---
 
@@ -130,34 +137,34 @@ open_yojob/
 
 The WinForms app has ~63 entity classes. The target currently has 7 domain tables. The following tables need to be added:
 
-| Priority | Table | WinForms Source | Purpose |
-|---|---|---|---|
-| P0 | `providers` | `DAO/proveedor.cs`, `DB/Proveedor.cs` | Supplier management |
-| P0 | `units` | `DAO/unidad.cs`, `DB/Unidad.cs` | Units of measure (kg, lb, unit, box...) |
-| P0 | `unit_x_product` | `DAO/unidadxproducto.cs`, `DB/UnidadXProducto.cs` | Product-unit association with equivalence factor |
-| P0 | `vat_rates` | `DAO/iva.cs`, `DB/IVA.cs` | Tax rates (0%, 5%, 19% etc.) |
-| P0 | `companies` | `DAO/empresa.cs`, `DB/Empresa.cs` | Company/business entity |
-| P0 | `sites` | `DAO/sede.cs`, `DB/Sede.cs` | Physical store locations |
-| P0 | `sequentials` | `DAO/consecutivo.cs`, `DB/Consecutivo.cs` | Auto-increment invoice/document numbers per site |
-| P1 | `purchases` | `DAO/compra.cs`, `DB/Compra.cs` | Purchase headers |
-| P1 | `purchase_items` | `DAO/compradetalle.cs`, `DB/CompraDetalle.cs` | Purchase line items |
-| P1 | `initial_inventory` | `DAO/inventarioinicial.cs`, `DB/InventarioInicial.cs` | Initial/physical inventory entries |
-| P1 | `locations` | `DAO/ubicacion.cs`, `DB/Ubicacion.cs` | Warehouse locations |
-| P1 | `location_x_site` | `DAO/ubicacionxsede.cs`, `DB/UbicacionXSede.cs` | Location-site association |
-| P1 | `product_x_provider` | `DAO/productoxproveedor.cs`, `DB/ProductoXProveedor.cs` | Product-provider association |
-| P2 | `orders` | `DAO/pedido.cs`, `DB/Pedido.cs` | Purchase orders |
-| P2 | `order_items` | `DAO/pedidodetalle.cs`, `DB/PedidoDetalle.cs` | Purchase order line items |
-| P2 | `category_x_provider` | `DAO/categoriaxproveedor.cs`, `DB/CategoriaXProveedor.cs` | Category-provider association |
-| P2 | `cities` | `DAO/ciudad.cs`, `DB/Ciudad.cs` | City catalog |
-| P2 | `departments` | `DAO/departamento.cs`, `DB/Departamento.cs` | Department/state catalog |
-| P2 | `identification_types` | `DAO/tipoidentificacion.cs`, `DB/TipoIdentificacion.cs` | ID type catalog (CC, NIT, etc.) |
-| P2 | `person_types` | `DAO/tipopersona.cs`, `DB/TipoPersona.cs` | Person type catalog (natural, juridica) |
-| P2 | `regime_types` | `DAO/tiporegimen.cs`, `DB/TipoRegimen.cs` | Tax regime catalog |
-| P2 | `commercial_activities` | `DAO/actividadcomercial.cs`, `DB/ActividadComercial.cs` | CIIU activity codes |
-| P2 | `client_types` | `DAO/tipocliente.cs`, `DB/TipoCliente.cs` | Client classification |
-| P3 | `logos` | `DAO/logo.cs`, `DB/Logo.cs` | Company logos |
-| P3 | `sale_returns` | N/A (not in WinForms) | Future: credit notes |
-| P3 | `purchase_returns` | N/A (not in WinForms) | Future: purchase returns |
+| Priority | Table                   | WinForms Source                                           | Purpose                                          |
+| -------- | ----------------------- | --------------------------------------------------------- | ------------------------------------------------ |
+| P0       | `providers`             | `DAO/proveedor.cs`, `DB/Proveedor.cs`                     | Supplier management                              |
+| P0       | `units`                 | `DAO/unidad.cs`, `DB/Unidad.cs`                           | Units of measure (kg, lb, unit, box...)          |
+| P0       | `unit_x_product`        | `DAO/unidadxproducto.cs`, `DB/UnidadXProducto.cs`         | Product-unit association with equivalence factor |
+| P0       | `vat_rates`             | `DAO/iva.cs`, `DB/IVA.cs`                                 | Tax rates (0%, 5%, 19% etc.)                     |
+| P0       | `companies`             | `DAO/empresa.cs`, `DB/Empresa.cs`                         | Company/business entity                          |
+| P0       | `sites`                 | `DAO/sede.cs`, `DB/Sede.cs`                               | Physical store locations                         |
+| P0       | `sequentials`           | `DAO/consecutivo.cs`, `DB/Consecutivo.cs`                 | Auto-increment invoice/document numbers per site |
+| P1       | `purchases`             | `DAO/compra.cs`, `DB/Compra.cs`                           | Purchase headers                                 |
+| P1       | `purchase_items`        | `DAO/compradetalle.cs`, `DB/CompraDetalle.cs`             | Purchase line items                              |
+| P1       | `initial_inventory`     | `DAO/inventarioinicial.cs`, `DB/InventarioInicial.cs`     | Initial/physical inventory entries               |
+| P1       | `locations`             | `DAO/ubicacion.cs`, `DB/Ubicacion.cs`                     | Warehouse locations                              |
+| P1       | `location_x_site`       | `DAO/ubicacionxsede.cs`, `DB/UbicacionXSede.cs`           | Location-site association                        |
+| P1       | `product_x_provider`    | `DAO/productoxproveedor.cs`, `DB/ProductoXProveedor.cs`   | Product-provider association                     |
+| P2       | `orders`                | `DAO/pedido.cs`, `DB/Pedido.cs`                           | Purchase orders                                  |
+| P2       | `order_items`           | `DAO/pedidodetalle.cs`, `DB/PedidoDetalle.cs`             | Purchase order line items                        |
+| P2       | `category_x_provider`   | `DAO/categoriaxproveedor.cs`, `DB/CategoriaXProveedor.cs` | Category-provider association                    |
+| P2       | `cities`                | `DAO/ciudad.cs`, `DB/Ciudad.cs`                           | City catalog                                     |
+| P2       | `departments`           | `DAO/departamento.cs`, `DB/Departamento.cs`               | Department/state catalog                         |
+| P2       | `identification_types`  | `DAO/tipoidentificacion.cs`, `DB/TipoIdentificacion.cs`   | ID type catalog (CC, NIT, etc.)                  |
+| P2       | `person_types`          | `DAO/tipopersona.cs`, `DB/TipoPersona.cs`                 | Person type catalog (natural, juridica)          |
+| P2       | `regime_types`          | `DAO/tiporegimen.cs`, `DB/TipoRegimen.cs`                 | Tax regime catalog                               |
+| P2       | `commercial_activities` | `DAO/actividadcomercial.cs`, `DB/ActividadComercial.cs`   | CIIU activity codes                              |
+| P2       | `client_types`          | `DAO/tipocliente.cs`, `DB/TipoCliente.cs`                 | Client classification                            |
+| P3       | `logos`                 | `DAO/logo.cs`, `DB/Logo.cs`                               | Company logos                                    |
+| P3       | `sale_returns`          | N/A (not in WinForms)                                     | Future: credit notes                             |
+| P3       | `purchase_returns`      | N/A (not in WinForms)                                     | Future: purchase returns                         |
 
 ### Products Table: Missing Columns
 
@@ -188,6 +195,7 @@ All feature pages (Dashboard, Products, Customers, Sales, Inventory) render hard
 ### Business Logic: Nothing Implemented Server-Side
 
 No service layer exists. The following must be created:
+
 - VAT extraction logic
 - 3-tier pricing calculation
 - Stock validation with unit equivalence
@@ -202,18 +210,18 @@ No service layer exists. The following must be created:
 
 These bugs exist in the WinForms codebase and must be **fixed** in the migration, not carried over:
 
-| # | Bug | WinForms Location | Severity | Fix |
-|---|---|---|---|---|
-| 1 | **SQL injection** in `Sale.TotalDiario()` | `yojob.lib/DB/Sale.cs` | Critical | Use parameterized queries (Drizzle handles this) |
-| 2 | **Plain text passwords** | `yojob.lib/DB/Usuario.cs` | Critical | Already fixed -- target uses argon2 hashing |
-| 3 | **Field mapping error** in Client insert | `yojob.lib/DB/Client.cs` | High | `tipoIdentificacion` mapped to wrong column; fix in schema |
-| 4 | **Wrong table** in `LocationXSite.Delete()` | `yojob.lib/DB/UbicacionXSede.cs` | High | Deletes from wrong table; use correct FK cascade |
-| 5 | **Quantity doubling** in initial inventory | `yojob.inventarios/InventarioInicial.cs` | High | `existencia += cantidad` then saves `cantidad` to `existencia` field, losing the addition. Fix: save the accumulated value |
-| 6 | **No transaction safety** on cascading operations | `yojob.administrador/Productos.cs` | Medium | Delete-and-reinsert of unit/provider associations not wrapped in transaction. Use Drizzle transactions |
-| 7 | **Field mapping error** in UnitXProduct | `yojob.lib/DB/UnidadXProducto.cs` | Medium | Fields swapped in insert; fix column order |
-| 8 | **Race condition** on sequential numbers | `yojob.lib/DB/Consecutivo.cs` | Medium | Read-increment-write not atomic. Use `UPDATE ... SET value = value + 1 RETURNING` |
-| 9 | **No input validation** on numeric fields | Multiple forms | Low | Add Zod schemas on all API inputs |
-| 10 | **Hard-coded VAT rate** in some calculations | `yojob.ventas/Ventas.cs` | Low | Always look up from `vat_rates` table |
+| #   | Bug                                               | WinForms Location                        | Severity | Fix                                                                                                                        |
+| --- | ------------------------------------------------- | ---------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **SQL injection** in `Sale.TotalDiario()`         | `yojob.lib/DB/Sale.cs`                   | Critical | Use parameterized queries (Drizzle handles this)                                                                           |
+| 2   | **Plain text passwords**                          | `yojob.lib/DB/Usuario.cs`                | Critical | Already fixed -- target uses argon2 hashing                                                                                |
+| 3   | **Field mapping error** in Client insert          | `yojob.lib/DB/Client.cs`                 | High     | `tipoIdentificacion` mapped to wrong column; fix in schema                                                                 |
+| 4   | **Wrong table** in `LocationXSite.Delete()`       | `yojob.lib/DB/UbicacionXSede.cs`         | High     | Deletes from wrong table; use correct FK cascade                                                                           |
+| 5   | **Quantity doubling** in initial inventory        | `yojob.inventarios/InventarioInicial.cs` | High     | `existencia += cantidad` then saves `cantidad` to `existencia` field, losing the addition. Fix: save the accumulated value |
+| 6   | **No transaction safety** on cascading operations | `yojob.administrador/Productos.cs`       | Medium   | Delete-and-reinsert of unit/provider associations not wrapped in transaction. Use Drizzle transactions                     |
+| 7   | **Field mapping error** in UnitXProduct           | `yojob.lib/DB/UnidadXProducto.cs`        | Medium   | Fields swapped in insert; fix column order                                                                                 |
+| 8   | **Race condition** on sequential numbers          | `yojob.lib/DB/Consecutivo.cs`            | Medium   | Read-increment-write not atomic. Use `UPDATE ... SET value = value + 1 RETURNING`                                          |
+| 9   | **No input validation** on numeric fields         | Multiple forms                           | Low      | Add Zod schemas on all API inputs                                                                                          |
+| 10  | **Hard-coded VAT rate** in some calculations      | `yojob.ventas/Ventas.cs`                 | Low      | Always look up from `vat_rates` table                                                                                      |
 
 ---
 
@@ -227,6 +235,7 @@ These bugs exist in the WinForms codebase and must be **fixed** in the migration
 Add the following to `packages/server/src/db/schema.ts`:
 
 **P0 tables (required for all subsequent phases):**
+
 - `providers` -- id, tenantId, name, taxId, phone, email, address, cityId, contactName, isActive, timestamps
 - `units` -- id, tenantId, name, abbreviation, isActive, timestamps
 - `unit_x_product` -- id, productId, unitId, equivalence (real), price (real), isBase (boolean)
@@ -236,27 +245,30 @@ Add the following to `packages/server/src/db/schema.ts`:
 - `sequentials` -- id, tenantId, siteId (FK), documentType (enum: sale, purchase, order), prefix, currentValue (integer), timestamps
 
 **Products table modifications:**
+
 - Add columns: `price2`, `price3`, `marginPercent1`, `marginPercent2`, `marginPercent3`, `marginAmount1`, `marginAmount2`, `marginAmount3`, `vatRateId` (FK), `providerId` (FK), `locationId`, `initialCost`
 - Rename `price` to `price1` for clarity
 
 **Sale items table modifications:**
+
 - Add columns: `unitId` (FK), `unitEquivalence` (real), `costAtSale` (real)
 
 ### 0.2 Wire Existing Pages to Live API
 
 Each existing page currently renders sample data. Connect them:
 
-| Page | Hook | API Endpoint | Work Needed |
-|---|---|---|---|
-| ProductsPage | `useProducts` | `GET /api/collections/products` | Replace sample data with hook call |
-| CustomersPage | `useCustomers` | `GET /api/collections/customers` | Replace sample data with hook call |
-| SalesPage | `useSales` | `GET /api/collections/sales` | Replace sample data with hook call |
+| Page          | Hook           | API Endpoint                               | Work Needed                        |
+| ------------- | -------------- | ------------------------------------------ | ---------------------------------- |
+| ProductsPage  | `useProducts`  | `GET /api/collections/products`            | Replace sample data with hook call |
+| CustomersPage | `useCustomers` | `GET /api/collections/customers`           | Replace sample data with hook call |
+| SalesPage     | `useSales`     | `GET /api/collections/sales`               | Replace sample data with hook call |
 | InventoryPage | `useInventory` | `GET /api/collections/inventory_movements` | Replace sample data with hook call |
-| DashboardPage | N/A | Multiple aggregation endpoints | Needs new endpoints |
+| DashboardPage | N/A            | Multiple aggregation endpoints             | Needs new endpoints                |
 
 ### 0.3 Site/Company Selector
 
 Add a site selector to the app header or tenant context. The WinForms app uses `Utilidades.sede()` to get the active site. In the target:
+
 - Store selected site ID in `TenantProvider` context or local storage
 - Pass `siteId` as a query parameter or header on all API calls
 - Sequential numbers and stock queries are site-scoped
@@ -264,12 +276,14 @@ Add a site selector to the app header or tenant context. The WinForms app uses `
 ### 0.4 Seed Data
 
 Update `packages/server/src/db/seed.ts` to populate:
+
 - Default company and site
 - Default VAT rates (0%, 5%, 19% for Colombia)
 - Default units (Unidad, Kilogramo, Libra, Caja, Docena)
 - Default sequentials (sale starting at 1, purchase starting at 1)
 
 ### Deliverables
+
 - [ ] All P0 tables added to Drizzle schema with relations
 - [ ] Raw SQL DDL in `db/index.ts` updated to match
 - [ ] Seed data for default records
@@ -287,78 +301,81 @@ Update `packages/server/src/db/seed.ts` to populate:
 
 ### 1.1 Provider Management
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Proveedores.cs` | `apps/web/src/features/providers/ProvidersPage.tsx` |
-| API | `DB/Proveedor.cs` | `packages/server/src/routes/collections.ts` (add to generic CRUD) |
-| Schema | `DAO/proveedor.cs` | `packages/server/src/db/schema.ts` (providers table) |
+| Layer  | WinForms Source    | Target Location                                                   |
+| ------ | ------------------ | ----------------------------------------------------------------- |
+| UI     | `Proveedores.cs`   | `apps/web/src/features/providers/ProvidersPage.tsx`               |
+| API    | `DB/Proveedor.cs`  | `packages/server/src/routes/collections.ts` (add to generic CRUD) |
+| Schema | `DAO/proveedor.cs` | `packages/server/src/db/schema.ts` (providers table)              |
 
 **Form fields:** name, taxId, phone, email, address, city (lookup), contactName
 **DataNavigatorThink states:** New / Edit / Save / Cancel / Delete -- map to standard CRUD buttons
 
 ### 1.2 VAT Rate Management
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `IVAs.cs` | `apps/web/src/features/settings/VatRatesPage.tsx` |
-| API | `DB/IVA.cs` | Generic CRUD |
-| Schema | `DAO/iva.cs` | `vat_rates` table |
+| Layer  | WinForms Source | Target Location                                   |
+| ------ | --------------- | ------------------------------------------------- |
+| UI     | `IVAs.cs`       | `apps/web/src/features/settings/VatRatesPage.tsx` |
+| API    | `DB/IVA.cs`     | Generic CRUD                                      |
+| Schema | `DAO/iva.cs`    | `vat_rates` table                                 |
 
 **Form fields:** name, rate (percentage as decimal)
 
 ### 1.3 Unit of Measure Management
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Unidades.cs` | `apps/web/src/features/settings/UnitsPage.tsx` |
-| API | `DB/Unidad.cs` | Generic CRUD |
-| Schema | `DAO/unidad.cs` | `units` table |
+| Layer  | WinForms Source | Target Location                                |
+| ------ | --------------- | ---------------------------------------------- |
+| UI     | `Unidades.cs`   | `apps/web/src/features/settings/UnitsPage.tsx` |
+| API    | `DB/Unidad.cs`  | Generic CRUD                                   |
+| Schema | `DAO/unidad.cs` | `units` table                                  |
 
 **Form fields:** name, abbreviation
 
 ### 1.4 Category Management
 
 Already partially implemented. Enhance:
+
 - Add parent-child hierarchy display (tree view or indented list)
 - Add provider association (`category_x_provider` table, Phase P2)
 
 ### 1.5 Company & Site Management
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Empresas.cs` | `apps/web/src/features/settings/CompanyPage.tsx` |
-| API | `DB/Empresa.cs`, `DB/Sede.cs` | Dedicated route or generic CRUD |
-| Schema | `DAO/empresa.cs`, `DAO/sede.cs` | `companies`, `sites` tables |
+| Layer  | WinForms Source                 | Target Location                                  |
+| ------ | ------------------------------- | ------------------------------------------------ |
+| UI     | `Empresas.cs`                   | `apps/web/src/features/settings/CompanyPage.tsx` |
+| API    | `DB/Empresa.cs`, `DB/Sede.cs`   | Dedicated route or generic CRUD                  |
+| Schema | `DAO/empresa.cs`, `DAO/sede.cs` | `companies`, `sites` tables                      |
 
 **Logic:** Company is a single record (the business). Sites are child records (physical locations). The site selector from Phase 0 reads from this table.
 
 ### 1.6 Sequential Number Configuration
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Consecutivos.cs` | `apps/web/src/features/settings/SequentialsPage.tsx` |
-| API | `DB/Consecutivo.cs` | Dedicated route (not generic -- needs atomic increment) |
-| Schema | `DAO/consecutivo.cs` | `sequentials` table |
+| Layer  | WinForms Source      | Target Location                                         |
+| ------ | -------------------- | ------------------------------------------------------- |
+| UI     | `Consecutivos.cs`    | `apps/web/src/features/settings/SequentialsPage.tsx`    |
+| API    | `DB/Consecutivo.cs`  | Dedicated route (not generic -- needs atomic increment) |
+| Schema | `DAO/consecutivo.cs` | `sequentials` table                                     |
 
 **Logic:** Admin can set the starting number and prefix for each document type per site. The actual increment happens atomically during sale/purchase finalization (Phase 4/5).
 
 ### 1.7 Client/Customer Enhancement
 
 Already partially implemented (`customers` table exists). Enhance:
+
 - Add fields: `identificationTypeId`, `personTypeId`, `regimeTypeId`, `clientTypeId` (all FK to catalog tables)
 - These catalog tables are P2 priority -- add them here if time permits, or use simple text fields initially
 
 ### 1.8 User Management
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Usuarios.cs` | `apps/web/src/features/settings/UsersPage.tsx` |
-| API | `DB/Usuario.cs` | `packages/server/src/routes/auth.ts` (extend) |
-| Schema | `users` table | Already exists |
+| Layer  | WinForms Source | Target Location                                |
+| ------ | --------------- | ---------------------------------------------- |
+| UI     | `Usuarios.cs`   | `apps/web/src/features/settings/UsersPage.tsx` |
+| API    | `DB/Usuario.cs` | `packages/server/src/routes/auth.ts` (extend)  |
+| Schema | `users` table   | Already exists                                 |
 
 **Logic:** Admin can create/deactivate users, assign roles. Password reset. Registration route already exists but needs admin-only guard.
 
 ### Deliverables
+
 - [ ] Provider CRUD (page + API)
 - [ ] VAT rate CRUD (page + API)
 - [ ] Unit CRUD (page + API)
@@ -382,12 +399,14 @@ Already partially implemented (`customers` table exists). Enhance:
 The WinForms product form is the most complex admin screen. It has:
 
 **Tab 1 -- General Info:**
+
 - Name, SKU/barcode, description
 - Category (lookup), Provider (lookup), VAT rate (lookup)
 - Location (lookup)
 - Active/inactive toggle
 
 **Tab 2 -- Pricing (the 3-tier engine):**
+
 - Cost (input)
 - For each tier (price1, price2, price3):
   - Margin percentage (input) -- calculates: `price = cost + (cost * margin% / 100)`
@@ -399,12 +418,14 @@ The WinForms product form is the most complex admin screen. It has:
 - Changing price recalculates margin% and marginAmount
 
 **Tab 3 -- Units:**
+
 - Table of unit associations (from `unit_x_product`)
 - Each row: unit (lookup), equivalence factor, price for this unit
 - One unit must be marked as base (equivalence = 1)
 - Add/remove unit associations
 
 **Tab 4 -- Providers:**
+
 - Table of provider associations (from `product_x_provider`)
 - Add/remove providers
 
@@ -454,6 +475,7 @@ The generic CRUD is not enough for products. Create dedicated routes:
 - `GET /api/products/search?q=` -- fast search by name/SKU/barcode for POS
 
 ### Deliverables
+
 - [ ] Product form with tabs (general, pricing, units, providers)
 - [ ] 3-tier pricing engine (client + server validation)
 - [ ] Unit association management (add/remove with equivalence)
@@ -472,19 +494,21 @@ The generic CRUD is not enough for products. Create dedicated routes:
 
 ### 3.1 Initial Inventory Entry
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `InventarioInicial.cs` | `apps/web/src/features/inventory/InitialInventoryPage.tsx` |
-| API | `DB/InventarioInicial.cs`, `DB/Stock.cs` | `packages/server/src/routes/inventory.ts` |
-| Schema | `DAO/inventarioinicial.cs` | `initial_inventory` table |
+| Layer  | WinForms Source                          | Target Location                                            |
+| ------ | ---------------------------------------- | ---------------------------------------------------------- |
+| UI     | `InventarioInicial.cs`                   | `apps/web/src/features/inventory/InitialInventoryPage.tsx` |
+| API    | `DB/InventarioInicial.cs`, `DB/Stock.cs` | `packages/server/src/routes/inventory.ts`                  |
+| Schema | `DAO/inventarioinicial.cs`               | `initial_inventory` table                                  |
 
 **Two modes (from WinForms):**
+
 1. **Initial inventory (accumulate):** Add quantity to existing stock. Used when first setting up or receiving miscellaneous stock.
 2. **Physical inventory (replace):** Set stock to the counted quantity. Used for periodic physical counts.
 
 **Form fields:** Product (search dialog), unit (lookup from product's units), quantity, cost, site
 
 **Server-side logic:**
+
 ```
 POST /api/inventory/initial
   1. Validate product exists and is active
@@ -501,19 +525,21 @@ POST /api/inventory/initial
 
 ### 3.2 Stock Query View
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `ConsultaExistencia.cs` | `apps/web/src/features/inventory/StockQueryPage.tsx` |
-| API | `DB/Stock.cs` | `packages/server/src/routes/inventory.ts` |
+| Layer | WinForms Source         | Target Location                                      |
+| ----- | ----------------------- | ---------------------------------------------------- |
+| UI    | `ConsultaExistencia.cs` | `apps/web/src/features/inventory/StockQueryPage.tsx` |
+| API   | `DB/Stock.cs`           | `packages/server/src/routes/inventory.ts`            |
 
 **Read-only view** showing:
+
 - Product name, SKU, category
 - Current stock (in base unit)
 - Initial inventory cost
-- Inventory valuation (stock * initialCost)
+- Inventory valuation (stock \* initialCost)
 - Total valuation at bottom
 
 **API endpoint:**
+
 ```
 GET /api/inventory/stock?siteId=...&categoryId=...
   Returns cross-join of products with their stock, cost, and valuation
@@ -522,11 +548,13 @@ GET /api/inventory/stock?siteId=...&categoryId=...
 ### 3.3 Enhance Existing Inventory Page
 
 The current `InventoryPage.tsx` shows inventory movements. Keep this as-is but wire to live data. Add navigation tabs:
+
 - **Movements** (existing page, wired to API)
 - **Initial Inventory** (new, 3.1)
 - **Stock Query** (new, 3.2)
 
 ### Deliverables
+
 - [ ] `initial_inventory` table in schema
 - [ ] Initial inventory entry page with product search
 - [ ] Physical inventory mode
@@ -548,6 +576,7 @@ The current `InventoryPage.tsx` shows inventory movements. Keep this as-is but w
 Create `apps/web/src/features/pos/` with:
 
 **State management** (React context or Zustand):
+
 ```typescript
 interface CartItem {
   productId: string;
@@ -556,38 +585,39 @@ interface CartItem {
   unitName: string;
   unitEquivalence: number;
   quantity: number;
-  unitPrice: number;       // VAT-inclusive price
-  vatRate: number;          // e.g., 0.19
-  basePrice: number;       // computed: unitPrice / (1 + vatRate)
-  vatAmount: number;        // computed: unitPrice - basePrice
-  lineTotal: number;        // computed: quantity * unitPrice
-  lineVat: number;          // computed: quantity * vatAmount
-  lineBase: number;         // computed: quantity * basePrice
+  unitPrice: number; // VAT-inclusive price
+  vatRate: number; // e.g., 0.19
+  basePrice: number; // computed: unitPrice / (1 + vatRate)
+  vatAmount: number; // computed: unitPrice - basePrice
+  lineTotal: number; // computed: quantity * unitPrice
+  lineVat: number; // computed: quantity * vatAmount
+  lineBase: number; // computed: quantity * basePrice
 }
 
 interface CartState {
   items: CartItem[];
   customerId: string | null;
   siteId: string;
-  subtotal: number;         // sum of lineBase
-  totalVat: number;         // sum of lineVat
-  total: number;            // sum of lineTotal
+  subtotal: number; // sum of lineBase
+  totalVat: number; // sum of lineVat
+  total: number; // sum of lineTotal
 }
 ```
 
 ### 4.2 POS Page Layout
 
-| WinForms Element | React Target |
-|---|---|
-| `gridVentas` (XtraGrid) | Cart table component |
-| `txtCodigoVenta` (barcode input) | Barcode/SKU input with autofocus |
-| `lueProductoVenta` (LookUpEdit) | Product search (inline autocomplete or dialog) |
-| `spnCantidadVenta` (SpinEdit) | Quantity input |
-| `txtPrecioVenta` (read-only) | Price display (from selected product + unit) |
-| Bottom totals panel | Subtotal / VAT / Total display |
-| `btnRegistrarVenta` button | "Charge" button -> opens payment dialog |
+| WinForms Element                 | React Target                                   |
+| -------------------------------- | ---------------------------------------------- |
+| `gridVentas` (XtraGrid)          | Cart table component                           |
+| `txtCodigoVenta` (barcode input) | Barcode/SKU input with autofocus               |
+| `lueProductoVenta` (LookUpEdit)  | Product search (inline autocomplete or dialog) |
+| `spnCantidadVenta` (SpinEdit)    | Quantity input                                 |
+| `txtPrecioVenta` (read-only)     | Price display (from selected product + unit)   |
+| Bottom totals panel              | Subtotal / VAT / Total display                 |
+| `btnRegistrarVenta` button       | "Charge" button -> opens payment dialog        |
 
 **Layout:** Two-column layout
+
 - Left: Cart table (70% width)
 - Right: Product search + add controls (30% width)
 - Bottom: Totals bar + action buttons
@@ -595,6 +625,7 @@ interface CartState {
 ### 4.3 Adding Items to Cart
 
 Flow (from WinForms `Ventas.cs`):
+
 1. User scans barcode or searches product
 2. System finds product, loads default unit and price
 3. User adjusts quantity (default 1)
@@ -607,11 +638,12 @@ Flow (from WinForms `Ventas.cs`):
 
 ### 4.4 Payment Dialog
 
-| WinForms Source | Target |
-|---|---|
+| WinForms Source    | Target                                        |
+| ------------------ | --------------------------------------------- |
 | `RegistraVenta.cs` | `apps/web/src/features/pos/PaymentDialog.tsx` |
 
 **Modal dialog showing:**
+
 - Total amount
 - Payment method selector (cash, card, transfer, credit)
 - Amount received (for cash -- calculate change)
@@ -643,6 +675,7 @@ Transaction:
 ```
 
 **Error handling:**
+
 - Insufficient stock -> return 409 with product name and available stock
 - Sequential number conflict -> retry once
 - Any failure -> full rollback
@@ -651,28 +684,30 @@ Transaction:
 
 Map WinForms shortcuts to web equivalents:
 
-| WinForms Key | Action | React Implementation |
-|---|---|---|
-| F1 | Save/finalize sale | `useHotkeys('f1', finalize)` |
-| F5 | Open product search | `useHotkeys('f5', openSearch)` |
-| Alt+P | Focus product field | `useHotkeys('alt+p', focusProduct)` |
-| Alt+C | Focus quantity field | `useHotkeys('alt+c', focusQuantity)` |
-| Alt+U | Focus unit field | `useHotkeys('alt+u', focusUnit)` |
-| Alt+D | Focus discount field | `useHotkeys('alt+d', focusDiscount)` |
-| Delete | Remove selected cart item | `useHotkeys('delete', removeItem)` |
-| Enter (in barcode) | Add scanned item to cart | Form submit handler |
+| WinForms Key       | Action                    | React Implementation                 |
+| ------------------ | ------------------------- | ------------------------------------ |
+| F1                 | Save/finalize sale        | `useHotkeys('f1', finalize)`         |
+| F5                 | Open product search       | `useHotkeys('f5', openSearch)`       |
+| Alt+P              | Focus product field       | `useHotkeys('alt+p', focusProduct)`  |
+| Alt+C              | Focus quantity field      | `useHotkeys('alt+c', focusQuantity)` |
+| Alt+U              | Focus unit field          | `useHotkeys('alt+u', focusUnit)`     |
+| Alt+D              | Focus discount field      | `useHotkeys('alt+d', focusDiscount)` |
+| Delete             | Remove selected cart item | `useHotkeys('delete', removeItem)`   |
+| Enter (in barcode) | Add scanned item to cart  | Form submit handler                  |
 
 ### 4.7 Receipt Generation
 
-| WinForms Source | Target |
-|---|---|
+| WinForms Source                    | Target         |
+| ---------------------------------- | -------------- |
 | `reportTiraVenta.cs` (XtraReports) | PDF generation |
 
 **Two approaches (choose one):**
+
 1. **Server-side PDF:** Use `@react-pdf/renderer` or `pdfmake` on the server to generate receipt PDF, return as blob
 2. **Client-side print:** Generate HTML receipt layout, use `window.print()` or Electron's `webContents.print()`
 
 Receipt content (from WinForms report):
+
 - Company name, address, phone, tax ID
 - Site name
 - Invoice number, date/time
@@ -684,8 +719,8 @@ Receipt content (from WinForms report):
 
 ### 4.8 Sales History / Detail View
 
-| WinForms Source | Target |
-|---|---|
+| WinForms Source     | Target                                                |
+| ------------------- | ----------------------------------------------------- |
 | `DetallesVentas.cs` | `apps/web/src/features/sales/SalesPage.tsx` (enhance) |
 
 - List of completed sales with filters (date range, customer, payment method)
@@ -693,6 +728,7 @@ Receipt content (from WinForms report):
 - Void/cancel sale (admin only) -- reverses stock
 
 ### Deliverables
+
 - [ ] POS page with cart state management
 - [ ] Product search integration (barcode + search dialog)
 - [ ] Cart item management (add, edit qty, remove)
@@ -716,13 +752,14 @@ Receipt content (from WinForms report):
 
 ### 5.1 Purchase Entry
 
-| Layer | WinForms Source | Target Location |
-|---|---|---|
-| UI | `Compras.cs` | `apps/web/src/features/purchases/PurchasePage.tsx` |
-| API | `DB/Compra.cs`, `DB/CompraDetalle.cs` | `packages/server/src/routes/purchases.ts` |
-| Schema | `DAO/compra.cs`, `DAO/compradetalle.cs` | `purchases`, `purchase_items` tables |
+| Layer  | WinForms Source                         | Target Location                                    |
+| ------ | --------------------------------------- | -------------------------------------------------- |
+| UI     | `Compras.cs`                            | `apps/web/src/features/purchases/PurchasePage.tsx` |
+| API    | `DB/Compra.cs`, `DB/CompraDetalle.cs`   | `packages/server/src/routes/purchases.ts`          |
+| Schema | `DAO/compra.cs`, `DAO/compradetalle.cs` | `purchases`, `purchase_items` tables               |
 
 **Simpler than sales:**
+
 - Provider selector (required)
 - Cart of items (product search + quantity + unit)
 - No pricing in cart (purchases record cost, not sale price)
@@ -753,6 +790,7 @@ Transaction:
 - Void/cancel (admin only, reverses stock)
 
 ### Deliverables
+
 - [ ] `purchases` and `purchase_items` tables in schema
 - [ ] Purchase entry page with provider selector and cart
 - [ ] Purchase finalization endpoint (transactional)
@@ -771,13 +809,13 @@ Transaction:
 
 Replace sample data in `DashboardPage.tsx` with real aggregation endpoints:
 
-| Metric | API Endpoint | WinForms Source |
-|---|---|---|
-| Today's sales total | `GET /api/reports/daily-sales` | `Sale.TotalDiario()` (fix SQL injection) |
-| Sales count today | Same endpoint | `Sale.TotalDiario()` |
-| Low stock alerts | `GET /api/reports/low-stock` | Compare `stock` vs `minStock` |
-| Top products (week) | `GET /api/reports/top-products` | New (not in WinForms) |
-| Revenue chart (30 days) | `GET /api/reports/revenue-chart` | New |
+| Metric                  | API Endpoint                     | WinForms Source                          |
+| ----------------------- | -------------------------------- | ---------------------------------------- |
+| Today's sales total     | `GET /api/reports/daily-sales`   | `Sale.TotalDiario()` (fix SQL injection) |
+| Sales count today       | Same endpoint                    | `Sale.TotalDiario()`                     |
+| Low stock alerts        | `GET /api/reports/low-stock`     | Compare `stock` vs `minStock`            |
+| Top products (week)     | `GET /api/reports/top-products`  | New (not in WinForms)                    |
+| Revenue chart (30 days) | `GET /api/reports/revenue-chart` | New                                      |
 
 ### 6.2 Receipt Printing via Electron
 
@@ -806,13 +844,14 @@ For the web app, use `window.print()` with a print-specific CSS stylesheet.
 
 Map WinForms roles to target:
 
-| WinForms Role | Target Role | Access |
-|---|---|---|
-| `admin` | `admin` | Full access to all modules |
-| `vendedor` | `cashier` | POS only, no admin/inventory |
-| N/A | `manager` | POS + inventory + reports, no admin |
+| WinForms Role | Target Role | Access                              |
+| ------------- | ----------- | ----------------------------------- |
+| `admin`       | `admin`     | Full access to all modules          |
+| `vendedor`    | `cashier`   | POS only, no admin/inventory        |
+| N/A           | `manager`   | POS + inventory + reports, no admin |
 
 Implement:
+
 - Route guards based on `user.role` from auth context
 - Sidebar menu items filtered by role
 - API middleware to enforce role-based access on sensitive endpoints
@@ -836,6 +875,7 @@ Implement:
 - Print settings configuration
 
 ### Deliverables
+
 - [ ] Dashboard with live aggregation data
 - [ ] Receipt printing (Electron IPC + web fallback)
 - [ ] Excel/PDF export on all list views
@@ -852,75 +892,75 @@ Implement:
 
 ### yojob (Shell)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
+| WinForms File      | Purpose                             | Target Equivalent                                 |
+| ------------------ | ----------------------------------- | ------------------------------------------------- |
 | `FormPrincipal.cs` | MDI host, ribbon, MEF loader, login | `MainLayout.tsx` + `App.tsx` + `AuthProvider.tsx` |
 
 ### yojob.lib (Shared Library)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
-| `DB/Product.cs` | Product data access | `routes/collections.ts` + `routes/products.ts` |
-| `DB/Sale.cs` | Sale data access | `routes/sales.ts` |
-| `DB/Compra.cs` | Purchase data access | `routes/purchases.ts` |
-| `DB/CompraDetalle.cs` | Purchase item data access | `routes/purchases.ts` |
-| `DB/Stock.cs` | Stock queries | `routes/inventory.ts` |
-| `DB/Client.cs` | Client data access | `routes/collections.ts` |
-| `DB/Proveedor.cs` | Provider data access | `routes/collections.ts` |
-| `DB/IVA.cs` | VAT rate data access | `routes/collections.ts` |
-| `DB/Unidad.cs` | Unit data access | `routes/collections.ts` |
-| `DB/UnidadXProducto.cs` | Unit-product association | `routes/products.ts` |
-| `DB/ProductoXProveedor.cs` | Product-provider association | `routes/products.ts` |
-| `DB/Empresa.cs` | Company data access | `routes/collections.ts` |
-| `DB/Sede.cs` | Site data access | `routes/collections.ts` |
-| `DB/Consecutivo.cs` | Sequential numbers | `routes/sales.ts`, `routes/purchases.ts` |
-| `DB/InventarioInicial.cs` | Initial inventory | `routes/inventory.ts` |
-| `DB/Usuario.cs` | User data access | `routes/auth.ts` |
-| `DB/Categoria.cs` | Category data access | `routes/collections.ts` |
-| `dbEntities.cs` | EF6 context | `db/schema.ts` + Drizzle ORM |
-| `Utilidades.cs` | Utilities (auth, GUID, MDI) | Various: `AuthProvider.tsx`, `crypto.randomUUID()` |
-| `DataNavigatorThink.cs` | CRUD state machine | Standard form state (React `useState`) |
-| `ProductosSearch.cs` | Product search dialog | `components/dialogs/ProductSearchDialog.tsx` |
-| `GenericPrincipalIthink.cs` | Auth principal | `AuthProvider.tsx` + JWT payload |
-| `GenericIdentityIthink.cs` | Auth identity | `AuthProvider.tsx` + JWT payload |
-| `IUserForm.cs` | Plugin interface | React Router routes (no plugin system needed) |
+| WinForms File               | Purpose                      | Target Equivalent                                  |
+| --------------------------- | ---------------------------- | -------------------------------------------------- |
+| `DB/Product.cs`             | Product data access          | `routes/collections.ts` + `routes/products.ts`     |
+| `DB/Sale.cs`                | Sale data access             | `routes/sales.ts`                                  |
+| `DB/Compra.cs`              | Purchase data access         | `routes/purchases.ts`                              |
+| `DB/CompraDetalle.cs`       | Purchase item data access    | `routes/purchases.ts`                              |
+| `DB/Stock.cs`               | Stock queries                | `routes/inventory.ts`                              |
+| `DB/Client.cs`              | Client data access           | `routes/collections.ts`                            |
+| `DB/Proveedor.cs`           | Provider data access         | `routes/collections.ts`                            |
+| `DB/IVA.cs`                 | VAT rate data access         | `routes/collections.ts`                            |
+| `DB/Unidad.cs`              | Unit data access             | `routes/collections.ts`                            |
+| `DB/UnidadXProducto.cs`     | Unit-product association     | `routes/products.ts`                               |
+| `DB/ProductoXProveedor.cs`  | Product-provider association | `routes/products.ts`                               |
+| `DB/Empresa.cs`             | Company data access          | `routes/collections.ts`                            |
+| `DB/Sede.cs`                | Site data access             | `routes/collections.ts`                            |
+| `DB/Consecutivo.cs`         | Sequential numbers           | `routes/sales.ts`, `routes/purchases.ts`           |
+| `DB/InventarioInicial.cs`   | Initial inventory            | `routes/inventory.ts`                              |
+| `DB/Usuario.cs`             | User data access             | `routes/auth.ts`                                   |
+| `DB/Categoria.cs`           | Category data access         | `routes/collections.ts`                            |
+| `dbEntities.cs`             | EF6 context                  | `db/schema.ts` + Drizzle ORM                       |
+| `Utilidades.cs`             | Utilities (auth, GUID, MDI)  | Various: `AuthProvider.tsx`, `crypto.randomUUID()` |
+| `DataNavigatorThink.cs`     | CRUD state machine           | Standard form state (React `useState`)             |
+| `ProductosSearch.cs`        | Product search dialog        | `components/dialogs/ProductSearchDialog.tsx`       |
+| `GenericPrincipalIthink.cs` | Auth principal               | `AuthProvider.tsx` + JWT payload                   |
+| `GenericIdentityIthink.cs`  | Auth identity                | `AuthProvider.tsx` + JWT payload                   |
+| `IUserForm.cs`              | Plugin interface             | React Router routes (no plugin system needed)      |
 
 ### yojob.administrador (Admin Plugin)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
-| `Productos.cs` | Product management form | `features/products/ProductsPage.tsx` (enhanced) |
-| `Clientes.cs` | Client management form | `features/customers/CustomersPage.tsx` (enhanced) |
-| `Proveedores.cs` | Provider management form | `features/providers/ProvidersPage.tsx` (new) |
-| `Categorias.cs` | Category CRUD | `features/settings/CategoriesPage.tsx` (new or enhance existing) |
-| `Empresas.cs` | Company/site management | `features/settings/CompanyPage.tsx` (new) |
-| `IVAs.cs` | VAT rate management | `features/settings/VatRatesPage.tsx` (new) |
-| `Consecutivos.cs` | Sequential config | `features/settings/SequentialsPage.tsx` (new) |
-| `Unidades.cs` | Unit management | `features/settings/UnitsPage.tsx` (new) |
-| `Usuarios.cs` | User management | `features/settings/UsersPage.tsx` (new) |
+| WinForms File     | Purpose                  | Target Equivalent                                                |
+| ----------------- | ------------------------ | ---------------------------------------------------------------- |
+| `Productos.cs`    | Product management form  | `features/products/ProductsPage.tsx` (enhanced)                  |
+| `Clientes.cs`     | Client management form   | `features/customers/CustomersPage.tsx` (enhanced)                |
+| `Proveedores.cs`  | Provider management form | `features/providers/ProvidersPage.tsx` (new)                     |
+| `Categorias.cs`   | Category CRUD            | `features/settings/CategoriesPage.tsx` (new or enhance existing) |
+| `Empresas.cs`     | Company/site management  | `features/settings/CompanyPage.tsx` (new)                        |
+| `IVAs.cs`         | VAT rate management      | `features/settings/VatRatesPage.tsx` (new)                       |
+| `Consecutivos.cs` | Sequential config        | `features/settings/SequentialsPage.tsx` (new)                    |
+| `Unidades.cs`     | Unit management          | `features/settings/UnitsPage.tsx` (new)                          |
+| `Usuarios.cs`     | User management          | `features/settings/UsersPage.tsx` (new)                          |
 
 ### yojob.ventas (Sales Plugin)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
-| `Ventas.cs` | POS / point-of-sale | `features/pos/PosPage.tsx` (new) |
-| `RegistraVenta.cs` | Payment dialog | `features/pos/PaymentDialog.tsx` (new) |
-| `reportTiraVenta.cs` | Receipt report | `features/pos/ReceiptTemplate.tsx` (new) |
-| `DetallesVentas.cs` | Sales detail report | `features/sales/SalesPage.tsx` (enhanced) |
+| WinForms File        | Purpose             | Target Equivalent                         |
+| -------------------- | ------------------- | ----------------------------------------- |
+| `Ventas.cs`          | POS / point-of-sale | `features/pos/PosPage.tsx` (new)          |
+| `RegistraVenta.cs`   | Payment dialog      | `features/pos/PaymentDialog.tsx` (new)    |
+| `reportTiraVenta.cs` | Receipt report      | `features/pos/ReceiptTemplate.tsx` (new)  |
+| `DetallesVentas.cs`  | Sales detail report | `features/sales/SalesPage.tsx` (enhanced) |
 
 ### yojob.compras (Purchases Plugin)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
-| `Compras.cs` | Purchase entry | `features/purchases/PurchasePage.tsx` (new) |
+| WinForms File        | Purpose                | Target Equivalent                                  |
+| -------------------- | ---------------------- | -------------------------------------------------- |
+| `Compras.cs`         | Purchase entry         | `features/purchases/PurchasePage.tsx` (new)        |
 | `DetallesCompras.cs` | Purchase detail report | `features/purchases/PurchaseHistoryPage.tsx` (new) |
 
 ### yojob.inventarios (Inventory Plugin)
 
-| WinForms File | Purpose | Target Equivalent |
-|---|---|---|
-| `InventarioInicial.cs` | Initial inventory entry | `features/inventory/InitialInventoryPage.tsx` (new) |
-| `ConsultaExistencia.cs` | Stock query view | `features/inventory/StockQueryPage.tsx` (new) |
+| WinForms File           | Purpose                 | Target Equivalent                                   |
+| ----------------------- | ----------------------- | --------------------------------------------------- |
+| `InventarioInicial.cs`  | Initial inventory entry | `features/inventory/InitialInventoryPage.tsx` (new) |
+| `ConsultaExistencia.cs` | Stock query view        | `features/inventory/StockQueryPage.tsx` (new)       |
 
 ---
 
@@ -928,52 +968,52 @@ Implement:
 
 Complete list of entity classes from `yojob.lib/DAO/` mapped to target table names:
 
-| # | WinForms Entity (DAO) | WinForms Table | Target Table | Phase |
-|---|---|---|---|---|
-| 1 | `empresa` | `empresa` | `companies` | P0 |
-| 2 | `sede` | `sede` | `sites` | P0 |
-| 3 | `consecutivo` | `consecutivo` | `sequentials` | P0 |
-| 4 | `iva` | `iva` | `vat_rates` | P0 |
-| 5 | `unidad` | `unidad` | `units` | P0 |
-| 6 | `unidadxproducto` | `unidadxproducto` | `unit_x_product` | P0 |
-| 7 | `proveedor` | `proveedor` | `providers` | P0 |
-| 8 | `producto` | `producto` | `products` (extend) | P0 |
-| 9 | `categoria` | `categoria` | `categories` (exists) | -- |
-| 10 | `usuario` | `usuario` | `users` (exists) | -- |
-| 11 | `cliente` | `cliente` | `customers` (extend) | P1 |
-| 12 | `productoxproveedor` | `productoxproveedor` | `product_x_provider` | P1 |
-| 13 | `inventarioinicial` | `inventarioinicial` | `initial_inventory` | P3 |
-| 14 | `venta` | `venta` | `sales` (exists) | P4 |
-| 15 | `ventadetalle` | `ventadetalle` | `sale_items` (extend) | P4 |
-| 16 | `compra` | `compra` | `purchases` | P5 |
-| 17 | `compradetalle` | `compradetalle` | `purchase_items` | P5 |
-| 18 | `pedido` | `pedido` | `orders` | P2 |
-| 19 | `pedidodetalle` | `pedidodetalle` | `order_items` | P2 |
-| 20 | `ubicacion` | `ubicacion` | `locations` | P1 |
-| 21 | `ubicacionxsede` | `ubicacionxsede` | `location_x_site` | P1 |
-| 22 | `categoriaxproveedor` | `categoriaxproveedor` | `category_x_provider` | P2 |
-| 23 | `ciudad` | `ciudad` | `cities` | P2 |
-| 24 | `departamento` | `departamento` | `departments` | P2 |
-| 25 | `tipoidentificacion` | `tipoidentificacion` | `identification_types` | P2 |
-| 26 | `tipopersona` | `tipopersona` | `person_types` | P2 |
-| 27 | `tiporegimen` | `tiporegimen` | `regime_types` | P2 |
-| 28 | `actividadcomercial` | `actividadcomercial` | `commercial_activities` | P2 |
-| 29 | `tipocliente` | `tipocliente` | `client_types` | P2 |
-| 30 | `logo` | `logo` | `logos` | P3 |
+| #   | WinForms Entity (DAO) | WinForms Table        | Target Table            | Phase |
+| --- | --------------------- | --------------------- | ----------------------- | ----- |
+| 1   | `empresa`             | `empresa`             | `companies`             | P0    |
+| 2   | `sede`                | `sede`                | `sites`                 | P0    |
+| 3   | `consecutivo`         | `consecutivo`         | `sequentials`           | P0    |
+| 4   | `iva`                 | `iva`                 | `vat_rates`             | P0    |
+| 5   | `unidad`              | `unidad`              | `units`                 | P0    |
+| 6   | `unidadxproducto`     | `unidadxproducto`     | `unit_x_product`        | P0    |
+| 7   | `proveedor`           | `proveedor`           | `providers`             | P0    |
+| 8   | `producto`            | `producto`            | `products` (extend)     | P0    |
+| 9   | `categoria`           | `categoria`           | `categories` (exists)   | --    |
+| 10  | `usuario`             | `usuario`             | `users` (exists)        | --    |
+| 11  | `cliente`             | `cliente`             | `customers` (extend)    | P1    |
+| 12  | `productoxproveedor`  | `productoxproveedor`  | `product_x_provider`    | P1    |
+| 13  | `inventarioinicial`   | `inventarioinicial`   | `initial_inventory`     | P3    |
+| 14  | `venta`               | `venta`               | `sales` (exists)        | P4    |
+| 15  | `ventadetalle`        | `ventadetalle`        | `sale_items` (extend)   | P4    |
+| 16  | `compra`              | `compra`              | `purchases`             | P5    |
+| 17  | `compradetalle`       | `compradetalle`       | `purchase_items`        | P5    |
+| 18  | `pedido`              | `pedido`              | `orders`                | P2    |
+| 19  | `pedidodetalle`       | `pedidodetalle`       | `order_items`           | P2    |
+| 20  | `ubicacion`           | `ubicacion`           | `locations`             | P1    |
+| 21  | `ubicacionxsede`      | `ubicacionxsede`      | `location_x_site`       | P1    |
+| 22  | `categoriaxproveedor` | `categoriaxproveedor` | `category_x_provider`   | P2    |
+| 23  | `ciudad`              | `ciudad`              | `cities`                | P2    |
+| 24  | `departamento`        | `departamento`        | `departments`           | P2    |
+| 25  | `tipoidentificacion`  | `tipoidentificacion`  | `identification_types`  | P2    |
+| 26  | `tipopersona`         | `tipopersona`         | `person_types`          | P2    |
+| 27  | `tiporegimen`         | `tiporegimen`         | `regime_types`          | P2    |
+| 28  | `actividadcomercial`  | `actividadcomercial`  | `commercial_activities` | P2    |
+| 29  | `tipocliente`         | `tipocliente`         | `client_types`          | P2    |
+| 30  | `logo`                | `logo`                | `logos`                 | P3    |
 
 ---
 
 ## Summary Timeline
 
-| Phase | Description | Effort | Depends On |
-|---|---|---|---|
-| **Phase 0** | Foundation & Schema Alignment | 2--3 weeks | -- |
-| **Phase 1** | Administration Module | 2--3 weeks | Phase 0 |
-| **Phase 2** | Product Management & Pricing | 2--3 weeks | Phase 1 |
-| **Phase 3** | Inventory Module | 1--2 weeks | Phase 2 |
-| **Phase 4** | POS / Sales Module | 3--4 weeks | Phase 2 |
-| **Phase 5** | Purchases Module | 1--2 weeks | Phase 2 |
-| **Phase 6** | Reporting, Printing & Polish | 2--3 weeks | Phases 3--5 |
-| | **Total** | **12--19 weeks** | |
+| Phase       | Description                   | Effort           | Depends On  |
+| ----------- | ----------------------------- | ---------------- | ----------- |
+| **Phase 0** | Foundation & Schema Alignment | 2--3 weeks       | --          |
+| **Phase 1** | Administration Module         | 2--3 weeks       | Phase 0     |
+| **Phase 2** | Product Management & Pricing  | 2--3 weeks       | Phase 1     |
+| **Phase 3** | Inventory Module              | 1--2 weeks       | Phase 2     |
+| **Phase 4** | POS / Sales Module            | 3--4 weeks       | Phase 2     |
+| **Phase 5** | Purchases Module              | 1--2 weeks       | Phase 2     |
+| **Phase 6** | Reporting, Printing & Polish  | 2--3 weeks       | Phases 3--5 |
+|             | **Total**                     | **12--19 weeks** |             |
 
 Phases 3, 4, and 5 can run in parallel after Phase 2 is complete, potentially reducing the calendar time to ~10 weeks.

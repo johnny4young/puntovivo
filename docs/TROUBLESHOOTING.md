@@ -17,6 +17,7 @@ Common issues and solutions for Open Yojob development.
 ### Issue: "tsx: not found"
 
 **Error:**
+
 ```bash
 $ npm run dev:server
 sh: 1: tsx: not found
@@ -34,6 +35,7 @@ npm install
 ```
 
 **Verification:**
+
 ```bash
 # Should work now
 npm run dev:server
@@ -45,6 +47,7 @@ npm run dev:server
 ### Issue: "Cannot find module"
 
 **Error:**
+
 ```bash
 Error: Cannot find module 'fastify'
 ```
@@ -52,6 +55,7 @@ Error: Cannot find module 'fastify'
 **Cause:** Missing dependencies or corrupted node_modules.
 
 **Solution:**
+
 ```bash
 # Clean install
 rm -rf node_modules package-lock.json
@@ -66,6 +70,7 @@ npm install
 ### Issue: "Route GET:/ not found" (404 error)
 
 **Symptoms:**
+
 - Desktop app window opens but shows blank screen
 - DevTools console shows: `{"message":"Route GET:/ not found","error":"Not Found","statusCode":404}`
 
@@ -84,6 +89,7 @@ npm run dev:all
 ```
 
 **Alternative: Manual start**
+
 ```bash
 # Terminal 1: Start web dev server
 npm run dev:web
@@ -99,6 +105,7 @@ npm run dev:desktop-only
 ### Issue: "METHOD_NOT_SUPPORTED" error
 
 **Error:**
+
 ```json
 {
   "error": {
@@ -113,10 +120,12 @@ npm run dev:desktop-only
 **Solution:**
 
 tRPC uses different HTTP methods:
+
 - **Query procedures** (`.query()`) use **GET** requests
 - **Mutation procedures** (`.mutation()`) use **POST** requests
 
 **Correct usage:**
+
 ```bash
 # Health check is a query - use GET
 curl http://localhost:8090/api/trpc/health.check
@@ -125,22 +134,26 @@ curl http://localhost:8090/api/trpc/health.check
 ### Issue: "Cannot connect to server"
 
 **Symptoms:**
+
 - Web app shows connection errors
 - API calls fail
 
 **Checklist:**
 
 1. **Verify server is running:**
+
 ```bash
 curl http://localhost:8090/api/health
 ```
 
 2. **Check server URL in apps/web/.env:**
+
 ```bash
 VITE_API_URL=http://localhost:8090
 ```
 
 3. **Restart if needed:**
+
 ```bash
 npm run dev:server
 ```
@@ -152,6 +165,7 @@ npm run dev:server
 ### Issue: Node version mismatch
 
 **Error:**
+
 ```bash
 npm error Unsupported engine
 ```
@@ -165,8 +179,8 @@ npm error Unsupported engine
 nvm use 22
 npm install
 
-# Option 2: Update .nvmrc
-echo "24" > .nvmrc
+# Option 2: Use the latest LTS
+nvm install --lts
 npm install
 ```
 
@@ -188,6 +202,7 @@ npm install
 ### Issue: EADDRINUSE error
 
 **Error:**
+
 ```bash
 Error: listen EADDRINUSE: address already in use :::8090
 ```
@@ -215,6 +230,6 @@ PORT=3001 npm run dev:server
 
 ## More Resources
 
-- **Quick Start**: `docs/TRPC_QUICK_START.md`
+- **Architecture**: `docs/ARCHITECTURE.md`
 - **Environment Config**: `docs/ENVIRONMENT_CONFIGURATION.md`
 - **Testing Guide**: `docs/TRPC_TESTING_GUIDE.md`
