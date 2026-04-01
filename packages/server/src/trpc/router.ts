@@ -6,6 +6,12 @@
 
 import { router, publicProcedure } from './init.js';
 import { authRouter } from './routers/auth.js';
+import { categoriesRouter } from './routers/categories.js';
+import { productsRouter } from './routers/products.js';
+import { customersRouter } from './routers/customers.js';
+import { salesRouter } from './routers/sales.js';
+import { inventoryRouter } from './routers/inventory.js';
+import { syncRouter } from './routers/sync.js';
 
 export const appRouter = router({
   health: router({
@@ -18,6 +24,12 @@ export const appRouter = router({
     }),
   }),
   auth: authRouter,
+  categories: categoriesRouter,
+  products: productsRouter,
+  customers: customersRouter,
+  sales: salesRouter,
+  inventory: inventoryRouter,
+  sync: syncRouter,
 });
 
 export type AppRouter = typeof appRouter;
