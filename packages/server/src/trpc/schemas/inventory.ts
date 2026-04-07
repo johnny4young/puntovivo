@@ -26,6 +26,12 @@ export const listMovementsInput = paginationInput.extend({
   toDate: z.string().optional(),
 });
 
+export const listStockInput = paginationInput.extend({
+  search: z.string().trim().min(1).optional(),
+  categoryId: z.string().min(1).optional(),
+  lowStockOnly: z.boolean().optional(),
+});
+
 export const getMovementInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
@@ -49,5 +55,6 @@ export const productStockInput = z.object({
 });
 
 export type ListMovementsInput = z.infer<typeof listMovementsInput>;
+export type ListStockInput = z.infer<typeof listStockInput>;
 export type CreateMovementInput = z.infer<typeof createMovementInput>;
 export type AdjustStockInput = z.infer<typeof adjustStockInput>;

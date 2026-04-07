@@ -14,13 +14,14 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, gte, lte } from 'drizzle-orm';
+import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { inventoryMovements, products, syncQueue } from '../../db/schema.js';
+import { categories, inventoryMovements, products, syncQueue } from '../../db/schema.js';
 import {
   listMovementsInput,
+  listStockInput,
   getMovementInput,
   createMovementInput,
   adjustStockInput,
@@ -44,7 +45,33 @@ export const inventoryRouter = router({
     const where = and(...conditions);
 
     const [items, countResult] = await Promise.all([
-      ctx.db.select().from(inventoryMovements).where(where).limit(perPage).offset(offset).all(),
+      ctx.db
+        .select({
+          id: inventoryMovements.id,
+          tenantId: inventoryMovements.tenantId,
+          productId: inventoryMovements.productId,
+          type: inventoryMovements.type,
+          quantity: inventoryMovements.quantity,
+          previousStock: inventoryMovements.previousStock,
+          newStock: inventoryMovements.newStock,
+          reference: inventoryMovements.reference,
+          notes: inventoryMovements.notes,
+          createdBy: inventoryMovements.createdBy,
+          createdAt: inventoryMovements.createdAt,
+          syncStatus: inventoryMovements.syncStatus,
+          syncVersion: inventoryMovements.syncVersion,
+          productName: products.name,
+          productSku: products.sku,
+          categoryName: categories.name,
+        })
+        .from(inventoryMovements)
+        .innerJoin(products, eq(inventoryMovements.productId, products.id))
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(where)
+        .orderBy(desc(inventoryMovements.createdAt))
+        .limit(perPage)
+        .offset(offset)
+        .all(),
       ctx.db
         .select({ count: sql<number>`count(*)` })
         .from(inventoryMovements)
@@ -60,6 +87,88 @@ export const inventoryRouter = router({
       perPage,
       totalItems,
       totalPages: Math.ceil(totalItems / perPage),
+    };
+  }),
+
+  /**
+   * List current stock balances with valuation and low-stock metadata.
+   */
+  listStock: tenantProcedure.input(listStockInput).query(async ({ ctx, input }) => {
+    const { page, perPage, search, categoryId, lowStockOnly } = input;
+    const offset = (page - 1) * perPage;
+
+    const conditions = [eq(products.tenantId, ctx.tenantId), eq(products.isActive, true)];
+    if (search) {
+      conditions.push(
+        or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`), like(products.barcode, `%${search}%`))!
+      );
+    }
+    if (categoryId) {
+      conditions.push(eq(products.categoryId, categoryId));
+    }
+    if (lowStockOnly) {
+      conditions.push(sql`${products.stock} <= ${products.minStock}`);
+    }
+
+    const where = and(...conditions);
+
+    const [rawItems, countResult, summaryResult] = await Promise.all([
+      ctx.db
+        .select({
+          id: products.id,
+          tenantId: products.tenantId,
+          name: products.name,
+          sku: products.sku,
+          categoryId: products.categoryId,
+          categoryName: categories.name,
+          stock: products.stock,
+          minStock: products.minStock,
+          initialCost: products.initialCost,
+          price: products.price,
+          isLowStock: sql<boolean>`${products.stock} <= ${products.minStock}`,
+          inventoryValue: sql<number>`${products.stock} * ${products.initialCost}`,
+          updatedAt: products.updatedAt,
+        })
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(where)
+        .orderBy(products.name)
+        .limit(perPage)
+        .offset(offset)
+        .all(),
+      ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(where)
+        .get(),
+      ctx.db
+        .select({
+          totalUnits: sql<number>`coalesce(sum(${products.stock}), 0)`,
+          totalValue: sql<number>`coalesce(sum(${products.stock} * ${products.initialCost}), 0)`,
+          lowStockCount: sql<number>`coalesce(sum(case when ${products.stock} <= ${products.minStock} then 1 else 0 end), 0)`,
+        })
+        .from(products)
+        .where(where)
+        .get(),
+    ]);
+
+    const totalItems = countResult?.count ?? 0;
+    const items = rawItems.map(item => ({
+      ...item,
+      isLowStock: Boolean(item.isLowStock),
+    }));
+
+    return {
+      items,
+      page,
+      perPage,
+      totalItems,
+      totalPages: Math.ceil(totalItems / perPage),
+      summary: {
+        totalUnits: summaryResult?.totalUnits ?? 0,
+        totalValue: summaryResult?.totalValue ?? 0,
+        lowStockCount: summaryResult?.lowStockCount ?? 0,
+      },
     };
   }),
 
