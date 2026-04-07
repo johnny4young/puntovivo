@@ -6,6 +6,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
+import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
 import { ProductsPage } from '@/features/products/ProductsPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SalesPage } from '@/features/sales/SalesPage';
@@ -28,6 +29,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="providers" element={<ProvidersPage />} />
+            <Route path="vat-rates" element={<VatRatesPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="sales" element={<SalesPage />} />
