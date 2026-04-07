@@ -10,6 +10,7 @@ Run workspace commands from the repo root:
 npm run dev              # Launch full desktop app (main dev entry)
 npm run dev:web          # Web only on port 3000
 npm run dev:server       # Backend only on port 8090
+npm run dev:desktop-only # Electron only; expects web dev server on port 3000
 npm run build            # Build web + create desktop packages
 ```
 

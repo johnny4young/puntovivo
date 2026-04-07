@@ -116,15 +116,21 @@ npm install
 #### Desktop App (Default)
 
 ```bash
-# Launch desktop app with embedded server
+# Launch web dev server + desktop app
 npm run dev
-
-# Note: In development, this expects web dev server on port 3000
-# To run web + desktop together:
-npm run dev:all
 ```
 
-The desktop app includes an embedded Fastify server (port 8090) and loads the React UI.
+This starts the full desktop development stack:
+
+- Web dev server on port 3000
+- Electron desktop shell
+- Embedded Fastify server on port 8090 inside Electron
+
+If you already have the web dev server running and only want the Electron shell:
+
+```bash
+npm run dev:desktop-only
+```
 
 #### Web App + Desktop Together
 
