@@ -20,7 +20,9 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@open-yojob/server": ["../../packages/server/src/index.ts"],
+      "@open-yojob/server/*": ["../../packages/server/src/*"]
     }
   },
   "include": ["src"],
