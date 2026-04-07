@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { categories, providers, users, vatRates } from '../db/schema.js';
+import { categories, providers, units, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -13,6 +13,8 @@ let userId: string;
 let categoryId: string;
 let providerId: string;
 let vatRateId: string;
+let baseUnitId: string;
+let boxUnitId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
@@ -70,6 +72,14 @@ describe('Products tRPC Router', () => {
     vatRateId = seededVatRate.id;
     categoryId = nanoid();
     providerId = nanoid();
+    const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
+    const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
+    const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
+    if (!baseUnit || !boxUnit) {
+      throw new Error('Expected seeded units');
+    }
+    baseUnitId = baseUnit.id;
+    boxUnitId = boxUnit.id;
 
     await db.insert(categories).values({
       id: categoryId,
@@ -129,6 +139,10 @@ describe('Products tRPC Router', () => {
       stock: 20,
       minStock: 5,
       isActive: true,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
+        { unitId: boxUnitId, equivalence: 6, price: 680, isBase: false },
+      ],
     });
 
     expect(created.taxRate).toBe(19);
@@ -137,6 +151,8 @@ describe('Products tRPC Router', () => {
     expect(created.categoryName).toBe('Beverages');
     expect(created.providerName).toBe('Acme Supply');
     expect(created.vatRateName).toBe('IVA 19%');
+    expect(created.unitAssignments).toHaveLength(2);
+    expect(created.unitAssignments.find(item => item.isBase)?.unitId).toBe(baseUnitId);
 
     const listed = await caller.products.list({ page: 1, perPage: 20, search: 'Orange' });
     expect(listed.items.some(item => item.id === created.id)).toBe(true);
@@ -154,17 +170,71 @@ describe('Products tRPC Router', () => {
       marginAmount2: 0,
       marginAmount3: 0,
       stock: 18,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
+        { unitId: boxUnitId, equivalence: 12, price: 1320, isBase: false },
+      ],
     });
 
     expect(updated.cost).toBe(110);
     expect(updated.price).toBe(120);
     expect(updated.marginAmount1).toBe(10);
     expect(updated.marginPercent1).toBeCloseTo(9.09, 2);
+    expect(updated.unitAssignments.find(item => item.unitId === boxUnitId)?.equivalence).toBe(12);
 
     const removed = await caller.products.delete({ id: created.id });
     expect(removed.success).toBe(true);
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.isActive).toBe(false);
+  });
+
+  it('searches products with base unit data and optional filters', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'Sparkling Water',
+      sku: 'SW-001',
+      description: null,
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId: null,
+      barcode: '9988776655',
+      imageUrl: null,
+      cost: 50,
+      initialCost: 50,
+      price: 75,
+      price2: 80,
+      price3: 90,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 15,
+      minStock: 3,
+      isActive: true,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 75, isBase: true },
+        { unitId: boxUnitId, equivalence: 12, price: 840, isBase: false },
+      ],
+    });
+
+    const result = await caller.products.search({
+      q: 'Sparkling',
+      categoryId,
+      providerId,
+      isActive: true,
+    });
+
+    const match = result.items.find(item => item.id === created.id);
+    expect(match).toBeDefined();
+    expect(match?.baseUnitId).toBe(baseUnitId);
+    expect(match?.baseUnitAbbreviation).toBe('UND');
+    expect(match?.baseUnitPrice).toBe(75);
+    expect(match?.unitAssignments).toHaveLength(2);
   });
 });

@@ -155,6 +155,18 @@ export function createMockProduct(overrides?: Partial<Product>): Product {
     providerId: 'provider-1',
     locationId: 'shelf-a1',
     initialCost: 15.0,
+    unitAssignments: [
+      {
+        id: 'unit-assignment-1',
+        productId: id,
+        unitId: 'unit-1',
+        unitName: 'Unidad',
+        unitAbbreviation: 'UND',
+        equivalence: 1,
+        price: 29.99,
+        isBase: true,
+      },
+    ],
     stock: 100,
     minStock: 10,
     isActive: true,

@@ -125,12 +125,17 @@ export function ProductsPage() {
   const productsQuery = trpc.products.list.useQuery({ page: 1, perPage: 50 });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
+  const unitsQuery = trpc.units.list.useQuery({ page: 1, perPage: 200 });
   const vatRatesQuery = trpc.vatRates.list.useQuery({ page: 1, perPage: 200 });
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const editingProductDetailQuery = trpc.products.getById.useQuery(
+    { id: editingProduct?.id ?? '' },
+    { enabled: !!editingProduct?.id }
+  );
 
   const createMutation = trpc.products.create.useMutation({
     onSuccess: async () => {
@@ -167,11 +172,27 @@ export function ProductsPage() {
     id: provider.id,
     name: provider.name,
   }));
+  const units: LookupOption[] = (unitsQuery.data?.items ?? []).map(unit => ({
+    id: unit.id,
+    name: unit.name,
+  }));
   const vatRates: VatRateOption[] = (vatRatesQuery.data?.items ?? []).map(vatRate => ({
     id: vatRate.id,
     name: vatRate.name,
     rate: vatRate.rate,
   }));
+  const selectedProduct: Product | null = editingProductDetailQuery.data
+    ? {
+        ...editingProductDetailQuery.data,
+        isActive: editingProductDetailQuery.data.isActive ?? false,
+        syncStatus: editingProductDetailQuery.data.syncStatus ?? undefined,
+        syncVersion: editingProductDetailQuery.data.syncVersion ?? undefined,
+        unitAssignments: (editingProductDetailQuery.data.unitAssignments ?? []).map(assignment => ({
+          ...assignment,
+          isBase: assignment.isBase ?? false,
+        })),
+      }
+    : editingProduct;
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -210,6 +231,12 @@ export function ProductsPage() {
       stock: values.stock,
       minStock: values.minStock,
       isActive: values.isActive,
+      unitAssignments: values.unitAssignments.map(assignment => ({
+        unitId: assignment.unitId,
+        equivalence: assignment.equivalence,
+        price: assignment.price,
+        isBase: assignment.isBase,
+      })),
     };
 
     if (editingProduct) {
@@ -272,12 +299,13 @@ export function ProductsPage() {
       </div>
 
       <ProductFormModal
-        key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
+        key={`${editingProduct?.id ?? 'new-product'}-${editingProductDetailQuery.data?.updatedAt ?? 'pending'}-${modalInstanceKey}`}
         mode={editingProduct ? 'edit' : 'create'}
         isOpen={isModalOpen}
-        product={editingProduct}
+        product={selectedProduct}
         categories={categories}
         providers={providers}
+        units={units}
         vatRates={vatRates}
         isSaving={createMutation.isPending || updateMutation.isPending}
         error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
