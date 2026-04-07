@@ -13,6 +13,7 @@ import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
 import { sequentialsRouter } from './routers/sequentials.js';
 import { unitsRouter } from './routers/units.js';
+import { usersRouter } from './routers/users.js';
 import { vatRatesRouter } from './routers/vatRates.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales.js';
@@ -44,6 +45,7 @@ export const appRouter = router({
   inventory: inventoryRouter,
   sites: sitesRouter,
   sync: syncRouter,
+  users: usersRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -34,6 +34,7 @@ const navigation = [
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Sales', href: '/sales', icon: ShoppingCart },
   { name: 'Inventory', href: '/inventory', icon: Warehouse },
+  { name: 'Users', href: '/users', icon: Users },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

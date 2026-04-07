@@ -7,6 +7,7 @@ export interface User {
   avatar?: string;
   role: UserRole;
   tenantId: string;
+  isActive?: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
