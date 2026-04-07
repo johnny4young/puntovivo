@@ -29,6 +29,8 @@ const config: ForgeConfig = {
     new MakerZIP({}, ['darwin']),
     new MakerDeb({
       options: {
+        name: 'open-yojob',
+        bin: 'open-yojob',
         maintainer: 'Open Yojob',
         homepage: 'https://github.com/johnny4young/open_yojob',
         categories: ['Office'],
@@ -36,6 +38,8 @@ const config: ForgeConfig = {
     }),
     new MakerRpm({
       options: {
+        name: 'open-yojob',
+        bin: 'open-yojob',
         homepage: 'https://github.com/johnny4young/open_yojob',
         categories: ['Office'],
       },
