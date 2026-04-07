@@ -18,17 +18,165 @@ import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { categories, inventoryMovements, products, syncQueue } from '../../db/schema.js';
 import {
+  categories,
+  initialInventory,
+  inventoryMovements,
+  products,
+  sites,
+  syncQueue,
+  unitXProduct,
+  units,
+} from '../../db/schema.js';
+import type { Context } from '../context.js';
+import {
+  listEntriesInput,
   listMovementsInput,
   listStockInput,
   getMovementInput,
   createMovementInput,
   adjustStockInput,
   productStockInput,
+  recordEntryInput,
 } from '../schemas/inventory.js';
 
+function assertCanManageInventory(role: string | undefined) {
+  if (role !== 'admin' && role !== 'manager') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Only administrators and managers can adjust stock',
+    });
+  }
+}
+
+async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
+  const product = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
+    .get();
+
+  if (!product || product.isActive === false) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found or inactive' });
+  }
+
+  return product;
+}
+
+async function getProductUnitAssignment(
+  db: Context['db'],
+  productId: string,
+  unitId: string
+) {
+  const assignment = await db
+    .select({
+      unitId: unitXProduct.unitId,
+      equivalence: unitXProduct.equivalence,
+      unitName: units.name,
+      unitAbbreviation: units.abbreviation,
+      isActive: units.isActive,
+    })
+    .from(unitXProduct)
+    .innerJoin(units, eq(unitXProduct.unitId, units.id))
+    .where(and(eq(unitXProduct.productId, productId), eq(unitXProduct.unitId, unitId)))
+    .get();
+
+  if (!assignment || assignment.isActive === false) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Selected product unit was not found or is inactive',
+    });
+  }
+
+  return assignment;
+}
+
+function getNormalizedInventoryQuantity(quantity: number, equivalence: number) {
+  const normalizedQuantity = quantity * equivalence;
+  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'The normalized quantity must be greater than zero',
+    });
+  }
+
+  if (!Number.isInteger(normalizedQuantity)) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'The selected quantity and unit equivalence must resolve to a whole stock quantity',
+    });
+  }
+
+  return normalizedQuantity;
+}
+
 export const inventoryRouter = router({
+  /**
+   * List persisted initial/physical inventory entries.
+   */
+  listEntries: tenantProcedure.input(listEntriesInput).query(async ({ ctx, input }) => {
+    const { page, perPage, productId, mode } = input;
+    const offset = (page - 1) * perPage;
+
+    const conditions = [eq(initialInventory.tenantId, ctx.tenantId)];
+    if (productId) conditions.push(eq(initialInventory.productId, productId));
+    if (mode) conditions.push(eq(initialInventory.mode, mode));
+
+    const where = and(...conditions);
+
+    const [items, countResult] = await Promise.all([
+      ctx.db
+        .select({
+          id: initialInventory.id,
+          tenantId: initialInventory.tenantId,
+          productId: initialInventory.productId,
+          unitId: initialInventory.unitId,
+          siteId: initialInventory.siteId,
+          mode: initialInventory.mode,
+          quantity: initialInventory.quantity,
+          unitEquivalence: initialInventory.unitEquivalence,
+          normalizedQuantity: initialInventory.normalizedQuantity,
+          cost: initialInventory.cost,
+          previousStock: initialInventory.previousStock,
+          newStock: initialInventory.newStock,
+          notes: initialInventory.notes,
+          createdBy: initialInventory.createdBy,
+          syncStatus: initialInventory.syncStatus,
+          syncVersion: initialInventory.syncVersion,
+          createdAt: initialInventory.createdAt,
+          productName: products.name,
+          productSku: products.sku,
+          unitName: units.name,
+          unitAbbreviation: units.abbreviation,
+          siteName: sites.name,
+        })
+        .from(initialInventory)
+        .innerJoin(products, eq(initialInventory.productId, products.id))
+        .innerJoin(units, eq(initialInventory.unitId, units.id))
+        .leftJoin(sites, eq(initialInventory.siteId, sites.id))
+        .where(where)
+        .orderBy(desc(initialInventory.createdAt))
+        .limit(perPage)
+        .offset(offset)
+        .all(),
+      ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(initialInventory)
+        .where(where)
+        .get(),
+    ]);
+
+    const totalItems = countResult?.count ?? 0;
+
+    return {
+      items,
+      page,
+      perPage,
+      totalItems,
+      totalPages: Math.ceil(totalItems / perPage),
+    };
+  }),
+
   /**
    * List inventory movements for the current tenant
    */
@@ -192,6 +340,133 @@ export const inventoryRouter = router({
   }),
 
   /**
+   * Record an initial inventory or physical-count entry and update stock atomically.
+   */
+  recordEntry: tenantProcedure.input(recordEntryInput).mutation(async ({ ctx, input }) => {
+    assertCanManageInventory(ctx.user?.role);
+
+    const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
+    const unitAssignment = await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
+    const normalizedQuantity = getNormalizedInventoryQuantity(input.quantity, unitAssignment.equivalence);
+    const now = new Date().toISOString();
+    const entryId = nanoid();
+    const movementId = nanoid();
+    const newStock =
+      input.mode === 'initial' ? product.stock + normalizedQuantity : normalizedQuantity;
+    const stockDelta = newStock - product.stock;
+
+    ctx.db.transaction(tx => {
+      tx.insert(initialInventory)
+        .values({
+          id: entryId,
+          tenantId: ctx.tenantId,
+          productId: input.productId,
+          unitId: input.unitId,
+          siteId: ctx.siteId,
+          mode: input.mode,
+          quantity: input.quantity,
+          unitEquivalence: unitAssignment.equivalence,
+          normalizedQuantity,
+          cost: input.cost,
+          previousStock: product.stock,
+          newStock,
+          notes: input.notes,
+          createdBy: ctx.user!.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+        })
+        .run();
+
+      tx.insert(inventoryMovements)
+        .values({
+          id: movementId,
+          tenantId: ctx.tenantId,
+          productId: input.productId,
+          type: 'adjustment',
+          quantity: Math.abs(stockDelta),
+          previousStock: product.stock,
+          newStock,
+          reference: entryId,
+          notes:
+            input.notes ??
+            (input.mode === 'initial' ? 'Initial inventory entry' : 'Physical inventory count'),
+          createdBy: ctx.user!.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+        })
+        .run();
+
+      tx.update(products)
+        .set({
+          stock: newStock,
+          initialCost: input.cost,
+          syncStatus: 'pending',
+          syncVersion: (product.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(eq(products.id, input.productId))
+        .run();
+
+      tx.insert(syncQueue)
+        .values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          entityType: 'initial_inventory',
+          entityId: entryId,
+          operation: 'create',
+          data: {
+            id: entryId,
+            productId: input.productId,
+            unitId: input.unitId,
+            mode: input.mode,
+            normalizedQuantity,
+            newStock,
+          },
+          localVersion: 1,
+          attempts: 0,
+          createdAt: now,
+        })
+        .run();
+    });
+
+    const created = await ctx.db
+      .select({
+        id: initialInventory.id,
+        tenantId: initialInventory.tenantId,
+        productId: initialInventory.productId,
+        unitId: initialInventory.unitId,
+        siteId: initialInventory.siteId,
+        mode: initialInventory.mode,
+        quantity: initialInventory.quantity,
+        unitEquivalence: initialInventory.unitEquivalence,
+        normalizedQuantity: initialInventory.normalizedQuantity,
+        cost: initialInventory.cost,
+        previousStock: initialInventory.previousStock,
+        newStock: initialInventory.newStock,
+        notes: initialInventory.notes,
+        createdBy: initialInventory.createdBy,
+        syncStatus: initialInventory.syncStatus,
+        syncVersion: initialInventory.syncVersion,
+        createdAt: initialInventory.createdAt,
+        productName: products.name,
+        productSku: products.sku,
+        unitName: units.name,
+        unitAbbreviation: units.abbreviation,
+        siteName: sites.name,
+      })
+      .from(initialInventory)
+      .innerJoin(products, eq(initialInventory.productId, products.id))
+      .innerJoin(units, eq(initialInventory.unitId, units.id))
+      .leftJoin(sites, eq(initialInventory.siteId, sites.id))
+      .where(eq(initialInventory.id, entryId))
+      .get();
+
+    return created!;
+  }),
+
+  /**
    * Create an inventory movement and update product stock atomically.
    *
    * - For 'purchase'/'return': adds quantity to stock
@@ -287,22 +562,9 @@ export const inventoryRouter = router({
    * Creates an 'adjustment' movement record.
    */
   adjustStock: tenantProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin' && ctx.user!.role !== 'manager') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators and managers can adjust stock',
-      });
-    }
+    assertCanManageInventory(ctx.user?.role);
 
-    const product = await ctx.db
-      .select()
-      .from(products)
-      .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!product) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
-    }
+    const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
 
     const now = new Date().toISOString();
     const movementId = nanoid();

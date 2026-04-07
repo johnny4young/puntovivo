@@ -400,6 +400,32 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory_movements (product_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_created_by ON inventory_movements (created_by);
 
+    -- Initial Inventory
+    CREATE TABLE IF NOT EXISTS initial_inventory (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      product_id TEXT NOT NULL REFERENCES products(id),
+      unit_id TEXT NOT NULL REFERENCES units(id),
+      site_id TEXT REFERENCES sites(id),
+      mode TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit_equivalence REAL NOT NULL DEFAULT 1,
+      normalized_quantity INTEGER NOT NULL,
+      cost REAL NOT NULL DEFAULT 0,
+      previous_stock INTEGER NOT NULL,
+      new_stock INTEGER NOT NULL,
+      notes TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_initial_inventory_tenant ON initial_inventory (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_initial_inventory_product ON initial_inventory (product_id);
+    CREATE INDEX IF NOT EXISTS idx_initial_inventory_unit ON initial_inventory (unit_id);
+    CREATE INDEX IF NOT EXISTS idx_initial_inventory_site ON initial_inventory (site_id);
+    CREATE INDEX IF NOT EXISTS idx_initial_inventory_created_by ON initial_inventory (created_by);
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

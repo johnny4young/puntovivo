@@ -302,6 +302,33 @@ export interface InventoryStockItem {
   updatedAt: string;
 }
 
+export type InitialInventoryMode = 'initial' | 'physical';
+
+export interface InitialInventoryEntry {
+  id: string;
+  tenantId: string;
+  productId: string;
+  unitId: string;
+  siteId?: string | null;
+  mode: InitialInventoryMode;
+  quantity: number;
+  unitEquivalence: number;
+  normalizedQuantity: number;
+  cost: number;
+  previousStock: number;
+  newStock: number;
+  notes?: string | null;
+  createdBy: string;
+  syncStatus?: SyncStatus;
+  syncVersion?: number;
+  createdAt: string;
+  productName?: string | null;
+  productSku?: string | null;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  siteName?: string | null;
+}
+
 // Sync Types
 
 export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error';
