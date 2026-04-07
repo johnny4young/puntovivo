@@ -1,8 +1,9 @@
 # Consolidated tRPC Migration & Phase 0 Plan
 
-> **Updated:** March 31, 2026
-> **Status:** Phase 1 Complete -- Phases 2-5 ready to implement
+> **Updated:** April 6, 2026
+> **Status:** Repo reality: Phases 2-3 are implemented, Phase 4 is partial, Phase 5 is mostly complete
 > **Approach:** Build all new features on tRPC, migrate existing REST, then remove REST layer entirely
+> **Note:** This document is now a historical migration plan. See `docs/IMPLEMENTATION_STATUS.md` for the current execution status and recommended next phase.
 
 ---
 
