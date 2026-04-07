@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run start --workspace=@open-yojob/desktop",
+    "dev": "npm run dev:all",
     "dev:web": "npm run dev --workspace=@open-yojob/web",
     "dev:server": "npm run dev --workspace=@open-yojob/server",
     "dev:fullstack": "concurrently -n \"SERVER,WEB\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:web\"",
