@@ -86,7 +86,7 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   await app.register(cors, {
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-site-id'],
     credentials: true,
   });
 

@@ -2,6 +2,7 @@ import { Menu, Bell, Search, User, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { Select } from '@/components/form-controls/Select';
 import { isOnline } from '@/lib/utils';
 
 interface HeaderProps {
@@ -10,9 +11,14 @@ interface HeaderProps {
 
 export function Header({ onToggleSidebar }: HeaderProps) {
   const { user, logout } = useAuth();
-  const { currentTenant } = useTenant();
+  const { currentTenant, currentSite, isLoadingSites, sites, switchSite } = useTenant();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const siteOptions = sites.map(site => ({
+    value: site.id,
+    label: site.name,
+  }));
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -72,6 +78,27 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           {/* Tenant name */}
           {currentTenant && (
             <span className="hidden md:block text-sm text-secondary-600">{currentTenant.name}</span>
+          )}
+
+          {currentTenant && (
+            <div className="hidden lg:flex items-center gap-2 min-w-52">
+              <span className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+                Site
+              </span>
+              <Select
+                options={siteOptions}
+                value={currentSite?.id ?? null}
+                onChange={value => {
+                  if (typeof value === 'string') {
+                    void switchSite(value);
+                  }
+                }}
+                placeholder={isLoadingSites ? 'Loading sites...' : 'Select a site'}
+                disabled={isLoadingSites || siteOptions.length <= 1}
+                className="py-1.5"
+                wrapperClassName="w-44"
+              />
+            </div>
           )}
 
           {/* Notifications */}

@@ -11,6 +11,7 @@ import { productsRouter } from './routers/products.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales.js';
 import { inventoryRouter } from './routers/inventory.js';
+import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync.js';
 
 export const appRouter = router({
@@ -29,6 +30,7 @@ export const appRouter = router({
   customers: customersRouter,
   sales: salesRouter,
   inventory: inventoryRouter,
+  sites: sitesRouter,
   sync: syncRouter,
 });
 

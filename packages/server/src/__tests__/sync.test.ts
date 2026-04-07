@@ -64,6 +64,7 @@ function createTestContext(userPayload?: {
         }
       : null,
     tenantId: userPayload?.tenantId ?? null,
+    siteId: null,
   };
 }
 

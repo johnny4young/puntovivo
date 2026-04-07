@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { httpBatchLink } from '@trpc/client';
-import { trpc } from './lib/trpc';
+import { getTrpcHeaders, trpc } from './lib/trpc';
 import App from './App';
 import './index.css';
 
@@ -23,8 +23,7 @@ function Root() {
         httpBatchLink({
           url: `${import.meta.env.VITE_API_URL || 'http://localhost:8090'}/api/trpc`,
           headers() {
-            const token = localStorage.getItem('auth_token');
-            return token ? { authorization: `Bearer ${token}` } : {};
+            return getTrpcHeaders();
           },
         }),
       ],
