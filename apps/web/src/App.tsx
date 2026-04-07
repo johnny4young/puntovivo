@@ -13,6 +13,7 @@ import { SitesPage } from '@/features/sites/SitesPage';
 import { UnitsPage } from '@/features/units/UnitsPage';
 import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
 import { ProductsPage } from '@/features/products/ProductsPage';
+import { PurchasesPage } from '@/features/purchases/PurchasesPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SalesPage } from '@/features/sales/SalesPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
@@ -42,6 +43,7 @@ function App() {
             <Route path="units" element={<UnitsPage />} />
             <Route path="vat-rates" element={<VatRatesPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="purchases" element={<PurchasesPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="sales" element={<SalesPage />} />
             <Route path="inventory" element={<InventoryPage />} />

@@ -272,6 +272,41 @@ export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 
+export interface Purchase {
+  id: string;
+  tenantId: string;
+  purchaseNumber: string;
+  providerId: string;
+  providerName?: string | null;
+  siteId: string;
+  siteName?: string | null;
+  items?: PurchaseItem[];
+  subtotal: number;
+  total: number;
+  notes?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus?: SyncStatus;
+  syncVersion?: number;
+}
+
+export interface PurchaseItem {
+  id: string;
+  purchaseId: string;
+  productId: string;
+  productName?: string | null;
+  productSku?: string | null;
+  quantity: number;
+  unitId: string;
+  unitEquivalence: number;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  costPerUnit: number;
+  baseUnitCost: number;
+  total: number;
+}
+
 export interface InventoryMovement {
   id: string;
   tenantId: string;

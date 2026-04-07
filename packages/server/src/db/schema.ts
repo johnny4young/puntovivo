@@ -52,6 +52,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   products: many(products),
   categories: many(categories),
   customers: many(customers),
+  purchases: many(purchases),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
@@ -87,6 +88,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.tenantId],
     references: [tenants.id],
   }),
+  purchases: many(purchases),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
@@ -164,6 +166,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
     references: [companies.id],
   }),
   sequentials: many(sequentials),
+  purchases: many(purchases),
   initialInventoryEntries: many(initialInventory),
 }));
 
@@ -202,6 +205,7 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   }),
   products: many(products),
   productAssignments: many(productXProvider),
+  purchases: many(purchases),
 }));
 
 // ============================================================================
@@ -233,6 +237,7 @@ export const unitsRelations = relations(units, ({ one, many }) => ({
     references: [tenants.id],
   }),
   productUnits: many(unitXProduct),
+  purchaseItems: many(purchaseItems),
   saleItems: many(saleItems),
 }));
 
@@ -411,6 +416,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     fields: [products.vatRateId],
     references: [vatRates.id],
   }),
+  purchaseItems: many(purchaseItems),
   saleItems: many(saleItems),
   unitAssignments: many(unitXProduct),
   providerAssignments: many(productXProvider),
@@ -535,6 +541,108 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
     references: [tenants.id],
   }),
   sales: many(sales),
+}));
+
+// ============================================================================
+// PURCHASES
+// ============================================================================
+
+export const purchases = sqliteTable(
+  'purchases',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseNumber: text('purchase_number').notNull(),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    subtotal: real('subtotal').notNull().default(0),
+    total: real('total').notNull().default(0),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_purchases_tenant').on(table.tenantId),
+    index('idx_purchases_provider').on(table.providerId),
+    index('idx_purchases_site').on(table.siteId),
+    index('idx_purchases_created_by').on(table.createdBy),
+    uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
+  ]
+);
+
+export const purchasesRelations = relations(purchases, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [purchases.tenantId],
+    references: [tenants.id],
+  }),
+  provider: one(providers, {
+    fields: [purchases.providerId],
+    references: [providers.id],
+  }),
+  site: one(sites, {
+    fields: [purchases.siteId],
+    references: [sites.id],
+  }),
+  createdByUser: one(users, {
+    fields: [purchases.createdBy],
+    references: [users.id],
+  }),
+  items: many(purchaseItems),
+}));
+
+// ============================================================================
+// PURCHASE ITEMS
+// ============================================================================
+
+export const purchaseItems = sqliteTable(
+  'purchase_items',
+  {
+    id: text('id').primaryKey(),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: integer('quantity').notNull().default(1),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    unitEquivalence: real('unit_equivalence').notNull().default(1),
+    costPerUnit: real('cost_per_unit').notNull().default(0),
+    baseUnitCost: real('base_unit_cost').notNull().default(0),
+    total: real('total').notNull().default(0),
+  },
+  table => [
+    index('idx_purchase_items_purchase').on(table.purchaseId),
+    index('idx_purchase_items_product').on(table.productId),
+  ]
+);
+
+export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
+  purchase: one(purchases, {
+    fields: [purchaseItems.purchaseId],
+    references: [purchases.id],
+  }),
+  product: one(products, {
+    fields: [purchaseItems.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [purchaseItems.unitId],
+    references: [units.id],
+  }),
 }));
 
 // ============================================================================
@@ -857,6 +965,12 @@ export type NewProductXProvider = typeof productXProvider.$inferInsert;
 
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
+
+export type Purchase = typeof purchases.$inferSelect;
+export type NewPurchase = typeof purchases.$inferInsert;
+
+export type PurchaseItem = typeof purchaseItems.$inferSelect;
+export type NewPurchaseItem = typeof purchaseItems.$inferInsert;
 
 export type Sale = typeof sales.$inferSelect;
 export type NewSale = typeof sales.$inferInsert;
