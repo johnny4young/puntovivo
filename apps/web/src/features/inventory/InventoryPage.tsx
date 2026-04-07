@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableExportActions } from '@/components/tables/TableExportActions';
 import { useAuth } from '@/features/auth/AuthProvider';
 import {
   InventoryAdjustmentModal,
@@ -21,6 +22,11 @@ import {
   InventoryEntryModal,
   type InventoryEntryFormValues,
 } from '@/features/inventory/InventoryEntryModal';
+import {
+  inventoryEntryExportColumns,
+  inventoryMovementExportColumns,
+  inventoryStockExportColumns,
+} from '@/features/inventory/inventoryExport';
 import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
 import type {
@@ -517,13 +523,22 @@ function InventoryDataPanel({
           {movementsLoading && <p className="py-4 text-secondary-500">Loading inventory movements...</p>}
           {movementsError && <p className="py-4 text-danger-500">{movementsError}</p>}
           {!movementsLoading && !movementsError && (
-            <DataTable
-              columns={movementColumns}
-              data={movements}
-              searchKey="productName"
-              searchPlaceholder="Search movements by product..."
-              pageSize={10}
-            />
+            <div className="space-y-4">
+              <TableExportActions
+                key="inventory-movements-export"
+                data={movements}
+                columns={inventoryMovementExportColumns}
+                filename="inventory-movements"
+                title="Inventory Movements"
+              />
+              <DataTable
+                columns={movementColumns}
+                data={movements}
+                searchKey="productName"
+                searchPlaceholder="Search movements by product..."
+                pageSize={10}
+              />
+            </div>
           )}
         </>
       )}
@@ -533,13 +548,22 @@ function InventoryDataPanel({
           {stockLoading && <p className="py-4 text-secondary-500">Loading stock balances...</p>}
           {stockError && <p className="py-4 text-danger-500">{stockError}</p>}
           {!stockLoading && !stockError && (
-            <DataTable
-              columns={getStockColumns(onAdjust, canManage)}
-              data={stockItems}
-              searchKey="name"
-              searchPlaceholder="Search stock by product..."
-              pageSize={10}
-            />
+            <div className="space-y-4">
+              <TableExportActions
+                key="inventory-stock-export"
+                data={stockItems}
+                columns={inventoryStockExportColumns}
+                filename="inventory-stock"
+                title="Inventory Stock"
+              />
+              <DataTable
+                columns={getStockColumns(onAdjust, canManage)}
+                data={stockItems}
+                searchKey="name"
+                searchPlaceholder="Search stock by product..."
+                pageSize={10}
+              />
+            </div>
           )}
         </>
       )}
@@ -549,13 +573,22 @@ function InventoryDataPanel({
           {entriesLoading && <p className="py-4 text-secondary-500">Loading inventory entries...</p>}
           {entriesError && <p className="py-4 text-danger-500">{entriesError}</p>}
           {!entriesLoading && !entriesError && (
-            <DataTable
-              columns={entryColumns}
-              data={entries}
-              searchKey="productName"
-              searchPlaceholder="Search entries by product..."
-              pageSize={10}
-            />
+            <div className="space-y-4">
+              <TableExportActions
+                key="inventory-entries-export"
+                data={entries}
+                columns={inventoryEntryExportColumns}
+                filename="inventory-entries"
+                title="Initial Inventory Entries"
+              />
+              <DataTable
+                columns={entryColumns}
+                data={entries}
+                searchKey="productName"
+                searchPlaceholder="Search entries by product..."
+                pageSize={10}
+              />
+            </div>
           )}
         </>
       )}

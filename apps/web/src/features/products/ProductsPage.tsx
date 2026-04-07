@@ -3,12 +3,14 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableExportActions } from '@/components/tables/TableExportActions';
 import {
   ProductFormModal,
   type LookupOption,
   type ProductFormValues,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
+import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { formatCurrency } from '@/lib/utils';
@@ -295,22 +297,30 @@ export function ProductsPage() {
         {productsQuery.isLoading && <p className="py-4 text-secondary-500">Loading products...</p>}
         {productsQuery.error && <p className="py-4 text-danger-500">{productsQuery.error.message}</p>}
         {!productsQuery.isLoading && !productsQuery.error && (
-          <DataTable
-            columns={columns(
-              product => {
-                setEditingProduct(product);
-                setModalInstanceKey(current => current + 1);
-                setIsModalOpen(true);
-              },
-              product => setProductToDelete(product),
-              canManage,
-              canDelete
-            )}
-            data={products}
-            searchKey="name"
-            searchPlaceholder="Search products..."
-            pageSize={10}
-          />
+          <div className="space-y-4">
+            <TableExportActions
+              data={products}
+              columns={productExportColumns}
+              filename="products"
+              title="Products Catalog"
+            />
+            <DataTable
+              columns={columns(
+                product => {
+                  setEditingProduct(product);
+                  setModalInstanceKey(current => current + 1);
+                  setIsModalOpen(true);
+                },
+                product => setProductToDelete(product),
+                canManage,
+                canDelete
+              )}
+              data={products}
+              searchKey="name"
+              searchPlaceholder="Search products..."
+              pageSize={10}
+            />
+          </div>
         )}
       </div>
 

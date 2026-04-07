@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableExportActions } from '@/components/tables/TableExportActions';
+import { saleHistoryExportColumns } from '@/features/sales/saleHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
 
@@ -91,13 +93,21 @@ export function SalesHistoryTable({ sales, isLoading, error, onView }: SalesHist
       {isLoading && <p className="py-4 text-secondary-500">Loading sales...</p>}
       {error && <p className="py-4 text-danger-500">{error}</p>}
       {!isLoading && !error && (
-        <DataTable
-          columns={columns}
-          data={sales}
-          searchKey="saleNumber"
-          searchPlaceholder="Search by invoice..."
-          pageSize={8}
-        />
+        <div className="space-y-4">
+          <TableExportActions
+            data={sales}
+            columns={saleHistoryExportColumns}
+            filename="sales-history"
+            title="Sales History"
+          />
+          <DataTable
+            columns={columns}
+            data={sales}
+            searchKey="saleNumber"
+            searchPlaceholder="Search by invoice..."
+            pageSize={8}
+          />
+        </div>
       )}
     </div>
   );

@@ -79,7 +79,7 @@ export interface UseTableExportReturn<T> {
  * });
  * ```
  */
-export function useTableExport<T extends Record<string, unknown>>(
+export function useTableExport<T extends object>(
   options: UseTableExportOptions<T>
 ): UseTableExportReturn<T> {
   const { filename = 'export', title, columns, initialVisibleColumns } = options;

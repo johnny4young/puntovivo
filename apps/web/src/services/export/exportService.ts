@@ -25,7 +25,7 @@ export interface ExportOptions {
 /**
  * Get the value from an object using a dot-notation path
  */
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+function getNestedValue(obj: object, path: string): unknown {
   return path.split('.').reduce((acc: unknown, part: string) => {
     if (acc && typeof acc === 'object') {
       return (acc as Record<string, unknown>)[part];
@@ -90,7 +90,7 @@ function downloadFile(content: Blob, filename: string): void {
 /**
  * Export data to CSV format
  */
-export function exportToCSV<T extends Record<string, unknown>>(
+export function exportToCSV<T extends object>(
   data: T[],
   columns: ExportColumn<T>[],
   filename: string,
@@ -129,7 +129,7 @@ export function exportToCSV<T extends Record<string, unknown>>(
  * Export data to Excel format using ExcelJS library
  * Note: Requires exceljs library to be installed: npm install exceljs
  */
-export async function exportToExcel<T extends Record<string, unknown>>(
+export async function exportToExcel<T extends object>(
   data: T[],
   columns: ExportColumn<T>[],
   filename: string,
@@ -223,7 +223,7 @@ export async function exportToExcel<T extends Record<string, unknown>>(
  * Note: Requires jspdf and jspdf-autotable libraries:
  * npm install jspdf jspdf-autotable
  */
-export async function exportToPDF<T extends Record<string, unknown>>(
+export async function exportToPDF<T extends object>(
   data: T[],
   columns: ExportColumn<T>[],
   filename: string,
@@ -313,7 +313,7 @@ export async function exportToPDF<T extends Record<string, unknown>>(
 /**
  * Print table data in a new window
  */
-export function printTable<T extends Record<string, unknown>>(
+export function printTable<T extends object>(
   data: T[],
   columns: ExportColumn<T>[],
   options: ExportOptions = {}
