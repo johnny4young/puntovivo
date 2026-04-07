@@ -138,6 +138,97 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_users_tenant ON users (tenant_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);
 
+    -- Companies
+    CREATE TABLE IF NOT EXISTS companies (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL,
+      tax_id TEXT,
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      logo_url TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_companies_tenant ON companies (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_tenant_name ON companies (tenant_id, name);
+
+    -- Sites
+    CREATE TABLE IF NOT EXISTS sites (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sites_tenant ON sites (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_sites_company ON sites (company_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sites_tenant_name ON sites (tenant_id, name);
+
+    -- Providers
+    CREATE TABLE IF NOT EXISTS providers (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL,
+      tax_id TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      city_id TEXT,
+      contact_name TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_providers_tenant ON providers (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_tenant_name ON providers (tenant_id, name);
+
+    -- Units
+    CREATE TABLE IF NOT EXISTS units (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL,
+      abbreviation TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_units_tenant ON units (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_units_tenant_abbreviation ON units (tenant_id, abbreviation);
+
+    -- VAT Rates
+    CREATE TABLE IF NOT EXISTS vat_rates (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL,
+      rate REAL NOT NULL DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_vat_rates_tenant ON vat_rates (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_vat_rates_tenant_name ON vat_rates (tenant_id, name);
+
+    -- Sequentials
+    CREATE TABLE IF NOT EXISTS sequentials (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      document_type TEXT NOT NULL,
+      prefix TEXT NOT NULL DEFAULT '',
+      current_value INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sequentials_tenant ON sequentials (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_sequentials_site ON sequentials (site_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sequentials_scope ON sequentials (tenant_id, site_id, document_type);
+
     -- Categories
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
@@ -160,8 +251,20 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       description TEXT,
       category_id TEXT REFERENCES categories(id),
       price REAL NOT NULL DEFAULT 0,
+      price2 REAL NOT NULL DEFAULT 0,
+      price3 REAL NOT NULL DEFAULT 0,
       cost REAL NOT NULL DEFAULT 0,
+      margin_percent1 REAL NOT NULL DEFAULT 0,
+      margin_percent2 REAL NOT NULL DEFAULT 0,
+      margin_percent3 REAL NOT NULL DEFAULT 0,
+      margin_amount1 REAL NOT NULL DEFAULT 0,
+      margin_amount2 REAL NOT NULL DEFAULT 0,
+      margin_amount3 REAL NOT NULL DEFAULT 0,
       tax_rate REAL NOT NULL DEFAULT 0,
+      vat_rate_id TEXT REFERENCES vat_rates(id),
+      provider_id TEXT REFERENCES providers(id),
+      location_id TEXT,
+      initial_cost REAL NOT NULL DEFAULT 0,
       stock INTEGER NOT NULL DEFAULT 0,
       min_stock INTEGER NOT NULL DEFAULT 0,
       is_active INTEGER DEFAULT 1,
@@ -176,7 +279,24 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_products_sku ON products (sku);
     CREATE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode);
     CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id);
+    CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id);
+    CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_sku ON products (tenant_id, sku);
+
+    -- Unit X Product
+    CREATE TABLE IF NOT EXISTS unit_x_product (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      unit_id TEXT NOT NULL REFERENCES units(id),
+      equivalence REAL NOT NULL DEFAULT 1,
+      price REAL NOT NULL DEFAULT 0,
+      is_base INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_unit_x_product_product ON unit_x_product (product_id);
+    CREATE INDEX IF NOT EXISTS idx_unit_x_product_unit ON unit_x_product (unit_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unit_x_product_scope ON unit_x_product (product_id, unit_id);
 
     -- Customers
     CREATE TABLE IF NOT EXISTS customers (
@@ -233,9 +353,12 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       product_id TEXT NOT NULL REFERENCES products(id),
       quantity INTEGER NOT NULL DEFAULT 1,
       unit_price REAL NOT NULL DEFAULT 0,
+      unit_id TEXT REFERENCES units(id),
+      unit_equivalence REAL NOT NULL DEFAULT 1,
       discount REAL NOT NULL DEFAULT 0,
       tax_rate REAL NOT NULL DEFAULT 0,
       tax_amount REAL NOT NULL DEFAULT 0,
+      cost_at_sale REAL NOT NULL DEFAULT 0,
       total REAL NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items (sale_id);
@@ -300,6 +423,39 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  ensureColumn(client, 'products', 'price2', 'price2 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'price3', 'price3 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_percent1', 'margin_percent1 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_percent2', 'margin_percent2 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_percent3', 'margin_percent3 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_amount1', 'margin_amount1 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_amount2', 'margin_amount2 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'margin_amount3', 'margin_amount3 REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'products', 'vat_rate_id', 'vat_rate_id TEXT');
+  ensureColumn(client, 'products', 'provider_id', 'provider_id TEXT');
+  ensureColumn(client, 'products', 'location_id', 'location_id TEXT');
+  ensureColumn(client, 'products', 'initial_cost', 'initial_cost REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
+  ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
+  ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
+}
+
+function ensureColumn(
+  client: Database.Database,
+  tableName: string,
+  columnName: string,
+  columnDefinition: string
+): void {
+  const columns = client
+    .prepare(`PRAGMA table_info(${tableName})`)
+    .all() as Array<{ name: string }>;
+
+  if (columns.some(column => column.name === columnName)) {
+    return;
+  }
+
+  client.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`);
 }
 
 // Re-export schema

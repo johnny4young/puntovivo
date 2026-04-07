@@ -20,6 +20,7 @@ export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as c
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
+export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
 
 // ============================================================================
 // TENANTS
@@ -41,6 +42,12 @@ export const tenants = sqliteTable(
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
+  companies: many(companies),
+  sites: many(sites),
+  providers: many(providers),
+  units: many(units),
+  vatRates: many(vatRates),
+  sequentials: many(sequentials),
   products: many(products),
   categories: many(categories),
   customers: many(customers),
@@ -80,6 +87,217 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
+}));
+
+// ============================================================================
+// COMPANIES
+// ============================================================================
+
+export const companies = sqliteTable(
+  'companies',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    taxId: text('tax_id'),
+    address: text('address'),
+    phone: text('phone'),
+    email: text('email'),
+    logoUrl: text('logo_url'),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_companies_tenant').on(table.tenantId),
+    uniqueIndex('idx_companies_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const companiesRelations = relations(companies, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [companies.tenantId],
+    references: [tenants.id],
+  }),
+  sites: many(sites),
+}));
+
+// ============================================================================
+// SITES
+// ============================================================================
+
+export const sites = sqliteTable(
+  'sites',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    companyId: text('company_id')
+      .notNull()
+      .references(() => companies.id),
+    name: text('name').notNull(),
+    address: text('address'),
+    phone: text('phone'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_sites_tenant').on(table.tenantId),
+    index('idx_sites_company').on(table.companyId),
+    uniqueIndex('idx_sites_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const sitesRelations = relations(sites, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [sites.tenantId],
+    references: [tenants.id],
+  }),
+  company: one(companies, {
+    fields: [sites.companyId],
+    references: [companies.id],
+  }),
+  sequentials: many(sequentials),
+}));
+
+// ============================================================================
+// PROVIDERS
+// ============================================================================
+
+export const providers = sqliteTable(
+  'providers',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    taxId: text('tax_id'),
+    phone: text('phone'),
+    email: text('email'),
+    address: text('address'),
+    cityId: text('city_id'),
+    contactName: text('contact_name'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_providers_tenant').on(table.tenantId),
+    uniqueIndex('idx_providers_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const providersRelations = relations(providers, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [providers.tenantId],
+    references: [tenants.id],
+  }),
+  products: many(products),
+}));
+
+// ============================================================================
+// UNITS
+// ============================================================================
+
+export const units = sqliteTable(
+  'units',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    abbreviation: text('abbreviation').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_units_tenant').on(table.tenantId),
+    uniqueIndex('idx_units_tenant_abbreviation').on(table.tenantId, table.abbreviation),
+  ]
+);
+
+export const unitsRelations = relations(units, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [units.tenantId],
+    references: [tenants.id],
+  }),
+  productUnits: many(unitXProduct),
+  saleItems: many(saleItems),
+}));
+
+// ============================================================================
+// VAT RATES
+// ============================================================================
+
+export const vatRates = sqliteTable(
+  'vat_rates',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    rate: real('rate').notNull().default(0),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_vat_rates_tenant').on(table.tenantId),
+    uniqueIndex('idx_vat_rates_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const vatRatesRelations = relations(vatRates, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [vatRates.tenantId],
+    references: [tenants.id],
+  }),
+  products: many(products),
+}));
+
+// ============================================================================
+// SEQUENTIALS
+// ============================================================================
+
+export const sequentials = sqliteTable(
+  'sequentials',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    documentType: text('document_type', { enum: sequentialDocumentTypeEnum }).notNull(),
+    prefix: text('prefix').notNull().default(''),
+    currentValue: integer('current_value').notNull().default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_sequentials_tenant').on(table.tenantId),
+    index('idx_sequentials_site').on(table.siteId),
+    uniqueIndex('idx_sequentials_scope').on(table.tenantId, table.siteId, table.documentType),
+  ]
+);
+
+export const sequentialsRelations = relations(sequentials, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sequentials.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [sequentials.siteId],
+    references: [sites.id],
+  }),
 }));
 
 // ============================================================================
@@ -135,8 +353,20 @@ export const products = sqliteTable(
     description: text('description'),
     categoryId: text('category_id').references(() => categories.id),
     price: real('price').notNull().default(0),
+    price2: real('price2').notNull().default(0),
+    price3: real('price3').notNull().default(0),
     cost: real('cost').notNull().default(0),
+    marginPercent1: real('margin_percent1').notNull().default(0),
+    marginPercent2: real('margin_percent2').notNull().default(0),
+    marginPercent3: real('margin_percent3').notNull().default(0),
+    marginAmount1: real('margin_amount1').notNull().default(0),
+    marginAmount2: real('margin_amount2').notNull().default(0),
+    marginAmount3: real('margin_amount3').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    vatRateId: text('vat_rate_id').references(() => vatRates.id),
+    providerId: text('provider_id').references(() => providers.id),
+    locationId: text('location_id'),
+    initialCost: real('initial_cost').notNull().default(0),
     stock: integer('stock').notNull().default(0),
     minStock: integer('min_stock').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
@@ -153,6 +383,8 @@ export const products = sqliteTable(
     index('idx_products_sku').on(table.sku),
     index('idx_products_barcode').on(table.barcode),
     index('idx_products_category').on(table.categoryId),
+    index('idx_products_provider').on(table.providerId),
+    index('idx_products_vat_rate').on(table.vatRateId),
     uniqueIndex('idx_products_tenant_sku').on(table.tenantId, table.sku),
   ]
 );
@@ -166,8 +398,55 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     fields: [products.categoryId],
     references: [categories.id],
   }),
+  provider: one(providers, {
+    fields: [products.providerId],
+    references: [providers.id],
+  }),
+  vatRate: one(vatRates, {
+    fields: [products.vatRateId],
+    references: [vatRates.id],
+  }),
   saleItems: many(saleItems),
+  unitAssignments: many(unitXProduct),
   inventoryMovements: many(inventoryMovements),
+}));
+
+// ============================================================================
+// UNIT X PRODUCT
+// ============================================================================
+
+export const unitXProduct = sqliteTable(
+  'unit_x_product',
+  {
+    id: text('id').primaryKey(),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    equivalence: real('equivalence').notNull().default(1),
+    price: real('price').notNull().default(0),
+    isBase: integer('is_base', { mode: 'boolean' }).default(false),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_unit_x_product_product').on(table.productId),
+    index('idx_unit_x_product_unit').on(table.unitId),
+    uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
+  ]
+);
+
+export const unitXProductRelations = relations(unitXProduct, ({ one }) => ({
+  product: one(products, {
+    fields: [unitXProduct.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [unitXProduct.unitId],
+    references: [units.id],
+  }),
 }));
 
 // ============================================================================
@@ -282,9 +561,12 @@ export const saleItems = sqliteTable(
       .references(() => products.id),
     quantity: integer('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
+    unitId: text('unit_id').references(() => units.id),
+    unitEquivalence: real('unit_equivalence').notNull().default(1),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
+    costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),
   },
   table => [
@@ -301,6 +583,10 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   product: one(products, {
     fields: [saleItems.productId],
     references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [saleItems.unitId],
+    references: [units.id],
   }),
 }));
 
@@ -428,11 +714,32 @@ export type NewTenant = typeof tenants.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
+export type Company = typeof companies.$inferSelect;
+export type NewCompany = typeof companies.$inferInsert;
+
+export type Site = typeof sites.$inferSelect;
+export type NewSite = typeof sites.$inferInsert;
+
+export type Provider = typeof providers.$inferSelect;
+export type NewProvider = typeof providers.$inferInsert;
+
+export type Unit = typeof units.$inferSelect;
+export type NewUnit = typeof units.$inferInsert;
+
+export type VatRate = typeof vatRates.$inferSelect;
+export type NewVatRate = typeof vatRates.$inferInsert;
+
+export type Sequential = typeof sequentials.$inferSelect;
+export type NewSequential = typeof sequentials.$inferInsert;
+
 export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
 
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
+
+export type UnitXProduct = typeof unitXProduct.$inferSelect;
+export type NewUnitXProduct = typeof unitXProduct.$inferInsert;
 
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
