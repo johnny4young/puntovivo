@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableExportActions } from '@/components/tables/TableExportActions';
+import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
@@ -72,13 +74,21 @@ export function PurchasesHistoryTable({
       {isLoading && <p className="py-4 text-secondary-500">Loading purchases...</p>}
       {error && <p className="py-4 text-danger-500">{error}</p>}
       {!isLoading && !error && (
-        <DataTable
-          columns={columns}
-          data={purchases}
-          searchKey="purchaseNumber"
-          searchPlaceholder="Search by purchase number..."
-          pageSize={8}
-        />
+        <div className="space-y-4">
+          <TableExportActions
+            data={purchases}
+            columns={purchaseHistoryExportColumns}
+            filename="purchase-history"
+            title="Purchase History"
+          />
+          <DataTable
+            columns={columns}
+            data={purchases}
+            searchKey="purchaseNumber"
+            searchPlaceholder="Search by purchase number..."
+            pageSize={8}
+          />
+        </div>
       )}
     </div>
   );
