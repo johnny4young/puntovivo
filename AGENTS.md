@@ -32,6 +32,14 @@ Or use the workspace shortcut: `npm run rebuild --workspace=@open-yojob/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
+Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebuild`, use `41.1.0` instead of older examples.
+
+If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime too:
+
+```
+npm rebuild better-sqlite3
+```
+
 ## Architecture landmine: embedded backend
 
 The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@open-yojob/server` directly. Do not assume a separate server process exists.
