@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trpc } from '@/lib/trpc';
+import { useTenantSettings } from '@/hooks';
 
 interface StatCardProps {
   title: string;
@@ -49,6 +51,38 @@ function StatCard({ title, value, change, changeLabel, icon: Icon, iconColor }: 
 }
 
 export function DashboardPage() {
+  const { formatCurrency } = useTenantSettings();
+  const dashboardQuery = trpc.dashboard.summary.useQuery();
+
+  if (dashboardQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-secondary-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-secondary-500">Loading live store activity...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboardQuery.error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-secondary-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-danger-600">
+            Unable to load dashboard data: {dashboardQuery.error.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const data = dashboardQuery.data;
+  if (!data) {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -63,33 +97,33 @@ export function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Revenue"
-          value="$45,231.89"
-          change={20.1}
-          changeLabel="from last month"
+          value={formatCurrency(data.stats.revenue.value)}
+          change={data.stats.revenue.change}
+          changeLabel={data.stats.revenue.label}
           icon={DollarSign}
           iconColor="bg-success-500"
         />
         <StatCard
           title="Orders"
-          value="2,350"
-          change={10.5}
-          changeLabel="from last month"
+          value={data.stats.orders.value.toLocaleString()}
+          change={data.stats.orders.change}
+          changeLabel={data.stats.orders.label}
           icon={ShoppingCart}
           iconColor="bg-primary-500"
         />
         <StatCard
           title="Customers"
-          value="1,234"
-          change={5.2}
-          changeLabel="from last month"
+          value={data.stats.customers.value.toLocaleString()}
+          change={data.stats.customers.change}
+          changeLabel={data.stats.customers.label}
           icon={Users}
           iconColor="bg-warning-500"
         />
         <StatCard
           title="Products"
-          value="573"
-          change={-2.3}
-          changeLabel="from last month"
+          value={data.stats.products.value.toLocaleString()}
+          change={data.stats.products.change}
+          changeLabel={data.stats.products.label}
           icon={Package}
           iconColor="bg-secondary-500"
         />
@@ -101,33 +135,35 @@ export function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title text-lg">Recent Sales</h2>
-            <p className="card-description">You made 265 sales this month</p>
+            <p className="card-description">Latest live sales for your current tenant</p>
           </div>
           <div className="card-content">
-            <div className="space-y-4">
-              {[
-                { name: 'John Doe', email: 'john@example.com', amount: '+$1,999.00' },
-                { name: 'Jane Smith', email: 'jane@example.com', amount: '+$39.00' },
-                { name: 'Bob Wilson', email: 'bob@example.com', amount: '+$299.00' },
-                { name: 'Alice Brown', email: 'alice@example.com', amount: '+$99.00' },
-                { name: 'Charlie Davis', email: 'charlie@example.com', amount: '+$499.00' },
-              ].map((sale, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-secondary-100 flex items-center justify-center">
-                      <span className="text-sm font-medium text-secondary-600">
-                        {sale.name.charAt(0)}
-                      </span>
+            {data.recentSales.length === 0 ? (
+              <p className="text-sm text-secondary-500">No sales recorded yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {data.recentSales.map(sale => (
+                  <div key={sale.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-secondary-100 flex items-center justify-center">
+                        <span className="text-sm font-medium text-secondary-600">
+                          {sale.customerName.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-secondary-900">
+                          {sale.customerName}
+                        </p>
+                        <p className="text-xs text-secondary-500">{sale.customerEmail}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">{sale.name}</p>
-                      <p className="text-xs text-secondary-500">{sale.email}</p>
-                    </div>
+                    <span className="text-sm font-medium text-secondary-900">
+                      {formatCurrency(sale.total)}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium text-secondary-900">{sale.amount}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -135,36 +171,34 @@ export function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title text-lg">Top Products</h2>
-            <p className="card-description">Best selling products this month</p>
+            <p className="card-description">Best selling products from completed sales</p>
           </div>
           <div className="card-content">
-            <div className="space-y-4">
-              {[
-                { name: 'Product A', sales: 234, revenue: '$4,500' },
-                { name: 'Product B', sales: 187, revenue: '$3,200' },
-                { name: 'Product C', sales: 156, revenue: '$2,800' },
-                { name: 'Product D', sales: 132, revenue: '$2,100' },
-                { name: 'Product E', sales: 98, revenue: '$1,750' },
-              ].map((product, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-primary-50 flex items-center justify-center">
-                      <Package className="h-5 w-5 text-primary-600" />
+            {data.topProducts.length === 0 ? (
+              <p className="text-sm text-secondary-500">No product sales data yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {data.topProducts.map(product => (
+                  <div key={product.productId} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-primary-50 flex items-center justify-center">
+                        <Package className="h-5 w-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-secondary-900">{product.name}</p>
+                        <p className="text-xs text-secondary-500">{product.sales} units sold</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-secondary-900">{product.name}</p>
-                      <p className="text-xs text-secondary-500">{product.sales} sales</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-secondary-900">
+                        {formatCurrency(product.revenue)}
+                      </span>
+                      <ArrowUpRight className="h-4 w-4 text-success-500" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-secondary-900">
-                      {product.revenue}
-                    </span>
-                    <ArrowUpRight className="h-4 w-4 text-success-500" />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
