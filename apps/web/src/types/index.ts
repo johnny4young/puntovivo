@@ -56,6 +56,18 @@ export interface Company {
   updatedAt: string;
 }
 
+export interface Sequential {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  documentType: 'sale' | 'purchase' | 'order';
+  prefix: string;
+  currentValue: number;
+  createdAt: string;
+  updatedAt: string;
+  siteName?: string;
+}
+
 export interface Provider {
   id: string;
   tenantId: string;

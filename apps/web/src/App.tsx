@@ -7,6 +7,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { CompanyPage } from '@/features/company/CompanyPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
+import { SequentialsPage } from '@/features/sequentials/SequentialsPage';
 import { SitesPage } from '@/features/sites/SitesPage';
 import { UnitsPage } from '@/features/units/UnitsPage';
 import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
@@ -33,6 +34,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="company" element={<CompanyPage />} />
             <Route path="sites" element={<SitesPage />} />
+            <Route path="sequentials" element={<SequentialsPage />} />
             <Route path="providers" element={<ProvidersPage />} />
             <Route path="units" element={<UnitsPage />} />
             <Route path="vat-rates" element={<VatRatesPage />} />
