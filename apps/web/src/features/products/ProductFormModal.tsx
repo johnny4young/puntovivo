@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
+import {
+  useFieldArray,
+  useForm,
+  type UseFormRegisterReturn,
+} from 'react-hook-form';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Product } from '@/types';
 import { calculatePricing } from './pricing';
@@ -40,6 +44,14 @@ export interface ProductFormValues {
   stock: number;
   minStock: number;
   isActive: boolean;
+  unitAssignments: ProductUnitAssignmentFormValues[];
+}
+
+export interface ProductUnitAssignmentFormValues {
+  unitId: string;
+  equivalence: number;
+  price: number;
+  isBase: boolean;
 }
 
 const defaultValues: ProductFormValues = {
@@ -67,6 +79,7 @@ const defaultValues: ProductFormValues = {
   stock: 0,
   minStock: 0,
   isActive: true,
+  unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
 };
 
 export function mapProductToForm(product: Product | null): ProductFormValues {
@@ -99,6 +112,15 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     stock: product.stock,
     minStock: product.minStock,
     isActive: product.isActive,
+    unitAssignments:
+      product.unitAssignments?.length
+        ? product.unitAssignments.map(assignment => ({
+            unitId: assignment.unitId,
+            equivalence: assignment.equivalence,
+            price: assignment.price,
+            isBase: assignment.isBase,
+          }))
+        : [{ unitId: '', equivalence: 1, price: product.price, isBase: true }],
   };
 }
 
@@ -113,6 +135,7 @@ interface ProductFormModalProps {
   product: Product | null;
   categories: LookupOption[];
   providers: LookupOption[];
+  units: LookupOption[];
   vatRates: VatRateOption[];
   isSaving: boolean;
   error: string | null;
@@ -130,6 +153,7 @@ export function ProductFormModal({
   product,
   categories,
   providers,
+  units,
   vatRates,
   isSaving,
   error,
@@ -139,9 +163,13 @@ export function ProductFormModal({
   const form = useForm<ProductFormValues>({
     defaultValues: mapProductToForm(product),
   });
-  const [activeTab, setActiveTab] = useState<'general' | 'pricing'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'units'>('general');
   const handleSubmit = form.handleSubmit(onSubmit);
   const selectedVatRateId = form.watch('vatRateId');
+  const unitAssignmentsFieldArray = useFieldArray({
+    control: form.control,
+    name: 'unitAssignments',
+  });
 
   const syncTierFromPercent = (priceField: PricingField, percentField: MarginPercentField, amountField: MarginAmountField, value: number) => {
     const result = calculatePricing({
@@ -204,6 +232,20 @@ export function ProductFormModal({
   const minStockField = form.register('minStock', { min: 0, valueAsNumber: true });
   const vatRateField = form.register('vatRateId');
 
+  const handleBaseUnitChange = (index: number) => {
+    const assignments = form.getValues('unitAssignments');
+    assignments.forEach((_, assignmentIndex) => {
+      form.setValue(`unitAssignments.${assignmentIndex}.isBase`, assignmentIndex === index, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    });
+    form.setValue(`unitAssignments.${index}.equivalence`, 1, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -243,6 +285,17 @@ export function ProductFormModal({
           onClick={() => setActiveTab('pricing')}
         >
           Pricing
+        </button>
+        <button
+          type="button"
+          className={`rounded-lg px-3 py-2 text-sm font-medium ${
+            activeTab === 'units'
+              ? 'bg-primary-100 text-primary-800'
+              : 'bg-secondary-100 text-secondary-600'
+          }`}
+          onClick={() => setActiveTab('units')}
+        >
+          Units
         </button>
       </div>
 
@@ -482,6 +535,113 @@ export function ProductFormModal({
               />
             </div>
           </>
+        )}
+
+        {activeTab === 'units' && (
+          <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-secondary-900">Unit assignments</p>
+                <p className="text-sm text-secondary-500">
+                  Define the base unit and any additional equivalence-based sale units.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() =>
+                  unitAssignmentsFieldArray.append({
+                    unitId: '',
+                    equivalence: 1,
+                    price: form.getValues('price'),
+                    isBase: false,
+                  })
+                }
+              >
+                Add Unit
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {unitAssignmentsFieldArray.fields.map((field, index) => {
+                const isBase = form.watch(`unitAssignments.${index}.isBase`);
+                return (
+                  <div key={field.id} className="grid gap-4 rounded-lg border border-secondary-200 p-4 md:grid-cols-4">
+                    <div>
+                      <label className="label">Unit</label>
+                      <select
+                        className="input mt-1"
+                        {...form.register(`unitAssignments.${index}.unitId` as const, {
+                          required: 'Unit is required',
+                        })}
+                      >
+                        <option value="">Select unit</option>
+                        {units.map(unit => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Equivalence</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        disabled={isBase}
+                        className="input mt-1"
+                        {...form.register(`unitAssignments.${index}.equivalence` as const, {
+                          min: 0.01,
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Unit Price</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="input mt-1"
+                        {...form.register(`unitAssignments.${index}.price` as const, {
+                          min: 0,
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <label className="flex items-center gap-2 text-sm text-secondary-700">
+                        <input
+                          type="checkbox"
+                          checked={!!isBase}
+                          onChange={() => handleBaseUnitChange(index)}
+                        />
+                        Base unit
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-ghost text-danger-600"
+                        disabled={unitAssignmentsFieldArray.fields.length === 1}
+                        onClick={() => {
+                          const currentAssignments = form.getValues('unitAssignments');
+                          const removingBase = currentAssignments[index]?.isBase;
+                          unitAssignmentsFieldArray.remove(index);
+
+                          if (removingBase && currentAssignments.length > 1) {
+                            const nextIndex = index === 0 ? 0 : index - 1;
+                            handleBaseUnitChange(nextIndex);
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

@@ -148,10 +148,37 @@ export interface Product {
   categoryName?: string | null;
   providerName?: string | null;
   vatRateName?: string | null;
+  unitAssignments?: ProductUnitAssignment[];
   createdAt: string;
   updatedAt: string;
   syncStatus?: SyncStatus;
   syncVersion?: number;
+}
+
+export interface ProductUnitAssignment {
+  id: string;
+  productId?: string;
+  unitId: string;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  equivalence: number;
+  price: number;
+  isBase: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductSearchItem extends Product {
+  baseUnitId?: string | null;
+  baseUnitName?: string | null;
+  baseUnitAbbreviation?: string | null;
+  baseUnitPrice?: number | null;
+}
+
+export interface ProductSearchSelection {
+  product: ProductSearchItem;
+  unit: ProductUnitAssignment;
+  price: number;
 }
 
 export interface Category {

@@ -9,6 +9,13 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
+export const productUnitAssignmentInput = z.object({
+  unitId: z.string().min(1, 'Unit is required'),
+  equivalence: z.number().positive('Equivalence must be greater than zero'),
+  price: z.number().min(0, 'Unit price must be non-negative'),
+  isBase: z.boolean().default(false),
+});
+
 // ============================================================================
 // Input Schemas
 // ============================================================================
@@ -48,6 +55,10 @@ export const createProductInput = z.object({
   isActive: z.boolean().default(true),
   barcode: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
+  unitAssignments: z
+    .array(productUnitAssignmentInput)
+    .min(1, 'At least one unit assignment is required')
+    .optional(),
 });
 
 export const updateProductInput = z.object({
@@ -76,6 +87,10 @@ export const updateProductInput = z.object({
   isActive: z.boolean().optional(),
   barcode: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
+  unitAssignments: z
+    .array(productUnitAssignmentInput)
+    .min(1, 'At least one unit assignment is required')
+    .optional(),
 });
 
 export const deleteProductInput = z.object({
@@ -85,6 +100,9 @@ export const deleteProductInput = z.object({
 export const searchProductsInput = z.object({
   q: z.string().min(1, 'Search query is required'),
   limit: z.number().int().min(1).max(50).default(20),
+  categoryId: z.string().optional(),
+  providerId: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export type ListProductsInput = z.infer<typeof listProductsInput>;
