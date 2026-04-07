@@ -15,6 +15,7 @@ import { ProductsPage } from '@/features/products/ProductsPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SalesPage } from '@/features/sales/SalesPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
+import { UsersPage } from '@/features/users/UsersPage';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="sales" element={<SalesPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="users" element={<UsersPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
