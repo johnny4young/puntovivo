@@ -3,6 +3,8 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Boxes,
+  ClipboardList,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -12,20 +14,26 @@ import { DataTable } from '@/components/tables/DataTable';
 import { useAuth } from '@/features/auth/AuthProvider';
 import {
   InventoryAdjustmentModal,
-  type InventoryAdjustmentProduct,
   type InventoryAdjustmentFormValues,
+  type InventoryAdjustmentProduct,
 } from '@/features/inventory/InventoryAdjustmentModal';
+import {
+  InventoryEntryModal,
+  type InventoryEntryFormValues,
+} from '@/features/inventory/InventoryEntryModal';
 import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
 import type {
   Category,
+  InitialInventoryEntry,
   InventoryMovement,
   InventoryStockItem,
   ProductSearchSelection,
   UserRole,
 } from '@/types';
 
-type InventoryView = 'movements' | 'stock';
+type InventoryView = 'movements' | 'stock' | 'entries';
+type SearchMode = 'adjustment' | 'entry';
 
 const movementIcons = {
   purchase: ArrowDownCircle,
@@ -42,6 +50,12 @@ const movementColors = {
   transfer: 'text-primary-500',
   return: 'text-success-500',
 } as const;
+
+const viewLabels: Record<InventoryView, string> = {
+  movements: 'Movements',
+  stock: 'Stock Query',
+  entries: 'Initial Inventory',
+};
 
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
@@ -218,6 +232,71 @@ function getStockColumns(
   ];
 }
 
+const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
+  {
+    accessorKey: 'createdAt',
+    header: 'Date',
+    size: 180,
+    cell: ({ row }) => formatDateTime(row.original.createdAt),
+  },
+  {
+    accessorKey: 'mode',
+    header: 'Mode',
+    size: 160,
+    cell: ({ row }) => (
+      <span className={cn('badge', row.original.mode === 'initial' ? 'badge-primary' : 'badge-warning')}>
+        {row.original.mode === 'initial' ? 'Initial inventory' : 'Physical count'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'productName',
+    header: 'Product',
+    size: 240,
+    cell: ({ row }) => (
+      <div>
+        <p className="font-medium text-secondary-900">{row.original.productName ?? 'Unknown product'}</p>
+        <p className="text-xs text-secondary-500">{row.original.productSku ?? 'No SKU'}</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'unitName',
+    header: 'Unit',
+    size: 140,
+    cell: ({ row }) => row.original.unitAbbreviation ?? row.original.unitName ?? '—',
+  },
+  {
+    accessorKey: 'quantity',
+    header: 'Counted Qty',
+    size: 110,
+  },
+  {
+    accessorKey: 'normalizedQuantity',
+    header: 'Normalized',
+    size: 120,
+  },
+  {
+    accessorKey: 'cost',
+    header: 'Cost',
+    size: 120,
+    cell: ({ row }) => formatCurrency(row.original.cost),
+  },
+  {
+    accessorKey: 'newStock',
+    header: 'Stock After',
+    size: 120,
+  },
+  {
+    accessorKey: 'notes',
+    header: 'Notes',
+    size: 220,
+    cell: ({ row }) => (
+      <span className="block max-w-[220px] truncate text-secondary-500">{row.original.notes || '—'}</span>
+    ),
+  },
+];
+
 function mapStockItemToAdjustmentProduct(product: InventoryStockItem): InventoryAdjustmentProduct {
   return {
     id: product.id,
@@ -242,6 +321,248 @@ function mapSearchSelectionToAdjustmentProduct(
   };
 }
 
+function getSearchDialogCopy(mode: SearchMode | null) {
+  if (mode === 'entry') {
+    return {
+      title: 'Select Product for Initial Inventory',
+      confirmLabel: 'Record Entry',
+    };
+  }
+
+  return {
+    title: 'Select Product for Adjustment',
+    confirmLabel: 'Adjust Product',
+  };
+}
+
+interface InventoryHeaderProps {
+  activeView: InventoryView;
+  canManage: boolean;
+  onViewChange: (view: InventoryView) => void;
+  onNewEntry: () => void;
+  onNewAdjustment: () => void;
+}
+
+function InventoryHeader({
+  activeView,
+  canManage,
+  onViewChange,
+  onNewEntry,
+  onNewAdjustment,
+}: InventoryHeaderProps) {
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold text-secondary-900">Inventory</h1>
+        <p className="mt-1 text-sm text-secondary-500">
+          Manage counted entries, physical counts, and stock visibility against the live catalog.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-secondary-200 bg-white p-1">
+          {(Object.keys(viewLabels) as InventoryView[]).map(view => (
+            <button
+              key={view}
+              className={cn(
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                activeView === view
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-secondary-600 hover:text-secondary-900'
+              )}
+              onClick={() => onViewChange(view)}
+            >
+              {viewLabels[view]}
+            </button>
+          ))}
+        </div>
+
+        <button
+          className="btn-secondary flex items-center gap-2"
+          onClick={onNewEntry}
+          disabled={!canManage}
+        >
+          <ClipboardList className="h-4 w-4" />
+          New Entry
+        </button>
+        <button
+          className="btn-primary flex items-center gap-2"
+          onClick={onNewAdjustment}
+          disabled={!canManage}
+        >
+          <Search className="h-4 w-4" />
+          New Adjustment
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface InventorySummaryProps {
+  isLoading: boolean;
+  totalUnits: number;
+  totalValue: number;
+  lowStockCount: number;
+  recentInbound: number;
+  recentOutbound: number;
+  entriesCount: number;
+  entriesLoading: boolean;
+  recentAdjustments: number;
+}
+
+function InventorySummaryCards({
+  isLoading,
+  totalUnits,
+  totalValue,
+  lowStockCount,
+  recentInbound,
+  recentOutbound,
+  entriesCount,
+  entriesLoading,
+  recentAdjustments,
+}: InventorySummaryProps) {
+  return (
+    <div className="grid gap-4 md:grid-cols-4">
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-primary-50 p-2">
+            <Boxes className="h-5 w-5 text-primary-600" />
+          </div>
+          <div>
+            <p className="text-sm text-secondary-500">Total Units</p>
+            <p className="text-2xl font-bold text-secondary-900">{isLoading ? '—' : totalUnits}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-success-50 p-2">
+            <ArrowDownCircle className="h-5 w-5 text-success-600" />
+          </div>
+          <div>
+            <p className="text-sm text-secondary-500">Inventory Value</p>
+            <p className="text-2xl font-bold text-secondary-900">
+              {isLoading ? '—' : formatCurrency(totalValue)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-warning-50 p-2">
+            <RefreshCw className="h-5 w-5 text-warning-600" />
+          </div>
+          <div>
+            <p className="text-sm text-secondary-500">Low Stock Items</p>
+            <p className="text-2xl font-bold text-danger-500">{isLoading ? '—' : lowStockCount}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-secondary-100 p-2">
+            <ClipboardList className="h-5 w-5 text-secondary-700" />
+          </div>
+          <div>
+            <p className="text-sm text-secondary-500">Recent Flow</p>
+            <p className="text-lg font-semibold text-secondary-900">
+              +{recentInbound} / -{recentOutbound}
+            </p>
+            <p className="mt-1 text-xs text-secondary-500">
+              {entriesLoading ? 'Loading entries…' : `${entriesCount} recent entries · ${recentAdjustments} adjustments`}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface InventoryDataPanelProps {
+  activeView: InventoryView;
+  movementsLoading: boolean;
+  movementsError: string | null;
+  stockLoading: boolean;
+  stockError: string | null;
+  entriesLoading: boolean;
+  entriesError: string | null;
+  movements: InventoryMovement[];
+  stockItems: InventoryStockItem[];
+  entries: InitialInventoryEntry[];
+  canManage: boolean;
+  onAdjust: (product: InventoryStockItem) => void;
+}
+
+function InventoryDataPanel({
+  activeView,
+  movementsLoading,
+  movementsError,
+  stockLoading,
+  stockError,
+  entriesLoading,
+  entriesError,
+  movements,
+  stockItems,
+  entries,
+  canManage,
+  onAdjust,
+}: InventoryDataPanelProps) {
+  return (
+    <div className="card p-6">
+      {activeView === 'movements' && (
+        <>
+          {movementsLoading && <p className="py-4 text-secondary-500">Loading inventory movements...</p>}
+          {movementsError && <p className="py-4 text-danger-500">{movementsError}</p>}
+          {!movementsLoading && !movementsError && (
+            <DataTable
+              columns={movementColumns}
+              data={movements}
+              searchKey="productName"
+              searchPlaceholder="Search movements by product..."
+              pageSize={10}
+            />
+          )}
+        </>
+      )}
+
+      {activeView === 'stock' && (
+        <>
+          {stockLoading && <p className="py-4 text-secondary-500">Loading stock balances...</p>}
+          {stockError && <p className="py-4 text-danger-500">{stockError}</p>}
+          {!stockLoading && !stockError && (
+            <DataTable
+              columns={getStockColumns(onAdjust, canManage)}
+              data={stockItems}
+              searchKey="name"
+              searchPlaceholder="Search stock by product..."
+              pageSize={10}
+            />
+          )}
+        </>
+      )}
+
+      {activeView === 'entries' && (
+        <>
+          {entriesLoading && <p className="py-4 text-secondary-500">Loading inventory entries...</p>}
+          {entriesError && <p className="py-4 text-danger-500">{entriesError}</p>}
+          {!entriesLoading && !entriesError && (
+            <DataTable
+              columns={entryColumns}
+              data={entries}
+              searchKey="productName"
+              searchPlaceholder="Search entries by product..."
+              pageSize={10}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function InventoryPage() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
@@ -250,10 +571,13 @@ export function InventoryPage() {
   const [activeView, setActiveView] = useState<InventoryView>('movements');
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
-  const [modalInstanceKey, setModalInstanceKey] = useState(0);
+  const [adjustmentModalKey, setAdjustmentModalKey] = useState(0);
+  const [entryModalKey, setEntryModalKey] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<InventoryAdjustmentProduct | null>(null);
+  const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const movementsQuery = trpc.inventory.listMovements.useQuery({
@@ -265,6 +589,10 @@ export function InventoryPage() {
     perPage: 100,
     categoryId: stockCategoryId || undefined,
     lowStockOnly,
+  });
+  const entriesQuery = trpc.inventory.listEntries.useQuery({
+    page: 1,
+    perPage: 50,
   });
 
   const adjustStockMutation = trpc.inventory.adjustStock.useMutation({
@@ -279,9 +607,23 @@ export function InventoryPage() {
     },
   });
 
+  const recordEntryMutation = trpc.inventory.recordEntry.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.inventory.listEntries.invalidate(),
+        utils.inventory.listMovements.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.products.list.invalidate(),
+      ]);
+      setEntrySelection(null);
+      setIsSearchOpen(false);
+    },
+  });
+
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
   const movements = (movementsQuery.data?.items ?? []) as InventoryMovement[];
   const stockItems = (stockQuery.data?.items ?? []) as InventoryStockItem[];
+  const entries = (entriesQuery.data?.items ?? []) as InitialInventoryEntry[];
   const stockSummary = stockQuery.data?.summary;
   const recentAdjustments = movements.filter(movement => movement.type === 'adjustment').length;
   const recentInbound = movements
@@ -293,10 +635,20 @@ export function InventoryPage() {
     .filter(delta => delta < 0)
     .reduce((sum, delta) => sum + Math.abs(delta), 0);
 
+  const openSearchDialog = (mode: SearchMode) => {
+    setSearchMode(mode);
+    setIsSearchOpen(true);
+  };
+
   const openAdjustmentModal = (product: InventoryAdjustmentProduct) => {
     setSelectedProduct(product);
-    setModalInstanceKey(current => current + 1);
+    setAdjustmentModalKey(current => current + 1);
     setIsAdjustmentModalOpen(true);
+  };
+
+  const openEntryModal = (selection: ProductSearchSelection) => {
+    setEntrySelection(selection);
+    setEntryModalKey(current => current + 1);
   };
 
   const handleAdjustmentSubmit = async (values: InventoryAdjustmentFormValues) => {
@@ -311,82 +663,51 @@ export function InventoryPage() {
     });
   };
 
+  const handleEntrySubmit = async (values: InventoryEntryFormValues) => {
+    if (!entrySelection) {
+      return;
+    }
+
+    await recordEntryMutation.mutateAsync({
+      productId: entrySelection.product.id,
+      unitId: entrySelection.unit.unitId,
+      mode: values.mode,
+      quantity: values.quantity,
+      cost: values.cost,
+      notes: values.notes || undefined,
+    });
+    setEntrySelection(null);
+  };
+
+  const searchDialogCopy = getSearchDialogCopy(searchMode);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Inventory</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            Review stock positions and record counted adjustments against the live catalog.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-secondary-200 bg-white p-1">
-            <button
-              className={cn(
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                activeView === 'movements'
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-secondary-600 hover:text-secondary-900'
-              )}
-              onClick={() => setActiveView('movements')}
-            >
-              Movements
-            </button>
-            <button
-              className={cn(
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                activeView === 'stock'
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-secondary-600 hover:text-secondary-900'
-              )}
-              onClick={() => setActiveView('stock')}
-            >
-              Stock Query
-            </button>
-          </div>
-
-          <button className="btn-primary flex items-center gap-2" onClick={() => setIsSearchOpen(true)} disabled={!canManage}>
-            <Search className="h-4 w-4" />
-            New Adjustment
-          </button>
-        </div>
-      </div>
+      <InventoryHeader
+        activeView={activeView}
+        canManage={canManage}
+        onViewChange={setActiveView}
+        onNewEntry={() => openSearchDialog('entry')}
+        onNewAdjustment={() => openSearchDialog('adjustment')}
+      />
 
       {!canManage && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Only administrators and managers can adjust stock. Movement and stock views remain available.
+          Only administrators and managers can record entries or adjust stock. Inventory views remain available.
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">Total Units</p>
-          <p className="mt-2 text-2xl font-bold text-secondary-900">
-            {stockQuery.isLoading ? '—' : stockSummary?.totalUnits ?? 0}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">Inventory Value</p>
-          <p className="mt-2 text-2xl font-bold text-secondary-900">
-            {stockQuery.isLoading ? '—' : formatCurrency(stockSummary?.totalValue ?? 0)}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">Low Stock Items</p>
-          <p className="mt-2 text-2xl font-bold text-danger-500">
-            {stockQuery.isLoading ? '—' : stockSummary?.lowStockCount ?? 0}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">Recent Flow</p>
-          <p className="mt-2 text-lg font-semibold text-secondary-900">
-            +{recentInbound} / -{recentOutbound}
-          </p>
-          <p className="mt-1 text-xs text-secondary-500">{recentAdjustments} recent adjustments</p>
-        </div>
-      </div>
+      <InventorySummaryCards
+        isLoading={stockQuery.isLoading}
+        totalUnits={stockSummary?.totalUnits ?? 0}
+        totalValue={stockSummary?.totalValue ?? 0}
+        lowStockCount={stockSummary?.lowStockCount ?? 0}
+        recentInbound={recentInbound}
+        recentOutbound={recentOutbound}
+        entriesCount={entries.length}
+        entriesLoading={entriesQuery.isLoading}
+        recentAdjustments={recentAdjustments}
+      />
 
       {activeView === 'stock' && (
         <div className="card p-4">
@@ -420,54 +741,44 @@ export function InventoryPage() {
         </div>
       )}
 
-      <div className="card p-6">
-        {activeView === 'movements' && (
-          <>
-            {movementsQuery.isLoading && <p className="py-4 text-secondary-500">Loading inventory movements...</p>}
-            {movementsQuery.error && <p className="py-4 text-danger-500">{movementsQuery.error.message}</p>}
-            {!movementsQuery.isLoading && !movementsQuery.error && (
-              <DataTable
-                columns={movementColumns}
-                data={movements}
-                searchKey="productName"
-                searchPlaceholder="Search movements by product..."
-                pageSize={10}
-              />
-            )}
-          </>
-        )}
-
-        {activeView === 'stock' && (
-          <>
-            {stockQuery.isLoading && <p className="py-4 text-secondary-500">Loading stock balances...</p>}
-            {stockQuery.error && <p className="py-4 text-danger-500">{stockQuery.error.message}</p>}
-            {!stockQuery.isLoading && !stockQuery.error && (
-              <DataTable
-                columns={getStockColumns(product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product)), canManage)}
-                data={stockItems}
-                searchKey="name"
-                searchPlaceholder="Search stock by product..."
-                pageSize={10}
-              />
-            )}
-          </>
-        )}
-      </div>
+      <InventoryDataPanel
+        activeView={activeView}
+        movementsLoading={movementsQuery.isLoading}
+        movementsError={movementsQuery.error?.message ?? null}
+        stockLoading={stockQuery.isLoading}
+        stockError={stockQuery.error?.message ?? null}
+        entriesLoading={entriesQuery.isLoading}
+        entriesError={entriesQuery.error?.message ?? null}
+        movements={movements}
+        stockItems={stockItems}
+        entries={entries}
+        canManage={canManage}
+        onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+      />
 
       <ProductSearchDialog
         isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
+        onClose={() => {
+          setIsSearchOpen(false);
+          setSearchMode(null);
+        }}
         categories={categories}
-        title="Select Product for Adjustment"
-        confirmLabel="Adjust Product"
+        title={searchDialogCopy.title}
+        confirmLabel={searchDialogCopy.confirmLabel}
         onSelect={selection => {
           setIsSearchOpen(false);
+
+          if (searchMode === 'entry') {
+            openEntryModal(selection);
+            return;
+          }
+
           openAdjustmentModal(mapSearchSelectionToAdjustmentProduct(selection));
         }}
       />
 
       <InventoryAdjustmentModal
-        key={`${selectedProduct?.id ?? 'inventory-adjustment'}-${modalInstanceKey}`}
+        key={`${selectedProduct?.id ?? 'inventory-adjustment'}-${adjustmentModalKey}`}
         isOpen={isAdjustmentModalOpen}
         product={selectedProduct}
         isSaving={adjustStockMutation.isPending}
@@ -479,8 +790,18 @@ export function InventoryPage() {
         onSubmit={handleAdjustmentSubmit}
       />
 
+      <InventoryEntryModal
+        key={`${entrySelection?.product.id ?? 'inventory-entry'}-${entryModalKey}`}
+        isOpen={!!entrySelection}
+        selection={entrySelection}
+        isSaving={recordEntryMutation.isPending}
+        error={recordEntryMutation.error?.message ?? null}
+        onClose={() => setEntrySelection(null)}
+        onSubmit={handleEntrySubmit}
+      />
+
       <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-        This inventory slice is tenant-wide. Site-level stock normalization is still pending, so adjustments and valuation currently reflect the shared product stock model.
+        Stock remains tenant-wide for now. Initial and physical inventory entries capture the counted unit and normalize it into the shared stock model, which avoids the legacy accumulation bug from the WinForms version.
       </div>
     </div>
   );

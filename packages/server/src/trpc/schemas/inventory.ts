@@ -14,6 +14,7 @@ import { paginationInput } from './common.js';
 // ============================================================================
 
 export const movementTypeEnum = z.enum(['purchase', 'sale', 'adjustment', 'transfer', 'return']);
+export const initialInventoryModeEnum = z.enum(['initial', 'physical']);
 
 // ============================================================================
 // Input Schemas
@@ -30,6 +31,11 @@ export const listStockInput = paginationInput.extend({
   search: z.string().trim().min(1).optional(),
   categoryId: z.string().min(1).optional(),
   lowStockOnly: z.boolean().optional(),
+});
+
+export const listEntriesInput = paginationInput.extend({
+  productId: z.string().optional(),
+  mode: initialInventoryModeEnum.optional(),
 });
 
 export const getMovementInput = z.object({
@@ -50,11 +56,22 @@ export const adjustStockInput = z.object({
   notes: z.string().optional(),
 });
 
+export const recordEntryInput = z.object({
+  productId: z.string().min(1, 'Product ID is required'),
+  unitId: z.string().min(1, 'Unit ID is required'),
+  mode: initialInventoryModeEnum,
+  quantity: z.number().positive('Quantity must be greater than zero'),
+  cost: z.number().min(0, 'Cost must be non-negative'),
+  notes: z.string().optional(),
+});
+
 export const productStockInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
 });
 
 export type ListMovementsInput = z.infer<typeof listMovementsInput>;
 export type ListStockInput = z.infer<typeof listStockInput>;
+export type ListEntriesInput = z.infer<typeof listEntriesInput>;
 export type CreateMovementInput = z.infer<typeof createMovementInput>;
 export type AdjustStockInput = z.infer<typeof adjustStockInput>;
+export type RecordEntryInput = z.infer<typeof recordEntryInput>;

@@ -21,6 +21,7 @@ export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as c
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
+export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 
 // ============================================================================
 // TENANTS
@@ -53,6 +54,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   customers: many(customers),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
+  initialInventoryEntries: many(initialInventory),
 }));
 
 // ============================================================================
@@ -87,6 +89,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
+  initialInventoryEntries: many(initialInventory),
 }));
 
 // ============================================================================
@@ -161,6 +164,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
     references: [companies.id],
   }),
   sequentials: many(sequentials),
+  initialInventoryEntries: many(initialInventory),
 }));
 
 // ============================================================================
@@ -411,6 +415,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   unitAssignments: many(unitXProduct),
   providerAssignments: many(productXProvider),
   inventoryMovements: many(inventoryMovements),
+  initialInventoryEntries: many(initialInventory),
 }));
 
 // ============================================================================
@@ -682,6 +687,71 @@ export const inventoryMovementsRelations = relations(inventoryMovements, ({ one 
 }));
 
 // ============================================================================
+// INITIAL INVENTORY
+// ============================================================================
+
+export const initialInventory = sqliteTable(
+  'initial_inventory',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    siteId: text('site_id').references(() => sites.id),
+    mode: text('mode', { enum: initialInventoryModeEnum }).notNull(),
+    quantity: real('quantity').notNull(),
+    unitEquivalence: real('unit_equivalence').notNull().default(1),
+    normalizedQuantity: integer('normalized_quantity').notNull(),
+    cost: real('cost').notNull().default(0),
+    previousStock: integer('previous_stock').notNull(),
+    newStock: integer('new_stock').notNull(),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_initial_inventory_tenant').on(table.tenantId),
+    index('idx_initial_inventory_product').on(table.productId),
+    index('idx_initial_inventory_unit').on(table.unitId),
+    index('idx_initial_inventory_site').on(table.siteId),
+    index('idx_initial_inventory_created_by').on(table.createdBy),
+  ]
+);
+
+export const initialInventoryRelations = relations(initialInventory, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [initialInventory.tenantId],
+    references: [tenants.id],
+  }),
+  product: one(products, {
+    fields: [initialInventory.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [initialInventory.unitId],
+    references: [units.id],
+  }),
+  site: one(sites, {
+    fields: [initialInventory.siteId],
+    references: [sites.id],
+  }),
+  createdByUser: one(users, {
+    fields: [initialInventory.createdBy],
+    references: [users.id],
+  }),
+}));
+
+// ============================================================================
 // SYNC QUEUE (Local operations waiting to be synced)
 // ============================================================================
 
@@ -796,6 +866,9 @@ export type NewSaleItem = typeof saleItems.$inferInsert;
 
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type NewInventoryMovement = typeof inventoryMovements.$inferInsert;
+
+export type InitialInventory = typeof initialInventory.$inferSelect;
+export type NewInitialInventory = typeof initialInventory.$inferInsert;
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;
