@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { companies, syncQueue } from '../../db/schema.js';
 import { upsertCompanyInput } from '../schemas/companies.js';
 
@@ -17,14 +17,7 @@ export const companiesRouter = router({
     return company ?? null;
   }),
 
-  upsert: tenantProcedure.input(upsertCompanyInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can update company settings',
-      });
-    }
-
+  upsert: adminProcedure.input(upsertCompanyInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const existing = await ctx.db
       .select()

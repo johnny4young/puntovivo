@@ -19,6 +19,7 @@ import { and, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { providers, syncQueue } from '../../db/schema.js';
 import {
   createProviderInput,
@@ -85,7 +86,7 @@ export const providersRouter = router({
     return provider;
   }),
 
-  create: tenantProcedure.input(createProviderInput).mutation(async ({ ctx, input }) => {
+  create: adminProcedure.input(createProviderInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
 
@@ -121,7 +122,7 @@ export const providersRouter = router({
     return created!;
   }),
 
-  update: tenantProcedure.input(updateProviderInput).mutation(async ({ ctx, input }) => {
+  update: adminProcedure.input(updateProviderInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -165,14 +166,7 @@ export const providersRouter = router({
     return updated!;
   }),
 
-  delete: tenantProcedure.input(deleteProviderInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete providers',
-      });
-    }
-
+  delete: adminProcedure.input(deleteProviderInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(providers)

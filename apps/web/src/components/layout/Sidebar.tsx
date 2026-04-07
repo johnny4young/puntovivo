@@ -18,6 +18,15 @@ import {
   Store,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/features/auth/AuthProvider';
+import {
+  adminOnlyRoles,
+  canAccessRole,
+  dashboardRoles,
+  managerOrAdminRoles,
+  salesRoles,
+} from '@/features/auth/roleAccess';
+import type { UserRole } from '@/types';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -25,23 +34,30 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Company', href: '/company', icon: Building },
-  { name: 'Sites', href: '/sites', icon: Store },
-  { name: 'Sequentials', href: '/sequentials', icon: FileDigit },
-  { name: 'Providers', href: '/providers', icon: Truck },
-  { name: 'Categories', href: '/categories', icon: FolderTree },
-  { name: 'Units', href: '/units', icon: Ruler },
-  { name: 'VAT Rates', href: '/vat-rates', icon: BadgePercent },
-  { name: 'Products', href: '/products', icon: Package },
-  { name: 'Purchases', href: '/purchases', icon: ShoppingBasket },
-  { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'Sales', href: '/sales', icon: ShoppingCart },
-  { name: 'Inventory', href: '/inventory', icon: Warehouse },
-  { name: 'Users', href: '/users', icon: Users },
-];
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, allowedRoles: dashboardRoles },
+  { name: 'Company', href: '/company', icon: Building, allowedRoles: adminOnlyRoles },
+  { name: 'Sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
+  { name: 'Sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
+  { name: 'Providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
+  { name: 'Categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
+  { name: 'Units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
+  { name: 'VAT Rates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
+  { name: 'Products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
+  { name: 'Purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
+  { name: 'Customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
+  { name: 'Sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
+  { name: 'Inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
+  { name: 'Users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
+] satisfies ReadonlyArray<{
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  allowedRoles: readonly UserRole[];
+}>;
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const { user } = useAuth();
+
   return (
     <aside
       className={cn(
@@ -68,24 +84,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex flex-col h-[calc(100vh-4rem)] justify-between p-4">
         <ul className="space-y-1">
-          {navigation.map(item => (
-            <li key={item.name}>
-              <NavLink
-                to={item.href}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
-                  )
-                }
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span>{item.name}</span>}
-              </NavLink>
-            </li>
-          ))}
+          {navigation
+            .filter(item => canAccessRole(user?.role, item.allowedRoles))
+            .map(item => (
+              <li key={item.name}>
+                <NavLink
+                  to={item.href}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
+                    )
+                  }
+                >
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.name}</span>}
+                </NavLink>
+              </li>
+            ))}
         </ul>
       </nav>
     </aside>

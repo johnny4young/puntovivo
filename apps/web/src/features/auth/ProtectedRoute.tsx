@@ -1,13 +1,16 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { ReactNode } from 'react';
+import type { UserRole } from '@/types';
+import { canAccessRole, getDefaultRouteForRole } from './roleAccess';
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  allowedRoles?: readonly UserRole[];
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -20,6 +23,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!canAccessRole(user?.role, allowedRoles)) {
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return <>{children}</>;

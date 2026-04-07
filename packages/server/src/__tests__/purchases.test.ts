@@ -25,7 +25,9 @@ let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 
-function createTestContext(): Context {
+function createTestContext(
+  role: 'admin' | 'manager' | 'cashier' = 'admin'
+): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
@@ -34,8 +36,8 @@ function createTestContext(): Context {
     },
     user: {
       userId,
-      email: 'admin@localhost',
-      role: 'admin',
+      email: `${role}@localhost`,
+      role,
       tenantId,
     },
     jwtVerify: async () => {},
@@ -49,8 +51,8 @@ function createTestContext(): Context {
     db,
     user: {
       id: userId,
-      email: 'admin@localhost',
-      role: 'admin',
+      email: `${role}@localhost`,
+      role,
       tenantId,
     },
     tenantId,
@@ -310,5 +312,19 @@ describe('Purchases tRPC Router', () => {
 
     const count = await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all();
     expect(count).toHaveLength(0);
+  });
+
+  it('allows managers and rejects cashiers on purchase routes', async () => {
+    const managerCaller = appRouter.createCaller(createTestContext('manager'));
+    const cashierCaller = appRouter.createCaller(createTestContext('cashier'));
+
+    const listed = await managerCaller.purchases.list({ page: 1, perPage: 10 });
+    expect(Array.isArray(listed.items)).toBe(true);
+
+    await expect(
+      cashierCaller.purchases.list({ page: 1, perPage: 10 })
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 });

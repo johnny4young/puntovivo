@@ -19,6 +19,7 @@ import { and, eq, like, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { syncQueue, vatRates } from '../../db/schema.js';
 import {
   createVatRateInput,
@@ -78,7 +79,7 @@ export const vatRatesRouter = router({
     return vatRate;
   }),
 
-  create: tenantProcedure.input(createVatRateInput).mutation(async ({ ctx, input }) => {
+  create: adminProcedure.input(createVatRateInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
 
@@ -109,7 +110,7 @@ export const vatRatesRouter = router({
     return created!;
   }),
 
-  update: tenantProcedure.input(updateVatRateInput).mutation(async ({ ctx, input }) => {
+  update: adminProcedure.input(updateVatRateInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -148,14 +149,7 @@ export const vatRatesRouter = router({
     return updated!;
   }),
 
-  delete: tenantProcedure.input(deleteVatRateInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete VAT rates',
-      });
-    }
-
+  delete: adminProcedure.input(deleteVatRateInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(vatRates)

@@ -17,6 +17,7 @@ import { and, asc, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { companies, sequentials, sites, syncQueue } from '../../db/schema.js';
 import { createSiteInput, deleteSiteInput, listSitesInput, updateSiteInput } from '../schemas/sites.js';
 
@@ -49,11 +50,7 @@ export const sitesRouter = router({
     };
   }),
 
-  create: tenantProcedure.input(createSiteInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can create sites' });
-    }
-
+  create: adminProcedure.input(createSiteInput).mutation(async ({ ctx, input }) => {
     const company = await ctx.db
       .select()
       .from(companies)
@@ -94,11 +91,7 @@ export const sitesRouter = router({
     return (await ctx.db.select().from(sites).where(eq(sites.id, id)).get())!;
   }),
 
-  update: tenantProcedure.input(updateSiteInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can update sites' });
-    }
-
+  update: adminProcedure.input(updateSiteInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -149,11 +142,7 @@ export const sitesRouter = router({
     return (await ctx.db.select().from(sites).where(eq(sites.id, id)).get())!;
   }),
 
-  delete: tenantProcedure.input(deleteSiteInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can delete sites' });
-    }
-
+  delete: adminProcedure.input(deleteSiteInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sites)

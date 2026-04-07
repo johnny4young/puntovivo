@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
-import { tenantProcedure } from '../middleware/tenant.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   inventoryMovements,
   products,
@@ -42,15 +42,6 @@ type PurchaseSequentialContext = {
   siteId: string;
   siteName: string;
 };
-
-function assertCanCreatePurchase(role: string | undefined) {
-  if (role !== 'admin' && role !== 'manager') {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Only administrators and managers can register purchases',
-    });
-  }
-}
 
 function getNormalizedPurchaseQuantity(quantity: number, equivalence: number) {
   const normalizedQuantity = quantity * equivalence;
@@ -271,7 +262,7 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
 }
 
 export const purchasesRouter = router({
-  list: tenantProcedure.input(listPurchasesInput).query(async ({ ctx, input }) => {
+  list: managerOrAdminProcedure.input(listPurchasesInput).query(async ({ ctx, input }) => {
     const { page, perPage, providerId, fromDate, toDate } = input;
     const offset = (page - 1) * perPage;
     const conditions = [eq(purchases.tenantId, ctx.tenantId)];
@@ -327,13 +318,11 @@ export const purchasesRouter = router({
     };
   }),
 
-  getById: tenantProcedure.input(getPurchaseInput).query(async ({ ctx, input }) => {
+  getById: managerOrAdminProcedure.input(getPurchaseInput).query(async ({ ctx, input }) => {
     return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
   }),
 
-  create: tenantProcedure.input(createPurchaseInput).mutation(async ({ ctx, input }) => {
-    assertCanCreatePurchase(ctx.user?.role);
-
+  create: managerOrAdminProcedure.input(createPurchaseInput).mutation(async ({ ctx, input }) => {
     await validateProvider(ctx.db, ctx.tenantId, input.providerId);
 
     const now = new Date().toISOString();

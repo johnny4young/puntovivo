@@ -19,6 +19,7 @@ import { eq, and, sql, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { customers, syncQueue } from '../../db/schema.js';
 import {
   listCustomersInput,
@@ -93,7 +94,7 @@ export const customersRouter = router({
   /**
    * Create a new customer
    */
-  create: tenantProcedure.input(createCustomerInput).mutation(async ({ ctx, input }) => {
+  create: managerOrAdminProcedure.input(createCustomerInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
 
@@ -142,7 +143,7 @@ export const customersRouter = router({
   /**
    * Update an existing customer
    */
-  update: tenantProcedure.input(updateCustomerInput).mutation(async ({ ctx, input }) => {
+  update: managerOrAdminProcedure.input(updateCustomerInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -203,14 +204,7 @@ export const customersRouter = router({
   /**
    * Delete a customer (admin only)
    */
-  delete: tenantProcedure.input(deleteCustomerInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete customers',
-      });
-    }
-
+  delete: adminProcedure.input(deleteCustomerInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(customers)

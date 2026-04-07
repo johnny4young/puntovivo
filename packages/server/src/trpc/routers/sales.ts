@@ -18,6 +18,7 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import {
   customers,
   inventoryMovements,
@@ -682,11 +683,7 @@ export const salesRouter = router({
   /**
    * Void a sale (admin only). Does NOT reverse inventory movements.
    */
-  void: tenantProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can void sales' });
-    }
-
+  void: adminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sales)

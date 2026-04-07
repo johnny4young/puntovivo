@@ -18,6 +18,20 @@ import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SalesPage } from '@/features/sales/SalesPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { UsersPage } from '@/features/users/UsersPage';
+import {
+  adminOnlyRoles,
+  dashboardRoles,
+  getDefaultRouteForRole,
+  managerOrAdminRoles,
+  salesRoles,
+} from '@/features/auth/roleAccess';
+import { useAuth } from '@/features/auth/AuthProvider';
+
+function HomeRedirect() {
+  const { user } = useAuth();
+
+  return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
+}
 
 function App() {
   return (
@@ -33,21 +47,119 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="company" element={<CompanyPage />} />
-            <Route path="sites" element={<SitesPage />} />
-            <Route path="sequentials" element={<SequentialsPage />} />
-            <Route path="providers" element={<ProvidersPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="units" element={<UnitsPage />} />
-            <Route path="vat-rates" element={<VatRatesPage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="purchases" element={<PurchasesPage />} />
-            <Route path="customers" element={<CustomersPage />} />
-            <Route path="sales" element={<SalesPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-            <Route path="users" element={<UsersPage />} />
+            <Route index element={<HomeRedirect />} />
+            <Route
+              path="dashboard"
+              element={
+                <ProtectedRoute allowedRoles={dashboardRoles}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="company"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <CompanyPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="sites"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <SitesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="sequentials"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <SequentialsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="providers"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <ProvidersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="categories"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <CategoriesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="units"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <UnitsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="vat-rates"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <VatRatesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="products"
+              element={
+                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="purchases"
+              element={
+                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                  <PurchasesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="customers"
+              element={
+                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="sales"
+              element={
+                <ProtectedRoute allowedRoles={salesRoles}>
+                  <SalesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="inventory"
+              element={
+                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <UsersPage />
+                </ProtectedRoute>
+              }
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
