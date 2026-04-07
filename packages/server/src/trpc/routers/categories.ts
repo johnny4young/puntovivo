@@ -19,6 +19,7 @@ import { eq, and, sql, like, isNull, asc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { categories, syncQueue } from '../../db/schema.js';
 import {
   listCategoriesInput,
@@ -156,7 +157,7 @@ export const categoriesRouter = router({
   /**
    * Create a new category
    */
-  create: tenantProcedure.input(createCategoryInput).mutation(async ({ ctx, input }) => {
+  create: adminProcedure.input(createCategoryInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
 
@@ -196,7 +197,7 @@ export const categoriesRouter = router({
   /**
    * Update an existing category
    */
-  update: tenantProcedure.input(updateCategoryInput).mutation(async ({ ctx, input }) => {
+  update: adminProcedure.input(updateCategoryInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -244,14 +245,7 @@ export const categoriesRouter = router({
   /**
    * Delete a category (admin only)
    */
-  delete: tenantProcedure.input(deleteCategoryInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete categories',
-      });
-    }
-
+  delete: adminProcedure.input(deleteCategoryInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(categories)

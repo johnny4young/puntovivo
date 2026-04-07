@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users } from '../db/schema.js';
@@ -10,15 +11,17 @@ let server: OpenYojobServer;
 let tenantId: string;
 let userId: string;
 
-function createTestContext(): Context {
+function createTestContext(
+  role: 'admin' | 'manager' | 'cashier' = 'admin'
+): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
     headers: {},
     user: {
       userId,
-      email: 'admin@localhost',
-      role: 'admin',
+      email: `${role}@localhost`,
+      role,
       tenantId,
     },
     jwtVerify: async () => {},
@@ -30,8 +33,8 @@ function createTestContext(): Context {
     db,
     user: {
       id: userId,
-      email: 'admin@localhost',
-      role: 'admin',
+      email: `${role}@localhost`,
+      role,
       tenantId,
     },
     tenantId,
@@ -93,5 +96,17 @@ describe('Users tRPC Router', () => {
     });
 
     expect(reset.success).toBe(true);
+  });
+
+  it('rejects non-admin user listing', async () => {
+    const caller = appRouter.createCaller(createTestContext('cashier'));
+
+    try {
+      await caller.users.list({ page: 1, perPage: 20 });
+      expect.unreachable('Should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(TRPCError);
+      expect((err as TRPCError).code).toBe('FORBIDDEN');
+    }
   });
 });

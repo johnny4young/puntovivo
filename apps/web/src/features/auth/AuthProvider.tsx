@@ -8,6 +8,7 @@ import {
   persistAuthSession,
   persistAuthToken,
 } from './authStorage';
+import { getDefaultRouteForRole } from './roleAccess';
 
 interface AuthContextType {
   user: User | null;
@@ -142,7 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(session.user);
       setTenant(session.tenant);
 
-      navigate('/dashboard');
+      navigate(getDefaultRouteForRole(session.user.role));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);

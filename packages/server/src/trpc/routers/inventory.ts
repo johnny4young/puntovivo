@@ -17,7 +17,7 @@ import { TRPCError } from '@trpc/server';
 import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
-import { tenantProcedure } from '../middleware/tenant.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   categories,
   initialInventory,
@@ -39,15 +39,6 @@ import {
   productStockInput,
   recordEntryInput,
 } from '../schemas/inventory.js';
-
-function assertCanManageInventory(role: string | undefined) {
-  if (role !== 'admin' && role !== 'manager') {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Only administrators and managers can adjust stock',
-    });
-  }
-}
 
 async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
   const product = await db
@@ -114,7 +105,7 @@ export const inventoryRouter = router({
   /**
    * List persisted initial/physical inventory entries.
    */
-  listEntries: tenantProcedure.input(listEntriesInput).query(async ({ ctx, input }) => {
+  listEntries: managerOrAdminProcedure.input(listEntriesInput).query(async ({ ctx, input }) => {
     const { page, perPage, productId, mode } = input;
     const offset = (page - 1) * perPage;
 
@@ -180,7 +171,7 @@ export const inventoryRouter = router({
   /**
    * List inventory movements for the current tenant
    */
-  listMovements: tenantProcedure.input(listMovementsInput).query(async ({ ctx, input }) => {
+  listMovements: managerOrAdminProcedure.input(listMovementsInput).query(async ({ ctx, input }) => {
     const { page, perPage, productId, type, fromDate, toDate } = input;
     const offset = (page - 1) * perPage;
 
@@ -241,7 +232,7 @@ export const inventoryRouter = router({
   /**
    * List current stock balances with valuation and low-stock metadata.
    */
-  listStock: tenantProcedure.input(listStockInput).query(async ({ ctx, input }) => {
+  listStock: managerOrAdminProcedure.input(listStockInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, categoryId, lowStockOnly } = input;
     const offset = (page - 1) * perPage;
 
@@ -323,7 +314,7 @@ export const inventoryRouter = router({
   /**
    * Get a single inventory movement by ID
    */
-  getMovement: tenantProcedure.input(getMovementInput).query(async ({ ctx, input }) => {
+  getMovement: managerOrAdminProcedure.input(getMovementInput).query(async ({ ctx, input }) => {
     const movement = await ctx.db
       .select()
       .from(inventoryMovements)
@@ -342,9 +333,7 @@ export const inventoryRouter = router({
   /**
    * Record an initial inventory or physical-count entry and update stock atomically.
    */
-  recordEntry: tenantProcedure.input(recordEntryInput).mutation(async ({ ctx, input }) => {
-    assertCanManageInventory(ctx.user?.role);
-
+  recordEntry: managerOrAdminProcedure.input(recordEntryInput).mutation(async ({ ctx, input }) => {
     const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
     const unitAssignment = await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
     const normalizedQuantity = getNormalizedInventoryQuantity(input.quantity, unitAssignment.equivalence);
@@ -473,7 +462,7 @@ export const inventoryRouter = router({
    * - For 'sale'/'transfer': subtracts quantity from stock
    * - For 'adjustment': treated as an add (use adjustStock for absolute set)
    */
-  createMovement: tenantProcedure.input(createMovementInput).mutation(async ({ ctx, input }) => {
+  createMovement: managerOrAdminProcedure.input(createMovementInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
 
     // Validate product belongs to tenant
@@ -561,9 +550,7 @@ export const inventoryRouter = router({
    * Set a product's stock to an absolute value (admin only).
    * Creates an 'adjustment' movement record.
    */
-  adjustStock: tenantProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
-    assertCanManageInventory(ctx.user?.role);
-
+  adjustStock: managerOrAdminProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
     const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
 
     const now = new Date().toISOString();
@@ -627,7 +614,7 @@ export const inventoryRouter = router({
   /**
    * Get current stock level for a product
    */
-  productStock: tenantProcedure.input(productStockInput).query(async ({ ctx, input }) => {
+  productStock: managerOrAdminProcedure.input(productStockInput).query(async ({ ctx, input }) => {
     const product = await ctx.db
       .select({
         id: products.id,

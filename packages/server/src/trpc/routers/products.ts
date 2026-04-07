@@ -19,6 +19,7 @@ import { eq, and, sql, like, or, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   categories,
   products,
@@ -554,7 +555,7 @@ export const productsRouter = router({
   /**
    * Create a new product
    */
-  create: tenantProcedure.input(createProductInput).mutation(async ({ ctx, input }) => {
+  create: managerOrAdminProcedure.input(createProductInput).mutation(async ({ ctx, input }) => {
     const existingSku = await ctx.db
       .select({ id: products.id })
       .from(products)
@@ -665,7 +666,7 @@ export const productsRouter = router({
   /**
    * Update an existing product
    */
-  update: tenantProcedure.input(updateProductInput).mutation(async ({ ctx, input }) => {
+  update: managerOrAdminProcedure.input(updateProductInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -791,14 +792,7 @@ export const productsRouter = router({
   /**
    * Delete a product (admin only)
    */
-  delete: tenantProcedure.input(deleteProductInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete products',
-      });
-    }
-
+  delete: adminProcedure.input(deleteProductInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(products)

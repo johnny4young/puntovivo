@@ -3,7 +3,7 @@ import { and, eq, like, or, sql } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
-import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { syncQueue, users } from '../../db/schema.js';
 import {
   createUserInput,
@@ -12,19 +12,8 @@ import {
   updateUserInput,
 } from '../schemas/users.js';
 
-function assertAdmin(role: string) {
-  if (role !== 'admin') {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Only administrators can manage users',
-    });
-  }
-}
-
 export const usersRouter = router({
-  list: tenantProcedure.input(listUsersInput).query(async ({ ctx, input }) => {
-    assertAdmin(ctx.user!.role);
-
+  list: adminProcedure.input(listUsersInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, isActive } = input;
     const offset = (page - 1) * perPage;
 
@@ -70,9 +59,7 @@ export const usersRouter = router({
     };
   }),
 
-  create: tenantProcedure.input(createUserInput).mutation(async ({ ctx, input }) => {
-    assertAdmin(ctx.user!.role);
-
+  create: adminProcedure.input(createUserInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db.select().from(users).where(eq(users.email, input.email)).get();
     if (existing) {
       throw new TRPCError({
@@ -127,9 +114,7 @@ export const usersRouter = router({
     )!;
   }),
 
-  update: tenantProcedure.input(updateUserInput).mutation(async ({ ctx, input }) => {
-    assertAdmin(ctx.user!.role);
-
+  update: adminProcedure.input(updateUserInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
     const existing = await ctx.db
       .select()
@@ -197,11 +182,9 @@ export const usersRouter = router({
     )!;
   }),
 
-  resetPassword: tenantProcedure
+  resetPassword: adminProcedure
     .input(resetUserPasswordInput)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.user!.role);
-
       const existing = await ctx.db
         .select()
         .from(users)

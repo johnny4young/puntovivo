@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { adminProcedure } from '../middleware/roles.js';
 import { sequentials, sites, syncQueue } from '../../db/schema.js';
 import {
   deleteSequentialInput,
@@ -43,14 +44,7 @@ export const sequentialsRouter = router({
     return { items };
   }),
 
-  upsert: tenantProcedure.input(upsertSequentialInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can update sequential settings',
-      });
-    }
-
+  upsert: adminProcedure.input(upsertSequentialInput).mutation(async ({ ctx, input }) => {
     const site = await ctx.db
       .select()
       .from(sites)
@@ -127,14 +121,7 @@ export const sequentialsRouter = router({
     return (await ctx.db.select().from(sequentials).where(eq(sequentials.id, id)).get())!;
   }),
 
-  delete: tenantProcedure.input(deleteSequentialInput).mutation(async ({ ctx, input }) => {
-    if (ctx.user!.role !== 'admin') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Only administrators can delete sequential settings',
-      });
-    }
-
+  delete: adminProcedure.input(deleteSequentialInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sequentials)
