@@ -31,6 +31,18 @@ export interface TenantSettings {
   theme?: 'light' | 'dark' | 'system';
 }
 
+export interface Site {
+  id: string;
+  tenantId: string;
+  companyId: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

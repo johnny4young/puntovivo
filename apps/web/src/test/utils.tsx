@@ -2,7 +2,7 @@ import { ReactElement, ReactNode } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import type { User, Tenant, TenantSettings, Product, Customer, Sale, SaleItem } from '@/types';
+import type { User, Tenant, TenantSettings, Product, Customer, Sale, SaleItem, Site } from '@/types';
 
 // ============================================================================
 // Test Query Client
@@ -59,7 +59,10 @@ export function createMockAuthContext(
 export interface MockTenantContextValue {
   currentTenant: Tenant | null;
   tenantSettings: TenantSettings | null;
-  switchTenant: (tenantId: string) => Promise<void>;
+  sites: Site[];
+  currentSite: Site | null;
+  isLoadingSites: boolean;
+  switchSite: (siteId: string) => Promise<void>;
 }
 
 export function createMockTenantContext(
@@ -69,7 +72,10 @@ export function createMockTenantContext(
   return {
     currentTenant: tenant,
     tenantSettings: tenant.settings,
-    switchTenant: async () => {},
+    sites: [],
+    currentSite: null,
+    isLoadingSites: false,
+    switchSite: async () => {},
     ...overrides,
   };
 }
