@@ -14,18 +14,341 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { sales, saleItems, products, inventoryMovements, syncQueue } from '../../db/schema.js';
 import {
-  listSalesInput,
-  getSaleInput,
+  customers,
+  inventoryMovements,
+  products,
+  saleItems,
+  sales,
+  sequentials,
+  sites,
+  syncQueue,
+  unitXProduct,
+  units,
+} from '../../db/schema.js';
+import type { Context } from '../context.js';
+import {
   createSaleInput,
+  getSaleInput,
+  listSalesInput,
   updateSaleInput,
   voidSaleInput,
 } from '../schemas/sales.js';
+import type { CreateSaleInput } from '../schemas/sales.js';
+
+type ResolvedSaleItem = {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  unitId: string;
+  unitEquivalence: number;
+  discount: number;
+  taxRate: number;
+  taxAmount: number;
+  costAtSale: number;
+  total: number;
+  normalizedQuantity: number;
+};
+
+type SaleSequentialContext = {
+  id: string;
+  prefix: string;
+  currentValue: number;
+  siteId: string;
+  siteName: string;
+};
+
+function getNormalizedSaleQuantity(quantity: number, equivalence: number) {
+  const normalizedQuantity = quantity * equivalence;
+
+  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'The selected quantity must resolve to a positive stock quantity',
+    });
+  }
+
+  if (!Number.isInteger(normalizedQuantity)) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'The selected quantity and unit equivalence must resolve to a whole stock quantity',
+    });
+  }
+
+  return normalizedQuantity;
+}
+
+function getPaymentStatus({
+  amountReceived,
+  paymentMethod,
+  requestedStatus,
+  total,
+}: {
+  amountReceived: number | undefined;
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  requestedStatus: 'pending' | 'paid' | 'partial' | 'refunded';
+  total: number;
+}) {
+  if (paymentMethod === 'credit') {
+    return requestedStatus;
+  }
+
+  if (amountReceived === undefined) {
+    return requestedStatus;
+  }
+
+  if (amountReceived >= total) {
+    return 'paid' as const;
+  }
+
+  if (amountReceived > 0) {
+    return 'partial' as const;
+  }
+
+  return requestedStatus;
+}
+
+async function getSaleSequentialContext(
+  db: Context['db'],
+  tenantId: string,
+  siteId: string | null
+): Promise<SaleSequentialContext> {
+  const baseConditions = [
+    eq(sequentials.tenantId, tenantId),
+    eq(sequentials.documentType, 'sale'),
+    eq(sites.isActive, true),
+  ];
+
+  if (siteId) {
+    const siteScopedSequential = await db
+      .select({
+        id: sequentials.id,
+        prefix: sequentials.prefix,
+        currentValue: sequentials.currentValue,
+        siteId: sequentials.siteId,
+        siteName: sites.name,
+      })
+      .from(sequentials)
+      .innerJoin(sites, eq(sequentials.siteId, sites.id))
+      .where(and(...baseConditions, eq(sequentials.siteId, siteId)))
+      .get();
+
+    if (siteScopedSequential) {
+      return siteScopedSequential;
+    }
+  }
+
+  const fallbackSequential = await db
+    .select({
+      id: sequentials.id,
+      prefix: sequentials.prefix,
+      currentValue: sequentials.currentValue,
+      siteId: sequentials.siteId,
+      siteName: sites.name,
+    })
+    .from(sequentials)
+    .innerJoin(sites, eq(sequentials.siteId, sites.id))
+    .where(and(...baseConditions))
+    .orderBy(asc(sites.name))
+    .get();
+
+  if (!fallbackSequential) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'No active sale sequential is configured for the current tenant',
+    });
+  }
+
+  return fallbackSequential;
+}
+
+async function validateCustomer(
+  db: Context['db'],
+  tenantId: string,
+  customerId: string | undefined
+) {
+  if (!customerId) {
+    return;
+  }
+
+  const customer = await db
+    .select({ id: customers.id, isActive: customers.isActive })
+    .from(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .get();
+
+  if (!customer || customer.isActive === false) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Selected customer was not found or is inactive',
+    });
+  }
+}
+
+async function resolveSaleItems(
+  db: Context['db'],
+  tenantId: string,
+  inputItems: CreateSaleInput['items']
+) {
+  const productIds = [...new Set(inputItems.map(item => item.productId))];
+  const productRows = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
+    .all();
+  const productMap = new Map(productRows.map(product => [product.id, product]));
+
+  const unitAssignments = await db
+    .select({
+      productId: unitXProduct.productId,
+      unitId: unitXProduct.unitId,
+      equivalence: unitXProduct.equivalence,
+      unitName: units.name,
+      unitAbbreviation: units.abbreviation,
+      isActive: units.isActive,
+    })
+    .from(unitXProduct)
+    .innerJoin(units, eq(unitXProduct.unitId, units.id))
+    .where(inArray(unitXProduct.productId, productIds))
+    .all();
+
+  const assignmentMap = new Map(
+    unitAssignments.map(assignment => [`${assignment.productId}:${assignment.unitId}`, assignment])
+  );
+  const remainingStockByProduct = new Map(productRows.map(product => [product.id, product.stock]));
+
+  let subtotal = 0;
+  let taxAmount = 0;
+
+  const rows: ResolvedSaleItem[] = [];
+
+  for (const item of inputItems) {
+    const product = productMap.get(item.productId);
+
+    if (!product || product.isActive === false) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `Product ${item.productId} was not found or is inactive`,
+      });
+    }
+
+    const assignment = assignmentMap.get(`${item.productId}:${item.unitId}`);
+    if (!assignment || assignment.isActive === false) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Unit selection is invalid for product "${product.name}"`,
+      });
+    }
+
+    const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, assignment.equivalence);
+    const remainingStock = remainingStockByProduct.get(item.productId) ?? product.stock;
+
+    if (remainingStock < normalizedQuantity) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: `Insufficient stock for product "${product.name}". Available: ${remainingStock}, requested: ${normalizedQuantity}`,
+      });
+    }
+
+    remainingStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
+
+    const grossAmount = item.unitPrice * item.quantity;
+    const discountAmount = grossAmount * (item.discount / 100);
+    const lineTotal = grossAmount - discountAmount;
+    const taxRate = item.taxRate ?? product.taxRate ?? 0;
+    const lineBase = taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal;
+    const lineTax = lineTotal - lineBase;
+
+    subtotal += lineBase;
+    taxAmount += lineTax;
+
+    rows.push({
+      id: nanoid(),
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      unitId: item.unitId,
+      unitEquivalence: assignment.equivalence,
+      discount: item.discount,
+      taxRate,
+      taxAmount: lineTax,
+      costAtSale: product.cost,
+      total: lineTotal,
+      normalizedQuantity,
+    });
+  }
+
+  return {
+    productStocks: new Map(productRows.map(product => [product.id, product.stock])),
+    subtotal,
+    taxAmount,
+    rows,
+  };
+}
+
+async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string) {
+  const sale = await db
+    .select({
+      id: sales.id,
+      tenantId: sales.tenantId,
+      saleNumber: sales.saleNumber,
+      customerId: sales.customerId,
+      customerName: customers.name,
+      subtotal: sales.subtotal,
+      taxAmount: sales.taxAmount,
+      discountAmount: sales.discountAmount,
+      total: sales.total,
+      paymentMethod: sales.paymentMethod,
+      paymentStatus: sales.paymentStatus,
+      status: sales.status,
+      notes: sales.notes,
+      createdBy: sales.createdBy,
+      syncStatus: sales.syncStatus,
+      syncVersion: sales.syncVersion,
+      createdAt: sales.createdAt,
+      updatedAt: sales.updatedAt,
+    })
+    .from(sales)
+    .leftJoin(customers, eq(sales.customerId, customers.id))
+    .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+    .get();
+
+  if (!sale) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+  }
+
+  const items = await db
+    .select({
+      id: saleItems.id,
+      saleId: saleItems.saleId,
+      productId: saleItems.productId,
+      productName: products.name,
+      productSku: products.sku,
+      quantity: saleItems.quantity,
+      unitPrice: saleItems.unitPrice,
+      unitId: saleItems.unitId,
+      unitEquivalence: saleItems.unitEquivalence,
+      unitName: units.name,
+      unitAbbreviation: units.abbreviation,
+      discount: saleItems.discount,
+      taxRate: saleItems.taxRate,
+      taxAmount: saleItems.taxAmount,
+      costAtSale: saleItems.costAtSale,
+      total: saleItems.total,
+    })
+    .from(saleItems)
+    .leftJoin(products, eq(saleItems.productId, products.id))
+    .leftJoin(units, eq(saleItems.unitId, units.id))
+    .where(eq(saleItems.saleId, saleId))
+    .all();
+
+  return { ...sale, items };
+}
 
 export const salesRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
@@ -94,7 +417,34 @@ export const salesRouter = router({
     const where = and(...conditions);
 
     const [items, countResult] = await Promise.all([
-      ctx.db.select().from(sales).where(where).limit(perPage).offset(offset).all(),
+      ctx.db
+        .select({
+          id: sales.id,
+          tenantId: sales.tenantId,
+          saleNumber: sales.saleNumber,
+          customerId: sales.customerId,
+          customerName: customers.name,
+          subtotal: sales.subtotal,
+          taxAmount: sales.taxAmount,
+          discountAmount: sales.discountAmount,
+          total: sales.total,
+          paymentMethod: sales.paymentMethod,
+          paymentStatus: sales.paymentStatus,
+          status: sales.status,
+          notes: sales.notes,
+          createdBy: sales.createdBy,
+          syncStatus: sales.syncStatus,
+          syncVersion: sales.syncVersion,
+          createdAt: sales.createdAt,
+          updatedAt: sales.updatedAt,
+        })
+        .from(sales)
+        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .where(where)
+        .orderBy(desc(sales.createdAt))
+        .limit(perPage)
+        .offset(offset)
+        .all(),
       ctx.db
         .select({ count: sql<number>`count(*)` })
         .from(sales)
@@ -117,108 +467,65 @@ export const salesRouter = router({
    * Get a single sale with its line items
    */
   getById: tenantProcedure.input(getSaleInput).query(async ({ ctx, input }) => {
-    const sale = await ctx.db
-      .select()
-      .from(sales)
-      .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!sale) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
-    }
-
-    const items = await ctx.db.select().from(saleItems).where(eq(saleItems.saleId, input.id)).all();
-
-    return { ...sale, items };
+    return getSaleRecord(ctx.db, ctx.tenantId, input.id);
   }),
 
   /**
    * Create a sale with items in a single transaction.
    *
-   * - Calculates subtotal, taxAmount, total from items
-   * - Decrements product stock for each item
-   * - Creates inventory_movement records (type: 'sale')
-   * - Adds to sync queue
+   * - Extracts VAT from VAT-inclusive prices
+   * - Persists unit snapshots for every line
+   * - Decrements product stock using normalized quantities
+   * - Creates inventory movements and advances the site sequential
    */
   create: tenantProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const saleId = nanoid();
 
-    // Generate sale number: count existing sales for this tenant + 1
-    const countResult = await ctx.db
-      .select({ count: sql<number>`count(*)` })
-      .from(sales)
-      .where(eq(sales.tenantId, ctx.tenantId))
-      .get();
-    const saleNumber = `SALE-${String((countResult?.count ?? 0) + 1).padStart(6, '0')}`;
+    await validateCustomer(ctx.db, ctx.tenantId, input.customerId);
 
-    // Pre-fetch all products to calculate totals and validate stock
-    const productRows = await ctx.db
-      .select()
-      .from(products)
-      .where(eq(products.tenantId, ctx.tenantId))
-      .all();
-    const productMap = new Map(productRows.map(p => [p.id, p]));
-
-    for (const item of input.items) {
-      const product = productMap.get(item.productId);
-      if (!product) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `Product ${item.productId} not found`,
-        });
-      }
-      if (product.stock < item.quantity) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Insufficient stock for product "${product.name}". Available: ${product.stock}, requested: ${item.quantity}`,
-        });
-      }
+    const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
+    const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, input.items);
+    const subtotal = resolvedItems.subtotal;
+    const taxAmount = resolvedItems.taxAmount;
+    const total = subtotal + taxAmount - (input.discountAmount ?? 0);
+    if (total < 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Discount amount cannot exceed the sale total',
+      });
     }
+    const paymentStatus = getPaymentStatus({
+      amountReceived: input.amountReceived,
+      paymentMethod: input.paymentMethod,
+      requestedStatus: input.paymentStatus,
+      total,
+    });
+    const change =
+      input.amountReceived !== undefined && input.amountReceived > total
+        ? input.amountReceived - total
+        : 0;
 
-    // Calculate totals
-    let subtotal = 0;
-    let taxAmount = 0;
-    const itemRows: Array<{
-      id: string;
-      saleId: string;
-      productId: string;
-      quantity: number;
-      unitPrice: number;
-      discount: number;
-      taxRate: number;
-      taxAmount: number;
-      total: number;
-    }> = [];
-
-    for (const item of input.items) {
-      const lineSubtotal = item.unitPrice * item.quantity;
-      const lineDiscount = lineSubtotal * (item.discount / 100);
-      const lineAfterDiscount = lineSubtotal - lineDiscount;
-      const lineTax = lineAfterDiscount * (item.taxRate / 100);
-      const lineTotal = lineAfterDiscount + lineTax;
-
-      subtotal += lineAfterDiscount;
-      taxAmount += lineTax;
-
-      itemRows.push({
-        id: nanoid(),
-        saleId,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        taxRate: item.taxRate,
-        taxAmount: lineTax,
-        total: lineTotal,
+    if (input.amountReceived !== undefined && paymentStatus === 'paid' && input.amountReceived < total) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Amount received cannot be less than the sale total for a paid sale',
       });
     }
 
-    const total = subtotal + taxAmount - (input.discountAmount ?? 0);
+    const nextSequentialValue = sequentialContext.currentValue + 1;
+    const saleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+    const productStockState = new Map(resolvedItems.productStocks);
 
-    // Execute everything in a transaction (better-sqlite3 requires a synchronous callback)
     ctx.db.transaction(tx => {
-      // Insert sale
+      tx.update(sequentials)
+        .set({
+          currentValue: nextSequentialValue,
+          updatedAt: now,
+        })
+        .where(eq(sequentials.id, sequentialContext.id))
+        .run();
+
       tx.insert(sales)
         .values({
           id: saleId,
@@ -230,7 +537,7 @@ export const salesRouter = router({
           discountAmount: input.discountAmount ?? 0,
           total,
           paymentMethod: input.paymentMethod,
-          paymentStatus: input.paymentStatus,
+          paymentStatus,
           status: input.status,
           notes: input.notes,
           createdBy: ctx.user!.id,
@@ -241,37 +548,50 @@ export const salesRouter = router({
         })
         .run();
 
-      // Insert sale items
-      for (const row of itemRows) {
-        tx.insert(saleItems).values(row).run();
-      }
+      for (const row of resolvedItems.rows) {
+        tx.insert(saleItems)
+          .values({
+            id: row.id,
+            saleId,
+            productId: row.productId,
+            quantity: row.quantity,
+            unitPrice: row.unitPrice,
+            unitId: row.unitId,
+            unitEquivalence: row.unitEquivalence,
+            discount: row.discount,
+            taxRate: row.taxRate,
+            taxAmount: row.taxAmount,
+            costAtSale: row.costAtSale,
+            total: row.total,
+          })
+          .run();
 
-      // Decrement stock and create inventory movements
-      for (const item of input.items) {
-        const product = productMap.get(item.productId)!;
-        const newStock = product.stock - item.quantity;
+        const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
+        const newStock = effectivePreviousStock - row.normalizedQuantity;
+
+        productStockState.set(row.productId, newStock);
 
         tx.update(products)
           .set({
             stock: newStock,
             syncStatus: 'pending',
-            syncVersion: (product.syncVersion ?? 0) + 1,
+            syncVersion: sql`${products.syncVersion} + 1`,
             updatedAt: now,
           })
-          .where(eq(products.id, item.productId))
+          .where(eq(products.id, row.productId))
           .run();
 
         tx.insert(inventoryMovements)
           .values({
             id: nanoid(),
             tenantId: ctx.tenantId,
-            productId: item.productId,
+            productId: row.productId,
             type: 'sale',
-            quantity: item.quantity,
-            previousStock: product.stock,
+            quantity: row.normalizedQuantity,
+            previousStock: effectivePreviousStock,
             newStock,
             reference: saleId,
-            notes: `Sale ${saleNumber}`,
+            notes: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
             createdBy: ctx.user!.id,
             syncStatus: 'pending',
             syncVersion: 1,
@@ -280,7 +600,6 @@ export const salesRouter = router({
           .run();
       }
 
-      // Add sale to sync queue
       tx.insert(syncQueue)
         .values({
           id: nanoid(),
@@ -288,7 +607,13 @@ export const salesRouter = router({
           entityType: 'sales',
           entityId: saleId,
           operation: 'create',
-          data: { id: saleId, saleNumber, total },
+          data: {
+            id: saleId,
+            saleNumber,
+            total,
+            siteId: sequentialContext.siteId,
+            paymentStatus,
+          },
           localVersion: 1,
           attempts: 0,
           createdAt: now,
@@ -296,15 +621,12 @@ export const salesRouter = router({
         .run();
     });
 
-    const created = await ctx.db.select().from(sales).where(eq(sales.id, saleId)).get();
+    const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
 
-    const createdItems = await ctx.db
-      .select()
-      .from(saleItems)
-      .where(eq(saleItems.saleId, saleId))
-      .all();
-
-    return { ...created!, items: createdItems };
+    return {
+      ...created,
+      change,
+    };
   }),
 
   /**
