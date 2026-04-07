@@ -506,6 +506,10 @@ export const customers = sqliteTable(
     postalCode: text('postal_code'),
     country: text('country'),
     taxId: text('tax_id'),
+    identificationTypeId: text('identification_type_id'),
+    personTypeId: text('person_type_id'),
+    regimeTypeId: text('regime_type_id'),
+    clientTypeId: text('client_type_id'),
     notes: text('notes'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     // Sync fields

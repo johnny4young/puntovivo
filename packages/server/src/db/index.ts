@@ -323,6 +323,10 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       postal_code TEXT,
       country TEXT,
       tax_id TEXT,
+      identification_type_id TEXT,
+      person_type_id TEXT,
+      regime_type_id TEXT,
+      client_type_id TEXT,
       notes TEXT,
       is_active INTEGER DEFAULT 1,
       sync_status TEXT DEFAULT 'pending',
@@ -448,6 +452,10 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'products', 'provider_id', 'provider_id TEXT');
   ensureColumn(client, 'products', 'location_id', 'location_id TEXT');
   ensureColumn(client, 'products', 'initial_cost', 'initial_cost REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'customers', 'identification_type_id', 'identification_type_id TEXT');
+  ensureColumn(client, 'customers', 'person_type_id', 'person_type_id TEXT');
+  ensureColumn(client, 'customers', 'regime_type_id', 'regime_type_id TEXT');
+  ensureColumn(client, 'customers', 'client_type_id', 'client_type_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
