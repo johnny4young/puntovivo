@@ -12,11 +12,12 @@
     }
   },
   "scripts": {
+    "native:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
     "build": "tsc",
     "dev": "tsx watch src/standalone.ts",
     "start": "node dist/standalone.js",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "npm run native:node && vitest run",
+    "test:watch": "npm run native:node && vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --check \"src/**/*.ts\"",
     "format:fix": "prettier --write \"src/**/*.ts\"",

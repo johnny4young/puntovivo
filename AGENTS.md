@@ -38,16 +38,16 @@ Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebu
 If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime too:
 
 ```
-npm rebuild better-sqlite3
+node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```
 
 ## Architecture landmine: embedded backend
 
 The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@open-yojob/server` directly. Do not assume a separate server process exists.
 
-## tRPC is installed but not the primary transport
+## tRPC is the primary transport
 
-`@trpc/server` and `@trpc/client` v11.9 are in dependencies but the app still primarily uses REST + SSE. Docs claim "Phase 1 Complete" but migration is incomplete. Do not refactor REST routes to tRPC without confirming current state.
+`/api/trpc` is the canonical application API. `/api/health` remains as a compatibility health endpoint and `/api/realtime/*` remains for SSE. Do not reintroduce new REST route docs or code paths for auth, collections, or sync.
 
 ## Stale files — do not rely on
 

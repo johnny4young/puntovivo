@@ -224,9 +224,9 @@ curl -X POST http://localhost:8090/api/trpc/products.create \
 
 1. Get the token from the login endpoint first:
    ```bash
-   curl -X POST http://localhost:8090/api/auth/login \
+   curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
      -H "Content-Type: application/json" \
-      -d '{"email":"admin@localhost","password":"<your-generated-password>"}'
+      -d '{"0":{"json":{"email":"admin@localhost","password":"<your-generated-password>"}}}'
    ```
 2. For **queries** (GET): Add header `Authorization: **\*\***
 3. For **mutations** (POST): Add header `Authorization: **\*\***

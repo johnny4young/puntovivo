@@ -16,7 +16,7 @@
  * @module realtime/sse
  */
 
-import { FastifyReply, FastifyPluginCallback } from 'fastify';
+import { FastifyReply, FastifyPluginCallback, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
 /**
@@ -184,7 +184,17 @@ function generateClientId(): string {
  * Fastify plugin for SSE support
  */
 const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
-  const manager = new SseManager();
+const manager = new SseManager();
+
+async function resolveTenantId(request: FastifyRequest): Promise<string | null> {
+  try {
+    await request.jwtVerify();
+    const payload = request.user as { tenantId?: unknown };
+    return typeof payload.tenantId === 'string' ? payload.tenantId : null;
+  } catch {
+    return null;
+  }
+}
 
   // Decorate fastify instance with SSE manager
   fastify.decorate('sse', manager);
@@ -204,6 +214,7 @@ const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
     handler: async (request, reply) => {
       const clientId = generateClientId();
       const collections = request.query.collections?.split(',').map(c => c.trim()) || [];
+      const tenantId = await resolveTenantId(request);
 
       // Set SSE headers
       reply.raw.writeHead(200, {
@@ -230,7 +241,7 @@ const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
         id: clientId,
         reply,
         collections,
-        tenantId: request.tenantId,
+        tenantId,
         connectedAt: new Date(),
       };
       manager.addClient(client);

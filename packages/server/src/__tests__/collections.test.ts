@@ -134,7 +134,9 @@ describe('Collections tRPC Routers', () => {
   });
 
   afterAll(async () => {
-    await server.close();
+    if (server) {
+      await server.close();
+    }
   });
 
   // ============================================================================
