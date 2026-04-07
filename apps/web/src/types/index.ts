@@ -195,8 +195,8 @@ export interface Category {
   id: string;
   tenantId: string;
   name: string;
-  description?: string;
-  parentId?: string;
+  description?: string | null;
+  parentId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

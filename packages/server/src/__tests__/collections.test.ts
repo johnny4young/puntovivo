@@ -214,6 +214,19 @@ describe('Collections tRPC Routers', () => {
         expect(result.tenantId).toBe(testTenantId);
         expect(result.parentId).toBeNull();
       });
+
+      it('rejects unknown parent categories', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+
+        await expect(
+          caller.categories.create({
+            name: 'Child',
+            parentId: 'missing-parent-id',
+          })
+        ).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+      });
     });
 
     describe('categories.update', () => {
@@ -227,6 +240,38 @@ describe('Collections tRPC Routers', () => {
 
         expect(updated.id).toBe(created.id);
         expect(updated.name).toBe('After Update');
+      });
+
+      it('rejects self-referential category parents', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const created = await caller.categories.create({ name: 'Self Parent' });
+
+        await expect(
+          caller.categories.update({
+            id: created.id,
+            parentId: created.id,
+          })
+        ).rejects.toMatchObject({
+          code: 'BAD_REQUEST',
+        });
+      });
+
+      it('rejects cyclic hierarchies', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const root = await caller.categories.create({ name: 'Root Category' });
+        const child = await caller.categories.create({
+          name: 'Child Category',
+          parentId: root.id,
+        });
+
+        await expect(
+          caller.categories.update({
+            id: root.id,
+            parentId: child.id,
+          })
+        ).rejects.toMatchObject({
+          code: 'BAD_REQUEST',
+        });
       });
 
       it('throws NOT_FOUND when updating a missing category', async () => {
@@ -250,6 +295,21 @@ describe('Collections tRPC Routers', () => {
 
         expect(result.success).toBe(true);
         expect(result.id).toBe(created.id);
+      });
+
+      it('rejects deleting a category with child categories', async () => {
+        const caller = appRouter.createCaller(adminCtx());
+        const parent = await caller.categories.create({ name: 'Parent Category' });
+        await caller.categories.create({
+          name: 'Nested Category',
+          parentId: parent.id,
+        });
+
+        await expect(
+          caller.categories.delete({ id: parent.id })
+        ).rejects.toMatchObject({
+          code: 'BAD_REQUEST',
+        });
       });
 
       it('cashier gets FORBIDDEN when attempting to delete', async () => {
