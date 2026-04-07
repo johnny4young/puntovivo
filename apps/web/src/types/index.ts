@@ -68,6 +68,16 @@ export interface VatRate {
   updatedAt: string;
 }
 
+export interface Unit {
+  id: string;
+  tenantId: string;
+  name: string;
+  abbreviation: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

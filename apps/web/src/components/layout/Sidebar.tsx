@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
+  Ruler,
   Users,
   Truck,
   BadgePercent,
@@ -22,6 +23,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Providers', href: '/providers', icon: Truck },
+  { name: 'Units', href: '/units', icon: Ruler },
   { name: 'VAT Rates', href: '/vat-rates', icon: BadgePercent },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Customers', href: '/customers', icon: Users },
