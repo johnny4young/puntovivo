@@ -58,6 +58,16 @@ export interface Provider {
   updatedAt: string;
 }
 
+export interface VatRate {
+  id: string;
+  tenantId: string;
+  name: string;
+  rate: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

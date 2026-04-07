@@ -10,6 +10,7 @@ import { categoriesRouter } from './routers/categories.js';
 import { dashboardRouter } from './routers/dashboard.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
+import { vatRatesRouter } from './routers/vatRates.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales.js';
 import { inventoryRouter } from './routers/inventory.js';
@@ -29,6 +30,7 @@ export const appRouter = router({
   auth: authRouter,
   dashboard: dashboardRouter,
   providers: providersRouter,
+  vatRates: vatRatesRouter,
   categories: categoriesRouter,
   products: productsRouter,
   customers: customersRouter,
