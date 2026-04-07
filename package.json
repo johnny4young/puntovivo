@@ -27,7 +27,7 @@
     "@types/node": "^22.10.5",
     "concurrently": "^9.2.1",
     "prettier": "^3.4.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   },
   "engines": {
     "node": ">=22.0.0"
