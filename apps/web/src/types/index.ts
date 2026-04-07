@@ -269,6 +269,9 @@ export interface InventoryMovement {
   tenantId: string;
   productId: string;
   product?: Product;
+  productName?: string | null;
+  productSku?: string | null;
+  categoryName?: string | null;
   type: MovementType;
   quantity: number;
   previousStock: number;
@@ -282,6 +285,22 @@ export interface InventoryMovement {
 }
 
 export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return';
+
+export interface InventoryStockItem {
+  id: string;
+  tenantId: string;
+  name: string;
+  sku: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  stock: number;
+  minStock: number;
+  initialCost: number;
+  price: number;
+  isLowStock: boolean;
+  inventoryValue: number;
+  updatedAt: string;
+}
 
 // Sync Types
 

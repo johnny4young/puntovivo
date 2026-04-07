@@ -1,0 +1,149 @@
+import { useForm } from 'react-hook-form';
+import { Modal, ModalButton } from '@/components/form-controls/Modal';
+
+export interface InventoryAdjustmentProduct {
+  id: string;
+  name: string;
+  sku: string;
+  stock: number;
+  minStock: number;
+  categoryName?: string | null;
+}
+
+export interface InventoryAdjustmentFormValues {
+  newStock: number;
+  notes: string;
+}
+
+interface InventoryAdjustmentModalProps {
+  isOpen: boolean;
+  product: InventoryAdjustmentProduct | null;
+  isSaving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (values: InventoryAdjustmentFormValues) => Promise<void>;
+}
+
+function mapProductToForm(product: InventoryAdjustmentProduct | null): InventoryAdjustmentFormValues {
+  return {
+    newStock: product?.stock ?? 0,
+    notes: '',
+  };
+}
+
+export function InventoryAdjustmentModal({
+  isOpen,
+  product,
+  isSaving,
+  error,
+  onClose,
+  onSubmit,
+}: InventoryAdjustmentModalProps) {
+  const form = useForm<InventoryAdjustmentFormValues>({
+    defaultValues: mapProductToForm(product),
+  });
+
+  const handleSubmit = form.handleSubmit(onSubmit);
+  const nextStock = form.watch('newStock');
+  const currentStock = product?.stock ?? 0;
+  const delta = nextStock - currentStock;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={product ? `Adjust ${product.name}` : 'Adjust Inventory'}
+      footer={
+        <>
+          <ModalButton onClick={onClose} disabled={isSaving}>
+            Cancel
+          </ModalButton>
+          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving || !product}>
+            {isSaving ? 'Saving...' : 'Save Adjustment'}
+          </ModalButton>
+        </>
+      }
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {!product ? (
+          <p className="text-sm text-secondary-500">Select a product before adjusting stock.</p>
+        ) : (
+          <>
+            <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-medium text-secondary-900">{product.name}</p>
+                  <p className="text-sm text-secondary-500">
+                    {product.sku}
+                    {product.categoryName ? ` · ${product.categoryName}` : ''}
+                  </p>
+                </div>
+                <div className="text-right text-sm">
+                  <p className="text-secondary-500">Current stock</p>
+                  <p className="text-lg font-semibold text-secondary-900">{product.stock}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="inventory-new-stock" className="label">
+                New Stock
+              </label>
+              <input
+                id="inventory-new-stock"
+                type="number"
+                min={0}
+                className="input mt-1"
+                {...form.register('newStock', {
+                  valueAsNumber: true,
+                  min: { value: 0, message: 'Stock must be zero or greater' },
+                })}
+              />
+              {form.formState.errors.newStock && (
+                <p className="mt-1 text-sm text-danger-500">
+                  {form.formState.errors.newStock.message}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-secondary-200 bg-white px-4 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-secondary-500">Movement</span>
+                <span
+                  className={
+                    delta > 0
+                      ? 'font-medium text-success-600'
+                      : delta < 0
+                        ? 'font-medium text-danger-600'
+                        : 'font-medium text-secondary-700'
+                  }
+                >
+                  {delta > 0 ? '+' : ''}
+                  {delta}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-secondary-500">Low stock threshold</span>
+                <span className="font-medium text-secondary-900">{product.minStock}</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="inventory-adjustment-notes" className="label">
+                Notes
+              </label>
+              <textarea
+                id="inventory-adjustment-notes"
+                className="input mt-1 min-h-[96px]"
+                placeholder="Reason for the adjustment"
+                {...form.register('notes')}
+              />
+            </div>
+          </>
+        )}
+
+        {error && <p className="text-sm text-danger-500">{error}</p>}
+      </form>
+    </Modal>
+  );
+}
