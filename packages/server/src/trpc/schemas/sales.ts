@@ -23,10 +23,11 @@ export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided
 
 export const saleItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
+  unitId: z.string().min(1, 'Unit ID is required'),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   unitPrice: z.number().min(0, 'Unit price must be non-negative'),
   discount: z.number().min(0).max(100).default(0),
-  taxRate: z.number().min(0).max(100).default(0),
+  taxRate: z.number().min(0).max(100).optional(),
 });
 
 export const listSalesInput = paginationInput.extend({
@@ -48,6 +49,7 @@ export const createSaleInput = z.object({
   paymentStatus: paymentStatusEnum.default('pending'),
   status: saleStatusEnum.default('completed'),
   notes: z.string().optional(),
+  amountReceived: z.number().min(0).optional(),
   discountAmount: z.number().min(0).default(0),
 });
 

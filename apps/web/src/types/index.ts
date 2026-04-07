@@ -229,9 +229,10 @@ export interface Sale {
   id: string;
   tenantId: string;
   saleNumber: string;
-  customerId?: string;
+  customerId?: string | null;
+  customerName?: string | null;
   customer?: Customer;
-  items: SaleItem[];
+  items?: SaleItem[];
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
@@ -239,7 +240,7 @@ export interface Sale {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: SaleStatus;
-  notes?: string;
+  notes?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -252,11 +253,18 @@ export interface SaleItem {
   saleId: string;
   productId: string;
   product?: Product;
+  productName?: string | null;
+  productSku?: string | null;
   quantity: number;
   unitPrice: number;
+  unitId?: string | null;
+  unitEquivalence?: number;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
   discount: number;
   taxRate: number;
   taxAmount: number;
+  costAtSale?: number;
   total: number;
 }
 
