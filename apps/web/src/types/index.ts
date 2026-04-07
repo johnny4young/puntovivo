@@ -43,6 +43,19 @@ export interface Site {
   updatedAt: string;
 }
 
+export interface Company {
+  id: string;
+  tenantId: string;
+  name: string;
+  taxId?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  logoUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Provider {
   id: string;
   tenantId: string;

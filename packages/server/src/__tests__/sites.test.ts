@@ -120,4 +120,46 @@ describe('Sites tRPC Router', () => {
 
     expect(result.activeSiteId).toBe(mainSiteId);
   });
+
+  it('creates, updates, filters, and deletes an unreferenced site', async () => {
+    const caller = appRouter.createCaller(await createTestContext());
+    const db = getDatabase();
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.tenantId, tenantId))
+      .get();
+
+    if (!company) {
+      throw new Error('Expected seeded company');
+    }
+
+    const created = await caller.sites.create({
+      companyId: company.id,
+      name: 'Back Office',
+      address: 'Office block',
+      phone: '2222222222',
+      isActive: true,
+    });
+
+    expect(created.name).toBe('Back Office');
+
+    const filtered = await caller.sites.list({ search: 'Back', isActive: true });
+    expect(filtered.items.some(site => site.id === created.id)).toBe(true);
+
+    const updated = await caller.sites.update({
+      id: created.id,
+      name: 'Back Office Updated',
+      isActive: false,
+    });
+
+    expect(updated.name).toBe('Back Office Updated');
+    expect(updated.isActive).toBe(false);
+
+    const inactive = await caller.sites.list({ isActive: false });
+    expect(inactive.items.some(site => site.id === created.id)).toBe(true);
+
+    const removed = await caller.sites.delete({ id: created.id });
+    expect(removed.success).toBe(true);
+  });
 });

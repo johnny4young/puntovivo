@@ -7,6 +7,7 @@
 import { router, publicProcedure } from './init.js';
 import { authRouter } from './routers/auth.js';
 import { categoriesRouter } from './routers/categories.js';
+import { companiesRouter } from './routers/companies.js';
 import { dashboardRouter } from './routers/dashboard.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
@@ -29,6 +30,7 @@ export const appRouter = router({
     }),
   }),
   auth: authRouter,
+  companies: companiesRouter,
   dashboard: dashboardRouter,
   providers: providersRouter,
   units: unitsRouter,

@@ -4,22 +4,42 @@
  * Site selection support for tenant-aware flows.
  *
  * Procedures:
- * - sites.list (tenant) - List active sites for the current tenant
+ * - sites.list (tenant) - List sites for the current tenant
+ * - sites.create (tenant, admin) - Create a site
+ * - sites.update (tenant, admin) - Update a site
+ * - sites.delete (tenant, admin) - Delete a site when not referenced
  *
  * @module trpc/routers/sites
  */
 
-import { and, asc, eq } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { sites } from '../../db/schema.js';
+import { companies, sequentials, sites, syncQueue } from '../../db/schema.js';
+import { createSiteInput, deleteSiteInput, listSitesInput, updateSiteInput } from '../schemas/sites.js';
 
 export const sitesRouter = router({
-  list: tenantProcedure.query(async ({ ctx }) => {
+  list: tenantProcedure.input(listSitesInput).query(async ({ ctx, input }) => {
+    const conditions = [eq(sites.tenantId, ctx.tenantId)];
+
+    if (input?.search) {
+      conditions.push(
+        or(like(sites.name, `%${input.search}%`), like(sites.address, `%${input.search}%`))!
+      );
+    }
+
+    if (input?.isActive !== undefined) {
+      conditions.push(eq(sites.isActive, input.isActive));
+    } else if (!input?.includeInactive) {
+      conditions.push(eq(sites.isActive, true));
+    }
+
     const items = await ctx.db
       .select()
       .from(sites)
-      .where(and(eq(sites.tenantId, ctx.tenantId), eq(sites.isActive, true)))
+      .where(and(...conditions))
       .orderBy(asc(sites.name))
       .all();
 
@@ -27,5 +47,151 @@ export const sitesRouter = router({
       items,
       activeSiteId: ctx.siteId,
     };
+  }),
+
+  create: tenantProcedure.input(createSiteInput).mutation(async ({ ctx, input }) => {
+    if (ctx.user!.role !== 'admin') {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can create sites' });
+    }
+
+    const company = await ctx.db
+      .select()
+      .from(companies)
+      .where(and(eq(companies.id, input.companyId), eq(companies.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!company) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Company not found' });
+    }
+
+    const now = new Date().toISOString();
+    const id = nanoid();
+
+    await ctx.db.insert(sites).values({
+      id,
+      tenantId: ctx.tenantId,
+      companyId: input.companyId,
+      name: input.name,
+      address: input.address ?? null,
+      phone: input.phone ?? null,
+      isActive: input.isActive,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert(syncQueue).values({
+      id: nanoid(),
+      tenantId: ctx.tenantId,
+      entityType: 'sites',
+      entityId: id,
+      operation: 'create',
+      data: { id, ...input },
+      localVersion: 1,
+      attempts: 0,
+      createdAt: now,
+    });
+
+    return (await ctx.db.select().from(sites).where(eq(sites.id, id)).get())!;
+  }),
+
+  update: tenantProcedure.input(updateSiteInput).mutation(async ({ ctx, input }) => {
+    if (ctx.user!.role !== 'admin') {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can update sites' });
+    }
+
+    const { id, ...updates } = input;
+
+    const existing = await ctx.db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.id, id), eq(sites.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+    }
+
+    if (updates.companyId) {
+      const company = await ctx.db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(and(eq(companies.id, updates.companyId), eq(companies.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!company) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Company not found' });
+      }
+    }
+
+    const now = new Date().toISOString();
+    const updateData: Record<string, unknown> = { updatedAt: now };
+
+    if (updates.companyId !== undefined) updateData.companyId = updates.companyId;
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.address !== undefined) updateData.address = updates.address ?? null;
+    if (updates.phone !== undefined) updateData.phone = updates.phone ?? null;
+    if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+
+    await ctx.db.update(sites).set(updateData).where(eq(sites.id, id));
+
+    await ctx.db.insert(syncQueue).values({
+      id: nanoid(),
+      tenantId: ctx.tenantId,
+      entityType: 'sites',
+      entityId: id,
+      operation: 'update',
+      data: { id, ...updateData },
+      localVersion: 1,
+      attempts: 0,
+      createdAt: now,
+    });
+
+    return (await ctx.db.select().from(sites).where(eq(sites.id, id)).get())!;
+  }),
+
+  delete: tenantProcedure.input(deleteSiteInput).mutation(async ({ ctx, input }) => {
+    if (ctx.user!.role !== 'admin') {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Only administrators can delete sites' });
+    }
+
+    const existing = await ctx.db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.id, input.id), eq(sites.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+    }
+
+    const references = await ctx.db
+      .select({ count: sql<number>`count(*)` })
+      .from(sequentials)
+      .where(eq(sequentials.siteId, input.id))
+      .get();
+
+    if ((references?.count ?? 0) > 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Site has configured sequentials. Deactivate it instead of deleting it.',
+      });
+    }
+
+    await ctx.db.delete(sites).where(eq(sites.id, input.id));
+
+    const now = new Date().toISOString();
+    await ctx.db.insert(syncQueue).values({
+      id: nanoid(),
+      tenantId: ctx.tenantId,
+      entityType: 'sites',
+      entityId: input.id,
+      operation: 'delete',
+      data: { id: input.id },
+      localVersion: 1,
+      attempts: 0,
+      createdAt: now,
+    });
+
+    return { success: true, id: input.id };
   }),
 });
