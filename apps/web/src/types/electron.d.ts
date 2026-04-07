@@ -7,6 +7,9 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  printReceipt: (
+    receiptHtml: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface DatabaseAPI {

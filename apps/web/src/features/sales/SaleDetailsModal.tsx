@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { Printer } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { printSaleReceipt } from '@/features/sales/receiptPrinter';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 
@@ -9,6 +12,8 @@ interface SaleDetailsModalProps {
 }
 
 export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalProps) {
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
   const saleQuery = trpc.sales.getById.useQuery(
     {
       id: saleId ?? '',
@@ -19,14 +24,45 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   );
 
   const sale = saleQuery.data;
+  const handleClose = () => {
+    setPrintError(null);
+    onClose();
+  };
+
+  const handlePrint = async () => {
+    if (!sale) {
+      return;
+    }
+
+    setIsPrinting(true);
+    setPrintError(null);
+
+    try {
+      await printSaleReceipt(sale);
+    } catch (error) {
+      setPrintError(error instanceof Error ? error.message : 'Unable to print the receipt');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={sale ? `Sale ${sale.saleNumber}` : 'Sale Details'}
       size="full"
-      footer={<ModalButton onClick={onClose}>Close</ModalButton>}
+      footer={
+        <>
+          <ModalButton onClick={handlePrint} variant="primary" disabled={!sale || isPrinting}>
+            <span className="inline-flex items-center gap-2">
+              <Printer className="h-4 w-4" />
+              {isPrinting ? 'Printing...' : 'Print Receipt'}
+            </span>
+          </ModalButton>
+          <ModalButton onClick={handleClose}>Close</ModalButton>
+        </>
+      }
     >
       {saleQuery.isLoading && <p className="text-sm text-secondary-500">Loading sale details...</p>}
       {saleQuery.error && <p className="text-sm text-danger-500">{saleQuery.error.message}</p>}
@@ -122,6 +158,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
               <p className="mt-2 text-sm text-secondary-700">{sale.notes}</p>
             </div>
           )}
+
+          {printError && <p className="text-sm text-danger-500">{printError}</p>}
         </div>
       )}
     </Modal>

@@ -1,13 +1,21 @@
-import { ElectronAPI } from '@electron-toolkit/preload';
+interface DesktopElectronAPI {
+  getAppVersion: () => Promise<string>;
+  getAppPath: () => Promise<string>;
+  getServerUrl: () => Promise<string>;
+  printReceipt: (receiptHtml: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+}
 
 interface DatabaseAPI {
   getAll: (table: string, tenantId: string) => Promise<unknown[]>;
   getById: (table: string, id: string) => Promise<unknown>;
   insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
-  delete: (table: string, id: string) => Promise<unknown>;
+  delete: (table: string, id: string) => Promise<boolean>;
   query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
-  addToSyncQueue: (item: Record<string, unknown>) => Promise<unknown>;
+  addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
   getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
 }
 
@@ -25,16 +33,12 @@ interface SyncAPI {
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
-interface CustomAPI {
-  getAppVersion: () => Promise<string>;
-  getAppPath: () => Promise<string>;
-  db: DatabaseAPI;
-  sync: SyncAPI;
-}
-
 declare global {
   interface Window {
-    electron: ElectronAPI;
-    api: CustomAPI;
+    electron: DesktopElectronAPI;
+    db: DatabaseAPI;
+    sync: SyncAPI;
   }
 }
+
+export {};
