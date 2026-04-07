@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { DataTable } from '@/components/tables/DataTable';
+import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Product } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
@@ -93,34 +93,22 @@ export function ProductsPage() {
   const products = (data?.items ?? []) as Product[];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Products</h1>
-          <p className="mt-1 text-sm text-secondary-500">Manage your product catalog</p>
-        </div>
+    <ResourcePage
+      title="Products"
+      description="Manage your product catalog"
+      action={
         <button className="btn-primary flex items-center gap-2">
           <Plus className="h-5 w-5" />
           Add Product
         </button>
-      </div>
-
-      {/* Products Table */}
-      <div className="card p-6">
-        {isLoading && <p className="text-secondary-500 py-4">Loading products...</p>}
-        {error && <p className="text-danger-500 py-4">{error.message}</p>}
-        {!isLoading && !error && (
-          <DataTable
-            columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
-            data={products}
-            searchKey="name"
-            searchPlaceholder="Search products..."
-            enableRowSelection
-            pageSize={10}
-          />
-        )}
-      </div>
-    </div>
+      }
+      columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
+      data={products}
+      isLoading={isLoading}
+      error={error?.message ?? null}
+      searchKey="name"
+      searchPlaceholder="Search products..."
+      loadingMessage="Loading products..."
+    />
   );
 }

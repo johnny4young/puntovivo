@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
-import { DataTable } from '@/components/tables/DataTable';
+import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Customer } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -103,34 +103,22 @@ export function CustomersPage() {
   const customers = (data?.items ?? []) as Customer[];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Customers</h1>
-          <p className="mt-1 text-sm text-secondary-500">Manage your customer database</p>
-        </div>
+    <ResourcePage
+      title="Customers"
+      description="Manage your customer database"
+      action={
         <button className="btn-primary flex items-center gap-2">
           <Plus className="h-5 w-5" />
           Add Customer
         </button>
-      </div>
-
-      {/* Customers Table */}
-      <div className="card p-6">
-        {isLoading && <p className="text-secondary-500 py-4">Loading customers...</p>}
-        {error && <p className="text-danger-500 py-4">{error.message}</p>}
-        {!isLoading && !error && (
-          <DataTable
-            columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
-            data={customers}
-            searchKey="name"
-            searchPlaceholder="Search customers..."
-            enableRowSelection
-            pageSize={10}
-          />
-        )}
-      </div>
-    </div>
+      }
+      columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
+      data={customers}
+      isLoading={isLoading}
+      error={error?.message ?? null}
+      searchKey="name"
+      searchPlaceholder="Search customers..."
+      loadingMessage="Loading customers..."
+    />
   );
 }

@@ -2,6 +2,12 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useNavigate } from 'react-router-dom';
 import type { User, Tenant, LoginCredentials } from '@/types';
 import { vanillaClient } from '@/lib/trpc';
+import {
+  clearAuthSession,
+  getStoredAuthToken,
+  persistAuthSession,
+  persistAuthToken,
+} from './authStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -23,13 +29,46 @@ export function useAuth() {
   return context;
 }
 
-/** localStorage keys for auth persistence */
-const AUTH_TOKEN_KEY = 'auth_token';
-const AUTH_USER_KEY = 'auth_user';
-const AUTH_TENANT_KEY = 'auth_tenant';
-
 interface AuthProviderProps {
   children: ReactNode;
+}
+
+const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
+  currency: 'USD',
+  timezone: 'UTC',
+  dateFormat: 'YYYY-MM-DD',
+  taxRate: 0,
+};
+
+type AuthMePayload = Awaited<ReturnType<typeof vanillaClient.auth.me.query>>;
+
+function mapSession(payload: AuthMePayload): { user: User; tenant: Tenant | null } {
+  const { user, tenant } = payload;
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    },
+    tenant: tenant
+      ? {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          settings: {
+            ...DEFAULT_TENANT_SETTINGS,
+            ...(tenant.settings ?? {}),
+          },
+          createdAt: tenant.createdAt,
+          updatedAt: tenant.updatedAt,
+        }
+      : null,
+  };
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -41,44 +80,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Check for existing auth on mount
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
+      const token = getStoredAuthToken();
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const token = localStorage.getItem(AUTH_TOKEN_KEY);
-        const userStr = localStorage.getItem(AUTH_USER_KEY);
-        const tenantStr = localStorage.getItem(AUTH_TENANT_KEY);
+        const session = mapSession(await vanillaClient.auth.me.query());
+        persistAuthSession(token, session);
 
-        if (token && userStr && tenantStr) {
-          const storedUser = JSON.parse(userStr);
-          const storedTenant = JSON.parse(tenantStr);
-
-          setUser({
-            id: storedUser.id,
-            email: storedUser.email,
-            name: storedUser.name,
-            role: storedUser.role,
-            tenantId: storedUser.tenantId,
-          } as User);
-
-          setTenant({
-            id: storedTenant.id,
-            name: storedTenant.name,
-            slug: storedTenant.slug,
-            settings: storedTenant.settings as unknown as Tenant['settings'],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
+        if (!isMounted) {
+          return;
         }
+
+        setUser(session.user);
+        setTenant(session.tenant);
+        setError(null);
       } catch (err) {
         console.error('Auth init error:', err);
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(AUTH_USER_KEY);
-        localStorage.removeItem(AUTH_TENANT_KEY);
+        clearAuthSession();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setUser(null);
+        setTenant(null);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     initAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
@@ -91,24 +134,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password: credentials.password,
       });
 
-      // Persist to localStorage (the tRPC httpBatchLink reads from localStorage for the token)
-      localStorage.setItem(AUTH_TOKEN_KEY, authData.token);
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authData.user));
-      localStorage.setItem(AUTH_TENANT_KEY, JSON.stringify(authData.tenant));
+      const token = authData.token;
+      persistAuthToken(token);
+      const session = mapSession(await vanillaClient.auth.me.query());
 
-      setUser({
-        id: authData.user.id,
-        email: authData.user.email,
-        name: authData.user.name,
-        role: authData.user.role,
-        tenantId: authData.user.tenantId,
-      } as User);
-
-      setTenant({
-        id: authData.tenant.id,
-        name: authData.tenant.name,
-        slug: authData.tenant.slug,
-      } as Tenant);
+      persistAuthSession(token, session);
+      setUser(session.user);
+      setTenant(session.tenant);
 
       navigate('/dashboard');
     } catch (err) {
@@ -127,9 +159,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Ignore errors on logout — clear local state regardless
     } finally {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem(AUTH_USER_KEY);
-      localStorage.removeItem(AUTH_TENANT_KEY);
+      clearAuthSession();
       setUser(null);
       setTenant(null);
       setIsLoading(false);

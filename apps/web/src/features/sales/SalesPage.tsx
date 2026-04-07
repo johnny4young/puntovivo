@@ -102,19 +102,11 @@ const columns: ColumnDef<Sale>[] = [
 
 export function SalesPage() {
   const { data, isLoading, error } = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
+  const summaryQuery = trpc.sales.summary.useQuery();
 
   const items = (data?.items ?? []) as Sale[];
-
-  // Derive summary values from real data
-  const today = new Date().toDateString();
-  const todayItems = items.filter(s => new Date(s.createdAt).toDateString() === today);
-  const todaySalesTotal = todayItems.reduce((sum, s) => sum + s.total, 0);
-  const transactionCount = items.length;
-  const avgOrder =
-    transactionCount > 0 ? items.reduce((sum, s) => sum + s.total, 0) / transactionCount : 0;
-  const pendingTotal = items
-    .filter(s => s.paymentStatus === 'pending')
-    .reduce((sum, s) => sum + s.total, 0);
+  const summary = summaryQuery.data;
+  const isSummaryLoading = summaryQuery.isLoading;
 
   return (
     <div className="space-y-6">
@@ -135,25 +127,25 @@ export function SalesPage() {
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Today's Sales</p>
           <p className="mt-1 text-2xl font-bold text-secondary-900">
-            {isLoading ? '—' : formatCurrency(todaySalesTotal)}
+            {isSummaryLoading ? '—' : formatCurrency(summary?.todaySalesTotal ?? 0)}
           </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Transactions</p>
           <p className="mt-1 text-2xl font-bold text-secondary-900">
-            {isLoading ? '—' : transactionCount}
+            {isSummaryLoading ? '—' : summary?.transactionCount ?? 0}
           </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Average Order</p>
           <p className="mt-1 text-2xl font-bold text-secondary-900">
-            {isLoading ? '—' : formatCurrency(avgOrder)}
+            {isSummaryLoading ? '—' : formatCurrency(summary?.averageOrder ?? 0)}
           </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-secondary-500">Pending Payments</p>
           <p className="mt-1 text-2xl font-bold text-warning-500">
-            {isLoading ? '—' : formatCurrency(pendingTotal)}
+            {isSummaryLoading ? '—' : formatCurrency(summary?.pendingPaymentsTotal ?? 0)}
           </p>
         </div>
       </div>
