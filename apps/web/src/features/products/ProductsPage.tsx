@@ -9,6 +9,7 @@ import {
   type ProductFormValues,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
+import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
@@ -191,6 +192,7 @@ export function ProductsPage() {
           ...assignment,
           isBase: assignment.isBase ?? false,
         })),
+        providerAssignments: editingProductDetailQuery.data.providerAssignments ?? [],
       }
     : editingProduct;
 
@@ -205,13 +207,26 @@ export function ProductsPage() {
     setIsModalOpen(true);
   };
 
+  const buildProviderPayload = (values: ProductFormValues) => {
+    const normalizedProviders = normalizeProductProviders({
+      providerId: values.providerId,
+      providerAssignments: values.providerAssignments,
+    });
+
+    return {
+      providerId: normalizedProviders.primaryProviderId,
+      providerAssignments: normalizedProviders.providerAssignments,
+    };
+  };
+
   const handleSubmit = async (values: ProductFormValues) => {
+    const providerPayload = buildProviderPayload(values);
     const payload = {
       name: values.name,
       sku: values.sku,
       description: values.description || null,
       categoryId: values.categoryId || null,
-      providerId: values.providerId || null,
+      providerId: providerPayload.providerId,
       vatRateId: values.vatRateId || null,
       locationId: values.locationId || null,
       barcode: values.barcode || null,
@@ -237,6 +252,7 @@ export function ProductsPage() {
         price: assignment.price,
         isBase: assignment.isBase,
       })),
+      providerAssignments: providerPayload.providerAssignments,
     };
 
     if (editingProduct) {

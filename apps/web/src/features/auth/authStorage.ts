@@ -13,12 +13,29 @@ export function getStoredAuthToken(): string | null {
   return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
+export function getStoredAuthTenant(): Tenant | null {
+  const serializedTenant = window.localStorage.getItem(AUTH_TENANT_KEY);
+  if (!serializedTenant) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(serializedTenant) as Tenant;
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredAuthTenantId(): string | null {
+  return getStoredAuthTenant()?.id ?? null;
+}
+
 export function persistAuthToken(token: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
 export function persistAuthSession(token: string, snapshot: StoredAuthSnapshot): void {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  persistAuthToken(token);
   window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(snapshot.user));
 
   if (snapshot.tenant) {

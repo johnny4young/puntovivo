@@ -197,6 +197,7 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
     references: [tenants.id],
   }),
   products: many(products),
+  productAssignments: many(productXProvider),
 }));
 
 // ============================================================================
@@ -408,6 +409,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   }),
   saleItems: many(saleItems),
   unitAssignments: many(unitXProduct),
+  providerAssignments: many(productXProvider),
   inventoryMovements: many(inventoryMovements),
 }));
 
@@ -446,6 +448,41 @@ export const unitXProductRelations = relations(unitXProduct, ({ one }) => ({
   unit: one(units, {
     fields: [unitXProduct.unitId],
     references: [units.id],
+  }),
+}));
+
+// ============================================================================
+// PRODUCT X PROVIDER
+// ============================================================================
+
+export const productXProvider = sqliteTable(
+  'product_x_provider',
+  {
+    id: text('id').primaryKey(),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id, { onDelete: 'cascade' }),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_product_x_provider_product').on(table.productId),
+    index('idx_product_x_provider_provider').on(table.providerId),
+    uniqueIndex('idx_product_x_provider_scope').on(table.productId, table.providerId),
+  ]
+);
+
+export const productXProviderRelations = relations(productXProvider, ({ one }) => ({
+  product: one(products, {
+    fields: [productXProvider.productId],
+    references: [products.id],
+  }),
+  provider: one(providers, {
+    fields: [productXProvider.providerId],
+    references: [providers.id],
   }),
 }));
 
@@ -740,6 +777,9 @@ export type NewProduct = typeof products.$inferInsert;
 
 export type UnitXProduct = typeof unitXProduct.$inferSelect;
 export type NewUnitXProduct = typeof unitXProduct.$inferInsert;
+
+export type ProductXProvider = typeof productXProvider.$inferSelect;
+export type NewProductXProvider = typeof productXProvider.$inferInsert;
 
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;

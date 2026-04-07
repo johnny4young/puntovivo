@@ -2,11 +2,14 @@ import { useState } from 'react';
 import {
   useFieldArray,
   useForm,
+  type UseFieldArrayReturn,
+  type UseFormReturn,
   type UseFormRegisterReturn,
 } from 'react-hook-form';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Product } from '@/types';
 import { calculatePricing } from './pricing';
+import { normalizeProductProviderSelections } from './providerState';
 
 type ProductRole = 'create' | 'edit';
 
@@ -45,6 +48,7 @@ export interface ProductFormValues {
   minStock: number;
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
+  providerAssignments: ProductProviderAssignmentFormValues[];
 }
 
 export interface ProductUnitAssignmentFormValues {
@@ -52,6 +56,10 @@ export interface ProductUnitAssignmentFormValues {
   equivalence: number;
   price: number;
   isBase: boolean;
+}
+
+export interface ProductProviderAssignmentFormValues {
+  providerId: string;
 }
 
 const defaultValues: ProductFormValues = {
@@ -80,6 +88,7 @@ const defaultValues: ProductFormValues = {
   minStock: 0,
   isActive: true,
   unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
+  providerAssignments: [],
 };
 
 export function mapProductToForm(product: Product | null): ProductFormValues {
@@ -87,12 +96,14 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     return defaultValues;
   }
 
+  const normalizedProviders = normalizeProductProviderSelections(product);
+
   return {
     name: product.name,
     sku: product.sku,
     description: product.description ?? '',
     categoryId: product.categoryId ?? '',
-    providerId: product.providerId ?? '',
+    providerId: normalizedProviders.primaryProviderId ?? '',
     vatRateId: product.vatRateId ?? '',
     locationId: product.locationId ?? '',
     barcode: product.barcode ?? '',
@@ -121,6 +132,7 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
             isBase: assignment.isBase,
           }))
         : [{ unitId: '', equivalence: 1, price: product.price, isBase: true }],
+    providerAssignments: normalizedProviders.providerAssignments,
   };
 }
 
@@ -146,6 +158,14 @@ interface ProductFormModalProps {
 type PricingField = 'price' | 'price2' | 'price3';
 type MarginPercentField = 'marginPercent1' | 'marginPercent2' | 'marginPercent3';
 type MarginAmountField = 'marginAmount1' | 'marginAmount2' | 'marginAmount3';
+type ProductFormTab = 'general' | 'pricing' | 'units' | 'providers';
+
+const PRODUCT_FORM_TABS: Array<{ id: ProductFormTab; label: string }> = [
+  { id: 'general', label: 'General' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'units', label: 'Units' },
+  { id: 'providers', label: 'Providers' },
+];
 
 export function ProductFormModal({
   mode,
@@ -163,42 +183,42 @@ export function ProductFormModal({
   const form = useForm<ProductFormValues>({
     defaultValues: mapProductToForm(product),
   });
-  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'units'>('general');
+  const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
   const handleSubmit = form.handleSubmit(onSubmit);
   const selectedVatRateId = form.watch('vatRateId');
   const unitAssignmentsFieldArray = useFieldArray({
     control: form.control,
     name: 'unitAssignments',
   });
+  const providerAssignmentsFieldArray = useFieldArray({
+    control: form.control,
+    name: 'providerAssignments',
+  });
 
-  const syncTierFromPercent = (priceField: PricingField, percentField: MarginPercentField, amountField: MarginAmountField, value: number) => {
-    const result = calculatePricing({
-      cost: form.getValues('cost'),
-      marginPercent: value,
-    });
+  const validateProviderAssignment = (providerId: string, index: number) => {
+    if (!providerId) {
+      return 'Provider is required';
+    }
 
-    form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
-    form.setValue(percentField, result.marginPercent, { shouldDirty: true, shouldValidate: true });
-    form.setValue(amountField, result.marginAmount, { shouldDirty: true, shouldValidate: true });
+    const duplicateIndex = form
+      .getValues('providerAssignments')
+      .findIndex(
+        (assignment, assignmentIndex) =>
+          assignmentIndex !== index && assignment.providerId === providerId
+      );
+
+    return duplicateIndex === -1 || 'Provider already selected';
   };
 
-  const syncTierFromAmount = (priceField: PricingField, percentField: MarginPercentField, amountField: MarginAmountField, value: number) => {
-    const result = calculatePricing({
-      cost: form.getValues('cost'),
-      marginAmount: value,
-    });
+  type PricingInput = { marginPercent: number } | { marginAmount: number } | { price: number };
 
-    form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
-    form.setValue(percentField, result.marginPercent, { shouldDirty: true, shouldValidate: true });
-    form.setValue(amountField, result.marginAmount, { shouldDirty: true, shouldValidate: true });
-  };
-
-  const syncTierFromPrice = (priceField: PricingField, percentField: MarginPercentField, amountField: MarginAmountField, value: number) => {
-    const result = calculatePricing({
-      cost: form.getValues('cost'),
-      price: value,
-    });
-
+  const syncTier = (
+    priceField: PricingField,
+    percentField: MarginPercentField,
+    amountField: MarginAmountField,
+    pricingInput: PricingInput
+  ) => {
+    const result = calculatePricing({ cost: form.getValues('cost'), ...pricingInput });
     form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
     form.setValue(percentField, result.marginPercent, { shouldDirty: true, shouldValidate: true });
     form.setValue(amountField, result.marginAmount, { shouldDirty: true, shouldValidate: true });
@@ -264,39 +284,20 @@ export function ProductFormModal({
       }
     >
       <div className="mb-5 flex gap-2">
-        <button
-          type="button"
-          className={`rounded-lg px-3 py-2 text-sm font-medium ${
-            activeTab === 'general'
-              ? 'bg-primary-100 text-primary-800'
-              : 'bg-secondary-100 text-secondary-600'
-          }`}
-          onClick={() => setActiveTab('general')}
-        >
-          General
-        </button>
-        <button
-          type="button"
-          className={`rounded-lg px-3 py-2 text-sm font-medium ${
-            activeTab === 'pricing'
-              ? 'bg-primary-100 text-primary-800'
-              : 'bg-secondary-100 text-secondary-600'
-          }`}
-          onClick={() => setActiveTab('pricing')}
-        >
-          Pricing
-        </button>
-        <button
-          type="button"
-          className={`rounded-lg px-3 py-2 text-sm font-medium ${
-            activeTab === 'units'
-              ? 'bg-primary-100 text-primary-800'
-              : 'bg-secondary-100 text-secondary-600'
-          }`}
-          onClick={() => setActiveTab('units')}
-        >
-          Units
-        </button>
+        {PRODUCT_FORM_TABS.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${
+              activeTab === tab.id
+                ? 'bg-primary-100 text-primary-800'
+                : 'bg-secondary-100 text-secondary-600'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
@@ -459,189 +460,31 @@ export function ProductFormModal({
         )}
 
         {activeTab === 'pricing' && (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label htmlFor="product-cost" className="label">
-                  Cost
-                </label>
-                <input
-                  id="product-cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="input mt-1"
-                  {...costField}
-                  onChange={event => {
-                    costField.onChange(event);
-                    syncAllTiersFromCost(parseNumber(event.target.value));
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="product-initial-cost" className="label">
-                  Initial Cost
-                </label>
-                <input
-                  id="product-initial-cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="input mt-1"
-                  {...initialCostField}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
-              <PricingTierSection
-                title="Price Tier 1"
-                priceField={form.register('price', { min: 0, valueAsNumber: true })}
-                percentField={form.register('marginPercent1', { min: 0, valueAsNumber: true })}
-                amountField={form.register('marginAmount1', { min: 0, valueAsNumber: true })}
-                onPriceChange={value => syncTierFromPrice('price', 'marginPercent1', 'marginAmount1', value)}
-                onPercentChange={value =>
-                  syncTierFromPercent('price', 'marginPercent1', 'marginAmount1', value)
-                }
-                onAmountChange={value =>
-                  syncTierFromAmount('price', 'marginPercent1', 'marginAmount1', value)
-                }
-              />
-              <PricingTierSection
-                title="Price Tier 2"
-                priceField={form.register('price2', { min: 0, valueAsNumber: true })}
-                percentField={form.register('marginPercent2', { min: 0, valueAsNumber: true })}
-                amountField={form.register('marginAmount2', { min: 0, valueAsNumber: true })}
-                onPriceChange={value => syncTierFromPrice('price2', 'marginPercent2', 'marginAmount2', value)}
-                onPercentChange={value =>
-                  syncTierFromPercent('price2', 'marginPercent2', 'marginAmount2', value)
-                }
-                onAmountChange={value =>
-                  syncTierFromAmount('price2', 'marginPercent2', 'marginAmount2', value)
-                }
-              />
-              <PricingTierSection
-                title="Price Tier 3"
-                priceField={form.register('price3', { min: 0, valueAsNumber: true })}
-                percentField={form.register('marginPercent3', { min: 0, valueAsNumber: true })}
-                amountField={form.register('marginAmount3', { min: 0, valueAsNumber: true })}
-                onPriceChange={value => syncTierFromPrice('price3', 'marginPercent3', 'marginAmount3', value)}
-                onPercentChange={value =>
-                  syncTierFromPercent('price3', 'marginPercent3', 'marginAmount3', value)
-                }
-                onAmountChange={value =>
-                  syncTierFromAmount('price3', 'marginPercent3', 'marginAmount3', value)
-                }
-              />
-            </div>
-          </>
+          <PricingSection
+            form={form}
+            costField={costField}
+            initialCostField={initialCostField}
+            syncAllTiersFromCost={syncAllTiersFromCost}
+            syncTier={syncTier}
+          />
         )}
 
         {activeTab === 'units' && (
-          <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-secondary-900">Unit assignments</p>
-                <p className="text-sm text-secondary-500">
-                  Define the base unit and any additional equivalence-based sale units.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() =>
-                  unitAssignmentsFieldArray.append({
-                    unitId: '',
-                    equivalence: 1,
-                    price: form.getValues('price'),
-                    isBase: false,
-                  })
-                }
-              >
-                Add Unit
-              </button>
-            </div>
+          <UnitAssignmentsSection
+            form={form}
+            units={units}
+            unitAssignmentsFieldArray={unitAssignmentsFieldArray}
+            onBaseUnitChange={handleBaseUnitChange}
+          />
+        )}
 
-            <div className="space-y-4">
-              {unitAssignmentsFieldArray.fields.map((field, index) => {
-                const isBase = form.watch(`unitAssignments.${index}.isBase`);
-                return (
-                  <div key={field.id} className="grid gap-4 rounded-lg border border-secondary-200 p-4 md:grid-cols-4">
-                    <div>
-                      <label className="label">Unit</label>
-                      <select
-                        className="input mt-1"
-                        {...form.register(`unitAssignments.${index}.unitId` as const, {
-                          required: 'Unit is required',
-                        })}
-                      >
-                        <option value="">Select unit</option>
-                        {units.map(unit => (
-                          <option key={unit.id} value={unit.id}>
-                            {unit.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="label">Equivalence</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        disabled={isBase}
-                        className="input mt-1"
-                        {...form.register(`unitAssignments.${index}.equivalence` as const, {
-                          min: 0.01,
-                          valueAsNumber: true,
-                        })}
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Unit Price</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="input mt-1"
-                        {...form.register(`unitAssignments.${index}.price` as const, {
-                          min: 0,
-                          valueAsNumber: true,
-                        })}
-                      />
-                    </div>
-                    <div className="flex items-end gap-3">
-                      <label className="flex items-center gap-2 text-sm text-secondary-700">
-                        <input
-                          type="checkbox"
-                          checked={!!isBase}
-                          onChange={() => handleBaseUnitChange(index)}
-                        />
-                        Base unit
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-ghost text-danger-600"
-                        disabled={unitAssignmentsFieldArray.fields.length === 1}
-                        onClick={() => {
-                          const currentAssignments = form.getValues('unitAssignments');
-                          const removingBase = currentAssignments[index]?.isBase;
-                          unitAssignmentsFieldArray.remove(index);
-
-                          if (removingBase && currentAssignments.length > 1) {
-                            const nextIndex = index === 0 ? 0 : index - 1;
-                            handleBaseUnitChange(nextIndex);
-                          }
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {activeTab === 'providers' && (
+          <ProviderAssignmentsSection
+            form={form}
+            providers={providers}
+            providerAssignmentsFieldArray={providerAssignmentsFieldArray}
+            validateProviderAssignment={validateProviderAssignment}
+          />
         )}
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
@@ -658,6 +501,295 @@ interface PricingTierSectionProps {
   onPriceChange: (value: number) => void;
   onPercentChange: (value: number) => void;
   onAmountChange: (value: number) => void;
+}
+
+interface PricingSectionProps {
+  form: UseFormReturn<ProductFormValues>;
+  costField: UseFormRegisterReturn<'cost'>;
+  initialCostField: UseFormRegisterReturn<'initialCost'>;
+  syncAllTiersFromCost: (cost: number) => void;
+  syncTier: (
+    priceField: PricingField,
+    percentField: MarginPercentField,
+    amountField: MarginAmountField,
+    pricingInput: { marginPercent: number } | { marginAmount: number } | { price: number }
+  ) => void;
+}
+
+function PricingSection({
+  form,
+  costField,
+  initialCostField,
+  syncAllTiersFromCost,
+  syncTier,
+}: PricingSectionProps) {
+  return (
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label htmlFor="product-cost" className="label">
+            Cost
+          </label>
+          <input
+            id="product-cost"
+            type="number"
+            step="0.01"
+            min="0"
+            className="input mt-1"
+            {...costField}
+            onChange={event => {
+              costField.onChange(event);
+              syncAllTiersFromCost(parseNumber(event.target.value));
+            }}
+          />
+        </div>
+        <div>
+          <label htmlFor="product-initial-cost" className="label">
+            Initial Cost
+          </label>
+          <input
+            id="product-initial-cost"
+            type="number"
+            step="0.01"
+            min="0"
+            className="input mt-1"
+            {...initialCostField}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
+        <PricingTierSection
+          title="Price Tier 1"
+          priceField={form.register('price', { min: 0, valueAsNumber: true })}
+          percentField={form.register('marginPercent1', { min: 0, valueAsNumber: true })}
+          amountField={form.register('marginAmount1', { min: 0, valueAsNumber: true })}
+          onPriceChange={value => syncTier('price', 'marginPercent1', 'marginAmount1', { price: value })}
+          onPercentChange={value =>
+            syncTier('price', 'marginPercent1', 'marginAmount1', { marginPercent: value })
+          }
+          onAmountChange={value =>
+            syncTier('price', 'marginPercent1', 'marginAmount1', { marginAmount: value })
+          }
+        />
+        <PricingTierSection
+          title="Price Tier 2"
+          priceField={form.register('price2', { min: 0, valueAsNumber: true })}
+          percentField={form.register('marginPercent2', { min: 0, valueAsNumber: true })}
+          amountField={form.register('marginAmount2', { min: 0, valueAsNumber: true })}
+          onPriceChange={value => syncTier('price2', 'marginPercent2', 'marginAmount2', { price: value })}
+          onPercentChange={value =>
+            syncTier('price2', 'marginPercent2', 'marginAmount2', { marginPercent: value })
+          }
+          onAmountChange={value =>
+            syncTier('price2', 'marginPercent2', 'marginAmount2', { marginAmount: value })
+          }
+        />
+        <PricingTierSection
+          title="Price Tier 3"
+          priceField={form.register('price3', { min: 0, valueAsNumber: true })}
+          percentField={form.register('marginPercent3', { min: 0, valueAsNumber: true })}
+          amountField={form.register('marginAmount3', { min: 0, valueAsNumber: true })}
+          onPriceChange={value => syncTier('price3', 'marginPercent3', 'marginAmount3', { price: value })}
+          onPercentChange={value =>
+            syncTier('price3', 'marginPercent3', 'marginAmount3', { marginPercent: value })
+          }
+          onAmountChange={value =>
+            syncTier('price3', 'marginPercent3', 'marginAmount3', { marginAmount: value })
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+interface UnitAssignmentsSectionProps {
+  form: UseFormReturn<ProductFormValues>;
+  units: LookupOption[];
+  unitAssignmentsFieldArray: UseFieldArrayReturn<ProductFormValues, 'unitAssignments', 'id'>;
+  onBaseUnitChange: (index: number) => void;
+}
+
+function UnitAssignmentsSection({
+  form,
+  units,
+  unitAssignmentsFieldArray,
+  onBaseUnitChange,
+}: UnitAssignmentsSectionProps) {
+  return (
+    <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-secondary-900">Unit assignments</p>
+          <p className="text-sm text-secondary-500">
+            Define the base unit and any additional equivalence-based sale units.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() =>
+            unitAssignmentsFieldArray.append({
+              unitId: '',
+              equivalence: 1,
+              price: form.getValues('price'),
+              isBase: false,
+            })
+          }
+        >
+          Add Unit
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {unitAssignmentsFieldArray.fields.map((field, index) => {
+          const isBase = form.watch(`unitAssignments.${index}.isBase`);
+          return (
+            <div key={field.id} className="grid gap-4 rounded-lg border border-secondary-200 p-4 md:grid-cols-4">
+              <div>
+                <label className="label">Unit</label>
+                <select
+                  className="input mt-1"
+                  {...form.register(`unitAssignments.${index}.unitId` as const, {
+                    required: 'Unit is required',
+                  })}
+                >
+                  <option value="">Select unit</option>
+                  {units.map(unit => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Equivalence</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  disabled={isBase}
+                  className="input mt-1"
+                  {...form.register(`unitAssignments.${index}.equivalence` as const, {
+                    min: 0.01,
+                    valueAsNumber: true,
+                  })}
+                />
+              </div>
+              <div>
+                <label className="label">Unit Price</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="input mt-1"
+                  {...form.register(`unitAssignments.${index}.price` as const, {
+                    min: 0,
+                    valueAsNumber: true,
+                  })}
+                />
+              </div>
+              <div className="flex items-end gap-3">
+                <label className="flex items-center gap-2 text-sm text-secondary-700">
+                  <input
+                    type="checkbox"
+                    checked={!!isBase}
+                    onChange={() => onBaseUnitChange(index)}
+                  />
+                  Base unit
+                </label>
+                <button
+                  type="button"
+                  className="btn-ghost text-danger-600"
+                  disabled={unitAssignmentsFieldArray.fields.length === 1}
+                  onClick={() => {
+                    const currentAssignments = form.getValues('unitAssignments');
+                    const removingBase = currentAssignments[index]?.isBase;
+                    unitAssignmentsFieldArray.remove(index);
+
+                    if (removingBase && currentAssignments.length > 1) {
+                      const nextIndex = index === 0 ? 0 : index - 1;
+                      onBaseUnitChange(nextIndex);
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface ProviderAssignmentsSectionProps {
+  form: UseFormReturn<ProductFormValues>;
+  providers: LookupOption[];
+  providerAssignmentsFieldArray: UseFieldArrayReturn<ProductFormValues, 'providerAssignments', 'id'>;
+  validateProviderAssignment: (providerId: string, index: number) => string | true;
+}
+
+function ProviderAssignmentsSection({
+  form,
+  providers,
+  providerAssignmentsFieldArray,
+  validateProviderAssignment,
+}: ProviderAssignmentsSectionProps) {
+  return (
+    <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-secondary-900">Provider associations</p>
+          <p className="text-sm text-secondary-500">Link this product to one or more suppliers.</p>
+        </div>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => providerAssignmentsFieldArray.append({ providerId: '' })}
+        >
+          Add Provider
+        </button>
+      </div>
+
+      {providerAssignmentsFieldArray.fields.length === 0 && (
+        <p className="py-4 text-center text-sm text-secondary-500">
+          No providers linked. Click "Add Provider" to associate a supplier.
+        </p>
+      )}
+
+      <div className="space-y-3">
+        {providerAssignmentsFieldArray.fields.map((field, index) => (
+          <div key={field.id} className="flex items-end gap-3 rounded-lg border border-secondary-200 p-4">
+            <div className="flex-1">
+              <label className="label">Provider</label>
+              <select
+                className="input mt-1"
+                {...form.register(`providerAssignments.${index}.providerId` as const, {
+                  validate: value => validateProviderAssignment(value, index),
+                })}
+              >
+                <option value="">Select provider</option>
+                {providers.map(provider => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn-ghost text-danger-600"
+              onClick={() => providerAssignmentsFieldArray.remove(index)}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PricingTierSection({

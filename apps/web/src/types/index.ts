@@ -149,6 +149,7 @@ export interface Product {
   providerName?: string | null;
   vatRateName?: string | null;
   unitAssignments?: ProductUnitAssignment[];
+  providerAssignments?: ProductProviderAssignment[];
   createdAt: string;
   updatedAt: string;
   syncStatus?: SyncStatus;
@@ -164,6 +165,15 @@ export interface ProductUnitAssignment {
   equivalence: number;
   price: number;
   isBase: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductProviderAssignment {
+  id: string;
+  productId?: string;
+  providerId: string;
+  providerName?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
