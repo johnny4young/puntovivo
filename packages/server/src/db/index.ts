@@ -337,6 +337,43 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_customers_email ON customers (email);
 
+    -- Purchases
+    CREATE TABLE IF NOT EXISTS purchases (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      purchase_number TEXT NOT NULL,
+      provider_id TEXT NOT NULL REFERENCES providers(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      subtotal REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_provider ON purchases (provider_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_site ON purchases (site_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_created_by ON purchases (created_by);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_tenant_number ON purchases (tenant_id, purchase_number);
+
+    -- Purchase Items
+    CREATE TABLE IF NOT EXISTS purchase_items (
+      id TEXT PRIMARY KEY,
+      purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity INTEGER NOT NULL DEFAULT 1,
+      unit_id TEXT NOT NULL REFERENCES units(id),
+      unit_equivalence REAL NOT NULL DEFAULT 1,
+      cost_per_unit REAL NOT NULL DEFAULT 0,
+      base_unit_cost REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items (purchase_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_items_product ON purchase_items (product_id);
+
     -- Sales
     CREATE TABLE IF NOT EXISTS sales (
       id TEXT PRIMARY KEY,

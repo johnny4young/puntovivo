@@ -11,6 +11,7 @@ import { companiesRouter } from './routers/companies.js';
 import { dashboardRouter } from './routers/dashboard.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
+import { purchasesRouter } from './routers/purchases.js';
 import { sequentialsRouter } from './routers/sequentials.js';
 import { unitsRouter } from './routers/units.js';
 import { usersRouter } from './routers/users.js';
@@ -41,6 +42,7 @@ export const appRouter = router({
   categories: categoriesRouter,
   products: productsRouter,
   customers: customersRouter,
+  purchases: purchasesRouter,
   sales: salesRouter,
   inventory: inventoryRouter,
   sites: sitesRouter,
