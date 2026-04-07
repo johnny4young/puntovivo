@@ -49,6 +49,10 @@ The Fastify server runs **in-process** inside the Electron main process — it i
 
 `/api/trpc` is the canonical application API. `/api/health` remains as a compatibility health endpoint and `/api/realtime/*` remains for SSE. Do not reintroduce new REST route docs or code paths for auth, collections, or sync.
 
+## Required review skill for React/TypeScript work
+
+For any React or TypeScript implementation, refactor, or review in `apps/web`, you **must** use the `typescript-react-reviewer` skill before finalizing changes. Treat its checks on derived state, effect abuse, type safety, and maintainability as mandatory, not optional.
+
 ## Stale files — do not rely on
 
 - `.github/workflows/release.yml` backend job: Has been rewritten for Node.js but may still have edge cases. Verify before modifying.
