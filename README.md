@@ -35,7 +35,7 @@
 | Styling     | Tailwind CSS v4 + CVA    | Utility-first CSS + Variants |
 | Data Tables | TanStack Table           | Feature-rich tables          |
 | State       | TanStack Query + Zustand | Server & client state        |
-| Backend     | Fastify (embedded)       | REST API server (in-process) |
+| Backend     | Fastify + tRPC (embedded) | App API server (in-process) |
 | ORM         | Drizzle ORM              | Type-safe database access    |
 | Database    | SQLite (better-sqlite3)  | Embedded database            |
 | Real-time   | Server-Sent Events (SSE) | Live updates                 |

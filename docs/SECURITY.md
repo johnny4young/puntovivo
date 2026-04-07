@@ -145,9 +145,9 @@ All 92 tests passing (34 server + 58 web) as of the latest dependency upgrade (M
 npm run dev  # Check console for random password
 
 # Test rate limiting (6th attempt should return 429)
-curl -X POST http://localhost:8090/api/auth/login \
+curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@localhost","password":"wrong"}'
+  -d '{"0":{"json":{"email":"admin@localhost","password":"wrong"}}}'
 
 # Test password policy (should fail validation)
 # Try setting password "weak123"
@@ -192,9 +192,9 @@ npm audit
 
 ```
 packages/server/src/db/seed.ts              # Credentials and seeding
-packages/server/src/routes/auth.ts          # Authentication logic
+packages/server/src/trpc/routers/auth.ts    # Authentication logic
 packages/server/src/index.ts                # JWT config, rate limiting
-packages/server/src/routes/collections.ts   # Tenant isolation
+packages/server/src/trpc/router.ts          # Router registration
 apps/desktop/src/main/index.ts              # Electron security settings
 apps/desktop/src/preload/index.ts           # IPC handlers
 ```

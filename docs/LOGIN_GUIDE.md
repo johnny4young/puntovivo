@@ -18,7 +18,7 @@ When you first run the application, a default admin account is automatically cre
 ### Architecture
 
 1. **Frontend** (React): Login page with form validation
-2. **API Client**: Handles HTTP requests and JWT token storage
+2. **API Client**: Handles tRPC requests and JWT token storage
 3. **Backend** (Fastify): Validates credentials and generates JWT tokens
 4. **Database** (SQLite): Stores user accounts with hashed passwords
 
@@ -29,7 +29,7 @@ User enters credentials
     ↓
 Frontend validates email/password format
     ↓
-API sends POST to /api/auth/login
+API calls `auth.login` on `/api/trpc`
     ↓
 Backend validates credentials against database
     ↓
@@ -183,39 +183,41 @@ This checks:
 - Frontend server status (port 3000)
 - Provides quick start commands
 
-## API Endpoints
+## Auth Procedures
+
+Canonical auth transport is tRPC on `/api/trpc`.
 
 ### Login
 
 ```
-POST /api/auth/login
-Body: { "email": "admin@localhost", "password": "<your-generated-password>" }
-Response: { "token": "...", "user": {...}, "tenant": {...} }
+Mutation: auth.login
+Input: { email: "admin@localhost", password: "<your-generated-password>" }
+Output: { token: "...", user: {...}, tenant: {...} }
 ```
 
 ### Get Current User
 
 ```
-GET /api/auth/me
-Headers: Authorization: Bearer <token>
-Response: { "user": {...}, "tenant": {...} }
+Query: auth.me
+Auth: Bearer token
+Output: { user: {...}, tenant: {...} }
 ```
 
 ### Logout
 
 ```
-POST /api/auth/logout
-Response: { "success": true }
-Note: Token is cleared client-side in localStorage
+Mutation: auth.logout
+Output: { success: true }
+Note: Token is still cleared client-side in localStorage
 ```
 
 ### Change Password
 
 ```
-PUT /api/auth/password
-Headers: Authorization: Bearer <token>
-Body: { "currentPassword": "...", "newPassword": "..." }
-Response: { "success": true }
+Mutation: auth.changePassword
+Auth: Bearer token
+Input: { currentPassword: "...", newPassword: "..." }
+Output: { success: true }
 ```
 
 ## Security Features
@@ -232,26 +234,34 @@ Response: { "success": true }
 ### Using curl
 
 ```bash
-# Login
-curl -X POST http://localhost:8090/api/auth/login \
+# Login via tRPC
+curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@localhost","password":"<your-generated-password>"}'
+  -d '{"0":{"json":{"email":"admin@localhost","password":"<your-generated-password>"}}}'
 
 # Get user info (replace TOKEN with actual token from login response)
-curl http://localhost:8090/api/auth/me \
+curl "http://localhost:8090/api/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%7D%7D" \
   -H "Authorization: Bearer TOKEN"
 ```
 
 ### Using JavaScript (browser console)
 
 ```javascript
-// Login
-const response = await fetch('http://localhost:8090/api/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'admin@localhost', password: '<your-generated-password>' }),
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
+
+const client = createTRPCClient({
+  links: [
+    httpBatchLink({
+      url: 'http://localhost:8090/api/trpc',
+    }),
+  ],
 });
-const data = await response.json();
+
+const data = await client.auth.login.mutate({
+  email: 'admin@localhost',
+  password: '<your-generated-password>',
+});
+
 console.log('Token:', data.token);
 ```
 
@@ -261,7 +271,7 @@ console.log('Token:', data.token);
 A: Yes, but you need to manually create users in the database or implement a registration feature.
 
 **Q: How do I change the admin password?**
-A: Login and use the Settings page, or use the `/api/auth/password` endpoint.
+A: Login and use the Settings page, or call the `auth.changePassword` tRPC procedure.
 
 **Q: How long do JWT tokens last?**
 A: 7 days by default. After expiration, users must login again.

@@ -86,7 +86,7 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   await app.register(cors, {
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
@@ -112,16 +112,6 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   // Decorate request with database instance
   app.decorate('db', db);
 
-  // Add tenant context to request
-  app.decorateRequest('tenantId', null);
-  app.addHook('preHandler', async request => {
-    // Extract tenant ID from header or JWT token
-    const tenantIdHeader = request.headers['x-tenant-id'];
-    if (typeof tenantIdHeader === 'string') {
-      request.tenantId = tenantIdHeader;
-    }
-  });
-
   // Register tRPC
   await app.register(fastifyTRPCPlugin, {
     prefix: '/api/trpc',
@@ -136,9 +126,17 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     },
   });
 
-  // Health check endpoint
-  app.get('/api/health', async () => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+  // Keep the legacy health endpoint as a compatibility surface while
+  // `health.check` on `/api/trpc` remains the canonical health procedure.
+  app.get('/api/health', async (_request, reply) => {
+    reply.header('x-open-yojob-compat', 'legacy-health');
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      compatibility: true,
+      canonicalProcedure: 'health.check',
+      canonicalPath: '/api/trpc/health.check',
+    };
   });
 
   let serverUrl = `http://${host}:${port}`;
@@ -174,9 +172,6 @@ function generateSecret(): string {
 declare module 'fastify' {
   interface FastifyInstance {
     db: DatabaseInstance;
-  }
-  interface FastifyRequest {
-    tenantId: string | null;
   }
 }
 

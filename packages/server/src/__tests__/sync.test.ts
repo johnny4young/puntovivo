@@ -104,7 +104,9 @@ describe('Sync tRPC Router', () => {
   });
 
   afterAll(async () => {
-    await server.close();
+    if (server) {
+      await server.close();
+    }
   });
 
   const userCtx = () =>

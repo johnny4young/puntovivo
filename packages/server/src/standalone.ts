@@ -62,11 +62,9 @@ async function main(): Promise<void> {
     console.log(`[Server] ✓ Server started at ${address}`);
     console.log(`[Server] ✓ Database: ${dbPath}`);
     console.log();
-    console.log('  API Endpoints:');
-    console.log(`  - Health:      ${address}/api/health`);
-    console.log(`  - Auth:        ${address}/api/auth/*`);
-    console.log(`  - Collections: ${address}/api/collections/*`);
-    console.log(`  - Sync:        ${address}/api/sync/*`);
+    console.log('  API Surfaces:');
+    console.log(`  - tRPC:        ${address}/api/trpc`);
+    console.log(`  - Health:      ${address}/api/health (compatibility endpoint)`);
     console.log(`  - Realtime:    ${address}/api/realtime/subscribe`);
     console.log();
     console.log('  Default admin account:');
