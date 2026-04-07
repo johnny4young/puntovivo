@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Package,
   Users,
+  Truck,
   ShoppingCart,
   Warehouse,
   Settings,
@@ -19,6 +20,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Providers', href: '/providers', icon: Truck },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Sales', href: '/sales', icon: ShoppingCart },
