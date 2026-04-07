@@ -1,26 +1,13 @@
-const AUTH_TENANT_KEY = 'auth_tenant';
+import { getStoredAuthTenantId } from '@/features/auth/authStorage';
+
 const ACTIVE_SITE_STORAGE_PREFIX = 'active_site_id:';
 
 function getStorageKey(tenantId: string) {
   return `${ACTIVE_SITE_STORAGE_PREFIX}${tenantId}`;
 }
 
-function readStoredTenantId(): string | null {
-  const serializedTenant = window.localStorage.getItem(AUTH_TENANT_KEY);
-  if (!serializedTenant) {
-    return null;
-  }
-
-  try {
-    const tenant = JSON.parse(serializedTenant) as { id?: string };
-    return tenant.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function getStoredSiteId(tenantId?: string | null): string | null {
-  const resolvedTenantId = tenantId ?? readStoredTenantId();
+  const resolvedTenantId = tenantId ?? getStoredAuthTenantId();
   if (!resolvedTenantId) {
     return null;
   }
@@ -29,7 +16,7 @@ export function getStoredSiteId(tenantId?: string | null): string | null {
 }
 
 export function persistSiteId(siteId: string, tenantId?: string | null): void {
-  const resolvedTenantId = tenantId ?? readStoredTenantId();
+  const resolvedTenantId = tenantId ?? getStoredAuthTenantId();
   if (!resolvedTenantId) {
     return;
   }
@@ -38,7 +25,7 @@ export function persistSiteId(siteId: string, tenantId?: string | null): void {
 }
 
 export function clearStoredSiteId(tenantId?: string | null): void {
-  const resolvedTenantId = tenantId ?? readStoredTenantId();
+  const resolvedTenantId = tenantId ?? getStoredAuthTenantId();
   if (!resolvedTenantId) {
     return;
   }

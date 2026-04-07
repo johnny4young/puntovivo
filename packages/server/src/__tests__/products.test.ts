@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -12,6 +13,8 @@ let tenantId: string;
 let userId: string;
 let categoryId: string;
 let providerId: string;
+let secondaryProviderId: string;
+let inactiveProviderId: string;
 let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
@@ -72,6 +75,8 @@ describe('Products tRPC Router', () => {
     vatRateId = seededVatRate.id;
     categoryId = nanoid();
     providerId = nanoid();
+    secondaryProviderId = nanoid();
+    inactiveProviderId = nanoid();
     const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
@@ -102,6 +107,36 @@ describe('Products tRPC Router', () => {
       cityId: null,
       contactName: 'Main Vendor',
       isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await db.insert(providers).values({
+      id: secondaryProviderId,
+      tenantId,
+      name: 'Backup Supply',
+      taxId: null,
+      phone: null,
+      email: null,
+      address: null,
+      cityId: null,
+      contactName: 'Secondary Vendor',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await db.insert(providers).values({
+      id: inactiveProviderId,
+      tenantId,
+      name: 'Inactive Supply',
+      taxId: null,
+      phone: null,
+      email: null,
+      address: null,
+      cityId: null,
+      contactName: 'Inactive Vendor',
+      isActive: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -236,5 +271,130 @@ describe('Products tRPC Router', () => {
     expect(match?.baseUnitAbbreviation).toBe('UND');
     expect(match?.baseUnitPrice).toBe(75);
     expect(match?.unitAssignments).toHaveLength(2);
+  });
+
+  it('normalizes provider assignments and derives the primary provider from the assignment set', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'Provider Bundle',
+      sku: 'PB-001',
+      description: null,
+      categoryId,
+      providerId: secondaryProviderId,
+      providerAssignments: [
+        { providerId },
+        { providerId: secondaryProviderId },
+      ],
+      vatRateId,
+      locationId: null,
+      barcode: null,
+      imageUrl: null,
+      cost: 25,
+      initialCost: 25,
+      price: 40,
+      price2: 42,
+      price3: 45,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 5,
+      minStock: 1,
+      isActive: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 40, isBase: true }],
+    });
+
+    expect(created.providerId).toBe(secondaryProviderId);
+    expect(created.providerAssignments?.map(assignment => assignment.providerId).sort()).toEqual(
+      [secondaryProviderId, providerId].sort()
+    );
+
+    const updated = await caller.products.update({
+      id: created.id,
+      providerId,
+    });
+
+    expect(updated.providerId).toBe(providerId);
+    expect(updated.providerAssignments?.map(assignment => assignment.providerId).sort()).toEqual(
+      [providerId, secondaryProviderId].sort()
+    );
+  });
+
+  it('rejects invalid provider assignments before they reach persistence', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.create({
+        name: 'Bad Provider Product',
+        sku: 'BP-001',
+        description: null,
+        categoryId,
+        providerAssignments: [
+          { providerId },
+          { providerId },
+        ],
+        vatRateId,
+        locationId: null,
+        barcode: null,
+        imageUrl: null,
+        cost: 25,
+        initialCost: 25,
+        price: 40,
+        price2: 42,
+        price3: 45,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: 5,
+        minStock: 1,
+        isActive: true,
+        unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 40, isBase: true }],
+      })
+    ).rejects.toThrow();
+
+    await caller.products
+      .create({
+        name: 'Inactive Provider Product',
+        sku: 'IP-001',
+        description: null,
+        categoryId,
+        providerAssignments: [{ providerId: inactiveProviderId }],
+        vatRateId,
+        locationId: null,
+        barcode: null,
+        imageUrl: null,
+        cost: 25,
+        initialCost: 25,
+        price: 40,
+        price2: 42,
+        price3: 45,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: 5,
+        minStock: 1,
+        isActive: true,
+        unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 40, isBase: true }],
+      })
+      .then(() => {
+        throw new Error('expected create to fail');
+      })
+      .catch(error => {
+        expect(error).toBeInstanceOf(TRPCError);
+        expect((error as TRPCError).code).toBe('BAD_REQUEST');
+        expect((error as TRPCError).message).toContain('selected providers');
+      });
   });
 });

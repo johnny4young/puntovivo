@@ -22,6 +22,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import {
   categories,
   products,
+  productXProvider,
   providers,
   syncQueue,
   unitXProduct,
@@ -89,6 +90,8 @@ type ProductUnitAssignmentRecord = {
   updatedAt: string;
 };
 
+type ProductProviderAssignmentInput = NonNullable<CreateProductInput['providerAssignments']>;
+
 function validateUnitAssignments(
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
@@ -149,6 +152,46 @@ async function resolveUnitAssignments(
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'One of the selected units was not found or is inactive',
+      });
+    }
+  }
+
+  return input;
+}
+
+function getUniqueProviderIds(providerIds: string[]) {
+  return [...new Set(providerIds)];
+}
+
+async function resolveProviderAssignments(
+  db: Context['db'],
+  tenantId: string,
+  input: ProductProviderAssignmentInput
+) {
+  const providerIds = input.map(assignment => assignment.providerId);
+  if (getUniqueProviderIds(providerIds).length !== providerIds.length) {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: 'Each provider can only be assigned once per product',
+    });
+  }
+
+  const availableProviders = await db
+    .select({
+      id: providers.id,
+      isActive: providers.isActive,
+    })
+    .from(providers)
+    .where(eq(providers.tenantId, tenantId))
+    .all();
+
+  const providerMap = new Map(availableProviders.map(provider => [provider.id, provider]));
+  for (const assignment of input) {
+    const provider = providerMap.get(assignment.providerId);
+    if (!provider || provider.isActive === false) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'One of the selected providers was not found or is inactive',
       });
     }
   }
@@ -264,9 +307,24 @@ async function getProductWithRelations(db: Context['db'], productId: string, ten
     .where(eq(unitXProduct.productId, productId))
     .all();
 
+  const providerAssignments = await db
+    .select({
+      id: productXProvider.id,
+      productId: productXProvider.productId,
+      providerId: productXProvider.providerId,
+      providerName: providers.name,
+      createdAt: productXProvider.createdAt,
+      updatedAt: productXProvider.updatedAt,
+    })
+    .from(productXProvider)
+    .innerJoin(providers, eq(productXProvider.providerId, providers.id))
+    .where(eq(productXProvider.productId, productId))
+    .all();
+
   return {
     ...product,
     unitAssignments,
+    providerAssignments,
   };
 }
 
@@ -324,6 +382,80 @@ async function getExistingUnitAssignments(db: Context['db'], productId: string) 
   }));
 }
 
+async function getExistingProviderAssignments(db: Context['db'], productId: string) {
+  const existingAssignments = await db
+    .select({
+      providerId: productXProvider.providerId,
+    })
+    .from(productXProvider)
+    .where(eq(productXProvider.productId, productId))
+    .all();
+
+  return existingAssignments.map(assignment => assignment.providerId);
+}
+
+async function replaceProviderAssignments(
+  db: Context['db'],
+  productId: string,
+  providerAssignmentsInput: ProductProviderAssignmentInput,
+  now: string
+) {
+  await db.delete(productXProvider).where(eq(productXProvider.productId, productId));
+
+  for (const assignment of providerAssignmentsInput) {
+    await db.insert(productXProvider).values({
+      id: nanoid(),
+      productId,
+      providerId: assignment.providerId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
+function normalizeProviderState({
+  providerId,
+  providerAssignments,
+  existingProviderIds = [],
+}: {
+  providerId: string | null | undefined;
+  providerAssignments: ProductProviderAssignmentInput | undefined;
+  existingProviderIds?: string[];
+}) {
+  if (providerAssignments === undefined && providerId === undefined) {
+    return null;
+  }
+
+  if (providerAssignments !== undefined) {
+    const submittedProviderIds = providerAssignments.map(assignment => assignment.providerId);
+    const normalizedProviderIds = providerId
+      ? [providerId, ...submittedProviderIds.filter(candidateId => candidateId !== providerId)]
+      : submittedProviderIds;
+    const uniqueProviderIds = getUniqueProviderIds(normalizedProviderIds);
+
+    return {
+      providerId: uniqueProviderIds[0] ?? null,
+      providerAssignments: uniqueProviderIds.map(candidateId => ({ providerId: candidateId })),
+    };
+  }
+
+  if (!providerId) {
+    return {
+      providerId: null,
+      providerAssignments: [],
+    };
+  }
+
+  const uniqueProviderIds = getUniqueProviderIds([
+    providerId,
+    ...existingProviderIds.filter(candidateId => candidateId !== providerId),
+  ]);
+  return {
+    providerId: uniqueProviderIds[0] ?? null,
+    providerAssignments: uniqueProviderIds.map(candidateId => ({ providerId: candidateId })),
+  };
+}
+
 async function resolveTaxRate(
   db: Context['db'],
   tenantId: string,
@@ -379,41 +511,7 @@ export const productsRouter = router({
 
     const [items, countResult] = await Promise.all([
       ctx.db
-        .select({
-          id: products.id,
-          tenantId: products.tenantId,
-          name: products.name,
-          sku: products.sku,
-          description: products.description,
-          categoryId: products.categoryId,
-          price: products.price,
-          price2: products.price2,
-          price3: products.price3,
-          cost: products.cost,
-          marginPercent1: products.marginPercent1,
-          marginPercent2: products.marginPercent2,
-          marginPercent3: products.marginPercent3,
-          marginAmount1: products.marginAmount1,
-          marginAmount2: products.marginAmount2,
-          marginAmount3: products.marginAmount3,
-          taxRate: products.taxRate,
-          vatRateId: products.vatRateId,
-          providerId: products.providerId,
-          locationId: products.locationId,
-          initialCost: products.initialCost,
-          stock: products.stock,
-          minStock: products.minStock,
-          isActive: products.isActive,
-          barcode: products.barcode,
-          imageUrl: products.imageUrl,
-          syncStatus: products.syncStatus,
-          syncVersion: products.syncVersion,
-          createdAt: products.createdAt,
-          updatedAt: products.updatedAt,
-          categoryName: categories.name,
-          providerName: providers.name,
-          vatRateName: vatRates.name,
-        })
+        .select(productSelection)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
@@ -489,6 +587,13 @@ export const productsRouter = router({
       ctx.tenantId,
       input.unitAssignments ?? (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
     );
+    const normalizedProviderState = normalizeProviderState({
+      providerId: input.providerId,
+      providerAssignments: input.providerAssignments,
+    });
+    const resolvedProviderAssignments = normalizedProviderState
+      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      : [];
     const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
 
     await ctx.db.insert(products).values({
@@ -510,7 +615,7 @@ export const productsRouter = router({
       marginAmount3: normalizedPricing.marginAmount3,
       taxRate: resolvedTax.taxRate,
       vatRateId: resolvedTax.vatRateId,
-      providerId: input.providerId ?? null,
+      providerId: normalizedProviderState?.providerId ?? null,
       locationId: input.locationId ?? null,
       initialCost: input.initialCost,
       stock: input.stock,
@@ -526,6 +631,10 @@ export const productsRouter = router({
 
     await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
 
+    if (normalizedProviderState) {
+      await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
+    }
+
     // Add to sync queue
     await ctx.db.insert(syncQueue).values({
       id: nanoid(),
@@ -539,6 +648,8 @@ export const productsRouter = router({
         ...normalizedPricing,
         taxRate: resolvedTax.taxRate,
         vatRateId: resolvedTax.vatRateId,
+        providerId: normalizedProviderState?.providerId ?? null,
+        providerAssignments: resolvedProviderAssignments,
         unitAssignments: resolvedUnitAssignments,
       },
       localVersion: 1,
@@ -584,11 +695,20 @@ export const productsRouter = router({
 
     const now = new Date().toISOString();
     const existingUnitAssignments = await getExistingUnitAssignments(ctx.db, id);
+    const existingProviderIds = await getExistingProviderAssignments(ctx.db, id);
     const resolvedUnitAssignments = await resolveUnitAssignments(
       ctx.db,
       ctx.tenantId,
       updates.unitAssignments ?? existingUnitAssignments
     );
+    const normalizedProviderState = normalizeProviderState({
+      providerId: updates.providerId,
+      providerAssignments: updates.providerAssignments,
+      existingProviderIds,
+    });
+    const resolvedProviderAssignments = normalizedProviderState
+      ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
+      : undefined;
     const normalizedPricing = normalizeProductPricing({
       cost: updates.cost ?? existing.cost,
       price: updates.price ?? existing.price,
@@ -629,7 +749,7 @@ export const productsRouter = router({
     if (updates.sku !== undefined) updateData.sku = updates.sku;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
-    if (updates.providerId !== undefined) updateData.providerId = updates.providerId;
+    if (normalizedProviderState) updateData.providerId = normalizedProviderState.providerId;
     if (updates.locationId !== undefined) updateData.locationId = updates.locationId;
     if (updates.initialCost !== undefined) updateData.initialCost = updates.initialCost;
     if (updates.stock !== undefined) updateData.stock = updates.stock;
@@ -641,6 +761,10 @@ export const productsRouter = router({
     await ctx.db.update(products).set(updateData).where(eq(products.id, id));
     await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
 
+    if (resolvedProviderAssignments !== undefined) {
+      await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
+    }
+
     // Add to sync queue
     await ctx.db.insert(syncQueue).values({
       id: nanoid(),
@@ -648,7 +772,12 @@ export const productsRouter = router({
       entityType: 'products',
       entityId: id,
       operation: 'update',
-      data: { id, ...updateData, unitAssignments: resolvedUnitAssignments },
+      data: {
+        id,
+        ...updateData,
+        providerAssignments: resolvedProviderAssignments,
+        unitAssignments: resolvedUnitAssignments,
+      },
       localVersion: 1,
       attempts: 0,
       createdAt: now,
