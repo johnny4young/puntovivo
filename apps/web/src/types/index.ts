@@ -43,6 +43,21 @@ export interface Site {
   updatedAt: string;
 }
 
+export interface Provider {
+  id: string;
+  tenantId: string;
+  name: string;
+  taxId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  cityId?: string | null;
+  contactName?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

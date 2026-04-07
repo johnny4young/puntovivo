@@ -8,6 +8,7 @@ import { router, publicProcedure } from './init.js';
 import { authRouter } from './routers/auth.js';
 import { categoriesRouter } from './routers/categories.js';
 import { dashboardRouter } from './routers/dashboard.js';
+import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales.js';
@@ -27,6 +28,7 @@ export const appRouter = router({
   }),
   auth: authRouter,
   dashboard: dashboardRouter,
+  providers: providersRouter,
   categories: categoriesRouter,
   products: productsRouter,
   customers: customersRouter,
