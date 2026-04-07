@@ -109,6 +109,10 @@ export const customersRouter = router({
       postalCode: input.postalCode,
       country: input.country,
       taxId: input.taxId,
+      identificationTypeId: input.identificationTypeId,
+      personTypeId: input.personTypeId,
+      regimeTypeId: input.regimeTypeId,
+      clientTypeId: input.clientTypeId,
       notes: input.notes,
       isActive: input.isActive,
       syncStatus: 'pending',
@@ -167,6 +171,12 @@ export const customersRouter = router({
     if (updates.postalCode !== undefined) updateData.postalCode = updates.postalCode;
     if (updates.country !== undefined) updateData.country = updates.country;
     if (updates.taxId !== undefined) updateData.taxId = updates.taxId;
+    if (updates.identificationTypeId !== undefined) {
+      updateData.identificationTypeId = updates.identificationTypeId;
+    }
+    if (updates.personTypeId !== undefined) updateData.personTypeId = updates.personTypeId;
+    if (updates.regimeTypeId !== undefined) updateData.regimeTypeId = updates.regimeTypeId;
+    if (updates.clientTypeId !== undefined) updateData.clientTypeId = updates.clientTypeId;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 

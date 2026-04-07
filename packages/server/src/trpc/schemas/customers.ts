@@ -32,6 +32,10 @@ export const createCustomerInput = z.object({
   postalCode: z.string().optional(),
   country: z.string().optional(),
   taxId: z.string().optional(),
+  identificationTypeId: z.string().optional(),
+  personTypeId: z.string().optional(),
+  regimeTypeId: z.string().optional(),
+  clientTypeId: z.string().optional(),
   notes: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -47,6 +51,10 @@ export const updateCustomerInput = z.object({
   postalCode: z.string().nullable().optional(),
   country: z.string().nullable().optional(),
   taxId: z.string().nullable().optional(),
+  identificationTypeId: z.string().nullable().optional(),
+  personTypeId: z.string().nullable().optional(),
+  regimeTypeId: z.string().nullable().optional(),
+  clientTypeId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });

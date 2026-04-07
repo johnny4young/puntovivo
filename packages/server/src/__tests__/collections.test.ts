@@ -532,24 +532,39 @@ describe('Collections tRPC Routers', () => {
           name: 'Jane Smith',
           email: 'jane@example.com',
           phone: '555-0100',
+          identificationTypeId: 'CC',
+          personTypeId: 'natural',
+          regimeTypeId: 'simplified',
+          clientTypeId: 'retail',
         });
 
         expect(result.id).toBeDefined();
         expect(result.name).toBe('Jane Smith');
         expect(result.email).toBe('jane@example.com');
         expect(result.phone).toBe('555-0100');
+        expect(result.identificationTypeId).toBe('CC');
+        expect(result.personTypeId).toBe('natural');
+        expect(result.regimeTypeId).toBe('simplified');
+        expect(result.clientTypeId).toBe('retail');
         expect(result.tenantId).toBe(testTenantId);
       });
     });
 
     describe('customers.update', () => {
-      it('updates the name of an existing customer', async () => {
+      it('updates the name and enhancement fields of an existing customer', async () => {
         const caller = appRouter.createCaller(adminCtx());
         const created = await caller.customers.create({ name: 'Old Name' });
-        const updated = await caller.customers.update({ id: created.id, name: 'New Name' });
+        const updated = await caller.customers.update({
+          id: created.id,
+          name: 'New Name',
+          identificationTypeId: 'NIT',
+          clientTypeId: 'wholesale',
+        });
 
         expect(updated.id).toBe(created.id);
         expect(updated.name).toBe('New Name');
+        expect(updated.identificationTypeId).toBe('NIT');
+        expect(updated.clientTypeId).toBe('wholesale');
       });
     });
 
