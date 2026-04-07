@@ -22,6 +22,42 @@ let server: OpenYojobServer | null = null;
 const SERVER_PORT = 8090;
 const DB_PATH = join(app.getPath('userData'), 'data', 'local.db');
 
+async function printReceipt(receiptHtml: string): Promise<void> {
+  const printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  try {
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
+
+    await new Promise<void>((resolve, reject) => {
+      printWindow.webContents.print(
+        {
+          silent: false,
+          printBackground: true,
+        },
+        (success, failureReason) => {
+          if (!success) {
+            reject(new Error(failureReason || 'Receipt printing failed'));
+            return;
+          }
+
+          resolve();
+        }
+      );
+    });
+  } finally {
+    if (!printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -117,3 +153,23 @@ app.on('window-all-closed', async () => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
 ipcMain.handle('get-server-url', () => server?.getUrl() || `http://127.0.0.1:${SERVER_PORT}`);
+ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
+  if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {
+    return {
+      success: false,
+      error: 'A receipt document is required before printing',
+    };
+  }
+
+  try {
+    await printReceipt(receiptHtml);
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Receipt printing failed';
+    console.error('[Print] Receipt printing failed:', error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+});

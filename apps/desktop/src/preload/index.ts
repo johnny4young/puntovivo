@@ -5,6 +5,7 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface DatabaseAPI {
@@ -29,6 +30,7 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
 };
 
 const dbAPI: DatabaseAPI = {
