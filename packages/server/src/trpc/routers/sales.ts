@@ -28,6 +28,55 @@ import {
 } from '../schemas/sales.js';
 
 export const salesRouter = router({
+  summary: tenantProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+
+    const [today, totals, pending] = await Promise.all([
+      ctx.db
+        .select({
+          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
+        })
+        .from(sales)
+        .where(
+          and(
+            eq(sales.tenantId, ctx.tenantId),
+            gte(sales.createdAt, startOfToday.toISOString()),
+            lte(sales.createdAt, endOfToday.toISOString())
+          )
+        )
+        .get(),
+      ctx.db
+        .select({
+          transactionCount: sql<number>`count(*)`,
+          grossTotal: sql<number>`coalesce(sum(${sales.total}), 0)`,
+        })
+        .from(sales)
+        .where(eq(sales.tenantId, ctx.tenantId))
+        .get(),
+      ctx.db
+        .select({
+          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
+        })
+        .from(sales)
+        .where(and(eq(sales.tenantId, ctx.tenantId), eq(sales.paymentStatus, 'pending')))
+        .get(),
+    ]);
+
+    const transactionCount = totals?.transactionCount ?? 0;
+    const grossTotal = totals?.grossTotal ?? 0;
+
+    return {
+      todaySalesTotal: today?.total ?? 0,
+      transactionCount,
+      averageOrder: transactionCount > 0 ? grossTotal / transactionCount : 0,
+      pendingPaymentsTotal: pending?.total ?? 0,
+    };
+  }),
+
   /**
    * List sales for the current tenant with pagination and filtering
    */

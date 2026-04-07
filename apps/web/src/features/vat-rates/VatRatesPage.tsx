@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { BadgePercent, Pencil, Plus, Trash2 } from 'lucide-react';
-import { DataTable } from '@/components/tables/DataTable';
+import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { VatRate } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -77,34 +77,22 @@ export function VatRatesPage() {
   })) as VatRate[];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">VAT Rates</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            Manage tax percentages used by products and sales
-          </p>
-        </div>
+    <ResourcePage
+      title="VAT Rates"
+      description="Manage tax percentages used by products and sales"
+      action={
         <button className="btn-primary flex items-center gap-2">
           <Plus className="h-5 w-5" />
           Add VAT Rate
         </button>
-      </div>
-
-      <div className="card p-6">
-        {isLoading && <p className="text-secondary-500 py-4">Loading VAT rates...</p>}
-        {error && <p className="text-danger-500 py-4">{error.message}</p>}
-        {!isLoading && !error && (
-          <DataTable
-            columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
-            data={vatRates}
-            searchKey="name"
-            searchPlaceholder="Search VAT rates..."
-            enableRowSelection
-            pageSize={10}
-          />
-        )}
-      </div>
-    </div>
+      }
+      columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
+      data={vatRates}
+      isLoading={isLoading}
+      error={error?.message ?? null}
+      searchKey="name"
+      searchPlaceholder="Search VAT rates..."
+      loadingMessage="Loading VAT rates..."
+    />
   );
 }

@@ -158,6 +158,7 @@ export const authRouter = router({
         tenantId: user.tenantId,
         isActive: user.isActive,
         createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       tenant: tenant
         ? {
@@ -165,6 +166,8 @@ export const authRouter = router({
             name: tenant.name,
             slug: tenant.slug,
             settings: tenant.settings,
+            createdAt: tenant.createdAt,
+            updatedAt: tenant.updatedAt,
           }
         : null,
     };

@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { Mail, Pencil, Plus, Phone, Trash2, Truck } from 'lucide-react';
-import { DataTable } from '@/components/tables/DataTable';
+import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Provider } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -100,34 +100,22 @@ export function ProvidersPage() {
   })) as Provider[];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Providers</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            Manage suppliers and vendor contacts
-          </p>
-        </div>
+    <ResourcePage
+      title="Providers"
+      description="Manage suppliers and vendor contacts"
+      action={
         <button className="btn-primary flex items-center gap-2">
           <Plus className="h-5 w-5" />
           Add Provider
         </button>
-      </div>
-
-      <div className="card p-6">
-        {isLoading && <p className="text-secondary-500 py-4">Loading providers...</p>}
-        {error && <p className="text-danger-500 py-4">{error.message}</p>}
-        {!isLoading && !error && (
-          <DataTable
-            columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
-            data={providers}
-            searchKey="name"
-            searchPlaceholder="Search providers..."
-            enableRowSelection
-            pageSize={10}
-          />
-        )}
-      </div>
-    </div>
+      }
+      columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
+      data={providers}
+      isLoading={isLoading}
+      error={error?.message ?? null}
+      searchKey="name"
+      searchPlaceholder="Search providers..."
+      loadingMessage="Loading providers..."
+    />
   );
 }
