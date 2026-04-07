@@ -1,98 +1,301 @@
+import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { ResourcePage } from '@/components/resources/ResourcePage';
-import type { Unit } from '@/types';
+import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 
-const columns = (onDelete: (id: string) => void, canDelete: boolean): ColumnDef<Unit>[] => [
-  {
-    accessorKey: 'name',
-    header: 'Unit',
-    size: 220,
-    cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-lg bg-primary-100 flex items-center justify-center">
-          <Ruler className="h-4 w-4 text-primary-700" />
-        </div>
+interface UnitFormValues {
+  name: string;
+  abbreviation: string;
+  isActive: boolean;
+}
+
+const defaultValues: UnitFormValues = {
+  name: '',
+  abbreviation: '',
+  isActive: true,
+};
+
+function mapUnitToForm(unit: Unit | null): UnitFormValues {
+  if (!unit) {
+    return defaultValues;
+  }
+
+  return {
+    name: unit.name,
+    abbreviation: unit.abbreviation,
+    isActive: unit.isActive,
+  };
+}
+
+interface UnitFormModalProps {
+  isOpen: boolean;
+  unit: Unit | null;
+  isSaving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (values: UnitFormValues) => Promise<void>;
+}
+
+function UnitFormModal({
+  isOpen,
+  unit,
+  isSaving,
+  error,
+  onClose,
+  onSubmit,
+}: UnitFormModalProps) {
+  const form = useForm<UnitFormValues>({
+    defaultValues: mapUnitToForm(unit),
+  });
+
+  const handleSubmit = form.handleSubmit(onSubmit);
+  const isCreate = !unit;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isCreate ? 'Create Unit' : 'Edit Unit'}
+      footer={
+        <>
+          <ModalButton onClick={onClose} disabled={isSaving}>
+            Cancel
+          </ModalButton>
+          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving...' : isCreate ? 'Create Unit' : 'Save Changes'}
+          </ModalButton>
+        </>
+      }
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
-          <p className="font-medium text-secondary-900">{row.original.name}</p>
+          <label htmlFor="unit-name" className="label">
+            Unit Name
+          </label>
+          <input
+            id="unit-name"
+            className="input mt-1"
+            {...form.register('name', { required: 'Unit name is required' })}
+          />
+          {form.formState.errors.name && (
+            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
+          )}
         </div>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'abbreviation',
-    header: 'Abbreviation',
-    size: 140,
-    cell: ({ row }) => <span className="font-medium text-secondary-900">{row.original.abbreviation}</span>,
-  },
-  {
-    accessorKey: 'isActive',
-    header: 'Status',
-    size: 100,
-    cell: ({ row }) => (
-      <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-        {row.original.isActive ? 'Active' : 'Inactive'}
-      </span>
-    ),
-  },
-  {
-    id: 'actions',
-    size: 80,
-    cell: ({ row }) => (
-      <div className="flex items-center gap-1">
-        <button
-          className="btn-ghost btn-icon h-8 w-8"
-          onClick={() => console.log('Edit unit', row.original)}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        {canDelete && (
-          <button
-            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-            onClick={() => onDelete(row.original.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-    ),
-  },
-];
+
+        <div>
+          <label htmlFor="unit-abbreviation" className="label">
+            Abbreviation
+          </label>
+          <input
+            id="unit-abbreviation"
+            className="input mt-1"
+            {...form.register('abbreviation', { required: 'Abbreviation is required' })}
+          />
+          {form.formState.errors.abbreviation && (
+            <p className="mt-1 text-sm text-danger-500">
+              {form.formState.errors.abbreviation.message}
+            </p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-3 text-sm text-secondary-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-secondary-300"
+            {...form.register('isActive')}
+          />
+          Unit is active
+        </label>
+
+        {error && <p className="text-sm text-danger-500">{error}</p>}
+      </form>
+    </Modal>
+  );
+}
+
+function canManageUnits(role: UserRole | undefined): boolean {
+  return role === 'admin';
+}
 
 export function UnitsPage() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalInstanceKey, setModalInstanceKey] = useState(0);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
 
   const { data, isLoading, error } = trpc.units.list.useQuery({ page: 1, perPage: 50 });
+  const createMutation = trpc.units.create.useMutation({
+    onSuccess: async () => {
+      await utils.units.list.invalidate();
+      handleCloseModal();
+    },
+  });
+  const updateMutation = trpc.units.update.useMutation({
+    onSuccess: async () => {
+      await utils.units.list.invalidate();
+      handleCloseModal();
+    },
+  });
   const deleteMutation = trpc.units.delete.useMutation({
-    onSuccess: () => utils.units.list.invalidate(),
+    onSuccess: async () => {
+      await utils.units.list.invalidate();
+      setUnitToDelete(null);
+    },
   });
 
+  const canManage = canManageUnits(user?.role);
   const canDelete = user?.role === 'admin';
   const units = (data?.items ?? []).map(unit => ({
     ...unit,
     isActive: unit.isActive ?? false,
   })) as Unit[];
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingUnit(null);
+    createMutation.reset();
+    updateMutation.reset();
+  };
+
+  const handleOpenCreate = () => {
+    setEditingUnit(null);
+    setModalInstanceKey(current => current + 1);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setModalInstanceKey(current => current + 1);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (values: UnitFormValues) => {
+    if (editingUnit) {
+      await updateMutation.mutateAsync({
+        id: editingUnit.id,
+        name: values.name,
+        abbreviation: values.abbreviation,
+        isActive: values.isActive,
+      });
+      return;
+    }
+
+    await createMutation.mutateAsync(values);
+  };
+
+  const columns: ColumnDef<Unit>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Unit',
+      size: 220,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-primary-100 flex items-center justify-center">
+            <Ruler className="h-4 w-4 text-primary-700" />
+          </div>
+          <div>
+            <p className="font-medium text-secondary-900">{row.original.name}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'abbreviation',
+      header: 'Abbreviation',
+      size: 140,
+      cell: ({ row }) => (
+        <span className="font-medium text-secondary-900">{row.original.abbreviation}</span>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      size: 100,
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+          {row.original.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      size: 80,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => handleOpenEdit(row.original)}
+            disabled={!canManage}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          {canDelete && (
+            <button
+              className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+              onClick={() => setUnitToDelete(row.original)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <ResourcePage
-      title="Units"
-      description="Manage measurement units used by products and sales"
-      action={
-        <button className="btn-primary flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add Unit
-        </button>
-      }
-      columns={columns(id => deleteMutation.mutate({ id }), canDelete)}
-      data={units}
-      isLoading={isLoading}
-      error={error?.message ?? null}
-      searchKey="name"
-      searchPlaceholder="Search units..."
-      loadingMessage="Loading units..."
-    />
+    <>
+      <ResourcePage
+        title="Units"
+        description="Manage measurement units used by products and sales"
+        action={
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleOpenCreate}
+            disabled={!canManage}
+          >
+            <Plus className="h-5 w-5" />
+            Add Unit
+          </button>
+        }
+        columns={columns}
+        data={units}
+        isLoading={isLoading}
+        error={error?.message ?? null}
+        searchKey="name"
+        searchPlaceholder="Search units..."
+        loadingMessage="Loading units..."
+      />
+
+      <UnitFormModal
+        key={`${editingUnit?.id ?? 'new-unit'}-${modalInstanceKey}`}
+        isOpen={isModalOpen}
+        unit={editingUnit}
+        isSaving={createMutation.isPending || updateMutation.isPending}
+        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmit}
+      />
+
+      <ConfirmModal
+        isOpen={!!unitToDelete}
+        onClose={() => setUnitToDelete(null)}
+        onConfirm={() => {
+          if (unitToDelete) {
+            void deleteMutation.mutateAsync({ id: unitToDelete.id });
+          }
+        }}
+        title="Delete Unit"
+        message={`Are you sure you want to delete ${unitToDelete?.name ?? 'this unit'}?`}
+        confirmText="Delete Unit"
+        loading={deleteMutation.isPending}
+      />
+    </>
   );
 }
