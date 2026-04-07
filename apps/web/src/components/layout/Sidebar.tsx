@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Building2 as Building,
+  FolderTree,
   Package,
   Ruler,
   Users,
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Sites', href: '/sites', icon: Store },
   { name: 'Sequentials', href: '/sequentials', icon: FileDigit },
   { name: 'Providers', href: '/providers', icon: Truck },
+  { name: 'Categories', href: '/categories', icon: FolderTree },
   { name: 'Units', href: '/units', icon: Ruler },
   { name: 'VAT Rates', href: '/vat-rates', icon: BadgePercent },
   { name: 'Products', href: '/products', icon: Package },

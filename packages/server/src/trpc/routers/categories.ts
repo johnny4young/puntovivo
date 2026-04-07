@@ -15,7 +15,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, like, isNull } from 'drizzle-orm';
+import { eq, and, sql, like, isNull, asc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -27,6 +27,72 @@ import {
   updateCategoryInput,
   deleteCategoryInput,
 } from '../schemas/categories.js';
+import type { Context } from '../context.js';
+
+async function getCategoryForTenant(ctx: Context, id: string) {
+  if (!ctx.tenantId) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Tenant context is required',
+    });
+  }
+
+  return ctx.db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.id, id), eq(categories.tenantId, ctx.tenantId)))
+    .get();
+}
+
+async function assertValidParentCategory({
+  ctx,
+  categoryId,
+  parentId,
+}: {
+  ctx: Context;
+  categoryId?: string;
+  parentId?: string | null;
+}) {
+  if (!parentId) {
+    return null;
+  }
+
+  if (categoryId && parentId === categoryId) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'A category cannot be its own parent',
+    });
+  }
+
+  const parent = await getCategoryForTenant(ctx, parentId);
+
+  if (!parent) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Parent category not found',
+    });
+  }
+
+  if (!categoryId) {
+    return parent;
+  }
+
+  let currentParentId = parent.parentId;
+
+  while (currentParentId) {
+    if (currentParentId === categoryId) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Category hierarchy cannot contain cycles',
+      });
+    }
+
+    const ancestor = await getCategoryForTenant(ctx, currentParentId);
+    currentParentId = ancestor?.parentId ?? null;
+  }
+
+  return parent;
+}
 
 export const categoriesRouter = router({
   /**
@@ -94,6 +160,11 @@ export const categoriesRouter = router({
     const now = new Date().toISOString();
     const id = nanoid();
 
+    await assertValidParentCategory({
+      ctx,
+      parentId: input.parentId,
+    });
+
     await ctx.db.insert(categories).values({
       id,
       tenantId: ctx.tenantId,
@@ -137,6 +208,12 @@ export const categoriesRouter = router({
     if (!existing) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
     }
+
+    await assertValidParentCategory({
+      ctx,
+      categoryId: id,
+      parentId: updates.parentId,
+    });
 
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
@@ -185,6 +262,19 @@ export const categoriesRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
     }
 
+    const childCategory = await ctx.db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.parentId, input.id), eq(categories.tenantId, ctx.tenantId)))
+      .get();
+
+    if (childCategory) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Delete or reassign child categories before removing this category',
+      });
+    }
+
     await ctx.db.delete(categories).where(eq(categories.id, input.id));
 
     const now = new Date().toISOString();
@@ -211,6 +301,7 @@ export const categoriesRouter = router({
       .select()
       .from(categories)
       .where(eq(categories.tenantId, ctx.tenantId))
+      .orderBy(asc(categories.name))
       .all();
 
     return { items };
