@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import type { Company, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { PageLoadingState } from '@/components/feedback/LoadingState';
+import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 
@@ -214,12 +216,23 @@ export function CompanyPage() {
         </p>
       </div>
 
-      <div className="card p-6">
-        {companyQuery.isLoading && <p className="py-4 text-secondary-500">Loading company...</p>}
-        {companyQuery.error && (
-          <p className="py-4 text-danger-500">{companyQuery.error.message}</p>
-        )}
-        {!companyQuery.isLoading && !companyQuery.error && (
+      {companyQuery.isLoading && (
+        <PageLoadingState
+          title="Company"
+          description="Loading the business identity and workstation settings."
+        />
+      )}
+      {companyQuery.error && (
+        <QueryErrorState
+          title="Unable to load company settings"
+          message={companyQuery.error.message}
+          onRetry={() => {
+            void companyQuery.refetch();
+          }}
+        />
+      )}
+      {!companyQuery.isLoading && !companyQuery.error && (
+        <div className="card p-6">
           <CompanyForm
             key={company?.id ?? 'new-company'}
             company={company}
@@ -228,8 +241,8 @@ export function CompanyPage() {
             error={upsertMutation.error?.message ?? null}
             onSubmit={onSubmit}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {canEdit && (
         <div className="grid gap-6 xl:grid-cols-2">
