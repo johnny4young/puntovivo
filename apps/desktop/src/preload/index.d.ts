@@ -56,11 +56,17 @@ interface SyncAPI {
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
+interface DesktopBridgeAPI extends DesktopElectronAPI {
+  db: DatabaseAPI;
+  sync: SyncAPI;
+}
+
 declare global {
   interface Window {
     electron: DesktopElectronAPI;
     db: DatabaseAPI;
     sync: SyncAPI;
+    api: DesktopBridgeAPI;
   }
 }
 

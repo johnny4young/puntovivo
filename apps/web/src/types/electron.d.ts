@@ -42,6 +42,8 @@ export interface DatabaseAPI {
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
   delete: (table: string, id: string) => Promise<boolean>;
   query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+  addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
+  getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
 }
 
 export interface SyncAPI {
@@ -51,6 +53,12 @@ export interface SyncAPI {
     pendingItems: number;
   }>;
   triggerSync: () => Promise<{ success: boolean; synced: number; errors: string[] }>;
+  setConfig: (config: Record<string, unknown>) => Promise<void>;
+}
+
+export interface DesktopBridgeAPI extends ElectronAPI {
+  db: DatabaseAPI;
+  sync: SyncAPI;
 }
 
 declare global {
@@ -58,6 +66,7 @@ declare global {
     electron?: ElectronAPI;
     db?: DatabaseAPI;
     sync?: SyncAPI;
+    api?: DesktopBridgeAPI;
   }
 }
 

@@ -14,39 +14,6 @@ import { addToQueue, type SyncEntityType } from './syncQueue';
 // Re-export types for consumers
 export type { StoreName, StoreTypeMap };
 
-// Extend Window interface for Electron API
-declare global {
-  interface Window {
-    api?: {
-      getAppVersion: () => Promise<string>;
-      getAppPath: () => Promise<string>;
-      db: {
-        getAll: (table: string, tenantId: string) => Promise<unknown[]>;
-        getById: (table: string, id: string) => Promise<unknown>;
-        insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
-        update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
-        delete: (table: string, id: string) => Promise<unknown>;
-        query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
-        addToSyncQueue: (item: Record<string, unknown>) => Promise<unknown>;
-        getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
-      };
-      sync: {
-        getStatus: () => Promise<{
-          isOnline: boolean;
-          lastSync: string | null;
-          pendingItems: number;
-        }>;
-        triggerSync: () => Promise<{
-          success: boolean;
-          synced: number;
-          errors: string[];
-        }>;
-        setConfig: (config: Record<string, unknown>) => Promise<void>;
-      };
-    };
-  }
-}
-
 // Check if running in Electron environment
 export function isElectron(): boolean {
   return typeof window !== 'undefined' && window.api !== undefined;
