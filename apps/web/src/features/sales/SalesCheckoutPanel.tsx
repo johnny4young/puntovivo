@@ -61,6 +61,12 @@ export function SalesCheckoutPanel({
           Product search uses the existing catalog dialog, including unit selection and site-aware stock validation at checkout.
         </div>
 
+        <div className="rounded-xl border border-secondary-200 px-4 py-4 text-sm text-secondary-600">
+          <p className="font-medium text-secondary-900">POS shortcuts</p>
+          <p className="mt-2">`F5` search catalog, `F1` charge sale, `Delete` remove selected row.</p>
+          <p className="mt-1">`Alt+P` focus search, `Alt+C` quantity, `Alt+D` discount, `Alt+U` unit in search.</p>
+        </div>
+
         <div className="rounded-xl border border-secondary-200 px-4 py-4 text-sm">
           <p className="text-secondary-500">Charging site</p>
           <p className="mt-1 font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>

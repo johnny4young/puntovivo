@@ -65,7 +65,7 @@ export function SalePaymentModal({
         </>
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
           <p className="text-sm text-primary-700">Sale total</p>
           <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(total)}</p>
