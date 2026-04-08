@@ -56,18 +56,29 @@ export interface DatabaseAPI {
   insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
   delete: (table: string, id: string) => Promise<boolean>;
-  query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+  getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
+  deleteByTenant: (table: string, tenantId: string) => Promise<number>;
+  countByTenant: (table: string, tenantId: string) => Promise<number>;
   addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
   getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
 }
 
 export interface SyncAPI {
-  getStatus: () => Promise<{
+  getStatus: (tenantId?: string) => Promise<{
     isOnline: boolean;
     lastSync: string | null;
     pendingItems: number;
+    conflicts: number;
   }>;
-  triggerSync: () => Promise<{ success: boolean; synced: number; errors: string[] }>;
+  triggerSync: (tenantId?: string) => Promise<{
+    success: boolean;
+    synced: number;
+    errors: string[];
+    isOnline: boolean;
+    lastSync: string | null;
+    pendingItems: number;
+    conflicts: number;
+  }>;
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 

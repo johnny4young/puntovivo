@@ -242,11 +242,7 @@ export class OfflineStorage {
     value: IDBValidKey
   ): Promise<StoreTypeMap[K][]> {
     if (isElectron()) {
-      // For Electron, use raw SQL query
-      const table = storeToTable[storeName];
-      const results = await window.api!.db.query(`SELECT * FROM ${table} WHERE ${indexName} = ?`, [
-        value,
-      ]);
+      const results = await window.api!.db.getByField(storeToTable[storeName], indexName, value);
       return results as StoreTypeMap[K][];
     }
 
@@ -334,10 +330,9 @@ export class OfflineStorage {
     const tenantId = this.ensureTenantId();
 
     if (isElectron()) {
-      // Electron: Delete by tenant ID for each table
       const tables = Object.values(storeToTable);
       for (const table of tables) {
-        await window.api!.db.query(`DELETE FROM ${table} WHERE tenant_id = ?`, [tenantId]);
+        await window.api!.db.deleteByTenant(table, tenantId);
       }
     } else {
       // Browser: Clear each store (this clears ALL data, not just tenant)
@@ -359,11 +354,7 @@ export class OfflineStorage {
     const tenantId = this.ensureTenantId();
 
     if (isElectron()) {
-      const result = (await window.api!.db.query(
-        `SELECT COUNT(*) as count FROM ${storeToTable[storeName]} WHERE tenant_id = ?`,
-        [tenantId]
-      )) as Array<{ count: number }>;
-      return result[0]?.count ?? 0;
+      return window.api!.db.countByTenant(storeToTable[storeName], tenantId);
     }
 
     return indexedDB.count(storeName, tenantId);

@@ -56,6 +56,7 @@ const syncEntityConfig = {
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
+  sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
   sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },
   sites: { tableName: 'sites', supportsSyncMetadata: false, touchUpdatedAt: false },
@@ -232,6 +233,18 @@ function findEntity(
   tenantId: string,
   entityId: string
 ) {
+  if (config.tableName === 'sale_items') {
+    return getSqliteClient(db)
+      .prepare(
+        `SELECT si.id
+         FROM sale_items si
+         INNER JOIN sales s ON s.id = si.sale_id
+         WHERE si.id = ? AND s.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+  }
+
   return getSqliteClient(db)
     .prepare(`SELECT id FROM ${config.tableName} WHERE id = ? AND tenant_id = ? LIMIT 1`)
     .get(entityId, tenantId) as { id: string } | undefined;

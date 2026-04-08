@@ -189,7 +189,7 @@ export function StorageProvider({
 
     try {
       const count = state.isElectron
-        ? (await window.api!.sync.getStatus()).pendingItems
+        ? (await window.api!.sync.getStatus(state.tenantId)).pendingItems
         : await getPendingCount(state.tenantId);
 
       setState(prev => ({ ...prev, pendingSyncCount: count }));
@@ -317,7 +317,7 @@ export function StorageProvider({
 
     if (state.isElectron) {
       // Electron handles retry internally via triggerSync
-      await window.api!.sync.triggerSync();
+      await window.api!.sync.triggerSync(state.tenantId);
       return [];
     }
 
