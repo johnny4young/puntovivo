@@ -2,6 +2,17 @@ interface DesktopElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getReceiptPrintSettings: () => Promise<{
+    silent: boolean;
+    printBackground: boolean;
+  }>;
+  updateReceiptPrintSettings: (settings: {
+    silent: boolean;
+    printBackground: boolean;
+  }) => Promise<{
+    silent: boolean;
+    printBackground: boolean;
+  }>;
   createDatabaseBackup: () => Promise<{
     success: boolean;
     cancelled: boolean;

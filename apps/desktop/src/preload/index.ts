@@ -5,6 +5,17 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getReceiptPrintSettings: () => Promise<{
+    silent: boolean;
+    printBackground: boolean;
+  }>;
+  updateReceiptPrintSettings: (settings: {
+    silent: boolean;
+    printBackground: boolean;
+  }) => Promise<{
+    silent: boolean;
+    printBackground: boolean;
+  }>;
   createDatabaseBackup: () => Promise<{
     success: boolean;
     cancelled: boolean;
@@ -42,6 +53,9 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
+  updateReceiptPrintSettings: settings =>
+    ipcRenderer.invoke('update-receipt-print-settings', settings),
   createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),

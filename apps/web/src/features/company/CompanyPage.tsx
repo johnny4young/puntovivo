@@ -4,6 +4,7 @@ import type { Company, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { CompanyBackupCard } from './CompanyBackupCard';
+import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 
 interface CompanyFormValues {
   name: string;
@@ -230,7 +231,12 @@ export function CompanyPage() {
         )}
       </div>
 
-      {canEdit && <CompanyBackupCard />}
+      {canEdit && (
+        <div className="grid gap-6 xl:grid-cols-2">
+          <CompanyPrintSettingsCard />
+          <CompanyBackupCard />
+        </div>
+      )}
     </div>
   );
 }
