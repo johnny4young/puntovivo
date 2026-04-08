@@ -17,6 +17,7 @@ interface ProductSearchDialogProps {
   onSelect: (selection: ProductSearchSelection) => void;
   categories?: Category[];
   providers?: Provider[];
+  initialQuery?: string;
   title?: string;
   confirmLabel?: string;
 }
@@ -52,14 +53,15 @@ export function ProductSearchDialog({
   onSelect,
   categories = [],
   providers = [],
+  initialQuery = '',
   title = 'Search Products',
   confirmLabel = 'Select Product',
 }: ProductSearchDialogProps) {
   const categoryFilterId = useId();
   const providerFilterId = useId();
   const searchInputId = useId();
-  const unitSelectId = useId();
-  const [query, setQuery] = useState('');
+  const unitSelectId = 'product-search-unit-select';
+  const [query, setQuery] = useState(initialQuery);
   const [categoryId, setCategoryId] = useState('');
   const [providerId, setProviderId] = useState('');
   const [selection, setSelection] = useState<ProductSelectionState | null>(null);

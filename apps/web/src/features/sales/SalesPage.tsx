@@ -1,24 +1,28 @@
 import { useState } from 'react';
-import { Receipt, Search } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
+import { SalesOverview } from '@/features/sales/SalesOverview';
 import {
   SalePaymentModal,
   type SalePaymentValues,
 } from '@/features/sales/SalePaymentModal';
 import {
+  getCartItemKey,
   getCartSummary,
   mergeCartItem,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
+import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
+import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency, getErrorMessage } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/utils';
 import type { Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
 
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
@@ -42,11 +46,23 @@ export function SalesPage() {
   const toast = useToast();
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
+  const [selectedCartItemKey, setSelectedCartItemKey] = useState<string | null>(null);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productSearchInitialQuery, setProductSearchInitialQuery] = useState('');
+  const [productSearchDialogKey, setProductSearchDialogKey] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentModalKey, setPaymentModalKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
+  const {
+    productInputRef,
+    focusProductInput,
+    focusQuantityInput,
+    focusDiscountInput,
+    quantityInputRefFor,
+    discountInputRefFor,
+  } = useSalesInputFocus();
 
   const salesQuery = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
   const summaryQuery = trpc.sales.summary.useQuery();
@@ -65,6 +81,8 @@ export function SalesPage() {
         utils.products.search.invalidate(),
       ]);
       setCartItems([]);
+      setSelectedCartItemKey(null);
+      setProductSearchQuery('');
       setSaleError(null);
       setIsPaymentModalOpen(false);
       toast.success({
@@ -82,6 +100,7 @@ export function SalesPage() {
 
   const summary = summaryQuery.data;
   const draftSummary = getCartSummary(cartItems);
+  const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
@@ -93,6 +112,8 @@ export function SalesPage() {
 
   const handleProductSelect = (selection: Parameters<typeof mergeCartItem>[1]) => {
     setCartItems(currentItems => mergeCartItem(currentItems, selection));
+    setSelectedCartItemKey(getCartItemKey(selection.product.id, selection.unit.unitId));
+    setProductSearchQuery('');
     setSaleError(null);
   };
 
@@ -114,6 +135,12 @@ export function SalesPage() {
 
   const handleRemoveItem = (itemKey: string) => {
     setCartItems(currentItems => currentItems.filter(item => item.key !== itemKey));
+  };
+
+  const handleOpenProductSearch = (initialQuery = productSearchQuery) => {
+    setProductSearchInitialQuery(initialQuery.trim());
+    setProductSearchDialogKey(current => current + 1);
+    setIsProductSearchOpen(true);
   };
 
   const handleOpenPaymentModal = () => {
@@ -150,72 +177,36 @@ export function SalesPage() {
     }
   };
 
+  useSalesKeyboardShortcuts({
+    selectedItemKey: activeSelectedCartItemKey,
+    canCharge: !!currentSite && cartItems.length > 0,
+    isProductSearchOpen,
+    isPaymentModalOpen,
+    onOpenSearch: () => handleOpenProductSearch(),
+    onOpenPayment: handleOpenPaymentModal,
+    onRemoveSelectedItem: handleRemoveItem,
+    focusProductInput,
+    focusQuantityInput,
+    focusDiscountInput,
+  });
+
   return (
     <>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-secondary-900">Sales</h1>
-            <p className="mt-1 text-sm text-secondary-500">
-              Run POS transactions and review recent completed sales
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
-              <p className="text-secondary-500">Active site</p>
-              <p className="font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>
-            </div>
-            <button
-              className="btn-outline flex items-center gap-2"
-              onClick={() => setIsProductSearchOpen(true)}
-            >
-              <Search className="h-4 w-4" />
-              Add Product
-            </button>
-            <button
-              className="btn-primary flex items-center gap-2"
-              onClick={handleOpenPaymentModal}
-              disabled={!currentSite || cartItems.length === 0}
-            >
-              <Receipt className="h-4 w-4" />
-              Charge Sale
-            </button>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-4">
-          <div className="card p-4">
-            <p className="text-sm text-secondary-500">Today's Sales</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">
-              {summaryQuery.isLoading ? '—' : formatCurrency(summary?.todaySalesTotal ?? 0)}
-            </p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-secondary-500">Transactions</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">
-              {summaryQuery.isLoading ? '—' : summary?.transactionCount ?? 0}
-            </p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-secondary-500">Average Order</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">
-              {summaryQuery.isLoading ? '—' : formatCurrency(summary?.averageOrder ?? 0)}
-            </p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-secondary-500">Draft Total</p>
-            <p className="mt-1 text-2xl font-bold text-primary-700">
-              {formatCurrency(draftSummary.total)}
-            </p>
-          </div>
-        </div>
-
-        {!currentSite && (
-          <div className="rounded-xl border border-warning-300 bg-warning-50 px-4 py-4 text-sm text-warning-700">
-            Select an active site before charging a sale so the correct sequential is used.
-          </div>
-        )}
+        <SalesOverview
+          currentSiteName={currentSite?.name ?? null}
+          isSummaryLoading={summaryQuery.isLoading}
+          todaySalesTotal={summary?.todaySalesTotal ?? 0}
+          transactionCount={summary?.transactionCount ?? 0}
+          averageOrder={summary?.averageOrder ?? 0}
+          draftTotal={draftSummary.total}
+          canCharge={!!currentSite && cartItems.length > 0}
+          productSearchQuery={productSearchQuery}
+          onProductSearchQueryChange={setProductSearchQuery}
+          onOpenSearch={() => handleOpenProductSearch(productSearchQuery)}
+          onCharge={handleOpenPaymentModal}
+          productInputRef={productInputRef}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_360px]">
           <div className="card p-6">
@@ -226,7 +217,10 @@ export function SalesPage() {
               </div>
               <button
                 className="btn-ghost"
-                onClick={() => setCartItems([])}
+                onClick={() => {
+                  setCartItems([]);
+                  setSelectedCartItemKey(null);
+                }}
                 disabled={cartItems.length === 0}
               >
                 Clear
@@ -234,9 +228,13 @@ export function SalesPage() {
             </div>
             <SaleCartTable
               items={cartItems}
+              selectedItemKey={activeSelectedCartItemKey}
               onQuantityChange={handleQuantityChange}
               onDiscountChange={handleDiscountChange}
               onRemove={handleRemoveItem}
+              onSelectItem={setSelectedCartItemKey}
+              quantityInputRefFor={quantityInputRefFor}
+              discountInputRefFor={discountInputRefFor}
             />
             {saleError && <p className="mt-4 text-sm text-danger-500">{saleError}</p>}
           </div>
@@ -245,7 +243,7 @@ export function SalesPage() {
             currentSite={currentSite}
             draftSummary={draftSummary}
             canCharge={!!currentSite && cartItems.length > 0}
-            onOpenSearch={() => setIsProductSearchOpen(true)}
+            onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
           />
         </div>
@@ -259,11 +257,13 @@ export function SalesPage() {
       </div>
 
       <ProductSearchDialog
+        key={productSearchDialogKey}
         isOpen={isProductSearchOpen}
         onClose={() => setIsProductSearchOpen(false)}
         onSelect={handleProductSelect}
         categories={categories}
         providers={providers}
+        initialQuery={productSearchInitialQuery}
         title="Add Product to Sale"
         confirmLabel="Add to cart"
       />

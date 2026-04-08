@@ -4,16 +4,24 @@ import { getLineTotals, type SaleCartItem } from '@/features/sales/saleCart';
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
+  selectedItemKey: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
   onDiscountChange: (itemKey: string, discount: number) => void;
   onRemove: (itemKey: string) => void;
+  onSelectItem: (itemKey: string) => void;
+  quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
+  discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
 }
 
 export function SaleCartTable({
   items,
+  selectedItemKey,
   onQuantityChange,
   onDiscountChange,
   onRemove,
+  onSelectItem,
+  quantityInputRefFor,
+  discountInputRefFor,
 }: SaleCartTableProps) {
   if (items.length === 0) {
     return (
@@ -41,9 +49,14 @@ export function SaleCartTable({
           <tbody className="divide-y divide-secondary-200 bg-white">
             {items.map(item => {
               const lineTotals = getLineTotals(item);
+              const isSelected = selectedItemKey === item.key;
 
               return (
-                <tr key={item.key}>
+                <tr
+                  key={item.key}
+                  className={isSelected ? 'bg-primary-50' : undefined}
+                  onClick={() => onSelectItem(item.key)}
+                >
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-secondary-900">{item.productName}</p>
@@ -58,11 +71,13 @@ export function SaleCartTable({
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      ref={quantityInputRefFor(item.key)}
                       type="number"
                       min={1}
                       step={1}
                       className="input w-24"
                       value={item.quantity}
+                      onFocus={() => onSelectItem(item.key)}
                       onChange={event =>
                         onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
                       }
@@ -73,12 +88,14 @@ export function SaleCartTable({
                   </td>
                   <td className="px-4 py-3">
                     <input
+                      ref={discountInputRefFor(item.key)}
                       type="number"
                       min={0}
                       max={100}
                       step={1}
                       className="input w-24"
                       value={item.discount}
+                      onFocus={() => onSelectItem(item.key)}
                       onChange={event =>
                         onDiscountChange(
                           item.key,
