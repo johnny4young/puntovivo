@@ -5,6 +5,8 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 
@@ -181,6 +183,7 @@ function canManageCompany(role: UserRole | undefined): boolean {
 
 export function CompanyPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const companyQuery = trpc.companies.getCurrent.useQuery();
   const company = companyQuery.data ?? null;
@@ -189,6 +192,13 @@ export function CompanyPage() {
   const upsertMutation = trpc.companies.upsert.useMutation({
     onSuccess: async company => {
       await utils.companies.getCurrent.setData(undefined, company);
+      toast.success({ title: 'Company settings saved' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to save company settings',
+        description: getErrorMessage(error, 'Unable to save company settings'),
+      });
     },
   });
 

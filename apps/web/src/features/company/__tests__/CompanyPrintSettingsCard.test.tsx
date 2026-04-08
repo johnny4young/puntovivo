@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
+import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { CompanyPrintSettingsCard } from '../CompanyPrintSettingsCard';
 
 function renderWithQueryClient(ui: ReactElement) {
@@ -18,7 +19,11 @@ function renderWithQueryClient(ui: ReactElement) {
     },
   });
 
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe('CompanyPrintSettingsCard', () => {

@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { KeyRound, Pencil, Plus, UserRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface UserFormValues {
   email: string;
@@ -216,6 +218,7 @@ function canManageUsers(role: UserRole | undefined): boolean {
 
 export function UsersPage() {
   const { user: currentUser } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const usersQuery = trpc.users.list.useQuery({ page: 1, perPage: 50 });
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -232,6 +235,13 @@ export function UsersPage() {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
+      toast.success({ title: 'User created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create user',
+        description: getErrorMessage(error, 'Unable to create user'),
+      });
     },
   });
 
@@ -240,12 +250,26 @@ export function UsersPage() {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
+      toast.success({ title: 'User updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update user',
+        description: getErrorMessage(error, 'Unable to update user'),
+      });
     },
   });
 
   const resetPasswordMutation = trpc.users.resetPassword.useMutation({
     onSuccess: async () => {
       setPasswordUser(null);
+      toast.success({ title: 'Password reset' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to reset password',
+        description: getErrorMessage(error, 'Unable to reset password'),
+      });
     },
   });
 

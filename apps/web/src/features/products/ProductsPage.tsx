@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import {
@@ -13,7 +14,7 @@ import {
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import type { Product, UserRole } from '@/types';
 
@@ -124,6 +125,7 @@ const columns = (
 
 export function ProductsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const productsQuery = trpc.products.list.useQuery({ page: 1, perPage: 50 });
   const categoriesQuery = trpc.categories.tree.useQuery();
@@ -144,18 +146,39 @@ export function ProductsPage() {
     onSuccess: async () => {
       await utils.products.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Product created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create product',
+        description: getErrorMessage(error, 'Unable to create product'),
+      });
     },
   });
   const updateMutation = trpc.products.update.useMutation({
     onSuccess: async () => {
       await utils.products.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Product updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update product',
+        description: getErrorMessage(error, 'Unable to update product'),
+      });
     },
   });
   const deleteMutation = trpc.products.delete.useMutation({
     onSuccess: async () => {
       await utils.products.list.invalidate();
       setProductToDelete(null);
+      toast.success({ title: 'Product deactivated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to deactivate product',
+        description: getErrorMessage(error, 'Unable to deactivate product'),
+      });
     },
   });
 

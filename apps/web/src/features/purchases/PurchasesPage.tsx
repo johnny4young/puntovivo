@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PackagePlus, Search } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { PurchaseCartTable } from '@/features/purchases/PurchaseCartTable';
 import { PurchasesCheckoutPanel } from '@/features/purchases/PurchasesCheckoutPanel';
 import { PurchaseDetailsModal } from '@/features/purchases/PurchaseDetailsModal';
@@ -17,11 +18,12 @@ import {
 } from '@/features/purchases/purchaseCart';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import type { Category, Provider, Purchase } from '@/types';
 
 export function PurchasesPage() {
   const utils = trpc.useUtils();
+  const toast = useToast();
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
@@ -35,7 +37,7 @@ export function PurchasesPage() {
   const categoriesQuery = trpc.categories.tree.useQuery();
 
   const createMutation = trpc.purchases.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await Promise.all([
         utils.purchases.list.invalidate(),
         utils.inventory.listMovements.invalidate(),
@@ -46,6 +48,16 @@ export function PurchasesPage() {
       setCartItems([]);
       setPurchaseError(null);
       setIsFinalizeModalOpen(false);
+      toast.success({
+        title: 'Purchase registered',
+        description: `${variables.items.length} item${variables.items.length === 1 ? '' : 's'} added to stock.`,
+      });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to register purchase',
+        description: getErrorMessage(error, 'Unable to register purchase'),
+      });
     },
   });
 

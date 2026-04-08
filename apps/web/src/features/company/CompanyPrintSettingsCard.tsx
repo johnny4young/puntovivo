@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface ReceiptPrintSettings {
   silent: boolean;
@@ -48,6 +50,7 @@ function PrintSettingToggle({
 export function CompanyPrintSettingsCard() {
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
+  const toast = useToast();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: receiptPrintSettingsQueryKey,
@@ -70,6 +73,13 @@ export function CompanyPrintSettingsCard() {
     },
     onSuccess: settings => {
       queryClient.setQueryData(receiptPrintSettingsQueryKey, settings);
+      toast.success({ title: 'Receipt print settings saved' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to save receipt print settings',
+        description: getErrorMessage(error, 'Unable to save receipt print settings'),
+      });
     },
   });
 

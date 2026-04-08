@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Customer } from '@/types';
 import { trpc } from '@/lib/trpc';
@@ -10,6 +11,7 @@ import {
   CustomerFormModal,
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
+import { getErrorMessage } from '@/lib/utils';
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -26,6 +28,7 @@ function formatLocation(customer: Customer): string {
 
 export function CustomersPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
@@ -37,12 +40,26 @@ export function CustomersPage() {
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Customer created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create customer',
+        description: getErrorMessage(error, 'Unable to create customer'),
+      });
     },
   });
   const updateMutation = trpc.customers.update.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Customer updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update customer',
+        description: getErrorMessage(error, 'Unable to update customer'),
+      });
     },
   });
 
@@ -50,6 +67,13 @@ export function CustomersPage() {
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       setCustomerToDelete(null);
+      toast.success({ title: 'Customer deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete customer',
+        description: getErrorMessage(error, 'Unable to delete customer'),
+      });
     },
   });
 
