@@ -1,9 +1,15 @@
 # Migration Plan: yojob (WinForms) to open_yojob (Electron + React + Fastify)
 
 > **Generated:** March 31, 2026
+> **Updated with repo annotations:** April 7, 2026
 > **Source:** `yojob` -- .NET WinForms + DevExpress + SQLite + EF6 + MEF plugins
 > **Target:** `open_yojob` -- Electron 41 + React 19 + Fastify 5 + Drizzle ORM + SQLite
 > **Estimated effort:** 12--19 weeks (solo developer)
+
+> **Current repo status:** This document remains the original migration roadmap, but the repository
+> has already completed Phases 0-5 and a substantial part of Phase 6. Use
+> `docs/IMPLEMENTATION_STATUS.md` as the status source of truth when this plan conflicts with the
+> current codebase.
 
 ---
 
@@ -91,30 +97,35 @@ open_yojob/
     web/              # React 19 + Vite + TailwindCSS 4
       src/
         features/
-          auth/       # LoginPage, AuthProvider, ProtectedRoute (working)
-          tenant/     # TenantProvider (working)
-          dashboard/  # DashboardPage (sample data)
-          products/   # ProductsPage (sample data)
-          customers/  # CustomersPage (sample data)
-          sales/      # SalesPage (sample data)
-          inventory/  # InventoryPage (sample data)
+          auth/       # LoginPage, AuthProvider, ProtectedRoute, role access (working)
+          tenant/     # TenantProvider + site selection (working)
+          dashboard/  # DashboardPage (live data)
+          products/   # ProductsPage (live CRUD + pricing tiers)
+          customers/  # CustomersPage (live CRUD)
+          providers/  # ProvidersPage (live CRUD)
+          units/      # UnitsPage (live CRUD)
+          vat-rates/  # VatRatesPage (live CRUD)
+          company/    # CompanyPage (live CRUD)
+          sites/      # SitesPage (live CRUD)
+          sequentials/ # SequentialsPage (live CRUD)
+          users/      # UsersPage (live CRUD)
+          sales/      # SalesPage (POS checkout + history)
+          purchases/  # PurchasesPage (purchase intake + history)
+          inventory/  # InventoryPage (stock, movements, initial inventory)
         components/
           layout/     # MainLayout, Sidebar
-          tables/     # DataTable (reusable)
-        hooks/api/    # useProducts, useCustomers, useSales, useInventory
-        services/api/ # API client services
+          tables/     # DataTable + export actions
+        lib/          # tRPC client configuration
   packages/
     server/           # Fastify 5 + Drizzle ORM + better-sqlite3
       src/
         db/
-          schema.ts   # 7 domain tables + 3 sync tables
+          schema.ts   # Expanded business schema
           index.ts    # DB init with raw SQL DDL
           seed.ts     # Seed data
-        routes/
-          auth.ts     # Login/register (argon2 + JWT) -- working
-          collections.ts  # Generic CRUD for 8 tables -- working
-          sync.ts     # SSE realtime + sync queue -- working
-        trpc/         # tRPC scaffolding with auth/tenant middleware
+        trpc/         # Primary application API layer
+          routers/    # Auth, dashboard, admin, products, inventory, sales, purchases, sync
+        realtime/     # SSE realtime + sync queue status
 ```
 
 ### Tech Stack
@@ -123,7 +134,7 @@ open_yojob/
 | ------------- | ------------------------------------------- |
 | Desktop shell | Electron 41 + electron-forge                |
 | Frontend      | React 19, Vite, TailwindCSS 4, React Router |
-| API           | Fastify 5, tRPC (scaffolded)                |
+| API           | Fastify 5, tRPC (primary transport)         |
 | ORM           | Drizzle ORM                                 |
 | Database      | better-sqlite3 (SQLite)                     |
 | Auth          | argon2 (hashing) + JWT                      |
@@ -188,20 +199,22 @@ unitEquivalence             -- conversion factor to base unit
 costAtSale                  -- snapshot of cost at sale time
 ```
 
-### Frontend: Pages Exist but Use Sample Data
+### Frontend: Core Pages Are Live
 
-All feature pages (Dashboard, Products, Customers, Sales, Inventory) render hardcoded arrays. They need to be wired to the live Fastify API via the existing hooks in `hooks/api/`.
+The major feature pages are no longer mock screens. Dashboard, products, customers, administration,
+inventory, sales, and purchases are wired to live tRPC procedures.
 
-### Business Logic: Nothing Implemented Server-Side
+### Business Logic: Major Flows Implemented Server-Side
 
-No service layer exists. The following must be created:
+The remaining gaps are mainly polish and edge-case hardening, not absence of core business logic.
+The following items are already implemented in the current repo:
 
 - VAT extraction logic
 - 3-tier pricing calculation
 - Stock validation with unit equivalence
 - Sequential number generation
-- Sale finalization (transactional: create sale + items + decrement stock + increment sequential)
-- Purchase finalization (transactional: create purchase + items + increment stock)
+- Sale finalization (transactional)
+- Purchase finalization (transactional)
 - Initial/physical inventory processing
 
 ---
@@ -255,15 +268,18 @@ Add the following to `packages/server/src/db/schema.ts`:
 
 ### 0.2 Wire Existing Pages to Live API
 
-Each existing page currently renders sample data. Connect them:
+Status in current repo: complete for the primary feature set.
+
+This was an original migration task. In the current repo, these pages are already connected to live
+tRPC procedures:
 
 | Page          | Hook           | API Endpoint                               | Work Needed                        |
 | ------------- | -------------- | ------------------------------------------ | ---------------------------------- |
-| ProductsPage  | `useProducts`  | `GET /api/collections/products`            | Replace sample data with hook call |
-| CustomersPage | `useCustomers` | `GET /api/collections/customers`           | Replace sample data with hook call |
-| SalesPage     | `useSales`     | `GET /api/collections/sales`               | Replace sample data with hook call |
-| InventoryPage | `useInventory` | `GET /api/collections/inventory_movements` | Replace sample data with hook call |
-| DashboardPage | N/A            | Multiple aggregation endpoints             | Needs new endpoints                |
+| ProductsPage  | tRPC query/mutation flows | `products.*` and related lookups  | Implemented |
+| CustomersPage | tRPC query/mutation flows | `customers.*`                     | Implemented |
+| SalesPage     | tRPC query/mutation flows | `sales.*`                         | Implemented |
+| InventoryPage | tRPC query/mutation flows | `inventory.*`                     | Implemented |
+| DashboardPage | tRPC query flow           | `dashboard.summary`               | Implemented |
 
 ### 0.3 Site/Company Selector
 
@@ -287,7 +303,7 @@ Update `packages/server/src/db/seed.ts` to populate:
 - [ ] All P0 tables added to Drizzle schema with relations
 - [ ] Raw SQL DDL in `db/index.ts` updated to match
 - [ ] Seed data for default records
-- [ ] Existing pages wired to live API (no more sample data)
+- [x] Existing pages wired to live API (no more sample data)
 - [ ] Site selector in header
 - [ ] All existing tests still pass
 
@@ -298,13 +314,14 @@ Update `packages/server/src/db/seed.ts` to populate:
 **Goal:** Implement CRUD for all administration entities that support the business modules.
 **Effort:** 2--3 weeks
 **WinForms source:** `yojob.administrador/` (9 forms)
+**Current repo status:** Implemented
 
 ### 1.1 Provider Management
 
 | Layer  | WinForms Source    | Target Location                                                   |
 | ------ | ------------------ | ----------------------------------------------------------------- |
 | UI     | `Proveedores.cs`   | `apps/web/src/features/providers/ProvidersPage.tsx`               |
-| API    | `DB/Proveedor.cs`  | `packages/server/src/routes/collections.ts` (add to generic CRUD) |
+| API    | `DB/Proveedor.cs`  | `packages/server/src/trpc/routers/providers.ts`                   |
 | Schema | `DAO/proveedor.cs` | `packages/server/src/db/schema.ts` (providers table)              |
 
 **Form fields:** name, taxId, phone, email, address, city (lookup), contactName
@@ -314,9 +331,9 @@ Update `packages/server/src/db/seed.ts` to populate:
 
 | Layer  | WinForms Source | Target Location                                   |
 | ------ | --------------- | ------------------------------------------------- |
-| UI     | `IVAs.cs`       | `apps/web/src/features/settings/VatRatesPage.tsx` |
-| API    | `DB/IVA.cs`     | Generic CRUD                                      |
-| Schema | `DAO/iva.cs`    | `vat_rates` table                                 |
+| UI     | `IVAs.cs`       | `apps/web/src/features/vat-rates/VatRatesPage.tsx` |
+| API    | `DB/IVA.cs`     | `packages/server/src/trpc/routers/vatRates.ts`     |
+| Schema | `DAO/iva.cs`    | `vat_rates` table                                  |
 
 **Form fields:** name, rate (percentage as decimal)
 
@@ -368,23 +385,23 @@ Already partially implemented (`customers` table exists). Enhance:
 
 | Layer  | WinForms Source | Target Location                                |
 | ------ | --------------- | ---------------------------------------------- |
-| UI     | `Usuarios.cs`   | `apps/web/src/features/settings/UsersPage.tsx` |
-| API    | `DB/Usuario.cs` | `packages/server/src/routes/auth.ts` (extend)  |
+| UI     | `Usuarios.cs`   | `apps/web/src/features/users/UsersPage.tsx`    |
+| API    | `DB/Usuario.cs` | `packages/server/src/trpc/routers/users.ts`    |
 | Schema | `users` table   | Already exists                                 |
 
 **Logic:** Admin can create/deactivate users, assign roles. Password reset. Registration route already exists but needs admin-only guard.
 
 ### Deliverables
 
-- [ ] Provider CRUD (page + API)
-- [ ] VAT rate CRUD (page + API)
-- [ ] Unit CRUD (page + API)
-- [ ] Category enhancement (tree view)
-- [ ] Company/Site management (page + API)
-- [ ] Sequential configuration (page + API)
-- [ ] Customer fields enhancement
-- [ ] User management (admin-only page)
-- [ ] Navigation updated with new menu items
+- [x] Provider CRUD (page + API)
+- [x] VAT rate CRUD (page + API)
+- [x] Unit CRUD (page + API)
+- [x] Category enhancement (tree view)
+- [x] Company/Site management (page + API)
+- [x] Sequential configuration (page + API)
+- [x] Customer fields enhancement
+- [x] User management (admin-only page)
+- [x] Navigation updated with new menu items
 
 ---
 
@@ -393,6 +410,7 @@ Already partially implemented (`customers` table exists). Enhance:
 **Goal:** Full product management with multi-unit support and the 3-tier pricing engine.
 **Effort:** 2--3 weeks
 **WinForms source:** `yojob.administrador/Productos.cs` (492 lines), `yojob.lib/ProductosSearch.cs`
+**Current repo status:** Implemented
 
 ### 2.1 Product Form
 
@@ -491,13 +509,14 @@ The generic CRUD is not enough for products. Create dedicated routes:
 **Goal:** Initial inventory entry, physical inventory adjustment, and stock query view.
 **Effort:** 1--2 weeks
 **WinForms source:** `yojob.inventarios/InventarioInicial.cs`, `yojob.inventarios/ConsultaExistencia.cs`
+**Current repo status:** Implemented
 
 ### 3.1 Initial Inventory Entry
 
 | Layer  | WinForms Source                          | Target Location                                            |
 | ------ | ---------------------------------------- | ---------------------------------------------------------- |
-| UI     | `InventarioInicial.cs`                   | `apps/web/src/features/inventory/InitialInventoryPage.tsx` |
-| API    | `DB/InventarioInicial.cs`, `DB/Stock.cs` | `packages/server/src/routes/inventory.ts`                  |
+| UI     | `InventarioInicial.cs`                   | `apps/web/src/features/inventory/InventoryPage.tsx` + `InventoryEntryModal.tsx` |
+| API    | `DB/InventarioInicial.cs`, `DB/Stock.cs` | `packages/server/src/trpc/routers/inventory.ts`            |
 | Schema | `DAO/inventarioinicial.cs`               | `initial_inventory` table                                  |
 
 **Two modes (from WinForms):**
@@ -527,8 +546,8 @@ POST /api/inventory/initial
 
 | Layer | WinForms Source         | Target Location                                      |
 | ----- | ----------------------- | ---------------------------------------------------- |
-| UI    | `ConsultaExistencia.cs` | `apps/web/src/features/inventory/StockQueryPage.tsx` |
-| API   | `DB/Stock.cs`           | `packages/server/src/routes/inventory.ts`            |
+| UI    | `ConsultaExistencia.cs` | `apps/web/src/features/inventory/InventoryPage.tsx` |
+| API   | `DB/Stock.cs`           | `packages/server/src/trpc/routers/inventory.ts`     |
 
 **Read-only view** showing:
 
@@ -570,6 +589,7 @@ The current `InventoryPage.tsx` shows inventory movements. Keep this as-is but w
 **Goal:** Full point-of-sale with cart, VAT extraction, payment dialog, receipt generation, and keyboard shortcuts.
 **Effort:** 3--4 weeks (highest complexity)
 **WinForms source:** `yojob.ventas/Ventas.cs` (536 lines), `RegistraVenta.cs`, `reportTiraVenta.cs`
+**Current repo status:** Implemented
 
 ### 4.1 POS Cart State
 
@@ -655,7 +675,7 @@ Flow (from WinForms `Ventas.cs`):
 
 **This is the most critical endpoint in the system.** Must be fully transactional.
 
-Create `packages/server/src/routes/sales.ts`:
+Current implementation lives in `packages/server/src/trpc/routers/sales.ts`:
 
 ```
 POST /api/sales/finalize
@@ -749,13 +769,14 @@ Receipt content (from WinForms report):
 **Goal:** Purchase entry with stock increment, purchase history.
 **Effort:** 1--2 weeks
 **WinForms source:** `yojob.compras/Compras.cs`, `DetallesCompras.cs`
+**Current repo status:** Implemented
 
 ### 5.1 Purchase Entry
 
 | Layer  | WinForms Source                         | Target Location                                    |
 | ------ | --------------------------------------- | -------------------------------------------------- |
-| UI     | `Compras.cs`                            | `apps/web/src/features/purchases/PurchasePage.tsx` |
-| API    | `DB/Compra.cs`, `DB/CompraDetalle.cs`   | `packages/server/src/routes/purchases.ts`          |
+| UI     | `Compras.cs`                            | `apps/web/src/features/purchases/PurchasesPage.tsx` |
+| API    | `DB/Compra.cs`, `DB/CompraDetalle.cs`   | `packages/server/src/trpc/routers/purchases.ts`     |
 | Schema | `DAO/compra.cs`, `DAO/compradetalle.cs` | `purchases`, `purchase_items` tables               |
 
 **Simpler than sales:**
@@ -804,10 +825,14 @@ Transaction:
 
 **Goal:** Dashboard with live data, receipt printing, exports, role-based UI, polish.
 **Effort:** 2--3 weeks
+**Current repo status:** Partially implemented
 
 ### 6.1 Dashboard with Live Data
 
-Replace sample data in `DashboardPage.tsx` with real aggregation endpoints:
+Status in current repo: implemented through `dashboard.summary`.
+
+This was the original target. In the current repo, the dashboard aggregates now come from
+`dashboard.summary` rather than standalone REST report endpoints:
 
 | Metric                  | API Endpoint                     | WinForms Source                          |
 | ----------------------- | -------------------------------- | ---------------------------------------- |
@@ -818,6 +843,8 @@ Replace sample data in `DashboardPage.tsx` with real aggregation endpoints:
 | Revenue chart (30 days) | `GET /api/reports/revenue-chart` | New                                      |
 
 ### 6.2 Receipt Printing via Electron
+
+Status in current repo: implemented via Electron IPC with browser fallback.
 
 For the desktop app (Electron), use IPC to print receipts to thermal printers:
 
@@ -836,11 +863,15 @@ For the web app, use `window.print()` with a print-specific CSS stylesheet.
 
 ### 6.3 Export to Excel/PDF
 
+Status in current repo: implemented for the main products, sales, purchases, and inventory views.
+
 - Add export buttons to all list views (products, sales, purchases, inventory)
 - Use `xlsx` library for Excel export
 - Use `@react-pdf/renderer` or `jspdf` for PDF export
 
 ### 6.4 Role-Based UI
+
+Status in current repo: implemented in both route guards/menu visibility and server middleware.
 
 Map WinForms roles to target:
 
@@ -868,7 +899,7 @@ Implement:
 
 ### 6.6 Electron-Specific Features
 
-- Auto-updater (electron-updater)
+- Auto-updater (present in current Electron main process)
 - System tray icon
 - Offline detection banner
 - Local database backup/restore
@@ -876,15 +907,15 @@ Implement:
 
 ### Deliverables
 
-- [ ] Dashboard with live aggregation data
-- [ ] Receipt printing (Electron IPC + web fallback)
-- [ ] Excel/PDF export on all list views
-- [ ] Role-based route guards and menu filtering
-- [ ] API role enforcement middleware
+- [x] Dashboard with live aggregation data
+- [x] Receipt printing (Electron IPC + web fallback)
+- [x] Excel/PDF export on the main operational list views
+- [x] Role-based route guards and menu filtering
+- [x] API role enforcement middleware
 - [ ] Loading states and error boundaries
 - [ ] Toast notifications
-- [ ] Auto-updater setup
-- [ ] Offline detection
+- [x] Auto-updater setup
+- [ ] Offline detection banner
 
 ---
 
@@ -900,23 +931,23 @@ Implement:
 
 | WinForms File               | Purpose                      | Target Equivalent                                  |
 | --------------------------- | ---------------------------- | -------------------------------------------------- |
-| `DB/Product.cs`             | Product data access          | `routes/collections.ts` + `routes/products.ts`     |
-| `DB/Sale.cs`                | Sale data access             | `routes/sales.ts`                                  |
-| `DB/Compra.cs`              | Purchase data access         | `routes/purchases.ts`                              |
-| `DB/CompraDetalle.cs`       | Purchase item data access    | `routes/purchases.ts`                              |
-| `DB/Stock.cs`               | Stock queries                | `routes/inventory.ts`                              |
-| `DB/Client.cs`              | Client data access           | `routes/collections.ts`                            |
-| `DB/Proveedor.cs`           | Provider data access         | `routes/collections.ts`                            |
-| `DB/IVA.cs`                 | VAT rate data access         | `routes/collections.ts`                            |
-| `DB/Unidad.cs`              | Unit data access             | `routes/collections.ts`                            |
-| `DB/UnidadXProducto.cs`     | Unit-product association     | `routes/products.ts`                               |
-| `DB/ProductoXProveedor.cs`  | Product-provider association | `routes/products.ts`                               |
-| `DB/Empresa.cs`             | Company data access          | `routes/collections.ts`                            |
-| `DB/Sede.cs`                | Site data access             | `routes/collections.ts`                            |
-| `DB/Consecutivo.cs`         | Sequential numbers           | `routes/sales.ts`, `routes/purchases.ts`           |
-| `DB/InventarioInicial.cs`   | Initial inventory            | `routes/inventory.ts`                              |
-| `DB/Usuario.cs`             | User data access             | `routes/auth.ts`                                   |
-| `DB/Categoria.cs`           | Category data access         | `routes/collections.ts`                            |
+| `DB/Product.cs`             | Product data access          | `trpc/routers/products.ts`                         |
+| `DB/Sale.cs`                | Sale data access             | `trpc/routers/sales.ts`                            |
+| `DB/Compra.cs`              | Purchase data access         | `trpc/routers/purchases.ts`                        |
+| `DB/CompraDetalle.cs`       | Purchase item data access    | `trpc/routers/purchases.ts`                        |
+| `DB/Stock.cs`               | Stock queries                | `trpc/routers/inventory.ts`                        |
+| `DB/Client.cs`              | Client data access           | `trpc/routers/customers.ts`                        |
+| `DB/Proveedor.cs`           | Provider data access         | `trpc/routers/providers.ts`                        |
+| `DB/IVA.cs`                 | VAT rate data access         | `trpc/routers/vatRates.ts`                         |
+| `DB/Unidad.cs`              | Unit data access             | `trpc/routers/units.ts`                            |
+| `DB/UnidadXProducto.cs`     | Unit-product association     | `trpc/routers/products.ts`                         |
+| `DB/ProductoXProveedor.cs`  | Product-provider association | `trpc/routers/products.ts`                         |
+| `DB/Empresa.cs`             | Company data access          | `trpc/routers/companies.ts`                        |
+| `DB/Sede.cs`                | Site data access             | `trpc/routers/sites.ts`                            |
+| `DB/Consecutivo.cs`         | Sequential numbers           | `trpc/routers/sales.ts`, `trpc/routers/purchases.ts` |
+| `DB/InventarioInicial.cs`   | Initial inventory            | `trpc/routers/inventory.ts`                        |
+| `DB/Usuario.cs`             | User data access             | `trpc/routers/users.ts`                            |
+| `DB/Categoria.cs`           | Category data access         | `trpc/routers/categories.ts`                       |
 | `dbEntities.cs`             | EF6 context                  | `db/schema.ts` + Drizzle ORM                       |
 | `Utilidades.cs`             | Utilities (auth, GUID, MDI)  | Various: `AuthProvider.tsx`, `crypto.randomUUID()` |
 | `DataNavigatorThink.cs`     | CRUD state machine           | Standard form state (React `useState`)             |
@@ -932,12 +963,12 @@ Implement:
 | `Productos.cs`    | Product management form  | `features/products/ProductsPage.tsx` (enhanced)                  |
 | `Clientes.cs`     | Client management form   | `features/customers/CustomersPage.tsx` (enhanced)                |
 | `Proveedores.cs`  | Provider management form | `features/providers/ProvidersPage.tsx` (new)                     |
-| `Categorias.cs`   | Category CRUD            | `features/settings/CategoriesPage.tsx` (new or enhance existing) |
-| `Empresas.cs`     | Company/site management  | `features/settings/CompanyPage.tsx` (new)                        |
-| `IVAs.cs`         | VAT rate management      | `features/settings/VatRatesPage.tsx` (new)                       |
-| `Consecutivos.cs` | Sequential config        | `features/settings/SequentialsPage.tsx` (new)                    |
-| `Unidades.cs`     | Unit management          | `features/settings/UnitsPage.tsx` (new)                          |
-| `Usuarios.cs`     | User management          | `features/settings/UsersPage.tsx` (new)                          |
+| `Categorias.cs`   | Category CRUD            | `features/categories/CategoriesPage.tsx` (implemented)           |
+| `Empresas.cs`     | Company/site management  | `features/company/CompanyPage.tsx` (implemented)                 |
+| `IVAs.cs`         | VAT rate management      | `features/vat-rates/VatRatesPage.tsx` (implemented)              |
+| `Consecutivos.cs` | Sequential config        | `features/sequentials/SequentialsPage.tsx` (implemented)         |
+| `Unidades.cs`     | Unit management          | `features/units/UnitsPage.tsx` (implemented)                     |
+| `Usuarios.cs`     | User management          | `features/users/UsersPage.tsx` (implemented)                     |
 
 ### yojob.ventas (Sales Plugin)
 

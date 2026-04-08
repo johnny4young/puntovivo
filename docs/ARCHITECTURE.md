@@ -27,7 +27,7 @@ Open Yojob is a **Point of Sale (POS) desktop application** built with an offlin
 - **Fastify** (embedded in-process) as the backend API server
 - **Drizzle ORM + SQLite** for type-safe database access
 - **Server-Sent Events (SSE)** for real-time updates
-- **tRPC** (partially integrated) for end-to-end type-safe API calls
+- **tRPC** as the primary application API transport
 
 ### Key Design Principles
 
@@ -65,10 +65,10 @@ Open Yojob is a **Point of Sale (POS) desktop application** built with an offlin
 |  |  +-----------+  +------------+  +----------------------------+    | |
 |  |                                                                    | |
 |  |  +--------------------------------------------------------------+ | |
-|  |  |                  Services Layer                               | | |
-|  |  |  - API Client (fetch-based REST + SSE)                       | | |
-|  |  |  - Real-time Service (Server-Sent Events)                    | | |
-|  |  |  - Sync Service (conflict resolution)                        | | |
+|  |  |                  Data Access Layer                            | | |
+|  |  |  - tRPC React client + TanStack Query                        | | |
+|  |  |  - Export helpers                                             | | |
+|  |  |  - Offline storage + sync helpers                             | | |
 |  |  +--------------------------------------------------------------+ | |
 |  +-------------------------------------------------------------------+ |
 |                                  |                                      |
@@ -90,11 +90,11 @@ Open Yojob is a **Point of Sale (POS) desktop application** built with an offlin
 |  |  +-------------------------------------------+                    | |
 |  |  | @open-yojob/server Package                 |                    | |
 |  |  | - Drizzle ORM + SQLite                     |                    | |
-|  |  | - Auth Routes (JWT + argon2)               |                    | |
-|  |  | - Collections CRUD (tenant-isolated)       |                    | |
-|  |  | - Sync Queue                               |                    | |
-|  |  | - SSE Real-time                            |                    | |
-|  |  | - Rate Limiting (@fastify/rate-limit)       |                    | |
+|  |  | - tRPC routers (auth, admin, products,     |                    | |
+|  |  |   dashboard, inventory, sales, purchases)  |                    | |
+|  |  | - JWT auth + role middleware               |                    | |
+|  |  | - Sync Queue + SSE Real-time               |                    | |
+|  |  | - Rate Limiting (@fastify/rate-limit)      |                    | |
 |  |  +--------------------------------------------+                    | |
 |  +-------------------------------------------------------------------+ |
 |                                                                         |
@@ -105,12 +105,9 @@ Open Yojob is a **Point of Sale (POS) desktop application** built with an offlin
   +---------------------------------------------------------------------+
   |                        API ENDPOINTS                                 |
   +---------------------------------------------------------------------+
-  |  /api/auth/*          : Authentication (login, logout, refresh)      |
-  |  /api/collections/*   : CRUD operations with tenant isolation        |
-  |  /api/sync/*          : Local sync queue                             |
   |  /api/realtime/*      : Server-Sent Events subscriptions             |
-  |  /api/trpc/*          : tRPC endpoints (partial)                     |
-  |  /health              : Health check                                 |
+  |  /api/trpc/*          : Canonical application API                    |
+  |  /api/health          : Compatibility health endpoint                |
   +---------------------------------------------------------------------+
 ```
 
@@ -152,14 +149,24 @@ open_yojob/
 |           |   +-- tables/          # DataTable, exports (CSV, PDF)
 |           +-- features/
 |           |   +-- auth/            # Authentication
+|           |   +-- categories/      # Category management
+|           |   +-- company/         # Company management
 |           |   +-- customers/       # Customer management
 |           |   +-- dashboard/       # Dashboard views
 |           |   +-- inventory/       # Inventory tracking
 |           |   +-- products/        # Product catalog
+|           |   +-- providers/       # Provider management
+|           |   +-- purchases/       # Purchase workflows
 |           |   +-- sales/           # Sales & transactions
+|           |   +-- sequentials/     # Sequential management
+|           |   +-- sites/           # Site management
 |           |   +-- tenant/          # Multi-tenant management
+|           |   +-- units/           # Unit management
+|           |   +-- users/           # User management
+|           |   +-- vat-rates/       # VAT configuration
 |           +-- hooks/               # Custom React hooks
-|           +-- services/api/        # API client (shared with desktop)
+|           +-- lib/                 # tRPC client and app helpers
+|           +-- services/            # Export/storage helpers
 |           +-- types/               # TypeScript type definitions
 |
 +-- packages/
@@ -173,15 +180,14 @@ open_yojob/
 |           |   +-- schema.ts        # Drizzle schema definitions
 |           |   +-- index.ts         # Database initialization
 |           |   +-- seed.ts          # Default data seeding
-|           +-- routes/
-|           |   +-- auth.ts          # Authentication (JWT + argon2)
-|           |   +-- collections.ts   # Generic CRUD with tenant isolation
-|           |   +-- sync.ts          # Sync queue management
 |           +-- realtime/
 |           |   +-- sse.ts           # Server-Sent Events
-|           +-- trpc/                # tRPC layer (partial)
+|           +-- trpc/                # Primary application API layer
 |               +-- router.ts
 |               +-- context.ts
+|               +-- middleware/
+|               +-- routers/
+|               +-- schemas/
 |
 +-- scripts/
 |   +-- migration/                   # Legacy data migration tools (.NET WinForms -> Node)
@@ -238,13 +244,13 @@ window.electronAPI = {
 
 | File/Directory          | Purpose                                      |
 | ----------------------- | -------------------------------------------- |
-| `index.ts`              | Server factory, JWT setup, rate limiting     |
+| `index.ts`              | Server factory, JWT setup, compatibility health endpoint, rate limiting |
 | `standalone.ts`         | Entry point for standalone server mode       |
 | `db/schema.ts`          | Drizzle ORM schema definitions               |
 | `db/seed.ts`            | Default data seeding (secure random admin)   |
-| `routes/auth.ts`        | JWT login/logout/refresh, password policy    |
-| `routes/collections.ts` | Generic CRUD with mandatory tenant isolation |
-| `routes/sync.ts`        | Sync queue management                        |
+| `trpc/router.ts`        | Root tRPC router assembly                    |
+| `trpc/routers/`         | Domain routers for auth, admin, products, inventory, sales, purchases, dashboard |
+| `trpc/middleware/`      | Auth, tenant, and role guards                |
 | `realtime/sse.ts`       | Server-Sent Events for live updates          |
 
 ### Renderer/UI (`apps/web/src/`)
@@ -284,14 +290,14 @@ Key files:
 2. Form submission triggers mutation (TanStack Query)
          |
          v
-3. Service layer calls Fastify API
+3. tRPC client calls Fastify API
          |
-         +--- POST /api/collections/{name}/records
+         +--- POST/GET /api/trpc/<router>.<procedure>
          |         |
          |         v
-         |    Fastify validates request
-         |    Drizzle ORM inserts into SQLite
-         |    Returns created record with ID
+         |    tRPC validates input
+         |    Drizzle ORM reads/writes SQLite
+         |    Returns typed result
          |
          +--- Offline: Save to local SQLite + add to sync queue
                        |
@@ -305,7 +311,7 @@ Key files:
 1. User enters credentials
          |
          v
-2. POST /api/auth/login
+2. `auth.login` on `/api/trpc`
          |
          v
 3. Fastify validates credentials (argon2 hash comparison)
