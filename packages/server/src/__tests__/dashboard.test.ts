@@ -58,18 +58,24 @@ describe('Dashboard tRPC Router', () => {
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
 
-    const now = new Date();
-    const currentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10)).toISOString();
-    const previousMonth = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 10)
+    const today = new Date();
+    const todayIso = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 14)
+    ).toISOString();
+    const sixDaysAgoIso = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 6, 16)
+    ).toISOString();
+    const thirtyFiveDaysAgoIso = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 35, 12)
     ).toISOString();
 
     const customerId = nanoid();
-    const previousCustomerId = nanoid();
     const productOneId = nanoid();
     const productTwoId = nanoid();
-    const currentSaleId = nanoid();
-    const previousSaleId = nanoid();
+    const productThreeId = nanoid();
+    const todaySaleId = nanoid();
+    const weekSaleId = nanoid();
+    const oldSaleId = nanoid();
 
     await db.insert(customers).values([
       {
@@ -78,17 +84,17 @@ describe('Dashboard tRPC Router', () => {
         name: 'Jane Buyer',
         email: 'jane@example.com',
         isActive: true,
-        createdAt: currentMonth,
-        updatedAt: currentMonth,
+        createdAt: todayIso,
+        updatedAt: todayIso,
       },
       {
-        id: previousCustomerId,
+        id: nanoid(),
         tenantId,
-        name: 'John Prior',
-        email: 'john@example.com',
-        isActive: true,
-        createdAt: previousMonth,
-        updatedAt: previousMonth,
+        name: 'Dormant Buyer',
+        email: 'dormant@example.com',
+        isActive: false,
+        createdAt: todayIso,
+        updatedAt: todayIso,
       },
     ]);
 
@@ -101,11 +107,11 @@ describe('Dashboard tRPC Router', () => {
         price: 25,
         cost: 10,
         taxRate: 19,
-        stock: 25,
+        stock: 3,
         minStock: 5,
         isActive: true,
-        createdAt: currentMonth,
-        updatedAt: currentMonth,
+        createdAt: todayIso,
+        updatedAt: todayIso,
       },
       {
         id: productTwoId,
@@ -118,16 +124,30 @@ describe('Dashboard tRPC Router', () => {
         stock: 12,
         minStock: 4,
         isActive: true,
-        createdAt: previousMonth,
-        updatedAt: previousMonth,
+        createdAt: sixDaysAgoIso,
+        updatedAt: sixDaysAgoIso,
+      },
+      {
+        id: productThreeId,
+        tenantId,
+        name: 'Sugar Pack',
+        sku: 'SUG-001',
+        price: 8,
+        cost: 4,
+        taxRate: 0,
+        stock: 1,
+        minStock: 2,
+        isActive: true,
+        createdAt: thirtyFiveDaysAgoIso,
+        updatedAt: todayIso,
       },
     ]);
 
     await db.insert(sales).values([
       {
-        id: currentSaleId,
+        id: todaySaleId,
         tenantId,
-        saleNumber: 'SALE-000001',
+        saleNumber: 'SALE-000100',
         customerId,
         subtotal: 50,
         taxAmount: 9.5,
@@ -137,14 +157,14 @@ describe('Dashboard tRPC Router', () => {
         paymentStatus: 'paid',
         status: 'completed',
         createdBy: userId,
-        createdAt: currentMonth,
-        updatedAt: currentMonth,
+        createdAt: todayIso,
+        updatedAt: todayIso,
       },
       {
-        id: previousSaleId,
+        id: weekSaleId,
         tenantId,
-        saleNumber: 'SALE-000000',
-        customerId: previousCustomerId,
+        saleNumber: 'SALE-000090',
+        customerId,
         subtotal: 15,
         taxAmount: 0.75,
         discountAmount: 0,
@@ -153,15 +173,31 @@ describe('Dashboard tRPC Router', () => {
         paymentStatus: 'paid',
         status: 'completed',
         createdBy: userId,
-        createdAt: previousMonth,
-        updatedAt: previousMonth,
+        createdAt: sixDaysAgoIso,
+        updatedAt: sixDaysAgoIso,
+      },
+      {
+        id: oldSaleId,
+        tenantId,
+        saleNumber: 'SALE-000010',
+        customerId,
+        subtotal: 8,
+        taxAmount: 0,
+        discountAmount: 0,
+        total: 8,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        createdBy: userId,
+        createdAt: thirtyFiveDaysAgoIso,
+        updatedAt: thirtyFiveDaysAgoIso,
       },
     ]);
 
     await db.insert(saleItems).values([
       {
         id: nanoid(),
-        saleId: currentSaleId,
+        saleId: todaySaleId,
         productId: productOneId,
         quantity: 2,
         unitPrice: 25,
@@ -173,7 +209,7 @@ describe('Dashboard tRPC Router', () => {
       },
       {
         id: nanoid(),
-        saleId: previousSaleId,
+        saleId: weekSaleId,
         productId: productTwoId,
         quantity: 1,
         unitPrice: 15,
@@ -182,6 +218,18 @@ describe('Dashboard tRPC Router', () => {
         taxAmount: 0.75,
         costAtSale: 7,
         total: 15.75,
+      },
+      {
+        id: nanoid(),
+        saleId: oldSaleId,
+        productId: productThreeId,
+        quantity: 1,
+        unitPrice: 8,
+        discount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        costAtSale: 4,
+        total: 8,
       },
     ]);
   });
@@ -195,12 +243,19 @@ describe('Dashboard tRPC Router', () => {
 
     const result = await caller.dashboard.summary();
 
-    expect(result.stats.revenue.value).toBe(59.5);
-    expect(result.stats.orders.value).toBe(1);
-    expect(result.stats.customers.value).toBe(2);
-    expect(result.stats.products.value).toBe(2);
-    expect(result.recentSales[0]?.saleNumber).toBe('SALE-000001');
+    expect(result.stats.todayRevenue.value).toBe(59.5);
+    expect(result.stats.todayOrders.value).toBe(1);
+    expect(result.stats.lowStockCount.value).toBe(2);
+    expect(result.stats.revenueThirtyDays.value).toBe(75.25);
+    expect(result.stats.customers.value).toBe(1);
+
+    expect(result.recentSales[0]?.saleNumber).toBe('SALE-000100');
     expect(result.topProducts[0]?.name).toBe('Coffee Beans');
-    expect(result.topProducts[0]?.sales).toBe(2);
+    expect(result.topProducts[1]?.name).toBe('Tea Box');
+    expect(result.lowStockItems[0]?.name).toBe('Sugar Pack');
+
+    expect(result.revenueChart).toHaveLength(30);
+    expect(result.revenueChart[result.revenueChart.length - 1]?.revenue).toBe(59.5);
+    expect(result.revenueChart[result.revenueChart.length - 7]?.revenue).toBe(15.75);
   });
 });

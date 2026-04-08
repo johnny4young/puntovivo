@@ -1,202 +1,208 @@
 /**
  * Dashboard tRPC Router
  *
- * Lightweight aggregate queries for the current dashboard shell.
+ * Live reporting queries for the dashboard experience.
  *
  * Procedures:
- * - dashboard.summary (tenant) - Stats, recent sales, and top products
+ * - dashboard.summary (tenant) - Today metrics, revenue trend, low stock, recent sales, top products
  *
  * @module trpc/routers/dashboard
  */
 
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, saleItems, sales } from '../../db/schema.js';
 
-function startOfMonth(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+type DashboardRevenuePoint = {
+  date: string;
+  revenue: number;
+  orders: number;
+};
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
-function addMonths(date: Date, months: number) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+function endOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
 }
 
-function calculateChange(currentValue: number, previousValue: number) {
-  if (previousValue === 0) {
-    return currentValue === 0 ? 0 : 100;
-  }
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
 
-  return Number((((currentValue - previousValue) / previousValue) * 100).toFixed(1));
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildRevenueSeries(days: number, today: Date, rows: DashboardRevenuePoint[]) {
+  const rowMap = new Map(rows.map(row => [row.date, row]));
+  const startDate = addUtcDays(startOfUtcDay(today), -(days - 1));
+
+  return Array.from({ length: days }, (_, offset) => {
+    const currentDate = addUtcDays(startDate, offset);
+    const isoDate = toIsoDate(currentDate);
+    const row = rowMap.get(isoDate);
+
+    return {
+      date: isoDate,
+      revenue: row?.revenue ?? 0,
+      orders: row?.orders ?? 0,
+    };
+  });
 }
 
 export const dashboardRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const currentMonthStart = startOfMonth(now).toISOString();
-    const nextMonthStart = addMonths(startOfMonth(now), 1).toISOString();
-    const previousMonthStart = addMonths(startOfMonth(now), -1).toISOString();
+    const todayStart = startOfUtcDay(now);
+    const todayEnd = endOfUtcDay(now);
+    const lastThirtyDaysStart = addUtcDays(todayStart, -29);
+    const lastSevenDaysStart = addUtcDays(todayStart, -6);
 
-    const salesBaseConditions = [eq(sales.tenantId, ctx.tenantId), eq(sales.status, 'completed')] as const;
+    const completedSaleConditions = [
+      eq(sales.tenantId, ctx.tenantId),
+      eq(sales.status, 'completed'),
+    ] as const;
 
     const [
-      currentSalesStats,
-      previousSalesStats,
-      totalCustomers,
-      currentCustomerCount,
-      previousCustomerCount,
-      totalProducts,
-      currentProductCount,
-      previousProductCount,
+      todaySalesStats,
+      revenueThirtyDays,
+      lowStockCount,
+      lowStockItems,
       recentSales,
       topProducts,
-    ] = await Promise.all([
-      ctx.db
-        .select({
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          orders: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(
-          and(
-            ...salesBaseConditions,
-            gte(sales.createdAt, currentMonthStart),
-            lt(sales.createdAt, nextMonthStart)
+      customerCount,
+    ] =
+      await Promise.all([
+        ctx.db
+          .select({
+            revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+            orders: sql<number>`count(*)`,
+          })
+          .from(sales)
+          .where(
+            and(
+              ...completedSaleConditions,
+              gte(sales.createdAt, todayStart.toISOString()),
+              lte(sales.createdAt, todayEnd.toISOString())
+            )
           )
-        )
-        .get(),
-      ctx.db
-        .select({
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          orders: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(
-          and(
-            ...salesBaseConditions,
-            gte(sales.createdAt, previousMonthStart),
-            lt(sales.createdAt, currentMonthStart)
+          .get(),
+        ctx.db
+          .select({
+            date: sql<string>`substr(${sales.createdAt}, 1, 10)`,
+            revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+            orders: sql<number>`count(*)`,
+          })
+          .from(sales)
+          .where(
+            and(...completedSaleConditions, gte(sales.createdAt, lastThirtyDaysStart.toISOString()))
           )
-        )
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(customers)
-        .where(eq(customers.tenantId, ctx.tenantId))
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(customers)
-        .where(
-          and(
-            eq(customers.tenantId, ctx.tenantId),
-            gte(customers.createdAt, currentMonthStart),
-            lt(customers.createdAt, nextMonthStart)
+          .groupBy(sql`substr(${sales.createdAt}, 1, 10)`)
+          .orderBy(sql`substr(${sales.createdAt}, 1, 10) asc`)
+          .all(),
+        ctx.db
+          .select({ value: sql<number>`count(*)` })
+          .from(products)
+          .where(
+            and(
+              eq(products.tenantId, ctx.tenantId),
+              eq(products.isActive, true),
+              lte(products.stock, products.minStock)
+            )
           )
-        )
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(customers)
-        .where(
-          and(
-            eq(customers.tenantId, ctx.tenantId),
-            gte(customers.createdAt, previousMonthStart),
-            lt(customers.createdAt, currentMonthStart)
+          .get(),
+        ctx.db
+          .select({
+            productId: products.id,
+            name: products.name,
+            sku: products.sku,
+            stock: products.stock,
+            minStock: products.minStock,
+          })
+          .from(products)
+          .where(
+            and(
+              eq(products.tenantId, ctx.tenantId),
+              eq(products.isActive, true),
+              lte(products.stock, products.minStock)
+            )
           )
-        )
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(products)
-        .where(eq(products.tenantId, ctx.tenantId))
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(products)
-        .where(
-          and(
-            eq(products.tenantId, ctx.tenantId),
-            gte(products.createdAt, currentMonthStart),
-            lt(products.createdAt, nextMonthStart)
+          .orderBy(asc(products.stock), desc(products.updatedAt))
+          .limit(5)
+          .all(),
+        ctx.db
+          .select({
+            id: sales.id,
+            saleNumber: sales.saleNumber,
+            total: sales.total,
+            createdAt: sales.createdAt,
+            customerName: customers.name,
+            customerEmail: customers.email,
+          })
+          .from(sales)
+          .leftJoin(customers, eq(sales.customerId, customers.id))
+          .where(eq(sales.tenantId, ctx.tenantId))
+          .orderBy(desc(sales.createdAt))
+          .limit(5)
+          .all(),
+        ctx.db
+          .select({
+            productId: products.id,
+            productName: products.name,
+            totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
+            totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
+          })
+          .from(saleItems)
+          .innerJoin(sales, eq(saleItems.saleId, sales.id))
+          .innerJoin(products, eq(saleItems.productId, products.id))
+          .where(
+            and(
+              ...completedSaleConditions,
+              gte(sales.createdAt, lastSevenDaysStart.toISOString())
+            )
           )
-        )
-        .get(),
-      ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(products)
-        .where(
-          and(
-            eq(products.tenantId, ctx.tenantId),
-            gte(products.createdAt, previousMonthStart),
-            lt(products.createdAt, currentMonthStart)
-          )
-        )
-        .get(),
-      ctx.db
-        .select({
-          id: sales.id,
-          saleNumber: sales.saleNumber,
-          total: sales.total,
-          createdAt: sales.createdAt,
-          customerName: customers.name,
-          customerEmail: customers.email,
-        })
-        .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
-        .where(eq(sales.tenantId, ctx.tenantId))
-        .orderBy(desc(sales.createdAt))
-        .limit(5)
-        .all(),
-      ctx.db
-        .select({
-          productId: products.id,
-          productName: products.name,
-          totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
-          totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .innerJoin(products, eq(saleItems.productId, products.id))
-        .where(and(eq(sales.tenantId, ctx.tenantId), eq(sales.status, 'completed')))
-        .groupBy(products.id, products.name)
-        .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
-        .limit(5)
-        .all(),
-    ]);
+          .groupBy(products.id, products.name)
+          .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
+          .limit(5)
+          .all(),
+        ctx.db
+          .select({ value: sql<number>`count(*)` })
+          .from(customers)
+          .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.isActive, true)))
+          .get(),
+      ]);
 
-    const currentRevenue = currentSalesStats?.revenue ?? 0;
-    const previousRevenue = previousSalesStats?.revenue ?? 0;
-    const currentOrders = currentSalesStats?.orders ?? 0;
-    const previousOrders = previousSalesStats?.orders ?? 0;
-    const currentCustomers = currentCustomerCount?.value ?? 0;
-    const previousCustomers = previousCustomerCount?.value ?? 0;
-    const currentProducts = currentProductCount?.value ?? 0;
-    const previousProducts = previousProductCount?.value ?? 0;
+    const revenueSeries = buildRevenueSeries(30, now, revenueThirtyDays);
+    const revenueThirtyDayTotal = revenueSeries.reduce((total, point) => total + point.revenue, 0);
 
     return {
+      generatedAt: now.toISOString(),
       stats: {
-        revenue: {
-          value: currentRevenue,
-          change: calculateChange(currentRevenue, previousRevenue),
-          label: 'vs last month',
+        todayRevenue: {
+          value: todaySalesStats?.revenue ?? 0,
+          label: 'completed sales today',
         },
-        orders: {
-          value: currentOrders,
-          change: calculateChange(currentOrders, previousOrders),
-          label: 'vs last month',
+        todayOrders: {
+          value: todaySalesStats?.orders ?? 0,
+          label: 'completed orders today',
+        },
+        lowStockCount: {
+          value: lowStockCount?.value ?? 0,
+          label: 'products at or below min stock',
+        },
+        revenueThirtyDays: {
+          value: revenueThirtyDayTotal,
+          label: 'completed sales over the last 30 days',
         },
         customers: {
-          value: totalCustomers?.value ?? 0,
-          change: calculateChange(currentCustomers, previousCustomers),
-          label: 'new this month vs last month',
-        },
-        products: {
-          value: totalProducts?.value ?? 0,
-          change: calculateChange(currentProducts, previousProducts),
-          label: 'added this month vs last month',
+          value: customerCount?.value ?? 0,
+          label: 'active customer records',
         },
       },
+      revenueChart: revenueSeries,
       recentSales: recentSales.map(sale => ({
         id: sale.id,
         saleNumber: sale.saleNumber,
@@ -211,6 +217,7 @@ export const dashboardRouter = router({
         sales: product.totalQuantity,
         revenue: product.totalRevenue,
       })),
+      lowStockItems,
     };
   }),
 });
