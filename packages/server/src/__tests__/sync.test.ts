@@ -6,11 +6,12 @@
  * @module __tests__/sync.test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants } from '../db/schema.js';
+import { products, syncConflicts, syncQueue, tenants, users } from '../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { appRouter } from '../trpc/router.js';
@@ -104,6 +105,13 @@ describe('Sync tRPC Router', () => {
     });
   });
 
+  beforeEach(async () => {
+    const db = getDatabase();
+
+    await db.delete(syncConflicts).where(eq(syncConflicts.tenantId, testTenantId)).run();
+    await db.delete(syncQueue).where(eq(syncQueue.tenantId, testTenantId)).run();
+  });
+
   afterAll(async () => {
     if (server) {
       await server.close();
@@ -125,7 +133,7 @@ describe('Sync tRPC Router', () => {
 
       expect(result.pendingCount).toBe(0);
       expect(result.conflictsCount).toBe(0);
-      expect(result.externalSyncEnabled).toBe(false);
+      expect(result.externalSyncEnabled).toBe(true);
       expect(result.status).toBe('synced');
     });
   });
@@ -225,45 +233,168 @@ describe('Sync tRPC Router', () => {
     });
   });
 
-  describe('sync.push (Phase 2 stub)', () => {
-    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+  describe('sync.push', () => {
+    it('processes queued product changes and records the last successful sync', async () => {
       const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const productId = nanoid();
+      const now = new Date().toISOString();
 
-      try {
-        await caller.sync.push();
-        expect.unreachable('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(TRPCError);
-        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
-      }
+      await db.insert(products).values({
+        id: productId,
+        tenantId: testTenantId,
+        name: 'Queued Sync Product',
+        sku: `sync-${nanoid(6)}`,
+        syncStatus: 'pending',
+        syncVersion: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const queued = await caller.sync.addToQueue({
+        entityType: 'products',
+        entityId: productId,
+        operation: 'update',
+        data: { name: 'Queued Sync Product' },
+      });
+
+      const result = await caller.sync.push({ limit: 50 });
+
+      expect(result.success).toBe(true);
+      expect(result.processedIds).toContain(queued.id);
+      expect(result.synced).toBeGreaterThanOrEqual(1);
+      expect(result.lastSyncAt).not.toBeNull();
+
+      const queueRow = await db
+        .select()
+        .from(syncQueue)
+        .where(and(eq(syncQueue.id, queued.id), eq(syncQueue.tenantId, testTenantId)))
+        .get();
+      expect(queueRow).toBeUndefined();
+
+      const product = await db
+        .select()
+        .from(products)
+        .where(and(eq(products.id, productId), eq(products.tenantId, testTenantId)))
+        .get();
+      expect(product?.syncStatus).toBe('synced');
+      expect(product?.syncVersion).toBeGreaterThan(0);
+
+      const status = await caller.sync.status();
+      expect(status.lastSyncAt).not.toBeNull();
+    });
+
+    it('creates a conflict when a queued entity no longer exists locally', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const missingEntityId = nanoid();
+
+      const queued = await caller.sync.addToQueue({
+        entityType: 'products',
+        entityId: missingEntityId,
+        operation: 'update',
+        data: { id: missingEntityId, name: 'Missing Product' },
+      });
+
+      const result = await caller.sync.push({ limit: 50 });
+
+      expect(result.success).toBe(false);
+      expect(result.synced).toBe(0);
+      expect(result.conflictIds.length).toBe(1);
+      expect(result.errors[0]).toContain(missingEntityId);
+
+      const db = getDatabase();
+      const queueRow = await db
+        .select()
+        .from(syncQueue)
+        .where(and(eq(syncQueue.id, queued.id), eq(syncQueue.tenantId, testTenantId)))
+        .get();
+      expect(queueRow?.attempts).toBe(1);
+      expect(queueRow?.lastError).toContain('local record is missing');
+
+      const conflictRow = await db
+        .select()
+        .from(syncConflicts)
+        .where(and(eq(syncConflicts.id, result.conflictIds[0]!), eq(syncConflicts.tenantId, testTenantId)))
+        .get();
+      expect(conflictRow?.status).toBe('pending');
+      expect(conflictRow?.entityId).toBe(missingEntityId);
     });
   });
 
-  describe('sync.pull (Phase 2 stub)', () => {
-    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+  describe('sync.pull', () => {
+    it('returns a sync snapshot with queue items and conflicts', async () => {
       const caller = appRouter.createCaller(userCtx());
+      const result = await caller.sync.pull({ queueLimit: 10, conflictLimit: 10 });
 
-      try {
-        await caller.sync.pull();
-        expect.unreachable('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(TRPCError);
-        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
-      }
+      expect(Array.isArray(result.queue)).toBe(true);
+      expect(Array.isArray(result.conflicts)).toBe(true);
+      expect(result.pendingCount).toBeGreaterThanOrEqual(0);
+      expect(result.conflictsCount).toBeGreaterThanOrEqual(0);
     });
   });
 
-  describe('sync.resolve (Phase 2 stub)', () => {
-    it('throws TRPCError with code METHOD_NOT_SUPPORTED', async () => {
+  describe('sync.resolve', () => {
+    it('resolves a conflict in favor of local data and requeues an update', async () => {
       const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const now = new Date().toISOString();
 
-      try {
-        await caller.sync.resolve();
-        expect.unreachable('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(TRPCError);
-        expect((err as TRPCError).code).toBe('METHOD_NOT_SUPPORTED');
-      }
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Keep Local' },
+        remoteData: { id: entityId, name: 'Remote Value' },
+        status: 'pending',
+        createdAt: now,
+      });
+
+      await db.insert(syncQueue).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        operation: 'update',
+        data: { id: entityId, name: 'Outdated Local Value' },
+        localVersion: 1,
+        attempts: 0,
+        createdAt: now,
+      });
+
+      const result = await caller.sync.resolve({
+        id: conflictId,
+        resolution: 'local_wins',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.resolution).toBe('local_wins');
+
+      const conflict = await db
+        .select()
+        .from(syncConflicts)
+        .where(and(eq(syncConflicts.id, conflictId), eq(syncConflicts.tenantId, testTenantId)))
+        .get();
+      expect(conflict?.status).toBe('resolved');
+      expect(conflict?.resolution).toBe('local_wins');
+      expect(conflict?.resolvedAt).not.toBeNull();
+
+      const queuedItems = await db
+        .select()
+        .from(syncQueue)
+        .where(
+          and(
+            eq(syncQueue.tenantId, testTenantId),
+            eq(syncQueue.entityType, 'products'),
+            eq(syncQueue.entityId, entityId)
+          )
+        )
+        .all();
+      expect(queuedItems).toHaveLength(1);
+      expect(queuedItems[0]?.operation).toBe('update');
+      expect(queuedItems[0]?.data).toEqual({ id: entityId, name: 'Keep Local' });
     });
   });
 
