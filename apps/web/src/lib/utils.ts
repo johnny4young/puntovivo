@@ -125,3 +125,7 @@ export function sleep(ms: number): Promise<void> {
 export function isOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
+
+export function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Receipt, Search } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
@@ -17,7 +18,7 @@ import {
 } from '@/features/sales/saleCart';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import type { Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
 
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
@@ -38,6 +39,7 @@ function getRequestedPaymentStatus(values: SalePaymentValues, total: number): Pa
 
 export function SalesPage() {
   const utils = trpc.useUtils();
+  const toast = useToast();
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
@@ -53,7 +55,7 @@ export function SalesPage() {
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
 
   const createMutation = trpc.sales.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await Promise.all([
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
@@ -65,6 +67,16 @@ export function SalesPage() {
       setCartItems([]);
       setSaleError(null);
       setIsPaymentModalOpen(false);
+      toast.success({
+        title: 'Sale completed',
+        description: `${variables.items.length} item${variables.items.length === 1 ? '' : 's'} processed successfully.`,
+      });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to complete sale',
+        description: getErrorMessage(error, 'Unable to complete sale'),
+      });
     },
   });
 

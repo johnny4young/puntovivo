@@ -1,8 +1,14 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
+import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { CompanyBackupCard } from '../CompanyBackupCard';
+
+function renderWithToast(ui: ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 describe('CompanyBackupCard', () => {
   const originalElectron = window.electron;
@@ -25,7 +31,7 @@ describe('CompanyBackupCard', () => {
   });
 
   it('shows desktop-only messaging when Electron APIs are unavailable', () => {
-    render(<CompanyBackupCard />);
+    renderWithToast(<CompanyBackupCard />);
 
     expect(
       screen.getByText(/available in the Electron desktop app/i)
@@ -52,7 +58,7 @@ describe('CompanyBackupCard', () => {
       }),
     };
 
-    render(<CompanyBackupCard />);
+    renderWithToast(<CompanyBackupCard />);
 
     await user.click(screen.getByRole('button', { name: /create backup/i }));
 
@@ -79,7 +85,7 @@ describe('CompanyBackupCard', () => {
       restoreDatabaseBackup,
     };
 
-    render(<CompanyBackupCard />);
+    renderWithToast(<CompanyBackupCard />);
 
     await user.click(screen.getByRole('button', { name: /restore backup/i }));
 

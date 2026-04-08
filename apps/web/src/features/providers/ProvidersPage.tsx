@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Mail, Pencil, Plus, Phone, Trash2, Truck } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Provider, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface ProviderFormValues {
   name: string;
@@ -174,6 +176,7 @@ function canManageProviders(role: UserRole | undefined): boolean {
 
 export function ProvidersPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
@@ -185,18 +188,39 @@ export function ProvidersPage() {
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Provider created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create provider',
+        description: getErrorMessage(error, 'Unable to create provider'),
+      });
     },
   });
   const updateMutation = trpc.providers.update.useMutation({
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Provider updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update provider',
+        description: getErrorMessage(error, 'Unable to update provider'),
+      });
     },
   });
   const deleteMutation = trpc.providers.delete.useMutation({
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       setProviderToDelete(null);
+      toast.success({ title: 'Provider deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete provider',
+        description: getErrorMessage(error, 'Unable to delete provider'),
+      });
     },
   });
 

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { httpBatchLink } from '@trpc/client';
 import { getTrpcHeaders, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
+import { ToastProvider } from './components/feedback/ToastProvider';
 import App from './App';
 import './index.css';
 
@@ -37,7 +38,9 @@ function Root() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <AppErrorBoundary>
-              <App />
+              <ToastProvider>
+                <App />
+              </ToastProvider>
             </AppErrorBoundary>
           </BrowserRouter>
         </QueryClientProvider>

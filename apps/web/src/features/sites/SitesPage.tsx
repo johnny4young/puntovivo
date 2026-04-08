@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Building2 as Building, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import type { Company, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface SiteFormValues {
   name: string;
@@ -127,6 +129,7 @@ function canManageSites(role: UserRole | undefined): boolean {
 
 export function SitesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const companyQuery = trpc.companies.getCurrent.useQuery();
   const sitesQuery = trpc.sites.list.useQuery({ includeInactive: true });
@@ -145,6 +148,13 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Site created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create site',
+        description: getErrorMessage(error, 'Unable to create site'),
+      });
     },
   });
 
@@ -152,6 +162,13 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Site updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update site',
+        description: getErrorMessage(error, 'Unable to update site'),
+      });
     },
   });
 
@@ -159,6 +176,13 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       setSiteToDelete(null);
+      toast.success({ title: 'Site deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete site',
+        description: getErrorMessage(error, 'Unable to delete site'),
+      });
     },
   });
 

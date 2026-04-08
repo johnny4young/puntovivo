@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import type { Sequential, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface SequentialFormValues {
   siteId: string;
@@ -170,6 +172,7 @@ function canManageSequentials(role: UserRole | undefined): boolean {
 
 export function SequentialsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const sitesQuery = trpc.sites.list.useQuery();
   const sequentialsQuery = trpc.sequentials.list.useQuery();
@@ -192,6 +195,17 @@ export function SequentialsPage() {
       await utils.sequentials.list.invalidate();
       setIsModalOpen(false);
       setEditingSequential(null);
+      toast.success({ title: editingSequential ? 'Sequential updated' : 'Sequential created' });
+    },
+    onError: error => {
+      const fallback = editingSequential
+        ? 'Unable to update sequential'
+        : 'Unable to create sequential';
+
+      toast.error({
+        title: fallback,
+        description: getErrorMessage(error, fallback),
+      });
     },
   });
 
@@ -199,6 +213,13 @@ export function SequentialsPage() {
     onSuccess: async () => {
       await utils.sequentials.list.invalidate();
       setSequentialToDelete(null);
+      toast.success({ title: 'Sequential deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete sequential',
+        description: getErrorMessage(error, 'Unable to delete sequential'),
+      });
     },
   });
 

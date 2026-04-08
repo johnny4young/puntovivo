@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface UnitFormValues {
   name: string;
@@ -124,6 +126,7 @@ function canManageUnits(role: UserRole | undefined): boolean {
 
 export function UnitsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
@@ -135,18 +138,39 @@ export function UnitsPage() {
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Unit created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create unit',
+        description: getErrorMessage(error, 'Unable to create unit'),
+      });
     },
   });
   const updateMutation = trpc.units.update.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Unit updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update unit',
+        description: getErrorMessage(error, 'Unable to update unit'),
+      });
     },
   });
   const deleteMutation = trpc.units.delete.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
       setUnitToDelete(null);
+      toast.success({ title: 'Unit deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete unit',
+        description: getErrorMessage(error, 'Unable to delete unit'),
+      });
     },
   });
 

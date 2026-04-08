@@ -12,6 +12,7 @@ import {
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableExportActions } from '@/components/tables/TableExportActions';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import {
   InventoryAdjustmentModal,
@@ -28,7 +29,7 @@ import {
   inventoryStockExportColumns,
 } from '@/features/inventory/inventoryExport';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
+import { cn, formatCurrency, formatDateTime, getErrorMessage } from '@/lib/utils';
 import type {
   Category,
   InitialInventoryEntry,
@@ -598,6 +599,7 @@ function InventoryDataPanel({
 
 export function InventoryPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageInventory(user?.role);
 
@@ -637,6 +639,13 @@ export function InventoryPage() {
       ]);
       setIsAdjustmentModalOpen(false);
       setSelectedProduct(null);
+      toast.success({ title: 'Stock adjusted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to adjust stock',
+        description: getErrorMessage(error, 'Unable to adjust stock'),
+      });
     },
   });
 
@@ -650,6 +659,13 @@ export function InventoryPage() {
       ]);
       setEntrySelection(null);
       setIsSearchOpen(false);
+      toast.success({ title: 'Initial inventory recorded' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to record inventory entry',
+        description: getErrorMessage(error, 'Unable to record inventory entry'),
+      });
     },
   });
 

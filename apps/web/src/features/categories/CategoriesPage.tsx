@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Category } from '@/types';
 import { trpc } from '@/lib/trpc';
@@ -11,6 +12,7 @@ import {
   type CategoryFormValues,
   type CategoryLookupOption,
 } from '@/features/categories/CategoryFormModal';
+import { getErrorMessage } from '@/lib/utils';
 
 interface CategoryTreeRow extends Category {
   depth: number;
@@ -73,6 +75,7 @@ function toNullableString(value: string): string | null {
 
 export function CategoriesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
@@ -85,6 +88,13 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Category created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create category',
+        description: getErrorMessage(error, 'Unable to create category'),
+      });
     },
   });
   const updateMutation = trpc.categories.update.useMutation({
@@ -92,6 +102,13 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'Category updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update category',
+        description: getErrorMessage(error, 'Unable to update category'),
+      });
     },
   });
   const deleteMutation = trpc.categories.delete.useMutation({
@@ -99,6 +116,13 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       setCategoryToDelete(null);
+      toast.success({ title: 'Category deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete category',
+        description: getErrorMessage(error, 'Unable to delete category'),
+      });
     },
   });
 

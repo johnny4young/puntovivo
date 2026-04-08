@@ -3,10 +3,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { BadgePercent, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { UserRole, VatRate } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 interface VatRateFormValues {
   name: string;
@@ -131,6 +133,7 @@ function canManageVatRates(role: UserRole | undefined): boolean {
 
 export function VatRatesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const utils = trpc.useUtils();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
@@ -142,18 +145,39 @@ export function VatRatesPage() {
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'VAT rate created' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to create VAT rate',
+        description: getErrorMessage(error, 'Unable to create VAT rate'),
+      });
     },
   });
   const updateMutation = trpc.vatRates.update.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
+      toast.success({ title: 'VAT rate updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update VAT rate',
+        description: getErrorMessage(error, 'Unable to update VAT rate'),
+      });
     },
   });
   const deleteMutation = trpc.vatRates.delete.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       setVatRateToDelete(null);
+      toast.success({ title: 'VAT rate deleted' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to delete VAT rate',
+        description: getErrorMessage(error, 'Unable to delete VAT rate'),
+      });
     },
   });
 

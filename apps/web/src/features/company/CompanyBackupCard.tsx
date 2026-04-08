@@ -1,5 +1,7 @@
 import { AlertTriangle, DatabaseBackup, HardDriveDownload } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { getErrorMessage } from '@/lib/utils';
 
 type BackupAction = 'backup' | 'restore' | null;
 
@@ -20,18 +22,16 @@ function getStatusClasses(tone: BackupStatus['tone']): string {
   return 'border-warning-200 bg-warning-50 text-warning-800';
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
 export function CompanyBackupCard() {
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
   const [status, setStatus] = useState<BackupStatus | null>(null);
+  const toast = useToast();
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
 
   const handleCreateBackup = async () => {
     if (!electron) {
+      toast.info({ title: 'Backup is available only in the desktop app' });
       setStatus({
         tone: 'info',
         message: 'Database backups are available only in the desktop app.',
@@ -45,6 +45,7 @@ export function CompanyBackupCard() {
       const result = await electron.createDatabaseBackup();
 
       if (result.cancelled) {
+        toast.info({ title: 'Backup creation cancelled' });
         setStatus({
           tone: 'info',
           message: 'Backup creation was cancelled.',
@@ -56,6 +57,7 @@ export function CompanyBackupCard() {
         throw new Error(result.error || 'Database backup failed');
       }
 
+      toast.success({ title: 'Database backup created' });
       setStatus({
         tone: 'success',
         message: result.path
@@ -63,6 +65,10 @@ export function CompanyBackupCard() {
           : 'Backup created successfully.',
       });
     } catch (error) {
+      toast.error({
+        title: 'Database backup failed',
+        description: getErrorMessage(error, 'Database backup failed'),
+      });
       setStatus({
         tone: 'error',
         message: getErrorMessage(error, 'Database backup failed'),
@@ -74,6 +80,7 @@ export function CompanyBackupCard() {
 
   const handleRestoreBackup = async () => {
     if (!electron) {
+      toast.info({ title: 'Restore is available only in the desktop app' });
       setStatus({
         tone: 'info',
         message: 'Database restore is available only in the desktop app.',
@@ -95,6 +102,7 @@ export function CompanyBackupCard() {
       const result = await electron.restoreDatabaseBackup();
 
       if (result.cancelled) {
+        toast.info({ title: 'Database restore cancelled' });
         setStatus({
           tone: 'info',
           message: 'Restore was cancelled.',
@@ -106,11 +114,16 @@ export function CompanyBackupCard() {
         throw new Error(result.error || 'Database restore failed');
       }
 
+      toast.success({ title: 'Database backup restored' });
       setStatus({
         tone: 'success',
         message: 'Backup restored successfully. Reloading the application data...',
       });
     } catch (error) {
+      toast.error({
+        title: 'Database restore failed',
+        description: getErrorMessage(error, 'Database restore failed'),
+      });
       setStatus({
         tone: 'error',
         message: getErrorMessage(error, 'Database restore failed'),
