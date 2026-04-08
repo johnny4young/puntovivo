@@ -4,6 +4,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeTheme,
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from 'electron';
@@ -45,11 +46,15 @@ interface ReceiptPrintSettings {
   printBackground: boolean;
 }
 
+type ThemePreference = 'light' | 'dark' | 'system';
+
 const RECEIPT_PRINT_SETTINGS_KEY = 'receipt_print_settings';
+const THEME_PREFERENCE_KEY = 'theme_preference';
 const DEFAULT_RECEIPT_PRINT_SETTINGS: ReceiptPrintSettings = {
   silent: false,
   printBackground: true,
 };
+const DEFAULT_THEME_PREFERENCE: ThemePreference = 'system';
 
 function createBackupFileName(now = new Date()): string {
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
@@ -188,6 +193,59 @@ async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrint
   }
 
   return nextSettings;
+}
+
+function normalizeThemePreference(value: unknown): ThemePreference {
+  if (value === 'light' || value === 'dark' || value === 'system') {
+    return value;
+  }
+
+  return DEFAULT_THEME_PREFERENCE;
+}
+
+function applyThemePreference(preference: ThemePreference): ThemePreference {
+  nativeTheme.themeSource = preference;
+  return preference;
+}
+
+async function getThemePreference(): Promise<ThemePreference> {
+  const database = getServerDatabase();
+  const row = await database
+    .select({ value: appSettings.value })
+    .from(appSettings)
+    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
+    .get();
+
+  return normalizeThemePreference(row?.value);
+}
+
+async function saveThemePreference(preference: unknown): Promise<ThemePreference> {
+  const database = getServerDatabase();
+  const now = new Date().toISOString();
+  const nextPreference = applyThemePreference(normalizeThemePreference(preference));
+  const existing = await database
+    .select({ key: appSettings.key })
+    .from(appSettings)
+    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
+    .get();
+
+  if (existing) {
+    await database
+      .update(appSettings)
+      .set({
+        value: nextPreference,
+        updatedAt: now,
+      })
+      .where(eq(appSettings.key, THEME_PREFERENCE_KEY));
+  } else {
+    await database.insert(appSettings).values({
+      key: THEME_PREFERENCE_KEY,
+      value: nextPreference,
+      updatedAt: now,
+    });
+  }
+
+  return nextPreference;
 }
 
 async function printReceipt(
@@ -382,6 +440,7 @@ app.whenReady().then(async () => {
   // Start embedded Fastify server
   try {
     server = await startEmbeddedServer();
+    applyThemePreference(await getThemePreference());
   } catch (err) {
     console.error('[Server] Failed to start:', err);
   }
@@ -412,6 +471,12 @@ ipcMain.handle('get-receipt-print-settings', async () => {
 });
 ipcMain.handle('update-receipt-print-settings', async (_event, settings: unknown) => {
   return saveReceiptPrintSettings(settings);
+});
+ipcMain.handle('get-theme-preference', async () => {
+  return getThemePreference();
+});
+ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {
+  return saveThemePreference(preference);
 });
 ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
   if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {

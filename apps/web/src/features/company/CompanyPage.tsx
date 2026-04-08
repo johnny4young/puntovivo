@@ -9,6 +9,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
+import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 
 interface CompanyFormValues {
   name: string;
@@ -255,7 +256,8 @@ export function CompanyPage() {
       )}
 
       {canEdit && (
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6 xl:grid-cols-3">
+          <CompanyThemeSettingsCard />
           <CompanyPrintSettingsCard />
           <CompanyBackupCard />
         </div>

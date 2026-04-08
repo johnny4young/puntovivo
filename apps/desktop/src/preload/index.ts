@@ -5,6 +5,10 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getThemePreference: () => Promise<'light' | 'dark' | 'system'>;
+  updateThemePreference: (
+    preference: 'light' | 'dark' | 'system'
+  ) => Promise<'light' | 'dark' | 'system'>;
   getReceiptPrintSettings: () => Promise<{
     silent: boolean;
     printBackground: boolean;
@@ -58,6 +62,8 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  getThemePreference: () => ipcRenderer.invoke('get-theme-preference'),
+  updateThemePreference: preference => ipcRenderer.invoke('update-theme-preference', preference),
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
     ipcRenderer.invoke('update-receipt-print-settings', settings),
