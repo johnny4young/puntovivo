@@ -9,7 +9,8 @@ import {
 } from 'electron';
 import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { createServer, type OpenYojobServer } from '@open-yojob/server';
+import { createServer, type OpenYojobServer, appSettings } from '@open-yojob/server';
+import { eq } from 'drizzle-orm';
 import { initAutoUpdater } from './auto-updater';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -38,6 +39,17 @@ interface DesktopDatabaseActionResult {
   path?: string;
   error?: string;
 }
+
+interface ReceiptPrintSettings {
+  silent: boolean;
+  printBackground: boolean;
+}
+
+const RECEIPT_PRINT_SETTINGS_KEY = 'receipt_print_settings';
+const DEFAULT_RECEIPT_PRINT_SETTINGS: ReceiptPrintSettings = {
+  silent: false,
+  printBackground: true,
+};
 
 function createBackupFileName(now = new Date()): string {
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
@@ -108,7 +120,80 @@ async function runWithServerRestart<T>(
   }
 }
 
-async function printReceipt(receiptHtml: string): Promise<void> {
+function getServerDatabase(): OpenYojobServer['db'] {
+  if (!server) {
+    throw new Error('The embedded server is not available');
+  }
+
+  return server.db;
+}
+
+function normalizeReceiptPrintSettings(
+  value: unknown,
+  base: ReceiptPrintSettings = DEFAULT_RECEIPT_PRINT_SETTINGS
+): ReceiptPrintSettings {
+  if (!value || typeof value !== 'object') {
+    return { ...base };
+  }
+
+  const candidate = value as Partial<ReceiptPrintSettings>;
+
+  return {
+    silent: typeof candidate.silent === 'boolean' ? candidate.silent : base.silent,
+    printBackground:
+      typeof candidate.printBackground === 'boolean'
+        ? candidate.printBackground
+        : base.printBackground,
+  };
+}
+
+async function getReceiptPrintSettings(): Promise<ReceiptPrintSettings> {
+  const database = getServerDatabase();
+  const row = await database
+    .select({ value: appSettings.value })
+    .from(appSettings)
+    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
+    .get();
+
+  return normalizeReceiptPrintSettings(row?.value);
+}
+
+async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrintSettings> {
+  const database = getServerDatabase();
+  const now = new Date().toISOString();
+  const nextSettings = normalizeReceiptPrintSettings(
+    settings,
+    await getReceiptPrintSettings()
+  );
+  const existing = await database
+    .select({ key: appSettings.key })
+    .from(appSettings)
+    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
+    .get();
+
+  if (existing) {
+    await database
+      .update(appSettings)
+      .set({
+        value: nextSettings,
+        updatedAt: now,
+      })
+      .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY));
+  } else {
+    await database.insert(appSettings).values({
+      key: RECEIPT_PRINT_SETTINGS_KEY,
+      value: nextSettings,
+      updatedAt: now,
+    });
+  }
+
+  return nextSettings;
+}
+
+async function printReceipt(
+  receiptHtml: string,
+  settings: ReceiptPrintSettings
+): Promise<void> {
   const printWindow = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -124,8 +209,8 @@ async function printReceipt(receiptHtml: string): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       printWindow.webContents.print(
         {
-          silent: false,
-          printBackground: true,
+          silent: settings.silent,
+          printBackground: settings.printBackground,
         },
         (success, failureReason) => {
           if (!success) {
@@ -322,6 +407,12 @@ ipcMain.handle('get-app-path', () => app.getPath('userData'));
 ipcMain.handle('get-server-url', () => server?.getUrl() || `http://127.0.0.1:${SERVER_PORT}`);
 ipcMain.handle('create-database-backup', handleCreateDatabaseBackup);
 ipcMain.handle('restore-database-backup', handleRestoreDatabaseBackup);
+ipcMain.handle('get-receipt-print-settings', async () => {
+  return getReceiptPrintSettings();
+});
+ipcMain.handle('update-receipt-print-settings', async (_event, settings: unknown) => {
+  return saveReceiptPrintSettings(settings);
+});
 ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
   if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {
     return {
@@ -331,7 +422,8 @@ ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
   }
 
   try {
-    await printReceipt(receiptHtml);
+    const settings = await getReceiptPrintSettings();
+    await printReceipt(receiptHtml, settings);
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Receipt printing failed';

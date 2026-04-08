@@ -41,6 +41,8 @@ describe('CompanyBackupCard', () => {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
       getServerUrl: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
       printReceipt: vi.fn(),
       restoreDatabaseBackup: vi.fn(),
       createDatabaseBackup: vi.fn().mockResolvedValue({
@@ -70,6 +72,8 @@ describe('CompanyBackupCard', () => {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
       getServerUrl: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
       printReceipt: vi.fn(),
       createDatabaseBackup: vi.fn(),
       restoreDatabaseBackup,
