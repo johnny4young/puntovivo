@@ -52,14 +52,29 @@ export interface DatabaseAPI {
   insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
   delete: (table: string, id: string) => Promise<boolean>;
-  query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+  getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
+  deleteByTenant: (table: string, tenantId: string) => Promise<number>;
+  countByTenant: (table: string, tenantId: string) => Promise<number>;
   addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
   getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
 }
 
 export interface SyncAPI {
-  getStatus: () => Promise<{ isOnline: boolean; lastSync: string | null; pendingItems: number }>;
-  triggerSync: () => Promise<{ success: boolean; synced: number; errors: string[] }>;
+  getStatus: (tenantId?: string) => Promise<{
+    isOnline: boolean;
+    lastSync: string | null;
+    pendingItems: number;
+    conflicts: number;
+  }>;
+  triggerSync: (tenantId?: string) => Promise<{
+    success: boolean;
+    synced: number;
+    errors: string[];
+    isOnline: boolean;
+    lastSync: string | null;
+    pendingItems: number;
+    conflicts: number;
+  }>;
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
@@ -93,14 +108,19 @@ const dbAPI: DatabaseAPI = {
   update: (table: string, id: string, data: Record<string, unknown>) =>
     ipcRenderer.invoke('db:update', table, id, data),
   delete: (table: string, id: string) => ipcRenderer.invoke('db:delete', table, id),
-  query: (sql: string, params?: unknown[]) => ipcRenderer.invoke('db:query', sql, params),
+  getByField: (table: string, fieldName: string, value: unknown) =>
+    ipcRenderer.invoke('db:getByField', table, fieldName, value),
+  deleteByTenant: (table: string, tenantId: string) =>
+    ipcRenderer.invoke('db:deleteByTenant', table, tenantId),
+  countByTenant: (table: string, tenantId: string) =>
+    ipcRenderer.invoke('db:countByTenant', table, tenantId),
   addToSyncQueue: (item: Record<string, unknown>) => ipcRenderer.invoke('db:addToSyncQueue', item),
   getPendingSyncItems: (tenantId: string) => ipcRenderer.invoke('db:getPendingSyncItems', tenantId),
 };
 
 const syncAPI: SyncAPI = {
-  getStatus: () => ipcRenderer.invoke('sync:getStatus'),
-  triggerSync: () => ipcRenderer.invoke('sync:triggerSync'),
+  getStatus: (tenantId?: string) => ipcRenderer.invoke('sync:getStatus', tenantId),
+  triggerSync: (tenantId?: string) => ipcRenderer.invoke('sync:triggerSync', tenantId),
   setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('sync:setConfig', config),
 };
 

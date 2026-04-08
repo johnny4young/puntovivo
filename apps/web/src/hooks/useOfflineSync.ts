@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { vanillaClient } from '@/lib/trpc';
 import { getErrorMessage, isOnline } from '@/lib/utils';
+import { getStoredAuthTenantId } from '@/features/auth/authStorage';
 
 interface SyncStatus {
   isOnline: boolean;
@@ -21,6 +22,7 @@ export function useOfflineSync() {
     error: null,
   });
   const hasDesktopSync = typeof window !== 'undefined' && Boolean(window.api?.sync);
+  const tenantId = getStoredAuthTenantId();
 
   // Listen for online/offline events
   useEffect(() => {
@@ -47,7 +49,7 @@ export function useOfflineSync() {
 
     if (hasDesktopSync && window.api) {
       try {
-        const syncStatus = await window.api.sync.getStatus();
+        const syncStatus = await window.api.sync.getStatus(tenantId ?? undefined);
         setStatus(prev => ({
           ...prev,
           isOnline: online,
@@ -81,10 +83,19 @@ export function useOfflineSync() {
         error: online ? getErrorMessage(error, 'Unable to load sync status') : prev.error,
       }));
     }
-  }, [hasDesktopSync]);
+  }, [hasDesktopSync, tenantId]);
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
+    if (hasDesktopSync && !tenantId) {
+      setStatus(prev => ({
+        ...prev,
+        isSyncing: false,
+        error: 'A tenant must be selected before syncing',
+      }));
+      return;
+    }
+
     if (!hasDesktopSync || !window.api) {
       setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
@@ -112,7 +123,7 @@ export function useOfflineSync() {
     setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      const result = await window.api.sync.triggerSync();
+      const result = await window.api.sync.triggerSync(tenantId ?? undefined);
       setStatus(prev => ({
         ...prev,
         isSyncing: false,
@@ -127,7 +138,7 @@ export function useOfflineSync() {
         error: getErrorMessage(error, 'Sync failed'),
       }));
     }
-  }, [hasDesktopSync, refreshStatus]);
+  }, [hasDesktopSync, refreshStatus, tenantId]);
 
   // Initial status fetch
   useEffect(() => {
