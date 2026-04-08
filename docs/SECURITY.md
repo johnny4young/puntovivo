@@ -1,7 +1,7 @@
 # Security Documentation
 
 **Project:** Open Yojob POS System
-**Last Updated:** 2026-03-31
+**Last Updated:** 2026-04-07
 
 ---
 
@@ -43,7 +43,7 @@ The hardcoded `admin123` password was replaced with a cryptographically secure r
 
 ### 3. Authentication Rate Limiting (HIGH - FIXED)
 
-**Files:** `packages/server/src/index.ts`, `packages/server/src/routes/auth.ts`
+**Files:** `packages/server/src/index.ts`, `packages/server/src/trpc/routers/auth.ts`
 
 Added `@fastify/rate-limit` with:
 
@@ -52,13 +52,13 @@ Added `@fastify/rate-limit` with:
 
 ### 4. Password Policy (MEDIUM - FIXED)
 
-**File:** `packages/server/src/routes/auth.ts`
+**File:** `packages/server/src/trpc/routers/auth.ts`
 
 Minimum password length increased from 6 to 12 characters. Added complexity requirements: uppercase, lowercase, number, and special character.
 
 ### 5. Tenant Isolation (MEDIUM - FIXED)
 
-**File:** `packages/server/src/routes/collections.ts`
+**File:** `packages/server/src/trpc/middleware/tenant.ts`
 
 Changed tenant check from optional (`if (tenantId)`) to mandatory. Returns 403 if tenant context is missing for isolated collections.
 
@@ -84,7 +84,7 @@ These are in transitive dependencies of `@electron-forge` and have no upstream f
 
 #### Session Invalidation on Password Change
 
-**File:** `packages/server/src/routes/auth.ts:200-243`
+**File:** `packages/server/src/trpc/routers/auth.ts`
 
 Old JWT tokens remain valid after a password change. Fix: add a `tokenVersion` field to the user schema and validate it during authentication.
 
@@ -132,9 +132,11 @@ Development origins (localhost:3000, localhost:5173) are always allowed. Add env
 
 ---
 
-## Test Results After Fixes
+## Verification Status
 
-All 92 tests passing (34 server + 58 web) as of the latest dependency upgrade (March 2026).
+This document tracks the security review findings and follow-up actions. The exact total test count
+changes over time, so use the current workspace test commands instead of relying on the historical
+numbers from the original review.
 
 ---
 

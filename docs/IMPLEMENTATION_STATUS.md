@@ -1,156 +1,98 @@
 # Implementation Status
 
-> **Updated:** April 6, 2026
-> **Source of truth:** Repository scan of `apps/web`, `packages/server`, tests, and planning docs
+> **Updated:** April 7, 2026
+> **Source of truth:** Repository scan of `apps/web`, `apps/desktop`, `packages/server`, and focused test coverage
 
-This document reconciles the current codebase with the two planning documents:
+This document summarizes the current execution status of the migration roadmap in
+`docs/MIGRATION_PLAN.md` and the transport migration in
+`docs/TRPC_IMPLEMENTATION_PLAN.md`.
 
-- `docs/TRPC_IMPLEMENTATION_PLAN.md`
-- `docs/MIGRATION_PLAN.md`
+## Executive Summary
 
-## Current State
+- The tRPC migration is effectively complete for production application flows. tRPC is the
+  primary API transport on `/api/trpc`; `/api/health` remains as a compatibility endpoint and
+  `/api/realtime/*` remains for SSE.
+- The core product roadmap has advanced far beyond the original Phase 0 baseline. Foundation,
+  administration, products, inventory, sales, and purchases are implemented.
+- Phase 6 is in progress. The main reporting and access-control milestones are already shipped,
+  while broader polish work remains.
 
-### tRPC migration plan
+## Phase Status
 
-| Phase | Planned state | Actual repo state |
-| --- | --- | --- |
-| Phase 1 | tRPC scaffolding only | Complete |
-| Phase 2 | Auth router pending | Mostly complete |
-| Phase 3 | Entity routers pending | Mostly complete |
-| Phase 4 | Frontend page wiring pending | Partially complete |
-| Phase 5 | REST removal pending | Mostly complete |
+| Phase | Scope | Current status | Notes |
+| --- | --- | --- | --- |
+| Phase 0 | Foundation and schema alignment | Complete | Expanded schema, site context, live dashboard data, and tRPC-first transport are in place. |
+| Phase 1 | Administration module | Complete | Providers, VAT rates, units, companies, sites, sequentials, users, and customer enhancements are implemented. |
+| Phase 2 | Product management and pricing engine | Complete | Products support multi-price tiers, VAT/provider assignments, unit equivalence, and validated CRUD/search flows. |
+| Phase 3 | Inventory module | Complete | Stock queries, movement history, adjustments, initial inventory, and physical count workflows are implemented. |
+| Phase 4 | POS / sales module | Complete | Transactional sale finalization, unit normalization, VAT extraction, checkout flow, history, and receipt printing are implemented. |
+| Phase 5 | Purchases module | Complete | Transactional purchase intake, purchase history, cost updates, and stock increments are implemented. |
+| Phase 6 | Reporting, printing, access control, polish | In progress | Live dashboard reporting, exports, receipt printing, and role-based access control are implemented; broader UX/electron polish remains. |
 
-#### Evidence
+## Current Implemented Surface
 
-- Root router includes `auth`, `categories`, `products`, `customers`, `sales`, `inventory`, and `sync` routers in `packages/server/src/trpc/router.ts`.
-- Auth and collection tests were rewritten around `appRouter.createCaller(...)` in `packages/server/src/__tests__/`.
-- Products, customers, sales, and inventory pages call tRPC queries directly in `apps/web/src/features/`.
-- The old REST route files are gone from `packages/server/src/routes/`.
+### Backend
 
-#### Remaining tRPC work
+- Root tRPC router assembles `auth`, `companies`, `dashboard`, `providers`, `sequentials`,
+  `units`, `vatRates`, `categories`, `products`, `customers`, `purchases`, `sales`,
+  `inventory`, `sites`, `sync`, and `users` in
+  [packages/server/src/trpc/router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts).
+- Database schema and bootstrap include the migration-plan tables already in use:
+  `companies`, `sites`, `providers`, `units`, `vat_rates`, `sequentials`,
+  `purchase_items`, and `initial_inventory` in
+  [packages/server/src/db/schema.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/db/schema.ts)
+  and
+  [packages/server/src/db/index.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/db/index.ts).
+- Role enforcement is centralized in
+  [packages/server/src/trpc/middleware/roles.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/middleware/roles.ts).
+- Dashboard aggregates are live in
+  [packages/server/src/trpc/routers/dashboard.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/routers/dashboard.ts).
 
-- Dashboard is still hardcoded in `apps/web/src/features/dashboard/DashboardPage.tsx`.
-- Auth bootstrap is localStorage-based; it does not revalidate session via `auth.me` on startup and does not implement token refresh.
-- `packages/server/src/index.ts` and `packages/server/src/standalone.ts` still expose or describe legacy transport assumptions (`/api/health`, `X-Tenant-ID`, old REST endpoint logging).
-- Documentation still describes the repo as if Phases 2-5 were unstarted.
+### Web App
 
-### Business migration plan
+- The web app has live feature modules for `auth`, `dashboard`, `products`, `customers`,
+  `providers`, `units`, `vat-rates`, `company`, `sites`, `sequentials`, `users`,
+  `categories`, `inventory`, `sales`, and `purchases` under
+  [apps/web/src/features](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/features).
+- Protected routing and menu visibility are role-aware through
+  [apps/web/src/features/auth/ProtectedRoute.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/features/auth/ProtectedRoute.tsx),
+  [apps/web/src/features/auth/roleAccess.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/features/auth/roleAccess.ts),
+  and
+  [apps/web/src/components/layout/Sidebar.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/components/layout/Sidebar.tsx).
+- Export actions for core operational views are implemented through
+  [apps/web/src/components/tables/TableExportActions.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/components/tables/TableExportActions.tsx).
 
-| Phase | Planned dependency | Actual repo state |
-| --- | --- | --- |
-| Phase 0 | Foundation and schema alignment | Incomplete |
-| Phase 1 | Administration module | Not started in product terms |
-| Phase 2 | Product pricing engine | Not started |
-| Phase 3 | Inventory module | Not started beyond basic movements |
-| Phase 4 | POS / sales | Not started beyond basic sales CRUD |
-| Phase 5 | Purchases | Not started |
-| Phase 6 | Reporting / polish | Not started |
+### Desktop
 
-#### Evidence
+- The Electron preload and main process expose receipt printing through
+  [apps/desktop/src/preload/index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/preload/index.ts)
+  and
+  [apps/desktop/src/main/index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/main/index.ts).
+- Auto-update wiring exists in
+  [apps/desktop/src/main/auto-updater.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/main/auto-updater.ts).
 
-- `packages/server/src/db/schema.ts` still contains the initial compact schema only. The planned Phase 0 tables such as `providers`, `units`, `vat_rates`, `companies`, `sites`, and `sequentials` do not exist.
-- `apps/web/src/features/tenant/TenantProvider.tsx` has no site selection logic.
-- `apps/web/src/features/dashboard/DashboardPage.tsx` still uses mock data.
-- Basic CRUD exists for categories, products, customers, sales, inventory, but the WinForms business model has not been migrated.
+## Remaining Work
 
-## Recommended Active Phase
+The largest remaining roadmap work is no longer core CRUD or transaction logic. The open items are
+mostly Phase 6 polish and operational hardening:
 
-The next phase to execute for the product roadmap is **Migration Phase 0**.
+- Error boundaries and richer retry UX on the web shell
+- Toast/notification coverage across CRUD and workflow actions
+- Additional loading-state polish beyond the currently implemented screens
+- Desktop/system features such as system tray behavior, backup/restore UX, and print settings
+- Ongoing documentation cleanup where older plan docs still preserve historical references
 
-Reason:
+## Validation Snapshot
 
-- It is the first incomplete dependency in the business migration chain.
-- Phase 1 and later depend on tables and concepts that do not yet exist.
-- The tRPC transport migration is far enough along that it no longer blocks product work.
+The latest implemented slices were already validated in this workspace with:
 
-The current tRPC work should be treated as a **stabilization/cleanup track**, not as the main roadmap driver.
+- `npm run test --workspace=@open-yojob/server -- dashboard`
+- `npm run test --workspace=@open-yojob/server -- purchases`
+- `npm run test --workspace=@open-yojob/server -- sales`
+- `npm run test --workspace=@open-yojob/server -- inventory`
+- `npm run test --workspace=@open-yojob/web -- --run`
+- `npm run build --workspace=@open-yojob/web`
+- `npm run typecheck --workspace=@open-yojob/desktop`
 
-## Improved Task Breakdown
-
-The existing migration tasks are directionally correct but too broad for execution. Use the breakdown below as the actionable backlog.
-
-### Phase 0A: Stabilize current transport baseline
-
-Goal: make the current tRPC-first baseline internally consistent before adding more product surface.
-
-- Update stale docs and developer messages that still mention REST as the primary API.
-- Remove legacy endpoint logging from `packages/server/src/standalone.ts`.
-- Decide whether `/api/health` remains as a compatibility endpoint or is formally deprecated.
-- Decide whether `X-Tenant-ID` remains supported for non-authenticated flows or should be removed from `packages/server/src/index.ts`.
-- Fix the server test environment so `@open-yojob/server` tests run cleanly after native rebuild.
-
-Exit criteria:
-
-- Server tests pass in a correctly rebuilt environment.
-- No production-facing docs claim the main API is REST-first.
-
-### Phase 0B: Add missing foundation schema
-
-Goal: add the minimum data model required to support the migrated WinForms workflows.
-
-- Add tables: `providers`, `units`, `unit_x_product`, `vat_rates`, `companies`, `sites`, `sequentials`.
-- Extend `products` with multi-price, VAT, provider, location, and initial-cost fields.
-- Extend `sale_items` with unit and cost snapshot fields.
-- Update relations in `packages/server/src/db/schema.ts`.
-- Update raw DDL and database initialization in `packages/server/src/db/index.ts`.
-- Update seed data in `packages/server/src/db/seed.ts`.
-
-Exit criteria:
-
-- New schema boots from scratch.
-- Seeded database contains at least one company, one site, default VAT rates, default units, and sale/purchase sequentials.
-
-### Phase 0C: Introduce site context
-
-Goal: make inventory and document numbering site-aware before higher modules depend on it.
-
-- Add current site selection to `TenantProvider`.
-- Persist selected site in local storage.
-- Surface the current site in the header.
-- Thread `siteId` through the API context for queries and mutations that need it.
-- Define fallback rules for users with a single site vs multiple sites.
-
-Exit criteria:
-
-- A user can switch sites from the app shell.
-- Sales, inventory, and future purchases can resolve an active site deterministically.
-
-### Phase 0D: Finish baseline live-data wiring
-
-Goal: remove remaining mock data from the existing shell.
-
-- Replace dashboard mock cards and lists with real aggregation procedures.
-- Add explicit loading, empty, and error states to dashboard sections.
-- Keep Products, Customers, Sales, and Inventory pages on tRPC, but replace placeholder action buttons with tracked follow-up tasks if forms are deferred.
-
-Exit criteria:
-
-- No dashboard business numbers are hardcoded.
-- All currently shipped pages read from live or seeded data only.
-
-## Phase 1 Preview
-
-Once Phase 0 is complete, Phase 1 should be executed in this order:
-
-1. Providers
-2. VAT rates
-3. Units
-4. Company and sites
-5. Sequentials
-6. Users and customer enhancements
-
-This order minimizes rework because products, sales, and purchases all depend on these entities.
-
-## Known Gaps Blocking Later Phases
-
-- No atomic sequential numbering implementation yet.
-- No multi-unit stock model yet.
-- No pricing engine yet.
-- No purchase schema or routes yet.
-- No reporting aggregation layer yet.
-- No site-aware tenant context yet.
-
-## Validation Notes
-
-- `npm run test --workspace=@open-yojob/web -- --run` passes.
-- `npm run test --workspace=@open-yojob/server -- --run` currently fails in this environment because `better-sqlite3` was built against a different Node module version. This is an environment/runtime issue, not a planning-document issue.
+The web build still emits the existing large-chunk warning, but the recent feature work builds and
+tests cleanly.

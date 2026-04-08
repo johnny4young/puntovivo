@@ -100,10 +100,10 @@ PORT=9000
 VITE_API_URL=http://localhost:9000
 ```
 
-**Run standalone desktop:**
+**Run desktop shell only:**
 
 ```bash
-npm run dev:desktop-standalone
+npm run dev:desktop-only
 ```
 
 ### Scenario 4: Docker/Production Deployment
@@ -181,8 +181,8 @@ echo "VITE_API_URL=http://localhost:3001" > apps/web/.env
 # Rebuild web app
 npm run build:web
 
-# Test in standalone mode
-npm run dev:desktop-standalone
+# Run the Electron shell only
+npm run dev:desktop-only
 ```
 
 ### Test with curl
@@ -223,7 +223,7 @@ The desktop app embeds the server, so:
 
 - Server env vars work as usual (runtime)
 - Web app env vars require rebuild
-- Use `dev:desktop-standalone` after changing web env vars
+- Use `dev:desktop-only` after changing web env vars
 
 ## Troubleshooting
 
@@ -309,7 +309,7 @@ VITE_API_URL=http://localhost:3001
 
 npm run dev:server
 npm run build:web
-npm run dev:desktop-standalone
+npm run dev:desktop-only
 ```
 
 ### Network Access
