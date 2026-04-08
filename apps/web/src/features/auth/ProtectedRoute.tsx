@@ -3,6 +3,7 @@ import { useAuth } from './AuthProvider';
 import { ReactNode } from 'react';
 import type { UserRole } from '@/types';
 import { canAccessRole, getDefaultRouteForRole } from './roleAccess';
+import { FullscreenLoadingState } from '@/components/feedback/LoadingState';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -15,9 +16,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
-      </div>
+      <FullscreenLoadingState
+        title="Loading workspace"
+        description="Restoring your session and access rules."
+      />
     );
   }
 

@@ -6,6 +6,7 @@ import {
   RevenueTrendCard,
   TopProductsCard,
 } from '@/features/dashboard/DashboardPanels';
+import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useTenantSettings } from '@/hooks';
 import { trpc } from '@/lib/trpc';
 
@@ -19,14 +20,13 @@ export function DashboardPage() {
 
   if (dashboardQuery.error) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-danger-600">
-            Unable to load dashboard data: {dashboardQuery.error.message}
-          </p>
-        </div>
-      </div>
+      <QueryErrorState
+        title="Unable to load dashboard"
+        message={dashboardQuery.error.message}
+        onRetry={() => {
+          void dashboardQuery.refetch();
+        }}
+      />
     );
   }
 
