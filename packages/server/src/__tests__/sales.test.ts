@@ -371,4 +371,98 @@ describe('Sales tRPC Router', () => {
       })
     ).rejects.toThrow(/Insufficient stock/);
   });
+
+  it('voids a completed sale, restores stock, and removes it from completed sales KPIs', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Voidable Product',
+      sku: 'VOID-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 10,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: boxUnitId,
+      equivalence: 2,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const summaryBeforeCreate = await caller.sales.summary();
+    const created = await caller.sales.create({
+      items: [
+        {
+          productId,
+          unitId: boxUnitId,
+          quantity: 2,
+          unitPrice: 10,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 20,
+      discountAmount: 0,
+    });
+
+    const summaryBeforeVoid = await caller.sales.summary();
+    expect(summaryBeforeVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount + 1);
+    expect(summaryBeforeVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal + created.total);
+
+    const voided = await caller.sales.void({
+      id: created.id,
+      reason: 'Customer cancellation',
+    });
+
+    expect(voided.status).toBe('voided');
+    expect(voided.notes).toContain('Voided: Customer cancellation');
+
+    const restoredProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(restoredProduct?.stock).toBe(10);
+
+    const reversalMovements = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, created.id))
+      .all();
+    expect(reversalMovements).toHaveLength(2);
+    const returnMovement = reversalMovements.find(movement => movement.type === 'return');
+    expect(returnMovement).toMatchObject({
+      productId,
+      type: 'return',
+      quantity: 4,
+      previousStock: 6,
+      newStock: 10,
+    });
+
+    const summaryAfterVoid = await caller.sales.summary();
+    expect(summaryAfterVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount);
+    expect(summaryAfterVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
+  });
 });
