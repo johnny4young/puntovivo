@@ -6,6 +6,7 @@ import { httpBatchLink } from '@trpc/client';
 import { getTrpcHeaders, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';
+import { ThemeProvider } from './components/feedback/ThemeProvider';
 import App from './App';
 import './index.css';
 
@@ -39,7 +40,9 @@ function Root() {
           <BrowserRouter>
             <AppErrorBoundary>
               <ToastProvider>
-                <App />
+                <ThemeProvider>
+                  <App />
+                </ThemeProvider>
               </ToastProvider>
             </AppErrorBoundary>
           </BrowserRouter>

@@ -7,6 +7,10 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getThemePreference: () => Promise<'light' | 'dark' | 'system'>;
+  updateThemePreference: (
+    preference: 'light' | 'dark' | 'system'
+  ) => Promise<'light' | 'dark' | 'system'>;
   getReceiptPrintSettings: () => Promise<{
     silent: boolean;
     printBackground: boolean;

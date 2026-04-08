@@ -61,6 +61,8 @@ describe('CompanyPrintSettingsCard', () => {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
       getServerUrl: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
       getReceiptPrintSettings: vi.fn().mockResolvedValue({
         silent: false,
         printBackground: true,
