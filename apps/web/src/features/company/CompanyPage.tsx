@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import type { Company, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { CompanyBackupCard } from './CompanyBackupCard';
 
 interface CompanyFormValues {
   name: string;
@@ -228,6 +229,8 @@ export function CompanyPage() {
           />
         )}
       </div>
+
+      {canEdit && <CompanyBackupCard />}
     </div>
   );
 }

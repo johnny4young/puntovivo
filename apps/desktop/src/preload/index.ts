@@ -5,6 +5,18 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  createDatabaseBackup: () => Promise<{
+    success: boolean;
+    cancelled: boolean;
+    path?: string;
+    error?: string;
+  }>;
+  restoreDatabaseBackup: () => Promise<{
+    success: boolean;
+    cancelled: boolean;
+    path?: string;
+    error?: string;
+  }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -30,6 +42,8 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
+  restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
 };
 
