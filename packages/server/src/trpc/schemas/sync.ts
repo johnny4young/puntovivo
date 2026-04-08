@@ -32,6 +32,35 @@ export const listConflictsInput = z.object({
   limit: z.number().int().min(1).max(100).default(50),
 });
 
+export const pushSyncInput = z.object({
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+export const pullSyncInput = z.object({
+  queueLimit: z.number().int().min(1).max(100).default(20),
+  conflictLimit: z.number().int().min(1).max(100).default(20),
+});
+
+export const resolveSyncConflictInput = z
+  .object({
+    id: z.string().min(1, 'Conflict ID is required'),
+    resolution: z.enum(['local_wins', 'remote_wins', 'merged']),
+    mergedData: z.record(z.string(), z.unknown()).optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.resolution === 'merged' && !input.mergedData) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mergedData'],
+        message: 'Merged data is required when using merged resolution',
+      });
+    }
+  });
+
 export type ListQueueInput = z.infer<typeof listQueueInput>;
 export type AddToQueueInput = z.infer<typeof addToQueueInput>;
 export type RemoveFromQueueInput = z.infer<typeof removeFromQueueInput>;
+export type ListConflictsInput = z.infer<typeof listConflictsInput>;
+export type PushSyncInput = z.infer<typeof pushSyncInput>;
+export type PullSyncInput = z.infer<typeof pullSyncInput>;
+export type ResolveSyncConflictInput = z.infer<typeof resolveSyncConflictInput>;

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { isOnline } from '@/lib/utils';
+import { vanillaClient } from '@/lib/trpc';
+import { getErrorMessage, isOnline } from '@/lib/utils';
 
 interface SyncStatus {
   isOnline: boolean;
   lastSync: Date | null;
   pendingItems: number;
+  conflicts: number;
   isSyncing: boolean;
   error: string | null;
 }
@@ -14,6 +16,7 @@ export function useOfflineSync() {
     isOnline: isOnline(),
     lastSync: null,
     pendingItems: 0,
+    conflicts: 0,
     isSyncing: false,
     error: null,
   });
@@ -40,26 +43,69 @@ export function useOfflineSync() {
 
   // Check if we're in Electron
   const refreshStatus = useCallback(async () => {
+    const online = isOnline();
+
     if (hasDesktopSync && window.api) {
       try {
         const syncStatus = await window.api.sync.getStatus();
         setStatus(prev => ({
           ...prev,
-          isOnline: syncStatus.isOnline,
+          isOnline: online,
           lastSync: syncStatus.lastSync ? new Date(syncStatus.lastSync) : null,
           pendingItems: syncStatus.pendingItems,
+          conflicts: 'conflicts' in syncStatus && typeof syncStatus.conflicts === 'number'
+            ? syncStatus.conflicts
+            : prev.conflicts,
+          error: null,
         }));
+        return;
       } catch (error) {
         console.error('Failed to get sync status:', error);
       }
+    }
+
+    try {
+      const syncStatus = await vanillaClient.sync.status.query();
+      setStatus(prev => ({
+        ...prev,
+        isOnline: online,
+        lastSync: syncStatus.lastSyncAt ? new Date(syncStatus.lastSyncAt) : null,
+        pendingItems: syncStatus.pendingCount,
+        conflicts: syncStatus.conflictsCount,
+        error: null,
+      }));
+    } catch (error) {
+      setStatus(prev => ({
+        ...prev,
+        isOnline: online,
+        error: online ? getErrorMessage(error, 'Unable to load sync status') : prev.error,
+      }));
     }
   }, [hasDesktopSync]);
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
     if (!hasDesktopSync || !window.api) {
-      // Web: use API client
-      // TODO: Implement web sync
+      setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
+
+      try {
+        const result = await vanillaClient.sync.push.mutate({ limit: 50 });
+        setStatus(prev => ({
+          ...prev,
+          isSyncing: false,
+          lastSync: result.lastSyncAt ? new Date(result.lastSyncAt) : prev.lastSync,
+          pendingItems: result.pendingCount,
+          conflicts: result.conflictsCount,
+          error: result.success ? null : result.errors[0] || 'Sync failed',
+        }));
+      } catch (error) {
+        setStatus(prev => ({
+          ...prev,
+          isSyncing: false,
+          error: getErrorMessage(error, 'Sync failed'),
+        }));
+      }
+
       return;
     }
 
@@ -78,7 +124,7 @@ export function useOfflineSync() {
       setStatus(prev => ({
         ...prev,
         isSyncing: false,
-        error: error instanceof Error ? error.message : 'Sync failed',
+        error: getErrorMessage(error, 'Sync failed'),
       }));
     }
   }, [hasDesktopSync, refreshStatus]);

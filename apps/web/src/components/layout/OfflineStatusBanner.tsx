@@ -5,10 +5,12 @@ import { cn, formatDateTime } from '@/lib/utils';
 function getBannerCopy({
   isOnline,
   pendingItems,
+  conflicts,
   error,
 }: {
   isOnline: boolean;
   pendingItems: number;
+  conflicts: number;
   error: string | null;
 }) {
   if (!isOnline) {
@@ -19,6 +21,14 @@ function getBannerCopy({
           ? `${pendingItems} queued change${pendingItems === 1 ? '' : 's'} will sync when the connection returns.`
           : 'Changes made in the desktop app will stay local until the connection returns.',
       tone: 'warning',
+    } as const;
+  }
+
+  if (conflicts > 0) {
+    return {
+      title: 'Sync conflicts require review',
+      description: `${conflicts} conflict${conflicts === 1 ? '' : 's'} need to be resolved before all queued changes can sync cleanly.`,
+      tone: 'danger',
     } as const;
   }
 
@@ -38,15 +48,16 @@ function getBannerCopy({
 }
 
 export function OfflineStatusBanner() {
-  const { isOnline, lastSync, pendingItems, isSyncing, error, triggerSync } = useOfflineSync();
-  const shouldShow = !isOnline || pendingItems > 0 || Boolean(error);
+  const { isOnline, lastSync, pendingItems, conflicts, isSyncing, error, triggerSync } =
+    useOfflineSync();
+  const shouldShow = !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
 
   if (!shouldShow) {
     return null;
   }
 
-  const bannerCopy = getBannerCopy({ isOnline, pendingItems, error });
-  const canRetry = isOnline && !isSyncing && (pendingItems > 0 || Boolean(error));
+  const bannerCopy = getBannerCopy({ isOnline, pendingItems, conflicts, error });
+  const canRetry = isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
 
   return (
     <div className="border-b border-secondary-200 bg-white px-6 py-3">

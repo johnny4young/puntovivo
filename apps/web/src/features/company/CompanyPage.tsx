@@ -9,6 +9,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
+import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
@@ -257,7 +258,8 @@ export function CompanyPage() {
       )}
 
       {canEdit && (
-        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-4">
+        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+          <CompanySyncCard />
           <CompanyThemeSettingsCard />
           <CompanyTraySettingsCard />
           <CompanyPrintSettingsCard />
