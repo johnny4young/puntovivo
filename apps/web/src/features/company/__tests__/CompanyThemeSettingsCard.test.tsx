@@ -66,6 +66,8 @@ describe('CompanyThemeSettingsCard', () => {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
       getServerUrl: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
       getThemePreference: vi.fn().mockResolvedValue('system'),
       updateThemePreference,
       getReceiptPrintSettings: vi.fn(),

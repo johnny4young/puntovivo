@@ -7,6 +7,17 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getTraySettings: () => Promise<{
+    enabled: boolean;
+    closeToTray: boolean;
+  }>;
+  updateTraySettings: (settings: {
+    enabled: boolean;
+    closeToTray: boolean;
+  }) => Promise<{
+    enabled: boolean;
+    closeToTray: boolean;
+  }>;
   getThemePreference: () => Promise<'light' | 'dark' | 'system'>;
   updateThemePreference: (
     preference: 'light' | 'dark' | 'system'
