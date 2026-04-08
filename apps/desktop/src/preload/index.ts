@@ -48,6 +48,11 @@ export interface SyncAPI {
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
+export interface DesktopBridgeAPI extends ElectronAPI {
+  db: DatabaseAPI;
+  sync: SyncAPI;
+}
+
 // Custom APIs for renderer
 const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -80,7 +85,14 @@ const syncAPI: SyncAPI = {
   setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('sync:setConfig', config),
 };
 
+const desktopBridgeAPI: DesktopBridgeAPI = {
+  ...electronAPI,
+  db: dbAPI,
+  sync: syncAPI,
+};
+
 // Expose APIs to renderer process
 contextBridge.exposeInMainWorld('electron', electronAPI);
 contextBridge.exposeInMainWorld('db', dbAPI);
 contextBridge.exposeInMainWorld('sync', syncAPI);
+contextBridge.exposeInMainWorld('api', desktopBridgeAPI);

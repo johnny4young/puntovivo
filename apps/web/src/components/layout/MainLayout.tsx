@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { OfflineStatusBanner } from './OfflineStatusBanner';
 import { cn } from '@/lib/utils';
 
 export function MainLayout() {
@@ -16,6 +17,7 @@ export function MainLayout() {
 
       <div className={cn('transition-all duration-300', sidebarCollapsed ? 'ml-20' : 'ml-64')}>
         <Header onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <OfflineStatusBanner />
 
         <main className="p-6">
           <Outlet />

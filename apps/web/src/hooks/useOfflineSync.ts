@@ -17,6 +17,7 @@ export function useOfflineSync() {
     isSyncing: false,
     error: null,
   });
+  const hasDesktopSync = typeof window !== 'undefined' && Boolean(window.api?.sync);
 
   // Listen for online/offline events
   useEffect(() => {
@@ -38,11 +39,8 @@ export function useOfflineSync() {
   }, []);
 
   // Check if we're in Electron
-  const isElectron = typeof window !== 'undefined' && window.api;
-
-  // Get sync status from Electron
   const refreshStatus = useCallback(async () => {
-    if (isElectron && window.api) {
+    if (hasDesktopSync && window.api) {
       try {
         const syncStatus = await window.api.sync.getStatus();
         setStatus(prev => ({
@@ -55,11 +53,11 @@ export function useOfflineSync() {
         console.error('Failed to get sync status:', error);
       }
     }
-  }, [isElectron]);
+  }, [hasDesktopSync]);
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
-    if (!isElectron || !window.api) {
+    if (!hasDesktopSync || !window.api) {
       // Web: use API client
       // TODO: Implement web sync
       return;
@@ -83,19 +81,19 @@ export function useOfflineSync() {
         error: error instanceof Error ? error.message : 'Sync failed',
       }));
     }
-  }, [isElectron, refreshStatus]);
+  }, [hasDesktopSync, refreshStatus]);
 
   // Initial status fetch
   useEffect(() => {
-    refreshStatus();
+    void refreshStatus();
   }, [refreshStatus]);
 
   // Auto-sync when coming online
   useEffect(() => {
-    if (status.isOnline && status.pendingItems > 0 && !status.isSyncing) {
-      triggerSync();
+    if (status.isOnline && status.pendingItems > 0 && !status.isSyncing && !status.error) {
+      void triggerSync();
     }
-  }, [status.isOnline, status.pendingItems, status.isSyncing, triggerSync]);
+  }, [status.isOnline, status.pendingItems, status.isSyncing, status.error, triggerSync]);
 
   return {
     ...status,
@@ -108,7 +106,7 @@ export function useOfflineSync() {
 export function useOfflineCapability() {
   // Check for Electron API or IndexedDB support on first render
   const [hasCapability] = useState(() => {
-    const isElectron = typeof window !== 'undefined' && !!window.api;
+    const isElectron = typeof window !== 'undefined' && Boolean(window.api?.sync);
     const hasIndexedDB = typeof indexedDB !== 'undefined';
     return Boolean(isElectron) || hasIndexedDB;
   });
