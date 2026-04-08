@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
+import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
 interface CompanyFormValues {
   name: string;
@@ -256,8 +257,9 @@ export function CompanyPage() {
       )}
 
       {canEdit && (
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-4">
           <CompanyThemeSettingsCard />
+          <CompanyTraySettingsCard />
           <CompanyPrintSettingsCard />
           <CompanyBackupCard />
         </div>

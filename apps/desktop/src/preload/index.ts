@@ -5,6 +5,17 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getTraySettings: () => Promise<{
+    enabled: boolean;
+    closeToTray: boolean;
+  }>;
+  updateTraySettings: (settings: {
+    enabled: boolean;
+    closeToTray: boolean;
+  }) => Promise<{
+    enabled: boolean;
+    closeToTray: boolean;
+  }>;
   getThemePreference: () => Promise<'light' | 'dark' | 'system'>;
   updateThemePreference: (
     preference: 'light' | 'dark' | 'system'
@@ -62,6 +73,8 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  getTraySettings: () => ipcRenderer.invoke('get-tray-settings'),
+  updateTraySettings: settings => ipcRenderer.invoke('update-tray-settings', settings),
   getThemePreference: () => ipcRenderer.invoke('get-theme-preference'),
   updateThemePreference: preference => ipcRenderer.invoke('update-theme-preference', preference),
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),

@@ -4,7 +4,10 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   nativeTheme,
+  Tray,
+  nativeImage,
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from 'electron';
@@ -28,6 +31,12 @@ console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
 
 let mainWindow: BrowserWindow | null = null;
 let server: OpenYojobServer | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
+let currentTraySettings: TraySettings = {
+  enabled: true,
+  closeToTray: false,
+};
 
 // Server configuration
 const SERVER_PORT = 8090;
@@ -48,13 +57,23 @@ interface ReceiptPrintSettings {
 
 type ThemePreference = 'light' | 'dark' | 'system';
 
+interface TraySettings {
+  enabled: boolean;
+  closeToTray: boolean;
+}
+
 const RECEIPT_PRINT_SETTINGS_KEY = 'receipt_print_settings';
 const THEME_PREFERENCE_KEY = 'theme_preference';
+const TRAY_SETTINGS_KEY = 'tray_settings';
 const DEFAULT_RECEIPT_PRINT_SETTINGS: ReceiptPrintSettings = {
   silent: false,
   printBackground: true,
 };
 const DEFAULT_THEME_PREFERENCE: ThemePreference = 'system';
+const DEFAULT_TRAY_SETTINGS: TraySettings = {
+  enabled: true,
+  closeToTray: false,
+};
 
 function createBackupFileName(now = new Date()): string {
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
@@ -248,6 +267,166 @@ async function saveThemePreference(preference: unknown): Promise<ThemePreference
   return nextPreference;
 }
 
+function normalizeTraySettings(
+  value: unknown,
+  base: TraySettings = DEFAULT_TRAY_SETTINGS
+): TraySettings {
+  if (!value || typeof value !== 'object') {
+    return { ...base };
+  }
+
+  const candidate = value as Partial<TraySettings>;
+
+  return {
+    enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : base.enabled,
+    closeToTray:
+      typeof candidate.closeToTray === 'boolean' ? candidate.closeToTray : base.closeToTray,
+  };
+}
+
+async function getTraySettings(): Promise<TraySettings> {
+  const database = getServerDatabase();
+  const row = await database
+    .select({ value: appSettings.value })
+    .from(appSettings)
+    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
+    .get();
+
+  return normalizeTraySettings(row?.value);
+}
+
+function createTrayIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <rect x="10" y="10" width="44" height="44" rx="12" fill="#0ea5e9"/>
+      <path d="M22 22h20v6H28v8h12v6H28v10h-6V22z" fill="#ffffff"/>
+    </svg>
+  `.trim();
+
+  return nativeImage
+    .createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
+    .resize({ width: 18, height: 18 });
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  mainWindow.focus();
+}
+
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.hide();
+}
+
+function toggleMainWindowVisibility() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
+    hideMainWindow();
+    return;
+  }
+
+  showMainWindow();
+}
+
+function destroyTray() {
+  if (!tray) {
+    return;
+  }
+
+  tray.destroy();
+  tray = null;
+}
+
+function refreshTray(settings = currentTraySettings) {
+  currentTraySettings = settings;
+
+  if (!settings.enabled) {
+    destroyTray();
+    return;
+  }
+
+  if (!tray) {
+    tray = new Tray(createTrayIcon());
+    tray.setToolTip('Open Yojob');
+    tray.on('click', () => {
+      toggleMainWindowVisibility();
+    });
+  }
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: mainWindow?.isVisible() ? 'Hide Window' : 'Open Window',
+      click: () => {
+        toggleMainWindowVisibility();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: settings.closeToTray ? 'Closing hides to tray' : 'Closing quits the app',
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+}
+
+async function saveTraySettings(settings: unknown): Promise<TraySettings> {
+  const database = getServerDatabase();
+  const now = new Date().toISOString();
+  const nextSettings = normalizeTraySettings(settings, await getTraySettings());
+  const existing = await database
+    .select({ key: appSettings.key })
+    .from(appSettings)
+    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
+    .get();
+
+  if (existing) {
+    await database
+      .update(appSettings)
+      .set({
+        value: nextSettings,
+        updatedAt: now,
+      })
+      .where(eq(appSettings.key, TRAY_SETTINGS_KEY));
+  } else {
+    await database.insert(appSettings).values({
+      key: TRAY_SETTINGS_KEY,
+      value: nextSettings,
+      updatedAt: now,
+    });
+  }
+
+  refreshTray(nextSettings);
+  return nextSettings;
+}
+
 async function printReceipt(
   receiptHtml: string,
   settings: ReceiptPrintSettings
@@ -306,6 +485,25 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  mainWindow.on('close', event => {
+    if (!isQuitting && currentTraySettings.enabled && currentTraySettings.closeToTray) {
+      event.preventDefault();
+      hideMainWindow();
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  mainWindow.on('show', () => {
+    refreshTray();
+  });
+
+  mainWindow.on('hide', () => {
+    refreshTray();
   });
 
   mainWindow.webContents.setWindowOpenHandler(details => {
@@ -441,23 +639,39 @@ app.whenReady().then(async () => {
   try {
     server = await startEmbeddedServer();
     applyThemePreference(await getThemePreference());
+    currentTraySettings = await getTraySettings();
   } catch (err) {
     console.error('[Server] Failed to start:', err);
   }
 
   createWindow();
+  refreshTray();
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+      refreshTray();
+      return;
+    }
+
+    showMainWindow();
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 // Quit when all windows are closed
-app.on('window-all-closed', async () => {
-  await stopEmbeddedServer();
+app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  destroyTray();
+  void stopEmbeddedServer();
 });
 
 // IPC Handlers
@@ -477,6 +691,12 @@ ipcMain.handle('get-theme-preference', async () => {
 });
 ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {
   return saveThemePreference(preference);
+});
+ipcMain.handle('get-tray-settings', async () => {
+  return getTraySettings();
+});
+ipcMain.handle('update-tray-settings', async (_event, settings: unknown) => {
+  return saveTraySettings(settings);
 });
 ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
   if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {
