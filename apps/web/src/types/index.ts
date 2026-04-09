@@ -239,6 +239,17 @@ export interface Customer {
   syncVersion?: number;
 }
 
+export interface CustomerCatalogItem {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Sale {
   id: string;
   tenantId: string;

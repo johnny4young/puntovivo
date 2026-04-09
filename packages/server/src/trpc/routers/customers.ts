@@ -17,10 +17,18 @@
 import { TRPCError } from '@trpc/server';
 import { eq, and, sql, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
-import { customers, syncQueue } from '../../db/schema.js';
+import {
+  clientTypes,
+  customers,
+  identificationTypes,
+  personTypes,
+  regimeTypes,
+  syncQueue,
+} from '../../db/schema.js';
 import {
   listCustomersInput,
   getCustomerInput,
@@ -29,6 +37,39 @@ import {
   deleteCustomerInput,
   searchCustomersInput,
 } from '../schemas/customers.js';
+
+type CustomerCatalogTable =
+  | typeof identificationTypes
+  | typeof personTypes
+  | typeof regimeTypes
+  | typeof clientTypes;
+
+async function validateCustomerCatalogCode(
+  db: DatabaseInstance,
+  tenantId: string,
+  table: CustomerCatalogTable,
+  code: string | null | undefined,
+  label: string
+) {
+  if (!code) {
+    return code ?? null;
+  }
+
+  const item = await db
+    .select({ code: table.code, isActive: table.isActive })
+    .from(table)
+    .where(and(eq(table.tenantId, tenantId), eq(table.code, code)))
+    .get();
+
+  if (!item || item.isActive === false) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: `Selected ${label.toLowerCase()} was not found or is inactive`,
+    });
+  }
+
+  return item.code;
+}
 
 export const customersRouter = router({
   /**
@@ -97,6 +138,25 @@ export const customersRouter = router({
   create: managerOrAdminProcedure.input(createCustomerInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
+    const [identificationTypeCode, personTypeCode, regimeTypeCode, clientTypeCode] =
+      await Promise.all([
+        validateCustomerCatalogCode(
+          ctx.db,
+          ctx.tenantId,
+          identificationTypes,
+          input.identificationTypeId,
+          'identification type'
+        ),
+        validateCustomerCatalogCode(
+          ctx.db,
+          ctx.tenantId,
+          personTypes,
+          input.personTypeId,
+          'person type'
+        ),
+        validateCustomerCatalogCode(ctx.db, ctx.tenantId, regimeTypes, input.regimeTypeId, 'regime type'),
+        validateCustomerCatalogCode(ctx.db, ctx.tenantId, clientTypes, input.clientTypeId, 'client type'),
+      ]);
 
     await ctx.db.insert(customers).values({
       id,
@@ -110,10 +170,10 @@ export const customersRouter = router({
       postalCode: input.postalCode,
       country: input.country,
       taxId: input.taxId,
-      identificationTypeId: input.identificationTypeId,
-      personTypeId: input.personTypeId,
-      regimeTypeId: input.regimeTypeId,
-      clientTypeId: input.clientTypeId,
+      identificationTypeId: identificationTypeCode,
+      personTypeId: personTypeCode,
+      regimeTypeId: regimeTypeCode,
+      clientTypeId: clientTypeCode,
       notes: input.notes,
       isActive: input.isActive,
       syncStatus: 'pending',
@@ -162,6 +222,45 @@ export const customersRouter = router({
       syncStatus: 'pending',
       syncVersion: (existing.syncVersion ?? 0) + 1,
     };
+    const [identificationTypeCode, personTypeCode, regimeTypeCode, clientTypeCode] =
+      await Promise.all([
+        updates.identificationTypeId !== undefined
+          ? validateCustomerCatalogCode(
+              ctx.db,
+              ctx.tenantId,
+              identificationTypes,
+              updates.identificationTypeId,
+              'identification type'
+            )
+          : Promise.resolve(undefined),
+        updates.personTypeId !== undefined
+          ? validateCustomerCatalogCode(
+              ctx.db,
+              ctx.tenantId,
+              personTypes,
+              updates.personTypeId,
+              'person type'
+            )
+          : Promise.resolve(undefined),
+        updates.regimeTypeId !== undefined
+          ? validateCustomerCatalogCode(
+              ctx.db,
+              ctx.tenantId,
+              regimeTypes,
+              updates.regimeTypeId,
+              'regime type'
+            )
+          : Promise.resolve(undefined),
+        updates.clientTypeId !== undefined
+          ? validateCustomerCatalogCode(
+              ctx.db,
+              ctx.tenantId,
+              clientTypes,
+              updates.clientTypeId,
+              'client type'
+            )
+          : Promise.resolve(undefined),
+      ]);
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.email !== undefined) updateData.email = updates.email;
@@ -172,12 +271,10 @@ export const customersRouter = router({
     if (updates.postalCode !== undefined) updateData.postalCode = updates.postalCode;
     if (updates.country !== undefined) updateData.country = updates.country;
     if (updates.taxId !== undefined) updateData.taxId = updates.taxId;
-    if (updates.identificationTypeId !== undefined) {
-      updateData.identificationTypeId = updates.identificationTypeId;
-    }
-    if (updates.personTypeId !== undefined) updateData.personTypeId = updates.personTypeId;
-    if (updates.regimeTypeId !== undefined) updateData.regimeTypeId = updates.regimeTypeId;
-    if (updates.clientTypeId !== undefined) updateData.clientTypeId = updates.clientTypeId;
+    if (updates.identificationTypeId !== undefined) updateData.identificationTypeId = identificationTypeCode;
+    if (updates.personTypeId !== undefined) updateData.personTypeId = personTypeCode;
+    if (updates.regimeTypeId !== undefined) updateData.regimeTypeId = regimeTypeCode;
+    if (updates.clientTypeId !== undefined) updateData.clientTypeId = clientTypeCode;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 

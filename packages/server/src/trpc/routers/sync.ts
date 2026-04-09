@@ -41,8 +41,14 @@ const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 
 const syncEntityConfig = {
   categories: { tableName: 'categories', supportsSyncMetadata: false, touchUpdatedAt: false },
+  client_types: { tableName: 'client_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   companies: { tableName: 'companies', supportsSyncMetadata: false, touchUpdatedAt: false },
   customers: { tableName: 'customers', supportsSyncMetadata: true, touchUpdatedAt: true },
+  identification_types: {
+    tableName: 'identification_types',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   initial_inventory: {
     tableName: 'initial_inventory',
     supportsSyncMetadata: true,
@@ -57,9 +63,11 @@ const syncEntityConfig = {
   location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
   order_items: { tableName: 'order_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
+  person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
+  regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
   sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },

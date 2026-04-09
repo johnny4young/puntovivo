@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
-import type { Customer } from '@/types';
+import type { Customer, CustomerCatalogItem } from '@/types';
+import { CustomerCatalogSelect } from '@/features/customers/CustomerCatalogSelect';
 
 export interface CustomerFormValues {
   name: string;
@@ -65,6 +66,10 @@ function mapCustomerToForm(customer: Customer | null): CustomerFormValues {
 interface CustomerFormModalProps {
   isOpen: boolean;
   customer: Customer | null;
+  identificationTypes: CustomerCatalogItem[];
+  personTypes: CustomerCatalogItem[];
+  regimeTypes: CustomerCatalogItem[];
+  clientTypes: CustomerCatalogItem[];
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
@@ -74,6 +79,10 @@ interface CustomerFormModalProps {
 export function CustomerFormModal({
   isOpen,
   customer,
+  identificationTypes,
+  personTypes,
+  regimeTypes,
+  clientTypes,
   isSaving,
   error,
   onClose,
@@ -157,53 +166,37 @@ export function CustomerFormModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <label htmlFor="customer-identification-type" className="label">
-              Identification Type
-            </label>
-            <input
-              id="customer-identification-type"
-              className="input mt-1"
-              placeholder="CC, NIT..."
-              {...form.register('identificationTypeId')}
-            />
-          </div>
+          <CustomerCatalogSelect
+            id="customer-identification-type"
+            label="Identification Type"
+            placeholder="Not set"
+            options={identificationTypes}
+            registration={form.register('identificationTypeId')}
+          />
 
-          <div>
-            <label htmlFor="customer-person-type" className="label">
-              Person Type
-            </label>
-            <input
-              id="customer-person-type"
-              className="input mt-1"
-              placeholder="natural, juridica..."
-              {...form.register('personTypeId')}
-            />
-          </div>
+          <CustomerCatalogSelect
+            id="customer-person-type"
+            label="Person Type"
+            placeholder="Not set"
+            options={personTypes}
+            registration={form.register('personTypeId')}
+          />
 
-          <div>
-            <label htmlFor="customer-regime-type" className="label">
-              Regime Type
-            </label>
-            <input
-              id="customer-regime-type"
-              className="input mt-1"
-              placeholder="common, simplified..."
-              {...form.register('regimeTypeId')}
-            />
-          </div>
+          <CustomerCatalogSelect
+            id="customer-regime-type"
+            label="Regime Type"
+            placeholder="Not set"
+            options={regimeTypes}
+            registration={form.register('regimeTypeId')}
+          />
 
-          <div>
-            <label htmlFor="customer-client-type" className="label">
-              Client Type
-            </label>
-            <input
-              id="customer-client-type"
-              className="input mt-1"
-              placeholder="retail, wholesale..."
-              {...form.register('clientTypeId')}
-            />
-          </div>
+          <CustomerCatalogSelect
+            id="customer-client-type"
+            label="Client Type"
+            placeholder="Not set"
+            options={clientTypes}
+            registration={form.register('clientTypeId')}
+          />
         </div>
 
         <div>

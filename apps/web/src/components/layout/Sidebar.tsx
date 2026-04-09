@@ -41,6 +41,12 @@ const navigation = [
   { name: 'Sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
   { name: 'Sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
   { name: 'Locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
+  {
+    name: 'Customer Catalogs',
+    href: '/customer-catalogs',
+    icon: ClipboardList,
+    allowedRoles: adminOnlyRoles,
+  },
   { name: 'Providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
   { name: 'Categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
   { name: 'Units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
