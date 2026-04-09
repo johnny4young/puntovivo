@@ -396,6 +396,62 @@ describe('Sync tRPC Router', () => {
       expect(queuedItems[0]?.operation).toBe('update');
       expect(queuedItems[0]?.data).toEqual({ id: entityId, name: 'Keep Local' });
     });
+
+    it('resolves a conflict with merged data and requeues the merged payload', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Local Name', price: 10 },
+        remoteData: { id: entityId, name: 'Remote Name', stock: 5 },
+        status: 'pending',
+        createdAt: now,
+      });
+
+      const result = await caller.sync.resolve({
+        id: conflictId,
+        resolution: 'merged',
+        mergedData: { id: entityId, name: 'Merged Name', price: 10, stock: 5 },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.resolution).toBe('merged');
+
+      const conflict = await db
+        .select()
+        .from(syncConflicts)
+        .where(and(eq(syncConflicts.id, conflictId), eq(syncConflicts.tenantId, testTenantId)))
+        .get();
+      expect(conflict?.status).toBe('resolved');
+      expect(conflict?.resolution).toBe('merged');
+
+      const queuedItems = await db
+        .select()
+        .from(syncQueue)
+        .where(
+          and(
+            eq(syncQueue.tenantId, testTenantId),
+            eq(syncQueue.entityType, 'products'),
+            eq(syncQueue.entityId, entityId)
+          )
+        )
+        .all();
+      expect(queuedItems).toHaveLength(1);
+      expect(queuedItems[0]?.operation).toBe('update');
+      expect(queuedItems[0]?.data).toEqual({
+        id: entityId,
+        name: 'Merged Name',
+        price: 10,
+        stock: 5,
+      });
+    });
   });
 
   describe('sync.status after adding items', () => {
