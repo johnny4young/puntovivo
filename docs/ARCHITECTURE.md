@@ -1,480 +1,280 @@
-# Open Yojob Architecture Guide
+# Open Yojob Architecture
 
-> For new collaborators: this document provides a comprehensive overview of the Open Yojob project architecture.
+> Updated: April 9, 2026
+> Audience: developers and technical operators
 
----
+## Overview
 
-## Table of Contents
+Open Yojob is a multi-tenant POS application delivered primarily as an Electron desktop app.
+The system has three runtime shapes:
 
-1. [System Overview](#system-overview)
-2. [Architecture Diagram](#architecture-diagram)
-3. [Directory Structure](#directory-structure)
-4. [Component Deep Dive](#component-deep-dive)
-5. [Data Flow](#data-flow)
-6. [How to Run](#how-to-run)
-7. [How to Debug](#how-to-debug)
-8. [Considerations](#considerations)
-9. [Limitations](#limitations)
+- Desktop: Electron main process embeds the Fastify server in-process and loads the React app.
+- Web development: Vite serves the React app, and Fastify runs separately from `packages/server`.
+- Standalone server: the server package can run without Electron for tests or local development.
 
----
+The canonical application API is tRPC on `/api/trpc`.
+Two compatibility surfaces remain intentionally outside that transport:
 
-## System Overview
+- `/api/health`
+- `/api/realtime/*` for SSE
 
-Open Yojob is a **Point of Sale (POS) desktop application** built with an offline-first architecture. It combines:
+## Current System Shape
 
-- **Electron Forge** for cross-platform desktop delivery
-- **React 19 + TypeScript** for the user interface
-- **Fastify** (embedded in-process) as the backend API server
-- **Drizzle ORM + SQLite** for type-safe database access
-- **Server-Sent Events (SSE)** for real-time updates
-- **tRPC** as the primary application API transport
-
-### Key Design Principles
-
-```
-+-------------------------------------------------------------------+
-|                      DESIGN PRINCIPLES                             |
-+-------------------------------------------------------------------+
-|  - Offline-First    : Works without internet                       |
-|  - Multi-Tenant     : Complete data isolation per business         |
-|  - Embedded Backend : Fastify runs in-process (no separate binary) |
-|  - Cross-Platform   : Windows, macOS, Linux                        |
-|  - Auto-Updates     : Seamless updates via GitHub Releases         |
-|  - Type-Safe        : Drizzle ORM + TypeScript end-to-end          |
-+-------------------------------------------------------------------+
+```text
+Electron Desktop
+  ├─ Main process
+  │  ├─ Window lifecycle
+  │  ├─ Embedded Fastify server
+  │  ├─ Auto-update integration
+  │  ├─ Receipt printing
+  │  ├─ Backup / restore
+  │  ├─ Theme / tray / print settings
+  │  └─ Desktop sync + allowlisted local DB bridge
+  ├─ Preload
+  │  └─ Safe IPC bridge exposed as window.electron / window.api / window.db / window.sync
+  └─ Renderer
+     ├─ React 19
+     ├─ TanStack Query + tRPC React client
+     ├─ Role-protected routes
+     ├─ Offline banner + sync UI
+     └─ Business modules
 ```
 
-**Important:** The Fastify server runs **in-process** inside the Electron main process. It is NOT a spawned child process. `apps/desktop/src/main/` imports `@open-yojob/server` directly.
+## Repository Map
 
----
-
-## Architecture Diagram
-
-```
-+------------------------------------------------------------------------+
-|                       OPEN YOJOB DESKTOP APP                            |
-|                        (Electron Forge)                                 |
-+------------------------------------------------------------------------+
-|                                                                         |
-|  +-------------------------------------------------------------------+ |
-|  |                     RENDERER PROCESS (Chromium)                     | |
-|  |                                                                    | |
-|  |  +-----------+  +------------+  +----------------------------+    | |
-|  |  |  Pages /  |  | Components |  |   State Management         |    | |
-|  |  |  Routes   |  | (Reusable) |  |   (Zustand + TanStack Q)   |    | |
-|  |  +-----------+  +------------+  +----------------------------+    | |
-|  |                                                                    | |
-|  |  +--------------------------------------------------------------+ | |
-|  |  |                  Data Access Layer                            | | |
-|  |  |  - tRPC React client + TanStack Query                        | | |
-|  |  |  - Export helpers                                             | | |
-|  |  |  - Offline storage + sync helpers                             | | |
-|  |  +--------------------------------------------------------------+ | |
-|  +-------------------------------------------------------------------+ |
-|                                  |                                      |
-|                         IPC Bridge (Context Isolation)                   |
-|                                  |                                      |
-|  +-------------------------------------------------------------------+ |
-|  |                     PRELOAD SCRIPT                                  | |
-|  |  Exposes safe APIs: electronAPI.getVersion(), getServerUrl()       | |
-|  +-------------------------------------------------------------------+ |
-|                                  |                                      |
-|  +-------------------------------------------------------------------+ |
-|  |                      MAIN PROCESS (Node.js)                        | |
-|  |                                                                    | |
-|  |  +-------------+  +-------------+  +---------------------------+  | |
-|  |  | Window      |  | Auto        |  | Fastify Server            |  | |
-|  |  | Management  |  | Updater     |  | (In-Process)              |  | |
-|  |  +-------------+  +-------------+  +---------------------------+  | |
-|  |                                            |                       | |
-|  |  +-------------------------------------------+                    | |
-|  |  | @open-yojob/server Package                 |                    | |
-|  |  | - Drizzle ORM + SQLite                     |                    | |
-|  |  | - tRPC routers (auth, admin, products,     |                    | |
-|  |  |   dashboard, inventory, sales, purchases)  |                    | |
-|  |  | - JWT auth + role middleware               |                    | |
-|  |  | - Sync Queue + SSE Real-time               |                    | |
-|  |  | - Rate Limiting (@fastify/rate-limit)      |                    | |
-|  |  +--------------------------------------------+                    | |
-|  +-------------------------------------------------------------------+ |
-|                                                                         |
-+-------------------------------------------------------------------------+
-
-                         API: http://127.0.0.1:8090
-
-  +---------------------------------------------------------------------+
-  |                        API ENDPOINTS                                 |
-  +---------------------------------------------------------------------+
-  |  /api/realtime/*      : Server-Sent Events subscriptions             |
-  |  /api/trpc/*          : Canonical application API                    |
-  |  /api/health          : Compatibility health endpoint                |
-  +---------------------------------------------------------------------+
+```text
+apps/
+  desktop/
+    src/main/       Electron main process + embedded server host
+    src/preload/    Safe IPC bridge
+  web/
+    src/components/ Shared UI, layout, table, feedback, and resource components
+    src/features/   Business modules
+    src/lib/        tRPC client and app helpers
+    src/services/   Export and offline storage helpers
+packages/
+  server/
+    src/db/         Drizzle schema + raw DDL bootstrap + seed
+    src/trpc/       Context, middleware, routers, schemas
+    src/realtime/   SSE support
+docs/               Project documentation
 ```
 
----
-
-## Directory Structure
-
-```
-open_yojob/
-|
-+-- apps/
-|   +-- desktop/                     # Electron Forge app
-|   |   +-- forge.config.ts          # Electron Forge configuration
-|   |   +-- package.json             # Desktop app dependencies
-|   |   +-- vite.main.config.ts      # Vite config for main process
-|   |   +-- vite.preload.config.ts   # Vite config for preload
-|   |   +-- vite.renderer.config.ts  # Vite config for renderer
-|   |   +-- src/
-|   |       +-- main/                # Main process
-|   |       |   +-- index.ts         # Entry point + embedded server start
-|   |       |   +-- auto-updater.ts  # GitHub releases auto-update
-|   |       +-- preload/             # Preload (IPC bridge)
-|   |       |   +-- index.ts         # Context bridge APIs
-|   |       |   +-- index.d.ts       # TypeScript declarations
-|   |       +-- renderer/            # Renderer (React)
-|   |           +-- App.tsx
-|   |           +-- index.tsx
-|   |           +-- index.css
-|   |
-|   +-- web/                         # Standalone web app
-|       +-- vite.config.ts           # Vite + Tailwind v4 plugin
-|       +-- src/
-|           +-- index.css            # Tailwind v4 @theme configuration
-|           +-- lib/utils.ts         # cn() helper (clsx + tailwind-merge)
-|           +-- components/
-|           |   +-- ui/              # CVA-based primitives
-|           |   +-- form-controls/   # Complex form components
-|           |   +-- layout/          # Layout components
-|           |   +-- tables/          # DataTable, exports (CSV, PDF)
-|           +-- features/
-|           |   +-- auth/            # Authentication
-|           |   +-- categories/      # Category management
-|           |   +-- company/         # Company management
-|           |   +-- customers/       # Customer management
-|           |   +-- dashboard/       # Dashboard views
-|           |   +-- inventory/       # Inventory tracking
-|           |   +-- products/        # Product catalog
-|           |   +-- providers/       # Provider management
-|           |   +-- purchases/       # Purchase workflows
-|           |   +-- sales/           # Sales & transactions
-|           |   +-- sequentials/     # Sequential management
-|           |   +-- sites/           # Site management
-|           |   +-- tenant/          # Multi-tenant management
-|           |   +-- units/           # Unit management
-|           |   +-- users/           # User management
-|           |   +-- vat-rates/       # VAT configuration
-|           +-- hooks/               # Custom React hooks
-|           +-- lib/                 # tRPC client and app helpers
-|           +-- services/            # Export/storage helpers
-|           +-- types/               # TypeScript type definitions
-|
-+-- packages/
-|   +-- server/                      # @open-yojob/server package
-|       +-- package.json
-|       +-- drizzle.config.ts        # Drizzle ORM configuration
-|       +-- src/
-|           +-- index.ts             # Server factory (createServer)
-|           +-- standalone.ts        # Standalone entry point
-|           +-- db/
-|           |   +-- schema.ts        # Drizzle schema definitions
-|           |   +-- index.ts         # Database initialization
-|           |   +-- seed.ts          # Default data seeding
-|           +-- realtime/
-|           |   +-- sse.ts           # Server-Sent Events
-|           +-- trpc/                # Primary application API layer
-|               +-- router.ts
-|               +-- context.ts
-|               +-- middleware/
-|               +-- routers/
-|               +-- schemas/
-|
-+-- scripts/
-|   +-- migration/                   # Legacy data migration tools (.NET WinForms -> Node)
-|
-+-- .github/
-|   +-- workflows/
-|   |   +-- ci.yml                   # CI pipeline (test, lint, build)
-|   |   +-- release.yml              # Release pipeline (tag-triggered)
-|   |   +-- build.yml                # Build pipeline
-|   +-- dependabot.yml               # Automated dependency updates
-|   +-- ISSUE_TEMPLATE/
-|       +-- security.md              # Security vulnerability template
-|
-+-- docs/                            # Documentation
-    +-- ARCHITECTURE.md              # This file
-    +-- COMPONENTS.md                # UI component catalog
-    +-- DEBUGGING.md                 # Debugging guide (VSCode, DevTools)
-    +-- ENVIRONMENT_CONFIGURATION.md # Environment variables
-    +-- LOGIN_GUIDE.md               # Authentication guide
-    +-- SECURITY.md                  # Security analysis and fixes
-    +-- STYLING.md                   # Tailwind v4 + CVA styling guide
-    +-- TROUBLESHOOTING.md           # Common issues and solutions
-    +-- TRPC_ARCHITECTURE.md         # tRPC analysis and architecture
-    +-- TRPC_IMPLEMENTATION_PLAN.md  # tRPC migration plan
-    +-- TRPC_TESTING_GUIDE.md        # tRPC testing patterns
-    +-- MIGRATION_PLAN.md            # Full migration plan (.NET WinForms yojob -> open_yojob)
-```
-
----
-
-## Component Deep Dive
-
-### Main Process (`apps/desktop/src/main/`)
-
-| File              | Responsibility                                                               |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `index.ts`        | App lifecycle, window creation, IPC handlers, starts embedded Fastify server |
-| `auto-updater.ts` | Check for updates from GitHub Releases, download & install                   |
-
-### Preload Script (`apps/desktop/src/preload/`)
-
-The preload script acts as a **secure bridge** between the renderer and main processes:
-
-```typescript
-// Exposed APIs (via contextBridge)
-window.electronAPI = {
-  getVersion: () => ipcRenderer.invoke('get-app-version'),
-  getAppPath: () => ipcRenderer.invoke('get-app-path'),
-  getServerUrl: () => ipcRenderer.invoke('get-server-url'),
-};
-```
-
-### Backend Server (`packages/server/src/`)
-
-| File/Directory          | Purpose                                      |
-| ----------------------- | -------------------------------------------- |
-| `index.ts`              | Server factory, JWT setup, compatibility health endpoint, rate limiting |
-| `standalone.ts`         | Entry point for standalone server mode       |
-| `db/schema.ts`          | Drizzle ORM schema definitions               |
-| `db/seed.ts`            | Default data seeding (secure random admin)   |
-| `trpc/router.ts`        | Root tRPC router assembly                    |
-| `trpc/routers/`         | Domain routers for auth, admin, products, inventory, sales, purchases, dashboard |
-| `trpc/middleware/`      | Auth, tenant, and role guards                |
-| `realtime/sse.ts`       | Server-Sent Events for live updates          |
-
-### Renderer/UI (`apps/web/src/`)
-
-The UI is organized by **feature modules**:
-
-| Feature      | Purpose                                  |
-| ------------ | ---------------------------------------- |
-| `auth/`      | Login, logout, session management        |
-| `tenant/`    | Tenant selection, multi-business support |
-| `products/`  | Product catalog CRUD                     |
-| `customers/` | Customer management                      |
-| `sales/`     | POS transactions, receipts               |
-| `inventory/` | Stock tracking, movements                |
-| `dashboard/` | Analytics, reports                       |
-
-### Styling Architecture
-
-The project uses **Tailwind CSS v4** with the native Vite plugin and **CVA (class-variance-authority)** for component variants. See [docs/STYLING.md](./STYLING.md) for detailed guidelines.
-
-Key files:
-
-- `index.css`: Theme configuration via `@theme` block
-- `lib/utils.ts`: `cn()` utility combining `clsx` + `tailwind-merge`
-- `components/ui/*.tsx`: CVA-based primitive components
-
----
-
-## Data Flow
-
-### Typical Create Operation
-
-```
-1. User fills form in React UI
-         |
-         v
-2. Form submission triggers mutation (TanStack Query)
-         |
-         v
-3. tRPC client calls Fastify API
-         |
-         +--- POST/GET /api/trpc/<router>.<procedure>
-         |         |
-         |         v
-         |    tRPC validates input
-         |    Drizzle ORM reads/writes SQLite
-         |    Returns typed result
-         |
-         +--- Offline: Save to local SQLite + add to sync queue
-                       |
-                       v
-                  When online: Sync service processes queue
-```
-
-### Authentication Flow
-
-```
-1. User enters credentials
-         |
-         v
-2. `auth.login` on `/api/trpc`
-         |
-         v
-3. Fastify validates credentials (argon2 hash comparison)
-         |
-         +--- Success: Returns JWT token + user record
-         |              |
-         |              v
-         |         Store token in Zustand state
-         |         Set Authorization header for future requests
-         |
-         +--- Failure: 401 error (rate limited: 5 attempts / 15 min)
-```
-
----
-
-## How to Run
-
-### Prerequisites
-
-```bash
-node --version   # >= 22.0.0 (enforced by root package.json)
-npm --version    # >= 10.0.0
-```
-
-### Development Mode
-
-```bash
-# 1. Clone and install
-git clone https://github.com/johnny4young/open_yojob.git
-cd open_yojob
-npm install
-
-# 2. Rebuild native modules for Electron
-npx electron-rebuild -m apps/desktop
-
-# 3. Start the full desktop app
-npm run dev
-
-# Or start individual pieces:
-npm run dev:web     # Web only on port 3000
-npm run dev:server  # Backend only on port 8090
-```
-
-### Running Tests
-
-```bash
-npm run test --workspace=@open-yojob/web     # React + Vitest (watch mode)
-npm run test --workspace=@open-yojob/server  # Server + Vitest
-```
-
-### Building for Production
-
-```bash
-npm run build    # Build web + create desktop packages
-```
-
----
-
-## How to Debug
-
-See [docs/DEBUGGING.md](./DEBUGGING.md) for the complete debugging guide with VSCode configurations.
-
-### Quick Reference
-
-| Issue                | Debug Approach                                           |
-| -------------------- | -------------------------------------------------------- |
-| Server won't start   | Check main process logs, verify port 8090 is free        |
-| IPC not working      | Check preload script, verify contextIsolation settings   |
-| Data not showing     | Check TanStack Query devtools, verify cache invalidation |
-| Auth issues          | Check JWT token in Zustand state, verify tenant context  |
-| Native module errors | Run `npx electron-rebuild -m apps/desktop`               |
-
----
-
-## Considerations
-
-### Security
-
-| Aspect            | Implementation                                        |
-| ----------------- | ----------------------------------------------------- |
-| Context Isolation | Enabled - renderer cannot access Node.js directly     |
-| Node Integration  | Disabled in renderer                                  |
-| Sandbox           | Disabled (needed for better-sqlite3 native module)    |
-| CORS              | Configured for localhost only                         |
-| Auth Tokens       | Stored in memory (Zustand), not localStorage          |
-| Rate Limiting     | 5 login attempts per 15 minutes                       |
-| Password Policy   | 12+ characters with complexity requirements           |
-| Tenant Isolation  | Mandatory tenantId check on all collection operations |
-
-See [docs/SECURITY.md](./SECURITY.md) for the full security analysis and fix history.
-
-### Performance
-
-| Area            | Strategy                                   |
-| --------------- | ------------------------------------------ |
-| Table Rendering | TanStack Virtual for large datasets        |
-| API Caching     | TanStack Query with stale-while-revalidate |
-| Bundle Size     | Vite tree-shaking, code splitting          |
-| Startup Time    | Lazy load non-critical features            |
-
----
-
-## Limitations
-
-### Current Limitations
-
-| Limitation                 | Reason / Workaround                                 |
-| -------------------------- | --------------------------------------------------- |
-| Windows only auto-updates  | Squirrel.Windows; macOS needs notarization setup    |
-| No real-time collaboration | SSE available but not fully utilized                |
-| Single-machine only        | Designed as desktop app, not networked              |
-| English-only UI            | i18n framework not yet integrated                   |
-| No barcode scanner support | Planned for future release                          |
-| Limited report exports     | CSV, Excel, PDF available; no custom report builder |
-
-### Technical Debt
-
-- [ ] Complete tRPC migration (only health.check endpoint exists)
-- [ ] Add comprehensive unit tests for main process
-- [ ] Implement E2E tests with Playwright
-- [ ] Add error boundary and crash reporting
-- [ ] Implement session invalidation on password change
-- [ ] Enable Electron sandbox mode
-
-### Platform-Specific Notes
-
-| Platform | Notes                                           |
-| -------- | ----------------------------------------------- |
-| Windows  | Requires code signing for auto-updates          |
-| macOS    | Requires notarization for Gatekeeper approval   |
-| Linux    | Tested on Ubuntu/Debian; other distros may vary |
-
----
-
-## Quick Reference
-
-### Key URLs (Development)
-
-| Service        | URL                          |
-| -------------- | ---------------------------- |
-| Electron App   | Launches as desktop window   |
-| Web Dev Server | http://localhost:3000        |
-| Fastify API    | http://127.0.0.1:8090/api/   |
-| Health Check   | http://127.0.0.1:8090/health |
-
-### Key Commands
-
-```bash
-npm run dev              # Full desktop app
-npm run dev:web          # Web only (port 3000)
-npm run dev:server       # Backend only (port 8090)
-npm run build            # Build web + desktop packages
-npm run test --workspace=@open-yojob/web     # Web tests
-npm run test --workspace=@open-yojob/server  # Server tests
-```
-
-### Environment Variables
-
-See [docs/ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md) for the full list.
-
-| Variable              | Purpose                     | Default        |
-| --------------------- | --------------------------- | -------------- |
-| `DISABLE_AUTO_UPDATE` | Skip auto-update checks     | `false`        |
-| `SERVER_PORT`         | Fastify server port         | `8090`         |
-| `NODE_ENV`            | Development/production mode | `development`  |
-| `JWT_SECRET`          | JWT signing key             | Auto-generated |
+## Backend Architecture
+
+### Runtime
+
+- Fastify 5
+- SQLite via `better-sqlite3`
+- Drizzle ORM for schema and query typing
+- tRPC 11 for the application API
+- JWT auth
+- SSE for realtime notifications
+
+### Context and guards
+
+Each tRPC request builds a context with:
+
+- authenticated user, when present
+- tenant ID
+- current site ID from `x-site-id`
+- DB handle
+
+Access control is layered:
+
+- authentication middleware
+- tenant middleware
+- role middleware
+
+Current role model:
+
+- `admin`
+- `manager`
+- `cashier`
+- `viewer`
+
+### Root router surface
+
+The current root router assembles:
+
+- `health`
+- `auth`
+- `companies`
+- `countries`
+- `identificationTypes`
+- `personTypes`
+- `regimeTypes`
+- `clientTypes`
+- `commercialActivities`
+- `dashboard`
+- `departments`
+- `cities`
+- `logos`
+- `providers`
+- `sequentials`
+- `units`
+- `vatRates`
+- `categories`
+- `products`
+- `orders`
+- `customers`
+- `purchases`
+- `sales`
+- `inventory`
+- `locations`
+- `sites`
+- `sync`
+- `users`
+
+Source:
+[router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts)
+
+### Business modules already implemented
+
+- Company administration
+- Sites and document sequentials
+- Geography catalogs: countries, departments, cities
+- Customer catalogs: identification types, person types, regime types, client types, commercial activities
+- Providers, categories, units, VAT rates, locations
+- Products with multi-price tiers, VAT, location, provider and unit support
+- Orders, purchases, purchase void, and order receiving into purchases
+- Sales, sale void, sale refund, receipt printing, POS keyboard shortcuts, responsive checkout
+- Inventory stock, movements, adjustments, initial inventory, physical count
+- Sync queue, conflicts, merged resolution, and admin sync center
+- Dashboard reporting and exports
+
+## Web Architecture
+
+### App shell
+
+The React app is composed around:
+
+- `AuthProvider`
+- `TenantProvider`
+- `AppErrorBoundary`
+- `ToastProvider`
+- `ThemeProvider`
+- `MainLayout`
+
+The shell also includes:
+
+- role-aware routing
+- role-aware sidebar visibility
+- offline/sync banner
+- shared loading, retry, and toast feedback patterns
+
+### Route surface
+
+Current top-level routes:
+
+- `/dashboard`
+- `/company`
+- `/sites`
+- `/sequentials`
+- `/locations`
+- `/customer-catalogs`
+- `/geography`
+- `/providers`
+- `/categories`
+- `/units`
+- `/vat-rates`
+- `/products`
+- `/orders`
+- `/purchases`
+- `/customers`
+- `/sales`
+- `/inventory`
+- `/users`
+
+Source:
+[App.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/App.tsx)
+
+### Client data flow
+
+Normal flow:
+
+1. React component calls `trpc.<router>.<procedure>.useQuery()` or `.useMutation()`.
+2. Requests go through `httpBatchLink` to `/api/trpc`.
+3. Server middleware resolves auth, tenant, and site scope.
+4. Router executes Zod validation and Drizzle queries or transactions.
+5. TanStack Query remains the source of truth for server state.
+6. UI invalidates affected queries after mutations.
+
+Direct client config:
+[trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)
+
+## Desktop Architecture
+
+### Main-process responsibilities
+
+The Electron main process currently owns:
+
+- embedded Fastify lifecycle
+- auto-update status, manual check, and restart-to-install
+- tray behavior and close-to-tray mode
+- theme preference persistence
+- receipt print settings persistence
+- receipt printing
+- DB backup and restore
+- allowlisted local DB bridge for offline desktop workflows
+- tenant-aware sync status and trigger APIs
+
+### Preload bridge
+
+The preload script exposes:
+
+- `window.electron`
+- `window.db`
+- `window.sync`
+- `window.api` as a compatibility aggregate
+
+Source:
+[index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/preload/index.ts)
+
+## Persistence and Sync Model
+
+### Tenant isolation
+
+Business data is scoped by tenant. In business terms, a tenant is one company or organization
+using the software with isolated data.
+
+### Site context
+
+Some workflows are site-aware, especially:
+
+- sequentials
+- sales
+- purchases
+- order receiving
+
+The selected site is attached to requests through `x-site-id`.
+
+### Sync
+
+The project currently includes:
+
+- local sync queue tables
+- conflict tracking
+- server-side queue processing APIs
+- desktop-side sync helpers
+- web sync center UI
+- merged conflict resolution
+
+This is an app-level sync framework, not yet a full documented remote multi-node replication story.
+
+## Design Constraints That Matter
+
+- Fastify is embedded in Electron main for desktop mode. It is not a child process.
+- tRPC is the primary application transport. New app flows should not introduce new REST surfaces.
+- `/api/health` exists only as a compatibility endpoint.
+- SSE remains separate from tRPC by design.
+- Inventory is still tenant-wide, not site-owned. That matters for future transfer design.
+
+## Where To Look Next
+
+- Current execution status:
+  [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/open_yojob/docs/IMPLEMENTATION_STATUS.md)
+- tRPC transport details:
+  [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/open_yojob/docs/TRPC_ARCHITECTURE.md)
+- Open backlog:
+  [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
