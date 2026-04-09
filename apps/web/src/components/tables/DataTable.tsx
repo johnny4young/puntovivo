@@ -11,7 +11,7 @@ import {
   VisibilityState,
   RowSelectionState,
 } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -47,6 +47,8 @@ export function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState('');
+  const [focusedRowIndex, setFocusedRowIndex] = useState(0);
+  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
 
   const table = useReactTable({
     data,
@@ -84,6 +86,61 @@ export function DataTable<TData, TValue>({
       },
     },
   });
+  const visibleRows = table.getRowModel().rows;
+  const resolvedFocusedRowIndex =
+    visibleRows.length === 0 ? -1 : Math.min(focusedRowIndex, visibleRows.length - 1);
+
+  const focusRow = (index: number) => {
+    if (visibleRows.length === 0) {
+      return;
+    }
+
+    const nextIndex = Math.min(Math.max(index, 0), visibleRows.length - 1);
+    setFocusedRowIndex(nextIndex);
+    rowRefs.current[nextIndex]?.focus();
+  };
+
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    rowIndex: number,
+    rowCanSelect: boolean,
+    toggleSelected: () => void
+  ) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        focusRow(rowIndex + 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        focusRow(rowIndex - 1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        focusRow(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        focusRow(visibleRows.length - 1);
+        break;
+      case ' ':
+      case 'Space':
+      case 'Enter':
+        if (!enableRowSelection || !rowCanSelect) {
+          return;
+        }
+
+        event.preventDefault();
+        toggleSelected();
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -141,9 +198,26 @@ export function DataTable<TData, TValue>({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map(row => (
-                <tr key={row.id} data-state={row.getIsSelected() && 'selected'}>
+            {visibleRows.length ? (
+              visibleRows.map((row, rowIndex) => (
+                <tr
+                  key={row.id}
+                  ref={element => {
+                    rowRefs.current[rowIndex] = element;
+                  }}
+                  data-state={row.getIsSelected() && 'selected'}
+                  tabIndex={rowIndex === resolvedFocusedRowIndex ? 0 : -1}
+                  aria-selected={enableRowSelection ? row.getIsSelected() : undefined}
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset"
+                  onFocus={() => {
+                    setFocusedRowIndex(rowIndex);
+                  }}
+                  onKeyDown={event => {
+                    handleRowKeyDown(event, rowIndex, row.getCanSelect(), () => {
+                      row.toggleSelected();
+                    });
+                  }}
+                >
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -178,6 +252,7 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Go to first page"
           >
             <ChevronsLeft className="h-4 w-4" />
           </button>
@@ -185,6 +260,7 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Go to previous page"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -195,6 +271,7 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            aria-label="Go to next page"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -202,6 +279,7 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
+            aria-label="Go to last page"
           >
             <ChevronsRight className="h-4 w-4" />
           </button>
