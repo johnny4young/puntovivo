@@ -11,6 +11,7 @@ import {
   purchases,
   sequentials,
   sites,
+  syncQueue,
   unitXProduct,
   units,
   users,
@@ -183,6 +184,7 @@ describe('Purchases tRPC Router', () => {
     });
 
     expect(result.purchaseNumber).toBe('COM-000001');
+    expect(result.status).toBe('completed');
     expect(result.providerId).toBe(providerId);
     expect(result.siteId).toBe(siteId);
     expect(result.subtotal).toBeCloseTo(48);
@@ -242,6 +244,7 @@ describe('Purchases tRPC Router', () => {
     const loaded = await caller.purchases.getById({ id: result.id });
     expect(loaded.items).toHaveLength(1);
     expect(loaded.providerName).toBe('Inbound Supply Co');
+    expect(loaded.status).toBe('completed');
   });
 
   it('rejects purchases with an invalid product-unit assignment', async () => {
@@ -323,6 +326,245 @@ describe('Purchases tRPC Router', () => {
 
     await expect(
       cashierCaller.purchases.list({ page: 1, perPage: 10 })
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('voids a completed purchase, reverses stock, and records a sync update', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Voidable Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Voidable Purchase Product',
+      sku: 'PUR-VOID-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 10,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 3,
+          costPerUnit: 12,
+        },
+      ],
+    });
+
+    const voided = await caller.purchases.void({
+      id: created.id,
+      reason: 'Duplicate receiving entry',
+    });
+
+    expect(voided.status).toBe('voided');
+    expect(voided.notes).toContain('Voided: Duplicate receiving entry');
+
+    const product = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(product?.stock).toBe(10);
+
+    const reversalMovement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(and(eq(inventoryMovements.reference, created.id), eq(inventoryMovements.type, 'return')))
+      .get();
+    expect(reversalMovement).toMatchObject({
+      productId,
+      quantity: -3,
+      previousStock: 13,
+      newStock: 10,
+    });
+
+    const queuedUpdate = await db
+      .select()
+      .from(syncQueue)
+      .where(and(eq(syncQueue.entityType, 'purchases'), eq(syncQueue.entityId, created.id)))
+      .all();
+    expect(queuedUpdate.some(item => item.operation === 'update')).toBe(true);
+  });
+
+  it('rejects voiding a purchase when the received stock is no longer available', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Insufficient Stock Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Low Stock Purchase Product',
+      sku: 'PUR-VOID-02',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 2,
+          costPerUnit: 7,
+        },
+      ],
+    });
+
+    await db.update(products).set({ stock: 1 }).where(eq(products.id, productId)).run();
+
+    await expect(
+      caller.purchases.void({
+        id: created.id,
+      })
+    ).rejects.toThrow(/only has 1 units in stock/);
+  });
+
+  it('allows only admins to void a purchase', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Role Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Role Purchase Product',
+      sku: 'PUR-VOID-03',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      stock: 3,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const adminCaller = appRouter.createCaller(createTestContext('admin'));
+    const managerCaller = appRouter.createCaller(createTestContext('manager'));
+    const created = await adminCaller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          costPerUnit: 6,
+        },
+      ],
+    });
+
+    await expect(
+      managerCaller.purchases.void({
+        id: created.id,
+      })
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });

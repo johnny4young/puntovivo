@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   inventoryMovements,
   products,
@@ -20,6 +20,7 @@ import {
   createPurchaseInput,
   getPurchaseInput,
   listPurchasesInput,
+  voidPurchaseInput,
 } from '../schemas/purchases.js';
 import type { CreatePurchaseInput } from '../schemas/purchases.js';
 
@@ -42,6 +43,14 @@ type PurchaseSequentialContext = {
   siteId: string;
   siteName: string;
 };
+
+function buildVoidedPurchaseNotes(existingNotes: string | null, reason: string | undefined) {
+  if (!reason) {
+    return `${existingNotes ? `${existingNotes} | ` : ''}Voided`;
+  }
+
+  return `${existingNotes ? `${existingNotes} | ` : ''}Voided: ${reason}`;
+}
 
 function getNormalizedPurchaseQuantity(quantity: number, equivalence: number) {
   const normalizedQuantity = quantity * equivalence;
@@ -217,6 +226,7 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
       providerName: providers.name,
       siteId: purchases.siteId,
       siteName: sites.name,
+      status: purchases.status,
       subtotal: purchases.subtotal,
       total: purchases.total,
       notes: purchases.notes,
@@ -263,11 +273,12 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
 
 export const purchasesRouter = router({
   list: managerOrAdminProcedure.input(listPurchasesInput).query(async ({ ctx, input }) => {
-    const { page, perPage, providerId, fromDate, toDate } = input;
+    const { page, perPage, providerId, status, fromDate, toDate } = input;
     const offset = (page - 1) * perPage;
     const conditions = [eq(purchases.tenantId, ctx.tenantId)];
 
     if (providerId) conditions.push(eq(purchases.providerId, providerId));
+    if (status) conditions.push(eq(purchases.status, status));
     if (fromDate) conditions.push(gte(purchases.createdAt, fromDate));
     if (toDate) conditions.push(lte(purchases.createdAt, toDate));
 
@@ -283,6 +294,7 @@ export const purchasesRouter = router({
           providerName: providers.name,
           siteId: purchases.siteId,
           siteName: sites.name,
+          status: purchases.status,
           subtotal: purchases.subtotal,
           total: purchases.total,
           notes: purchases.notes,
@@ -351,6 +363,7 @@ export const purchasesRouter = router({
           purchaseNumber,
           providerId: input.providerId,
           siteId: sequentialContext.siteId,
+          status: 'completed',
           subtotal,
           total,
           notes: input.notes,
@@ -434,5 +447,144 @@ export const purchasesRouter = router({
     });
 
     return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
+  }),
+
+  void: adminProcedure.input(voidPurchaseInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(purchases)
+      .where(and(eq(purchases.id, input.id), eq(purchases.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Purchase not found' });
+    }
+
+    if (existing.status === 'voided') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Purchase is already voided' });
+    }
+
+    if (existing.status !== 'completed') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Only completed purchases can be voided',
+      });
+    }
+
+    const purchaseLineItems = await ctx.db
+      .select({
+        id: purchaseItems.id,
+        productId: purchaseItems.productId,
+        quantity: purchaseItems.quantity,
+        unitEquivalence: purchaseItems.unitEquivalence,
+      })
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, input.id))
+      .all();
+
+    if (purchaseLineItems.length === 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Cannot void a purchase without line items',
+      });
+    }
+
+    const productIds = [...new Set(purchaseLineItems.map(item => item.productId))];
+    const currentProducts = await ctx.db
+      .select({
+        id: products.id,
+        name: products.name,
+        stock: products.stock,
+      })
+      .from(products)
+      .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
+      .all();
+
+    const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+    const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+    const now = new Date().toISOString();
+
+    ctx.db.transaction(tx => {
+      for (const item of purchaseLineItems) {
+        const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, item.unitEquivalence);
+        const product = productStockState.get(item.productId);
+
+        if (!product) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Product ${item.productId} was not found while voiding the purchase`,
+          });
+        }
+
+        if (product.stock < normalizedQuantity) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Cannot void purchase because product "${product.name}" only has ${product.stock} units in stock`,
+          });
+        }
+
+        const previousStock = product.stock;
+        const newStock = previousStock - normalizedQuantity;
+        productStockState.set(item.productId, {
+          ...product,
+          stock: newStock,
+        });
+
+        tx.update(products)
+          .set({
+            stock: newStock,
+            syncStatus: 'pending',
+            syncVersion: sql`${products.syncVersion} + 1`,
+            updatedAt: now,
+          })
+          .where(eq(products.id, item.productId))
+          .run();
+
+        tx.insert(inventoryMovements)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            productId: item.productId,
+            type: 'return',
+            quantity: -normalizedQuantity,
+            previousStock,
+            newStock,
+            reference: input.id,
+            notes: `Voided purchase ${existing.purchaseNumber}`,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+      }
+
+      tx.update(purchases)
+        .set({
+          status: 'voided',
+          notes: buildVoidedPurchaseNotes(existing.notes, input.reason),
+          updatedAt: now,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+        })
+        .where(eq(purchases.id, input.id))
+        .run();
+
+      tx.insert(syncQueue)
+        .values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          entityType: 'purchases',
+          entityId: input.id,
+          operation: 'update',
+          data: { id: input.id, status: 'voided', reason: input.reason },
+          localVersion: nextSyncVersion,
+          attempts: 0,
+          createdAt: now,
+        })
+        .run();
+    });
+
+    return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
   }),
 });

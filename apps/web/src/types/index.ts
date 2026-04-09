@@ -280,6 +280,7 @@ export interface Purchase {
   providerName?: string | null;
   siteId: string;
   siteName?: string | null;
+  status: PurchaseStatus;
   items?: PurchaseItem[];
   subtotal: number;
   total: number;
@@ -290,6 +291,8 @@ export interface Purchase {
   syncStatus?: SyncStatus;
   syncVersion?: number;
 }
+
+export type PurchaseStatus = 'completed' | 'voided';
 
 export interface PurchaseItem {
   id: string;

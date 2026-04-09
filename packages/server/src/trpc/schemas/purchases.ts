@@ -9,6 +9,8 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
+export const purchaseStatusEnum = z.enum(['completed', 'voided']);
+
 export const purchaseItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   unitId: z.string().min(1, 'Unit ID is required'),
@@ -18,6 +20,7 @@ export const purchaseItemInput = z.object({
 
 export const listPurchasesInput = paginationInput.extend({
   providerId: z.string().optional(),
+  status: purchaseStatusEnum.optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),
 });
@@ -32,6 +35,12 @@ export const createPurchaseInput = z.object({
   notes: z.string().optional(),
 });
 
+export const voidPurchaseInput = z.object({
+  id: z.string().min(1, 'ID is required'),
+  reason: z.string().optional(),
+});
+
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;
+export type VoidPurchaseInput = z.infer<typeof voidPurchaseInput>;

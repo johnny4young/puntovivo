@@ -344,6 +344,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       purchase_number TEXT NOT NULL,
       provider_id TEXT NOT NULL REFERENCES providers(id),
       site_id TEXT NOT NULL REFERENCES sites(id),
+      status TEXT NOT NULL DEFAULT 'completed',
       subtotal REAL NOT NULL DEFAULT 0,
       total REAL NOT NULL DEFAULT 0,
       notes TEXT,
@@ -519,6 +520,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'customers', 'person_type_id', 'person_type_id TEXT');
   ensureColumn(client, 'customers', 'regime_type_id', 'regime_type_id TEXT');
   ensureColumn(client, 'customers', 'client_type_id', 'client_type_id TEXT');
+  ensureColumn(client, 'purchases', 'status', "status TEXT NOT NULL DEFAULT 'completed'");
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');

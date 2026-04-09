@@ -67,9 +67,10 @@ export function PurchasesPage() {
     provider => provider.isActive
   );
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
+  const completedPurchases = purchases.filter(purchase => purchase.status === 'completed');
   const purchaseTotals = {
-    recentTotal: purchases.reduce((sum, purchase) => sum + purchase.total, 0),
-    providerCount: new Set(purchases.map(purchase => purchase.providerId)).size,
+    recentTotal: completedPurchases.reduce((sum, purchase) => sum + purchase.total, 0),
+    providerCount: new Set(completedPurchases.map(purchase => purchase.providerId)).size,
   };
 
   const handleProductSelect = (selection: Parameters<typeof mergePurchaseCartItem>[1]) => {
@@ -131,7 +132,7 @@ export function PurchasesPage() {
           <div>
             <h1 className="text-2xl font-bold text-secondary-900">Purchases</h1>
             <p className="mt-1 text-sm text-secondary-500">
-              Register inbound stock and review recent purchase history
+              Register inbound stock, review purchase history, and void completed purchases when required
             </p>
           </div>
 
@@ -160,8 +161,8 @@ export function PurchasesPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Recent Purchases</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">{purchases.length}</p>
+            <p className="text-sm text-secondary-500">Completed Purchases</p>
+            <p className="mt-1 text-2xl font-bold text-secondary-900">{completedPurchases.length}</p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">Recent Spend</p>
