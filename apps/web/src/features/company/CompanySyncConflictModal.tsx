@@ -1,12 +1,14 @@
 import { ConfirmModal } from '@/components/form-controls/Modal';
 
-export type ConflictResolution = 'local_wins' | 'remote_wins';
+export type ConflictResolution = 'local_wins' | 'remote_wins' | 'merged';
 
 export interface PendingResolution {
   id: string;
   entityId: string;
   entityType: string;
   resolution: ConflictResolution;
+  localData?: Record<string, unknown> | null;
+  remoteData?: Record<string, unknown> | null;
 }
 
 interface CompanySyncConflictModalProps {
