@@ -9,6 +9,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
+import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
@@ -20,7 +21,6 @@ interface CompanyFormValues {
   address: string;
   phone: string;
   email: string;
-  logoUrl: string;
 }
 
 const defaultValues: CompanyFormValues = {
@@ -29,7 +29,6 @@ const defaultValues: CompanyFormValues = {
   address: '',
   phone: '',
   email: '',
-  logoUrl: '',
 };
 
 function mapCompanyToForm(company: Company | null | undefined): CompanyFormValues {
@@ -43,7 +42,6 @@ function mapCompanyToForm(company: Company | null | undefined): CompanyFormValue
     address: company.address ?? '',
     phone: company.phone ?? '',
     email: company.email ?? '',
-    logoUrl: company.logoUrl ?? '',
   };
 }
 
@@ -152,19 +150,6 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
         />
       </div>
 
-      <div>
-        <label htmlFor="company-logo-url" className="label">
-          Logo URL
-        </label>
-        <input
-          id="company-logo-url"
-          className="input mt-1"
-          placeholder="https://example.com/logo.png"
-          disabled={!canEdit}
-          {...form.register('logoUrl')}
-        />
-      </div>
-
       {error && <p className="text-sm text-danger-500">{error}</p>}
 
       <div className="flex justify-end">
@@ -217,7 +202,6 @@ export function CompanyPage() {
       address: values.address || null,
       phone: values.phone || null,
       email: values.email || null,
-      logoUrl: values.logoUrl || null,
     });
   };
 
@@ -256,6 +240,10 @@ export function CompanyPage() {
             onSubmit={onSubmit}
           />
         </div>
+      )}
+
+      {!companyQuery.isLoading && !companyQuery.error && (
+        <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
       )}
 
       {canEdit && (

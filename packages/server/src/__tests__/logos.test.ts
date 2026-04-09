@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { companies, users } from '../db/schema.js';
+import { users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -39,7 +39,7 @@ function createTestContext(): Context {
   };
 }
 
-describe('Companies tRPC Router', () => {
+describe('Logos tRPC Router', () => {
   beforeAll(async () => {
     server = await createServer({
       dbPath: ':memory:',
@@ -60,56 +60,44 @@ describe('Companies tRPC Router', () => {
     await server.close();
   });
 
-  it('returns the seeded company and updates it through upsert', async () => {
+  it('creates, lists, updates, and deletes logos', async () => {
     const caller = appRouter.createCaller(createTestContext());
 
-    const existing = await caller.companies.getCurrent();
-    expect(existing).not.toBeNull();
-
-    const logo = await caller.logos.create({
-      name: 'Primary Brand',
-      imageUrl: 'https://example.com/brand-logo.png',
+    const created = await caller.logos.create({
+      name: 'Front Desk',
+      imageUrl: 'https://example.com/front-desk.png',
       isActive: true,
     });
+    expect(created.name).toBe('Front Desk');
 
-    const updated = await caller.companies.upsert({
-      name: 'Updated Open Yojob LLC',
-      taxId: '900123456',
-      email: 'finance@example.com',
-      phone: '555-0199',
-      address: '123 Business Ave',
-      logoId: logo.id,
+    const listed = await caller.logos.list({ includeInactive: true });
+    expect(listed.items.some(item => item.id === created.id)).toBe(true);
+
+    const updated = await caller.logos.update({
+      id: created.id,
+      imageUrl: 'https://example.com/front-desk-v2.png',
+      isActive: false,
     });
+    expect(updated.imageUrl).toBe('https://example.com/front-desk-v2.png');
+    expect(updated.isActive).toBe(false);
 
-    expect(updated.name).toBe('Updated Open Yojob LLC');
-    expect(updated.taxId).toBe('900123456');
-    expect(updated.logoId).toBe(logo.id);
-    expect(updated.logoUrl).toBe('https://example.com/brand-logo.png');
-
-    const stored = await getDatabase()
-      .select()
-      .from(companies)
-      .where(eq(companies.id, updated.id))
-      .get();
-
-    expect(stored?.email).toBe('finance@example.com');
-    expect(stored?.logoId).toBe(logo.id);
+    const removed = await caller.logos.delete({ id: created.id });
+    expect(removed.success).toBe(true);
   });
 
-  it('allows selecting and clearing the active company logo', async () => {
+  it('blocks deleting a logo that is assigned to the company', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const logo = await caller.logos.create({
-      name: 'Receipt Logo',
-      imageUrl: 'https://example.com/receipt-logo.png',
+      name: 'Assigned Logo',
+      imageUrl: 'https://example.com/assigned.png',
       isActive: true,
     });
 
-    const selected = await caller.companies.setLogo({ logoId: logo.id });
-    expect(selected.logoId).toBe(logo.id);
-    expect(selected.logoUrl).toBe('https://example.com/receipt-logo.png');
+    await caller.companies.setLogo({ logoId: logo.id });
 
-    const cleared = await caller.companies.setLogo({ logoId: null });
-    expect(cleared.logoId).toBeNull();
-    expect(cleared.logoUrl).toBeNull();
+    await expect(caller.logos.delete({ id: logo.id })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Unassign this logo from the company before deleting it.',
+    });
   });
 });
