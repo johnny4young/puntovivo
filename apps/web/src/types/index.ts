@@ -324,6 +324,44 @@ export interface PurchaseItem {
   total: number;
 }
 
+export interface Order {
+  id: string;
+  tenantId: string;
+  orderNumber: string;
+  providerId: string;
+  providerName?: string | null;
+  siteId: string;
+  siteName?: string | null;
+  status: OrderStatus;
+  items?: OrderItem[];
+  subtotal: number;
+  total: number;
+  notes?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  syncStatus?: SyncStatus;
+  syncVersion?: number;
+}
+
+export type OrderStatus = 'submitted' | 'voided';
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  productName?: string | null;
+  productSku?: string | null;
+  quantity: number;
+  unitId: string;
+  unitEquivalence: number;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  costPerUnit: number;
+  baseUnitCost: number;
+  total: number;
+}
+
 export interface InventoryMovement {
   id: string;
   tenantId: string;
