@@ -14,6 +14,7 @@ import { LocationsPage } from '@/features/locations/LocationsPage';
 import { UnitsPage } from '@/features/units/UnitsPage';
 import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
 import { ProductsPage } from '@/features/products/ProductsPage';
+import { OrdersPage } from '@/features/orders/OrdersPage';
 import { PurchasesPage } from '@/features/purchases/PurchasesPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SalesPage } from '@/features/sales/SalesPage';
@@ -126,6 +127,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={managerOrAdminRoles}>
                   <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="orders"
+              element={
+                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                  <OrdersPage />
                 </ProtectedRoute>
               }
             />

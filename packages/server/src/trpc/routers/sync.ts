@@ -55,6 +55,8 @@ const syncEntityConfig = {
   },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
+  order_items: { tableName: 'order_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },

@@ -19,6 +19,7 @@ export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other']
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = ['completed', 'voided'] as const;
+export const orderStatusEnum = ['submitted', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
@@ -56,6 +57,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   categories: many(categories),
   customers: many(customers),
   purchases: many(purchases),
+  orders: many(orders),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
@@ -92,6 +94,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [tenants.id],
   }),
   purchases: many(purchases),
+  orders: many(orders),
   sales: many(sales),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
@@ -171,6 +174,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
   locationAssignments: many(locationXSite),
   sequentials: many(sequentials),
   purchases: many(purchases),
+  orders: many(orders),
   initialInventoryEntries: many(initialInventory),
 }));
 
@@ -210,6 +214,7 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   products: many(products),
   productAssignments: many(productXProvider),
   purchases: many(purchases),
+  orders: many(orders),
 }));
 
 // ============================================================================
@@ -242,6 +247,7 @@ export const unitsRelations = relations(units, ({ one, many }) => ({
   }),
   productUnits: many(unitXProduct),
   purchaseItems: many(purchaseItems),
+  orderItems: many(orderItems),
   saleItems: many(saleItems),
 }));
 
@@ -501,6 +507,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [vatRates.id],
   }),
   purchaseItems: many(purchaseItems),
+  orderItems: many(orderItems),
   saleItems: many(saleItems),
   unitAssignments: many(unitXProduct),
   providerAssignments: many(productXProvider),
@@ -726,6 +733,109 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
   }),
   unit: one(units, {
     fields: [purchaseItems.unitId],
+    references: [units.id],
+  }),
+}));
+
+// ============================================================================
+// ORDERS
+// ============================================================================
+
+export const orders = sqliteTable(
+  'orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    orderNumber: text('order_number').notNull(),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    status: text('status', { enum: orderStatusEnum }).notNull().default('submitted'),
+    subtotal: real('subtotal').notNull().default(0),
+    total: real('total').notNull().default(0),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_orders_tenant').on(table.tenantId),
+    index('idx_orders_provider').on(table.providerId),
+    index('idx_orders_site').on(table.siteId),
+    index('idx_orders_created_by').on(table.createdBy),
+    uniqueIndex('idx_orders_tenant_number').on(table.tenantId, table.orderNumber),
+  ]
+);
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [orders.tenantId],
+    references: [tenants.id],
+  }),
+  provider: one(providers, {
+    fields: [orders.providerId],
+    references: [providers.id],
+  }),
+  site: one(sites, {
+    fields: [orders.siteId],
+    references: [sites.id],
+  }),
+  createdByUser: one(users, {
+    fields: [orders.createdBy],
+    references: [users.id],
+  }),
+  items: many(orderItems),
+}));
+
+// ============================================================================
+// ORDER ITEMS
+// ============================================================================
+
+export const orderItems = sqliteTable(
+  'order_items',
+  {
+    id: text('id').primaryKey(),
+    orderId: text('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: integer('quantity').notNull().default(1),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    unitEquivalence: real('unit_equivalence').notNull().default(1),
+    costPerUnit: real('cost_per_unit').notNull().default(0),
+    baseUnitCost: real('base_unit_cost').notNull().default(0),
+    total: real('total').notNull().default(0),
+  },
+  table => [
+    index('idx_order_items_order').on(table.orderId),
+    index('idx_order_items_product').on(table.productId),
+  ]
+);
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+  product: one(products, {
+    fields: [orderItems.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [orderItems.unitId],
     references: [units.id],
   }),
 }));
@@ -1056,6 +1166,12 @@ export type NewPurchase = typeof purchases.$inferInsert;
 
 export type PurchaseItem = typeof purchaseItems.$inferSelect;
 export type NewPurchaseItem = typeof purchaseItems.$inferInsert;
+
+export type Order = typeof orders.$inferSelect;
+export type NewOrder = typeof orders.$inferInsert;
+
+export type OrderItem = typeof orderItems.$inferSelect;
+export type NewOrderItem = typeof orderItems.$inferInsert;
 
 export type Sale = typeof sales.$inferSelect;
 export type NewSale = typeof sales.$inferInsert;
