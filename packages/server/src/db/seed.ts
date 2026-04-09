@@ -13,7 +13,19 @@ import { nanoid } from 'nanoid';
 import { randomBytes } from 'crypto';
 import * as argon2 from 'argon2';
 import type { DatabaseInstance } from './index.js';
-import { companies, sequentials, sites, tenants, units, users, vatRates } from './schema.js';
+import {
+  clientTypes,
+  companies,
+  identificationTypes,
+  personTypes,
+  regimeTypes,
+  sequentials,
+  sites,
+  tenants,
+  units,
+  users,
+  vatRates,
+} from './schema.js';
 
 /**
  * Default admin email
@@ -55,6 +67,27 @@ const DEFAULT_SEQUENTIALS = [
   { documentType: 'sale' as const, prefix: 'VTA-', currentValue: 0 },
   { documentType: 'purchase' as const, prefix: 'COM-', currentValue: 0 },
   { documentType: 'order' as const, prefix: 'PED-', currentValue: 0 },
+] as const;
+
+const DEFAULT_IDENTIFICATION_TYPES = [
+  { code: 'CC', name: 'Cedula de Ciudadania' },
+  { code: 'NIT', name: 'Numero de Identificacion Tributaria' },
+  { code: 'CE', name: 'Cedula de Extranjeria' },
+] as const;
+
+const DEFAULT_PERSON_TYPES = [
+  { code: 'natural', name: 'Natural Person' },
+  { code: 'juridica', name: 'Legal Entity' },
+] as const;
+
+const DEFAULT_REGIME_TYPES = [
+  { code: 'simplified', name: 'Simplified Regime' },
+  { code: 'common', name: 'Common Regime' },
+] as const;
+
+const DEFAULT_CLIENT_TYPES = [
+  { code: 'retail', name: 'Retail Customer' },
+  { code: 'wholesale', name: 'Wholesale Customer' },
 ] as const;
 
 /**
@@ -221,6 +254,99 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         documentType: defaultSequential.documentType,
         prefix: defaultSequential.prefix,
         currentValue: defaultSequential.currentValue,
+        createdAt: now,
+        updatedAt: now,
+      });
+      seededAnything = true;
+    }
+  }
+
+  for (const defaultIdentificationType of DEFAULT_IDENTIFICATION_TYPES) {
+    const existingIdentificationType = await db
+      .select()
+      .from(identificationTypes)
+      .where(
+        and(
+          eq(identificationTypes.tenantId, tenantId),
+          eq(identificationTypes.code, defaultIdentificationType.code)
+        )
+      )
+      .get();
+
+    if (!existingIdentificationType) {
+      await db.insert(identificationTypes).values({
+        id: nanoid(),
+        tenantId,
+        code: defaultIdentificationType.code,
+        name: defaultIdentificationType.name,
+        description: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      seededAnything = true;
+    }
+  }
+
+  for (const defaultPersonType of DEFAULT_PERSON_TYPES) {
+    const existingPersonType = await db
+      .select()
+      .from(personTypes)
+      .where(and(eq(personTypes.tenantId, tenantId), eq(personTypes.code, defaultPersonType.code)))
+      .get();
+
+    if (!existingPersonType) {
+      await db.insert(personTypes).values({
+        id: nanoid(),
+        tenantId,
+        code: defaultPersonType.code,
+        name: defaultPersonType.name,
+        description: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      seededAnything = true;
+    }
+  }
+
+  for (const defaultRegimeType of DEFAULT_REGIME_TYPES) {
+    const existingRegimeType = await db
+      .select()
+      .from(regimeTypes)
+      .where(and(eq(regimeTypes.tenantId, tenantId), eq(regimeTypes.code, defaultRegimeType.code)))
+      .get();
+
+    if (!existingRegimeType) {
+      await db.insert(regimeTypes).values({
+        id: nanoid(),
+        tenantId,
+        code: defaultRegimeType.code,
+        name: defaultRegimeType.name,
+        description: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      seededAnything = true;
+    }
+  }
+
+  for (const defaultClientType of DEFAULT_CLIENT_TYPES) {
+    const existingClientType = await db
+      .select()
+      .from(clientTypes)
+      .where(and(eq(clientTypes.tenantId, tenantId), eq(clientTypes.code, defaultClientType.code)))
+      .get();
+
+    if (!existingClientType) {
+      await db.insert(clientTypes).values({
+        id: nanoid(),
+        tenantId,
+        code: defaultClientType.code,
+        name: defaultClientType.name,
+        description: null,
+        isActive: true,
         createdAt: now,
         updatedAt: now,
       });

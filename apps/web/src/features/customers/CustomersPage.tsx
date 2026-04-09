@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
-import type { Customer } from '@/types';
+import type { Customer, CustomerCatalogItem } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import {
@@ -36,6 +36,10 @@ export function CustomersPage() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
+  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
+  const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
+  const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
+  const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
@@ -82,6 +86,10 @@ export function CustomersPage() {
     ...customer,
     isActive: customer.isActive ?? false,
   })) as Customer[];
+  const identificationTypes = (identificationTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const personTypes = (personTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const regimeTypes = (regimeTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -257,6 +265,10 @@ export function CustomersPage() {
         key={`${editingCustomer?.id ?? 'new-customer'}-${modalInstanceKey}`}
         isOpen={isModalOpen}
         customer={editingCustomer}
+        identificationTypes={identificationTypes}
+        personTypes={personTypes}
+        regimeTypes={regimeTypes}
+        clientTypes={clientTypes}
         isSaving={createMutation.isPending || updateMutation.isPending}
         error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
         onClose={handleCloseModal}

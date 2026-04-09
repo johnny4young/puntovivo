@@ -11,7 +11,18 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants, categories } from '../db/schema.js';
+import {
+  categories,
+  clientTypes,
+  companies,
+  identificationTypes,
+  personTypes,
+  regimeTypes,
+  sequentials,
+  sites,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { appRouter } from '../trpc/router.js';
@@ -22,7 +33,21 @@ let testTenantId: string;
 let adminUserId: string;
 let cashierUserId: string;
 let seededCategoryId: string;
+let defaultSiteId: string;
 const testDbPath = ':memory:';
+
+const CUSTOMER_CATALOG_SEED = {
+  identificationTypes: [{ code: 'CC', name: 'Cedula de Ciudadania' }, { code: 'NIT', name: 'NIT' }],
+  personTypes: [{ code: 'natural', name: 'Natural Person' }],
+  regimeTypes: [
+    { code: 'simplified', name: 'Simplified Regime' },
+    { code: 'common', name: 'Common Regime' },
+  ],
+  clientTypes: [
+    { code: 'retail', name: 'Retail Customer' },
+    { code: 'wholesale', name: 'Wholesale Customer' },
+  ],
+} as const;
 
 /**
  * Build a tRPC context for use with createCaller.
@@ -91,6 +116,45 @@ describe('Collections tRPC Routers', () => {
       updatedAt: new Date().toISOString(),
     });
 
+    const companyId = nanoid();
+    defaultSiteId = nanoid();
+
+    await db.insert(companies).values({
+      id: companyId,
+      tenantId: testTenantId,
+      name: 'Collections Test Company',
+      taxId: '900000001-0',
+      address: 'Test address',
+      phone: '1111111111',
+      email: 'company@collections-test.com',
+      logoUrl: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await db.insert(sites).values({
+      id: defaultSiteId,
+      tenantId: testTenantId,
+      companyId,
+      name: 'Main Site',
+      address: 'Main site address',
+      phone: '1111111111',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await db.insert(sequentials).values({
+      id: nanoid(),
+      tenantId: testTenantId,
+      siteId: defaultSiteId,
+      documentType: 'sale',
+      prefix: 'VTA-',
+      currentValue: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
     // Create admin user
     adminUserId = nanoid();
     const adminHash = await hash('AdminPass123!');
@@ -132,6 +196,58 @@ describe('Collections tRPC Routers', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    for (const item of CUSTOMER_CATALOG_SEED.identificationTypes) {
+      await db.insert(identificationTypes).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        code: item.code,
+        name: item.name,
+        description: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    for (const item of CUSTOMER_CATALOG_SEED.personTypes) {
+      await db.insert(personTypes).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        code: item.code,
+        name: item.name,
+        description: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    for (const item of CUSTOMER_CATALOG_SEED.regimeTypes) {
+      await db.insert(regimeTypes).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        code: item.code,
+        name: item.name,
+        description: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    for (const item of CUSTOMER_CATALOG_SEED.clientTypes) {
+      await db.insert(clientTypes).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        code: item.code,
+        name: item.name,
+        description: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
   });
 
   afterAll(async () => {
@@ -689,6 +805,7 @@ describe('Collections tRPC Routers', () => {
       });
 
     let saleProductId: string;
+    let saleUnitId: string;
     let createdSaleId: string;
 
     beforeAll(async () => {
@@ -703,6 +820,13 @@ describe('Collections tRPC Routers', () => {
         minStock: 5,
       });
       saleProductId = product.id;
+      saleUnitId =
+        product.unitAssignments?.find(assignment => assignment.isBase)?.unitId ??
+        product.unitAssignments?.[0]?.unitId ??
+        '';
+      if (!saleUnitId) {
+        throw new Error('Expected sale product to have a base unit assignment');
+      }
     });
 
     describe('sales.create', () => {
@@ -716,6 +840,7 @@ describe('Collections tRPC Routers', () => {
           items: [
             {
               productId: saleProductId,
+              unitId: saleUnitId,
               quantity: 2,
               unitPrice: 100.0,
               discount: 0,
@@ -729,10 +854,10 @@ describe('Collections tRPC Routers', () => {
 
         createdSaleId = result.id;
 
-        // lineAfterDiscount = 200, lineTax = 20, lineTotal = 220
-        expect(result.subtotal).toBe(200);
-        expect(result.taxAmount).toBe(20);
-        expect(result.total).toBe(220);
+        // Prices are VAT-inclusive, so subtotal is the extracted base value.
+        expect(result.subtotal).toBeCloseTo(181.8181818181818);
+        expect(result.taxAmount).toBeCloseTo(18.181818181818187);
+        expect(result.total).toBe(200);
         expect(result.items).toHaveLength(1);
         expect(result.items[0].productId).toBe(saleProductId);
         expect(result.items[0].quantity).toBe(2);
@@ -779,8 +904,17 @@ describe('Collections tRPC Routers', () => {
           price: 10.0,
           stock: 10,
         });
+        const unitId =
+          product.unitAssignments?.find(assignment => assignment.isBase)?.unitId ??
+          product.unitAssignments?.[0]?.unitId ??
+          '';
+        if (!unitId) {
+          throw new Error('Expected void test product to have a base unit assignment');
+        }
         const sale = await caller.sales.create({
-          items: [{ productId: product.id, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 }],
+          items: [
+            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+          ],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
           status: 'completed',
@@ -801,8 +935,17 @@ describe('Collections tRPC Routers', () => {
           price: 10.0,
           stock: 10,
         });
+        const unitId =
+          product.unitAssignments?.find(assignment => assignment.isBase)?.unitId ??
+          product.unitAssignments?.[0]?.unitId ??
+          '';
+        if (!unitId) {
+          throw new Error('Expected cashier void product to have a base unit assignment');
+        }
         const sale = await adminCaller.sales.create({
-          items: [{ productId: product.id, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 }],
+          items: [
+            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+          ],
           paymentMethod: 'cash',
           paymentStatus: 'pending',
           status: 'completed',
@@ -826,8 +969,17 @@ describe('Collections tRPC Routers', () => {
           price: 10.0,
           stock: 10,
         });
+        const unitId =
+          product.unitAssignments?.find(assignment => assignment.isBase)?.unitId ??
+          product.unitAssignments?.[0]?.unitId ??
+          '';
+        if (!unitId) {
+          throw new Error('Expected double void product to have a base unit assignment');
+        }
         const sale = await caller.sales.create({
-          items: [{ productId: product.id, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 }],
+          items: [
+            { productId: product.id, unitId, quantity: 1, unitPrice: 10.0, discount: 0, taxRate: 0 },
+          ],
           paymentMethod: 'cash',
           paymentStatus: 'paid',
           status: 'completed',

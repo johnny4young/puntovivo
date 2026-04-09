@@ -6,6 +6,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { CompanyPage } from '@/features/company/CompanyPage';
+import { CustomerCatalogsPage } from '@/features/customer-catalogs/CustomerCatalogsPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { CategoriesPage } from '@/features/categories/CategoriesPage';
 import { SequentialsPage } from '@/features/sequentials/SequentialsPage';
@@ -87,6 +88,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={adminOnlyRoles}>
                   <LocationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="customer-catalogs"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <CustomerCatalogsPage />
                 </ProtectedRoute>
               }
             />

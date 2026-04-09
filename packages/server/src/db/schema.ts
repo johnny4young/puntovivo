@@ -50,6 +50,10 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   locations: many(locations),
   locationSiteAssignments: many(locationXSite),
   providers: many(providers),
+  identificationTypes: many(identificationTypes),
+  personTypes: many(personTypes),
+  regimeTypes: many(regimeTypes),
+  clientTypes: many(clientTypes),
   units: many(units),
   vatRates: many(vatRates),
   sequentials: many(sequentials),
@@ -585,6 +589,122 @@ export const productXProviderRelations = relations(productXProvider, ({ one }) =
   provider: one(providers, {
     fields: [productXProvider.providerId],
     references: [providers.id],
+  }),
+}));
+
+// ============================================================================
+// CUSTOMER REFERENCE CATALOGS
+// ============================================================================
+
+export const identificationTypes = sqliteTable(
+  'identification_types',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_identification_types_tenant').on(table.tenantId),
+    uniqueIndex('idx_identification_types_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_identification_types_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const identificationTypesRelations = relations(identificationTypes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [identificationTypes.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const personTypes = sqliteTable(
+  'person_types',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_person_types_tenant').on(table.tenantId),
+    uniqueIndex('idx_person_types_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_person_types_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const personTypesRelations = relations(personTypes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [personTypes.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const regimeTypes = sqliteTable(
+  'regime_types',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_regime_types_tenant').on(table.tenantId),
+    uniqueIndex('idx_regime_types_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_regime_types_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const regimeTypesRelations = relations(regimeTypes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [regimeTypes.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const clientTypes = sqliteTable(
+  'client_types',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_client_types_tenant').on(table.tenantId),
+    uniqueIndex('idx_client_types_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_client_types_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const clientTypesRelations = relations(clientTypes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [clientTypes.tenantId],
+    references: [tenants.id],
   }),
 }));
 

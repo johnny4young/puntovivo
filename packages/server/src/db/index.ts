@@ -242,6 +242,66 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_categories_tenant ON categories (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories (parent_id);
 
+    -- Identification Types
+    CREATE TABLE IF NOT EXISTS identification_types (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_identification_types_tenant ON identification_types (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_identification_types_tenant_code ON identification_types (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_identification_types_tenant_name ON identification_types (tenant_id, name);
+
+    -- Person Types
+    CREATE TABLE IF NOT EXISTS person_types (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_person_types_tenant ON person_types (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_person_types_tenant_code ON person_types (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_person_types_tenant_name ON person_types (tenant_id, name);
+
+    -- Regime Types
+    CREATE TABLE IF NOT EXISTS regime_types (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_regime_types_tenant ON regime_types (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_regime_types_tenant_code ON regime_types (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_regime_types_tenant_name ON regime_types (tenant_id, name);
+
+    -- Client Types
+    CREATE TABLE IF NOT EXISTS client_types (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_types_tenant ON client_types (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_client_types_tenant_code ON client_types (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_client_types_tenant_name ON client_types (tenant_id, name);
+
     -- Locations
     CREATE TABLE IF NOT EXISTS locations (
       id TEXT PRIMARY KEY,
