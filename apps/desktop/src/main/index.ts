@@ -22,7 +22,12 @@ import {
   syncQueue,
 } from '@open-yojob/server';
 import { and, eq, sql } from 'drizzle-orm';
-import { initAutoUpdater } from './auto-updater';
+import {
+  checkForAppUpdates,
+  getAutoUpdateStatus,
+  initAutoUpdater,
+  restartToApplyAppUpdate,
+} from './auto-updater';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -1455,6 +1460,9 @@ app.on('will-quit', () => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
 ipcMain.handle('get-server-url', () => server?.getUrl() || `http://127.0.0.1:${SERVER_PORT}`);
+ipcMain.handle('get-auto-update-status', () => getAutoUpdateStatus());
+ipcMain.handle('check-for-app-updates', () => checkForAppUpdates());
+ipcMain.handle('restart-to-apply-app-update', () => restartToApplyAppUpdate());
 ipcMain.handle('create-database-backup', handleCreateDatabaseBackup);
 ipcMain.handle('restore-database-backup', handleRestoreDatabaseBackup);
 ipcMain.handle('get-receipt-print-settings', async () => {

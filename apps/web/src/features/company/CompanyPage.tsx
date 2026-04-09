@@ -8,6 +8,7 @@ import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 import { CompanyBackupCard } from './CompanyBackupCard';
+import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
@@ -260,6 +261,7 @@ export function CompanyPage() {
       {canEdit && (
         <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
           <CompanySyncCard />
+          <CompanyAutoUpdateCard />
           <CompanyThemeSettingsCard />
           <CompanyTraySettingsCard />
           <CompanyPrintSettingsCard />
