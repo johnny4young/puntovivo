@@ -53,6 +53,7 @@ const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
+  locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },

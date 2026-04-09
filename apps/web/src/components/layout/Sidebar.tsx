@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Package2 as AppLogo,
   Store,
+  MapPinned,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -38,6 +39,7 @@ const navigation = [
   { name: 'Company', href: '/company', icon: Building, allowedRoles: adminOnlyRoles },
   { name: 'Sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
   { name: 'Sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
+  { name: 'Locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
   { name: 'Providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
   { name: 'Categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
   { name: 'Units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },

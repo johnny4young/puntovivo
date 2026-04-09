@@ -242,6 +242,21 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_categories_tenant ON categories (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories (parent_id);
 
+    -- Locations
+    CREATE TABLE IF NOT EXISTS locations (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_locations_tenant ON locations (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_tenant_code ON locations (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_tenant_name ON locations (tenant_id, name);
+
     -- Products
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,

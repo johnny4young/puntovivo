@@ -16,6 +16,11 @@ export const productExportColumns: ExportColumn<Product>[] = [
     formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
   },
   {
+    key: 'locationName',
+    header: 'Location',
+    formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
+  },
+  {
     key: 'price',
     header: 'Tier 1',
     formatter: value => formatCurrency(Number(value ?? 0)),
