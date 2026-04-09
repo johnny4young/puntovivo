@@ -167,6 +167,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
       address: 'Default Address',
       phone: '0000000000',
       email: DEFAULT_ADMIN.email,
+      logoId: null,
       logoUrl: null,
       createdAt: now,
       updatedAt: now,

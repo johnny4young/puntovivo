@@ -138,6 +138,19 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_users_tenant ON users (tenant_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);
 
+    -- Logos
+    CREATE TABLE IF NOT EXISTS logos (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL,
+      image_url TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_logos_tenant ON logos (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_logos_tenant_name ON logos (tenant_id, name);
+
     -- Companies
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -147,11 +160,13 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       address TEXT,
       phone TEXT,
       email TEXT,
+      logo_id TEXT REFERENCES logos(id),
       logo_url TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_companies_tenant ON companies (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_tenant_name ON companies (tenant_id, name);
 
     -- Sites
@@ -732,8 +747,10 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'companies', 'logo_id', 'logo_id TEXT REFERENCES logos(id)');
   client.exec('CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
   client.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id)');
+  client.exec('CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id)');
 }
 
 function ensureColumn(

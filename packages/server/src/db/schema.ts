@@ -46,6 +46,7 @@ export const tenants = sqliteTable(
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
+  logos: many(logos),
   companies: many(companies),
   sites: many(sites),
   countries: many(countries),
@@ -112,6 +113,38 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 // ============================================================================
+// LOGOS
+// ============================================================================
+
+/** A logo is a reusable branding asset owned by a tenant and selectable by the company profile for receipts and identity. */
+export const logos = sqliteTable(
+  'logos',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    imageUrl: text('image_url').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_logos_tenant').on(table.tenantId),
+    uniqueIndex('idx_logos_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const logosRelations = relations(logos, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [logos.tenantId],
+    references: [tenants.id],
+  }),
+  companies: many(companies),
+}));
+
+// ============================================================================
 // COMPANIES
 // ============================================================================
 
@@ -128,12 +161,14 @@ export const companies = sqliteTable(
     address: text('address'),
     phone: text('phone'),
     email: text('email'),
+    logoId: text('logo_id').references(() => logos.id),
     logoUrl: text('logo_url'),
     createdAt: text('created_at').notNull().default(new Date().toISOString()),
     updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
   },
   table => [
     index('idx_companies_tenant').on(table.tenantId),
+    index('idx_companies_logo').on(table.logoId),
     uniqueIndex('idx_companies_tenant_name').on(table.tenantId, table.name),
   ]
 );
@@ -142,6 +177,10 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [companies.tenantId],
     references: [tenants.id],
+  }),
+  logo: one(logos, {
+    fields: [companies.logoId],
+    references: [logos.id],
   }),
   sites: many(sites),
 }));
@@ -1475,6 +1514,9 @@ export type NewTenant = typeof tenants.$inferInsert;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export type Logo = typeof logos.$inferSelect;
+export type NewLogo = typeof logos.$inferInsert;
 
 export type Company = typeof companies.$inferSelect;
 export type NewCompany = typeof companies.$inferInsert;

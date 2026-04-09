@@ -53,7 +53,20 @@ export interface Company {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  logoId?: string | null;
   logoUrl?: string | null;
+  logoName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Logo {
+  id: string;
+  tenantId: string;
+  name: string;
+  imageUrl: string;
+  isActive: boolean;
+  assignedCompanyCount?: number;
   createdAt: string;
   updatedAt: string;
 }

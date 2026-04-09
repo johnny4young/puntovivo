@@ -6,7 +6,12 @@ export const upsertCompanyInput = z.object({
   address: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().email('Invalid email address').nullable().optional(),
+  logoId: z.string().nullable().optional(),
   logoUrl: z.string().url('Invalid logo URL').nullable().optional(),
+});
+
+export const setCompanyLogoInput = z.object({
+  logoId: z.string().nullable(),
 });
 
 export type UpsertCompanyInput = z.infer<typeof upsertCompanyInput>;
