@@ -4,6 +4,7 @@ import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import {
   ProductFormModal,
@@ -317,7 +318,7 @@ export function ProductsPage() {
       )}
 
       <div className="card p-6">
-        {productsQuery.isLoading && <p className="py-4 text-secondary-500">Loading products...</p>}
+        {productsQuery.isLoading && <TableLoadingState message="Loading products..." />}
         {productsQuery.error && <p className="py-4 text-danger-500">{productsQuery.error.message}</p>}
         {!productsQuery.isLoading && !productsQuery.error && (
           <div className="space-y-4">

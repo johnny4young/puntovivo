@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { Sequential, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -312,7 +313,7 @@ export function SequentialsPage() {
       </div>
 
       <div className="card p-6">
-        {sequentialsQuery.isLoading && <p className="py-4 text-secondary-500">Loading sequentials...</p>}
+        {sequentialsQuery.isLoading && <TableLoadingState message="Loading sequentials..." />}
         {sequentialsQuery.error && (
           <p className="py-4 text-danger-500">{sequentialsQuery.error.message}</p>
         )}

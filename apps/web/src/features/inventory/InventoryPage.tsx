@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -521,7 +522,9 @@ function InventoryDataPanel({
     <div className="card p-6">
       {activeView === 'movements' && (
         <>
-          {movementsLoading && <p className="py-4 text-secondary-500">Loading inventory movements...</p>}
+          {movementsLoading && (
+            <TableLoadingState message="Loading inventory movements..." rowCount={8} />
+          )}
           {movementsError && <p className="py-4 text-danger-500">{movementsError}</p>}
           {!movementsLoading && !movementsError && (
             <div className="space-y-4">
@@ -546,7 +549,7 @@ function InventoryDataPanel({
 
       {activeView === 'stock' && (
         <>
-          {stockLoading && <p className="py-4 text-secondary-500">Loading stock balances...</p>}
+          {stockLoading && <TableLoadingState message="Loading stock balances..." rowCount={8} />}
           {stockError && <p className="py-4 text-danger-500">{stockError}</p>}
           {!stockLoading && !stockError && (
             <div className="space-y-4">
@@ -571,7 +574,9 @@ function InventoryDataPanel({
 
       {activeView === 'entries' && (
         <>
-          {entriesLoading && <p className="py-4 text-secondary-500">Loading inventory entries...</p>}
+          {entriesLoading && (
+            <TableLoadingState message="Loading inventory entries..." rowCount={8} />
+          )}
           {entriesError && <p className="py-4 text-danger-500">{entriesError}</p>}
           {!entriesLoading && !entriesError && (
             <div className="space-y-4">
