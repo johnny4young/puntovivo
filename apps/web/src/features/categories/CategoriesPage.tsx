@@ -253,6 +253,9 @@ export function CategoriesPage() {
         searchKey="name"
         searchPlaceholder="Search categories..."
         loadingMessage="Loading categories..."
+        onRetry={() => {
+          void categoriesQuery.refetch();
+        }}
         enableRowSelection={false}
       />
 

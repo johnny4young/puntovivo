@@ -133,7 +133,7 @@ export function UnitsPage() {
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [unitToDelete, setUnitToDelete] = useState<Unit | null>(null);
 
-  const { data, isLoading, error } = trpc.units.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.units.list.useQuery({ page: 1, perPage: 50 });
   const createMutation = trpc.units.create.useMutation({
     onSuccess: async () => {
       await utils.units.list.invalidate();
@@ -295,6 +295,9 @@ export function UnitsPage() {
         searchKey="name"
         searchPlaceholder="Search units..."
         loadingMessage="Loading units..."
+        onRetry={() => {
+          void refetch();
+        }}
       />
 
       <UnitFormModal

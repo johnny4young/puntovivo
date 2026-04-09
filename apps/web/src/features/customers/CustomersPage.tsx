@@ -35,7 +35,7 @@ export function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
-  const { data, isLoading, error } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
@@ -248,6 +248,9 @@ export function CustomersPage() {
         searchKey="name"
         searchPlaceholder="Search customers..."
         loadingMessage="Loading customers..."
+        onRetry={() => {
+          void refetch();
+        }}
       />
 
       <CustomerFormModal

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 
 interface ResourcePageProps<TData> {
@@ -16,6 +17,7 @@ interface ResourcePageProps<TData> {
   enableRowSelection?: boolean;
   pageSize?: number;
   loadingMessage: string;
+  onRetry?: () => void;
 }
 
 export function ResourcePage<TData>({
@@ -31,6 +33,7 @@ export function ResourcePage<TData>({
   enableRowSelection = true,
   pageSize = 10,
   loadingMessage,
+  onRetry,
 }: ResourcePageProps<TData>) {
   return (
     <div className="space-y-6">
@@ -44,7 +47,9 @@ export function ResourcePage<TData>({
 
       <div className="card p-6">
         {isLoading && <TableLoadingState message={loadingMessage} />}
-        {error && <p className="py-4 text-danger-500">{error}</p>}
+        {error && (
+          <TableErrorState title={`Unable to load ${title.toLowerCase()}`} message={error} onRetry={onRetry} />
+        )}
         {!isLoading && !error && (
           <DataTable
             columns={columns}

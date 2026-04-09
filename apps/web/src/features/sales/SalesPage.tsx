@@ -252,6 +252,9 @@ export function SalesPage() {
           sales={sales}
           isLoading={salesQuery.isLoading}
           error={salesQuery.error?.message ?? null}
+          onRetry={() => {
+            void salesQuery.refetch();
+          }}
           onView={setSelectedSaleId}
         />
       </div>

@@ -183,7 +183,7 @@ export function ProvidersPage() {
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
 
-  const { data, isLoading, error } = trpc.providers.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.providers.list.useQuery({ page: 1, perPage: 50 });
   const createMutation = trpc.providers.create.useMutation({
     onSuccess: async () => {
       await utils.providers.list.invalidate();
@@ -378,6 +378,9 @@ export function ProvidersPage() {
         searchKey="name"
         searchPlaceholder="Search providers..."
         loadingMessage="Loading providers..."
+        onRetry={() => {
+          void refetch();
+        }}
       />
 
       <ProviderFormModal

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { saleHistoryExportColumns } from '@/features/sales/saleHistoryExport';
@@ -26,10 +27,11 @@ interface SalesHistoryTableProps {
   sales: Sale[];
   isLoading: boolean;
   error: string | null;
+  onRetry: () => void;
   onView: (saleId: string) => void;
 }
 
-export function SalesHistoryTable({ sales, isLoading, error, onView }: SalesHistoryTableProps) {
+export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: SalesHistoryTableProps) {
   const columns = useMemo<ColumnDef<Sale>[]>(
     () => [
       {
@@ -92,7 +94,7 @@ export function SalesHistoryTable({ sales, isLoading, error, onView }: SalesHist
   return (
     <div className="card p-6">
       {isLoading && <TableLoadingState message="Loading sales..." rowCount={6} />}
-      {error && <p className="py-4 text-danger-500">{error}</p>}
+      {error && <TableErrorState title="Unable to load sales" message={error} onRetry={onRetry} />}
       {!isLoading && !error && (
         <div className="space-y-4">
           <TableExportActions

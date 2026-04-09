@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
@@ -395,7 +396,15 @@ export function UsersPage() {
 
       <div className="card p-6">
         {usersQuery.isLoading && <TableLoadingState message="Loading users..." />}
-        {usersQuery.error && <p className="py-4 text-danger-500">{usersQuery.error.message}</p>}
+        {usersQuery.error && (
+          <TableErrorState
+            title="Unable to load users"
+            message={usersQuery.error.message}
+            onRetry={() => {
+              void usersQuery.refetch();
+            }}
+          />
+        )}
         {!usersQuery.isLoading && !usersQuery.error && (
           <DataTable
             columns={columns}
