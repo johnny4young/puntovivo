@@ -45,6 +45,15 @@ export const deleteProviderInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
 
+export const listProviderCategoryAssignmentsInput = z.object({
+  providerId: z.string().min(1, 'Provider ID is required'),
+});
+
+export const replaceProviderCategoryAssignmentsInput = z.object({
+  providerId: z.string().min(1, 'Provider ID is required'),
+  categoryIds: z.array(z.string().min(1, 'Category ID is required')),
+});
+
 export const searchProvidersInput = z.object({
   q: z.string().min(1, 'Search query is required'),
   limit: z.number().int().min(1).max(50).default(20),
@@ -54,3 +63,6 @@ export type ListProvidersInput = z.infer<typeof listProvidersInput>;
 export type CreateProviderInput = z.infer<typeof createProviderInput>;
 export type UpdateProviderInput = z.infer<typeof updateProviderInput>;
 export type SearchProvidersInput = z.infer<typeof searchProvidersInput>;
+export type ReplaceProviderCategoryAssignmentsInput = z.infer<
+  typeof replaceProviderCategoryAssignmentsInput
+>;

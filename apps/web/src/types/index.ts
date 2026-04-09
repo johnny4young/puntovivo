@@ -84,8 +84,19 @@ export interface Provider {
   countryName?: string | null;
   contactName?: string | null;
   isActive: boolean;
+  assignedCategoryCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProviderCategoryAssignment {
+  id: string;
+  categoryId: string;
+  name: string;
+  description?: string | null;
+  parentId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Department {

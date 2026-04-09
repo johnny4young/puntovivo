@@ -1,13 +1,20 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
+import { FolderTree, Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
 import type { Provider } from '@/types';
 
-export function buildProviderColumns(
-  onEdit: (provider: Provider) => void,
-  onDelete: (provider: Provider) => void,
-  canEdit: boolean,
-  canDelete: boolean
-): ColumnDef<Provider>[] {
+export function createProviderColumns({
+  canManage,
+  canDelete,
+  onEdit,
+  onDelete,
+  onManageCategories,
+}: {
+  canManage: boolean;
+  canDelete: boolean;
+  onEdit: (provider: Provider) => void;
+  onDelete: (provider: Provider) => void;
+  onManageCategories: (provider: Provider) => void;
+}): ColumnDef<Provider>[] {
   return [
     {
       accessorKey: 'name',
@@ -63,6 +70,12 @@ export function buildProviderColumns(
       ),
     },
     {
+      accessorKey: 'assignedCategoryCount',
+      header: 'Categories',
+      size: 120,
+      cell: ({ row }) => row.original.assignedCategoryCount ?? 0,
+    },
+    {
       accessorKey: 'taxId',
       header: 'Tax ID',
       size: 150,
@@ -80,10 +93,18 @@ export function buildProviderColumns(
     },
     {
       id: 'actions',
-      size: 80,
+      size: 120,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canEdit}>
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onManageCategories(row.original)}
+            disabled={!canManage}
+            title="Manage provider categories"
+          >
+            <FolderTree className="h-4 w-4" />
+          </button>
+          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canManage}>
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (

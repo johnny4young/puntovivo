@@ -20,7 +20,7 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { categories, syncQueue } from '../../db/schema.js';
+import { categories, categoryXProvider, syncQueue } from '../../db/schema.js';
 import {
   listCategoriesInput,
   getCategoryInput,
@@ -266,6 +266,24 @@ export const categoriesRouter = router({
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Delete or reassign child categories before removing this category',
+      });
+    }
+
+    const providerAssignment = await ctx.db
+      .select({ id: categoryXProvider.id })
+      .from(categoryXProvider)
+      .where(
+        and(
+          eq(categoryXProvider.tenantId, ctx.tenantId),
+          eq(categoryXProvider.categoryId, input.id)
+        )
+      )
+      .get();
+
+    if (providerAssignment) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Remove provider assignments before deleting this category',
       });
     }
 

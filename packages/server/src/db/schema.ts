@@ -64,6 +64,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   sequentials: many(sequentials),
   products: many(products),
   categories: many(categories),
+  categoryProviderAssignments: many(categoryXProvider),
   customers: many(customers),
   purchases: many(purchases),
   orders: many(orders),
@@ -342,6 +343,7 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   }),
   products: many(products),
   productAssignments: many(productXProvider),
+  categoryAssignments: many(categoryXProvider),
   purchases: many(purchases),
   orders: many(orders),
 }));
@@ -488,6 +490,7 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   }),
   children: many(categories, { relationName: 'categoryParent' }),
   products: many(products),
+  providerAssignments: many(categoryXProvider),
 }));
 
 // ============================================================================
@@ -719,6 +722,49 @@ export const productXProviderRelations = relations(productXProvider, ({ one }) =
   }),
   provider: one(providers, {
     fields: [productXProvider.providerId],
+    references: [providers.id],
+  }),
+}));
+
+// ============================================================================
+// CATEGORY X PROVIDER
+// ============================================================================
+
+export const categoryXProvider = sqliteTable(
+  'category_x_provider',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    categoryId: text('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id, { onDelete: 'cascade' }),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_category_x_provider_tenant').on(table.tenantId),
+    index('idx_category_x_provider_category').on(table.categoryId),
+    index('idx_category_x_provider_provider').on(table.providerId),
+    uniqueIndex('idx_category_x_provider_scope').on(table.tenantId, table.categoryId, table.providerId),
+  ]
+);
+
+export const categoryXProviderRelations = relations(categoryXProvider, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [categoryXProvider.tenantId],
+    references: [tenants.id],
+  }),
+  category: one(categories, {
+    fields: [categoryXProvider.categoryId],
+    references: [categories.id],
+  }),
+  provider: one(providers, {
+    fields: [categoryXProvider.providerId],
     references: [providers.id],
   }),
 }));
@@ -1471,6 +1517,9 @@ export type NewUnitXProduct = typeof unitXProduct.$inferInsert;
 
 export type ProductXProvider = typeof productXProvider.$inferSelect;
 export type NewProductXProvider = typeof productXProvider.$inferInsert;
+
+export type CategoryXProvider = typeof categoryXProvider.$inferSelect;
+export type NewCategoryXProvider = typeof categoryXProvider.$inferInsert;
 
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;

@@ -138,4 +138,70 @@ describe('Providers tRPC Router', () => {
       message: 'Selected city was not found or is inactive',
     });
   });
+
+  it('manages category assignments per provider and blocks invalid deletes', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const provider = await caller.providers.create({
+      name: 'Category Supplier',
+      isActive: true,
+    });
+    const beverages = await caller.categories.create({
+      name: 'Beverages',
+      description: 'Drinks and juices',
+    });
+    const snacks = await caller.categories.create({
+      name: 'Snacks',
+      description: 'Packaged snacks',
+    });
+
+    const assigned = await caller.providers.replaceCategoryAssignments({
+      providerId: provider.id,
+      categoryIds: [beverages.id, snacks.id, beverages.id],
+    });
+    expect(assigned.categoryIds.sort()).toEqual([beverages.id, snacks.id].sort());
+
+    const listedAssignments = await caller.providers.listCategoryAssignments({
+      providerId: provider.id,
+    });
+    expect(listedAssignments.categoryIds.sort()).toEqual([beverages.id, snacks.id].sort());
+    expect(listedAssignments.items.map(item => item.name).sort()).toEqual(['Beverages', 'Snacks']);
+
+    const listedProviders = await caller.providers.list({ page: 1, perPage: 20 });
+    const listedProvider = listedProviders.items.find(item => item.id === provider.id);
+    expect(listedProvider?.assignedCategoryCount).toBe(2);
+
+    await expect(caller.providers.delete({ id: provider.id })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Provider has assigned categories. Remove them before deleting the provider.',
+    });
+
+    await expect(caller.categories.delete({ id: beverages.id })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Remove provider assignments before deleting this category',
+    });
+
+    const replaced = await caller.providers.replaceCategoryAssignments({
+      providerId: provider.id,
+      categoryIds: [snacks.id],
+    });
+    expect(replaced.categoryIds).toEqual([snacks.id]);
+
+    const afterReplace = await caller.providers.listCategoryAssignments({
+      providerId: provider.id,
+    });
+    expect(afterReplace.categoryIds).toEqual([snacks.id]);
+
+    await caller.providers.replaceCategoryAssignments({
+      providerId: provider.id,
+      categoryIds: [],
+    });
+
+    const afterClear = await caller.providers.listCategoryAssignments({
+      providerId: provider.id,
+    });
+    expect(afterClear.categoryIds).toEqual([]);
+
+    const removed = await caller.providers.delete({ id: provider.id });
+    expect(removed.success).toBe(true);
+  });
 });
