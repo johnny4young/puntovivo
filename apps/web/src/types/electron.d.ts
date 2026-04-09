@@ -7,6 +7,34 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  getAutoUpdateStatus: () => Promise<{
+    isAvailable: boolean;
+    state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    currentVersion: string;
+    lastCheckedAt: string | null;
+    releaseName: string | null;
+    releaseNotes: string | null;
+    releaseDate: string | null;
+    updateUrl: string | null;
+    error: string | null;
+    reason: string | null;
+  }>;
+  checkForAppUpdates: () => Promise<{
+    isAvailable: boolean;
+    state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    currentVersion: string;
+    lastCheckedAt: string | null;
+    releaseName: string | null;
+    releaseNotes: string | null;
+    releaseDate: string | null;
+    updateUrl: string | null;
+    error: string | null;
+    reason: string | null;
+  }>;
+  restartToApplyAppUpdate: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   getTraySettings: () => Promise<{
     enabled: boolean;
     closeToTray: boolean;

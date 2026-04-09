@@ -61,6 +61,9 @@ describe('CompanyTraySettingsCard', () => {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
       getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
       getTraySettings: vi.fn().mockResolvedValue({
         enabled: true,
         closeToTray: false,
