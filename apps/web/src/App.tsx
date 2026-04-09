@@ -7,6 +7,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { CompanyPage } from '@/features/company/CompanyPage';
 import { CustomerCatalogsPage } from '@/features/customer-catalogs/CustomerCatalogsPage';
+import { GeographyPage } from '@/features/geography/GeographyPage';
 import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { CategoriesPage } from '@/features/categories/CategoriesPage';
 import { SequentialsPage } from '@/features/sequentials/SequentialsPage';
@@ -96,6 +97,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={adminOnlyRoles}>
                   <CustomerCatalogsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="geography"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <GeographyPage />
                 </ProtectedRoute>
               }
             />

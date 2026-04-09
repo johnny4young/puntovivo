@@ -147,8 +147,11 @@ const SYNC_ENTITY_TYPE_MAP: Record<string, string> = {
 };
 const SYNC_ENTITY_CONFIG = {
   categories: { tableName: 'categories', supportsSyncMetadata: false, touchUpdatedAt: false },
+  cities: { tableName: 'cities', supportsSyncMetadata: false, touchUpdatedAt: false },
   client_types: { tableName: 'client_types', supportsSyncMetadata: false, touchUpdatedAt: false },
+  countries: { tableName: 'countries', supportsSyncMetadata: false, touchUpdatedAt: false },
   customers: { tableName: 'customers', supportsSyncMetadata: true, touchUpdatedAt: true },
+  departments: { tableName: 'departments', supportsSyncMetadata: false, touchUpdatedAt: false },
   identification_types: {
     tableName: 'identification_types',
     supportsSyncMetadata: false,

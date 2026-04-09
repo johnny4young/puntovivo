@@ -15,6 +15,7 @@ import {
   regimeTypesRouter,
 } from './routers/customerCatalogs.js';
 import { dashboardRouter } from './routers/dashboard.js';
+import { citiesRouter, countriesRouter, departmentsRouter } from './routers/geography.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products.js';
 import { ordersRouter } from './routers/orders.js';
@@ -42,11 +43,14 @@ export const appRouter = router({
   }),
   auth: authRouter,
   companies: companiesRouter,
+  countries: countriesRouter,
   identificationTypes: identificationTypesRouter,
   personTypes: personTypesRouter,
   regimeTypes: regimeTypesRouter,
   clientTypes: clientTypesRouter,
   dashboard: dashboardRouter,
+  departments: departmentsRouter,
+  cities: citiesRouter,
   providers: providersRouter,
   sequentials: sequentialsRouter,
   units: unitsRouter,

@@ -79,7 +79,48 @@ export interface Provider {
   email?: string | null;
   address?: string | null;
   cityId?: string | null;
+  cityName?: string | null;
+  departmentName?: string | null;
+  countryName?: string | null;
   contactName?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Department {
+  id: string;
+  tenantId: string;
+  countryId?: string | null;
+  countryCode?: string | null;
+  countryName?: string | null;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface City {
+  id: string;
+  tenantId: string;
+  departmentId: string;
+  countryId?: string | null;
+  countryName?: string | null;
+  departmentCode?: string | null;
+  departmentName?: string | null;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Country {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

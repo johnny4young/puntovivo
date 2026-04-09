@@ -170,6 +170,51 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_sites_company ON sites (company_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_sites_tenant_name ON sites (tenant_id, name);
 
+    -- Countries
+    CREATE TABLE IF NOT EXISTS countries (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_countries_tenant ON countries (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_countries_tenant_code ON countries (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_countries_tenant_name ON countries (tenant_id, name);
+
+    -- Departments
+    CREATE TABLE IF NOT EXISTS departments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      country_id TEXT REFERENCES countries(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_departments_tenant ON departments (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_tenant_code ON departments (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_departments_tenant_name ON departments (tenant_id, name);
+
+    -- Cities
+    CREATE TABLE IF NOT EXISTS cities (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      department_id TEXT NOT NULL REFERENCES departments(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cities_tenant ON cities (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_cities_department ON cities (department_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cities_tenant_code ON cities (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cities_scope_name ON cities (tenant_id, department_id, name);
+
     -- Providers
     CREATE TABLE IF NOT EXISTS providers (
       id TEXT PRIMARY KEY,
@@ -179,7 +224,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       phone TEXT,
       email TEXT,
       address TEXT,
-      city_id TEXT,
+      city_id TEXT REFERENCES cities(id),
       contact_name TEXT,
       is_active INTEGER DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -646,6 +691,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'products', 'provider_id', 'provider_id TEXT');
   ensureColumn(client, 'products', 'location_id', 'location_id TEXT');
   ensureColumn(client, 'products', 'initial_cost', 'initial_cost REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'departments', 'country_id', 'country_id TEXT REFERENCES countries(id)');
   ensureColumn(client, 'customers', 'identification_type_id', 'identification_type_id TEXT');
   ensureColumn(client, 'customers', 'person_type_id', 'person_type_id TEXT');
   ensureColumn(client, 'customers', 'regime_type_id', 'regime_type_id TEXT');
