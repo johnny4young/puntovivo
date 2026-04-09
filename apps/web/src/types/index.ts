@@ -272,6 +272,7 @@ export interface Customer {
   personTypeId?: string | null;
   regimeTypeId?: string | null;
   clientTypeId?: string | null;
+  commercialActivityId?: string | null;
   notes?: string | null;
   isActive: boolean;
   createdAt: string;

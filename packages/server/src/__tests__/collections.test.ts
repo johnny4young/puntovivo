@@ -14,6 +14,7 @@ import { getDatabase } from '../db/index.js';
 import {
   categories,
   clientTypes,
+  commercialActivities,
   companies,
   identificationTypes,
   personTypes,
@@ -47,6 +48,7 @@ const CUSTOMER_CATALOG_SEED = {
     { code: 'retail', name: 'Retail Customer' },
     { code: 'wholesale', name: 'Wholesale Customer' },
   ],
+  commercialActivities: [{ code: '4711', name: 'Retail Trade in General Stores' }],
 } as const;
 
 /**
@@ -238,6 +240,19 @@ describe('Collections tRPC Routers', () => {
 
     for (const item of CUSTOMER_CATALOG_SEED.clientTypes) {
       await db.insert(clientTypes).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        code: item.code,
+        name: item.name,
+        description: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    for (const item of CUSTOMER_CATALOG_SEED.commercialActivities) {
+      await db.insert(commercialActivities).values({
         id: nanoid(),
         tenantId: testTenantId,
         code: item.code,

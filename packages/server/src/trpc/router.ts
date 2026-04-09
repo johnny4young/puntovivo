@@ -10,6 +10,7 @@ import { categoriesRouter } from './routers/categories.js';
 import { companiesRouter } from './routers/companies.js';
 import {
   clientTypesRouter,
+  commercialActivitiesRouter,
   identificationTypesRouter,
   personTypesRouter,
   regimeTypesRouter,
@@ -48,6 +49,7 @@ export const appRouter = router({
   personTypes: personTypesRouter,
   regimeTypes: regimeTypesRouter,
   clientTypes: clientTypesRouter,
+  commercialActivities: commercialActivitiesRouter,
   dashboard: dashboardRouter,
   departments: departmentsRouter,
   cities: citiesRouter,

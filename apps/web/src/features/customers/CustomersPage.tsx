@@ -40,6 +40,7 @@ export function CustomersPage() {
   const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
   const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
   const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
+  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({ page: 1, perPage: 100 });
   const createMutation = trpc.customers.create.useMutation({
     onSuccess: async () => {
       await utils.customers.list.invalidate();
@@ -90,6 +91,7 @@ export function CustomersPage() {
   const personTypes = (personTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const regimeTypes = (regimeTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
   const clientTypes = (clientTypesQuery.data?.items ?? []) as CustomerCatalogItem[];
+  const commercialActivities = (commercialActivitiesQuery.data?.items ?? []) as CustomerCatalogItem[];
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -127,6 +129,7 @@ export function CustomersPage() {
         personTypeId: toNullableString(values.personTypeId),
         regimeTypeId: toNullableString(values.regimeTypeId),
         clientTypeId: toNullableString(values.clientTypeId),
+        commercialActivityId: toNullableString(values.commercialActivityId),
         notes: toNullableString(values.notes),
         isActive: values.isActive,
       });
@@ -147,6 +150,7 @@ export function CustomersPage() {
       personTypeId: toOptionalString(values.personTypeId),
       regimeTypeId: toOptionalString(values.regimeTypeId),
       clientTypeId: toOptionalString(values.clientTypeId),
+      commercialActivityId: toOptionalString(values.commercialActivityId),
       notes: toOptionalString(values.notes),
       isActive: values.isActive,
     });
@@ -269,6 +273,7 @@ export function CustomersPage() {
         personTypes={personTypes}
         regimeTypes={regimeTypes}
         clientTypes={clientTypes}
+        commercialActivities={commercialActivities}
         isSaving={createMutation.isPending || updateMutation.isPending}
         error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
         onClose={handleCloseModal}

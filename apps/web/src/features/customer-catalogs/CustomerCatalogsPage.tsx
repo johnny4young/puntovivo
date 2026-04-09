@@ -32,6 +32,7 @@ export function CustomerCatalogsPage() {
   const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
   const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
   const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
+  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({ page: 1, perPage: 100 });
 
   const identificationTypesCreate = trpc.identificationTypes.create.useMutation();
   const identificationTypesUpdate = trpc.identificationTypes.update.useMutation();
@@ -45,6 +46,9 @@ export function CustomerCatalogsPage() {
   const clientTypesCreate = trpc.clientTypes.create.useMutation();
   const clientTypesUpdate = trpc.clientTypes.update.useMutation();
   const clientTypesDelete = trpc.clientTypes.delete.useMutation();
+  const commercialActivitiesCreate = trpc.commercialActivities.create.useMutation();
+  const commercialActivitiesUpdate = trpc.commercialActivities.update.useMutation();
+  const commercialActivitiesDelete = trpc.commercialActivities.delete.useMutation();
 
   const config = customerCatalogConfig[activeCatalog];
   const activeQuery =
@@ -54,7 +58,9 @@ export function CustomerCatalogsPage() {
         ? personTypesQuery
         : activeCatalog === 'regimeTypes'
           ? regimeTypesQuery
-          : clientTypesQuery;
+          : activeCatalog === 'clientTypes'
+            ? clientTypesQuery
+            : commercialActivitiesQuery;
   const activeItems: CustomerCatalogItem[] = (activeQuery.data?.items ?? []).map(item => ({
     ...item,
     isActive: item.isActive ?? false,
@@ -67,7 +73,9 @@ export function CustomerCatalogsPage() {
         ? personTypesCreate
         : activeCatalog === 'regimeTypes'
           ? regimeTypesCreate
-          : clientTypesCreate;
+          : activeCatalog === 'clientTypes'
+            ? clientTypesCreate
+            : commercialActivitiesCreate;
   const currentUpdateMutation =
     activeCatalog === 'identificationTypes'
       ? identificationTypesUpdate
@@ -75,7 +83,9 @@ export function CustomerCatalogsPage() {
         ? personTypesUpdate
         : activeCatalog === 'regimeTypes'
           ? regimeTypesUpdate
-          : clientTypesUpdate;
+          : activeCatalog === 'clientTypes'
+            ? clientTypesUpdate
+            : commercialActivitiesUpdate;
   const currentDeleteMutation =
     activeCatalog === 'identificationTypes'
       ? identificationTypesDelete
@@ -83,7 +93,9 @@ export function CustomerCatalogsPage() {
         ? personTypesDelete
         : activeCatalog === 'regimeTypes'
           ? regimeTypesDelete
-          : clientTypesDelete;
+          : activeCatalog === 'clientTypes'
+            ? clientTypesDelete
+            : commercialActivitiesDelete;
 
   const canManage = user?.role === 'admin';
 
@@ -96,6 +108,8 @@ export function CustomerCatalogsPage() {
     regimeTypesUpdate.reset();
     clientTypesCreate.reset();
     clientTypesUpdate.reset();
+    commercialActivitiesCreate.reset();
+    commercialActivitiesUpdate.reset();
   };
 
   const invalidateActiveCatalog = async () => {
@@ -114,7 +128,12 @@ export function CustomerCatalogsPage() {
       return;
     }
 
-    await utils.clientTypes.list.invalidate();
+    if (activeCatalog === 'clientTypes') {
+      await utils.clientTypes.list.invalidate();
+      return;
+    }
+
+    await utils.commercialActivities.list.invalidate();
   };
 
   const handleCloseModal = () => {

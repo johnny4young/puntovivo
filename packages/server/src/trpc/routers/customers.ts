@@ -23,6 +23,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   clientTypes,
+  commercialActivities,
   customers,
   identificationTypes,
   personTypes,
@@ -42,7 +43,8 @@ type CustomerCatalogTable =
   | typeof identificationTypes
   | typeof personTypes
   | typeof regimeTypes
-  | typeof clientTypes;
+  | typeof clientTypes
+  | typeof commercialActivities;
 
 async function validateCustomerCatalogCode(
   db: DatabaseInstance,
@@ -138,7 +140,13 @@ export const customersRouter = router({
   create: managerOrAdminProcedure.input(createCustomerInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const id = nanoid();
-    const [identificationTypeCode, personTypeCode, regimeTypeCode, clientTypeCode] =
+    const [
+      identificationTypeCode,
+      personTypeCode,
+      regimeTypeCode,
+      clientTypeCode,
+      commercialActivityCode,
+    ] =
       await Promise.all([
         validateCustomerCatalogCode(
           ctx.db,
@@ -156,6 +164,13 @@ export const customersRouter = router({
         ),
         validateCustomerCatalogCode(ctx.db, ctx.tenantId, regimeTypes, input.regimeTypeId, 'regime type'),
         validateCustomerCatalogCode(ctx.db, ctx.tenantId, clientTypes, input.clientTypeId, 'client type'),
+        validateCustomerCatalogCode(
+          ctx.db,
+          ctx.tenantId,
+          commercialActivities,
+          input.commercialActivityId,
+          'commercial activity'
+        ),
       ]);
 
     await ctx.db.insert(customers).values({
@@ -174,6 +189,7 @@ export const customersRouter = router({
       personTypeId: personTypeCode,
       regimeTypeId: regimeTypeCode,
       clientTypeId: clientTypeCode,
+      commercialActivityId: commercialActivityCode,
       notes: input.notes,
       isActive: input.isActive,
       syncStatus: 'pending',
@@ -222,7 +238,13 @@ export const customersRouter = router({
       syncStatus: 'pending',
       syncVersion: (existing.syncVersion ?? 0) + 1,
     };
-    const [identificationTypeCode, personTypeCode, regimeTypeCode, clientTypeCode] =
+    const [
+      identificationTypeCode,
+      personTypeCode,
+      regimeTypeCode,
+      clientTypeCode,
+      commercialActivityCode,
+    ] =
       await Promise.all([
         updates.identificationTypeId !== undefined
           ? validateCustomerCatalogCode(
@@ -260,6 +282,15 @@ export const customersRouter = router({
               'client type'
             )
           : Promise.resolve(undefined),
+        updates.commercialActivityId !== undefined
+          ? validateCustomerCatalogCode(
+              ctx.db,
+              ctx.tenantId,
+              commercialActivities,
+              updates.commercialActivityId,
+              'commercial activity'
+            )
+          : Promise.resolve(undefined),
       ]);
 
     if (updates.name !== undefined) updateData.name = updates.name;
@@ -275,6 +306,9 @@ export const customersRouter = router({
     if (updates.personTypeId !== undefined) updateData.personTypeId = personTypeCode;
     if (updates.regimeTypeId !== undefined) updateData.regimeTypeId = regimeTypeCode;
     if (updates.clientTypeId !== undefined) updateData.clientTypeId = clientTypeCode;
+    if (updates.commercialActivityId !== undefined) {
+      updateData.commercialActivityId = commercialActivityCode;
+    }
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 

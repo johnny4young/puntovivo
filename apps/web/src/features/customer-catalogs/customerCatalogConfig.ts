@@ -1,4 +1,9 @@
-export type CustomerCatalogKey = 'identificationTypes' | 'personTypes' | 'regimeTypes' | 'clientTypes';
+export type CustomerCatalogKey =
+  | 'identificationTypes'
+  | 'personTypes'
+  | 'regimeTypes'
+  | 'clientTypes'
+  | 'commercialActivities';
 
 export interface CustomerCatalogConfig {
   singularLabel: string;
@@ -31,6 +36,12 @@ export const customerCatalogConfig: Record<CustomerCatalogKey, CustomerCatalogCo
     pluralLabel: 'Client Types',
     description: 'Manage commercial client classifications such as retail and wholesale.',
     searchPlaceholder: 'Search client types...',
+  },
+  commercialActivities: {
+    singularLabel: 'Commercial Activity',
+    pluralLabel: 'Commercial Activities',
+    description: 'Manage business activity codes used in customer fiscal and commercial classification.',
+    searchPlaceholder: 'Search commercial activities...',
   },
 };
 

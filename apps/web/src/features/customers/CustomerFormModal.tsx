@@ -17,6 +17,7 @@ export interface CustomerFormValues {
   personTypeId: string;
   regimeTypeId: string;
   clientTypeId: string;
+  commercialActivityId: string;
   notes: string;
   isActive: boolean;
 }
@@ -35,6 +36,7 @@ const defaultValues: CustomerFormValues = {
   personTypeId: '',
   regimeTypeId: '',
   clientTypeId: '',
+  commercialActivityId: '',
   notes: '',
   isActive: true,
 };
@@ -58,6 +60,7 @@ function mapCustomerToForm(customer: Customer | null): CustomerFormValues {
     personTypeId: customer.personTypeId ?? '',
     regimeTypeId: customer.regimeTypeId ?? '',
     clientTypeId: customer.clientTypeId ?? '',
+    commercialActivityId: customer.commercialActivityId ?? '',
     notes: customer.notes ?? '',
     isActive: customer.isActive,
   };
@@ -70,6 +73,7 @@ interface CustomerFormModalProps {
   personTypes: CustomerCatalogItem[];
   regimeTypes: CustomerCatalogItem[];
   clientTypes: CustomerCatalogItem[];
+  commercialActivities: CustomerCatalogItem[];
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
@@ -83,6 +87,7 @@ export function CustomerFormModal({
   personTypes,
   regimeTypes,
   clientTypes,
+  commercialActivities,
   isSaving,
   error,
   onClose,
@@ -165,7 +170,7 @@ export function CustomerFormModal({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <CustomerCatalogSelect
             id="customer-identification-type"
             label="Identification Type"
@@ -196,6 +201,14 @@ export function CustomerFormModal({
             placeholder="Not set"
             options={clientTypes}
             registration={form.register('clientTypeId')}
+          />
+
+          <CustomerCatalogSelect
+            id="customer-commercial-activity"
+            label="Commercial Activity"
+            placeholder="Not set"
+            options={commercialActivities}
+            registration={form.register('commercialActivityId')}
           />
         </div>
 

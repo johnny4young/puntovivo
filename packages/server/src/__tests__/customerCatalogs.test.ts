@@ -92,6 +92,37 @@ describe('Customer catalog tRPC Routers', () => {
     expect(removed.success).toBe(true);
   });
 
+  it('creates, lists, searches, updates, and deletes commercial activities', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.commercialActivities.create({
+      code: '6201',
+      name: 'Software Development',
+      description: 'Custom software and digital services',
+      isActive: true,
+    });
+
+    expect(created?.code).toBe('6201');
+
+    const listed = await caller.commercialActivities.list({ page: 1, perPage: 100 });
+    expect(listed.items.some(item => item.id === created?.id)).toBe(true);
+
+    const searched = await caller.commercialActivities.search({ q: 'Software', limit: 10 });
+    expect(searched.items.some(item => item.id === created?.id)).toBe(true);
+
+    const updated = await caller.commercialActivities.update({
+      id: created!.id,
+      name: 'Software Development Services',
+      isActive: false,
+    });
+
+    expect(updated?.name).toBe('Software Development Services');
+    expect(updated?.isActive).toBe(false);
+
+    const removed = await caller.commercialActivities.delete({ id: created!.id });
+    expect(removed.success).toBe(true);
+  });
+
   it('rejects duplicate identification type codes inside the same tenant', async () => {
     const caller = appRouter.createCaller(createTestContext());
 
@@ -135,6 +166,7 @@ describe('Customer catalog tRPC Routers', () => {
       personTypeId: 'natural',
       regimeTypeId: 'simplified',
       clientTypeId: 'retail',
+      commercialActivityId: '4711',
       isActive: true,
     });
 
@@ -142,5 +174,6 @@ describe('Customer catalog tRPC Routers', () => {
     expect(created.personTypeId).toBe('natural');
     expect(created.regimeTypeId).toBe('simplified');
     expect(created.clientTypeId).toBe('retail');
+    expect(created.commercialActivityId).toBe('4711');
   });
 });

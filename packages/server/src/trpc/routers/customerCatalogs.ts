@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   clientTypes,
+  commercialActivities,
   identificationTypes,
   personTypes,
   regimeTypes,
@@ -25,11 +26,17 @@ type CustomerCatalogTable =
   | typeof identificationTypes
   | typeof personTypes
   | typeof regimeTypes
-  | typeof clientTypes;
+  | typeof clientTypes
+  | typeof commercialActivities;
 
 interface CustomerCatalogDefinition {
   singularName: string;
-  entityType: 'identification_types' | 'person_types' | 'regime_types' | 'client_types';
+  entityType:
+    | 'identification_types'
+    | 'person_types'
+    | 'regime_types'
+    | 'client_types'
+    | 'commercial_activities';
   table: CustomerCatalogTable;
 }
 
@@ -299,4 +306,10 @@ export const clientTypesRouter = buildCustomerCatalogRouter({
   singularName: 'Client Type',
   entityType: 'client_types',
   table: clientTypes,
+});
+
+export const commercialActivitiesRouter = buildCustomerCatalogRouter({
+  singularName: 'Commercial Activity',
+  entityType: 'commercial_activities',
+  table: commercialActivities,
 });
