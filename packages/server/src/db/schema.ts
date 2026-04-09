@@ -70,6 +70,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   purchases: many(purchases),
   orders: many(orders),
   sales: many(sales),
+  saleReturns: many(saleReturns),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -108,6 +109,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   purchases: many(purchases),
   orders: many(orders),
   sales: many(sales),
+  saleReturns: many(saleReturns),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -1277,6 +1279,7 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(saleItems),
+  returns: many(saleReturns),
 }));
 
 // ============================================================================
@@ -1321,6 +1324,54 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   unit: one(units, {
     fields: [saleItems.unitId],
     references: [units.id],
+  }),
+}));
+
+// ============================================================================
+// SALE RETURNS
+// ============================================================================
+
+/** A sale return records a refunded sale after completion, restoring stock while preserving the original sale as historical evidence. */
+export const saleReturns = sqliteTable(
+  'sale_returns',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleId: text('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    refundAmount: real('refund_amount').notNull().default(0),
+    reason: text('reason'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_sale_returns_tenant').on(table.tenantId),
+    index('idx_sale_returns_sale').on(table.saleId),
+    index('idx_sale_returns_created_by').on(table.createdBy),
+    uniqueIndex('idx_sale_returns_sale_unique').on(table.saleId),
+  ]
+);
+
+export const saleReturnsRelations = relations(saleReturns, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [saleReturns.tenantId],
+    references: [tenants.id],
+  }),
+  sale: one(sales, {
+    fields: [saleReturns.saleId],
+    references: [sales.id],
+  }),
+  createdByUser: one(users, {
+    fields: [saleReturns.createdBy],
+    references: [users.id],
   }),
 }));
 
@@ -1583,6 +1634,9 @@ export type NewSale = typeof sales.$inferInsert;
 
 export type SaleItem = typeof saleItems.$inferSelect;
 export type NewSaleItem = typeof saleItems.$inferInsert;
+
+export type SaleReturn = typeof saleReturns.$inferSelect;
+export type NewSaleReturn = typeof saleReturns.$inferInsert;
 
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type NewInventoryMovement = typeof inventoryMovements.$inferInsert;

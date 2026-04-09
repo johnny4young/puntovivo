@@ -8,6 +8,7 @@ import {
   inventoryMovements,
   products,
   saleItems,
+  saleReturns,
   sales,
   sequentials,
   sites,
@@ -464,5 +465,112 @@ describe('Sales tRPC Router', () => {
     const summaryAfterVoid = await caller.sales.summary();
     expect(summaryAfterVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount);
     expect(summaryAfterVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
+  });
+
+  it('refunds a completed sale, restores stock, and excludes it from revenue KPIs', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Refundable Product',
+      sku: 'REFUND-01',
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      stock: 8,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const summaryBeforeCreate = await caller.sales.summary();
+    const created = await caller.sales.create({
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 3,
+          unitPrice: 12,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 36,
+      discountAmount: 0,
+    });
+
+    const summaryBeforeRefund = await caller.sales.summary();
+    expect(summaryBeforeRefund.transactionCount).toBe(summaryBeforeCreate.transactionCount + 1);
+    expect(summaryBeforeRefund.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal + created.total);
+
+    const refunded = await caller.sales.returnSale({
+      id: created.id,
+      reason: 'Items returned',
+    });
+
+    expect(refunded.paymentStatus).toBe('refunded');
+    expect(refunded.returnReason).toBe('Items returned');
+    expect(refunded.refundAmount).toBeCloseTo(created.total);
+    expect(refunded.notes).toContain('Refunded: Items returned');
+
+    const storedRefund = await db
+      .select()
+      .from(saleReturns)
+      .where(eq(saleReturns.saleId, created.id))
+      .get();
+    expect(storedRefund).toMatchObject({
+      saleId: created.id,
+      refundAmount: created.total,
+      reason: 'Items returned',
+    });
+
+    const restoredProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(restoredProduct?.stock).toBe(8);
+
+    const reversalMovements = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, created.id))
+      .all();
+    expect(reversalMovements).toHaveLength(2);
+    const refundMovement = reversalMovements.find(movement => movement.type === 'return');
+    expect(refundMovement).toMatchObject({
+      productId,
+      type: 'return',
+      quantity: 3,
+      previousStock: 5,
+      newStock: 8,
+    });
+
+    const summaryAfterRefund = await caller.sales.summary();
+    expect(summaryAfterRefund.transactionCount).toBe(summaryBeforeCreate.transactionCount);
+    expect(summaryAfterRefund.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
   });
 });

@@ -180,6 +180,7 @@ const SYNC_ENTITY_CONFIG = {
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
 } as const;
 const tableColumnsCache = new Map<AllowedDesktopTable, Set<string>>();

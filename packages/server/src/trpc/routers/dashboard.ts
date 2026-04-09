@@ -53,6 +53,14 @@ function buildRevenueSeries(days: number, today: Date, rows: DashboardRevenuePoi
   });
 }
 
+function getRevenueEligibleSaleConditions(tenantId: string) {
+  return [
+    eq(sales.tenantId, tenantId),
+    eq(sales.status, 'completed'),
+    sql`${sales.paymentStatus} != 'refunded'`,
+  ] as const;
+}
+
 export const dashboardRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
     const now = new Date();
@@ -61,10 +69,7 @@ export const dashboardRouter = router({
     const lastThirtyDaysStart = addUtcDays(todayStart, -29);
     const lastSevenDaysStart = addUtcDays(todayStart, -6);
 
-    const completedSaleConditions = [
-      eq(sales.tenantId, ctx.tenantId),
-      eq(sales.status, 'completed'),
-    ] as const;
+    const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
 
     const [
       todaySalesStats,

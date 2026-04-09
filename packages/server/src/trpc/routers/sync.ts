@@ -83,6 +83,7 @@ const syncEntityConfig = {
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
   sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },
   sites: { tableName: 'sites', supportsSyncMetadata: false, touchUpdatedAt: false },

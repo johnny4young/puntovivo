@@ -638,6 +638,24 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items (sale_id);
     CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items (product_id);
 
+    -- Sale Returns
+    CREATE TABLE IF NOT EXISTS sale_returns (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      sale_id TEXT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+      refund_amount REAL NOT NULL DEFAULT 0,
+      reason TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sale_returns_tenant ON sale_returns (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_sale_returns_sale ON sale_returns (sale_id);
+    CREATE INDEX IF NOT EXISTS idx_sale_returns_created_by ON sale_returns (created_by);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_returns_sale_unique ON sale_returns (sale_id);
+
     -- Inventory Movements
     CREATE TABLE IF NOT EXISTS inventory_movements (
       id TEXT PRIMARY KEY,
