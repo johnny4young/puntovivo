@@ -7,6 +7,11 @@ import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHisto
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
+const purchaseStatusClassNames: Record<Purchase['status'], string> = {
+  completed: 'badge-success',
+  voided: 'badge-warning',
+};
+
 interface PurchasesHistoryTableProps {
   purchases: Purchase[];
   isLoading: boolean;
@@ -49,6 +54,16 @@ export function PurchasesHistoryTable({
         header: 'Site',
         size: 160,
         cell: ({ row }) => row.original.siteName,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        size: 120,
+        cell: ({ row }) => (
+          <span className={purchaseStatusClassNames[row.original.status]}>
+            {row.original.status}
+          </span>
+        ),
       },
       {
         accessorKey: 'total',

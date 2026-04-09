@@ -18,6 +18,7 @@ export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as cons
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
+export const purchaseStatusEnum = ['completed', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
@@ -561,6 +562,7 @@ export const purchases = sqliteTable(
     siteId: text('site_id')
       .notNull()
       .references(() => sites.id),
+    status: text('status', { enum: purchaseStatusEnum }).notNull().default('completed'),
     subtotal: real('subtotal').notNull().default(0),
     total: real('total').notNull().default(0),
     notes: text('notes'),
