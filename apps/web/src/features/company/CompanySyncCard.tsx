@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { AlertTriangle, CloudUpload, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CloudDownload, CloudUpload, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
   CompanySyncConflictModal,
@@ -10,9 +10,8 @@ import {
 import { vanillaClient } from '@/lib/trpc';
 import { formatDateTime, getErrorMessage } from '@/lib/utils';
 
-const syncStatusQueryKey = ['sync', 'status'] as const;
-const syncQueueQueryKey = ['sync', 'queue', 5] as const;
-const syncConflictsQueryKey = ['sync', 'conflicts', 5] as const;
+const syncSnapshotQueryKey = ['sync', 'snapshot', 5, 5] as const;
+const syncPreviewLimit = 5;
 
 interface SyncMetricProps {
   label: string;
@@ -32,34 +31,24 @@ export function CompanySyncCard() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
-  const statusQuery = useQuery({
-    queryKey: syncStatusQueryKey,
-    queryFn: () => vanillaClient.sync.status.query(),
-    refetchInterval: 30_000,
-  });
-  const queueQuery = useQuery({
-    queryKey: syncQueueQueryKey,
-    queryFn: () => vanillaClient.sync.listQueue.query({ limit: 5 }),
-    refetchInterval: 30_000,
-  });
-  const conflictsQuery = useQuery({
-    queryKey: syncConflictsQueryKey,
-    queryFn: () => vanillaClient.sync.listConflicts.query({ limit: 5 }),
+  const snapshotQuery = useQuery({
+    queryKey: syncSnapshotQueryKey,
+    queryFn: () =>
+      vanillaClient.sync.pull.query({
+        queueLimit: syncPreviewLimit,
+        conflictLimit: syncPreviewLimit,
+      }),
     refetchInterval: 30_000,
   });
 
-  const refreshSyncQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] }),
-      queryClient.invalidateQueries({ queryKey: ['sync', 'queue'] }),
-      queryClient.invalidateQueries({ queryKey: ['sync', 'conflicts'] }),
-    ]);
+  const refreshSyncSnapshot = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['sync', 'snapshot'] });
   };
 
   const pushMutation = useMutation({
     mutationFn: () => vanillaClient.sync.push.mutate({ limit: 50 }),
     onSuccess: async result => {
-      await refreshSyncQueries();
+      await refreshSyncSnapshot();
 
       if (result.errors.length > 0) {
         toast.error({
@@ -83,12 +72,29 @@ export function CompanySyncCard() {
       });
     },
   });
+  const pullMutation = useMutation({
+    mutationFn: () =>
+      vanillaClient.sync.pull.query({
+        queueLimit: syncPreviewLimit,
+        conflictLimit: syncPreviewLimit,
+      }),
+    onSuccess: snapshot => {
+      queryClient.setQueryData(syncSnapshotQueryKey, snapshot);
+      toast.success({ title: 'Sync snapshot refreshed' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to pull sync snapshot',
+        description: getErrorMessage(error, 'Unable to pull sync snapshot'),
+      });
+    },
+  });
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, resolution }: { id: string; resolution: ConflictResolution }) =>
       vanillaClient.sync.resolve.mutate({ id, resolution }),
     onSuccess: async (_result, variables) => {
-      await refreshSyncQueries();
+      await refreshSyncSnapshot();
       setPendingResolution(null);
       toast.success({
         title: variables.resolution === 'local_wins' ? 'Conflict kept local changes' : 'Conflict accepted remote changes',
@@ -102,11 +108,10 @@ export function CompanySyncCard() {
     },
   });
 
-  const status = statusQuery.data;
-  const queueItems = queueQuery.data?.items ?? [];
-  const conflicts = conflictsQuery.data?.items ?? [];
-  const isRefreshing =
-    statusQuery.isRefetching || queueQuery.isRefetching || conflictsQuery.isRefetching;
+  const snapshot = snapshotQuery.data;
+  const queueItems = snapshot?.queue ?? [];
+  const conflicts = snapshot?.conflicts ?? [];
+  const isRefreshing = snapshotQuery.isRefetching || pullMutation.isPending;
 
   return (
     <section className="card p-6 space-y-5">
@@ -123,19 +128,12 @@ export function CompanySyncCard() {
         </div>
       </div>
 
-      {statusQuery.error && (
-        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-          {statusQuery.error.message}
-        </div>
-      )}
+      {snapshotQuery.error && <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">{snapshotQuery.error.message}</div>}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <SyncMetric label="Pending Changes" value={status?.pendingCount ?? '...'} />
-        <SyncMetric label="Conflicts" value={status?.conflictsCount ?? '...'} />
-        <SyncMetric
-          label="Last Sync"
-          value={status?.lastSyncAt ? formatDateTime(status.lastSyncAt) : 'Not yet'}
-        />
+        <SyncMetric label="Pending Changes" value={snapshot?.pendingCount ?? '...'} />
+        <SyncMetric label="Conflicts" value={snapshot?.conflictsCount ?? '...'} />
+        <SyncMetric label="Last Sync" value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : 'Not yet'} />
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -143,20 +141,25 @@ export function CompanySyncCard() {
           type="button"
           className="btn-outline flex items-center gap-2"
           disabled={isRefreshing}
-          onClick={() => {
-            void refreshSyncQueries();
-          }}
+          onClick={() => { void pullMutation.mutateAsync(); }}
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          {pullMutation.isPending ? 'Pulling...' : 'Pull Snapshot'}
+        </button>
+        <button
+          type="button"
+          className="btn-outline flex items-center gap-2"
+          disabled={isRefreshing}
+          onClick={() => { void refreshSyncSnapshot(); }}
+        >
+          <CloudDownload className="h-4 w-4" />
+          Refresh View
         </button>
         <button
           type="button"
           className="btn-primary flex items-center gap-2"
-          disabled={(status?.pendingCount ?? 0) === 0 || pushMutation.isPending}
-          onClick={() => {
-            void pushMutation.mutateAsync();
-          }}
+          disabled={(snapshot?.pendingCount ?? 0) === 0 || pushMutation.isPending}
+          onClick={() => { void pushMutation.mutateAsync(); }}
         >
           <CloudUpload className="h-4 w-4" />
           {pushMutation.isPending ? 'Processing...' : 'Process Queue'}
@@ -171,7 +174,7 @@ export function CompanySyncCard() {
           </p>
         </div>
 
-        {queueQuery.isLoading ? (
+        {snapshotQuery.isLoading ? (
           <p className="text-sm text-secondary-500">Loading queued operations...</p>
         ) : queueItems.length === 0 ? (
           <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
@@ -193,9 +196,7 @@ export function CompanySyncCard() {
                   </span>
                 </div>
                 <p className="mt-3 text-sm text-secondary-700">Entity ID: {item.entityId}</p>
-                <p className="mt-1 text-xs text-secondary-500">
-                  Queued {formatDateTime(item.createdAt)}
-                </p>
+                <p className="mt-1 text-xs text-secondary-500">Queued {formatDateTime(item.createdAt)}</p>
                 {item.lastError && <p className="mt-2 text-sm text-danger-600">{item.lastError}</p>}
               </div>
             ))}
@@ -211,7 +212,7 @@ export function CompanySyncCard() {
           </p>
         </div>
 
-        {conflictsQuery.isLoading ? (
+        {snapshotQuery.isLoading ? (
           <p className="text-sm text-secondary-500">Loading conflicts...</p>
         ) : conflicts.length === 0 ? (
           <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
@@ -231,9 +232,7 @@ export function CompanySyncCard() {
                       <p className="text-sm font-medium text-secondary-900">
                         {conflict.entityType} · {conflict.entityId}
                       </p>
-                      <p className="text-xs text-secondary-500">
-                        Created {formatDateTime(conflict.createdAt)}
-                      </p>
+                      <p className="text-xs text-secondary-500">Created {formatDateTime(conflict.createdAt)}</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <button
@@ -280,10 +279,7 @@ export function CompanySyncCard() {
         isLoading={resolveMutation.isPending}
         onClose={() => setPendingResolution(null)}
         onConfirm={() => {
-          if (!pendingResolution) {
-            return;
-          }
-
+          if (!pendingResolution) return;
           void resolveMutation.mutateAsync({
             id: pendingResolution.id,
             resolution: pendingResolution.resolution,

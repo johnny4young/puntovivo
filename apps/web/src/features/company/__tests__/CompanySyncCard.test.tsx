@@ -8,15 +8,11 @@ import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { CompanySyncCard } from '../CompanySyncCard';
 
 const {
-  statusQuery,
-  listQueueQuery,
-  listConflictsQuery,
+  pullQuery,
   pushMutation,
   resolveMutation,
 } = vi.hoisted(() => ({
-  statusQuery: vi.fn(),
-  listQueueQuery: vi.fn(),
-  listConflictsQuery: vi.fn(),
+  pullQuery: vi.fn(),
   pushMutation: vi.fn(),
   resolveMutation: vi.fn(),
 }));
@@ -24,9 +20,7 @@ const {
 vi.mock('@/lib/trpc', () => ({
   vanillaClient: {
     sync: {
-      status: { query: statusQuery },
-      listQueue: { query: listQueueQuery },
-      listConflicts: { query: listConflictsQuery },
+      pull: { query: pullQuery },
       push: { mutate: pushMutation },
       resolve: { mutate: resolveMutation },
     },
@@ -56,15 +50,13 @@ describe('CompanySyncCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    statusQuery.mockResolvedValue({
+    pullQuery.mockResolvedValue({
       pendingCount: 2,
       conflictsCount: 1,
       externalSyncEnabled: true,
       lastSyncAt: '2026-04-08T10:00:00.000Z',
       status: 'conflict',
-    });
-    listQueueQuery.mockResolvedValue({
-      items: [
+      queue: [
         {
           id: 'queue-1',
           entityType: 'products',
@@ -75,10 +67,7 @@ describe('CompanySyncCard', () => {
           lastError: null,
         },
       ],
-      count: 1,
-    });
-    listConflictsQuery.mockResolvedValue({
-      items: [
+      conflicts: [
         {
           id: 'conflict-1',
           entityType: 'products',
@@ -86,7 +75,6 @@ describe('CompanySyncCard', () => {
           createdAt: '2026-04-08T10:02:00.000Z',
         },
       ],
-      count: 1,
     });
     pushMutation.mockResolvedValue({
       success: true,
@@ -124,6 +112,19 @@ describe('CompanySyncCard', () => {
 
     await waitFor(() => {
       expect(pushMutation).toHaveBeenCalledWith({ limit: 50 });
+    });
+  });
+
+  it('pulls a fresh snapshot on demand', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(<CompanySyncCard />);
+
+    await screen.findByText(/entity id: product-1/i);
+    await user.click(screen.getByRole('button', { name: /pull snapshot/i }));
+
+    await waitFor(() => {
+      expect(pullQuery).toHaveBeenCalledTimes(2);
     });
   });
 
