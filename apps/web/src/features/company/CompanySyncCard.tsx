@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { AlertTriangle, CloudUpload, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
+import {
+  CompanySyncConflictModal,
+  type ConflictResolution,
+  type PendingResolution,
+} from '@/features/company/CompanySyncConflictModal';
 import { vanillaClient } from '@/lib/trpc';
 import { formatDateTime, getErrorMessage } from '@/lib/utils';
 
@@ -25,6 +31,7 @@ function SyncMetric({ label, value }: SyncMetricProps) {
 export function CompanySyncCard() {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
   const statusQuery = useQuery({
     queryKey: syncStatusQueryKey,
     queryFn: () => vanillaClient.sync.status.query(),
@@ -78,10 +85,11 @@ export function CompanySyncCard() {
   });
 
   const resolveMutation = useMutation({
-    mutationFn: ({ id, resolution }: { id: string; resolution: 'local_wins' | 'remote_wins' }) =>
+    mutationFn: ({ id, resolution }: { id: string; resolution: ConflictResolution }) =>
       vanillaClient.sync.resolve.mutate({ id, resolution }),
     onSuccess: async (_result, variables) => {
       await refreshSyncQueries();
+      setPendingResolution(null);
       toast.success({
         title: variables.resolution === 'local_wins' ? 'Conflict kept local changes' : 'Conflict accepted remote changes',
       });
@@ -233,8 +241,10 @@ export function CompanySyncCard() {
                         className="btn-outline"
                         disabled={resolveMutation.isPending}
                         onClick={() => {
-                          void resolveMutation.mutateAsync({
+                          setPendingResolution({
                             id: conflict.id,
+                            entityId: conflict.entityId,
+                            entityType: conflict.entityType,
                             resolution: 'local_wins',
                           });
                         }}
@@ -246,8 +256,10 @@ export function CompanySyncCard() {
                         className="btn-outline"
                         disabled={resolveMutation.isPending}
                         onClick={() => {
-                          void resolveMutation.mutateAsync({
+                          setPendingResolution({
                             id: conflict.id,
+                            entityId: conflict.entityId,
+                            entityType: conflict.entityType,
                             resolution: 'remote_wins',
                           });
                         }}
@@ -262,6 +274,22 @@ export function CompanySyncCard() {
           </div>
         )}
       </div>
+
+      <CompanySyncConflictModal
+        pendingResolution={pendingResolution}
+        isLoading={resolveMutation.isPending}
+        onClose={() => setPendingResolution(null)}
+        onConfirm={() => {
+          if (!pendingResolution) {
+            return;
+          }
+
+          void resolveMutation.mutateAsync({
+            id: pendingResolution.id,
+            resolution: pendingResolution.resolution,
+          });
+        }}
+      />
     </section>
   );
 }
