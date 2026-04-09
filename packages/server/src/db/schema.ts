@@ -29,6 +29,7 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 // TENANTS
 // ============================================================================
 
+/** A tenant is an independent business account whose operational data must remain isolated from other companies using the system. */
 export const tenants = sqliteTable(
   'tenants',
   {
@@ -71,6 +72,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
 // USERS
 // ============================================================================
 
+/** A user is an internal operator of a tenant, such as an admin, manager, or cashier, who works inside the business. */
 export const users = sqliteTable(
   'users',
   {
@@ -108,6 +110,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 // COMPANIES
 // ============================================================================
 
+/** A company is the legal or commercial entity represented by a tenant for tax, branding, and organizational purposes. */
 export const companies = sqliteTable(
   'companies',
   {
@@ -142,6 +145,7 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
 // SITES
 // ============================================================================
 
+/** A site is a physical branch, store, warehouse, or operating location where business documents and stock activity can occur. */
 export const sites = sqliteTable(
   'sites',
   {
@@ -186,6 +190,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
 // PROVIDERS
 // ============================================================================
 
+/** A provider is a supplier from whom the business purchases products or inventory. */
 export const providers = sqliteTable(
   'providers',
   {
@@ -225,6 +230,7 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
 // UNITS
 // ============================================================================
 
+/** A unit defines how products are measured or sold, such as piece, box, kilogram, or pack. */
 export const units = sqliteTable(
   'units',
   {
@@ -259,6 +265,7 @@ export const unitsRelations = relations(units, ({ one, many }) => ({
 // VAT RATES
 // ============================================================================
 
+/** A VAT rate represents the tax percentage used to price and report products and sales lines. */
 export const vatRates = sqliteTable(
   'vat_rates',
   {
@@ -290,6 +297,7 @@ export const vatRatesRelations = relations(vatRates, ({ one, many }) => ({
 // SEQUENTIALS
 // ============================================================================
 
+/** A sequential stores the next document number configuration for a site and document type such as sales, purchases, or orders. */
 export const sequentials = sqliteTable(
   'sequentials',
   {
@@ -328,6 +336,7 @@ export const sequentialsRelations = relations(sequentials, ({ one }) => ({
 // CATEGORIES
 // ============================================================================
 
+/** A category groups products for organization, filtering, reporting, and optional parent-child catalog structure. */
 export const categories = sqliteTable(
   'categories',
   {
@@ -365,6 +374,7 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 // LOCATIONS
 // ============================================================================
 
+/** A location is an internal stock placement or warehouse zone used to identify where products are stored inside the business. */
 export const locations = sqliteTable(
   'locations',
   {
@@ -441,6 +451,7 @@ export const locationXSiteRelations = relations(locationXSite, ({ one }) => ({
 // PRODUCTS
 // ============================================================================
 
+/** A product is a sellable and purchasable inventory item managed by the tenant, including pricing, stock, tax, and catalog metadata. */
 export const products = sqliteTable(
   'products',
   {
@@ -596,6 +607,7 @@ export const productXProviderRelations = relations(productXProvider, ({ one }) =
 // CUSTOMER REFERENCE CATALOGS
 // ============================================================================
 
+/** Identification types classify the tax or legal document used by a customer, such as national ID or tax ID. */
 export const identificationTypes = sqliteTable(
   'identification_types',
   {
@@ -624,6 +636,7 @@ export const identificationTypesRelations = relations(identificationTypes, ({ on
   }),
 }));
 
+/** Person types classify whether a customer is treated as a natural person or a legal entity. */
 export const personTypes = sqliteTable(
   'person_types',
   {
@@ -652,6 +665,7 @@ export const personTypesRelations = relations(personTypes, ({ one }) => ({
   }),
 }));
 
+/** Regime types classify the fiscal or tax regime assigned to a customer. */
 export const regimeTypes = sqliteTable(
   'regime_types',
   {
@@ -680,6 +694,7 @@ export const regimeTypesRelations = relations(regimeTypes, ({ one }) => ({
   }),
 }));
 
+/** Client types classify a customer commercially, such as retail or wholesale; they are attributes of customers, not separate business parties. */
 export const clientTypes = sqliteTable(
   'client_types',
   {
@@ -712,6 +727,7 @@ export const clientTypesRelations = relations(clientTypes, ({ one }) => ({
 // CUSTOMERS
 // ============================================================================
 
+/** A customer is the business party that buys from the tenant; the same real-world party may exist separately in multiple tenants. */
 export const customers = sqliteTable(
   'customers',
   {
@@ -758,6 +774,7 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
 // PURCHASES
 // ============================================================================
 
+/** A purchase records inventory that was actually received from a provider and therefore affects stock and product cost. */
 export const purchases = sqliteTable(
   'purchases',
   {
@@ -868,6 +885,7 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
 // ORDERS
 // ============================================================================
 
+/** An order records a purchase request sent to a provider before goods are received; it plans buying but does not move stock by itself. */
 export const orders = sqliteTable(
   'orders',
   {
@@ -975,6 +993,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 // SALES
 // ============================================================================
 
+/** A sale records a completed or in-progress commercial transaction through which the tenant sells products to a customer or walk-in buyer. */
 export const sales = sqliteTable(
   'sales',
   {
@@ -1074,6 +1093,7 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
 // INVENTORY MOVEMENTS
 // ============================================================================
 
+/** An inventory movement is the auditable stock ledger entry that explains why a product's quantity changed. */
 export const inventoryMovements = sqliteTable(
   'inventory_movements',
   {
@@ -1124,6 +1144,7 @@ export const inventoryMovementsRelations = relations(inventoryMovements, ({ one 
 // INITIAL INVENTORY
 // ============================================================================
 
+/** An initial inventory entry captures opening stock or physical count adjustments used to establish or reconcile stock balances. */
 export const initialInventory = sqliteTable(
   'initial_inventory',
   {
