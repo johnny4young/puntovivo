@@ -15,8 +15,39 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
+  const [isReceiveConfirmOpen, setIsReceiveConfirmOpen] = useState(false);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
+  const [receiveError, setReceiveError] = useState<string | null>(null);
+  const receiveMutation = trpc.purchases.createFromOrder.useMutation({
+    onSuccess: async purchase => {
+      await Promise.all([
+        utils.orders.list.invalidate(),
+        utils.orders.getById.invalidate({ id: orderId ?? '' }),
+        utils.purchases.list.invalidate(),
+        utils.purchases.getById.invalidate({ id: purchase.id }),
+        utils.inventory.listMovements.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
+      ]);
+      toast.success({
+        title: 'Order received into purchase',
+        description: `Created purchase ${purchase.purchaseNumber}.`,
+      });
+      setIsReceiveConfirmOpen(false);
+      setReceiveError(null);
+      onClose();
+    },
+    onError: error => {
+      const message = getErrorMessage(error, 'Unable to receive the order');
+      setReceiveError(message);
+      toast.error({
+        title: 'Unable to receive order',
+        description: message,
+      });
+    },
+  });
   const voidMutation = trpc.orders.void.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -47,12 +78,30 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
   );
 
   const order = orderQuery.data;
+  const canReceiveOrder =
+    (user?.role === 'admin' || user?.role === 'manager') && order?.status === 'submitted';
   const canVoidOrder = user?.role === 'admin' && order?.status === 'submitted';
 
   const handleClose = () => {
+    setIsReceiveConfirmOpen(false);
     setIsVoidConfirmOpen(false);
+    setReceiveError(null);
     setVoidError(null);
     onClose();
+  };
+
+  const handleReceiveOrder = async () => {
+    if (!orderId) {
+      return;
+    }
+
+    setReceiveError(null);
+
+    try {
+      await receiveMutation.mutateAsync({ orderId });
+    } catch {
+      // Error state is handled by the mutation callbacks.
+    }
   };
 
   const handleVoidOrder = async () => {
@@ -78,6 +127,15 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
         size="full"
         footer={
           <>
+            {canReceiveOrder && (
+              <ModalButton
+                onClick={() => setIsReceiveConfirmOpen(true)}
+                variant="primary"
+                disabled={receiveMutation.isPending}
+              >
+                Receive Order
+              </ModalButton>
+            )}
             {canVoidOrder && (
               <ModalButton
                 onClick={() => setIsVoidConfirmOpen(true)}
@@ -123,6 +181,13 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
                 {formatCurrency(order.total)}
               </p>
             </div>
+
+            {order.receivedPurchaseNumber && (
+              <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
+                <p className="text-xs uppercase tracking-wide text-success-700">Received Purchase</p>
+                <p className="mt-2 font-medium text-success-900">{order.receivedPurchaseNumber}</p>
+              </div>
+            )}
 
             <div className="overflow-hidden rounded-xl border border-secondary-200">
               <div className="overflow-x-auto">
@@ -175,10 +240,24 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
               </div>
             )}
 
+            {receiveError && <p className="text-sm text-danger-500">{receiveError}</p>}
             {voidError && <p className="text-sm text-danger-500">{voidError}</p>}
           </div>
         )}
       </Modal>
+
+      <ConfirmModal
+        isOpen={isReceiveConfirmOpen}
+        onClose={() => setIsReceiveConfirmOpen(false)}
+        onConfirm={() => {
+          void handleReceiveOrder();
+        }}
+        title="Receive Purchase Order"
+        message="Receiving this order will create a completed purchase, increase stock, and mark the order as received."
+        confirmText="Receive Order"
+        loading={receiveMutation.isPending}
+        variant="primary"
+      />
 
       <ConfirmModal
         isOpen={isVoidConfirmOpen}

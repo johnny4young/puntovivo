@@ -19,7 +19,7 @@ export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other']
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = ['completed', 'voided'] as const;
-export const orderStatusEnum = ['submitted', 'voided'] as const;
+export const orderStatusEnum = ['submitted', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
@@ -649,6 +649,7 @@ export const purchases = sqliteTable(
     providerId: text('provider_id')
       .notNull()
       .references(() => providers.id),
+    orderId: text('order_id').references(() => orders.id),
     siteId: text('site_id')
       .notNull()
       .references(() => sites.id),
@@ -667,9 +668,11 @@ export const purchases = sqliteTable(
   table => [
     index('idx_purchases_tenant').on(table.tenantId),
     index('idx_purchases_provider').on(table.providerId),
+    index('idx_purchases_order').on(table.orderId),
     index('idx_purchases_site').on(table.siteId),
     index('idx_purchases_created_by').on(table.createdBy),
     uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
+    uniqueIndex('idx_purchases_order_unique').on(table.orderId),
   ]
 );
 
@@ -681,6 +684,10 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   provider: one(providers, {
     fields: [purchases.providerId],
     references: [providers.id],
+  }),
+  sourceOrder: one(orders, {
+    fields: [purchases.orderId],
+    references: [orders.id],
   }),
   site: one(sites, {
     fields: [purchases.siteId],
@@ -792,6 +799,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   createdByUser: one(users, {
     fields: [orders.createdBy],
     references: [users.id],
+  }),
+  receivedPurchase: one(purchases, {
+    fields: [orders.id],
+    references: [purchases.orderId],
   }),
   items: many(orderItems),
 }));

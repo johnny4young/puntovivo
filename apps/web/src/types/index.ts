@@ -292,6 +292,8 @@ export interface Purchase {
   purchaseNumber: string;
   providerId: string;
   providerName?: string | null;
+  orderId?: string | null;
+  sourceOrderNumber?: string | null;
   siteId: string;
   siteName?: string | null;
   status: PurchaseStatus;
@@ -330,6 +332,8 @@ export interface Order {
   orderNumber: string;
   providerId: string;
   providerName?: string | null;
+  receivedPurchaseId?: string | null;
+  receivedPurchaseNumber?: string | null;
   siteId: string;
   siteName?: string | null;
   status: OrderStatus;
@@ -344,7 +348,7 @@ export interface Order {
   syncVersion?: number;
 }
 
-export type OrderStatus = 'submitted' | 'voided';
+export type OrderStatus = 'submitted' | 'received' | 'voided';
 
 export interface OrderItem {
   id: string;

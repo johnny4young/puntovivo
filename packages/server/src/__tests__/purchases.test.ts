@@ -5,6 +5,8 @@ import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   inventoryMovements,
+  orderItems,
+  orders,
   products,
   providers,
   purchaseItems,
@@ -245,6 +247,125 @@ describe('Purchases tRPC Router', () => {
     expect(loaded.items).toHaveLength(1);
     expect(loaded.providerName).toBe('Inbound Supply Co');
     expect(loaded.status).toBe('completed');
+  });
+
+  it('creates a purchase from an order and marks the order as received', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const orderId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Ordered Supply Co',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Ordered Purchase Product',
+      sku: 'PUR-ORD-001',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 3,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values([
+      {
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 10,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: nanoid(),
+        productId,
+        unitId: boxUnitId,
+        equivalence: 5,
+        price: 50,
+        isBase: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    await db.insert(orders).values({
+      id: orderId,
+      tenantId,
+      orderNumber: 'PED-900001',
+      providerId,
+      siteId,
+      status: 'submitted',
+      subtotal: 70,
+      total: 70,
+      notes: 'Supplier confirmed availability',
+      createdBy: userId,
+      syncStatus: 'pending',
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(orderItems).values({
+      id: nanoid(),
+      orderId,
+      productId,
+      quantity: 2,
+      unitId: boxUnitId,
+      unitEquivalence: 5,
+      costPerUnit: 35,
+      baseUnitCost: 7,
+      total: 70,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const result = await caller.purchases.createFromOrder({ orderId });
+
+    expect(result.status).toBe('completed');
+    expect(result.orderId).toBe(orderId);
+    expect(result.sourceOrderNumber).toBe('PED-900001');
+    expect(result.providerId).toBe(providerId);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      productId,
+      unitId: boxUnitId,
+      unitEquivalence: 5,
+      costPerUnit: 35,
+      baseUnitCost: 7,
+      total: 70,
+    });
+
+    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(updatedProduct?.stock).toBe(13);
+
+    const updatedOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
+    expect(updatedOrder?.status).toBe('received');
+
+    const linkedPurchase = await db.select().from(purchases).where(eq(purchases.id, result.id)).get();
+    expect(linkedPurchase?.orderId).toBe(orderId);
   });
 
   it('rejects purchases with an invalid product-unit assignment', async () => {

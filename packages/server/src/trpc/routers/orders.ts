@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import {
   orderItems,
   orders,
+  purchases,
   products,
   providers,
   sequentials,
@@ -198,6 +199,8 @@ async function getOrderRecord(db: Context['db'], tenantId: string, orderId: stri
       orderNumber: orders.orderNumber,
       providerId: orders.providerId,
       providerName: providers.name,
+      receivedPurchaseId: purchases.id,
+      receivedPurchaseNumber: purchases.purchaseNumber,
       siteId: orders.siteId,
       siteName: sites.name,
       status: orders.status,
@@ -212,6 +215,7 @@ async function getOrderRecord(db: Context['db'], tenantId: string, orderId: stri
     })
     .from(orders)
     .innerJoin(providers, eq(orders.providerId, providers.id))
+    .leftJoin(purchases, eq(purchases.orderId, orders.id))
     .innerJoin(sites, eq(orders.siteId, sites.id))
     .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
     .get();
@@ -266,6 +270,8 @@ export const ordersRouter = router({
           orderNumber: orders.orderNumber,
           providerId: orders.providerId,
           providerName: providers.name,
+          receivedPurchaseId: purchases.id,
+          receivedPurchaseNumber: purchases.purchaseNumber,
           siteId: orders.siteId,
           siteName: sites.name,
           status: orders.status,
@@ -280,6 +286,7 @@ export const ordersRouter = router({
         })
         .from(orders)
         .innerJoin(providers, eq(orders.providerId, providers.id))
+        .leftJoin(purchases, eq(purchases.orderId, orders.id))
         .innerJoin(sites, eq(orders.siteId, sites.id))
         .where(where)
         .orderBy(desc(orders.createdAt))
@@ -426,6 +433,13 @@ export const ordersRouter = router({
 
     if (existing.status === 'voided') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Order is already voided' });
+    }
+
+    if (existing.status === 'received') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Received orders cannot be voided',
+      });
     }
 
     const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
