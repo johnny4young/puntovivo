@@ -18,6 +18,7 @@ import {
   Package2 as AppLogo,
   Store,
   MapPinned,
+  Map,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'Sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
   { name: 'Sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
   { name: 'Locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
+  { name: 'Geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
   {
     name: 'Customer Catalogs',
     href: '/customer-catalogs',

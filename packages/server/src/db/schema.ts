@@ -48,6 +48,9 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
   companies: many(companies),
   sites: many(sites),
+  countries: many(countries),
+  departments: many(departments),
+  cities: many(cities),
   locations: many(locations),
   locationSiteAssignments: many(locationXSite),
   providers: many(providers),
@@ -187,6 +190,118 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
 }));
 
 // ============================================================================
+// COUNTRIES
+// ============================================================================
+
+/** A country is the top-level geographic catalog used to group departments and cities for business addresses. */
+export const countries = sqliteTable(
+  'countries',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_countries_tenant').on(table.tenantId),
+    uniqueIndex('idx_countries_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_countries_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const countriesRelations = relations(countries, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [countries.tenantId],
+    references: [tenants.id],
+  }),
+  departments: many(departments),
+}));
+
+// ============================================================================
+// DEPARTMENTS
+// ============================================================================
+
+/** A department is a tenant-owned geographic region or state used to organize cities and supplier addresses. */
+export const departments = sqliteTable(
+  'departments',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    countryId: text('country_id').references(() => countries.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_departments_tenant').on(table.tenantId),
+    uniqueIndex('idx_departments_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_departments_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [departments.tenantId],
+    references: [tenants.id],
+  }),
+  country: one(countries, {
+    fields: [departments.countryId],
+    references: [countries.id],
+  }),
+  cities: many(cities),
+}));
+
+// ============================================================================
+// CITIES
+// ============================================================================
+
+/** A city is a tenant-owned geographic catalog entry used by providers and other business records that need a normalized municipality. */
+export const cities = sqliteTable(
+  'cities',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    departmentId: text('department_id')
+      .notNull()
+      .references(() => departments.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_cities_tenant').on(table.tenantId),
+    index('idx_cities_department').on(table.departmentId),
+    uniqueIndex('idx_cities_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_cities_scope_name').on(table.tenantId, table.departmentId, table.name),
+  ]
+);
+
+export const citiesRelations = relations(cities, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [cities.tenantId],
+    references: [tenants.id],
+  }),
+  department: one(departments, {
+    fields: [cities.departmentId],
+    references: [departments.id],
+  }),
+  providers: many(providers),
+}));
+
+// ============================================================================
 // PROVIDERS
 // ============================================================================
 
@@ -219,6 +334,10 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [providers.tenantId],
     references: [tenants.id],
+  }),
+  city: one(cities, {
+    fields: [providers.cityId],
+    references: [cities.id],
   }),
   products: many(products),
   productAssignments: many(productXProvider),
@@ -1285,6 +1404,15 @@ export type NewCompany = typeof companies.$inferInsert;
 
 export type Site = typeof sites.$inferSelect;
 export type NewSite = typeof sites.$inferInsert;
+
+export type Country = typeof countries.$inferSelect;
+export type NewCountry = typeof countries.$inferInsert;
+
+export type Department = typeof departments.$inferSelect;
+export type NewDepartment = typeof departments.$inferInsert;
+
+export type City = typeof cities.$inferSelect;
+export type NewCity = typeof cities.$inferInsert;
 
 export type Provider = typeof providers.$inferSelect;
 export type NewProvider = typeof providers.$inferInsert;
