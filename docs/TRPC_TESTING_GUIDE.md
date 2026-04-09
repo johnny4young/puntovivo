@@ -1,147 +1,94 @@
-# Testing tRPC Endpoints - Quick Guide
+# tRPC Testing Guide
 
-## Current Baseline
+> Updated: April 9, 2026
 
-Open Yojob now uses tRPC as its primary application API. The fastest way to test behavior is:
+## Current Testing Approach
 
-- server-side router tests with `appRouter.createCaller(...)`
-- focused workspace tests with Vitest
-- manual endpoint checks against `/api/trpc` when needed
+The fastest reliable way to validate tRPC behavior in this repo is:
 
-The older “Phase 1 health-check only” guidance is obsolete.
+1. focused server Vitest suites using `appRouter.createCaller(...)`
+2. full or focused web Vitest runs
+3. web production build
+4. desktop typecheck when preload/main changes
 
 ## Prerequisites
 
 ### Node version
 
-Use Node 22+, which is required by the repo root `package.json`.
+Use Node 22+ from the repo root requirement.
 
-### Native module rebuilds
+### Native rebuilds
 
-After `npm install`, rebuild Electron native modules:
+After install:
 
 ```bash
 npx electron-rebuild -m apps/desktop
 ```
 
-If server-side tests fail after an Electron rebuild because `better-sqlite3` was compiled for the
-wrong runtime, rebuild it for Node as well:
+If server-side tests fail after an Electron rebuild:
 
 ```bash
 node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```
 
-## Running the App for Manual Checks
+## Recommended Commands
 
-### Backend only
-
-```bash
-npm run dev:server
-```
-
-### Web + backend
+### Focused server suite
 
 ```bash
-npm run dev:fullstack
+npm exec --workspace=@open-yojob/server -- vitest run sales --reporter=dot
+npm exec --workspace=@open-yojob/server -- vitest run purchases --reporter=dot
+npm exec --workspace=@open-yojob/server -- vitest run dashboard sync --reporter=dot
 ```
 
-### Desktop app
-
-```bash
-npm run dev
-```
-
-## Fast Manual Checks
-
-### Compatibility health endpoint
-
-```bash
-curl http://localhost:8090/api/health
-```
-
-### Canonical tRPC health procedure
-
-```bash
-curl http://localhost:8090/api/trpc/health.check
-```
-
-## Current Router Coverage
-
-The root router currently exposes:
-
-- `health`
-- `auth`
-- `companies`
-- `dashboard`
-- `providers`
-- `sequentials`
-- `units`
-- `vatRates`
-- `categories`
-- `products`
-- `customers`
-- `purchases`
-- `sales`
-- `inventory`
-- `sites`
-- `sync`
-- `users`
-
-Source:
-[packages/server/src/trpc/router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts)
-
-## Recommended Test Paths
-
-### 1. Focused server tests
-
-Run only the domain suite you are changing:
-
-```bash
-npm run test --workspace=@open-yojob/server -- dashboard
-npm run test --workspace=@open-yojob/server -- products
-npm run test --workspace=@open-yojob/server -- inventory
-npm run test --workspace=@open-yojob/server -- sales
-npm run test --workspace=@open-yojob/server -- purchases
-```
-
-### 2. Web regression pass
+### Full web suite
 
 ```bash
 npm run test --workspace=@open-yojob/web -- --run
 ```
 
-### 3. Web production build
+### Web production build
 
 ```bash
 npm run build --workspace=@open-yojob/web
 ```
 
-### 4. Desktop typing check when preload/main changes
+### Desktop typecheck
 
 ```bash
 npm run typecheck --workspace=@open-yojob/desktop
 ```
 
-## Server Test Pattern
+## Preferred Server Test Pattern
 
-Prefer direct router-caller tests over HTTP injection for business logic:
+Prefer direct caller tests for business logic:
 
 ```ts
 const caller = appRouter.createCaller(context);
-const result = await caller.products.list({ page: 1, perPage: 10 });
+const result = await caller.sales.summary();
 ```
 
-This keeps tests fast and focused on procedure behavior, validation, and database effects.
+Why:
 
-## Manual Authenticated Requests
+- faster than HTTP-level tests
+- easier to control tenant/user/site context
+- better for transactional business logic coverage
 
-For protected procedures:
+## Manual Request Checks
 
-1. Get a token through `auth.login`
-2. Send it as `Authorization: Bearer <token>`
-3. Include `x-site-id` when testing site-scoped behavior
+### Compatibility health
 
-Example login request:
+```bash
+curl http://localhost:8090/api/health
+```
+
+### Canonical tRPC health
+
+```bash
+curl http://localhost:8090/api/trpc/health.check
+```
+
+### Authenticated login example
 
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
@@ -149,28 +96,25 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -d '{"0":{"json":{"email":"admin@localhost","password":"<password>"}}}'
 ```
 
-## Troubleshooting
+## What to Validate for Typical Changes
 
-### Server tests fail with native module mismatch
+### Server-only change
 
-```bash
-npx electron-rebuild -m apps/desktop
-node packages/server/scripts/rebuild-better-sqlite3-node.mjs
-```
+- focused server suite
+- any directly impacted related suite
 
-### Port already in use
+### Web UI change
 
-```bash
-lsof -i :8090
-```
+- focused or full web suite
+- web build
 
-### Web build succeeds with chunk warnings
+### Desktop bridge change
 
-The current web build may still emit large-chunk warnings. Treat that as a packaging/perf follow-up,
-not an automatic test failure, unless the build exits non-zero.
+- desktop typecheck
+- impacted web suite if renderer contract changed
+- server suite if embedded-backend or sync behavior changed
 
-## Current Recommendation
+## Current Known Build Noise
 
-Use `docs/IMPLEMENTATION_STATUS.md` for roadmap status and
-`docs/TRPC_ARCHITECTURE.md` for the live transport architecture. Treat older phased migration notes
-as historical context.
+The web build still emits Vite large-chunk warnings.
+Treat that as a performance backlog item, not an automatic failure, unless the build exits with an error.
