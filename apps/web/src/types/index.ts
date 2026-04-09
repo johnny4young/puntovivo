@@ -40,6 +40,7 @@ export interface Site {
   address?: string | null;
   phone?: string | null;
   isActive: boolean;
+  assignedLocationCount?: number;
   createdAt: string;
   updatedAt: string;
 }

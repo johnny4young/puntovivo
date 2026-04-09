@@ -47,6 +47,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   companies: many(companies),
   sites: many(sites),
   locations: many(locations),
+  locationSiteAssignments: many(locationXSite),
   providers: many(providers),
   units: many(units),
   vatRates: many(vatRates),
@@ -167,6 +168,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
     fields: [sites.companyId],
     references: [companies.id],
   }),
+  locationAssignments: many(locationXSite),
   sequentials: many(sequentials),
   purchases: many(purchases),
   initialInventoryEntries: many(initialInventory),
@@ -374,10 +376,54 @@ export const locations = sqliteTable(
   ]
 );
 
-export const locationsRelations = relations(locations, ({ one }) => ({
+export const locationsRelations = relations(locations, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [locations.tenantId],
     references: [tenants.id],
+  }),
+  siteAssignments: many(locationXSite),
+}));
+
+// ============================================================================
+// LOCATION X SITE
+// ============================================================================
+
+export const locationXSite = sqliteTable(
+  'location_x_site',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_location_x_site_tenant').on(table.tenantId),
+    index('idx_location_x_site_location').on(table.locationId),
+    index('idx_location_x_site_site').on(table.siteId),
+    uniqueIndex('idx_location_x_site_scope').on(table.tenantId, table.locationId, table.siteId),
+  ]
+);
+
+export const locationXSiteRelations = relations(locationXSite, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [locationXSite.tenantId],
+    references: [tenants.id],
+  }),
+  location: one(locations, {
+    fields: [locationXSite.locationId],
+    references: [locations.id],
+  }),
+  site: one(sites, {
+    fields: [locationXSite.siteId],
+    references: [sites.id],
   }),
 }));
 
