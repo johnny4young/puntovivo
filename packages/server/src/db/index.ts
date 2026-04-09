@@ -461,6 +461,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       person_type_id TEXT,
       regime_type_id TEXT,
       client_type_id TEXT,
+      commercial_activity_id TEXT,
       notes TEXT,
       is_active INTEGER DEFAULT 1,
       sync_status TEXT DEFAULT 'pending',
@@ -470,6 +471,21 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_customers_email ON customers (email);
+
+    -- Commercial Activities
+    CREATE TABLE IF NOT EXISTS commercial_activities (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_commercial_activities_tenant ON commercial_activities (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_commercial_activities_tenant_code ON commercial_activities (tenant_id, code);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_commercial_activities_tenant_name ON commercial_activities (tenant_id, name);
 
     -- Purchases
     CREATE TABLE IF NOT EXISTS purchases (
@@ -696,6 +712,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'customers', 'person_type_id', 'person_type_id TEXT');
   ensureColumn(client, 'customers', 'regime_type_id', 'regime_type_id TEXT');
   ensureColumn(client, 'customers', 'client_type_id', 'client_type_id TEXT');
+  ensureColumn(client, 'customers', 'commercial_activity_id', 'commercial_activity_id TEXT');
   ensureColumn(client, 'purchases', 'status', "status TEXT NOT NULL DEFAULT 'completed'");
   ensureColumn(client, 'purchases', 'order_id', 'order_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');

@@ -36,6 +36,7 @@ export const createCustomerInput = z.object({
   personTypeId: z.string().optional(),
   regimeTypeId: z.string().optional(),
   clientTypeId: z.string().optional(),
+  commercialActivityId: z.string().optional(),
   notes: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -55,6 +56,7 @@ export const updateCustomerInput = z.object({
   personTypeId: z.string().nullable().optional(),
   regimeTypeId: z.string().nullable().optional(),
   clientTypeId: z.string().nullable().optional(),
+  commercialActivityId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });

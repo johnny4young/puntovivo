@@ -58,6 +58,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   personTypes: many(personTypes),
   regimeTypes: many(regimeTypes),
   clientTypes: many(clientTypes),
+  commercialActivities: many(commercialActivities),
   units: many(units),
   vatRates: many(vatRates),
   sequentials: many(sequentials),
@@ -842,6 +843,35 @@ export const clientTypesRelations = relations(clientTypes, ({ one }) => ({
   }),
 }));
 
+/** Commercial activities classify the main business or economic activity associated with a customer for fiscal and reporting use. */
+export const commercialActivities = sqliteTable(
+  'commercial_activities',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_commercial_activities_tenant').on(table.tenantId),
+    uniqueIndex('idx_commercial_activities_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_commercial_activities_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const commercialActivitiesRelations = relations(commercialActivities, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [commercialActivities.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
 // ============================================================================
 // CUSTOMERS
 // ============================================================================
@@ -867,6 +897,7 @@ export const customers = sqliteTable(
     personTypeId: text('person_type_id'),
     regimeTypeId: text('regime_type_id'),
     clientTypeId: text('client_type_id'),
+    commercialActivityId: text('commercial_activity_id'),
     notes: text('notes'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     // Sync fields
@@ -1416,6 +1447,9 @@ export type NewCity = typeof cities.$inferInsert;
 
 export type Provider = typeof providers.$inferSelect;
 export type NewProvider = typeof providers.$inferInsert;
+
+export type CommercialActivity = typeof commercialActivities.$inferSelect;
+export type NewCommercialActivity = typeof commercialActivities.$inferInsert;
 
 export type Unit = typeof units.$inferSelect;
 export type NewUnit = typeof units.$inferInsert;

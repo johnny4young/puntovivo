@@ -15,6 +15,7 @@ import * as argon2 from 'argon2';
 import type { DatabaseInstance } from './index.js';
 import {
   clientTypes,
+  commercialActivities,
   companies,
   identificationTypes,
   personTypes,
@@ -88,6 +89,11 @@ const DEFAULT_REGIME_TYPES = [
 const DEFAULT_CLIENT_TYPES = [
   { code: 'retail', name: 'Retail Customer' },
   { code: 'wholesale', name: 'Wholesale Customer' },
+] as const;
+
+const DEFAULT_COMMERCIAL_ACTIVITIES = [
+  { code: '4711', name: 'Retail Trade in General Stores' },
+  { code: '4649', name: 'Wholesale Trade in Consumer Goods' },
 ] as const;
 
 /**
@@ -254,6 +260,33 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         documentType: defaultSequential.documentType,
         prefix: defaultSequential.prefix,
         currentValue: defaultSequential.currentValue,
+        createdAt: now,
+        updatedAt: now,
+      });
+      seededAnything = true;
+    }
+  }
+
+  for (const defaultCommercialActivity of DEFAULT_COMMERCIAL_ACTIVITIES) {
+    const existingCommercialActivity = await db
+      .select()
+      .from(commercialActivities)
+      .where(
+        and(
+          eq(commercialActivities.tenantId, tenantId),
+          eq(commercialActivities.code, defaultCommercialActivity.code)
+        )
+      )
+      .get();
+
+    if (!existingCommercialActivity) {
+      await db.insert(commercialActivities).values({
+        id: nanoid(),
+        tenantId,
+        code: defaultCommercialActivity.code,
+        name: defaultCommercialActivity.name,
+        description: null,
+        isActive: true,
         createdAt: now,
         updatedAt: now,
       });
