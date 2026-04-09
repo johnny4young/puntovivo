@@ -140,7 +140,7 @@ export function VatRatesPage() {
   const [editingVatRate, setEditingVatRate] = useState<VatRate | null>(null);
   const [vatRateToDelete, setVatRateToDelete] = useState<VatRate | null>(null);
 
-  const { data, isLoading, error } = trpc.vatRates.list.useQuery({ page: 1, perPage: 50 });
+  const { data, isLoading, error, refetch } = trpc.vatRates.list.useQuery({ page: 1, perPage: 50 });
   const createMutation = trpc.vatRates.create.useMutation({
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
@@ -302,6 +302,9 @@ export function VatRatesPage() {
         searchKey="name"
         searchPlaceholder="Search VAT rates..."
         loadingMessage="Loading VAT rates..."
+        onRetry={() => {
+          void refetch();
+        }}
       />
 
       <VatRateFormModal

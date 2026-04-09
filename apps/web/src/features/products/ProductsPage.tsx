@@ -4,6 +4,7 @@ import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import {
@@ -319,7 +320,15 @@ export function ProductsPage() {
 
       <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message="Loading products..." />}
-        {productsQuery.error && <p className="py-4 text-danger-500">{productsQuery.error.message}</p>}
+        {productsQuery.error && (
+          <TableErrorState
+            title="Unable to load products"
+            message={productsQuery.error.message}
+            onRetry={() => {
+              void productsQuery.refetch();
+            }}
+          />
+        )}
         {!productsQuery.isLoading && !productsQuery.error && (
           <div className="space-y-4">
             <TableExportActions

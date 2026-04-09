@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHistoryExport';
@@ -17,6 +18,7 @@ interface PurchasesHistoryTableProps {
   purchases: Purchase[];
   isLoading: boolean;
   error: string | null;
+  onRetry: () => void;
   onView: (purchaseId: string) => void;
 }
 
@@ -24,6 +26,7 @@ export function PurchasesHistoryTable({
   purchases,
   isLoading,
   error,
+  onRetry,
   onView,
 }: PurchasesHistoryTableProps) {
   const columns = useMemo<ColumnDef<Purchase>[]>(
@@ -88,7 +91,9 @@ export function PurchasesHistoryTable({
   return (
     <div className="card p-6">
       {isLoading && <TableLoadingState message="Loading purchases..." rowCount={6} />}
-      {error && <p className="py-4 text-danger-500">{error}</p>}
+      {error && (
+        <TableErrorState title="Unable to load purchases" message={error} onRetry={onRetry} />
+      )}
       {!isLoading && !error && (
         <div className="space-y-4">
           <TableExportActions

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { Company, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
@@ -312,7 +313,15 @@ export function SitesPage() {
 
       <div className="card p-6">
         {sitesQuery.isLoading && <TableLoadingState message="Loading sites..." />}
-        {sitesQuery.error && <p className="py-4 text-danger-500">{sitesQuery.error.message}</p>}
+        {sitesQuery.error && (
+          <TableErrorState
+            title="Unable to load sites"
+            message={sitesQuery.error.message}
+            onRetry={() => {
+              void sitesQuery.refetch();
+            }}
+          />
+        )}
         {!sitesQuery.isLoading && !sitesQuery.error && (
           <DataTable
             columns={columns}

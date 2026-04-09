@@ -228,6 +228,9 @@ export function PurchasesPage() {
           purchases={purchases}
           isLoading={purchasesQuery.isLoading}
           error={purchasesQuery.error?.message ?? null}
+          onRetry={() => {
+            void purchasesQuery.refetch();
+          }}
           onView={setSelectedPurchaseId}
         />
       </div>

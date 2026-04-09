@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -493,10 +494,13 @@ interface InventoryDataPanelProps {
   activeView: InventoryView;
   movementsLoading: boolean;
   movementsError: string | null;
+  onRetryMovements: () => void;
   stockLoading: boolean;
   stockError: string | null;
+  onRetryStock: () => void;
   entriesLoading: boolean;
   entriesError: string | null;
+  onRetryEntries: () => void;
   movements: InventoryMovement[];
   stockItems: InventoryStockItem[];
   entries: InitialInventoryEntry[];
@@ -508,10 +512,13 @@ function InventoryDataPanel({
   activeView,
   movementsLoading,
   movementsError,
+  onRetryMovements,
   stockLoading,
   stockError,
+  onRetryStock,
   entriesLoading,
   entriesError,
+  onRetryEntries,
   movements,
   stockItems,
   entries,
@@ -525,7 +532,13 @@ function InventoryDataPanel({
           {movementsLoading && (
             <TableLoadingState message="Loading inventory movements..." rowCount={8} />
           )}
-          {movementsError && <p className="py-4 text-danger-500">{movementsError}</p>}
+          {movementsError && (
+            <TableErrorState
+              title="Unable to load inventory movements"
+              message={movementsError}
+              onRetry={onRetryMovements}
+            />
+          )}
           {!movementsLoading && !movementsError && (
             <div className="space-y-4">
               <TableExportActions
@@ -550,7 +563,13 @@ function InventoryDataPanel({
       {activeView === 'stock' && (
         <>
           {stockLoading && <TableLoadingState message="Loading stock balances..." rowCount={8} />}
-          {stockError && <p className="py-4 text-danger-500">{stockError}</p>}
+          {stockError && (
+            <TableErrorState
+              title="Unable to load stock balances"
+              message={stockError}
+              onRetry={onRetryStock}
+            />
+          )}
           {!stockLoading && !stockError && (
             <div className="space-y-4">
               <TableExportActions
@@ -577,7 +596,13 @@ function InventoryDataPanel({
           {entriesLoading && (
             <TableLoadingState message="Loading inventory entries..." rowCount={8} />
           )}
-          {entriesError && <p className="py-4 text-danger-500">{entriesError}</p>}
+          {entriesError && (
+            <TableErrorState
+              title="Unable to load inventory entries"
+              message={entriesError}
+              onRetry={onRetryEntries}
+            />
+          )}
           {!entriesLoading && !entriesError && (
             <div className="space-y-4">
               <TableExportActions
@@ -799,10 +824,19 @@ export function InventoryPage() {
         activeView={activeView}
         movementsLoading={movementsQuery.isLoading}
         movementsError={movementsQuery.error?.message ?? null}
+        onRetryMovements={() => {
+          void movementsQuery.refetch();
+        }}
         stockLoading={stockQuery.isLoading}
         stockError={stockQuery.error?.message ?? null}
+        onRetryStock={() => {
+          void stockQuery.refetch();
+        }}
         entriesLoading={entriesQuery.isLoading}
         entriesError={entriesQuery.error?.message ?? null}
+        onRetryEntries={() => {
+          void entriesQuery.refetch();
+        }}
         movements={movements}
         stockItems={stockItems}
         entries={entries}
