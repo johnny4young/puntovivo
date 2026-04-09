@@ -19,6 +19,7 @@ import { vatRatesRouter } from './routers/vatRates.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales.js';
 import { inventoryRouter } from './routers/inventory.js';
+import { locationsRouter } from './routers/locations.js';
 import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync.js';
 
@@ -45,6 +46,7 @@ export const appRouter = router({
   purchases: purchasesRouter,
   sales: salesRouter,
   inventory: inventoryRouter,
+  locations: locationsRouter,
   sites: sitesRouter,
   sync: syncRouter,
   users: usersRouter,

@@ -46,6 +46,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
   companies: many(companies),
   sites: many(sites),
+  locations: many(locations),
   providers: many(providers),
   units: many(units),
   vatRates: many(vatRates),
@@ -349,6 +350,38 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 }));
 
 // ============================================================================
+// LOCATIONS
+// ============================================================================
+
+export const locations = sqliteTable(
+  'locations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_locations_tenant').on(table.tenantId),
+    uniqueIndex('idx_locations_tenant_code').on(table.tenantId, table.code),
+    uniqueIndex('idx_locations_tenant_name').on(table.tenantId, table.name),
+  ]
+);
+
+export const locationsRelations = relations(locations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [locations.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// ============================================================================
 // PRODUCTS
 // ============================================================================
 
@@ -412,6 +445,10 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   provider: one(providers, {
     fields: [products.providerId],
     references: [providers.id],
+  }),
+  location: one(locations, {
+    fields: [products.locationId],
+    references: [locations.id],
   }),
   vatRate: one(vatRates, {
     fields: [products.vatRateId],

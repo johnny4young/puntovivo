@@ -59,6 +59,12 @@ const columns = (
     cell: ({ row }) => row.original.providerName ?? '-',
   },
   {
+    accessorKey: 'locationName',
+    header: 'Location',
+    size: 180,
+    cell: ({ row }) => row.original.locationName ?? '-',
+  },
+  {
     accessorKey: 'price',
     header: 'Tier 1',
     size: 110,
@@ -132,6 +138,7 @@ export function ProductsPage() {
   const productsQuery = trpc.products.list.useQuery({ page: 1, perPage: 50 });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
+  const locationsQuery = trpc.locations.list.useQuery({ page: 1, perPage: 200 });
   const unitsQuery = trpc.units.list.useQuery({ page: 1, perPage: 200 });
   const vatRatesQuery = trpc.vatRates.list.useQuery({ page: 1, perPage: 200 });
 
@@ -200,6 +207,12 @@ export function ProductsPage() {
     id: provider.id,
     name: provider.name,
   }));
+  const locations: LookupOption[] = (locationsQuery.data?.items ?? [])
+    .filter(location => location.isActive !== false)
+    .map(location => ({
+      id: location.id,
+      name: `${location.code} · ${location.name}`,
+    }));
   const units: LookupOption[] = (unitsQuery.data?.items ?? []).map(unit => ({
     id: unit.id,
     name: unit.name,
@@ -363,6 +376,7 @@ export function ProductsPage() {
         isOpen={isModalOpen}
         product={selectedProduct}
         categories={categories}
+        locations={locations}
         providers={providers}
         units={units}
         vatRates={vatRates}

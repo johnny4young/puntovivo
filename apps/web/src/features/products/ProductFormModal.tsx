@@ -146,6 +146,7 @@ interface ProductFormModalProps {
   isOpen: boolean;
   product: Product | null;
   categories: LookupOption[];
+  locations: LookupOption[];
   providers: LookupOption[];
   units: LookupOption[];
   vatRates: VatRateOption[];
@@ -172,6 +173,7 @@ export function ProductFormModal({
   isOpen,
   product,
   categories,
+  locations,
   providers,
   units,
   vatRates,
@@ -407,7 +409,14 @@ export function ProductFormModal({
                 <label htmlFor="product-location" className="label">
                   Location
                 </label>
-                <input id="product-location" className="input mt-1" {...form.register('locationId')} />
+                <select id="product-location" className="input mt-1" {...form.register('locationId')}>
+                  <option value="">No location</option>
+                  {locations.map(location => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label htmlFor="product-barcode" className="label">

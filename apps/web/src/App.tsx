@@ -10,6 +10,7 @@ import { ProvidersPage } from '@/features/providers/ProvidersPage';
 import { CategoriesPage } from '@/features/categories/CategoriesPage';
 import { SequentialsPage } from '@/features/sequentials/SequentialsPage';
 import { SitesPage } from '@/features/sites/SitesPage';
+import { LocationsPage } from '@/features/locations/LocationsPage';
 import { UnitsPage } from '@/features/units/UnitsPage';
 import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
 import { ProductsPage } from '@/features/products/ProductsPage';
@@ -77,6 +78,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={adminOnlyRoles}>
                   <SequentialsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="locations"
+              element={
+                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                  <LocationsPage />
                 </ProtectedRoute>
               }
             />

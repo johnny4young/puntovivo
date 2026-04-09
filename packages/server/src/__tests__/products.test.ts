@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { categories, providers, units, users, vatRates } from '../db/schema.js';
+import { categories, locations, providers, units, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -18,6 +18,7 @@ let inactiveProviderId: string;
 let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
+let locationId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
@@ -85,6 +86,7 @@ describe('Products tRPC Router', () => {
     }
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
+    locationId = nanoid();
 
     await db.insert(categories).values({
       id: categoryId,
@@ -140,6 +142,17 @@ describe('Products tRPC Router', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    await db.insert(locations).values({
+      id: locationId,
+      tenantId,
+      code: 'A-01',
+      name: 'Front Shelf',
+      description: 'Primary retail shelf',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   });
 
   afterAll(async () => {
@@ -156,7 +169,7 @@ describe('Products tRPC Router', () => {
       categoryId,
       providerId,
       vatRateId,
-      locationId: 'A-01',
+      locationId,
       barcode: '1234567890',
       imageUrl: null,
       cost: 100,
@@ -186,6 +199,7 @@ describe('Products tRPC Router', () => {
     expect(created.categoryName).toBe('Beverages');
     expect(created.providerName).toBe('Acme Supply');
     expect(created.vatRateName).toBe('IVA 19%');
+    expect(created.locationName).toBe('Front Shelf');
     expect(created.unitAssignments).toHaveLength(2);
     expect(created.unitAssignments.find(item => item.isBase)?.unitId).toBe(baseUnitId);
 
@@ -271,6 +285,43 @@ describe('Products tRPC Router', () => {
     expect(match?.baseUnitAbbreviation).toBe('UND');
     expect(match?.baseUnitPrice).toBe(75);
     expect(match?.unitAssignments).toHaveLength(2);
+  });
+
+  it('rejects unknown product locations', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.create({
+        name: 'Broken Location Product',
+        sku: 'BL-001',
+        description: null,
+        categoryId,
+        providerId,
+        vatRateId,
+        locationId: 'missing-location',
+        barcode: null,
+        imageUrl: null,
+        cost: 10,
+        initialCost: 10,
+        price: 12,
+        price2: 13,
+        price3: 14,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: 1,
+        minStock: 0,
+        isActive: true,
+        unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 12, isBase: true }],
+      })
+    ).rejects.toMatchObject<Partial<TRPCError>>({
+      code: 'BAD_REQUEST',
+      message: 'Selected location was not found or is inactive',
+    });
   });
 
   it('normalizes provider assignments and derives the primary provider from the assignment set', async () => {

@@ -22,6 +22,7 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   categories,
+  locations,
   products,
   productXProvider,
   providers,
@@ -74,6 +75,8 @@ const productSelection = {
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
   categoryName: categories.name,
+  locationCode: locations.code,
+  locationName: locations.name,
   providerName: providers.name,
   vatRateName: vatRates.name,
 };
@@ -281,6 +284,7 @@ async function getProductWithRelations(db: Context['db'], productId: string, ten
     .select(productSelection)
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(locations, eq(products.locationId, locations.id))
     .leftJoin(providers, eq(products.providerId, providers.id))
     .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
     .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
@@ -489,6 +493,34 @@ async function resolveTaxRate(
   };
 }
 
+async function resolveLocationId(
+  db: Context['db'],
+  tenantId: string,
+  locationId: string | null | undefined
+) {
+  if (!locationId) {
+    return null;
+  }
+
+  const location = await db
+    .select({
+      id: locations.id,
+      isActive: locations.isActive,
+    })
+    .from(locations)
+    .where(and(eq(locations.id, locationId), eq(locations.tenantId, tenantId)))
+    .get();
+
+  if (!location || location.isActive === false) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Selected location was not found or is inactive',
+    });
+  }
+
+  return location.id;
+}
+
 export const productsRouter = router({
   /**
    * List products for the current tenant with pagination and filtering
@@ -515,6 +547,7 @@ export const productsRouter = router({
         .select(productSelection)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
         .where(where)
@@ -596,6 +629,7 @@ export const productsRouter = router({
       ? await resolveProviderAssignments(ctx.db, ctx.tenantId, normalizedProviderState.providerAssignments)
       : [];
     const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
+    const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
 
     await ctx.db.insert(products).values({
       id,
@@ -617,7 +651,7 @@ export const productsRouter = router({
       taxRate: resolvedTax.taxRate,
       vatRateId: resolvedTax.vatRateId,
       providerId: normalizedProviderState?.providerId ?? null,
-      locationId: input.locationId ?? null,
+      locationId: resolvedLocationId,
       initialCost: input.initialCost,
       stock: input.stock,
       minStock: input.minStock,
@@ -650,6 +684,7 @@ export const productsRouter = router({
         taxRate: resolvedTax.taxRate,
         vatRateId: resolvedTax.vatRateId,
         providerId: normalizedProviderState?.providerId ?? null,
+        locationId: resolvedLocationId,
         providerAssignments: resolvedProviderAssignments,
         unitAssignments: resolvedUnitAssignments,
       },
@@ -728,6 +763,10 @@ export const productsRouter = router({
       updates.vatRateId !== undefined ? updates.vatRateId : existing.vatRateId,
       updates.taxRate ?? existing.taxRate
     );
+    const resolvedLocationId =
+      updates.locationId !== undefined
+        ? await resolveLocationId(ctx.db, ctx.tenantId, updates.locationId)
+        : existing.locationId;
     const updateData: Record<string, unknown> = {
       updatedAt: now,
       syncStatus: 'pending',
@@ -751,7 +790,7 @@ export const productsRouter = router({
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
     if (normalizedProviderState) updateData.providerId = normalizedProviderState.providerId;
-    if (updates.locationId !== undefined) updateData.locationId = updates.locationId;
+    if (updates.locationId !== undefined) updateData.locationId = resolvedLocationId;
     if (updates.initialCost !== undefined) updateData.initialCost = updates.initialCost;
     if (updates.stock !== undefined) updateData.stock = updates.stock;
     if (updates.minStock !== undefined) updateData.minStock = updates.minStock;
@@ -848,6 +887,7 @@ export const productsRouter = router({
       .select(productSelection)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(locations, eq(products.locationId, locations.id))
       .leftJoin(providers, eq(products.providerId, providers.id))
       .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
       .where(

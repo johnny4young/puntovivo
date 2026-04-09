@@ -84,6 +84,17 @@ export interface Provider {
   updatedAt: string;
 }
 
+export interface Location {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VatRate {
   id: string;
   tenantId: string;
@@ -139,6 +150,8 @@ export interface Product {
   vatRateId?: string | null;
   providerId?: string | null;
   locationId?: string | null;
+  locationCode?: string | null;
+  locationName?: string | null;
   initialCost: number;
   stock: number;
   minStock: number;
