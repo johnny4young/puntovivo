@@ -73,9 +73,11 @@ describe('Dashboard tRPC Router', () => {
     const productOneId = nanoid();
     const productTwoId = nanoid();
     const productThreeId = nanoid();
+    const refundedProductId = nanoid();
     const todaySaleId = nanoid();
     const weekSaleId = nanoid();
     const oldSaleId = nanoid();
+    const refundedSaleId = nanoid();
 
     await db.insert(customers).values([
       {
@@ -141,6 +143,20 @@ describe('Dashboard tRPC Router', () => {
         createdAt: thirtyFiveDaysAgoIso,
         updatedAt: todayIso,
       },
+      {
+        id: refundedProductId,
+        tenantId,
+        name: 'Refunded Product',
+        sku: 'REF-001',
+        price: 200,
+        cost: 40,
+        taxRate: 0,
+        stock: 10,
+        minStock: 1,
+        isActive: true,
+        createdAt: todayIso,
+        updatedAt: todayIso,
+      },
     ]);
 
     await db.insert(sales).values([
@@ -192,6 +208,24 @@ describe('Dashboard tRPC Router', () => {
         createdAt: thirtyFiveDaysAgoIso,
         updatedAt: thirtyFiveDaysAgoIso,
       },
+      {
+        id: refundedSaleId,
+        tenantId,
+        saleNumber: 'SALE-000080',
+        customerId,
+        subtotal: 200,
+        taxAmount: 0,
+        discountAmount: 0,
+        total: 200,
+        paymentMethod: 'cash',
+        paymentStatus: 'refunded',
+        status: 'completed',
+        createdBy: userId,
+        createdAt: new Date(
+          Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 10)
+        ).toISOString(),
+        updatedAt: todayIso,
+      },
     ]);
 
     await db.insert(saleItems).values([
@@ -230,6 +264,18 @@ describe('Dashboard tRPC Router', () => {
         taxAmount: 0,
         costAtSale: 4,
         total: 8,
+      },
+      {
+        id: nanoid(),
+        saleId: refundedSaleId,
+        productId: refundedProductId,
+        quantity: 1,
+        unitPrice: 200,
+        discount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        costAtSale: 40,
+        total: 200,
       },
     ]);
   });

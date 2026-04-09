@@ -3,9 +3,10 @@ import { Printer } from 'lucide-react';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
 import { printSaleReceipt } from '@/features/sales/receiptPrinter';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency, formatDateTime, getErrorMessage } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/utils';
 
 interface SaleDetailsModalProps {
   saleId: string | null;
@@ -19,8 +20,37 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const utils = trpc.useUtils();
   const [printError, setPrintError] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isReturnConfirmOpen, setIsReturnConfirmOpen] = useState(false);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
+  const [returnError, setReturnError] = useState<string | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
+  const returnMutation = trpc.sales.returnSale.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.sales.list.invalidate(),
+        utils.sales.summary.invalidate(),
+        utils.sales.getById.invalidate({ id: saleId ?? '' }),
+        utils.dashboard.summary.invalidate(),
+        utils.inventory.listMovements.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.products.list.invalidate(),
+        utils.products.search.invalidate(),
+      ]);
+      toast.success({ title: 'Sale refunded and stock restored' });
+      setIsReturnConfirmOpen(false);
+      setPrintError(null);
+      setReturnError(null);
+      onClose();
+    },
+    onError: error => {
+      const message = getErrorMessage(error, 'Unable to refund the sale');
+      setReturnError(message);
+      toast.error({
+        title: 'Unable to refund sale',
+        description: message,
+      });
+    },
+  });
   const voidMutation = trpc.sales.void.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -36,6 +66,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       toast.success({ title: 'Sale voided and stock restored' });
       setIsVoidConfirmOpen(false);
       setPrintError(null);
+      setReturnError(null);
       setVoidError(null);
       onClose();
     },
@@ -58,10 +89,17 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   );
 
   const sale = saleQuery.data;
-  const canVoidSale = user?.role === 'admin' && sale?.status === 'completed';
+  const canReturnSale =
+    (user?.role === 'admin' || user?.role === 'manager') &&
+    sale?.status === 'completed' &&
+    sale.paymentStatus !== 'refunded';
+  const canVoidSale =
+    user?.role === 'admin' && sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
   const handleClose = () => {
     setPrintError(null);
+    setReturnError(null);
     setVoidError(null);
+    setIsReturnConfirmOpen(false);
     setIsVoidConfirmOpen(false);
     onClose();
   };
@@ -80,6 +118,20 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       setPrintError(error instanceof Error ? error.message : 'Unable to print the receipt');
     } finally {
       setIsPrinting(false);
+    }
+  };
+
+  const handleReturnSale = async () => {
+    if (!saleId) {
+      return;
+    }
+
+    setReturnError(null);
+
+    try {
+      await returnMutation.mutateAsync({ id: saleId });
+    } catch {
+      // Error state is handled by the mutation callbacks.
     }
   };
 
@@ -106,11 +158,20 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         size="full"
         footer={
           <>
+            {canReturnSale && (
+              <ModalButton
+                onClick={() => setIsReturnConfirmOpen(true)}
+                variant="primary"
+                disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
+              >
+                Refund Sale
+              </ModalButton>
+            )}
             {canVoidSale && (
               <ModalButton
                 onClick={() => setIsVoidConfirmOpen(true)}
                 variant="danger"
-                disabled={isPrinting || voidMutation.isPending}
+                disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
                 Void Sale
               </ModalButton>
@@ -118,7 +179,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             <ModalButton
               onClick={handlePrint}
               variant="primary"
-              disabled={!sale || isPrinting || voidMutation.isPending}
+              disabled={!sale || isPrinting || returnMutation.isPending || voidMutation.isPending}
             >
               <span className="inline-flex items-center gap-2">
                 <Printer className="h-4 w-4" />
@@ -133,102 +194,27 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         {saleQuery.error && <p className="text-sm text-danger-500">{saleQuery.error.message}</p>}
 
         {sale && (
-          <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-secondary-500">Customer</p>
-                <p className="mt-2 font-medium text-secondary-900">{sale.customerName ?? 'Walk-in'}</p>
-              </div>
-              <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-secondary-500">Payment</p>
-                <p className="mt-2 font-medium capitalize text-secondary-900">{sale.paymentMethod}</p>
-                <p className="text-sm capitalize text-secondary-500">{sale.paymentStatus}</p>
-              </div>
-              <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-secondary-500">Status</p>
-                <p className="mt-2 font-medium capitalize text-secondary-900">{sale.status}</p>
-              </div>
-              <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-secondary-500">Created</p>
-                <p className="mt-2 font-medium text-secondary-900">{formatDateTime(sale.createdAt)}</p>
-              </div>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-secondary-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-secondary-200">
-                  <thead className="bg-secondary-50">
-                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                      <th className="px-4 py-3">Product</th>
-                      <th className="px-4 py-3">Quantity</th>
-                      <th className="px-4 py-3">Unit price</th>
-                      <th className="px-4 py-3">Tax</th>
-                      <th className="px-4 py-3">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-secondary-200 bg-white">
-                    {sale.items?.map(item => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-secondary-900">
-                              {item.productName ?? item.productId}
-                            </p>
-                            <p className="text-xs text-secondary-500">
-                              {item.productSku ?? 'No SKU'}
-                              {' · '}
-                              {item.unitName ?? item.unitAbbreviation ?? item.unitId ?? 'Unit'}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-secondary-700">{item.quantity}</td>
-                        <td className="px-4 py-3 text-sm text-secondary-700">
-                          {formatCurrency(item.unitPrice)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-secondary-700">
-                          {formatCurrency(item.taxAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-secondary-900">
-                          {formatCurrency(item.total)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-secondary-200 px-4 py-4">
-                <p className="text-sm text-secondary-500">Subtotal</p>
-                <p className="mt-1 text-lg font-semibold text-secondary-900">
-                  {formatCurrency(sale.subtotal)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-secondary-200 px-4 py-4">
-                <p className="text-sm text-secondary-500">VAT</p>
-                <p className="mt-1 text-lg font-semibold text-secondary-900">
-                  {formatCurrency(sale.taxAmount)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-                <p className="text-sm text-primary-700">Total</p>
-                <p className="mt-1 text-xl font-semibold text-primary-900">{formatCurrency(sale.total)}</p>
-              </div>
-            </div>
-
-            {sale.notes && (
-              <div className="rounded-xl border border-secondary-200 px-4 py-4">
-                <p className="text-sm text-secondary-500">Notes</p>
-                <p className="mt-2 text-sm text-secondary-700">{sale.notes}</p>
-              </div>
-            )}
-
-            {voidError && <p className="text-sm text-danger-500">{voidError}</p>}
-            {printError && <p className="text-sm text-danger-500">{printError}</p>}
-          </div>
+          <SaleDetailsContent
+            sale={sale}
+            returnError={returnError}
+            voidError={voidError}
+            printError={printError}
+          />
         )}
       </Modal>
+
+      <ConfirmModal
+        isOpen={isReturnConfirmOpen}
+        onClose={() => setIsReturnConfirmOpen(false)}
+        onConfirm={() => {
+          void handleReturnSale();
+        }}
+        title="Refund Sale"
+        message="Refunding this sale will restore stock for all sale items and exclude it from completed sales revenue while preserving the historical sale record."
+        confirmText="Refund Sale"
+        loading={returnMutation.isPending}
+        variant="primary"
+      />
 
       <ConfirmModal
         isOpen={isVoidConfirmOpen}

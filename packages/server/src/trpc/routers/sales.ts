@@ -4,11 +4,12 @@
  * Sales management with transactional creation.
  *
  * Procedures:
- * - sales.list      (tenant) - List sales with pagination/filtering
- * - sales.getById   (tenant) - Get a single sale with items
- * - sales.create    (tenant) - Create sale + items + inventory movements (transaction)
- * - sales.update    (tenant) - Update payment method/status/notes
- * - sales.void      (tenant, admin) - Void a sale
+ * - sales.list       (tenant) - List sales with pagination/filtering
+ * - sales.getById    (tenant) - Get a single sale with items
+ * - sales.create     (tenant) - Create sale + items + inventory movements (transaction)
+ * - sales.update     (tenant) - Update payment method/status/notes
+ * - sales.returnSale (tenant, manager/admin) - Refund a completed sale and restore stock
+ * - sales.void       (tenant, admin) - Void a sale
  *
  * @module trpc/routers/sales
  */
@@ -18,12 +19,13 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { adminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   customers,
   inventoryMovements,
   products,
   saleItems,
+  saleReturns,
   sales,
   sequentials,
   sites,
@@ -36,6 +38,7 @@ import {
   createSaleInput,
   getSaleInput,
   listSalesInput,
+  returnSaleInput,
   updateSaleInput,
   voidSaleInput,
 } from '../schemas/sales.js';
@@ -120,6 +123,22 @@ function buildVoidedSaleNotes(existingNotes: string | null, reason: string | und
   }
 
   return `${existingNotes ? `${existingNotes} | ` : ''}Voided: ${reason}`;
+}
+
+function buildReturnedSaleNotes(existingNotes: string | null, reason: string | undefined) {
+  if (!reason) {
+    return existingNotes;
+  }
+
+  return `${existingNotes ? `${existingNotes} | ` : ''}Refunded: ${reason}`;
+}
+
+function getRevenueEligibleSaleConditions(tenantId: string) {
+  return [
+    eq(sales.tenantId, tenantId),
+    eq(sales.status, 'completed'),
+    sql`${sales.paymentStatus} != 'refunded'`,
+  ] as const;
 }
 
 async function getSaleSequentialContext(
@@ -321,9 +340,14 @@ async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string
       syncVersion: sales.syncVersion,
       createdAt: sales.createdAt,
       updatedAt: sales.updatedAt,
+      returnId: saleReturns.id,
+      returnReason: saleReturns.reason,
+      refundAmount: saleReturns.refundAmount,
+      returnedAt: saleReturns.createdAt,
     })
     .from(sales)
     .leftJoin(customers, eq(sales.customerId, customers.id))
+    .leftJoin(saleReturns, eq(saleReturns.saleId, sales.id))
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
     .get();
 
@@ -367,7 +391,7 @@ export const salesRouter = router({
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
 
-    const completedSaleConditions = [eq(sales.tenantId, ctx.tenantId), eq(sales.status, 'completed')];
+    const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
 
     const [today, totals, pending] = await Promise.all([
       ctx.db
@@ -396,12 +420,7 @@ export const salesRouter = router({
           total: sql<number>`coalesce(sum(${sales.total}), 0)`,
         })
         .from(sales)
-        .where(
-          and(
-            ...completedSaleConditions,
-            eq(sales.paymentStatus, 'pending')
-          )
-        )
+        .where(and(...completedSaleConditions, eq(sales.paymentStatus, 'pending')))
         .get(),
     ]);
 
@@ -453,9 +472,14 @@ export const salesRouter = router({
           syncVersion: sales.syncVersion,
           createdAt: sales.createdAt,
           updatedAt: sales.updatedAt,
+          returnId: saleReturns.id,
+          returnReason: saleReturns.reason,
+          refundAmount: saleReturns.refundAmount,
+          returnedAt: saleReturns.createdAt,
         })
         .from(sales)
         .leftJoin(customers, eq(sales.customerId, customers.id))
+        .leftJoin(saleReturns, eq(saleReturns.saleId, sales.id))
         .where(where)
         .orderBy(desc(sales.createdAt))
         .limit(perPage)
@@ -696,6 +720,195 @@ export const salesRouter = router({
   }),
 
   /**
+   * Refund a completed sale and restore the related stock movements.
+   */
+  returnSale: managerOrAdminProcedure.input(returnSaleInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(sales)
+      .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+    }
+
+    if (existing.status === 'voided') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Voided sales cannot be refunded' });
+    }
+
+    if (existing.status !== 'completed') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Only completed sales can be refunded',
+      });
+    }
+
+    if (existing.paymentStatus === 'refunded') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Sale is already refunded',
+      });
+    }
+
+    const existingReturn = await ctx.db
+      .select({ id: saleReturns.id })
+      .from(saleReturns)
+      .where(and(eq(saleReturns.saleId, input.id), eq(saleReturns.tenantId, ctx.tenantId)))
+      .get();
+
+    if (existingReturn) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Sale already has a recorded refund',
+      });
+    }
+
+    const saleLineItems = await ctx.db
+      .select({
+        id: saleItems.id,
+        productId: saleItems.productId,
+        quantity: saleItems.quantity,
+        unitEquivalence: saleItems.unitEquivalence,
+      })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, input.id))
+      .all();
+
+    if (saleLineItems.length === 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Cannot refund a sale without line items',
+      });
+    }
+
+    const productIds = [...new Set(saleLineItems.map(item => item.productId))];
+    const currentProducts = await ctx.db
+      .select({
+        id: products.id,
+        stock: products.stock,
+      })
+      .from(products)
+      .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
+      .all();
+
+    const productStockState = new Map(currentProducts.map(product => [product.id, product.stock]));
+    const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+    const now = new Date().toISOString();
+    const refundId = nanoid();
+
+    ctx.db.transaction(tx => {
+      for (const item of saleLineItems) {
+        const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
+        const previousStock = productStockState.get(item.productId);
+
+        if (previousStock === undefined) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Product ${item.productId} was not found while refunding the sale`,
+          });
+        }
+
+        const newStock = previousStock + normalizedQuantity;
+        productStockState.set(item.productId, newStock);
+
+        tx.update(products)
+          .set({
+            stock: newStock,
+            syncStatus: 'pending',
+            syncVersion: sql`${products.syncVersion} + 1`,
+            updatedAt: now,
+          })
+          .where(eq(products.id, item.productId))
+          .run();
+
+        tx.insert(inventoryMovements)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            productId: item.productId,
+            type: 'return',
+            quantity: normalizedQuantity,
+            previousStock,
+            newStock,
+            reference: input.id,
+            notes: `Refunded sale ${existing.saleNumber}`,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+      }
+
+      tx.insert(saleReturns)
+        .values({
+          id: refundId,
+          tenantId: ctx.tenantId,
+          saleId: input.id,
+          refundAmount: existing.total,
+          reason: input.reason,
+          createdBy: ctx.user!.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      tx.update(sales)
+        .set({
+          paymentStatus: 'refunded',
+          notes: buildReturnedSaleNotes(existing.notes, input.reason),
+          updatedAt: now,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+        })
+        .where(eq(sales.id, input.id))
+        .run();
+
+      tx.insert(syncQueue)
+        .values([
+          {
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            entityType: 'sale_returns',
+            entityId: refundId,
+            operation: 'create',
+            data: {
+              id: refundId,
+              saleId: input.id,
+              refundAmount: existing.total,
+              reason: input.reason ?? null,
+            },
+            localVersion: 1,
+            attempts: 0,
+            createdAt: now,
+          },
+          {
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            entityType: 'sales',
+            entityId: input.id,
+            operation: 'update',
+            data: {
+              id: input.id,
+              paymentStatus: 'refunded',
+              reason: input.reason ?? null,
+              returnId: refundId,
+            },
+            localVersion: nextSyncVersion,
+            attempts: 0,
+            createdAt: now,
+          },
+        ])
+        .run();
+    });
+
+    return getSaleRecord(ctx.db, ctx.tenantId, input.id);
+  }),
+
+  /**
    * Void a completed sale (admin only) and reverse the related stock movements.
    */
   void: adminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
@@ -711,6 +924,13 @@ export const salesRouter = router({
 
     if (existing.status === 'voided') {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sale is already voided' });
+    }
+
+    if (existing.paymentStatus === 'refunded') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Refunded sales cannot be voided',
+      });
     }
 
     if (existing.status !== 'completed') {

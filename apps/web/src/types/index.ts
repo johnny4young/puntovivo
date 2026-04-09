@@ -231,8 +231,8 @@ export interface Product {
   providerAssignments?: ProductProviderAssignment[];
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus;
-  syncVersion?: number;
+  syncStatus?: SyncStatus | null;
+  syncVersion?: number | null;
 }
 
 export interface ProductUnitAssignment {
@@ -301,7 +301,7 @@ export interface Customer {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus;
+  syncStatus?: SyncStatus | null;
   syncVersion?: number;
 }
 
@@ -332,11 +332,15 @@ export interface Sale {
   paymentStatus: PaymentStatus;
   status: SaleStatus;
   notes?: string | null;
+  returnId?: string | null;
+  returnReason?: string | null;
+  refundAmount?: number | null;
+  returnedAt?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus;
-  syncVersion?: number;
+  syncStatus?: SyncStatus | null;
+  syncVersion?: number | null;
 }
 
 export interface SaleItem {

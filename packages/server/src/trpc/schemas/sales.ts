@@ -65,8 +65,14 @@ export const voidSaleInput = z.object({
   reason: z.string().optional(),
 });
 
+export const returnSaleInput = z.object({
+  id: z.string().min(1, 'ID is required'),
+  reason: z.string().optional(),
+});
+
 export type SaleItemInput = z.infer<typeof saleItemInput>;
 export type ListSalesInput = z.infer<typeof listSalesInput>;
 export type CreateSaleInput = z.infer<typeof createSaleInput>;
 export type UpdateSaleInput = z.infer<typeof updateSaleInput>;
 export type VoidSaleInput = z.infer<typeof voidSaleInput>;
+export type ReturnSaleInput = z.infer<typeof returnSaleInput>;
