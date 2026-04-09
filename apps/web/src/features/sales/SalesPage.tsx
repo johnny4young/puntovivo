@@ -5,6 +5,7 @@ import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
+import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import { SalesOverview } from '@/features/sales/SalesOverview';
 import {
   SalePaymentModal,
@@ -24,7 +25,6 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
 import { getErrorMessage } from '@/lib/utils';
 import type { Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
-
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
   if (values.paymentMethod === 'credit') {
     return 'pending';
@@ -63,7 +63,6 @@ export function SalesPage() {
     quantityInputRefFor,
     discountInputRefFor,
   } = useSalesInputFocus();
-
   const salesQuery = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
   const summaryQuery = trpc.sales.summary.useQuery();
   const customersQuery = trpc.customers.list.useQuery({ page: 1, perPage: 100, isActive: true });
@@ -137,6 +136,11 @@ export function SalesPage() {
     setCartItems(currentItems => currentItems.filter(item => item.key !== itemKey));
   };
 
+  const handleClearCart = () => {
+    setCartItems([]);
+    setSelectedCartItemKey(null);
+  };
+
   const handleOpenProductSearch = (initialQuery = productSearchQuery) => {
     setProductSearchInitialQuery(initialQuery.trim());
     setProductSearchDialogKey(current => current + 1);
@@ -192,7 +196,7 @@ export function SalesPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24 xl:pb-0">
         <SalesOverview
           currentSiteName={currentSite?.name ?? null}
           isSummaryLoading={summaryQuery.isLoading}
@@ -208,24 +212,21 @@ export function SalesPage() {
           productInputRef={productInputRef}
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_360px]">
-          <div className="card p-6">
-            <div className="mb-4 flex items-center justify-between">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
+          <div className="card p-5 sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-secondary-900">Current Cart</h2>
                 <p className="text-sm text-secondary-500">Adjust quantities, discounts, or remove lines before payment</p>
               </div>
               <button
                 className="btn-ghost"
-                onClick={() => {
-                  setCartItems([]);
-                  setSelectedCartItemKey(null);
-                }}
+                onClick={handleClearCart}
                 disabled={cartItems.length === 0}
-              >
-                Clear
-              </button>
-            </div>
+      >
+        Clear
+      </button>
+    </div>
             <SaleCartTable
               items={cartItems}
               selectedItemKey={activeSelectedCartItemKey}
@@ -259,6 +260,12 @@ export function SalesPage() {
         />
       </div>
 
+      <SalesMobileCheckoutBar
+        draftSummary={draftSummary}
+        canCharge={!!currentSite && cartItems.length > 0}
+        onOpenSearch={() => handleOpenProductSearch()}
+        onCharge={handleOpenPaymentModal}
+      />
       <ProductSearchDialog
         key={productSearchDialogKey}
         isOpen={isProductSearchOpen}

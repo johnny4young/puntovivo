@@ -19,13 +19,13 @@ export function SalesCheckoutPanel({
   onCharge,
 }: SalesCheckoutPanelProps) {
   return (
-    <div className="card p-6">
-      <div className="flex items-center justify-between">
+    <div className="card p-5 sm:p-6 xl:sticky xl:top-24">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-secondary-900">Checkout</h2>
           <p className="text-sm text-secondary-500">Review the VAT-inclusive sale totals before charging</p>
         </div>
-        <button className="btn-primary flex items-center gap-2" onClick={onOpenSearch}>
+        <button className="btn-primary flex items-center justify-center gap-2" onClick={onOpenSearch}>
           <Plus className="h-4 w-4" />
           Search
         </button>
@@ -72,7 +72,7 @@ export function SalesCheckoutPanel({
           <p className="mt-1 font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>
         </div>
 
-        <button className="btn-primary w-full" onClick={onCharge} disabled={!canCharge}>
+        <button className="btn-primary hidden w-full xl:block" onClick={onCharge} disabled={!canCharge}>
           Charge Sale
         </button>
       </div>
