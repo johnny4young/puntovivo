@@ -13,13 +13,39 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { companies, sequentials, sites, syncQueue } from '../../db/schema.js';
-import { createSiteInput, deleteSiteInput, listSitesInput, updateSiteInput } from '../schemas/sites.js';
+import { companies, locationXSite, locations, sequentials, sites, syncQueue } from '../../db/schema.js';
+import {
+  createSiteInput,
+  deleteSiteInput,
+  listSiteLocationAssignmentsInput,
+  listSitesInput,
+  replaceSiteLocationAssignmentsInput,
+  updateSiteInput,
+} from '../schemas/sites.js';
+
+async function ensureTenantSite(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string
+) {
+  const site = await db
+    .select()
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
+    .get();
+
+  if (!site) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+  }
+
+  return site;
+}
 
 export const sitesRouter = router({
   list: tenantProcedure.input(listSitesInput).query(async ({ ctx, input }) => {
@@ -44,8 +70,28 @@ export const sitesRouter = router({
       .orderBy(asc(sites.name))
       .all();
 
+    const siteIds = items.map(site => site.id);
+    const assignmentCounts =
+      siteIds.length > 0
+        ? await ctx.db
+            .select({
+              siteId: locationXSite.siteId,
+              count: sql<number>`count(*)`,
+            })
+            .from(locationXSite)
+            .where(and(eq(locationXSite.tenantId, ctx.tenantId), inArray(locationXSite.siteId, siteIds)))
+            .groupBy(locationXSite.siteId)
+            .all()
+        : [];
+    const assignmentCountBySiteId = new Map(
+      assignmentCounts.map(item => [item.siteId, item.count])
+    );
+
     return {
-      items,
+      items: items.map(site => ({
+        ...site,
+        assignedLocationCount: assignmentCountBySiteId.get(site.id) ?? 0,
+      })),
       activeSiteId: ctx.siteId,
     };
   }),
@@ -142,6 +188,142 @@ export const sitesRouter = router({
     return (await ctx.db.select().from(sites).where(eq(sites.id, id)).get())!;
   }),
 
+  listLocationAssignments: adminProcedure
+    .input(listSiteLocationAssignmentsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+
+      const items = await ctx.db
+        .select({
+          id: locationXSite.id,
+          locationId: locationXSite.locationId,
+          code: locations.code,
+          name: locations.name,
+          description: locations.description,
+          isActive: locations.isActive,
+          createdAt: locationXSite.createdAt,
+          updatedAt: locationXSite.updatedAt,
+        })
+        .from(locationXSite)
+        .innerJoin(locations, eq(locationXSite.locationId, locations.id))
+        .where(
+          and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.siteId, input.siteId))
+        )
+        .orderBy(asc(locations.name))
+        .all();
+
+      return {
+        items,
+        siteId: input.siteId,
+        locationIds: items.map(item => item.locationId),
+      };
+    }),
+
+  replaceLocationAssignments: adminProcedure
+    .input(replaceSiteLocationAssignmentsInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+
+      const uniqueLocationIds = [...new Set(input.locationIds)];
+      const availableLocations =
+        uniqueLocationIds.length > 0
+          ? await ctx.db
+              .select({
+                id: locations.id,
+              })
+              .from(locations)
+              .where(
+                and(
+                  eq(locations.tenantId, ctx.tenantId),
+                  inArray(locations.id, uniqueLocationIds)
+                )
+              )
+              .all()
+          : [];
+
+      if (availableLocations.length !== uniqueLocationIds.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'One or more selected locations were not found',
+        });
+      }
+
+      const existingAssignments = await ctx.db
+        .select({
+          id: locationXSite.id,
+          locationId: locationXSite.locationId,
+        })
+        .from(locationXSite)
+        .where(
+          and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.siteId, input.siteId))
+        )
+        .all();
+
+      const existingByLocationId = new Map(
+        existingAssignments.map(assignment => [assignment.locationId, assignment.id])
+      );
+      const nextLocationIds = new Set(uniqueLocationIds);
+      const removedAssignments = existingAssignments.filter(
+        assignment => !nextLocationIds.has(assignment.locationId)
+      );
+      const addedLocationIds = uniqueLocationIds.filter(
+        locationId => !existingByLocationId.has(locationId)
+      );
+
+      const now = new Date().toISOString();
+      ctx.db.transaction(tx => {
+        for (const assignment of removedAssignments) {
+          tx.delete(locationXSite).where(eq(locationXSite.id, assignment.id)).run();
+          tx.insert(syncQueue)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'location_x_site',
+              entityId: assignment.id,
+              operation: 'delete',
+              data: { id: assignment.id, siteId: input.siteId, locationId: assignment.locationId },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            })
+            .run();
+        }
+
+        for (const locationId of addedLocationIds) {
+          const assignmentId = nanoid();
+          tx.insert(locationXSite)
+            .values({
+              id: assignmentId,
+              tenantId: ctx.tenantId,
+              siteId: input.siteId,
+              locationId,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+          tx.insert(syncQueue)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'location_x_site',
+              entityId: assignmentId,
+              operation: 'create',
+              data: { id: assignmentId, siteId: input.siteId, locationId },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            })
+            .run();
+        }
+      });
+
+      return {
+        success: true,
+        siteId: input.siteId,
+        locationIds: uniqueLocationIds,
+      };
+    }),
+
   delete: adminProcedure.input(deleteSiteInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
@@ -163,6 +345,19 @@ export const sitesRouter = router({
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Site has configured sequentials. Deactivate it instead of deleting it.',
+      });
+    }
+
+    const locationAssignmentCount = await ctx.db
+      .select({ count: sql<number>`count(*)` })
+      .from(locationXSite)
+      .where(and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.siteId, input.id)))
+      .get();
+
+    if ((locationAssignmentCount?.count ?? 0) > 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Site has assigned locations. Remove them before deleting the site.',
       });
     }
 

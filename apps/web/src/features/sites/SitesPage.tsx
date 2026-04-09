@@ -1,129 +1,17 @@
 import { useState } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
-import { Building2 as Building, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { Plus } from 'lucide-react';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
-import type { Company, Site, UserRole } from '@/types';
+import { SiteFormModal, type SiteFormValues } from '@/features/sites/SiteFormModal';
+import { SiteLocationAssignmentsModal } from '@/features/sites/SiteLocationAssignmentsModal';
+import { createSiteColumns } from '@/features/sites/siteColumns';
+import type { Location, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getErrorMessage } from '@/lib/utils';
-
-interface SiteFormValues {
-  name: string;
-  address: string;
-  phone: string;
-  isActive: boolean;
-}
-
-const defaultValues: SiteFormValues = {
-  name: '',
-  address: '',
-  phone: '',
-  isActive: true,
-};
-
-function mapSiteToForm(site: Site | null): SiteFormValues {
-  if (!site) {
-    return defaultValues;
-  }
-
-  return {
-    name: site.name,
-    address: site.address ?? '',
-    phone: site.phone ?? '',
-    isActive: site.isActive,
-  };
-}
-
-interface SiteFormModalProps {
-  company: Company | null;
-  isOpen: boolean;
-  site: Site | null;
-  isSaving: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSubmit: (values: SiteFormValues) => Promise<void>;
-}
-
-function SiteFormModal({
-  company,
-  isOpen,
-  site,
-  isSaving,
-  error,
-  onClose,
-  onSubmit,
-}: SiteFormModalProps) {
-  const form = useForm<SiteFormValues>({
-    defaultValues: mapSiteToForm(site),
-  });
-
-  const handleSubmit = form.handleSubmit(onSubmit);
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={site ? 'Edit Site' : 'Create Site'}
-      footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
-          </ModalButton>
-          <ModalButton
-            variant="primary"
-            type="submit"
-            onClick={handleSubmit}
-            disabled={isSaving || !company}
-          >
-            {isSaving ? 'Saving...' : site ? 'Save Changes' : 'Create Site'}
-          </ModalButton>
-        </>
-      }
-    >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="site-name" className="label">
-            Site Name
-          </label>
-          <input
-            id="site-name"
-            className="input mt-1"
-            {...form.register('name', { required: 'Site name is required' })}
-          />
-          {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="site-address" className="label">
-            Address
-          </label>
-          <textarea id="site-address" className="input mt-1 min-h-[88px]" {...form.register('address')} />
-        </div>
-        <div>
-          <label htmlFor="site-phone" className="label">
-            Phone
-          </label>
-          <input id="site-phone" className="input mt-1" {...form.register('phone')} />
-        </div>
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
-            {...form.register('isActive')}
-          />
-          Site is active
-        </label>
-        {error && <p className="text-sm text-danger-500">{error}</p>}
-      </form>
-    </Modal>
-  );
-}
 
 function canManageSites(role: UserRole | undefined): boolean {
   return role === 'admin';
@@ -135,16 +23,26 @@ export function SitesPage() {
   const utils = trpc.useUtils();
   const companyQuery = trpc.companies.getCurrent.useQuery();
   const sitesQuery = trpc.sites.list.useQuery({ includeInactive: true });
+  const locationsQuery = trpc.locations.list.useQuery({ page: 1, perPage: 200 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
+  const [siteForLocations, setSiteForLocations] = useState<Site | null>(null);
 
   const company = companyQuery.data ?? null;
   const sites = (sitesQuery.data?.items ?? []).map(site => ({
     ...site,
     isActive: !!site.isActive,
   }));
+  const locations: Location[] = (locationsQuery.data?.items ?? []).map(location => ({
+    ...location,
+    isActive: !!location.isActive,
+  }));
   const canManage = canManageSites(user?.role);
+  const siteLocationAssignmentsQuery = trpc.sites.listLocationAssignments.useQuery(
+    { siteId: siteForLocations?.id ?? '' },
+    { enabled: !!siteForLocations?.id }
+  );
 
   const createMutation = trpc.sites.create.useMutation({
     onSuccess: async () => {
@@ -188,9 +86,31 @@ export function SitesPage() {
     },
   });
 
+  const replaceLocationsMutation = trpc.sites.replaceLocationAssignments.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.sites.list.invalidate(),
+        utils.sites.listLocationAssignments.invalidate(),
+      ]);
+      setSiteForLocations(null);
+      toast.success({ title: 'Site locations updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update site locations',
+        description: getErrorMessage(error, 'Unable to update site locations'),
+      });
+    },
+  });
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingSite(null);
+  };
+
+  const handleCloseLocationsModal = () => {
+    setSiteForLocations(null);
+    replaceLocationsMutation.reset();
   };
 
   const handleOpenCreate = () => {
@@ -201,6 +121,10 @@ export function SitesPage() {
   const handleOpenEdit = (site: Site) => {
     setEditingSite(site);
     setIsModalOpen(true);
+  };
+
+  const handleOpenLocations = (site: Site) => {
+    setSiteForLocations(site);
   };
 
   const onSubmit = async (values: SiteFormValues) => {
@@ -229,62 +153,23 @@ export function SitesPage() {
     });
   };
 
-  const columns: ColumnDef<Site>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Site',
-      size: 220,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-            <Building className="h-4 w-4 text-primary-700" />
-          </div>
-          <div>
-            <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.address || 'No address'}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'phone',
-      header: 'Phone',
-      size: 180,
-      cell: ({ row }) => row.original.phone || '-',
-    },
-    {
-      accessorKey: 'isActive',
-      header: 'Status',
-      size: 120,
-      cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      size: 90,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <button
-            className="btn-ghost btn-icon h-8 w-8"
-            onClick={() => handleOpenEdit(row.original)}
-            disabled={!canManage}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-            onClick={() => setSiteToDelete(row.original)}
-            disabled={!canManage}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const onSubmitLocations = async (locationIds: string[]) => {
+    if (!siteForLocations) {
+      return;
+    }
+
+    await replaceLocationsMutation.mutateAsync({
+      siteId: siteForLocations.id,
+      locationIds,
+    });
+  };
+
+  const columns = createSiteColumns({
+    canManage,
+    onEdit: handleOpenEdit,
+    onDelete: setSiteToDelete,
+    onManageLocations: handleOpenLocations,
+  });
 
   return (
     <div className="space-y-6">
@@ -344,6 +229,38 @@ export function SitesPage() {
         onSubmit={onSubmit}
       />
 
+      <SiteLocationAssignmentsModal
+        key={`${siteForLocations?.id ?? 'site-locations'}-${siteLocationAssignmentsQuery.data?.locationIds.join(',') ?? 'loading'}`}
+        isOpen={!!siteForLocations && !!siteLocationAssignmentsQuery.data}
+        site={siteForLocations}
+        locations={locations}
+        initialLocationIds={siteLocationAssignmentsQuery.data?.locationIds ?? []}
+        isSaving={replaceLocationsMutation.isPending}
+        error={replaceLocationsMutation.error?.message ?? null}
+        onClose={handleCloseLocationsModal}
+        onSubmit={onSubmitLocations}
+      />
+
+      <Modal
+        isOpen={!!siteForLocations && siteLocationAssignmentsQuery.isLoading}
+        onClose={handleCloseLocationsModal}
+        title={siteForLocations ? `Manage Locations for ${siteForLocations.name}` : 'Manage Site Locations'}
+        size="sm"
+      >
+        <div className="py-4 text-sm text-secondary-600">Loading location assignments...</div>
+      </Modal>
+
+      <Modal
+        isOpen={!!siteForLocations && !!siteLocationAssignmentsQuery.error}
+        onClose={handleCloseLocationsModal}
+        title={siteForLocations ? `Manage Locations for ${siteForLocations.name}` : 'Manage Site Locations'}
+        size="sm"
+      >
+        <div className="py-4 text-sm text-danger-600">
+          {siteLocationAssignmentsQuery.error?.message ?? 'Unable to load location assignments.'}
+        </div>
+      </Modal>
+
       <ConfirmModal
         isOpen={!!siteToDelete}
         onClose={() => setSiteToDelete(null)}
@@ -355,7 +272,7 @@ export function SitesPage() {
         title="Delete Site"
         message={
           siteToDelete
-            ? `Delete "${siteToDelete.name}"? Sites with sequentials cannot be deleted and should be deactivated instead.`
+            ? `Delete "${siteToDelete.name}"? Sites with sequentials or assigned locations cannot be deleted and should be cleaned up first.`
             : ''
         }
         confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete'}

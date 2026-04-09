@@ -153,6 +153,7 @@ const SYNC_ENTITY_CONFIG = {
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
+  location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },

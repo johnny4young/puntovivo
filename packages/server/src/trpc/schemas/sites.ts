@@ -29,5 +29,14 @@ export const deleteSiteInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
 
+export const listSiteLocationAssignmentsInput = z.object({
+  siteId: z.string().min(1, 'Site is required'),
+});
+
+export const replaceSiteLocationAssignmentsInput = z.object({
+  siteId: z.string().min(1, 'Site is required'),
+  locationIds: z.array(z.string().min(1)).default([]),
+});
+
 export type CreateSiteInput = z.infer<typeof createSiteInput>;
 export type UpdateSiteInput = z.infer<typeof updateSiteInput>;

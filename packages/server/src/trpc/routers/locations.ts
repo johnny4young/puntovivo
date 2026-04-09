@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { locations, products, syncQueue } from '../../db/schema.js';
+import { locationXSite, locations, products, syncQueue } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -210,6 +210,21 @@ export const locationsRouter = router({
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'This location is assigned to one or more products',
+      });
+    }
+
+    const assignedSite = await ctx.db
+      .select({ id: locationXSite.id })
+      .from(locationXSite)
+      .where(
+        and(eq(locationXSite.tenantId, ctx.tenantId), eq(locationXSite.locationId, input.id))
+      )
+      .get();
+
+    if (assignedSite) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'This location is assigned to one or more sites',
       });
     }
 

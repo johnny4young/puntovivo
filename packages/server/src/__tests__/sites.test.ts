@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { companies, sites, users } from '../db/schema.js';
+import { companies, locations, sites, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { createContext, type Context } from '../trpc/context.js';
 
@@ -12,6 +12,7 @@ let tenantId: string;
 let userId: string;
 let mainSiteId: string;
 let warehouseSiteId: string;
+let frontShelfLocationId: string;
 
 async function createTestContext(siteIdHeader?: string): Promise<Context> {
   const db = getDatabase();
@@ -78,6 +79,7 @@ describe('Sites tRPC Router', () => {
 
     mainSiteId = mainSite.id;
     warehouseSiteId = nanoid();
+    frontShelfLocationId = nanoid();
 
     await db.insert(sites).values({
       id: warehouseSiteId,
@@ -86,6 +88,17 @@ describe('Sites tRPC Router', () => {
       name: 'Warehouse',
       address: 'Warehouse address',
       phone: '1111111111',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await db.insert(locations).values({
+      id: frontShelfLocationId,
+      tenantId,
+      code: 'A-01',
+      name: 'Front Shelf',
+      description: 'Main retail shelf',
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -161,5 +174,34 @@ describe('Sites tRPC Router', () => {
 
     const removed = await caller.sites.delete({ id: created.id });
     expect(removed.success).toBe(true);
+  });
+
+  it('assigns tenant locations to a site and exposes the count in site listings', async () => {
+    const caller = appRouter.createCaller(await createTestContext());
+
+    const replaced = await caller.sites.replaceLocationAssignments({
+      siteId: warehouseSiteId,
+      locationIds: [frontShelfLocationId],
+    });
+
+    expect(replaced.success).toBe(true);
+    expect(replaced.locationIds).toEqual([frontShelfLocationId]);
+
+    const assignments = await caller.sites.listLocationAssignments({ siteId: warehouseSiteId });
+    expect(assignments.locationIds).toEqual([frontShelfLocationId]);
+    expect(assignments.items[0]?.name).toBe('Front Shelf');
+
+    const listed = await caller.sites.list({ includeInactive: true });
+    const warehouse = listed.items.find(site => site.id === warehouseSiteId);
+    expect(warehouse?.assignedLocationCount).toBe(1);
+  });
+
+  it('blocks deleting a site while it still has assigned locations', async () => {
+    const caller = appRouter.createCaller(await createTestContext());
+
+    await expect(caller.sites.delete({ id: warehouseSiteId })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Site has assigned locations. Remove them before deleting the site.',
+    });
   });
 });
