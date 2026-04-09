@@ -372,6 +372,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       tenant_id TEXT NOT NULL REFERENCES tenants(id),
       purchase_number TEXT NOT NULL,
       provider_id TEXT NOT NULL REFERENCES providers(id),
+      order_id TEXT REFERENCES orders(id),
       site_id TEXT NOT NULL REFERENCES sites(id),
       status TEXT NOT NULL DEFAULT 'completed',
       subtotal REAL NOT NULL DEFAULT 0,
@@ -385,9 +386,11 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_provider ON purchases (provider_id);
+    CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_site ON purchases (site_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_created_by ON purchases (created_by);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_tenant_number ON purchases (tenant_id, purchase_number);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id);
 
     -- Purchase Items
     CREATE TABLE IF NOT EXISTS purchase_items (
@@ -588,9 +591,12 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'customers', 'regime_type_id', 'regime_type_id TEXT');
   ensureColumn(client, 'customers', 'client_type_id', 'client_type_id TEXT');
   ensureColumn(client, 'purchases', 'status', "status TEXT NOT NULL DEFAULT 'completed'");
+  ensureColumn(client, 'purchases', 'order_id', 'order_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
+  client.exec('CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
+  client.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id)');
 }
 
 function ensureColumn(

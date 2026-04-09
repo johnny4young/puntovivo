@@ -5,6 +5,8 @@ import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   inventoryMovements,
+  orderItems,
+  orders,
   products,
   providers,
   purchaseItems,
@@ -18,6 +20,7 @@ import {
 import type { Context } from '../context.js';
 import {
   createPurchaseInput,
+  createPurchaseFromOrderInput,
   getPurchaseInput,
   listPurchasesInput,
   voidPurchaseInput,
@@ -224,6 +227,8 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
       purchaseNumber: purchases.purchaseNumber,
       providerId: purchases.providerId,
       providerName: providers.name,
+      orderId: purchases.orderId,
+      sourceOrderNumber: orders.orderNumber,
       siteId: purchases.siteId,
       siteName: sites.name,
       status: purchases.status,
@@ -238,6 +243,7 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
     })
     .from(purchases)
     .innerJoin(providers, eq(purchases.providerId, providers.id))
+    .leftJoin(orders, eq(purchases.orderId, orders.id))
     .innerJoin(sites, eq(purchases.siteId, sites.id))
     .where(and(eq(purchases.id, purchaseId), eq(purchases.tenantId, tenantId)))
     .get();
@@ -292,6 +298,8 @@ export const purchasesRouter = router({
           purchaseNumber: purchases.purchaseNumber,
           providerId: purchases.providerId,
           providerName: providers.name,
+          orderId: purchases.orderId,
+          sourceOrderNumber: orders.orderNumber,
           siteId: purchases.siteId,
           siteName: sites.name,
           status: purchases.status,
@@ -306,6 +314,7 @@ export const purchasesRouter = router({
         })
         .from(purchases)
         .innerJoin(providers, eq(purchases.providerId, providers.id))
+        .leftJoin(orders, eq(purchases.orderId, orders.id))
         .innerJoin(sites, eq(purchases.siteId, sites.id))
         .where(where)
         .orderBy(desc(purchases.createdAt))
@@ -362,6 +371,7 @@ export const purchasesRouter = router({
           tenantId: ctx.tenantId,
           purchaseNumber,
           providerId: input.providerId,
+          orderId: null,
           siteId: sequentialContext.siteId,
           status: 'completed',
           subtotal,
@@ -448,6 +458,223 @@ export const purchasesRouter = router({
 
     return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
   }),
+
+  createFromOrder: managerOrAdminProcedure
+    .input(createPurchaseFromOrderInput)
+    .mutation(async ({ ctx, input }) => {
+      const orderRecord = await ctx.db
+        .select({
+          id: orders.id,
+          providerId: orders.providerId,
+          providerName: providers.name,
+          siteId: orders.siteId,
+          siteName: sites.name,
+          orderNumber: orders.orderNumber,
+          notes: orders.notes,
+          status: orders.status,
+          syncVersion: orders.syncVersion,
+        })
+        .from(orders)
+        .innerJoin(providers, eq(orders.providerId, providers.id))
+        .innerJoin(sites, eq(orders.siteId, sites.id))
+        .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!orderRecord) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+      }
+
+      if (orderRecord.status === 'voided') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Voided orders cannot be received',
+        });
+      }
+
+      if (orderRecord.status === 'received') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order has already been received into a purchase',
+        });
+      }
+
+      const existingPurchase = await ctx.db
+        .select({ id: purchases.id })
+        .from(purchases)
+        .where(and(eq(purchases.tenantId, ctx.tenantId), eq(purchases.orderId, input.orderId)))
+        .get();
+
+      if (existingPurchase) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order already has a linked purchase',
+        });
+      }
+
+      const orderLineItems = await ctx.db
+        .select({
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          unitId: orderItems.unitId,
+          costPerUnit: orderItems.costPerUnit,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, input.orderId))
+        .all();
+
+      if (orderLineItems.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order cannot be received because it has no line items',
+        });
+      }
+
+      const now = new Date().toISOString();
+      const purchaseId = nanoid();
+      const sequentialContext = await getPurchaseSequentialContext(
+        ctx.db,
+        ctx.tenantId,
+        orderRecord.siteId
+      );
+      const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, orderLineItems);
+      const subtotal = resolvedItems.subtotal;
+      const total = subtotal;
+      const nextSequentialValue = sequentialContext.currentValue + 1;
+      const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+      const productStockState = new Map(resolvedItems.productStocks);
+      const nextOrderSyncVersion = (orderRecord.syncVersion ?? 0) + 1;
+
+      ctx.db.transaction(tx => {
+        tx.update(sequentials)
+          .set({
+            currentValue: nextSequentialValue,
+            updatedAt: now,
+          })
+          .where(eq(sequentials.id, sequentialContext.id))
+          .run();
+
+        tx.insert(purchases)
+          .values({
+            id: purchaseId,
+            tenantId: ctx.tenantId,
+            purchaseNumber,
+            providerId: orderRecord.providerId,
+            orderId: input.orderId,
+            siteId: sequentialContext.siteId,
+            status: 'completed',
+            subtotal,
+            total,
+            notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        for (const row of resolvedItems.rows) {
+          tx.insert(purchaseItems)
+            .values({
+              id: row.id,
+              purchaseId,
+              productId: row.productId,
+              quantity: row.quantity,
+              unitId: row.unitId,
+              unitEquivalence: row.unitEquivalence,
+              costPerUnit: row.costPerUnit,
+              baseUnitCost: row.baseUnitCost,
+              total: row.total,
+            })
+            .run();
+
+          const previousStock = productStockState.get(row.productId) ?? 0;
+          const newStock = previousStock + row.normalizedQuantity;
+          productStockState.set(row.productId, newStock);
+
+          tx.update(products)
+            .set({
+              stock: newStock,
+              cost: row.baseUnitCost,
+              initialCost: row.baseUnitCost,
+              syncStatus: 'pending',
+              syncVersion: sql`${products.syncVersion} + 1`,
+              updatedAt: now,
+            })
+            .where(eq(products.id, row.productId))
+            .run();
+
+          tx.insert(inventoryMovements)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              productId: row.productId,
+              type: 'purchase',
+              quantity: row.normalizedQuantity,
+              previousStock,
+              newStock,
+              reference: purchaseId,
+              notes: `Purchase ${purchaseNumber} · received from order ${orderRecord.orderNumber}`,
+              createdBy: ctx.user!.id,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+            })
+            .run();
+        }
+
+        tx.update(orders)
+          .set({
+            status: 'received',
+            updatedAt: now,
+            syncStatus: 'pending',
+            syncVersion: nextOrderSyncVersion,
+          })
+          .where(eq(orders.id, input.orderId))
+          .run();
+
+        tx.insert(syncQueue)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            entityType: 'purchases',
+            entityId: purchaseId,
+            operation: 'create',
+            data: {
+              id: purchaseId,
+              purchaseNumber,
+              providerId: orderRecord.providerId,
+              orderId: input.orderId,
+              total,
+              siteId: sequentialContext.siteId,
+            },
+            localVersion: 1,
+            attempts: 0,
+            createdAt: now,
+          })
+          .run();
+
+        tx.insert(syncQueue)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            entityType: 'orders',
+            entityId: input.orderId,
+            operation: 'update',
+            data: {
+              id: input.orderId,
+              status: 'received',
+              receivedPurchaseId: purchaseId,
+            },
+            localVersion: nextOrderSyncVersion,
+            attempts: 0,
+            createdAt: now,
+          })
+          .run();
+      });
+
+      return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
+    }),
 
   void: adminProcedure.input(voidPurchaseInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db

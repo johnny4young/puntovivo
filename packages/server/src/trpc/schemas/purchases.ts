@@ -35,6 +35,10 @@ export const createPurchaseInput = z.object({
   notes: z.string().optional(),
 });
 
+export const createPurchaseFromOrderInput = z.object({
+  orderId: z.string().min(1, 'Order is required'),
+});
+
 export const voidPurchaseInput = z.object({
   id: z.string().min(1, 'ID is required'),
   reason: z.string().optional(),
@@ -43,4 +47,5 @@ export const voidPurchaseInput = z.object({
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;
+export type CreatePurchaseFromOrderInput = z.infer<typeof createPurchaseFromOrderInput>;
 export type VoidPurchaseInput = z.infer<typeof voidPurchaseInput>;

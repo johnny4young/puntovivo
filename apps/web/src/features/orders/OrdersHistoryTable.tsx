@@ -9,6 +9,7 @@ import type { Order } from '@/types';
 
 const orderStatusClassNames: Record<Order['status'], string> = {
   submitted: 'badge-primary',
+  received: 'badge-success',
   voided: 'badge-warning',
 };
 

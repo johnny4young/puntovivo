@@ -124,6 +124,13 @@ export function PurchaseDetailsModal({
               </div>
             </div>
 
+            {purchase.sourceOrderNumber && (
+              <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
+                <p className="text-xs uppercase tracking-wide text-primary-700">Received From Order</p>
+                <p className="mt-2 font-medium text-primary-900">{purchase.sourceOrderNumber}</p>
+              </div>
+            )}
+
             <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
               <p className="text-xs uppercase tracking-wide text-primary-700">Total</p>
               <p className="mt-2 text-xl font-semibold text-primary-900">
