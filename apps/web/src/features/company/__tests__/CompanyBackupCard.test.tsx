@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
@@ -12,12 +12,10 @@ function renderWithToast(ui: ReactElement) {
 
 describe('CompanyBackupCard', () => {
   const originalElectron = window.electron;
-  const originalConfirm = window.confirm;
 
   beforeEach(() => {
     vi.restoreAllMocks();
     delete window.electron;
-    window.confirm = vi.fn(() => true);
   });
 
   afterEach(() => {
@@ -26,8 +24,6 @@ describe('CompanyBackupCard', () => {
     } else {
       delete window.electron;
     }
-
-    window.confirm = originalConfirm;
   });
 
   it('shows desktop-only messaging when Electron APIs are unavailable', () => {
@@ -102,8 +98,11 @@ describe('CompanyBackupCard', () => {
     renderWithToast(<CompanyBackupCard />);
 
     await user.click(screen.getByRole('button', { name: /restore backup/i }));
+    expect(screen.getByText(/restore database backup/i)).toBeInTheDocument();
+    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
+    await user.click(within(dialog).getByRole('button', { name: /^restore backup$/i }));
     expect(restoreDatabaseBackup).toHaveBeenCalledTimes(1);
   });
 });

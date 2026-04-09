@@ -1,5 +1,6 @@
 import { AlertTriangle, DatabaseBackup, HardDriveDownload } from 'lucide-react';
 import { useState } from 'react';
+import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -24,6 +25,7 @@ function getStatusClasses(tone: BackupStatus['tone']): string {
 
 export function CompanyBackupCard() {
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
+  const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const toast = useToast();
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
@@ -78,7 +80,7 @@ export function CompanyBackupCard() {
     }
   };
 
-  const handleRestoreBackup = async () => {
+  const handleRequestRestoreBackup = () => {
     if (!electron) {
       toast.info({ title: 'Restore is available only in the desktop app' });
       setStatus({
@@ -88,11 +90,11 @@ export function CompanyBackupCard() {
       return;
     }
 
-    const confirmed = window.confirm(
-      'Restoring a backup will replace the current local database and reload the app. Continue?'
-    );
+    setIsRestoreConfirmOpen(true);
+  };
 
-    if (!confirmed) {
+  const handleRestoreBackup = async () => {
+    if (!electron) {
       return;
     }
 
@@ -107,6 +109,7 @@ export function CompanyBackupCard() {
           tone: 'info',
           message: 'Restore was cancelled.',
         });
+        setIsRestoreConfirmOpen(false);
         return;
       }
 
@@ -119,6 +122,7 @@ export function CompanyBackupCard() {
         tone: 'success',
         message: 'Backup restored successfully. Reloading the application data...',
       });
+      setIsRestoreConfirmOpen(false);
     } catch (error) {
       toast.error({
         title: 'Database restore failed',
@@ -184,7 +188,7 @@ export function CompanyBackupCard() {
 
         <button
           type="button"
-          onClick={handleRestoreBackup}
+          onClick={handleRequestRestoreBackup}
           disabled={!isDesktop || activeAction !== null}
           className="btn-outline flex items-center justify-center gap-2"
         >
@@ -192,6 +196,19 @@ export function CompanyBackupCard() {
           {activeAction === 'restore' ? 'Restoring Backup...' : 'Restore Backup'}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={isRestoreConfirmOpen}
+        onClose={() => setIsRestoreConfirmOpen(false)}
+        onConfirm={() => {
+          void handleRestoreBackup();
+        }}
+        title="Restore Database Backup"
+        message="Restoring a backup will replace the current local database and reload the app. Continue?"
+        confirmText="Restore Backup"
+        loading={activeAction === 'restore'}
+        variant="danger"
+      />
     </section>
   );
 }
