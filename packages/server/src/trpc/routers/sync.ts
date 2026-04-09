@@ -40,6 +40,11 @@ import {
 const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 
 const syncEntityConfig = {
+  category_x_provider: {
+    tableName: 'category_x_provider',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   categories: { tableName: 'categories', supportsSyncMetadata: false, touchUpdatedAt: false },
   cities: { tableName: 'cities', supportsSyncMetadata: false, touchUpdatedAt: false },
   client_types: { tableName: 'client_types', supportsSyncMetadata: false, touchUpdatedAt: false },

@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { ConfirmModal } from '@/components/form-controls/Modal';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { ProviderCategoryAssignmentsModal } from '@/features/providers/ProviderCategoryAssignmentsModal';
 import {
   ProviderFormModal,
   type ProviderFormValues,
 } from '@/features/providers/ProviderFormModal';
-import { buildProviderColumns } from '@/features/providers/providerColumns';
+import { createProviderColumns } from '@/features/providers/providerColumns';
 import { trpc } from '@/lib/trpc';
 import { getErrorMessage } from '@/lib/utils';
-import type { City, Provider, UserRole } from '@/types';
+import type { Category, City, Provider, UserRole } from '@/types';
 
 function canManageProviders(role: UserRole | undefined): boolean {
   return role === 'admin';
@@ -25,9 +26,16 @@ export function ProvidersPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
+  const [providerForCategories, setProviderForCategories] = useState<Provider | null>(null);
 
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 50 });
   const citiesQuery = trpc.cities.list.useQuery({ page: 1, perPage: 200 });
+  const categoriesQuery = trpc.categories.tree.useQuery();
+  const providerCategoryAssignmentsQuery = trpc.providers.listCategoryAssignments.useQuery(
+    { providerId: providerForCategories?.id ?? '' },
+    { enabled: !!providerForCategories?.id }
+  );
+
   const createMutation = trpc.providers.create.useMutation({
     onSuccess: async () => {
       await utils.providers.list.invalidate();
@@ -67,6 +75,22 @@ export function ProvidersPage() {
       });
     },
   });
+  const replaceCategoriesMutation = trpc.providers.replaceCategoryAssignments.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.providers.list.invalidate(),
+        utils.providers.listCategoryAssignments.invalidate(),
+      ]);
+      setProviderForCategories(null);
+      toast.success({ title: 'Provider categories updated' });
+    },
+    onError: error => {
+      toast.error({
+        title: 'Unable to update provider categories',
+        description: getErrorMessage(error, 'Unable to update provider categories'),
+      });
+    },
+  });
 
   const canManage = canManageProviders(user?.role);
   const canDelete = user?.role === 'admin';
@@ -78,12 +102,18 @@ export function ProvidersPage() {
     ...city,
     isActive: city.isActive ?? false,
   })) as City[];
+  const categories = (categoriesQuery.data?.items ?? []) as Category[];
 
   function handleCloseModal() {
     setIsModalOpen(false);
     setEditingProvider(null);
     createMutation.reset();
     updateMutation.reset();
+  }
+
+  function handleCloseCategoryModal() {
+    setProviderForCategories(null);
+    replaceCategoriesMutation.reset();
   }
 
   function handleOpenCreate() {
@@ -96,6 +126,10 @@ export function ProvidersPage() {
     setEditingProvider(provider);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
+  }
+
+  function handleOpenCategories(provider: Provider) {
+    setProviderForCategories(provider);
   }
 
   async function handleSubmit(values: ProviderFormValues) {
@@ -129,18 +163,37 @@ export function ProvidersPage() {
     });
   }
 
+  async function handleSubmitCategories(categoryIds: string[]) {
+    if (!providerForCategories) {
+      return;
+    }
+
+    await replaceCategoriesMutation.mutateAsync({
+      providerId: providerForCategories.id,
+      categoryIds,
+    });
+  }
+
+  const columns = createProviderColumns({
+    canManage,
+    canDelete,
+    onEdit: handleOpenEdit,
+    onDelete: setProviderToDelete,
+    onManageCategories: handleOpenCategories,
+  });
+
   return (
     <>
       <ResourcePage
         title="Providers"
-        description="Manage suppliers, vendor contacts, and normalized city assignments."
+        description="Manage suppliers, vendor contacts, city assignments, and supplied category coverage."
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />
             Add Provider
           </button>
         }
-        columns={buildProviderColumns(handleOpenEdit, setProviderToDelete, canManage, canDelete)}
+        columns={columns}
         data={providers}
         isLoading={providersQuery.isLoading}
         error={providersQuery.error?.message ?? null}
@@ -163,10 +216,48 @@ export function ProvidersPage() {
         onSubmit={handleSubmit}
       />
 
+      <ProviderCategoryAssignmentsModal
+        key={`${providerForCategories?.id ?? 'provider-categories'}-${
+          providerCategoryAssignmentsQuery.data?.categoryIds.join(',') ?? 'loading'
+        }`}
+        isOpen={!!providerForCategories && !!providerCategoryAssignmentsQuery.data}
+        provider={providerForCategories}
+        categories={categories}
+        initialCategoryIds={providerCategoryAssignmentsQuery.data?.categoryIds ?? []}
+        isSaving={replaceCategoriesMutation.isPending}
+        error={replaceCategoriesMutation.error?.message ?? null}
+        onClose={handleCloseCategoryModal}
+        onSubmit={handleSubmitCategories}
+      />
+
+      <Modal
+        isOpen={!!providerForCategories && providerCategoryAssignmentsQuery.isLoading}
+        onClose={handleCloseCategoryModal}
+        title={
+          providerForCategories ? `Manage Categories for ${providerForCategories.name}` : 'Manage Provider Categories'
+        }
+        size="sm"
+      >
+        <div className="py-4 text-sm text-secondary-600">Loading provider categories...</div>
+      </Modal>
+
+      <Modal
+        isOpen={!!providerForCategories && !!providerCategoryAssignmentsQuery.error}
+        onClose={handleCloseCategoryModal}
+        title={
+          providerForCategories ? `Manage Categories for ${providerForCategories.name}` : 'Manage Provider Categories'
+        }
+        size="sm"
+      >
+        <div className="py-4 text-sm text-danger-600">
+          {providerCategoryAssignmentsQuery.error?.message ?? 'Unable to load provider categories.'}
+        </div>
+      </Modal>
+
       <ConfirmModal
         isOpen={!!providerToDelete}
         title="Delete Provider"
-        message={`Are you sure you want to delete ${providerToDelete?.name ?? 'this provider'}?`}
+        message={`Are you sure you want to delete ${providerToDelete?.name ?? 'this provider'}? Providers with assigned categories must be cleaned up first.`}
         confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete Provider'}
         cancelText="Cancel"
         loading={deleteMutation.isPending}

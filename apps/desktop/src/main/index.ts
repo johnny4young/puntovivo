@@ -146,6 +146,11 @@ const SYNC_ENTITY_TYPE_MAP: Record<string, string> = {
   inventory_movement: 'inventory_movements',
 };
 const SYNC_ENTITY_CONFIG = {
+  category_x_provider: {
+    tableName: 'category_x_provider',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   categories: { tableName: 'categories', supportsSyncMetadata: false, touchUpdatedAt: false },
   cities: { tableName: 'cities', supportsSyncMetadata: false, touchUpdatedAt: false },
   client_types: { tableName: 'client_types', supportsSyncMetadata: false, touchUpdatedAt: false },

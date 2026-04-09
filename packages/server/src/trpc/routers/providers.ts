@@ -1,35 +1,52 @@
 /**
  * Providers tRPC Router
  *
- * CRUD and search operations for suppliers/providers with tenant isolation.
- *
- * Procedures:
- * - providers.list
- * - providers.getById
- * - providers.create
- * - providers.update
- * - providers.delete
- * - providers.search
+ * CRUD, search, and category-assignment operations for suppliers/providers with tenant isolation.
  *
  * @module trpc/routers/providers
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { router } from '../init.js';
-import { tenantProcedure } from '../middleware/tenant.js';
+import type { DatabaseInstance } from '../../db/index.js';
+import {
+  categories,
+  categoryXProvider,
+  cities,
+  countries,
+  departments,
+  providers,
+  syncQueue,
+} from '../../db/schema.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { cities, countries, departments, providers, syncQueue } from '../../db/schema.js';
+import { tenantProcedure } from '../middleware/tenant.js';
+import { router } from '../init.js';
 import {
   createProviderInput,
   deleteProviderInput,
   getProviderInput,
+  listProviderCategoryAssignmentsInput,
   listProvidersInput,
+  replaceProviderCategoryAssignmentsInput,
   searchProvidersInput,
   updateProviderInput,
 } from '../schemas/providers.js';
 import { ensureCityExists } from './geography.js';
+
+async function ensureTenantProvider(db: DatabaseInstance, tenantId: string, providerId: string) {
+  const provider = await db
+    .select()
+    .from(providers)
+    .where(and(eq(providers.id, providerId), eq(providers.tenantId, tenantId)))
+    .get();
+
+  if (!provider) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Provider not found' });
+  }
+
+  return provider;
+}
 
 function buildProviderSelection() {
   return {
@@ -94,10 +111,34 @@ export const providersRouter = router({
         .get(),
     ]);
 
+    const providerIds = items.map(provider => provider.id);
+    const assignmentCounts =
+      providerIds.length > 0
+        ? await ctx.db
+            .select({
+              providerId: categoryXProvider.providerId,
+              count: sql<number>`count(*)`,
+            })
+            .from(categoryXProvider)
+            .where(
+              and(
+                eq(categoryXProvider.tenantId, ctx.tenantId),
+                inArray(categoryXProvider.providerId, providerIds)
+              )
+            )
+            .groupBy(categoryXProvider.providerId)
+            .all()
+        : [];
+    const assignmentCountByProviderId = new Map(
+      assignmentCounts.map(item => [item.providerId, item.count])
+    );
     const totalItems = countResult?.count ?? 0;
 
     return {
-      items,
+      items: items.map(provider => ({
+        ...provider,
+        assignedCategoryCount: assignmentCountByProviderId.get(provider.id) ?? 0,
+      })),
       page,
       perPage,
       totalItems,
@@ -168,16 +209,7 @@ export const providersRouter = router({
 
   update: adminProcedure.input(updateProviderInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
-
-    const existing = await ctx.db
-      .select()
-      .from(providers)
-      .where(and(eq(providers.id, id), eq(providers.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Provider not found' });
-    }
+    await ensureTenantProvider(ctx.db, ctx.tenantId, id);
 
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
@@ -221,15 +253,160 @@ export const providersRouter = router({
     return updated!;
   }),
 
+  listCategoryAssignments: adminProcedure
+    .input(listProviderCategoryAssignmentsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantProvider(ctx.db, ctx.tenantId, input.providerId);
+
+      const items = await ctx.db
+        .select({
+          id: categoryXProvider.id,
+          categoryId: categoryXProvider.categoryId,
+          name: categories.name,
+          description: categories.description,
+          parentId: categories.parentId,
+          createdAt: categoryXProvider.createdAt,
+          updatedAt: categoryXProvider.updatedAt,
+        })
+        .from(categoryXProvider)
+        .innerJoin(categories, eq(categoryXProvider.categoryId, categories.id))
+        .where(
+          and(
+            eq(categoryXProvider.tenantId, ctx.tenantId),
+            eq(categoryXProvider.providerId, input.providerId)
+          )
+        )
+        .orderBy(asc(categories.name))
+        .all();
+
+      return {
+        items,
+        providerId: input.providerId,
+        categoryIds: items.map(item => item.categoryId),
+      };
+    }),
+
+  replaceCategoryAssignments: adminProcedure
+    .input(replaceProviderCategoryAssignmentsInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantProvider(ctx.db, ctx.tenantId, input.providerId);
+
+      const uniqueCategoryIds = [...new Set(input.categoryIds)];
+      const availableCategories =
+        uniqueCategoryIds.length > 0
+          ? await ctx.db
+              .select({ id: categories.id })
+              .from(categories)
+              .where(
+                and(eq(categories.tenantId, ctx.tenantId), inArray(categories.id, uniqueCategoryIds))
+              )
+              .all()
+          : [];
+
+      if (availableCategories.length !== uniqueCategoryIds.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'One or more selected categories were not found',
+        });
+      }
+
+      const existingAssignments = await ctx.db
+        .select({
+          id: categoryXProvider.id,
+          categoryId: categoryXProvider.categoryId,
+        })
+        .from(categoryXProvider)
+        .where(
+          and(
+            eq(categoryXProvider.tenantId, ctx.tenantId),
+            eq(categoryXProvider.providerId, input.providerId)
+          )
+        )
+        .all();
+
+      const existingByCategoryId = new Map(
+        existingAssignments.map(assignment => [assignment.categoryId, assignment.id])
+      );
+      const nextCategoryIds = new Set(uniqueCategoryIds);
+      const removedAssignments = existingAssignments.filter(
+        assignment => !nextCategoryIds.has(assignment.categoryId)
+      );
+      const addedCategoryIds = uniqueCategoryIds.filter(
+        categoryId => !existingByCategoryId.has(categoryId)
+      );
+
+      const now = new Date().toISOString();
+      ctx.db.transaction(tx => {
+        for (const assignment of removedAssignments) {
+          tx.delete(categoryXProvider).where(eq(categoryXProvider.id, assignment.id)).run();
+          tx.insert(syncQueue)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'category_x_provider',
+              entityId: assignment.id,
+              operation: 'delete',
+              data: {
+                id: assignment.id,
+                providerId: input.providerId,
+                categoryId: assignment.categoryId,
+              },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            })
+            .run();
+        }
+
+        for (const categoryId of addedCategoryIds) {
+          const assignmentId = nanoid();
+          tx.insert(categoryXProvider)
+            .values({
+              id: assignmentId,
+              tenantId: ctx.tenantId,
+              providerId: input.providerId,
+              categoryId,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+          tx.insert(syncQueue)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'category_x_provider',
+              entityId: assignmentId,
+              operation: 'create',
+              data: { id: assignmentId, providerId: input.providerId, categoryId },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            })
+            .run();
+        }
+      });
+
+      return {
+        success: true,
+        providerId: input.providerId,
+        categoryIds: uniqueCategoryIds,
+      };
+    }),
+
   delete: adminProcedure.input(deleteProviderInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(providers)
-      .where(and(eq(providers.id, input.id), eq(providers.tenantId, ctx.tenantId)))
+    await ensureTenantProvider(ctx.db, ctx.tenantId, input.id);
+
+    const categoryAssignmentCount = await ctx.db
+      .select({ count: sql<number>`count(*)` })
+      .from(categoryXProvider)
+      .where(and(eq(categoryXProvider.tenantId, ctx.tenantId), eq(categoryXProvider.providerId, input.id)))
       .get();
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Provider not found' });
+    if ((categoryAssignmentCount?.count ?? 0) > 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Provider has assigned categories. Remove them before deleting the provider.',
+      });
     }
 
     await ctx.db.delete(providers).where(eq(providers.id, input.id));
@@ -264,11 +441,12 @@ export const providersRouter = router({
             like(providers.name, `%${input.q}%`),
             like(providers.email, `%${input.q}%`),
             like(providers.phone, `%${input.q}%`),
+            like(providers.taxId, `%${input.q}%`),
             like(providers.contactName, `%${input.q}%`),
             like(cities.name, `%${input.q}%`),
             like(departments.name, `%${input.q}%`),
             like(countries.name, `%${input.q}%`)
-          )
+          )!
         )
       )
       .limit(input.limit)

@@ -444,6 +444,20 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_product_x_provider_provider ON product_x_provider (provider_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_product_x_provider_scope ON product_x_provider (product_id, provider_id);
 
+    -- Category x Provider
+    CREATE TABLE IF NOT EXISTS category_x_provider (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_category_x_provider_tenant ON category_x_provider (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_category_x_provider_category ON category_x_provider (category_id);
+    CREATE INDEX IF NOT EXISTS idx_category_x_provider_provider ON category_x_provider (provider_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_category_x_provider_scope ON category_x_provider (tenant_id, category_id, provider_id);
+
     -- Customers
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
