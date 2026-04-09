@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { saleHistoryExportColumns } from '@/features/sales/saleHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -90,7 +91,7 @@ export function SalesHistoryTable({ sales, isLoading, error, onView }: SalesHist
 
   return (
     <div className="card p-6">
-      {isLoading && <p className="py-4 text-secondary-500">Loading sales...</p>}
+      {isLoading && <TableLoadingState message="Loading sales..." rowCount={6} />}
       {error && <p className="py-4 text-danger-500">{error}</p>}
       {!isLoading && !error && (
         <div className="space-y-4">

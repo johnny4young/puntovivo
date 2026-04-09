@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 
 interface ResourcePageProps<TData> {
   title: string;
@@ -42,7 +43,7 @@ export function ResourcePage<TData>({
       </div>
 
       <div className="card p-6">
-        {isLoading && <p className="py-4 text-secondary-500">{loadingMessage}</p>}
+        {isLoading && <TableLoadingState message={loadingMessage} />}
         {error && <p className="py-4 text-danger-500">{error}</p>}
         {!isLoading && !error && (
           <DataTable

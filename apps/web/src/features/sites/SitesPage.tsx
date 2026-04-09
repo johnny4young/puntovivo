@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { Company, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -310,7 +311,7 @@ export function SitesPage() {
       )}
 
       <div className="card p-6">
-        {sitesQuery.isLoading && <p className="py-4 text-secondary-500">Loading sites...</p>}
+        {sitesQuery.isLoading && <TableLoadingState message="Loading sites..." />}
         {sitesQuery.error && <p className="py-4 text-danger-500">{sitesQuery.error.message}</p>}
         {!sitesQuery.isLoading && !sitesQuery.error && (
           <DataTable

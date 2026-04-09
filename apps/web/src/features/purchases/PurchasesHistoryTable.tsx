@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
+import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -86,7 +87,7 @@ export function PurchasesHistoryTable({
 
   return (
     <div className="card p-6">
-      {isLoading && <p className="py-4 text-secondary-500">Loading purchases...</p>}
+      {isLoading && <TableLoadingState message="Loading purchases..." rowCount={6} />}
       {error && <p className="py-4 text-danger-500">{error}</p>}
       {!isLoading && !error && (
         <div className="space-y-4">
