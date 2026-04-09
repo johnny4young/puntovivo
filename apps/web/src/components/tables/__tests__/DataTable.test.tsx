@@ -51,6 +51,12 @@ function createTestProducts(count: number): Product[] {
 // ============================================================================
 
 describe('DataTable', () => {
+  function getBodyRows() {
+    const table = screen.getByRole('table');
+    const tbody = within(table).getAllByRole('rowgroup')[1];
+    return within(tbody).getAllByRole('row');
+  }
+
   describe('Rendering', () => {
     it('should render table with data', () => {
       const products = createTestProducts(3);
@@ -508,6 +514,82 @@ describe('DataTable', () => {
       // Last call should have 2 products
       const lastCall = onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1];
       expect(lastCall[0]).toHaveLength(2);
+    });
+  });
+
+  describe('Keyboard Navigation', () => {
+    it('moves focus between rows with arrow keys', async () => {
+      const user = userEvent.setup();
+      const products = createTestProducts(3);
+
+      render(<DataTable columns={columns} data={products} />);
+
+      await user.tab();
+
+      const rows = getBodyRows();
+      expect(rows[0]).toHaveFocus();
+
+      await user.keyboard('{ArrowDown}');
+      expect(rows[1]).toHaveFocus();
+
+      await user.keyboard('{ArrowUp}');
+      expect(rows[0]).toHaveFocus();
+    });
+
+    it('jumps to the first and last rows with home and end', async () => {
+      const user = userEvent.setup();
+      const products = createTestProducts(4);
+
+      render(<DataTable columns={columns} data={products} />);
+
+      await user.tab();
+
+      const rows = getBodyRows();
+      expect(rows[0]).toHaveFocus();
+
+      await user.keyboard('{End}');
+      expect(rows[3]).toHaveFocus();
+
+      await user.keyboard('{Home}');
+      expect(rows[0]).toHaveFocus();
+    });
+
+    it('toggles row selection with the keyboard when selection is enabled', async () => {
+      const user = userEvent.setup();
+      const selectionColumns: ColumnDef<Product, unknown>[] = [
+        {
+          id: 'select',
+          header: ({ table }) => (
+            <input
+              type="checkbox"
+              checked={table.getIsAllPageRowsSelected()}
+              onChange={table.getToggleAllPageRowsSelectedHandler()}
+              aria-label="Select all"
+            />
+          ),
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              checked={row.getIsSelected()}
+              onChange={row.getToggleSelectedHandler()}
+              aria-label={`Select row ${row.index + 1}`}
+            />
+          ),
+          enableSorting: false,
+        },
+        ...columns,
+      ];
+
+      render(<DataTable columns={selectionColumns} data={createTestProducts(3)} enableRowSelection />);
+
+      const rows = getBodyRows();
+      rows[0].focus();
+      expect(rows[0]).toHaveFocus();
+
+      await user.keyboard('{Space}');
+
+      expect(screen.getByText('1 selected')).toBeInTheDocument();
+      expect(rows[0]).toHaveAttribute('aria-selected', 'true');
     });
   });
 });
