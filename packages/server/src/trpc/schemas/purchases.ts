@@ -9,7 +9,7 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
-export const purchaseStatusEnum = z.enum(['completed', 'voided']);
+export const purchaseStatusEnum = z.enum(['completed', 'partial_returned', 'returned', 'voided']);
 
 export const purchaseItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
@@ -44,8 +44,21 @@ export const voidPurchaseInput = z.object({
   reason: z.string().optional(),
 });
 
+export const returnPurchaseItemInput = z.object({
+  purchaseItemId: z.string().min(1, 'Purchase item ID is required'),
+  quantity: z.number().int().min(1, 'Return quantity must be at least 1'),
+});
+
+export const returnPurchaseInput = z.object({
+  id: z.string().min(1, 'ID is required'),
+  items: z.array(returnPurchaseItemInput).min(1, 'At least one return item is required'),
+  reason: z.string().optional(),
+});
+
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;
 export type CreatePurchaseFromOrderInput = z.infer<typeof createPurchaseFromOrderInput>;
 export type VoidPurchaseInput = z.infer<typeof voidPurchaseInput>;
+export type ReturnPurchaseItemInput = z.infer<typeof returnPurchaseItemInput>;
+export type ReturnPurchaseInput = z.infer<typeof returnPurchaseInput>;

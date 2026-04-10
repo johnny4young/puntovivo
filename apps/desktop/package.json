@@ -6,7 +6,7 @@
   "description": "Open Yojob Desktop Application - POS Solutions",
   "main": ".vite/build/index.cjs",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "npm run rebuild && electron-forge start",
     "dev": "npm run rebuild && electron-forge start",
     "dev:debug": "npm run rebuild && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect=5858",
     "dev:debug-brk": "npm run rebuild && ELECTRON_ENABLE_LOGGING=1 electron-forge start -- --inspect-brk=5858",

@@ -11,6 +11,8 @@ import type { Purchase } from '@/types';
 
 const purchaseStatusClassNames: Record<Purchase['status'], string> = {
   completed: 'badge-success',
+  partial_returned: 'badge-primary',
+  returned: 'badge-danger',
   voided: 'badge-warning',
 };
 
@@ -65,7 +67,7 @@ export function PurchasesHistoryTable({
         size: 120,
         cell: ({ row }) => (
           <span className={purchaseStatusClassNames[row.original.status]}>
-            {row.original.status}
+            {row.original.status.replace(/_/g, ' ')}
           </span>
         ),
       },

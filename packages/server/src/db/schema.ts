@@ -18,7 +18,7 @@ export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as cons
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
-export const purchaseStatusEnum = ['completed', 'voided'] as const;
+export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
 export const orderStatusEnum = ['submitted', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
@@ -68,6 +68,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   categoryProviderAssignments: many(categoryXProvider),
   customers: many(customers),
   purchases: many(purchases),
+  purchaseReturns: many(purchaseReturns),
   orders: many(orders),
   sales: many(sales),
   saleReturns: many(saleReturns),
@@ -107,6 +108,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [tenants.id],
   }),
   purchases: many(purchases),
+  purchaseReturns: many(purchaseReturns),
   orders: many(orders),
   sales: many(sales),
   saleReturns: many(saleReturns),
@@ -1072,6 +1074,7 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(purchaseItems),
+  returns: many(purchaseReturns),
 }));
 
 // ============================================================================
@@ -1103,7 +1106,7 @@ export const purchaseItems = sqliteTable(
   ]
 );
 
-export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
+export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) => ({
   purchase: one(purchases, {
     fields: [purchaseItems.purchaseId],
     references: [purchases.id],
@@ -1114,6 +1117,107 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
   }),
   unit: one(units, {
     fields: [purchaseItems.unitId],
+    references: [units.id],
+  }),
+  returnItems: many(purchaseReturnItems),
+}));
+
+// ============================================================================
+// PURCHASE RETURNS
+// ============================================================================
+
+/** A purchase return records goods sent back to a provider after receipt, reducing stock while preserving the original purchase as history. */
+export const purchaseReturns = sqliteTable(
+  'purchase_returns',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id, { onDelete: 'cascade' }),
+    returnAmount: real('return_amount').notNull().default(0),
+    reason: text('reason'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_purchase_returns_tenant').on(table.tenantId),
+    index('idx_purchase_returns_purchase').on(table.purchaseId),
+    index('idx_purchase_returns_created_by').on(table.createdBy),
+  ]
+);
+
+export const purchaseReturnsRelations = relations(purchaseReturns, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [purchaseReturns.tenantId],
+    references: [tenants.id],
+  }),
+  purchase: one(purchases, {
+    fields: [purchaseReturns.purchaseId],
+    references: [purchases.id],
+  }),
+  createdByUser: one(users, {
+    fields: [purchaseReturns.createdBy],
+    references: [users.id],
+  }),
+  items: many(purchaseReturnItems),
+}));
+
+// ============================================================================
+// PURCHASE RETURN ITEMS
+// ============================================================================
+
+export const purchaseReturnItems = sqliteTable(
+  'purchase_return_items',
+  {
+    id: text('id').primaryKey(),
+    purchaseReturnId: text('purchase_return_id')
+      .notNull()
+      .references(() => purchaseReturns.id, { onDelete: 'cascade' }),
+    purchaseItemId: text('purchase_item_id')
+      .notNull()
+      .references(() => purchaseItems.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: integer('quantity').notNull().default(1),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    unitEquivalence: real('unit_equivalence').notNull().default(1),
+    costPerUnit: real('cost_per_unit').notNull().default(0),
+    baseUnitCost: real('base_unit_cost').notNull().default(0),
+    total: real('total').notNull().default(0),
+  },
+  table => [
+    index('idx_purchase_return_items_return').on(table.purchaseReturnId),
+    index('idx_purchase_return_items_purchase_item').on(table.purchaseItemId),
+    index('idx_purchase_return_items_product').on(table.productId),
+  ]
+);
+
+export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ one }) => ({
+  purchaseReturn: one(purchaseReturns, {
+    fields: [purchaseReturnItems.purchaseReturnId],
+    references: [purchaseReturns.id],
+  }),
+  purchaseItem: one(purchaseItems, {
+    fields: [purchaseReturnItems.purchaseItemId],
+    references: [purchaseItems.id],
+  }),
+  product: one(products, {
+    fields: [purchaseReturnItems.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [purchaseReturnItems.unitId],
     references: [units.id],
   }),
 }));
@@ -1622,6 +1726,12 @@ export type NewPurchase = typeof purchases.$inferInsert;
 
 export type PurchaseItem = typeof purchaseItems.$inferSelect;
 export type NewPurchaseItem = typeof purchaseItems.$inferInsert;
+
+export type PurchaseReturn = typeof purchaseReturns.$inferSelect;
+export type NewPurchaseReturn = typeof purchaseReturns.$inferInsert;
+
+export type PurchaseReturnItem = typeof purchaseReturnItems.$inferSelect;
+export type NewPurchaseReturnItem = typeof purchaseReturnItems.$inferInsert;
 
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;

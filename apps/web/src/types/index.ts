@@ -379,21 +379,55 @@ export interface Purchase {
   siteName?: string | null;
   status: PurchaseStatus;
   items?: PurchaseItem[];
+  returnedAmount?: number | null;
+  returnedAt?: string | null;
+  returnCount?: number;
+  returns?: PurchaseReturn[];
   subtotal: number;
   total: number;
   notes?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus;
-  syncVersion?: number;
+  syncStatus?: SyncStatus | null;
+  syncVersion?: number | null;
 }
 
-export type PurchaseStatus = 'completed' | 'voided';
+export type PurchaseStatus = 'completed' | 'partial_returned' | 'returned' | 'voided';
 
 export interface PurchaseItem {
   id: string;
   purchaseId: string;
+  productId: string;
+  productName?: string | null;
+  productSku?: string | null;
+  quantity: number;
+  unitId: string;
+  unitEquivalence: number;
+  unitName?: string | null;
+  unitAbbreviation?: string | null;
+  costPerUnit: number;
+  baseUnitCost: number;
+  total: number;
+  returnedQuantity?: number;
+  remainingQuantity?: number;
+}
+
+export interface PurchaseReturn {
+  id: string;
+  purchaseId: string;
+  returnAmount: number;
+  reason?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: PurchaseReturnItem[];
+}
+
+export interface PurchaseReturnItem {
+  id: string;
+  purchaseReturnId: string;
+  purchaseItemId: string;
   productId: string;
   productName?: string | null;
   productSku?: string | null;

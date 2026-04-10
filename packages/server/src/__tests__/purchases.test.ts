@@ -10,6 +10,8 @@ import {
   products,
   providers,
   purchaseItems,
+  purchaseReturnItems,
+  purchaseReturns,
   purchases,
   sequentials,
   sites,
@@ -436,6 +438,256 @@ describe('Purchases tRPC Router', () => {
 
     const count = await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all();
     expect(count).toHaveLength(0);
+  });
+
+  it('returns selected purchase quantities, reduces stock, and marks the purchase as partially returned', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Returnable Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Returnable Purchase Product',
+      sku: 'PUR-RET-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 8,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const created = await caller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 5,
+          costPerUnit: 9,
+        },
+      ],
+    });
+
+    const [lineItem] = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, created.id))
+      .all();
+
+    expect(lineItem).toBeDefined();
+
+    const returned = await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [
+        {
+          purchaseItemId: lineItem!.id,
+          quantity: 2,
+        },
+      ],
+      reason: 'Damaged boxes',
+    });
+
+    expect(returned.status).toBe('partial_returned');
+    expect(returned.returnCount).toBe(1);
+    expect(returned.returnedAmount).toBeCloseTo(18);
+    expect(returned.notes).toContain('Returned: Damaged boxes');
+    expect(returned.items[0]).toMatchObject({
+      quantity: 5,
+      returnedQuantity: 2,
+      remainingQuantity: 3,
+    });
+
+    const product = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(product?.stock).toBe(11);
+
+    const returnHeader = await db
+      .select()
+      .from(purchaseReturns)
+      .where(eq(purchaseReturns.purchaseId, created.id))
+      .get();
+    expect(returnHeader?.returnAmount).toBeCloseTo(18);
+
+    const returnLine = await db
+      .select()
+      .from(purchaseReturnItems)
+      .where(eq(purchaseReturnItems.purchaseReturnId, returnHeader!.id))
+      .get();
+    expect(returnLine).toMatchObject({
+      productId,
+      quantity: 2,
+      costPerUnit: 9,
+      total: 18,
+    });
+
+    const reversalMovement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, returnHeader!.id))
+      .get();
+    expect(reversalMovement).toMatchObject({
+      productId,
+      type: 'return',
+      quantity: -2,
+      previousStock: 13,
+      newStock: 11,
+    });
+  });
+
+  it('fully returns a purchase after multiple return operations and blocks over-returning quantities', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Full Return Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Fully Returned Product',
+      sku: 'PUR-RET-02',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 3,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 3,
+      stock: 4,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const created = await caller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 3,
+          costPerUnit: 5,
+        },
+      ],
+    });
+
+    const [lineItem] = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, created.id))
+      .all();
+
+    await expect(
+      caller.purchases.returnPurchase({
+        id: created.id,
+        items: [
+          {
+            purchaseItemId: lineItem!.id,
+            quantity: 4,
+          },
+        ],
+      })
+    ).rejects.toThrow(/only 3 remain available to return/);
+
+    await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [
+        {
+          purchaseItemId: lineItem!.id,
+          quantity: 1,
+        },
+      ],
+    });
+
+    const fullyReturned = await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [
+        {
+          purchaseItemId: lineItem!.id,
+          quantity: 2,
+        },
+      ],
+      reason: 'Supplier recalled inventory',
+    });
+
+    expect(fullyReturned.status).toBe('returned');
+    expect(fullyReturned.returnCount).toBe(2);
+    expect(fullyReturned.items[0]).toMatchObject({
+      returnedQuantity: 3,
+      remainingQuantity: 0,
+    });
+
+    await expect(
+      caller.purchases.returnPurchase({
+        id: created.id,
+        items: [
+          {
+            purchaseItemId: lineItem!.id,
+            quantity: 1,
+          },
+        ],
+      })
+    ).rejects.toThrow(/already been fully returned|fully returned/);
   });
 
   it('allows managers and rejects cashiers on purchase routes', async () => {
