@@ -636,11 +636,13 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
 
   const returnedAmount = returns.reduce((sum, returnRecord) => sum + returnRecord.returnAmount, 0);
   const returnedAt = returns[0]?.createdAt ?? null;
+  const latestReturnReason = returns[0]?.reason ?? null;
 
   return {
     ...purchase,
     returnedAmount,
     returnedAt,
+    latestReturnReason,
     returnCount: returns.length,
     returns: returnsWithItems,
     items: items.map(item => {
@@ -705,10 +707,57 @@ export const purchasesRouter = router({
         .get(),
     ]);
 
+    const purchaseIds = items.map(item => item.id);
+    const returnRows = purchaseIds.length
+      ? await ctx.db
+          .select({
+            purchaseId: purchaseReturns.purchaseId,
+            returnAmount: purchaseReturns.returnAmount,
+            reason: purchaseReturns.reason,
+            createdAt: purchaseReturns.createdAt,
+          })
+          .from(purchaseReturns)
+          .where(inArray(purchaseReturns.purchaseId, purchaseIds))
+          .orderBy(desc(purchaseReturns.createdAt))
+          .all()
+      : [];
+
+    const returnSummaryByPurchaseId = new Map<
+      string,
+      {
+        returnedAmount: number;
+        returnedAt: string | null;
+        latestReturnReason: string | null;
+        returnCount: number;
+      }
+    >();
+
+    for (const returnRow of returnRows) {
+      const currentSummary = returnSummaryByPurchaseId.get(returnRow.purchaseId);
+      if (currentSummary) {
+        currentSummary.returnedAmount += returnRow.returnAmount;
+        currentSummary.returnCount += 1;
+        continue;
+      }
+
+      returnSummaryByPurchaseId.set(returnRow.purchaseId, {
+        returnedAmount: returnRow.returnAmount,
+        returnedAt: returnRow.createdAt,
+        latestReturnReason: returnRow.reason ?? null,
+        returnCount: 1,
+      });
+    }
+
     const totalItems = countResult?.count ?? 0;
 
     return {
-      items,
+      items: items.map(item => ({
+        ...item,
+        returnedAmount: returnSummaryByPurchaseId.get(item.id)?.returnedAmount ?? 0,
+        returnedAt: returnSummaryByPurchaseId.get(item.id)?.returnedAt ?? null,
+        latestReturnReason: returnSummaryByPurchaseId.get(item.id)?.latestReturnReason ?? null,
+        returnCount: returnSummaryByPurchaseId.get(item.id)?.returnCount ?? 0,
+      })),
       page,
       perPage,
       totalItems,

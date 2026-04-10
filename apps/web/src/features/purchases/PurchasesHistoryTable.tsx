@@ -78,14 +78,39 @@ export function PurchasesHistoryTable({
       {
         id: 'returns',
         header: 'Returns',
-        size: 140,
+        size: 220,
         cell: ({ row }) => {
+          const returnedAmount = row.original.returnedAmount ?? 0;
+          const returnCount = row.original.returnCount ?? 0;
+
           if (row.original.status === 'returned') {
-            return <span className="text-sm font-medium text-danger-600">Fully returned</span>;
+            return (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-danger-600">Fully returned</p>
+                <p className="text-xs text-secondary-500">{formatCurrency(returnedAmount)} reversed</p>
+              </div>
+            );
           }
 
           if (row.original.status === 'partial_returned') {
-            return <span className="text-sm font-medium text-primary-700">Partial return</span>;
+            return (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-primary-700">
+                  {returnCount} return{returnCount === 1 ? '' : 's'}
+                </p>
+                <p className="text-xs text-secondary-500">{formatCurrency(returnedAmount)} reversed</p>
+                {row.original.returnedAt && (
+                  <p className="text-xs text-secondary-500">
+                    Latest {formatDateTime(row.original.returnedAt)}
+                  </p>
+                )}
+                {row.original.latestReturnReason && (
+                  <p className="line-clamp-2 text-xs text-secondary-500">
+                    {row.original.latestReturnReason}
+                  </p>
+                )}
+              </div>
+            );
           }
 
           return <span className="text-sm text-secondary-500">Open</span>;

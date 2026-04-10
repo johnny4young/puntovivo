@@ -380,6 +380,7 @@ export interface Purchase {
   items?: PurchaseItem[];
   returnedAmount?: number | null;
   returnedAt?: string | null;
+  latestReturnReason?: string | null;
   returnCount?: number;
   returns?: PurchaseReturn[];
   subtotal: number;
