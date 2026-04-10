@@ -1,6 +1,7 @@
-import { Bell, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
+import { Bell, KeyRound, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Select } from '@/components/form-controls/Select';
+import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { isOnline } from '@/lib/utils';
@@ -14,6 +15,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const { currentTenant, currentSite, isLoadingSites, sites, switchSite } = useTenant();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -117,8 +119,19 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                     </div>
                     <button
                       type="button"
-                      onClick={logout}
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setIsChangePasswordOpen(true);
+                      }}
                       className="btn-ghost mt-3 w-full justify-start px-3"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Change password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="btn-ghost mt-2 w-full justify-start px-3"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign out
@@ -130,6 +143,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           </div>
         </div>
       </div>
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </header>
   );
 }

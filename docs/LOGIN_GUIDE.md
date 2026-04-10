@@ -1,13 +1,15 @@
 # Login and Access Guide
 
-> Updated: April 9, 2026
+> Updated: April 10, 2026
 
 ## Authentication Model
 
 Open Yojob uses:
 
 - Argon2 password hashing
-- JWT bearer tokens
+- in-memory bearer access tokens
+- rotated `httpOnly` refresh cookies
+- CSRF protection for cookie-backed auth flows
 - role-based route and procedure guards
 - tenant isolation in server context
 
@@ -51,9 +53,16 @@ Source:
 1. User submits credentials on the login page.
 2. The app calls `auth.login`.
 3. The server validates the user, tenant, and password hash.
-4. The server returns a JWT plus basic user and tenant info.
-5. The client stores the token locally and uses it on future requests.
+4. The server returns a short-lived access token plus basic user and tenant info, and sets a refresh cookie.
+5. The client keeps the access token in memory and refreshes it when needed by using the refresh cookie.
 6. Protected routes and tRPC procedures enforce role and tenant access.
+
+## Self-Service Password Change
+
+- Open the user menu in the header.
+- Choose `Change password`.
+- Submit your current password and a new password that meets the strength policy.
+- After success, the app signs you out and older tokens stop working.
 
 ## Current Auth Procedures
 
@@ -127,5 +136,5 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
 ## Notes
 
 - logout is effectively client-side token clearing plus a lightweight API call
-- password change exists, but global token/session invalidation is still an open hardening item
+- password changes and admin resets now invalidate older sessions through per-user session versioning
 - site-aware business flows also depend on `x-site-id` once a site is selected in the app
