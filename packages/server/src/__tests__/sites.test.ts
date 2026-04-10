@@ -37,6 +37,13 @@ async function createTestContext(siteIdHeader?: string): Promise<Context> {
   return {
     ...ctx,
     db,
+    user: {
+      id: userId,
+      email: 'admin@localhost',
+      role: 'admin',
+      tenantId,
+    },
+    tenantId,
   };
 }
 
@@ -49,7 +56,11 @@ describe('Sites tRPC Router', () => {
 
     const db = getDatabase();
 
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -57,11 +68,7 @@ describe('Sites tRPC Router', () => {
     userId = seededUser.id;
     tenantId = seededUser.tenantId;
 
-    const company = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.tenantId, tenantId))
-      .get();
+    const company = await db.select().from(companies).where(eq(companies.tenantId, tenantId)).get();
 
     if (!company) {
       throw new Error('Expected seeded default company');
@@ -137,11 +144,7 @@ describe('Sites tRPC Router', () => {
   it('creates, updates, filters, and deletes an unreferenced site', async () => {
     const caller = appRouter.createCaller(await createTestContext());
     const db = getDatabase();
-    const company = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.tenantId, tenantId))
-      .get();
+    const company = await db.select().from(companies).where(eq(companies.tenantId, tenantId)).get();
 
     if (!company) {
       throw new Error('Expected seeded company');

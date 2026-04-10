@@ -12,6 +12,7 @@ import { getStoredSiteId } from '@/features/tenant/siteStorage';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 const CSRF_COOKIE_NAME = 'open_yojob_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
+let accessToken: string | null = null;
 
 function getCookieValue(name: string): string | null {
   const encodedName = `${encodeURIComponent(name)}=`;
@@ -34,6 +35,10 @@ export function getTrpcHeaders(): Record<string, string> {
   const siteId = getStoredSiteId();
   const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
 
+  if (accessToken) {
+    headers.authorization = `Bearer ${accessToken}`;
+  }
+
   if (siteId) {
     headers['x-site-id'] = siteId;
   }
@@ -43,6 +48,14 @@ export function getTrpcHeaders(): Record<string, string> {
   }
 
   return headers;
+}
+
+export function setAccessToken(token: string): void {
+  accessToken = token;
+}
+
+export function clearAccessToken(): void {
+  accessToken = null;
 }
 
 // React client for hooks

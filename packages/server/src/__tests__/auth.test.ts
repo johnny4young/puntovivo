@@ -59,7 +59,7 @@ async function loginOverHttp() {
 
   return {
     response,
-    sessionCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_session'),
+    refreshCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_refresh'),
     csrfCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf'),
   };
 }
@@ -293,25 +293,40 @@ describe('Auth tRPC Router', () => {
   });
 
   describe('auth.refresh', () => {
-    it('should return a new token', async () => {
-      const ctx = createTestContext({
-        id: testUserId,
-        email: 'trpctest@example.com',
-        role: 'admin',
-        tenantId: testTenantId,
+    it('should return a new access token with a valid refresh cookie and csrf header', async () => {
+      const { refreshCookie, csrfCookie } = await loginOverHttp();
+
+      expect(refreshCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
       });
-      const caller = appRouter.createCaller(ctx);
 
-      const result = await caller.auth.refresh();
-
-      expect(result.token).toBeDefined();
-      expect(result.token).toBeTypeOf('string');
+      expect(response.statusCode).toBe(200);
+      expect(response.json()[0].result.data.token).toBeTypeOf('string');
     });
 
-    it('should reject unauthenticated request', async () => {
-      const caller = appRouter.createCaller(createTestContext());
+    it('should reject refresh when the refresh cookie is missing', async () => {
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          'content-type': 'application/json',
+        },
+        payload: '{}',
+      });
 
-      await expect(caller.auth.refresh()).rejects.toThrow(TRPCError);
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -327,16 +342,16 @@ describe('Auth tRPC Router', () => {
     });
 
     it('should reject authenticated mutations without a matching csrf header', async () => {
-      const { sessionCookie, csrfCookie } = await loginOverHttp();
+      const { refreshCookie, csrfCookie } = await loginOverHttp();
 
-      expect(sessionCookie).toBeTruthy();
+      expect(refreshCookie).toBeTruthy();
       expect(csrfCookie).toBeTruthy();
 
       const response = await server.app.inject({
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_session=${sessionCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -352,16 +367,16 @@ describe('Auth tRPC Router', () => {
     });
 
     it('should allow authenticated mutations when the csrf header matches the cookie', async () => {
-      const { sessionCookie, csrfCookie } = await loginOverHttp();
+      const { refreshCookie, csrfCookie } = await loginOverHttp();
 
-      expect(sessionCookie).toBeTruthy();
+      expect(refreshCookie).toBeTruthy();
       expect(csrfCookie).toBeTruthy();
 
       const response = await server.app.inject({
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_session=${sessionCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',

@@ -15,6 +15,7 @@ import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
 import { ssePlugin } from './realtime/sse.js';
+import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import {
   CSRF_HEADER_NAME,
   ensureCsrfCookie,
@@ -102,10 +103,6 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   // Register JWT
   await app.register(jwt, {
     secret: jwtSecret,
-    cookie: {
-      cookieName: 'open_yojob_session',
-      signed: false,
-    },
     sign: {
       expiresIn: '7d',
     },
@@ -117,9 +114,9 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     }
 
     const csrfToken = ensureCsrfCookie(request, reply);
-    const hasSessionCookie = typeof request.cookies.open_yojob_session === 'string';
+    const hasRefreshCookie = typeof request.cookies[REFRESH_COOKIE_NAME] === 'string';
 
-    if (!hasSessionCookie || !isUnsafeMethod(request.method)) {
+    if (!hasRefreshCookie || !isUnsafeMethod(request.method)) {
       return;
     }
 

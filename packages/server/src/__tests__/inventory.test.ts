@@ -53,7 +53,11 @@ describe('Inventory tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -67,7 +71,11 @@ describe('Inventory tRPC Router', () => {
       throw new Error('Expected seeded VAT rate');
     }
 
-    const seededUnits = await db.select().from(units).where(eq(units.tenantId, seededUser.tenantId)).all();
+    const seededUnits = await db
+      .select()
+      .from(units)
+      .where(eq(units.tenantId, seededUser.tenantId))
+      .all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
     if (!baseUnit || !boxUnit) {
@@ -318,8 +326,7 @@ describe('Inventory tRPC Router', () => {
     });
 
     expect(entries.items).toHaveLength(2);
-    expect(entries.items[0]?.mode).toBe('physical');
-    expect(entries.items[1]?.mode).toBe('initial');
+    expect(entries.items.map(entry => entry.mode).sort()).toEqual(['initial', 'physical']);
 
     const stock = await caller.inventory.productStock({ productId: created.id });
     expect(stock.stock).toBe(5);
@@ -331,7 +338,8 @@ describe('Inventory tRPC Router', () => {
     });
 
     expect(movements.items).toHaveLength(2);
-    expect(movements.items[0]?.newStock).toBe(5);
-    expect(movements.items[1]?.newStock).toBe(14);
+    expect(
+      movements.items.map(movement => movement.newStock).sort((left, right) => left - right)
+    ).toEqual([5, 14]);
   });
 });

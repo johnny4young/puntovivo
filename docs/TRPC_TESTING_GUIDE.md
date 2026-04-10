@@ -96,6 +96,26 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
 ```
 
+### Hybrid auth smoke flow
+
+```bash
+# 1. Mint CSRF cookie
+curl -i -c cookies.txt "http://localhost:8090/api/trpc/health.check"
+
+# 2. Login and capture refresh cookie
+curl -i -b cookies.txt -c cookies.txt \
+  -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
+  -H "Content-Type: application/json" \
+  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
+
+# 3. Call auth.refresh with refresh cookie + matching CSRF header
+curl -i -b cookies.txt \
+  -X POST "http://localhost:8090/api/trpc/auth.refresh?batch=1" \
+  -H "x-csrf-token: <csrf-token-from-cookie-jar>" \
+  -H "Content-Type: application/json" \
+  -d '{"0":{"json":null}}'
+```
+
 ## What to Validate for Typical Changes
 
 ### Server-only change

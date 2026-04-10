@@ -22,7 +22,7 @@
 - 📴 **Offline Support** - Full functionality without internet, with automatic sync
 - 🖥️ **Cross-Platform Desktop** - Windows, macOS, Linux via Electron
 - 📊 **Advanced Data Tables** - Sorting, filtering, pagination, export (CSV, Excel, PDF)
-- 🔐 **Secure Authentication** - JWT-based auth with role-based access control
+- 🔐 **Secure Authentication** - Hybrid auth with short-lived JWT access tokens, rotated refresh cookies, CSRF protection, and role-based access control
 - 🔄 **Auto-Updates** - Automatic updates from GitHub Releases
 - 🚀 **Embedded Backend** - Fastify + SQLite runs in-process (no external server needed)
 
@@ -413,7 +413,7 @@ For a comprehensive security analysis, fixes applied, and best practices, see **
 - Admin password is randomly generated on first run — never hardcoded
 - Rate limiting is enabled on authentication endpoints
 - Argon2 password hashing with strong password policy enforced
-- JWT-based sessions with secure token management
+- Hybrid sessions with in-memory bearer access tokens, `httpOnly` refresh cookies, and CSRF protection for cookie-backed auth flows
 - Multi-tenant data isolation
 
 ### Reporting Security Issues
