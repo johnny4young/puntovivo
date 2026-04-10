@@ -1356,9 +1356,20 @@ function createWindow(): void {
 
   // Forward renderer console logs to terminal in development
   if (isDev) {
-    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-      const levelStr = ['LOG', 'WARN', 'ERROR'][level] || 'INFO';
-      console.log(`[Renderer ${levelStr}] ${message} (${sourceId}:${line})`);
+    mainWindow.webContents.on('console-message', details => {
+      const levelMap: Record<
+        import('electron').WebContentsConsoleMessageEventParams['level'],
+        string
+      > = {
+        debug: 'DEBUG',
+        info: 'INFO',
+        warning: 'WARN',
+        error: 'ERROR',
+      };
+
+      console.log(
+        `[Renderer ${levelMap[details.level] ?? 'INFO'}] ${details.message} (${details.sourceId}:${details.lineNumber})`
+      );
     });
   }
 }
