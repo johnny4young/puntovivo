@@ -107,13 +107,13 @@ curl http://localhost:8090/api/health
 Rebuild Electron native modules:
 
 ```bash
-npx electron-rebuild -m apps/desktop
+npm run native:ensure:electron --workspace=@open-yojob/desktop
 ```
 
-If server tests later fail due to `better-sqlite3` mismatch:
+If server tests later fail due to `better-sqlite3` mismatch in the current shell runtime:
 
 ```bash
-node packages/server/scripts/rebuild-better-sqlite3-node.mjs
+npm run native:ensure:node --workspace=@open-yojob/server
 ```
 
 ## Authenticated Manual Request Example

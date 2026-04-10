@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -15,6 +15,13 @@ const stateFile = path.join(
   '.cache',
   'open-yojob',
   'native-runtime-state.json'
+);
+const nativeBinaryCacheDir = path.join(
+  repoRoot,
+  'node_modules',
+  '.cache',
+  'open-yojob',
+  'native-binaries'
 );
 
 async function readJson(filePath) {
@@ -78,6 +85,37 @@ async function getDesiredKey(runtime) {
   return ['electron', electronVersion, process.platform, process.arch, betterSqliteVersion].join(':');
 }
 
+function getCachedBinaryPath(runtimeKey) {
+  const safeKey = runtimeKey.replaceAll(/[^a-zA-Z0-9._-]+/g, '_');
+  return path.join(nativeBinaryCacheDir, `${safeKey}.node`);
+}
+
+async function restoreCachedBinary(runtimeKey) {
+  const cachedBinaryPath = getCachedBinaryPath(runtimeKey);
+  const cachedBinaryHash = await getFileHash(cachedBinaryPath);
+
+  if (!cachedBinaryHash) {
+    return null;
+  }
+
+  await mkdir(path.dirname(getBetterSqliteBinaryPath()), { recursive: true });
+  await copyFile(cachedBinaryPath, getBetterSqliteBinaryPath());
+  return cachedBinaryHash;
+}
+
+async function cacheActiveBinary(runtimeKey) {
+  const nativeBinaryPath = getBetterSqliteBinaryPath();
+  const nativeBinaryHash = await getFileHash(nativeBinaryPath);
+
+  if (!nativeBinaryHash) {
+    throw new Error(`Unable to cache missing native binary at ${nativeBinaryPath}`);
+  }
+
+  await mkdir(nativeBinaryCacheDir, { recursive: true });
+  await copyFile(nativeBinaryPath, getCachedBinaryPath(runtimeKey));
+  return nativeBinaryHash;
+}
+
 function runCommand(command, args, label) {
   console.log(`[native-runtime] ${label}`);
   execFileSync(command, args, {
@@ -97,13 +135,31 @@ async function main() {
   const desiredKey = await getDesiredKey(runtime);
   const state = await readState();
   const nativeBinaryHash = await getFileHash(getBetterSqliteBinaryPath());
+  const cachedBinaryHash = await getFileHash(getCachedBinaryPath(desiredKey));
   const alreadyPreparedForRuntime =
     state.keys?.[runtime] === desiredKey &&
     state.lastPreparedRuntime === runtime &&
-    state.currentArtifactHash === nativeBinaryHash;
+    state.currentArtifactHash === nativeBinaryHash &&
+    state.cachedArtifactHash === cachedBinaryHash;
 
   if (alreadyPreparedForRuntime) {
     console.log(`[native-runtime] ${runtime} runtime already prepared`);
+    return;
+  }
+
+  if (cachedBinaryHash && cachedBinaryHash !== nativeBinaryHash) {
+    console.log(`[native-runtime] Restoring cached better-sqlite3 binary for ${runtime}`);
+    const restoredHash = await restoreCachedBinary(desiredKey);
+    await writeState({
+      keys: {
+        ...state.keys,
+        [runtime]: desiredKey,
+      },
+      cachedArtifactHash: restoredHash,
+      currentArtifactHash: restoredHash,
+      lastPreparedRuntime: runtime,
+    });
+    console.log(`[native-runtime] Prepared ${runtime} runtime from cache`);
     return;
   }
 
@@ -121,12 +177,15 @@ async function main() {
     );
   }
 
+  const currentArtifactHash = await cacheActiveBinary(desiredKey);
+
   await writeState({
     keys: {
       ...state.keys,
       [runtime]: desiredKey,
     },
-    currentArtifactHash: await getFileHash(getBetterSqliteBinaryPath()),
+    cachedArtifactHash: currentArtifactHash,
+    currentArtifactHash,
     lastPreparedRuntime: runtime,
   });
 

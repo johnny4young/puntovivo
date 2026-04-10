@@ -25,10 +25,10 @@ After install:
 npx electron-rebuild -m apps/desktop
 ```
 
-If server-side tests fail after an Electron rebuild:
+To prepare the current shell/runtime for server-side tests:
 
 ```bash
-node packages/server/scripts/rebuild-better-sqlite3-node.mjs
+npm run native:ensure:node --workspace=@open-yojob/server
 ```
 
 ## Recommended Commands

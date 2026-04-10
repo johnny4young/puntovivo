@@ -13,13 +13,13 @@
 ### Fix
 
 ```bash
-npx electron-rebuild -m apps/desktop
+npm run native:ensure:electron --workspace=@open-yojob/desktop
 ```
 
-If server tests later fail because `better-sqlite3` is now compiled for Electron instead of Node:
+If server tests later fail because the shell runtime needs the Node build:
 
 ```bash
-node packages/server/scripts/rebuild-better-sqlite3-node.mjs
+npm run native:ensure:node --workspace=@open-yojob/server
 ```
 
 ## 2. Desktop opens with blank or broken UI
@@ -123,7 +123,7 @@ If needed, use the sync center in the Company page to:
 ```bash
 node --version
 npm install
-npx electron-rebuild -m apps/desktop
+npm run native:ensure:electron --workspace=@open-yojob/desktop
 curl http://localhost:8090/api/health
 npm run test --workspace=@open-yojob/web -- --run
 ```
