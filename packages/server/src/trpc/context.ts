@@ -8,6 +8,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { DatabaseInstance } from '../db/index.js';
 import { sites } from '../db/schema.js';
+import { verifyAccessToken } from '../security/authTokens.js';
 
 export interface Context {
   req: FastifyRequest;
@@ -34,15 +35,8 @@ export async function createContext({
   let tenantId = null;
   let siteId = null;
 
-  // Try to extract user from JWT if it exists
-  try {
-    await req.jwtVerify();
-    const payload = req.user as {
-      userId: string;
-      email: string;
-      role: string;
-      tenantId: string;
-    };
+  const payload = await verifyAccessToken(req);
+  if (payload) {
     user = {
       id: payload.userId,
       email: payload.email,
@@ -50,8 +44,6 @@ export async function createContext({
       tenantId: payload.tenantId,
     };
     tenantId = payload.tenantId;
-  } catch {
-    // No valid token - allow public procedures
   }
 
   if (tenantId) {
@@ -62,11 +54,7 @@ export async function createContext({
         .select({ id: sites.id })
         .from(sites)
         .where(
-          and(
-            eq(sites.id, requestedSiteId),
-            eq(sites.tenantId, tenantId),
-            eq(sites.isActive, true)
-          )
+          and(eq(sites.id, requestedSiteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true))
         )
         .get();
 

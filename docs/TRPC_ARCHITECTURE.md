@@ -37,8 +37,15 @@ The web client is configured in:
 
 Current request headers:
 
-- `Authorization: Bearer <token>` when logged in
+- `Authorization: Bearer <accessToken>` when logged in
 - `x-site-id: <siteId>` when a site is selected
+- `x-csrf-token: <csrfToken>` on cookie-backed unsafe auth flows such as refresh/logout
+
+Session model:
+
+- the web client keeps the short-lived access token in memory only
+- session continuity comes from a rotated `httpOnly` refresh cookie
+- `health.check` can mint the readable CSRF cookie needed before calling cookie-backed unsafe auth procedures
 
 ## Current Router Surface
 

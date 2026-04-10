@@ -68,14 +68,14 @@ docs/               Project documentation
 - SQLite via `better-sqlite3`
 - Drizzle ORM for schema and query typing
 - tRPC 11 for the application API
-- JWT auth
+- hybrid auth with in-memory bearer access tokens and rotated refresh cookies
 - SSE for realtime notifications
 
 ### Context and guards
 
 Each tRPC request builds a context with:
 
-- authenticated user, when present
+- authenticated user from the bearer access token, when present
 - tenant ID
 - current site ID from `x-site-id`
 - DB handle
@@ -195,10 +195,11 @@ Normal flow:
 
 1. React component calls `trpc.<router>.<procedure>.useQuery()` or `.useMutation()`.
 2. Requests go through `httpBatchLink` to `/api/trpc`.
-3. Server middleware resolves auth, tenant, and site scope.
-4. Router executes Zod validation and Drizzle queries or transactions.
-5. TanStack Query remains the source of truth for server state.
-6. UI invalidates affected queries after mutations.
+3. The client sends an in-memory bearer access token for protected procedures and sends CSRF headers on cookie-backed unsafe auth flows.
+4. Server middleware resolves auth, tenant, and site scope.
+5. Router executes Zod validation and Drizzle queries or transactions.
+6. TanStack Query remains the source of truth for server state.
+7. UI invalidates affected queries after mutations.
 
 Direct client config:
 [trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)

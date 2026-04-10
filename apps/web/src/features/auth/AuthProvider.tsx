@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useNavigate } from 'react-router-dom';
 import { TRPCClientError } from '@trpc/client';
 import type { User, Tenant, LoginCredentials } from '@/types';
-import { vanillaClient } from '@/lib/trpc';
+import { clearAccessToken, setAccessToken, vanillaClient } from '@/lib/trpc';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 
@@ -76,6 +76,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const navigate = useNavigate();
 
   const clearLocalSession = () => {
+    clearAccessToken();
     clearAuthSession();
     setUser(null);
     setTenant(null);
@@ -88,6 +89,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const initAuth = async () => {
       try {
+        await vanillaClient.health.check.query();
+        const refreshResult = await vanillaClient.auth.refresh.mutate();
+        setAccessToken(refreshResult.token);
         const session = mapSession(await vanillaClient.auth.me.query());
         persistAuthSession(session);
 
@@ -132,10 +136,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
 
     try {
-      await vanillaClient.auth.login.mutate({
+      const authData = await vanillaClient.auth.login.mutate({
         email: credentials.email,
         password: credentials.password,
       });
+      setAccessToken(authData.token);
 
       const session = mapSession(await vanillaClient.auth.me.query());
 

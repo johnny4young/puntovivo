@@ -7,7 +7,7 @@
  * Procedures:
  * - auth.login    (public)    - Authenticate user with email/password
  * - auth.logout   (public)    - Logout (client-side token removal)
- * - auth.refresh  (protected) - Refresh JWT token
+ * - auth.refresh  (public)    - Refresh access JWT using refresh cookie
  * - auth.me       (protected) - Get current user info
  * - auth.changePassword (protected) - Change password
  *
@@ -22,9 +22,14 @@ import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
 import { users, tenants } from '../../db/schema.js';
 import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
+import {
+  REFRESH_COOKIE_NAME,
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from '../../security/authTokens.js';
 
-const SESSION_COOKIE_NAME = 'open_yojob_session';
-const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function shouldUseSecureCookies(request: {
   headers: Record<string, unknown>;
@@ -38,26 +43,26 @@ function shouldUseSecureCookies(request: {
   return request.protocol === 'https' || normalizedForwardedProto === 'https';
 }
 
-function setSessionCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
+function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
   if (typeof reply.setCookie !== 'function') {
     return;
   }
 
-  reply.setCookie(SESSION_COOKIE_NAME, token, {
+  reply.setCookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: shouldUseSecureCookies(request),
     path: '/',
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
   });
 }
 
-function clearSessionCookie(reply: FastifyReply): void {
+function clearRefreshCookie(reply: FastifyReply): void {
   if (typeof reply.clearCookie !== 'function') {
     return;
   }
 
-  reply.clearCookie(SESSION_COOKIE_NAME, {
+  reply.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
@@ -112,16 +117,9 @@ export const authRouter = router({
       });
     }
 
-    // Generate JWT token via Fastify's jwt plugin on the raw request
-    const tokenPayload = {
-      userId: user.id,
-      tenantId: user.tenantId,
-      email: user.email,
-      role: user.role,
-    };
-
-    const token = ctx.req.server.jwt.sign(tokenPayload);
-    setSessionCookie(ctx.req, ctx.res, token);
+    const token = signAccessToken(ctx.req.server, user);
+    const refreshToken = signRefreshToken(ctx.req.server, user);
+    setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
     return {
       token,
@@ -145,16 +143,24 @@ export const authRouter = router({
    * Provided for API completeness
    */
   logout: publicProcedure.mutation(({ ctx }) => {
-    clearSessionCookie(ctx.res);
+    clearRefreshCookie(ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
 
   /**
    * Refresh the JWT token
    */
-  refresh: protectedProcedure.mutation(async ({ ctx }) => {
+  refresh: publicProcedure.mutation(async ({ ctx }) => {
+    const refreshPayload = await verifyRefreshToken(ctx.req);
+    if (!refreshPayload) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Refresh session is invalid or missing',
+      });
+    }
+
     // Verify user still exists and is active
-    const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+    const user = await ctx.db.select().from(users).where(eq(users.id, refreshPayload.userId)).get();
 
     if (!user || !user.isActive) {
       throw new TRPCError({
@@ -163,16 +169,9 @@ export const authRouter = router({
       });
     }
 
-    // Generate new token
-    const newPayload = {
-      userId: user.id,
-      tenantId: user.tenantId,
-      email: user.email,
-      role: user.role,
-    };
-
-    const token = ctx.req.server.jwt.sign(newPayload);
-    setSessionCookie(ctx.req, ctx.res, token);
+    const token = signAccessToken(ctx.req.server, user);
+    const refreshToken = signRefreshToken(ctx.req.server, user);
+    setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
     return { token };
   }),
