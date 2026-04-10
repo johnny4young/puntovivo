@@ -63,6 +63,10 @@ type PurchaseSequentialContext = {
   siteName: string;
 };
 
+type ResolvedOrderReceiptItem = ResolvedPurchaseItem & {
+  sourceOrderItemId: string;
+};
+
 function buildVoidedPurchaseNotes(existingNotes: string | null, reason: string | undefined) {
   if (!reason) {
     return `${existingNotes ? `${existingNotes} | ` : ''}Voided`;
@@ -366,6 +370,162 @@ async function resolvePurchaseReturnItems(
   };
 }
 
+async function resolveOrderReceiptItems(
+  db: Context['db'],
+  tenantId: string,
+  orderId: string,
+  inputItems?: Array<{ orderItemId: string; quantity: number }>
+) {
+  const orderLineItems = await db
+    .select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      productName: products.name,
+      quantity: orderItems.quantity,
+      unitId: orderItems.unitId,
+      unitEquivalence: orderItems.unitEquivalence,
+      costPerUnit: orderItems.costPerUnit,
+      baseUnitCost: orderItems.baseUnitCost,
+      total: orderItems.total,
+    })
+    .from(orderItems)
+    .innerJoin(products, eq(orderItems.productId, products.id))
+    .where(eq(orderItems.orderId, orderId))
+    .all();
+
+  if (orderLineItems.length === 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Order cannot be received because it has no line items',
+    });
+  }
+
+  const receivedQuantities = await db
+    .select({
+      sourceOrderItemId: purchaseItems.sourceOrderItemId,
+      receivedQuantity: sql<number>`coalesce(sum(${purchaseItems.quantity}), 0)`,
+    })
+    .from(purchaseItems)
+    .innerJoin(purchases, eq(purchaseItems.purchaseId, purchases.id))
+    .where(
+      and(
+        eq(purchases.tenantId, tenantId),
+        eq(purchases.orderId, orderId),
+        inArray(purchases.status, ['completed', 'partial_returned', 'returned'])
+      )
+    )
+    .groupBy(purchaseItems.sourceOrderItemId)
+    .all();
+
+  const orderLineMap = new Map(orderLineItems.map(item => [item.id, item]));
+  const receivedQuantityMap = new Map(
+    receivedQuantities
+      .filter(item => item.sourceOrderItemId)
+      .map(item => [item.sourceOrderItemId as string, item.receivedQuantity ?? 0])
+  );
+
+  const normalizedInputItems =
+    inputItems && inputItems.length > 0
+      ? inputItems
+      : orderLineItems
+          .map(item => ({
+            orderItemId: item.id,
+            quantity: item.quantity - (receivedQuantityMap.get(item.id) ?? 0),
+          }))
+          .filter(item => item.quantity > 0);
+
+  if (normalizedInputItems.length === 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Order has no remaining quantities available to receive',
+    });
+  }
+
+  const uniqueOrderItemIds = new Set<string>();
+  const rows: ResolvedOrderReceiptItem[] = [];
+  const productIds = [...new Set(orderLineItems.map(item => item.productId))];
+  const productRows = await db
+    .select({ id: products.id, stock: products.stock, isActive: products.isActive })
+    .from(products)
+    .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
+    .all();
+  const productStockState = new Map(productRows.map(product => [product.id, product.stock]));
+
+  let subtotal = 0;
+
+  for (const inputItem of normalizedInputItems) {
+    if (uniqueOrderItemIds.has(inputItem.orderItemId)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Duplicate order lines cannot be received in the same request',
+      });
+    }
+
+    uniqueOrderItemIds.add(inputItem.orderItemId);
+
+    const orderLine = orderLineMap.get(inputItem.orderItemId);
+    if (!orderLine) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `Order line ${inputItem.orderItemId} was not found`,
+      });
+    }
+
+    const alreadyReceivedQuantity = receivedQuantityMap.get(orderLine.id) ?? 0;
+    const remainingQuantity = orderLine.quantity - alreadyReceivedQuantity;
+
+    if (remainingQuantity <= 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Order line "${orderLine.productName}" is already fully received`,
+      });
+    }
+
+    if (inputItem.quantity > remainingQuantity) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Cannot receive ${inputItem.quantity} units for "${orderLine.productName}" because only ${remainingQuantity} remain pending`,
+      });
+    }
+
+    const normalizedQuantity = getNormalizedPurchaseQuantity(
+      inputItem.quantity,
+      orderLine.unitEquivalence
+    );
+    const total = inputItem.quantity * orderLine.costPerUnit;
+    subtotal += total;
+
+    rows.push({
+      id: nanoid(),
+      sourceOrderItemId: orderLine.id,
+      productId: orderLine.productId,
+      quantity: inputItem.quantity,
+      unitId: orderLine.unitId,
+      unitEquivalence: orderLine.unitEquivalence,
+      costPerUnit: orderLine.costPerUnit,
+      baseUnitCost: orderLine.baseUnitCost,
+      total,
+      normalizedQuantity,
+    });
+
+    receivedQuantityMap.set(orderLine.id, alreadyReceivedQuantity + inputItem.quantity);
+  }
+
+  const totalFullyReceivedItems = orderLineItems.reduce((count, item) => {
+    const receivedQuantity = receivedQuantityMap.get(item.id) ?? 0;
+    return receivedQuantity >= item.quantity ? count + 1 : count;
+  }, 0);
+
+  return {
+    rows,
+    subtotal,
+    productStockState,
+    totalItemCount: orderLineItems.length,
+    totalFullyReceivedItems,
+  };
+}
+
 async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId: string) {
   const purchase = await db
     .select({
@@ -404,6 +564,7 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
       id: purchaseItems.id,
       purchaseId: purchaseItems.purchaseId,
       productId: purchaseItems.productId,
+      sourceOrderItemId: purchaseItems.sourceOrderItemId,
       productName: products.name,
       productSku: products.sku,
       quantity: purchaseItems.quantity,
@@ -710,38 +871,7 @@ export const purchasesRouter = router({
       if (orderRecord.status === 'received') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Order has already been received into a purchase',
-        });
-      }
-
-      const existingPurchase = await ctx.db
-        .select({ id: purchases.id })
-        .from(purchases)
-        .where(and(eq(purchases.tenantId, ctx.tenantId), eq(purchases.orderId, input.orderId)))
-        .get();
-
-      if (existingPurchase) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Order already has a linked purchase',
-        });
-      }
-
-      const orderLineItems = await ctx.db
-        .select({
-          productId: orderItems.productId,
-          quantity: orderItems.quantity,
-          unitId: orderItems.unitId,
-          costPerUnit: orderItems.costPerUnit,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, input.orderId))
-        .all();
-
-      if (orderLineItems.length === 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Order cannot be received because it has no line items',
+          message: 'Order has already been fully received',
         });
       }
 
@@ -752,13 +882,22 @@ export const purchasesRouter = router({
         ctx.tenantId,
         orderRecord.siteId
       );
-      const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, orderLineItems);
+      const resolvedItems = await resolveOrderReceiptItems(
+        ctx.db,
+        ctx.tenantId,
+        input.orderId,
+        input.items
+      );
       const subtotal = resolvedItems.subtotal;
       const total = subtotal;
       const nextSequentialValue = sequentialContext.currentValue + 1;
       const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
-      const productStockState = new Map(resolvedItems.productStocks);
+      const productStockState = new Map(resolvedItems.productStockState);
       const nextOrderSyncVersion = (orderRecord.syncVersion ?? 0) + 1;
+      const nextOrderStatus =
+        resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
+          ? 'received'
+          : 'partial_received';
 
       ctx.db.transaction(tx => {
         tx.update(sequentials)
@@ -780,7 +919,7 @@ export const purchasesRouter = router({
             status: 'completed',
             subtotal,
             total,
-            notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
+            notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}${input.notes ? `${input.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
             createdBy: ctx.user!.id,
             syncStatus: 'pending',
             syncVersion: 1,
@@ -795,6 +934,7 @@ export const purchasesRouter = router({
               id: row.id,
               purchaseId,
               productId: row.productId,
+              sourceOrderItemId: row.sourceOrderItemId,
               quantity: row.quantity,
               unitId: row.unitId,
               unitEquivalence: row.unitEquivalence,
@@ -841,7 +981,7 @@ export const purchasesRouter = router({
 
         tx.update(orders)
           .set({
-            status: 'received',
+            status: nextOrderStatus,
             updatedAt: now,
             syncStatus: 'pending',
             syncVersion: nextOrderSyncVersion,
@@ -879,7 +1019,7 @@ export const purchasesRouter = router({
             operation: 'update',
             data: {
               id: input.orderId,
-              status: 'received',
+              status: nextOrderStatus,
               receivedPurchaseId: purchaseId,
             },
             localVersion: nextOrderSyncVersion,

@@ -542,6 +542,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       id TEXT PRIMARY KEY,
       purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
       product_id TEXT NOT NULL REFERENCES products(id),
+      source_order_item_id TEXT REFERENCES order_items(id),
       quantity INTEGER NOT NULL DEFAULT 1,
       unit_id TEXT NOT NULL REFERENCES units(id),
       unit_equivalence REAL NOT NULL DEFAULT 1,
@@ -551,6 +552,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items (purchase_id);
     CREATE INDEX IF NOT EXISTS idx_purchase_items_product ON purchase_items (product_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_items_source_order_item ON purchase_items (source_order_item_id);
 
     -- Purchase Returns
     CREATE TABLE IF NOT EXISTS purchase_returns (
@@ -791,6 +793,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'customers', 'commercial_activity_id', 'commercial_activity_id TEXT');
   ensureColumn(client, 'purchases', 'status', "status TEXT NOT NULL DEFAULT 'completed'");
   ensureColumn(client, 'purchases', 'order_id', 'order_id TEXT');
+  ensureColumn(client, 'purchase_items', 'source_order_item_id', 'source_order_item_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
@@ -798,8 +801,9 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   createIndexIfColumnsExist(client, 'products', ['provider_id'], 'CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id)');
   createIndexIfColumnsExist(client, 'products', ['vat_rate_id'], 'CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id)');
   createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
-  createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id)');
   createIndexIfColumnsExist(client, 'companies', ['logo_id'], 'CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id)');
+  createIndexIfColumnsExist(client, 'purchase_items', ['source_order_item_id'], 'CREATE INDEX IF NOT EXISTS idx_purchase_items_source_order_item ON purchase_items (source_order_item_id)');
+  client.exec('DROP INDEX IF EXISTS idx_purchases_order_unique');
 }
 
 function ensureColumn(

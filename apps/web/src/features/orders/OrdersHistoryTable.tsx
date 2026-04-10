@@ -9,6 +9,7 @@ import type { Order } from '@/types';
 
 const orderStatusClassNames: Record<Order['status'], string> = {
   submitted: 'badge-primary',
+  partial_received: 'badge-warning',
   received: 'badge-success',
   voided: 'badge-warning',
 };
@@ -61,7 +62,9 @@ export function OrdersHistoryTable({
         header: 'Status',
         size: 120,
         cell: ({ row }) => (
-          <span className={orderStatusClassNames[row.original.status]}>{row.original.status}</span>
+          <span className={orderStatusClassNames[row.original.status]}>
+            {row.original.status.replace(/_/g, ' ')}
+          </span>
         ),
       },
       {

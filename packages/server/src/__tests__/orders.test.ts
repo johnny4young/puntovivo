@@ -317,4 +317,44 @@ describe('Orders tRPC Router', () => {
       .all();
     expect(syncUpdate.some(item => item.operation === 'update')).toBe(true);
   });
+
+  it('rejects voiding orders after partial receipt has started', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const orderId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Partially Received Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(orders).values({
+      id: orderId,
+      tenantId,
+      orderNumber: 'PED-VOID-BLOCK',
+      providerId,
+      siteId,
+      status: 'partial_received',
+      subtotal: 10,
+      total: 10,
+      createdBy: userId,
+      syncStatus: 'pending',
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.orders.void({
+        id: orderId,
+      })
+    ).rejects.toThrow(/received stock/);
+  });
 });
