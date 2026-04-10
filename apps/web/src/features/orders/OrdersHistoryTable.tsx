@@ -19,7 +19,9 @@ interface OrdersHistoryTableProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  canManageReceipts: boolean;
   onView: (orderId: string) => void;
+  onReceive: (orderId: string) => void;
 }
 
 export function OrdersHistoryTable({
@@ -27,7 +29,9 @@ export function OrdersHistoryTable({
   isLoading,
   error,
   onRetry,
+  canManageReceipts,
   onView,
+  onReceive,
 }: OrdersHistoryTableProps) {
   const columns = useMemo<ColumnDef<Order>[]>(
     () => [
@@ -68,6 +72,29 @@ export function OrdersHistoryTable({
         ),
       },
       {
+        id: 'receipts',
+        header: 'Receipts',
+        size: 180,
+        cell: ({ row }) => {
+          const receiptCount = row.original.linkedPurchaseCount ?? 0;
+
+          if (receiptCount === 0) {
+            return <span className="text-sm text-secondary-500">No receipts yet</span>;
+          }
+
+          return (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-secondary-900">
+                {receiptCount} receipt{receiptCount === 1 ? '' : 's'}
+              </p>
+              <p className="text-xs text-secondary-500">
+                Latest {row.original.receivedPurchaseNumber ?? 'purchase recorded'}
+              </p>
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: 'total',
         header: 'Total',
         size: 120,
@@ -75,15 +102,37 @@ export function OrdersHistoryTable({
       },
       {
         id: 'actions',
-        size: 80,
-        cell: ({ row }) => (
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onView(row.original.id)}>
-            <Eye className="h-4 w-4" />
-          </button>
-        ),
+        header: 'Actions',
+        size: 160,
+        cell: ({ row }) => {
+          const canReceiveOrder =
+            canManageReceipts &&
+            (row.original.status === 'submitted' || row.original.status === 'partial_received');
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              {canReceiveOrder && (
+                <button
+                  className="btn-outline h-8 px-3 text-xs"
+                  onClick={() => onReceive(row.original.id)}
+                >
+                  Receive
+                </button>
+              )}
+              <button
+                className="btn-ghost btn-icon h-8 w-8"
+                onClick={() => onView(row.original.id)}
+                aria-label={`View ${row.original.orderNumber}`}
+                title="View order"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        },
       },
     ],
-    [onView]
+    [canManageReceipts, onReceive, onView]
   );
 
   return (

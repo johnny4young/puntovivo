@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ClipboardPlus, Search } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { OrderCartTable } from '@/features/orders/OrderCartTable';
 import { OrderDetailsModal } from '@/features/orders/OrderDetailsModal';
 import {
@@ -21,15 +22,21 @@ import { trpc } from '@/lib/trpc';
 import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import type { Category, Order, Provider } from '@/types';
 
+interface OrderDialogState {
+  orderId: string;
+  initialMode: 'details' | 'receive';
+}
+
 export function OrdersPage() {
   const utils = trpc.useUtils();
   const toast = useToast();
+  const { user } = useAuth();
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<OrderCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [finalizeModalKey, setFinalizeModalKey] = useState(0);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrderDialog, setSelectedOrderDialog] = useState<OrderDialogState | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
 
   const ordersQuery = trpc.orders.list.useQuery({ page: 1, perPage: 50 });
@@ -61,12 +68,21 @@ export function OrdersPage() {
     provider => provider.isActive
   );
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
+  const canManageReceipts = user?.role === 'admin' || user?.role === 'manager';
   const openOrders = orders.filter(
     order => order.status === 'submitted' || order.status === 'partial_received'
   );
   const orderTotals = {
     committedTotal: openOrders.reduce((sum, order) => sum + order.total, 0),
     providerCount: new Set(openOrders.map(order => order.providerId)).size,
+  };
+
+  const handleOpenOrderDetails = (orderId: string) => {
+    setSelectedOrderDialog({ orderId, initialMode: 'details' });
+  };
+
+  const handleOpenOrderReceive = (orderId: string) => {
+    setSelectedOrderDialog({ orderId, initialMode: 'receive' });
   };
 
   const handleProductSelect = (selection: Parameters<typeof mergeOrderCartItem>[1]) => {
@@ -128,7 +144,7 @@ export function OrdersPage() {
           <div>
             <h1 className="text-2xl font-bold text-secondary-900">Purchase Orders</h1>
             <p className="mt-1 text-sm text-secondary-500">
-              Prepare supplier orders, track committed spend, and void outdated requests when needed
+              Prepare supplier orders, track staged deliveries, and receive arrived stock in batches when needed
             </p>
           </div>
 
@@ -227,7 +243,9 @@ export function OrdersPage() {
           onRetry={() => {
             void ordersQuery.refetch();
           }}
-          onView={setSelectedOrderId}
+          canManageReceipts={canManageReceipts}
+          onView={handleOpenOrderDetails}
+          onReceive={handleOpenOrderReceive}
         />
       </div>
 
@@ -253,9 +271,15 @@ export function OrdersPage() {
       />
 
       <OrderDetailsModal
-        orderId={selectedOrderId}
-        isOpen={!!selectedOrderId}
-        onClose={() => setSelectedOrderId(null)}
+        key={
+          selectedOrderDialog
+            ? `${selectedOrderDialog.orderId}:${selectedOrderDialog.initialMode}`
+            : 'order-details'
+        }
+        orderId={selectedOrderDialog?.orderId ?? null}
+        isOpen={selectedOrderDialog !== null}
+        initialMode={selectedOrderDialog?.initialMode ?? 'details'}
+        onClose={() => setSelectedOrderDialog(null)}
       />
     </>
   );

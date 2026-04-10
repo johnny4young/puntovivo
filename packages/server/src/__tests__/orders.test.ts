@@ -318,6 +318,92 @@ describe('Orders tRPC Router', () => {
     expect(syncUpdate.some(item => item.operation === 'update')).toBe(true);
   });
 
+  it('surfaces receipt progress metadata in order listings after a partial receipt', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Partial Receipt Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Partial Receipt Product',
+      sku: 'ORD-PARTIAL',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 0,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const order = await caller.orders.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 5,
+          costPerUnit: 4,
+        },
+      ],
+      notes: 'Expect staged delivery',
+    });
+
+    const receipt = await caller.purchases.createFromOrder({
+      orderId: order.id,
+      items: [
+        {
+          orderItemId: order.items[0]!.id,
+          quantity: 2,
+        },
+      ],
+      notes: 'First truck arrived',
+    });
+
+    const listed = await caller.orders.list({ page: 1, perPage: 20 });
+    const listedOrder = listed.items.find(item => item.id === order.id);
+
+    expect(listedOrder).toMatchObject({
+      id: order.id,
+      status: 'partial_received',
+      linkedPurchaseCount: 1,
+      receivedPurchaseNumber: receipt.purchaseNumber,
+    });
+  });
+
   it('rejects voiding orders after partial receipt has started', async () => {
     const db = getDatabase();
     const providerId = nanoid();

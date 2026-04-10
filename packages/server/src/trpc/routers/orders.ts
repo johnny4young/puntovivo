@@ -360,6 +360,17 @@ export const ordersRouter = router({
           .orderBy(desc(purchases.createdAt))
           .all()
       : [];
+    const linkedPurchaseCountByOrderId = new Map<string, number>();
+    for (const purchase of linkedPurchases) {
+      if (!purchase.orderId) {
+        continue;
+      }
+
+      linkedPurchaseCountByOrderId.set(
+        purchase.orderId,
+        (linkedPurchaseCountByOrderId.get(purchase.orderId) ?? 0) + 1
+      );
+    }
     const latestPurchaseByOrderId = new Map<string, (typeof linkedPurchases)[number]>();
     for (const purchase of linkedPurchases) {
       if (purchase.orderId && !latestPurchaseByOrderId.has(purchase.orderId)) {
@@ -372,6 +383,7 @@ export const ordersRouter = router({
         const latestPurchase = latestPurchaseByOrderId.get(item.id);
         return {
           ...item,
+          linkedPurchaseCount: linkedPurchaseCountByOrderId.get(item.id) ?? 0,
           receivedPurchaseId: latestPurchase?.id ?? null,
           receivedPurchaseNumber: latestPurchase?.purchaseNumber ?? null,
         };

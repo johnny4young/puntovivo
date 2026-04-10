@@ -11,7 +11,7 @@ This file replaces the old habit of spreading pending work across historical mig
   Impact: site-to-site transfer workflows would be misleading until stock ownership is modeled per site or per location.
 
 - Orders already support partial receipt, but procurement still lacks some follow-through around receiving workflows.
-  Examples: stronger operator guidance around staged deliveries, clearer audit/reporting around multi-receipt orders, and tighter downstream reconciliation after mixed receive/return scenarios.
+  Examples: richer audit/reporting around multi-receipt orders and tighter downstream reconciliation after mixed receive/return scenarios. The operator-facing staged-delivery guidance and quick receive access are now live in the orders workflow.
 
 - Procurement still lacks some edge-case follow-through beyond the live purchase-return workflow.
   Examples: richer supplier credit-note handling, more explicit reconciliation after mixed return/void scenarios, and stronger audit surfaces around return approvals.

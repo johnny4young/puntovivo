@@ -14,13 +14,19 @@ interface OrderDetailsModalProps {
   orderId: string | null;
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'details' | 'receive';
 }
 
-export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModalProps) {
+export function OrderDetailsModal({
+  orderId,
+  isOpen,
+  onClose,
+  initialMode = 'details',
+}: OrderDetailsModalProps) {
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
-  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(initialMode === 'receive');
   const [receiveModalKey, setReceiveModalKey] = useState(0);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
@@ -181,7 +187,7 @@ export function OrderDetailsModal({ orderId, isOpen, onClose }: OrderDetailsModa
         )}
       </Modal>
 
-      {order && (
+      {order && canReceiveOrder && (
         <OrderReceiveModal
           key={receiveModalKey}
           isOpen={isReceiveModalOpen}
