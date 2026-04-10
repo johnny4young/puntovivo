@@ -122,7 +122,15 @@ The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 - purchase returns and related procurement edge cases
 - desktop security hardening and operational verification
 - performance and chunk-size cleanup
+- deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
 - broader integration/E2E coverage
+
+### Deferred Technical Migration
+
+- `better-sqlite3` to `node:sqlite` should be evaluated only after the Node API is marked stable and no longer `release candidate`.
+- The server DB bootstrap in `packages/server/src/db/index.ts` would need to move away from `drizzle-orm/better-sqlite3` to the Drizzle driver/runtime that supports `node:sqlite` at that time.
+- Desktop main-process code in `apps/desktop/src/main/index.ts` currently relies on the raw `$client` shape and `prepare(...).get()/all()/run()` access patterns exposed by the current SQLite client, so those direct bridge queries would need to be adapted together with the ORM migration.
+- Runtime handling and docs added for dual Node/Electron native binary preparation can be removed only after the repo no longer depends on native `better-sqlite3` artifacts.
 
 Those items are tracked in:
 [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
