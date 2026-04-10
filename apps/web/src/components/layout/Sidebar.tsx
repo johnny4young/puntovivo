@@ -200,12 +200,12 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0',
           collapsed && 'lg:w-[6.5rem]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="mb-4 shrink-0 flex items-center justify-between gap-2">
           <SidebarBrand collapsed={collapsed} />
           <button
             type="button"
@@ -217,7 +217,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pr-1">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin pr-1">
           <SidebarSections
             collapsed={collapsed}
             onNavigate={onCloseMobile}
@@ -225,7 +225,7 @@ export function Sidebar({
           />
         </div>
 
-        <div className={cn('mt-4 space-y-3', collapsed && 'items-center')}>
+        <div className={cn('mt-4 shrink-0 space-y-3', collapsed && 'items-center')}>
           {!collapsed && user && (
             <div className="card-inset px-4 py-3">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-secondary-500">

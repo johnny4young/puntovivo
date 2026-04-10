@@ -80,6 +80,7 @@ const syncEntityConfig = {
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
+  purchase_items: { tableName: 'purchase_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {
     tableName: 'purchase_return_items',
@@ -285,6 +286,30 @@ function findEntity(
          FROM purchase_return_items pri
          INNER JOIN purchase_returns pr ON pr.id = pri.purchase_return_id
          WHERE pri.id = ? AND pr.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+  }
+
+  if (config.tableName === 'order_items') {
+    return getSqliteClient(db)
+      .prepare(
+        `SELECT oi.id
+         FROM order_items oi
+         INNER JOIN orders o ON o.id = oi.order_id
+         WHERE oi.id = ? AND o.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+  }
+
+  if (config.tableName === 'purchase_items') {
+    return getSqliteClient(db)
+      .prepare(
+        `SELECT pi.id
+         FROM purchase_items pi
+         INNER JOIN purchases p ON p.id = pi.purchase_id
+         WHERE pi.id = ? AND p.tenant_id = ?
          LIMIT 1`
       )
       .get(entityId, tenantId) as { id: string } | undefined;

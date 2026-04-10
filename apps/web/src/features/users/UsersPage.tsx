@@ -15,7 +15,7 @@ import { getErrorMessage } from '@/lib/utils';
 interface UserFormValues {
   email: string;
   name: string;
-  role: Extract<UserRole, 'admin' | 'manager' | 'cashier'>;
+  role: UserRole;
   isActive: boolean;
   password: string;
 }
@@ -36,7 +36,7 @@ function mapUserToForm(user: User | null): UserFormValues {
   return {
     email: user.email,
     name: user.name,
-    role: (user.role === 'viewer' ? 'cashier' : user.role) as Extract<UserRole, 'admin' | 'manager' | 'cashier'>,
+    role: user.role,
     isActive: user.isActive ?? true,
     password: '',
   };
@@ -114,6 +114,7 @@ function UserFormModal({
             <option value="admin">Admin</option>
             <option value="manager">Manager</option>
             <option value="cashier">Cashier</option>
+            <option value="viewer">Viewer</option>
           </select>
         </div>
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
-const userRoleEnum = z.enum(['admin', 'manager', 'cashier']);
+const userRoleEnum = z.enum(['admin', 'manager', 'cashier', 'viewer']);
 
 export const listUsersInput = paginationInput.extend({
   search: z.string().optional(),
