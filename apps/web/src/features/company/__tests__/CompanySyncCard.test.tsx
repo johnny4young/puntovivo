@@ -52,9 +52,12 @@ describe('CompanySyncCard', () => {
 
     pullQuery.mockResolvedValue({
       pendingCount: 2,
+      retryingCount: 1,
+      failedCount: 1,
       conflictsCount: 1,
       externalSyncEnabled: true,
       lastSyncAt: '2026-04-08T10:00:00.000Z',
+      oldestPendingAt: '2026-04-08T09:58:00.000Z',
       status: 'conflict',
       queue: [
         {
@@ -63,8 +66,8 @@ describe('CompanySyncCard', () => {
           entityId: 'product-1',
           operation: 'update',
           createdAt: '2026-04-08T10:01:00.000Z',
-          attempts: 0,
-          lastError: null,
+          attempts: 1,
+          lastError: 'Remote endpoint unavailable',
         },
       ],
       conflicts: [
@@ -85,8 +88,11 @@ describe('CompanySyncCard', () => {
       conflictIds: [],
       errors: [],
       pendingCount: 0,
+      retryingCount: 0,
+      failedCount: 0,
       conflictsCount: 0,
       lastSyncAt: '2026-04-08T10:05:00.000Z',
+      oldestPendingAt: null,
       status: 'synced',
       externalSyncEnabled: true,
     });
@@ -95,8 +101,11 @@ describe('CompanySyncCard', () => {
       id: 'conflict-1',
       resolution: 'local_wins',
       pendingCount: 1,
+      retryingCount: 0,
+      failedCount: 0,
       conflictsCount: 0,
       lastSyncAt: '2026-04-08T10:05:00.000Z',
+      oldestPendingAt: '2026-04-08T10:05:00.000Z',
       status: 'pending',
       externalSyncEnabled: true,
     });
@@ -109,6 +118,10 @@ describe('CompanySyncCard', () => {
 
     expect(await screen.findByText('Sync Center')).toBeInTheDocument();
     await screen.findByText(/entity id: product-1/i);
+    expect(screen.getByText('Retrying')).toBeInTheDocument();
+    expect(screen.getByText('Failures')).toBeInTheDocument();
+    expect(screen.getByText(/oldest queued change/i)).toBeInTheDocument();
+    expect(screen.getByText(/retry attempt 1/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /process queue/i }));
 

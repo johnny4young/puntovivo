@@ -8,6 +8,7 @@ interface SyncQueueItem {
   entityId: string;
   operation: string;
   createdAt: string;
+  attempts?: number;
   lastError?: string | null;
 }
 
@@ -58,6 +59,11 @@ export function CompanySyncQueuePreview({
               </div>
               <p className="mt-3 text-sm text-secondary-700">Entity ID: {item.entityId}</p>
               <p className="mt-1 text-xs text-secondary-500">Queued {formatDateTime(item.createdAt)}</p>
+              {(item.attempts ?? 0) > 0 && (
+                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-warning-700">
+                  Retry attempt {item.attempts}
+                </p>
+              )}
               {item.lastError && <p className="mt-2 text-sm text-danger-600">{item.lastError}</p>}
             </div>
           ))}

@@ -148,11 +148,28 @@ export function CompanySyncCard() {
 
       {snapshotQuery.error && <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">{snapshotQuery.error.message}</div>}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SyncMetric label="Pending Changes" value={snapshot?.pendingCount ?? '...'} />
+        <SyncMetric label="Retrying" value={snapshot?.retryingCount ?? '...'} />
+        <SyncMetric label="Failures" value={snapshot?.failedCount ?? '...'} />
         <SyncMetric label="Conflicts" value={snapshot?.conflictsCount ?? '...'} />
         <SyncMetric label="Last Sync" value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : 'Not yet'} />
       </div>
+
+      {snapshot && snapshot.pendingCount > 0 && (
+        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-700">
+          <span className="font-medium text-secondary-900">Oldest queued change:</span>{' '}
+          {snapshot.oldestPendingAt ? formatDateTime(snapshot.oldestPendingAt) : 'Unknown'}
+          {snapshot.failedCount > 0 && (
+            <>
+              {' · '}
+              <span className="font-medium text-warning-800">
+                {snapshot.failedCount} queued item{snapshot.failedCount === 1 ? '' : 's'} already failed at least once
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       <CompanySyncActions
         isRefreshing={isRefreshing}
