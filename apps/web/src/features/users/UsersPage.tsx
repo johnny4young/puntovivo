@@ -10,6 +10,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { getPasswordRequirementMessage } from '@/features/auth/passwordPolicy';
 import { getErrorMessage } from '@/lib/utils';
 
 interface UserFormValues {
@@ -138,9 +139,12 @@ function UserFormModal({
               className="input mt-1"
               {...form.register('password', {
                 required: 'Password is required',
-                minLength: { value: 8, message: 'Password must be at least 8 characters' },
+                validate: value => getPasswordRequirementMessage(value) ?? true,
               })}
             />
+            {form.formState.errors.password && (
+              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.password.message}</p>
+            )}
           </div>
         )}
 
@@ -205,9 +209,12 @@ function ResetPasswordModal({
             className="input mt-1"
             {...form.register('password', {
               required: 'Password is required',
-              minLength: { value: 8, message: 'Password must be at least 8 characters' },
+              validate: value => getPasswordRequirementMessage(value) ?? true,
             })}
           />
+          {form.formState.errors.password && (
+            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.password.message}</p>
+          )}
         </div>
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
+import { strongPasswordSchema } from './auth.js';
 
 const userRoleEnum = z.enum(['admin', 'manager', 'cashier', 'viewer']);
 
@@ -11,7 +12,7 @@ export const listUsersInput = paginationInput.extend({
 export const createUserInput = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(1, 'Name is required').max(255),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: strongPasswordSchema,
   role: userRoleEnum,
   isActive: z.boolean().default(true),
 });
@@ -26,7 +27,7 @@ export const updateUserInput = z.object({
 
 export const resetUserPasswordInput = z.object({
   id: z.string().min(1, 'ID is required'),
-  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  newPassword: strongPasswordSchema,
 });
 
 export type CreateUserInput = z.infer<typeof createUserInput>;
