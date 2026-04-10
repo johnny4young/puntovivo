@@ -130,6 +130,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      session_version INTEGER NOT NULL DEFAULT 1,
       role TEXT NOT NULL DEFAULT 'cashier',
       is_active INTEGER DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -797,6 +798,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
   ensureColumn(client, 'companies', 'logo_id', 'logo_id TEXT REFERENCES logos(id)');
+  ensureColumn(client, 'users', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 1');
   createIndexIfColumnsExist(client, 'products', ['provider_id'], 'CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id)');
   createIndexIfColumnsExist(client, 'products', ['vat_rate_id'], 'CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id)');
   createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');

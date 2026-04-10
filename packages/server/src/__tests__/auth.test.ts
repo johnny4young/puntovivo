@@ -59,6 +59,7 @@ async function loginOverHttp() {
 
   return {
     response,
+    accessToken: response.json()[0]?.result?.data?.token as string | undefined,
     refreshCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_refresh'),
     csrfCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf'),
   };
@@ -416,7 +417,10 @@ describe('Auth tRPC Router', () => {
 
       // Reset password for other tests
       const passwordHash = await hash('TestPassword123!');
-      await db.update(users).set({ passwordHash }).where(eq(users.id, testUserId));
+      await db
+        .update(users)
+        .set({ passwordHash, sessionVersion: 1, updatedAt: new Date().toISOString() })
+        .where(eq(users.id, testUserId));
     });
 
     it('should reject incorrect current password', async () => {
@@ -471,6 +475,71 @@ describe('Auth tRPC Router', () => {
           newPassword: 'NewPassword456!',
         })
       ).rejects.toThrow(TRPCError);
+    });
+
+    it('invalidates previously issued access and refresh tokens after a password change', async () => {
+      const { accessToken, refreshCookie, csrfCookie } = await loginOverHttp();
+
+      expect(accessToken).toBeTruthy();
+      expect(refreshCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const changeResponse = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.changePassword?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: JSON.stringify({
+          '0': {
+            currentPassword: 'TestPassword123!',
+            newPassword: 'ChangedPassword456!',
+          },
+        }),
+      });
+
+      expect(changeResponse.statusCode).toBe(200);
+
+      const meResponse = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/auth.me?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      expect(meResponse.statusCode).toBe(401);
+
+      const refreshResponse = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
+      });
+
+      expect(refreshResponse.statusCode).toBe(401);
+
+      const db = getDatabase();
+      const originalPasswordHash = await hash('TestPassword123!');
+      await db
+        .update(users)
+        .set({
+          passwordHash: originalPasswordHash,
+          sessionVersion: 1,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.id, testUserId));
     });
   });
 });

@@ -16,7 +16,7 @@
 
 import { TRPCError } from '@trpc/server';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
@@ -24,6 +24,7 @@ import { users, tenants } from '../../db/schema.js';
 import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
 import {
   REFRESH_COOKIE_NAME,
+  clearRefreshCookie,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
@@ -54,18 +55,6 @@ function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: s
     secure: shouldUseSecureCookies(request),
     path: '/',
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
-  });
-}
-
-function clearRefreshCookie(reply: FastifyReply): void {
-  if (typeof reply.clearCookie !== 'function') {
-    return;
-  }
-
-  reply.clearCookie(REFRESH_COOKIE_NAME, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
   });
 }
 
@@ -259,9 +248,12 @@ export const authRouter = router({
       .update(users)
       .set({
         passwordHash: newPasswordHash,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(users.id, ctx.user.id));
+
+    clearRefreshCookie(ctx.res);
 
     return { success: true, message: 'Password changed successfully' };
   }),

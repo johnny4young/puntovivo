@@ -1,4 +1,6 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { eq } from 'drizzle-orm';
+import { users } from '../db/schema.js';
 
 export const REFRESH_COOKIE_NAME = 'open_yojob_refresh';
 const ACCESS_TOKEN_TTL = '15m';
@@ -11,6 +13,7 @@ export interface AuthTokenPayload {
   tenantId: string;
   email: string;
   role: string;
+  sessionVersion: number;
   tokenType: AuthTokenType;
 }
 
@@ -19,6 +22,7 @@ interface AuthUserIdentity {
   tenantId: string;
   email: string;
   role: string;
+  sessionVersion: number;
 }
 
 function buildTokenPayload(user: AuthUserIdentity, tokenType: AuthTokenType): AuthTokenPayload {
@@ -27,6 +31,7 @@ function buildTokenPayload(user: AuthUserIdentity, tokenType: AuthTokenType): Au
     tenantId: user.tenantId,
     email: user.email,
     role: user.role,
+    sessionVersion: user.sessionVersion,
     tokenType,
   };
 }
@@ -77,7 +82,29 @@ async function verifyToken(
 
   try {
     const payload = await request.server.jwt.verify<AuthTokenPayload>(token);
-    return payload.tokenType === expectedType ? payload : null;
+    if (payload.tokenType !== expectedType) {
+      return null;
+    }
+
+    const user = await request.server.db
+      .select({
+        tenantId: users.tenantId,
+        isActive: users.isActive,
+        sessionVersion: users.sessionVersion,
+      })
+      .from(users)
+      .where(eq(users.id, payload.userId))
+      .get();
+
+    if (!user || !user.isActive) {
+      return null;
+    }
+
+    if (user.tenantId !== payload.tenantId || user.sessionVersion !== payload.sessionVersion) {
+      return null;
+    }
+
+    return payload;
   } catch {
     return null;
   }
@@ -89,4 +116,16 @@ export function verifyAccessToken(request: FastifyRequest): Promise<AuthTokenPay
 
 export function verifyRefreshToken(request: FastifyRequest): Promise<AuthTokenPayload | null> {
   return verifyToken(request, request.cookies[REFRESH_COOKIE_NAME] ?? null, 'refresh');
+}
+
+export function clearRefreshCookie(reply: FastifyReply): void {
+  if (typeof reply.clearCookie !== 'function') {
+    return;
+  }
+
+  reply.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  });
 }

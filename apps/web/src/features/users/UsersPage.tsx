@@ -220,7 +220,7 @@ function canManageUsers(role: UserRole | undefined): boolean {
 }
 
 export function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
   const usersQuery = trpc.users.list.useQuery({ page: 1, perPage: 50 });
@@ -264,8 +264,18 @@ export function UsersPage() {
   });
 
   const resetPasswordMutation = trpc.users.resetPassword.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       setPasswordUser(null);
+
+      if (variables.id === currentUser?.id) {
+        toast.success({
+          title: 'Password reset',
+          description: 'Your password changed. Please sign in again.',
+        });
+        await logout();
+        return;
+      }
+
       toast.success({ title: 'Password reset' });
     },
     onError: error => {

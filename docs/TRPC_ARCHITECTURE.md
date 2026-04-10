@@ -1,6 +1,6 @@
 # tRPC Architecture
 
-> Updated: April 9, 2026
+> Updated: April 10, 2026
 
 ## Summary
 
@@ -46,6 +46,7 @@ Session model:
 - the web client keeps the short-lived access token in memory only
 - session continuity comes from a rotated `httpOnly` refresh cookie
 - `health.check` can mint the readable CSRF cookie needed before calling cookie-backed unsafe auth procedures
+- password changes and admin password resets revoke older tokens through a per-user session version check
 
 ## Current Router Surface
 
