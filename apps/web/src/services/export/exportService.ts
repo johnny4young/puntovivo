@@ -137,8 +137,10 @@ export async function exportToExcel<T extends object>(
 ): Promise<void> {
   const { title, includeTimestamp = true } = options;
 
-  // Dynamically import exceljs to keep bundle size small
-  const ExcelJS = await import('exceljs');
+  // Use the browser entry directly so Vite can split exceljs internals instead of
+  // pulling the package's prebundled minified browser build as one oversized chunk.
+  const excelModule = await import('exceljs/lib/exceljs.bare.js');
+  const ExcelJS = ('default' in excelModule ? excelModule.default : excelModule) as typeof import('exceljs');
 
   // Create a new workbook and worksheet
   const workbook = new ExcelJS.Workbook();

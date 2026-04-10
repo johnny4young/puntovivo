@@ -43,9 +43,6 @@ This file replaces the old habit of spreading pending work across historical mig
 
 ## Priority 4: Performance and UX Polish
 
-- The web build still emits large Vite chunk warnings.
-  Suggestion: the route surface is now lazy-loaded, so the next pass should focus on the remaining export-heavy chunk (`exceljs`) and any other library-level splits that still exceed Vite's warning threshold.
-
 - Responsive/mobile refinement is strongest in Sales and weaker in some admin/maintenance screens.
   Suggestion: continue responsive QA across inventory, company settings, and larger catalog pages.
 
@@ -79,6 +76,6 @@ If the team wants a practical implementation order, the strongest next candidate
 
 1. Site-aware inventory ownership model
 2. Electron main-window sandbox hardening
-3. Library-level splitting for export/reporting dependencies after route lazy loading
-4. Procurement audit and credit-note follow-up after returns
-5. Broader Electron and sync smoke coverage
+3. Procurement audit and credit-note follow-up after returns
+4. Broader Electron and sync smoke coverage
+5. Sync observability and operator runbooks
