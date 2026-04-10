@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
+import { Eye, RotateCcw } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -21,7 +21,9 @@ interface PurchasesHistoryTableProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  canManageReturns: boolean;
   onView: (purchaseId: string) => void;
+  onReturn: (purchaseId: string) => void;
 }
 
 export function PurchasesHistoryTable({
@@ -29,7 +31,9 @@ export function PurchasesHistoryTable({
   isLoading,
   error,
   onRetry,
+  canManageReturns,
   onView,
+  onReturn,
 }: PurchasesHistoryTableProps) {
   const columns = useMemo<ColumnDef<Purchase>[]>(
     () => [
@@ -72,6 +76,22 @@ export function PurchasesHistoryTable({
         ),
       },
       {
+        id: 'returns',
+        header: 'Returns',
+        size: 140,
+        cell: ({ row }) => {
+          if (row.original.status === 'returned') {
+            return <span className="text-sm font-medium text-danger-600">Fully returned</span>;
+          }
+
+          if (row.original.status === 'partial_returned') {
+            return <span className="text-sm font-medium text-primary-700">Partial return</span>;
+          }
+
+          return <span className="text-sm text-secondary-500">Open</span>;
+        },
+      },
+      {
         accessorKey: 'total',
         header: 'Total',
         size: 120,
@@ -79,15 +99,39 @@ export function PurchasesHistoryTable({
       },
       {
         id: 'actions',
-        size: 80,
-        cell: ({ row }) => (
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onView(row.original.id)}>
-            <Eye className="h-4 w-4" />
-          </button>
-        ),
+        header: 'Actions',
+        size: 132,
+        cell: ({ row }) => {
+          const canReturnPurchase =
+            canManageReturns &&
+            (row.original.status === 'completed' || row.original.status === 'partial_returned');
+
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {canReturnPurchase && (
+                <button
+                  className="btn-ghost btn-icon h-8 w-8"
+                  onClick={() => onReturn(row.original.id)}
+                  aria-label={`Return items for ${row.original.purchaseNumber}`}
+                  title="Return items"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                className="btn-ghost btn-icon h-8 w-8"
+                onClick={() => onView(row.original.id)}
+                aria-label={`View ${row.original.purchaseNumber}`}
+                title="View purchase"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        },
       },
     ],
-    [onView]
+    [canManageReturns, onReturn, onView]
   );
 
   return (

@@ -14,17 +14,19 @@ interface PurchaseDetailsModalProps {
   purchaseId: string | null;
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'details' | 'return';
 }
 
 export function PurchaseDetailsModal({
   purchaseId,
   isOpen,
   onClose,
+  initialMode = 'details',
 }: PurchaseDetailsModalProps) {
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(initialMode === 'return');
   const [returnModalKey, setReturnModalKey] = useState(0);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
@@ -188,7 +190,7 @@ export function PurchaseDetailsModal({
         )}
       </Modal>
 
-      {purchase && (
+      {purchase && canReturnPurchase && (
         <PurchaseReturnModal
           key={`${purchase.id}-${returnModalKey}-${purchase.returnCount ?? 0}`}
           isOpen={isReturnModalOpen}

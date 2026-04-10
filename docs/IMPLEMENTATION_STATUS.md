@@ -1,6 +1,6 @@
 # Implementation Status
 
-> Updated: April 9, 2026
+> Updated: April 10, 2026
 > Source of truth: repository scan of `apps/web`, `apps/desktop`, and `packages/server`
 
 ## Executive Summary
@@ -21,7 +21,7 @@ The project is no longer in early migration. The application already runs with a
 | Phase 2 | Product management and pricing | Complete | Multi-tier pricing, product units, provider/location/VAT assignments, export support, and validated CRUD are live. |
 | Phase 3 | Inventory | Complete | Stock view, movement history, adjustments, initial inventory, physical count, and low-stock reporting are implemented. |
 | Phase 4 | Sales / POS | Complete | Checkout, receipt printing, responsive/mobile layout, keyboard shortcuts, void, refund, and history/detail flows are implemented. |
-| Phase 5 | Procurement | Complete | Orders, purchases, order receiving into purchases, stock intake, cost updates, and purchase void workflows are implemented. |
+| Phase 5 | Procurement | Complete | Orders, purchases, order receiving into purchases, stock intake, supplier-side purchase returns, cost updates, and purchase void workflows are implemented. |
 | Phase 6 | Reporting, sync, desktop operations, UX polish | Advanced / In progress | Dashboard reporting, exports, sync center, role guards, loading/error states, toasts, theme/tray/update settings, backup/restore, and offline UX are implemented. Remaining work is consolidated in `docs/OPEN_BACKLOG.md`. |
 
 ## Implemented Application Surface
@@ -112,6 +112,7 @@ Current desktop-only operational features:
 - sale detail refund UI and status display
 - sync center snapshot-based UI and merged conflict resolution
 - desktop backup, restore, update, tray, theme, and print settings
+- purchase return history and quick-return actions from the purchases workflow
 
 ## Current Risks and Open Areas
 
@@ -119,7 +120,7 @@ The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 
 - deeper inventory modeling by site/location
 - remote sync strategy hardening
-- purchase returns and related procurement edge cases
+- procurement edge cases beyond the live purchase-return flow
 - desktop security hardening and operational verification
 - performance and chunk-size cleanup
 - deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`

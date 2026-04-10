@@ -7,14 +7,14 @@ This file replaces the old habit of spreading pending work across historical mig
 
 ## Priority 1: Core Product Gaps
 
-- Purchase returns are still missing as a first-class workflow.
-  Impact: procurement can void a purchase, but it cannot model partial or supplier-side returns cleanly.
-
 - Inventory is still tenant-wide rather than truly site-owned.
   Impact: site-to-site transfer workflows would be misleading until stock ownership is modeled per site or per location.
 
 - Orders do not yet support partial receipt.
   Impact: the current flow is effectively `submitted -> received -> voided`, which is too coarse for staggered delivery scenarios.
+
+- Procurement still lacks some edge-case follow-through beyond the live purchase-return workflow.
+  Examples: richer supplier credit-note handling, more explicit reconciliation after mixed return/void scenarios, and stronger audit surfaces around return approvals.
 
 - There is no explicit credit-note or accounting layer beyond operational refund/void status.
   Impact: fiscal and accounting reconciliation may need a richer document model later.
@@ -77,8 +77,8 @@ This file replaces the old habit of spreading pending work across historical mig
 
 If the team wants a practical implementation order, the strongest next candidates are:
 
-1. Purchase returns workflow
-2. Partial receiving for orders
-3. Site-aware inventory ownership model
-4. Electron main-window sandbox hardening
-5. Bundle splitting for export/reporting dependencies
+1. Partial receiving for orders
+2. Site-aware inventory ownership model
+3. Electron main-window sandbox hardening
+4. Bundle splitting for export/reporting dependencies
+5. Procurement audit and credit-note follow-up after returns

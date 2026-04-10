@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PackagePlus, Search } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { PurchaseCartTable } from '@/features/purchases/PurchaseCartTable';
 import { PurchasesCheckoutPanel } from '@/features/purchases/PurchasesCheckoutPanel';
 import { PurchaseDetailsModal } from '@/features/purchases/PurchaseDetailsModal';
@@ -21,15 +22,23 @@ import { trpc } from '@/lib/trpc';
 import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import type { Category, Provider, Purchase } from '@/types';
 
+interface PurchaseDialogState {
+  purchaseId: string;
+  initialMode: 'details' | 'return';
+}
+
 export function PurchasesPage() {
   const utils = trpc.useUtils();
   const toast = useToast();
+  const { user } = useAuth();
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [finalizeModalKey, setFinalizeModalKey] = useState(0);
-  const [selectedPurchaseId, setSelectedPurchaseId] = useState<string | null>(null);
+  const [selectedPurchaseDialog, setSelectedPurchaseDialog] = useState<PurchaseDialogState | null>(
+    null
+  );
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const purchasesQuery = trpc.purchases.list.useQuery({ page: 1, perPage: 50 });
@@ -67,10 +76,19 @@ export function PurchasesPage() {
     provider => provider.isActive
   );
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
+  const canManageReturns = user?.role === 'admin' || user?.role === 'manager';
   const completedPurchases = purchases.filter(purchase => purchase.status === 'completed');
   const purchaseTotals = {
     recentTotal: completedPurchases.reduce((sum, purchase) => sum + purchase.total, 0),
     providerCount: new Set(completedPurchases.map(purchase => purchase.providerId)).size,
+  };
+
+  const handleOpenPurchaseDetails = (purchaseId: string) => {
+    setSelectedPurchaseDialog({ purchaseId, initialMode: 'details' });
+  };
+
+  const handleOpenPurchaseReturn = (purchaseId: string) => {
+    setSelectedPurchaseDialog({ purchaseId, initialMode: 'return' });
   };
 
   const handleProductSelect = (selection: Parameters<typeof mergePurchaseCartItem>[1]) => {
@@ -132,7 +150,7 @@ export function PurchasesPage() {
           <div>
             <h1 className="text-2xl font-bold text-secondary-900">Purchases</h1>
             <p className="mt-1 text-sm text-secondary-500">
-              Register inbound stock, review purchase history, and void completed purchases when required
+              Register inbound stock, review purchase history, return received stock, and void completed purchases when required
             </p>
           </div>
 
@@ -231,7 +249,9 @@ export function PurchasesPage() {
           onRetry={() => {
             void purchasesQuery.refetch();
           }}
-          onView={setSelectedPurchaseId}
+          canManageReturns={canManageReturns}
+          onView={handleOpenPurchaseDetails}
+          onReturn={handleOpenPurchaseReturn}
         />
       </div>
 
@@ -257,9 +277,15 @@ export function PurchasesPage() {
       />
 
       <PurchaseDetailsModal
-        purchaseId={selectedPurchaseId}
-        isOpen={!!selectedPurchaseId}
-        onClose={() => setSelectedPurchaseId(null)}
+        key={
+          selectedPurchaseDialog
+            ? `${selectedPurchaseDialog.purchaseId}:${selectedPurchaseDialog.initialMode}`
+            : 'purchase-details'
+        }
+        purchaseId={selectedPurchaseDialog?.purchaseId ?? null}
+        isOpen={selectedPurchaseDialog !== null}
+        initialMode={selectedPurchaseDialog?.initialMode ?? 'details'}
+        onClose={() => setSelectedPurchaseDialog(null)}
       />
     </>
   );
