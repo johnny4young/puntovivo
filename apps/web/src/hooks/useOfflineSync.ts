@@ -145,6 +145,20 @@ export function useOfflineSync() {
     void refreshStatus();
   }, [refreshStatus]);
 
+  useEffect(() => {
+    if (!hasDesktopSync || !tenantId) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshStatus();
+    }, 5_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [hasDesktopSync, refreshStatus, tenantId]);
+
   // Auto-sync when coming online
   useEffect(() => {
     if (status.isOnline && status.pendingItems > 0 && !status.isSyncing && !status.error) {
