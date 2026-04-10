@@ -2,8 +2,7 @@ import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
-import { httpBatchLink } from '@trpc/client';
-import { getTrpcHeaders, trpc } from './lib/trpc';
+import { createTrpcBatchLink, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';
 import { ThemeProvider } from './components/feedback/ThemeProvider';
@@ -22,20 +21,7 @@ const queryClient = new QueryClient({
 function Root() {
   const [trpcClient] = useState(() =>
     trpc.createClient({
-      links: [
-        httpBatchLink({
-          url: `${import.meta.env.VITE_API_URL || 'http://localhost:8090'}/api/trpc`,
-          fetch(url, options) {
-            return fetch(url, {
-              ...options,
-              credentials: 'include',
-            });
-          },
-          headers() {
-            return getTrpcHeaders();
-          },
-        }),
-      ],
+      links: [createTrpcBatchLink()],
     })
   );
 

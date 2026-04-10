@@ -1,8 +1,20 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useState,
+  ReactNode,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TRPCClientError } from '@trpc/client';
 import type { User, Tenant, LoginCredentials } from '@/types';
-import { clearAccessToken, setAccessToken, vanillaClient } from '@/lib/trpc';
+import {
+  clearAccessToken,
+  setAccessToken,
+  setAuthSessionExpiredHandler,
+  vanillaClient,
+} from '@/lib/trpc';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 
@@ -82,6 +94,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setTenant(null);
     setError(null);
   };
+
+  const handleAuthSessionExpired = useEffectEvent(() => {
+    clearLocalSession();
+    setIsLoading(false);
+    navigate('/login');
+  });
+
+  useEffect(() => {
+    setAuthSessionExpiredHandler(() => {
+      handleAuthSessionExpired();
+    });
+
+    return () => {
+      setAuthSessionExpiredHandler(null);
+    };
+  }, [handleAuthSessionExpired]);
 
   // Check for existing auth on mount
   useEffect(() => {
