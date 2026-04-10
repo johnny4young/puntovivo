@@ -399,6 +399,7 @@ export interface PurchaseItem {
   id: string;
   purchaseId: string;
   productId: string;
+  sourceOrderItemId?: string | null;
   productName?: string | null;
   productSku?: string | null;
   quantity: number;
@@ -447,6 +448,8 @@ export interface Order {
   orderNumber: string;
   providerId: string;
   providerName?: string | null;
+  linkedPurchaseCount?: number;
+  linkedPurchases?: LinkedOrderPurchase[];
   receivedPurchaseId?: string | null;
   receivedPurchaseNumber?: string | null;
   siteId: string;
@@ -459,11 +462,19 @@ export interface Order {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus;
-  syncVersion?: number;
+  syncStatus?: SyncStatus | null;
+  syncVersion?: number | null;
 }
 
-export type OrderStatus = 'submitted' | 'received' | 'voided';
+export type OrderStatus = 'submitted' | 'partial_received' | 'received' | 'voided';
+
+export interface LinkedOrderPurchase {
+  id: string;
+  purchaseNumber: string;
+  status: PurchaseStatus;
+  total: number;
+  createdAt: string;
+}
 
 export interface OrderItem {
   id: string;
@@ -479,6 +490,8 @@ export interface OrderItem {
   costPerUnit: number;
   baseUnitCost: number;
   total: number;
+  receivedQuantity?: number;
+  remainingQuantity?: number;
 }
 
 export interface InventoryMovement {

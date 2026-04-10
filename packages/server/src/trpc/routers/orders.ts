@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import {
   orderItems,
   orders,
+  purchaseItems,
   purchases,
   products,
   providers,
@@ -199,8 +200,6 @@ async function getOrderRecord(db: Context['db'], tenantId: string, orderId: stri
       orderNumber: orders.orderNumber,
       providerId: orders.providerId,
       providerName: providers.name,
-      receivedPurchaseId: purchases.id,
-      receivedPurchaseNumber: purchases.purchaseNumber,
       siteId: orders.siteId,
       siteName: sites.name,
       status: orders.status,
@@ -215,7 +214,6 @@ async function getOrderRecord(db: Context['db'], tenantId: string, orderId: stri
     })
     .from(orders)
     .innerJoin(providers, eq(orders.providerId, providers.id))
-    .leftJoin(purchases, eq(purchases.orderId, orders.id))
     .innerJoin(sites, eq(orders.siteId, sites.id))
     .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
     .get();
@@ -246,7 +244,57 @@ async function getOrderRecord(db: Context['db'], tenantId: string, orderId: stri
     .where(eq(orderItems.orderId, orderId))
     .all();
 
-  return { ...order, items };
+  const linkedPurchases = await db
+    .select({
+      id: purchases.id,
+      purchaseNumber: purchases.purchaseNumber,
+      status: purchases.status,
+      total: purchases.total,
+      createdAt: purchases.createdAt,
+    })
+    .from(purchases)
+    .where(and(eq(purchases.tenantId, tenantId), eq(purchases.orderId, orderId)))
+    .orderBy(desc(purchases.createdAt))
+    .all();
+
+  const latestPurchase = linkedPurchases[0] ?? null;
+  const receivedQuantities = await db
+    .select({
+      sourceOrderItemId: purchaseItems.sourceOrderItemId,
+      receivedQuantity: sql<number>`coalesce(sum(${purchaseItems.quantity}), 0)`,
+    })
+    .from(purchaseItems)
+    .innerJoin(purchases, eq(purchaseItems.purchaseId, purchases.id))
+    .where(
+      and(
+        eq(purchases.tenantId, tenantId),
+        eq(purchases.orderId, orderId),
+        inArray(purchases.status, ['completed', 'partial_returned', 'returned'])
+      )
+    )
+    .groupBy(purchaseItems.sourceOrderItemId)
+    .all();
+  const receivedQuantityMap = new Map(
+    receivedQuantities
+      .filter(item => item.sourceOrderItemId)
+      .map(item => [item.sourceOrderItemId as string, item.receivedQuantity ?? 0])
+  );
+
+  return {
+    ...order,
+    linkedPurchaseCount: linkedPurchases.length,
+    linkedPurchases,
+    receivedPurchaseId: latestPurchase?.id ?? null,
+    receivedPurchaseNumber: latestPurchase?.purchaseNumber ?? null,
+    items: items.map(item => {
+      const receivedQuantity = receivedQuantityMap.get(item.id) ?? 0;
+      return {
+        ...item,
+        receivedQuantity,
+        remainingQuantity: item.quantity - receivedQuantity,
+      };
+    }),
+  };
 }
 
 export const ordersRouter = router({
@@ -270,8 +318,6 @@ export const ordersRouter = router({
           orderNumber: orders.orderNumber,
           providerId: orders.providerId,
           providerName: providers.name,
-          receivedPurchaseId: purchases.id,
-          receivedPurchaseNumber: purchases.purchaseNumber,
           siteId: orders.siteId,
           siteName: sites.name,
           status: orders.status,
@@ -286,7 +332,6 @@ export const ordersRouter = router({
         })
         .from(orders)
         .innerJoin(providers, eq(orders.providerId, providers.id))
-        .leftJoin(purchases, eq(purchases.orderId, orders.id))
         .innerJoin(sites, eq(orders.siteId, sites.id))
         .where(where)
         .orderBy(desc(orders.createdAt))
@@ -301,9 +346,36 @@ export const ordersRouter = router({
     ]);
 
     const totalItems = countResult?.count ?? 0;
+    const orderIds = items.map(item => item.id);
+    const linkedPurchases = orderIds.length
+      ? await ctx.db
+          .select({
+            orderId: purchases.orderId,
+            id: purchases.id,
+            purchaseNumber: purchases.purchaseNumber,
+            createdAt: purchases.createdAt,
+          })
+          .from(purchases)
+          .where(and(eq(purchases.tenantId, ctx.tenantId), inArray(purchases.orderId, orderIds)))
+          .orderBy(desc(purchases.createdAt))
+          .all()
+      : [];
+    const latestPurchaseByOrderId = new Map<string, (typeof linkedPurchases)[number]>();
+    for (const purchase of linkedPurchases) {
+      if (purchase.orderId && !latestPurchaseByOrderId.has(purchase.orderId)) {
+        latestPurchaseByOrderId.set(purchase.orderId, purchase);
+      }
+    }
 
     return {
-      items,
+      items: items.map(item => {
+        const latestPurchase = latestPurchaseByOrderId.get(item.id);
+        return {
+          ...item,
+          receivedPurchaseId: latestPurchase?.id ?? null,
+          receivedPurchaseNumber: latestPurchase?.purchaseNumber ?? null,
+        };
+      }),
       page,
       perPage,
       totalItems,
@@ -435,10 +507,10 @@ export const ordersRouter = router({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Order is already voided' });
     }
 
-    if (existing.status === 'received') {
+    if (existing.status === 'received' || existing.status === 'partial_received') {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'Received orders cannot be voided',
+        message: 'Orders with received stock cannot be voided',
       });
     }
 

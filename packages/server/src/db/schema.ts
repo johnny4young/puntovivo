@@ -19,7 +19,7 @@ export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other']
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
-export const orderStatusEnum = ['submitted', 'received', 'voided'] as const;
+export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
@@ -1048,7 +1048,6 @@ export const purchases = sqliteTable(
     index('idx_purchases_site').on(table.siteId),
     index('idx_purchases_created_by').on(table.createdBy),
     uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
-    uniqueIndex('idx_purchases_order_unique').on(table.orderId),
   ]
 );
 
@@ -1091,6 +1090,7 @@ export const purchaseItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
+    sourceOrderItemId: text('source_order_item_id').references(() => orderItems.id),
     quantity: integer('quantity').notNull().default(1),
     unitId: text('unit_id')
       .notNull()
@@ -1103,6 +1103,7 @@ export const purchaseItems = sqliteTable(
   table => [
     index('idx_purchase_items_purchase').on(table.purchaseId),
     index('idx_purchase_items_product').on(table.productId),
+    index('idx_purchase_items_source_order_item').on(table.sourceOrderItemId),
   ]
 );
 
@@ -1114,6 +1115,10 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) =
   product: one(products, {
     fields: [purchaseItems.productId],
     references: [products.id],
+  }),
+  sourceOrderItem: one(orderItems, {
+    fields: [purchaseItems.sourceOrderItemId],
+    references: [orderItems.id],
   }),
   unit: one(units, {
     fields: [purchaseItems.unitId],
@@ -1279,10 +1284,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.createdBy],
     references: [users.id],
   }),
-  receivedPurchase: one(purchases, {
-    fields: [orders.id],
-    references: [purchases.orderId],
-  }),
+  linkedPurchases: many(purchases),
   items: many(orderItems),
 }));
 

@@ -251,7 +251,7 @@ describe('Purchases tRPC Router', () => {
     expect(loaded.status).toBe('completed');
   });
 
-  it('creates a purchase from an order and marks the order as received', async () => {
+  it('creates partial receipts from an order and marks the order as received when completed', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -331,8 +331,9 @@ describe('Purchases tRPC Router', () => {
       updatedAt: now,
     });
 
+    const orderItemId = nanoid();
     await db.insert(orderItems).values({
-      id: nanoid(),
+      id: orderItemId,
       orderId,
       productId,
       quantity: 2,
@@ -344,30 +345,61 @@ describe('Purchases tRPC Router', () => {
     });
 
     const caller = appRouter.createCaller(createTestContext('manager'));
-    const result = await caller.purchases.createFromOrder({ orderId });
+    const firstReceipt = await caller.purchases.createFromOrder({
+      orderId,
+      items: [{ orderItemId, quantity: 1 }],
+      notes: 'First truck',
+    });
 
-    expect(result.status).toBe('completed');
-    expect(result.orderId).toBe(orderId);
-    expect(result.sourceOrderNumber).toBe('PED-900001');
-    expect(result.providerId).toBe(providerId);
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({
+    expect(firstReceipt.status).toBe('completed');
+    expect(firstReceipt.orderId).toBe(orderId);
+    expect(firstReceipt.sourceOrderNumber).toBe('PED-900001');
+    expect(firstReceipt.providerId).toBe(providerId);
+    expect(firstReceipt.items).toHaveLength(1);
+    expect(firstReceipt.items[0]).toMatchObject({
       productId,
       unitId: boxUnitId,
+      sourceOrderItemId: orderItemId,
       unitEquivalence: 5,
       costPerUnit: 35,
       baseUnitCost: 7,
-      total: 70,
+      total: 35,
     });
 
     const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
-    expect(updatedProduct?.stock).toBe(13);
+    expect(updatedProduct?.stock).toBe(8);
 
     const updatedOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
-    expect(updatedOrder?.status).toBe('received');
+    expect(updatedOrder?.status).toBe('partial_received');
 
-    const linkedPurchase = await db.select().from(purchases).where(eq(purchases.id, result.id)).get();
-    expect(linkedPurchase?.orderId).toBe(orderId);
+    const partiallyLoadedOrder = await caller.orders.getById({ id: orderId });
+    expect(partiallyLoadedOrder.status).toBe('partial_received');
+    expect(partiallyLoadedOrder.items?.[0]).toMatchObject({
+      quantity: 2,
+      receivedQuantity: 1,
+      remainingQuantity: 1,
+    });
+    expect(partiallyLoadedOrder.linkedPurchases).toHaveLength(1);
+
+    const secondReceipt = await caller.purchases.createFromOrder({
+      orderId,
+      items: [{ orderItemId, quantity: 1 }],
+    });
+
+    expect(secondReceipt.purchaseNumber).not.toBe(firstReceipt.purchaseNumber);
+
+    const finalProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(finalProduct?.stock).toBe(13);
+
+    const finalOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
+    expect(finalOrder?.status).toBe('received');
+
+    const linkedPurchases = await db
+      .select()
+      .from(purchases)
+      .where(eq(purchases.orderId, orderId))
+      .all();
+    expect(linkedPurchases).toHaveLength(2);
   });
 
   it('rejects purchases with an invalid product-unit assignment', async () => {

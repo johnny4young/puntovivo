@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
-export const orderStatusEnum = z.enum(['submitted', 'received', 'voided']);
+export const orderStatusEnum = z.enum(['submitted', 'partial_received', 'received', 'voided']);
 
 export const orderItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),

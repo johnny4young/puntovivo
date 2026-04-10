@@ -61,10 +61,12 @@ export function OrdersPage() {
     provider => provider.isActive
   );
   const categories = (categoriesQuery.data?.items ?? []) as Category[];
-  const submittedOrders = orders.filter(order => order.status === 'submitted');
+  const openOrders = orders.filter(
+    order => order.status === 'submitted' || order.status === 'partial_received'
+  );
   const orderTotals = {
-    committedTotal: submittedOrders.reduce((sum, order) => sum + order.total, 0),
-    providerCount: new Set(submittedOrders.map(order => order.providerId)).size,
+    committedTotal: openOrders.reduce((sum, order) => sum + order.total, 0),
+    providerCount: new Set(openOrders.map(order => order.providerId)).size,
   };
 
   const handleProductSelect = (selection: Parameters<typeof mergeOrderCartItem>[1]) => {
@@ -155,8 +157,8 @@ export function OrdersPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Submitted Orders</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">{submittedOrders.length}</p>
+            <p className="text-sm text-secondary-500">Open Orders</p>
+            <p className="mt-1 text-2xl font-bold text-secondary-900">{openOrders.length}</p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">Committed Spend</p>

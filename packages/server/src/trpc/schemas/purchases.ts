@@ -18,6 +18,11 @@ export const purchaseItemInput = z.object({
   costPerUnit: z.number().min(0, 'Cost per unit must be non-negative'),
 });
 
+export const receiveOrderItemInput = z.object({
+  orderItemId: z.string().min(1, 'Order item ID is required'),
+  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+});
+
 export const listPurchasesInput = paginationInput.extend({
   providerId: z.string().optional(),
   status: purchaseStatusEnum.optional(),
@@ -37,6 +42,8 @@ export const createPurchaseInput = z.object({
 
 export const createPurchaseFromOrderInput = z.object({
   orderId: z.string().min(1, 'Order is required'),
+  items: z.array(receiveOrderItemInput).min(1, 'At least one received item is required').optional(),
+  notes: z.string().optional(),
 });
 
 export const voidPurchaseInput = z.object({
@@ -56,6 +63,7 @@ export const returnPurchaseInput = z.object({
 });
 
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>;
+export type ReceiveOrderItemInput = z.infer<typeof receiveOrderItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;
 export type CreatePurchaseFromOrderInput = z.infer<typeof createPurchaseFromOrderInput>;
