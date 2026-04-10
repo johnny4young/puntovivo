@@ -1,27 +1,13 @@
+import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import {
+  FullscreenLoadingState,
+  PageLoadingState,
+} from '@/components/feedback/LoadingState';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { LoginPage } from '@/features/auth/LoginPage';
-import { DashboardPage } from '@/features/dashboard/DashboardPage';
-import { CompanyPage } from '@/features/company/CompanyPage';
-import { CustomerCatalogsPage } from '@/features/customer-catalogs/CustomerCatalogsPage';
-import { GeographyPage } from '@/features/geography/GeographyPage';
-import { ProvidersPage } from '@/features/providers/ProvidersPage';
-import { CategoriesPage } from '@/features/categories/CategoriesPage';
-import { SequentialsPage } from '@/features/sequentials/SequentialsPage';
-import { SitesPage } from '@/features/sites/SitesPage';
-import { LocationsPage } from '@/features/locations/LocationsPage';
-import { UnitsPage } from '@/features/units/UnitsPage';
-import { VatRatesPage } from '@/features/vat-rates/VatRatesPage';
-import { ProductsPage } from '@/features/products/ProductsPage';
-import { OrdersPage } from '@/features/orders/OrdersPage';
-import { PurchasesPage } from '@/features/purchases/PurchasesPage';
-import { CustomersPage } from '@/features/customers/CustomersPage';
-import { SalesPage } from '@/features/sales/SalesPage';
-import { InventoryPage } from '@/features/inventory/InventoryPage';
-import { UsersPage } from '@/features/users/UsersPage';
 import {
   adminOnlyRoles,
   dashboardRoles,
@@ -30,6 +16,69 @@ import {
   salesRoles,
 } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/AuthProvider';
+import type { UserRole } from '@/types';
+
+function lazyPage<T extends ComponentType>(loader: () => Promise<{ default: T }>) {
+  return lazy(loader);
+}
+
+const LoginPage = lazyPage(async () => ({
+  default: (await import('@/features/auth/LoginPage')).LoginPage,
+}));
+const DashboardPage = lazyPage(async () => ({
+  default: (await import('@/features/dashboard/DashboardPage')).DashboardPage,
+}));
+const CompanyPage = lazyPage(async () => ({
+  default: (await import('@/features/company/CompanyPage')).CompanyPage,
+}));
+const CustomerCatalogsPage = lazyPage(async () => ({
+  default: (await import('@/features/customer-catalogs/CustomerCatalogsPage')).CustomerCatalogsPage,
+}));
+const GeographyPage = lazyPage(async () => ({
+  default: (await import('@/features/geography/GeographyPage')).GeographyPage,
+}));
+const ProvidersPage = lazyPage(async () => ({
+  default: (await import('@/features/providers/ProvidersPage')).ProvidersPage,
+}));
+const CategoriesPage = lazyPage(async () => ({
+  default: (await import('@/features/categories/CategoriesPage')).CategoriesPage,
+}));
+const SequentialsPage = lazyPage(async () => ({
+  default: (await import('@/features/sequentials/SequentialsPage')).SequentialsPage,
+}));
+const SitesPage = lazyPage(async () => ({
+  default: (await import('@/features/sites/SitesPage')).SitesPage,
+}));
+const LocationsPage = lazyPage(async () => ({
+  default: (await import('@/features/locations/LocationsPage')).LocationsPage,
+}));
+const UnitsPage = lazyPage(async () => ({
+  default: (await import('@/features/units/UnitsPage')).UnitsPage,
+}));
+const VatRatesPage = lazyPage(async () => ({
+  default: (await import('@/features/vat-rates/VatRatesPage')).VatRatesPage,
+}));
+const ProductsPage = lazyPage(async () => ({
+  default: (await import('@/features/products/ProductsPage')).ProductsPage,
+}));
+const OrdersPage = lazyPage(async () => ({
+  default: (await import('@/features/orders/OrdersPage')).OrdersPage,
+}));
+const PurchasesPage = lazyPage(async () => ({
+  default: (await import('@/features/purchases/PurchasesPage')).PurchasesPage,
+}));
+const CustomersPage = lazyPage(async () => ({
+  default: (await import('@/features/customers/CustomersPage')).CustomersPage,
+}));
+const SalesPage = lazyPage(async () => ({
+  default: (await import('@/features/sales/SalesPage')).SalesPage,
+}));
+const InventoryPage = lazyPage(async () => ({
+  default: (await import('@/features/inventory/InventoryPage')).InventoryPage,
+}));
+const UsersPage = lazyPage(async () => ({
+  default: (await import('@/features/users/UsersPage')).UsersPage,
+}));
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -37,12 +86,57 @@ function HomeRedirect() {
   return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
 }
 
+function LoginRoute({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <FullscreenLoadingState
+          title="Loading sign-in"
+          description="Preparing the authentication screen."
+        />
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
+
+function ShellRoute({
+  allowedRoles,
+  children,
+}: {
+  allowedRoles?: readonly UserRole[];
+  children: ReactNode;
+}) {
+  return (
+    <ProtectedRoute allowedRoles={allowedRoles}>
+      <Suspense
+        fallback={
+          <PageLoadingState
+            title="Loading page"
+            description="Preparing the requested workspace module."
+          />
+        }
+      >
+        {children}
+      </Suspense>
+    </ProtectedRoute>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
       <TenantProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/login"
+            element={
+              <LoginRoute>
+                <LoginPage />
+              </LoginRoute>
+            }
+          />
           <Route
             path="/"
             element={
@@ -55,145 +149,145 @@ function App() {
             <Route
               path="dashboard"
               element={
-                <ProtectedRoute allowedRoles={dashboardRoles}>
+                <ShellRoute allowedRoles={dashboardRoles}>
                   <DashboardPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="company"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <CompanyPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="sites"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <SitesPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="sequentials"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <SequentialsPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="locations"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <LocationsPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="customer-catalogs"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <CustomerCatalogsPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="geography"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <GeographyPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="providers"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <ProvidersPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="categories"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <CategoriesPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="units"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <UnitsPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="vat-rates"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <VatRatesPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="products"
               element={
-                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <ProductsPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="orders"
               element={
-                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <OrdersPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="purchases"
               element={
-                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <PurchasesPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="customers"
               element={
-                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <CustomersPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="sales"
               element={
-                <ProtectedRoute allowedRoles={salesRoles}>
+                <ShellRoute allowedRoles={salesRoles}>
                   <SalesPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="inventory"
               element={
-                <ProtectedRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <InventoryPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
             <Route
               path="users"
               element={
-                <ProtectedRoute allowedRoles={adminOnlyRoles}>
+                <ShellRoute allowedRoles={adminOnlyRoles}>
                   <UsersPage />
-                </ProtectedRoute>
+                </ShellRoute>
               }
             />
           </Route>

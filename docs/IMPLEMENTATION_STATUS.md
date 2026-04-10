@@ -21,7 +21,7 @@ The project is no longer in early migration. The application already runs with a
 | Phase 2 | Product management and pricing | Complete | Multi-tier pricing, product units, provider/location/VAT assignments, export support, and validated CRUD are live. |
 | Phase 3 | Inventory | Complete | Stock view, movement history, adjustments, initial inventory, physical count, and low-stock reporting are implemented. |
 | Phase 4 | Sales / POS | Complete | Checkout, receipt printing, responsive/mobile layout, keyboard shortcuts, void, refund, and history/detail flows are implemented. |
-| Phase 5 | Procurement | Complete | Orders, purchases, order receiving into purchases, stock intake, supplier-side purchase returns, cost updates, and purchase void workflows are implemented. |
+| Phase 5 | Procurement | Complete | Orders, partial order receiving into purchases, stock intake, supplier-side purchase returns, cost updates, and purchase void workflows are implemented. |
 | Phase 6 | Reporting, sync, desktop operations, UX polish | Advanced / In progress | Dashboard reporting, exports, sync center, role guards, loading/error states, toasts, theme/tray/update settings, backup/restore, and offline UX are implemented. Remaining work is consolidated in `docs/OPEN_BACKLOG.md`. |
 
 ## Implemented Application Surface
@@ -113,6 +113,7 @@ Current desktop-only operational features:
 - sync center snapshot-based UI and merged conflict resolution
 - desktop backup, restore, update, tray, theme, and print settings
 - purchase return history and quick-return actions from the purchases workflow
+- route-level lazy loading for major web modules to reduce the initial renderer bundle
 
 ## Current Risks and Open Areas
 
@@ -154,4 +155,4 @@ npm run build --workspace=@open-yojob/web
 npm run typecheck --workspace=@open-yojob/desktop
 ```
 
-The web build still emits the known Vite large-chunk warning.
+The web build still emits a Vite large-chunk warning, but it is now concentrated in the export toolchain chunk (`exceljs`) rather than the main application bundle.
