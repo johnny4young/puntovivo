@@ -25,7 +25,7 @@ export function SaleCartTable({
 }: SaleCartTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-10 text-center text-sm text-secondary-500">
+      <div className="rounded-[24px] border border-dashed border-line-strong bg-surface-2/65 px-4 py-12 text-center text-sm text-secondary-500">
         Search and add products to start a sale.
       </div>
     );
@@ -33,11 +33,11 @@ export function SaleCartTable({
 
   return (
     <div className="space-y-4">
-      <div className="hidden overflow-hidden rounded-xl border border-secondary-200 lg:block">
+      <div className="hidden overflow-hidden rounded-[24px] border border-line/80 lg:block">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-secondary-200">
-            <thead className="bg-secondary-50">
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
+          <table className="min-w-full border-collapse text-sm">
+            <thead className="bg-surface-2/78">
+              <tr className="text-left text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-secondary-500">
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Qty</th>
                 <th className="px-4 py-3">Discount %</th>
@@ -47,7 +47,7 @@ export function SaleCartTable({
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-secondary-200 bg-white">
+            <tbody>
               {items.map(item => {
                 const lineTotals = getLineTotals(item);
                 const isSelected = selectedItemKey === item.key;
@@ -55,12 +55,16 @@ export function SaleCartTable({
                 return (
                   <tr
                     key={item.key}
-                    className={isSelected ? 'bg-primary-50' : undefined}
+                    className={
+                      isSelected
+                        ? 'border-t border-line/70 bg-primary-50'
+                        : 'border-t border-line/70 bg-card/70 hover:bg-primary-50/55'
+                    }
                     onClick={() => onSelectItem(item.key)}
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <div>
-                        <p className="text-sm font-medium text-secondary-900">{item.productName}</p>
+                        <p className="text-sm font-semibold text-secondary-950">{item.productName}</p>
                         <p className="text-xs text-secondary-500">
                           {item.productSku}
                           {' · '}
@@ -70,7 +74,7 @@ export function SaleCartTable({
                         </p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <input
                         ref={quantityInputRefFor(item.key)}
                         type="number"
@@ -84,11 +88,9 @@ export function SaleCartTable({
                           onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
                         }
                       />
-                      <p className="mt-1 text-xs text-secondary-500">
-                        Base qty {lineTotals.normalizedQuantity}
-                      </p>
+                      <p className="mt-1 text-xs text-secondary-500">Base qty {lineTotals.normalizedQuantity}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <input
                         ref={discountInputRefFor(item.key)}
                         type="number"
@@ -107,16 +109,16 @@ export function SaleCartTable({
                         }
                       />
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-secondary-900">
+                    <td className="px-4 py-4 text-sm font-medium text-secondary-900">
                       {formatCurrency(item.unitPrice)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-secondary-600">
+                    <td className="px-4 py-4 text-sm text-secondary-600">
                       {formatCurrency(lineTotals.taxAmount)}
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-secondary-900">
+                    <td className="px-4 py-4 text-sm font-semibold text-secondary-950">
                       {formatCurrency(lineTotals.total)}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-4 text-right">
                       <button
                         className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
                         aria-label={`Remove ${item.productName}`}
@@ -144,11 +146,7 @@ export function SaleCartTable({
           return (
             <li
               key={`${item.key}-mobile`}
-              className={`rounded-xl border p-4 shadow-sm transition ${
-                isSelected
-                  ? 'border-primary-300 bg-primary-50'
-                  : 'border-secondary-200 bg-white'
-              }`}
+              className={isSelected ? 'card border-primary-300 p-4' : 'card p-4'}
             >
               <button
                 type="button"
@@ -158,21 +156,19 @@ export function SaleCartTable({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-secondary-900">{item.productName}</p>
+                    <p className="text-sm font-semibold text-secondary-950">{item.productName}</p>
                     <p className="mt-1 text-xs text-secondary-500">
                       {item.productSku}
                       {' · '}
                       {item.unitName}
                     </p>
                   </div>
-                  <span className="rounded-full bg-secondary-100 px-2 py-1 text-xs font-medium text-secondary-700">
-                    Stock {item.availableStock}
-                  </span>
+                  <span className="badge badge-secondary">Stock {item.availableStock}</span>
                 </div>
               </button>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-secondary-500">
+                <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   Quantity
                   <input
                     ref={quantityInputRefFor(item.key)}
@@ -188,7 +184,7 @@ export function SaleCartTable({
                     }
                   />
                 </label>
-                <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-secondary-500">
+                <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   Discount %
                   <input
                     ref={discountInputRefFor(item.key)}
@@ -210,26 +206,22 @@ export function SaleCartTable({
                 </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-secondary-50 px-3 py-3 text-sm">
+              <div className="mt-4 grid grid-cols-2 gap-3 rounded-[20px] bg-surface-2/80 px-3 py-3 text-sm">
                 <div>
                   <p className="text-secondary-500">Price</p>
-                  <p className="font-medium text-secondary-900">{formatCurrency(item.unitPrice)}</p>
+                  <p className="font-medium text-secondary-950">{formatCurrency(item.unitPrice)}</p>
                 </div>
                 <div>
                   <p className="text-secondary-500">Tax</p>
-                  <p className="font-medium text-secondary-900">
-                    {formatCurrency(lineTotals.taxAmount)}
-                  </p>
+                  <p className="font-medium text-secondary-950">{formatCurrency(lineTotals.taxAmount)}</p>
                 </div>
                 <div>
                   <p className="text-secondary-500">Base qty</p>
-                  <p className="font-medium text-secondary-900">{lineTotals.normalizedQuantity}</p>
+                  <p className="font-medium text-secondary-950">{lineTotals.normalizedQuantity}</p>
                 </div>
                 <div>
                   <p className="text-secondary-500">Line total</p>
-                  <p className="font-semibold text-secondary-900">
-                    {formatCurrency(lineTotals.total)}
-                  </p>
+                  <p className="font-semibold text-secondary-950">{formatCurrency(lineTotals.total)}</p>
                 </div>
               </div>
 

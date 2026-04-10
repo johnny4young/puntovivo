@@ -16,7 +16,7 @@ export function SalesQuickSearchBar({
 }: SalesQuickSearchBarProps) {
   return (
     <form
-      className="flex flex-col gap-2 rounded-xl border border-secondary-200 bg-white px-4 py-3 shadow-sm md:min-w-[320px]"
+      className="card-inset flex flex-col gap-2 px-4 py-4"
       onSubmit={event => {
         event.preventDefault();
         onSubmit();
@@ -24,11 +24,11 @@ export function SalesQuickSearchBar({
     >
       <label
         htmlFor="sales-product-search-input"
-        className="text-xs font-medium uppercase tracking-wide text-secondary-500"
+        className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-secondary-500"
       >
-        Product / Barcode
+        Product / barcode
       </label>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
           <input
@@ -45,7 +45,7 @@ export function SalesQuickSearchBar({
         </button>
       </div>
       <p className="text-xs text-secondary-500">
-        `Alt+P` focus search, `F5` open catalog, `F1` charge sale.
+        `Alt+P` focus search, `F5` open catalog, `F1` charge.
       </p>
     </form>
   );

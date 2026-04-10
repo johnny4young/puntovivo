@@ -1,15 +1,38 @@
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
-import { count } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
+import * as argon2 from 'argon2';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
-import { companies, sequentials, sites, tenants, units, users, vatRates } from '../db/schema.js';
+import {
+  companies,
+  sequentials,
+  sites,
+  tenants,
+  units,
+  users,
+  vatRates,
+} from '../db/schema.js';
+import {
+  DEFAULT_ADMIN,
+  DEFAULT_DEVELOPMENT_ADMIN_PASSWORD,
+  DEVELOPMENT_ADMIN_PASSWORD_ENV,
+} from '../db/seed.js';
 
 describe('database foundation seed', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalDevAdminPassword = process.env[DEVELOPMENT_ADMIN_PASSWORD_ENV];
+
   afterEach(() => {
     closeDatabase();
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalDevAdminPassword === undefined) {
+      delete process.env[DEVELOPMENT_ADMIN_PASSWORD_ENV];
+    } else {
+      process.env[DEVELOPMENT_ADMIN_PASSWORD_ENV] = originalDevAdminPassword;
+    }
   });
 
   it('seeds the phase 0 foundation data into a fresh database', async () => {
@@ -34,6 +57,28 @@ describe('database foundation seed', () => {
     expect(vatRateCount?.value).toBeGreaterThanOrEqual(3);
     expect(unitCount?.value).toBeGreaterThanOrEqual(5);
     expect(sequentialCount?.value).toBeGreaterThanOrEqual(3);
+  });
+
+  it('uses a fixed admin password outside production on first seed', async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env[DEVELOPMENT_ADMIN_PASSWORD_ENV];
+
+    const db = await initDatabase({
+      dbPath: ':memory:',
+      runMigrations: true,
+      seedData: true,
+    });
+
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, DEFAULT_ADMIN.email))
+      .get();
+
+    expect(seededUser).toBeDefined();
+    expect(await argon2.verify(seededUser!.passwordHash, DEFAULT_DEVELOPMENT_ADMIN_PASSWORD)).toBe(
+      true
+    );
   });
 
   it('adds newer purchase item columns before creating dependent indexes on a legacy database', async () => {

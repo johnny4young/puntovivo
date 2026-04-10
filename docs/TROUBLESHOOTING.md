@@ -96,7 +96,8 @@ Treat them as a performance follow-up unless `vite build` exits non-zero.
 Check:
 
 - seeded email is `admin@localhost`
-- password was copied from first-run output
+- in development/non-production, try `Admin123!Dev` unless you overrode `OPEN_YOJOB_DEV_ADMIN_PASSWORD`
+- in production, copy the generated password from first-run output
 - the tenant and user are active
 
 See:

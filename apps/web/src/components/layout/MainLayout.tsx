@@ -7,19 +7,27 @@ import { cn } from '@/lib/utils';
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-secondary-50">
+    <div className="app-shell">
       <Sidebar
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onToggleCollapse={() => setSidebarCollapsed(current => !current)}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
-      <div className={cn('transition-all duration-300', sidebarCollapsed ? 'ml-20' : 'ml-64')}>
-        <Header onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <div
+        className={cn(
+          'relative min-h-screen transition-[margin] duration-300',
+          sidebarCollapsed ? 'lg:ml-[6.5rem]' : 'lg:ml-[18.5rem]'
+        )}
+      >
+        <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />
         <OfflineStatusBanner />
 
-        <main className="p-6">
+        <main className="px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />
         </main>
       </div>

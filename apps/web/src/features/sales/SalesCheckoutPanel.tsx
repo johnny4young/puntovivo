@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Plus, Receipt, ScanLine } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { Site } from '@/types';
@@ -19,63 +19,75 @@ export function SalesCheckoutPanel({
   onCharge,
 }: SalesCheckoutPanelProps) {
   return (
-    <div className="card p-5 sm:p-6 xl:sticky xl:top-24">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <aside className="card p-5 sm:p-6 xl:sticky xl:top-24">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-secondary-900">Checkout</h2>
-          <p className="text-sm text-secondary-500">Review the VAT-inclusive sale totals before charging</p>
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Checkout</p>
+          <h2 className="mt-3 font-display text-3xl text-secondary-950">Charge summary</h2>
+          <p className="mt-2 text-sm text-secondary-600">
+            Review VAT-inclusive values before finalizing the receipt.
+          </p>
         </div>
-        <button className="btn-primary flex items-center justify-center gap-2" onClick={onOpenSearch}>
+        <button className="btn-outline btn-icon h-11 w-11" onClick={onOpenSearch} aria-label="Search products">
           <Plus className="h-4 w-4" />
-          Search
         </button>
       </div>
 
-      <div className="mt-6 space-y-4">
-        <div className="rounded-xl border border-secondary-200 px-4 py-4">
+      <div className="mt-6 rounded-[26px] border border-line/70 bg-secondary-950 px-5 py-5 text-white">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/55">Total due</p>
+        <p className="mt-3 text-4xl font-semibold tracking-tight">{formatCurrency(draftSummary.total)}</p>
+        <div className="mt-6 grid gap-3 text-sm text-white/72">
           <div className="flex items-center justify-between">
-            <span className="text-secondary-500">Items</span>
-            <span className="font-medium text-secondary-900">{draftSummary.itemCount}</span>
+            <span>Items</span>
+            <span className="font-semibold text-white">{draftSummary.itemCount}</span>
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-secondary-500">Subtotal</span>
-            <span className="font-medium text-secondary-900">
-              {formatCurrency(draftSummary.subtotal)}
-            </span>
+          <div className="flex items-center justify-between">
+            <span>Subtotal</span>
+            <span className="font-semibold text-white">{formatCurrency(draftSummary.subtotal)}</span>
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-secondary-500">VAT</span>
-            <span className="font-medium text-secondary-900">
-              {formatCurrency(draftSummary.taxAmount)}
-            </span>
+          <div className="flex items-center justify-between">
+            <span>VAT</span>
+            <span className="font-semibold text-white">{formatCurrency(draftSummary.taxAmount)}</span>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-secondary-200 pt-4">
-            <span className="text-base font-medium text-secondary-900">Total</span>
-            <span className="text-2xl font-semibold text-primary-700">
-              {formatCurrency(draftSummary.total)}
-            </span>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        <div className="card-inset px-4 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
+              <ScanLine className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-secondary-950">Product search</p>
+              <p className="mt-1 text-sm text-secondary-500">
+                Search reuses the existing catalog dialog with unit selection and stock-aware validation.
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-4 text-sm text-secondary-600">
-          Product search uses the existing catalog dialog, including unit selection and site-aware stock validation at checkout.
+        <div className="card-inset px-4 py-4 text-sm text-secondary-600">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            Charging site
+          </p>
+          <p className="mt-2 text-base font-semibold text-secondary-950">
+            {currentSite?.name ?? 'No site selected'}
+          </p>
         </div>
 
-        <div className="rounded-xl border border-secondary-200 px-4 py-4 text-sm text-secondary-600">
-          <p className="font-medium text-secondary-900">POS shortcuts</p>
-          <p className="mt-2">`F5` search catalog, `F1` charge sale, `Delete` remove selected row.</p>
-          <p className="mt-1">`Alt+P` focus search, `Alt+C` quantity, `Alt+D` discount, `Alt+U` unit in search.</p>
+        <div className="card-inset px-4 py-4 text-sm text-secondary-600">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            Shortcuts
+          </p>
+          <p className="mt-2">`Alt+P` search, `Alt+C` quantity, `Alt+D` discount, `Alt+U` unit in dialog.</p>
         </div>
 
-        <div className="rounded-xl border border-secondary-200 px-4 py-4 text-sm">
-          <p className="text-secondary-500">Charging site</p>
-          <p className="mt-1 font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>
-        </div>
-
-        <button className="btn-primary hidden w-full xl:block" onClick={onCharge} disabled={!canCharge}>
-          Charge Sale
+        <button className="btn-primary hidden w-full justify-center xl:inline-flex" onClick={onCharge} disabled={!canCharge}>
+          <Receipt className="h-4 w-4" />
+          Charge sale
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

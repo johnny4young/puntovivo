@@ -18,9 +18,16 @@ The canonical auth transport is tRPC on `/api/trpc`.
 On first database creation, the system creates an admin account:
 
 - Email: `admin@localhost`
-- Password: generated randomly and printed once in server output
+- Password in development/non-production: `Admin123!Dev`
+- Password in production: generated randomly and printed once in server output
 
-If you miss the password, recreate the database for that environment and let seed run again.
+You can override the non-production default before first seed with:
+
+```bash
+OPEN_YOJOB_DEV_ADMIN_PASSWORD="your-dev-password"
+```
+
+If you miss the production password, recreate the database for that environment and let seed run again.
 
 ## Roles
 
@@ -82,7 +89,8 @@ npm run dev:fullstack
 Check:
 
 - you are using `admin@localhost`
-- you copied the generated password exactly
+- in development, try `Admin123!Dev` unless you overrode `OPEN_YOJOB_DEV_ADMIN_PASSWORD`
+- in production, copy the generated password exactly
 - the database was actually seeded
 - the user account is active
 
@@ -113,7 +121,7 @@ node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":{"email":"admin@localhost","password":"<password>"}}}'
+  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
 ```
 
 ## Notes

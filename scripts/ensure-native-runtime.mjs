@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +38,21 @@ async function getBetterSqliteVersion() {
   const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = await readJson(packageJsonPath);
   return packageJson.version;
+}
+
+function getBetterSqliteBinaryPath() {
+  const packageJsonPath = require.resolve('better-sqlite3/package.json');
+  const packageDir = path.dirname(packageJsonPath);
+  return path.join(packageDir, 'build', 'Release', 'better_sqlite3.node');
+}
+
+async function getFileHash(filePath) {
+  try {
+    const content = await readFile(filePath);
+    return createHash('sha256').update(content).digest('hex');
+  } catch {
+    return null;
+  }
 }
 
 async function getElectronVersion() {
@@ -80,8 +96,13 @@ async function main() {
 
   const desiredKey = await getDesiredKey(runtime);
   const state = await readState();
+  const nativeBinaryHash = await getFileHash(getBetterSqliteBinaryPath());
+  const alreadyPreparedForRuntime =
+    state.keys?.[runtime] === desiredKey &&
+    state.lastPreparedRuntime === runtime &&
+    state.currentArtifactHash === nativeBinaryHash;
 
-  if (state.keys?.[runtime] === desiredKey) {
+  if (alreadyPreparedForRuntime) {
     console.log(`[native-runtime] ${runtime} runtime already prepared`);
     return;
   }
@@ -105,6 +126,7 @@ async function main() {
       ...state.keys,
       [runtime]: desiredKey,
     },
+    currentArtifactHash: await getFileHash(getBetterSqliteBinaryPath()),
     lastPreparedRuntime: runtime,
   });
 

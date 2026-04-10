@@ -93,7 +93,7 @@ curl http://localhost:8090/api/trpc/health.check
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":{"email":"admin@localhost","password":"<password>"}}}'
+  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
 ```
 
 ## What to Validate for Typical Changes

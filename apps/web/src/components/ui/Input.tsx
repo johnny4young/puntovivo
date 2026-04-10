@@ -4,22 +4,22 @@ import { cn } from '@/lib/utils';
 
 const inputVariants = cva(
   [
-    'w-full rounded-lg border px-3 py-2 text-sm transition-colors',
+    'w-full rounded-2xl border px-3.5 py-2.5 text-sm transition-all duration-200',
     'placeholder:text-secondary-400',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0',
+    'focus:outline-none focus:ring-4 focus:ring-offset-0',
   ],
   {
     variants: {
       variant: {
         default: [
-          'border-secondary-300',
-          'focus:border-primary-500 focus:ring-primary-500/20',
-          'hover:border-secondary-400',
+          'border-line-strong/65 bg-surface/95',
+          'focus:border-primary-400 focus:bg-white focus:ring-primary-100/60',
+          'hover:border-primary-200',
         ],
-        error: ['border-danger-500', 'focus:border-danger-500 focus:ring-danger-500/20'],
+        error: ['border-danger-500 bg-white', 'focus:border-danger-500 focus:ring-danger-500/15'],
       },
       inputSize: {
-        default: 'h-10',
+        default: 'h-11',
         sm: 'h-9 text-xs',
         lg: 'h-12',
       },
@@ -105,11 +105,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               inputVariants({ variant: computedVariant, inputSize }),
               // Disabled state
               disabled && [
-                'bg-secondary-100 border-secondary-200',
+                'bg-secondary-100 border-line',
                 'text-secondary-400 cursor-not-allowed',
               ],
               // Readonly state
-              readOnly && ['bg-secondary-50 border-secondary-200', 'focus:ring-0 cursor-default'],
+              readOnly && ['bg-secondary-50 border-line', 'focus:ring-0 cursor-default'],
               // Padding adjustments for icons
               prefix && 'pl-10',
               suffix && 'pr-10',

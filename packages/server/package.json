@@ -12,7 +12,8 @@
     }
   },
   "scripts": {
-    "native:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
+    "native:node": "node ../../scripts/ensure-native-runtime.mjs node",
+    "native:rebuild:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
     "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "build": "tsc",
     "dev": "npm run native:ensure:node && tsx watch src/standalone.ts",

@@ -4,7 +4,12 @@ interface TableLoadingStateProps {
 }
 
 function SkeletonLine({ className }: { className: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-md bg-secondary-200 ${className}`} />;
+  return (
+    <div
+      aria-hidden="true"
+      className={`animate-shimmer rounded-2xl bg-gradient-to-r from-surface-3 via-white to-surface-3 ${className}`}
+    />
+  );
 }
 
 export function TableLoadingState({
@@ -23,8 +28,8 @@ export function TableLoadingState({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-secondary-200">
-        <div className="border-b border-secondary-200 bg-secondary-50 px-4 py-3">
+      <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
+        <div className="border-b border-line/70 bg-surface-2/80 px-4 py-3">
           <div className="grid grid-cols-4 gap-4">
             <SkeletonLine className="h-4 w-20" />
             <SkeletonLine className="h-4 w-24" />
@@ -33,7 +38,7 @@ export function TableLoadingState({
           </div>
         </div>
 
-        <div className="divide-y divide-secondary-200 bg-white">
+        <div className="divide-y divide-line/70 bg-card/85">
           {Array.from({ length: rowCount }, (_, index) => (
             <div key={index} className="grid grid-cols-4 gap-4 px-4 py-4">
               <SkeletonLine className="h-4 w-4/5" />

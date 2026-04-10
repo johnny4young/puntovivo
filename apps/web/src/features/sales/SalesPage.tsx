@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { SaleCartTable } from '@/features/sales/SaleCartTable';
+import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
@@ -212,33 +212,20 @@ export function SalesPage() {
           productInputRef={productInputRef}
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
-          <div className="card p-5 sm:p-6">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-secondary-900">Current Cart</h2>
-                <p className="text-sm text-secondary-500">Adjust quantities, discounts, or remove lines before payment</p>
-              </div>
-              <button
-                className="btn-ghost"
-                onClick={handleClearCart}
-                disabled={cartItems.length === 0}
-      >
-        Clear
-      </button>
-    </div>
-            <SaleCartTable
-              items={cartItems}
-              selectedItemKey={activeSelectedCartItemKey}
-              onQuantityChange={handleQuantityChange}
-              onDiscountChange={handleDiscountChange}
-              onRemove={handleRemoveItem}
-              onSelectItem={setSelectedCartItemKey}
-              quantityInputRefFor={quantityInputRefFor}
-              discountInputRefFor={discountInputRefFor}
-            />
-            {saleError && <p className="mt-4 text-sm text-danger-500">{saleError}</p>}
-          </div>
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
+          <SalesCartWorkspace
+            items={cartItems}
+            selectedItemKey={activeSelectedCartItemKey}
+            itemCount={draftSummary.itemCount}
+            saleError={saleError}
+            onQuantityChange={handleQuantityChange}
+            onDiscountChange={handleDiscountChange}
+            onRemove={handleRemoveItem}
+            onSelectItem={setSelectedCartItemKey}
+            onClearCart={handleClearCart}
+            quantityInputRefFor={quantityInputRefFor}
+            discountInputRefFor={discountInputRefFor}
+          />
 
           <SalesCheckoutPanel
             currentSite={currentSite}
@@ -247,7 +234,7 @@ export function SalesPage() {
             onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
           />
-        </div>
+        </section>
 
         <SalesHistoryTable
           sales={sales}

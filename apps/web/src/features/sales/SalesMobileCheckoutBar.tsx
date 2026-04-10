@@ -17,14 +17,14 @@ export function SalesMobileCheckoutBar({
 }: SalesMobileCheckoutBarProps) {
   return (
     <div className="xl:hidden">
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-secondary-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-surface/92 px-4 py-3 shadow-[0_-18px_40px_rgba(10,18,33,0.16)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
               Draft total
             </p>
-            <div className="flex items-end gap-2">
-              <p className="truncate text-lg font-semibold text-secondary-900">
+            <div className="mt-1 flex items-end gap-2">
+              <p className="truncate text-lg font-semibold text-secondary-950">
                 {formatCurrency(draftSummary.total)}
               </p>
               <p className="pb-0.5 text-sm text-secondary-500">
@@ -32,20 +32,11 @@ export function SalesMobileCheckoutBar({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="btn-outline flex items-center gap-2"
-            onClick={onOpenSearch}
-          >
+          <button type="button" className="btn-outline" onClick={onOpenSearch}>
             <Search className="h-4 w-4" />
             Search
           </button>
-          <button
-            type="button"
-            className="btn-primary flex items-center gap-2"
-            onClick={onCharge}
-            disabled={!canCharge}
-          >
+          <button type="button" className="btn-primary" onClick={onCharge} disabled={!canCharge}>
             <Receipt className="h-4 w-4" />
             Charge
           </button>
