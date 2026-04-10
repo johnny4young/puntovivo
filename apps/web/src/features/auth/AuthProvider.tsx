@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { TRPCClientError } from '@trpc/client';
 import type { User, Tenant, LoginCredentials } from '@/types';
 import { vanillaClient } from '@/lib/trpc';
 import {
@@ -79,6 +80,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const clearLocalSession = () => {
+    clearAuthSession();
+    setUser(null);
+    setTenant(null);
+    setError(null);
+  };
+
   // Check for existing auth on mount
   useEffect(() => {
     let isMounted = true;
@@ -102,15 +110,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setTenant(session.tenant);
         setError(null);
       } catch (err) {
-        console.error('Auth init error:', err);
-        clearAuthSession();
+        const isUnauthorized =
+          err instanceof TRPCClientError &&
+          (err.data?.code === 'UNAUTHORIZED' ||
+            err.message === 'You must be logged in to perform this action');
+
+        if (!isUnauthorized) {
+          console.error('Auth init error:', err);
+        }
 
         if (!isMounted) {
           return;
         }
 
-        setUser(null);
-        setTenant(null);
+        clearLocalSession();
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -160,9 +173,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       // Ignore errors on logout — clear local state regardless
     } finally {
-      clearAuthSession();
-      setUser(null);
-      setTenant(null);
+      clearLocalSession();
       setIsLoading(false);
       navigate('/login');
     }

@@ -21,7 +21,7 @@ export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as c
 export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
 export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
-export const userRoleEnum = ['admin', 'manager', 'cashier'] as const;
+export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 

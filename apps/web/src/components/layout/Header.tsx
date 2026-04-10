@@ -62,13 +62,13 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <input className="input pl-10" placeholder="Quick search products, customers, receipts" />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,16rem)_auto_auto] xl:items-center">
+            <div className="flex flex-wrap items-center gap-3 xl:flex-nowrap">
               <div className={online ? 'badge badge-success' : 'badge badge-warning'}>
                 {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                 {online ? 'Online' : 'Offline'}
               </div>
 
-              <div className="min-w-[14rem]">
+              <div className="min-w-[14rem] flex-1 xl:flex-none">
                 <Select
                   options={siteOptions}
                   value={currentSite?.id ?? null}
@@ -88,17 +88,17 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-500" />
               </button>
 
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   type="button"
                   className="btn-outline flex w-full items-center justify-between gap-3 px-3.5 sm:w-auto"
                   onClick={() => setShowUserMenu(current => !current)}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+                    <span className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
                       <User className="h-4.5 w-4.5" />
                     </span>
-                    <span className="min-w-0 text-left">
+                    <span className="pointer-events-none min-w-0 text-left">
                       <span className="block truncate text-sm font-semibold text-secondary-950">
                         {user?.name ?? 'User'}
                       </span>

@@ -253,34 +253,40 @@ export function SalesPage() {
         onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleOpenPaymentModal}
       />
-      <ProductSearchDialog
-        key={productSearchDialogKey}
-        isOpen={isProductSearchOpen}
-        onClose={() => setIsProductSearchOpen(false)}
-        onSelect={handleProductSelect}
-        categories={categories}
-        providers={providers}
-        initialQuery={productSearchInitialQuery}
-        title="Add Product to Sale"
-        confirmLabel="Add to cart"
-      />
+      {isProductSearchOpen && (
+        <ProductSearchDialog
+          key={productSearchDialogKey}
+          isOpen={isProductSearchOpen}
+          onClose={() => setIsProductSearchOpen(false)}
+          onSelect={handleProductSelect}
+          categories={categories}
+          providers={providers}
+          initialQuery={productSearchInitialQuery}
+          title="Add Product to Sale"
+          confirmLabel="Add to cart"
+        />
+      )}
 
-      <SalePaymentModal
-        key={paymentModalKey}
-        isOpen={isPaymentModalOpen}
-        total={draftSummary.total}
-        customers={customers}
-        isSaving={createMutation.isPending}
-        error={saleError}
-        onClose={() => setIsPaymentModalOpen(false)}
-        onSubmit={handleCheckout}
-      />
+      {isPaymentModalOpen && (
+        <SalePaymentModal
+          key={paymentModalKey}
+          isOpen={isPaymentModalOpen}
+          total={draftSummary.total}
+          customers={customers}
+          isSaving={createMutation.isPending}
+          error={saleError}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSubmit={handleCheckout}
+        />
+      )}
 
-      <SaleDetailsModal
-        saleId={selectedSaleId}
-        isOpen={!!selectedSaleId}
-        onClose={() => setSelectedSaleId(null)}
-      />
+      {selectedSaleId && (
+        <SaleDetailsModal
+          saleId={selectedSaleId}
+          isOpen={!!selectedSaleId}
+          onClose={() => setSelectedSaleId(null)}
+        />
+      )}
     </>
   );
 }
