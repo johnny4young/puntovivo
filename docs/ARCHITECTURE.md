@@ -160,6 +160,7 @@ The shell also includes:
 
 - role-aware routing
 - route-level lazy loading for major business pages
+- on-demand export/reporting libraries behind the shared export service
 - role-aware sidebar visibility
 - offline/sync banner
 - shared loading, retry, and toast feedback patterns

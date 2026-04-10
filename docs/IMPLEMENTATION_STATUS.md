@@ -114,6 +114,7 @@ Current desktop-only operational features:
 - desktop backup, restore, update, tray, theme, and print settings
 - purchase return history and quick-return actions from the purchases workflow
 - route-level lazy loading for major web modules to reduce the initial renderer bundle
+- export library splitting so Excel/PDF tooling loads on demand without tripping the previous Vite chunk warning
 
 ## Current Risks and Open Areas
 
@@ -123,7 +124,7 @@ The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 - remote sync strategy hardening
 - procurement edge cases beyond the live purchase-return flow
 - desktop security hardening and operational verification
-- performance and chunk-size cleanup
+- ongoing performance cleanup and bundle hygiene
 - deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
 - broader integration/E2E coverage
 
@@ -155,4 +156,4 @@ npm run build --workspace=@open-yojob/web
 npm run typecheck --workspace=@open-yojob/desktop
 ```
 
-The web build still emits a Vite large-chunk warning, but it is now concentrated in the export toolchain chunk (`exceljs`) rather than the main application bundle.
+The web build no longer emits the previous Vite large-chunk warning after the route-level lazy loading and export-library split work.
