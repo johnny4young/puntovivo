@@ -256,10 +256,25 @@ export function UsersPage() {
   });
 
   const updateMutation = trpc.users.update.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
+
+      const updatedOwnClaims =
+        variables.id === currentUser?.id &&
+        ((variables.email !== undefined && variables.email !== currentUser.email) ||
+          (variables.role !== undefined && variables.role !== currentUser.role));
+
+      if (updatedOwnClaims) {
+        toast.success({
+          title: 'User updated',
+          description: 'Your account claims changed. Please sign in again.',
+        });
+        await logout();
+        return;
+      }
+
       toast.success({ title: 'User updated' });
     },
     onError: error => {

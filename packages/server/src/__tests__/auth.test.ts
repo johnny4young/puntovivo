@@ -329,6 +329,56 @@ describe('Auth tRPC Router', () => {
 
       expect(response.statusCode).toBe(401);
     });
+
+    it('rejects existing tokens when the tenant is disabled', async () => {
+      const { accessToken, refreshCookie, csrfCookie } = await loginOverHttp();
+
+      expect(accessToken).toBeTruthy();
+      expect(refreshCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const db = getDatabase();
+      await db
+        .update(tenants)
+        .set({
+          isActive: false,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(tenants.id, testTenantId));
+
+      const meResponse = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/auth.me?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      expect(meResponse.statusCode).toBe(401);
+
+      const refreshResponse = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
+      });
+
+      expect(refreshResponse.statusCode).toBe(401);
+
+      await db
+        .update(tenants)
+        .set({
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(tenants.id, testTenantId));
+    });
   });
 
   describe('csrf protection', () => {
@@ -462,7 +512,7 @@ describe('Auth tRPC Router', () => {
       } catch (err) {
         expect(err).toBeInstanceOf(TRPCError);
         expect((err as TRPCError).code).toBe('BAD_REQUEST');
-        expect((err as TRPCError).message).toContain('security requirements');
+        expect((err as TRPCError).message).toContain('uppercase letter');
       }
     });
 

@@ -217,6 +217,61 @@ describe('Users tRPC Router', () => {
     }
   });
 
+  it('invalidates existing sessions after role or email changes', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.users.create({
+      email: 'claims-user@example.com',
+      name: 'Claims User',
+      password: 'ClaimsUser123!',
+      role: 'cashier',
+      isActive: true,
+    });
+
+    const { accessToken, refreshCookie, csrfCookie } = await loginOverHttp(
+      'claims-user@example.com',
+      'ClaimsUser123!'
+    );
+
+    expect(accessToken).toBeTruthy();
+    expect(refreshCookie).toBeTruthy();
+    expect(csrfCookie).toBeTruthy();
+
+    const updated = await caller.users.update({
+      id: created.id,
+      email: 'claims-user-updated@example.com',
+      role: 'manager',
+    });
+
+    expect(updated.email).toBe('claims-user-updated@example.com');
+    expect(updated.role).toBe('manager');
+
+    const meResponse = await server.app.inject({
+      method: 'GET',
+      url: '/api/trpc/auth.me?batch=1',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    expect(meResponse.statusCode).toBe(401);
+
+    const refreshResponse = await server.app.inject({
+      method: 'POST',
+      url: '/api/trpc/auth.refresh?batch=1',
+      headers: {
+        cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          '; '
+        ),
+        'content-type': 'application/json',
+        'x-csrf-token': csrfCookie as string,
+      },
+      payload: '{}',
+    });
+
+    expect(refreshResponse.statusCode).toBe(401);
+  });
+
   it('rejects weak passwords on user creation and password reset', async () => {
     const caller = appRouter.createCaller(createTestContext());
 
