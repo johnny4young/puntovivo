@@ -56,6 +56,9 @@ export function PurchaseDetailsContent({
               Latest return on {formatDateTime(purchase.returnedAt)}
             </p>
           )}
+          {purchase.latestReturnReason && (
+            <p className="mt-1 text-sm text-warning-800">{purchase.latestReturnReason}</p>
+          )}
         </div>
       ) : null}
 

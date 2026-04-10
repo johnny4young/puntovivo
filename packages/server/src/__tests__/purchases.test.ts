@@ -598,6 +598,17 @@ describe('Purchases tRPC Router', () => {
       previousStock: 13,
       newStock: 11,
     });
+
+    const listed = await caller.purchases.list({ page: 1, perPage: 10 });
+    const listedPurchase = listed.items.find(purchase => purchase.id === created.id);
+    expect(listedPurchase).toMatchObject({
+      id: created.id,
+      status: 'partial_returned',
+      returnCount: 1,
+      returnedAmount: 18,
+      latestReturnReason: 'Damaged boxes',
+    });
+    expect(listedPurchase?.returnedAt).toBeTruthy();
   });
 
   it('fully returns a purchase after multiple return operations and blocks over-returning quantities', async () => {
