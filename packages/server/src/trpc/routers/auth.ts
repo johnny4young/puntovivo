@@ -15,12 +15,54 @@
  */
 
 import { TRPCError } from '@trpc/server';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
 import { users, tenants } from '../../db/schema.js';
 import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
+
+const SESSION_COOKIE_NAME = 'open_yojob_session';
+const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+
+function shouldUseSecureCookies(request: {
+  headers: Record<string, unknown>;
+  protocol?: string;
+}): boolean {
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  const normalizedForwardedProto = Array.isArray(forwardedProto)
+    ? forwardedProto[0]
+    : forwardedProto;
+
+  return request.protocol === 'https' || normalizedForwardedProto === 'https';
+}
+
+function setSessionCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
+  if (typeof reply.setCookie !== 'function') {
+    return;
+  }
+
+  reply.setCookie(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: shouldUseSecureCookies(request),
+    path: '/',
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  });
+}
+
+function clearSessionCookie(reply: FastifyReply): void {
+  if (typeof reply.clearCookie !== 'function') {
+    return;
+  }
+
+  reply.clearCookie(SESSION_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  });
+}
 
 export const authRouter = router({
   /**
@@ -79,6 +121,7 @@ export const authRouter = router({
     };
 
     const token = ctx.req.server.jwt.sign(tokenPayload);
+    setSessionCookie(ctx.req, ctx.res, token);
 
     return {
       token,
@@ -101,7 +144,8 @@ export const authRouter = router({
    * Logout (client-side token removal)
    * Provided for API completeness
    */
-  logout: publicProcedure.mutation(() => {
+  logout: publicProcedure.mutation(({ ctx }) => {
+    clearSessionCookie(ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
 
@@ -128,6 +172,7 @@ export const authRouter = router({
     };
 
     const token = ctx.req.server.jwt.sign(newPayload);
+    setSessionCookie(ctx.req, ctx.res, token);
 
     return { token };
   }),

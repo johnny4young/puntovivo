@@ -9,6 +9,7 @@
 
 import { randomBytes } from 'crypto';
 import Fastify, { FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
@@ -90,9 +91,15 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     credentials: true,
   });
 
+  await app.register(cookie);
+
   // Register JWT
   await app.register(jwt, {
     secret: jwtSecret,
+    cookie: {
+      cookieName: 'open_yojob_session',
+      signed: false,
+    },
     sign: {
       expiresIn: '7d',
     },
