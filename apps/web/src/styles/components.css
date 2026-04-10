@@ -1,6 +1,6 @@
 @layer components {
   .app-shell {
-    @apply min-h-screen text-foreground;
+    @apply min-h-screen overflow-x-hidden text-foreground;
   }
 
   .shell-panel {

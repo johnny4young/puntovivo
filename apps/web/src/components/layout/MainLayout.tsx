@@ -20,14 +20,14 @@ export function MainLayout() {
 
       <div
         className={cn(
-          'relative min-h-screen transition-[margin] duration-300',
+          'relative min-h-screen min-w-0 transition-[margin] duration-300',
           sidebarCollapsed ? 'lg:ml-[6.5rem]' : 'lg:ml-[18.5rem]'
         )}
       >
         <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />
         <OfflineStatusBanner />
 
-        <main className="px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
+        <main className="min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />
         </main>
       </div>

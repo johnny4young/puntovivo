@@ -97,6 +97,42 @@ Execution matrix for manual validation and later automation with Playwright Web 
   - `COMPANY-02`
   - `COMPANY-04`
   - `COMPANY-10`
+- Electron desktop continuation completed on 2026-04-10:
+  - `AUTH-02`
+  - `AUTH-03`
+  - `AUTH-04`
+  - `AUTH-05`
+  - `AUTH-06`
+  - `AUTH-07`
+  - `AUTH-08`
+  - `AUTH-09`
+  - `AUTH-10` (`ELEC` completed; `WEB` still pending)
+  - `SHELL-01`
+  - `SHELL-02`
+  - `SHELL-03`
+  - `SHELL-04` (`ELEC` completed; `WEB` still pending)
+  - `SHELL-05` (`ELEC` completed; `WEB` still pending)
+  - `SHELL-06` (`ELEC` completed; `WEB` still pending)
+  - `SHELL-09`
+  - `DASH-01`
+  - `DASH-02`
+  - `DASH-03`
+  - `DASH-04`
+  - `DASH-05`
+  - `DASH-06` (`ELEC` completed; `WEB` still pending)
+- Electron setup data created during continuation:
+  - Additional active site: `North Site`
+  - Additional users for role validation:
+    - `manager@local.test`
+    - `cashier@local.test`
+    - `viewer@local.test`
+- Issues fixed during continuation:
+  - Electron main-process renderer log listener updated to the non-deprecated `console-message` event shape.
+  - Responsive shell overflow fixed in the shared web layout after `SHELL-09` failed in Electron tablet/mobile widths.
+- Electron evidence root:
+  - `output/playwright/`
+- Electron blocked / still pending after continuation:
+  - `DASH-07` still needs a deterministic desktop-specific error-state validation path.
 - Current data caveat:
   - Browser `WEB` validations later in the run used the standalone server DB.
   - Earlier Electron validations used the desktop embedded DB.
@@ -109,15 +145,15 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
 | ✅ | AUTH-01 | BOTH | admin | Valid login | Redirect succeeds and session is created |
-| ⏸ | AUTH-02 | BOTH | admin | Invalid login | Error message shown and session not created |
-| ⏸ | AUTH-03 | BOTH | admin | Logout | Returns to login and session is cleared |
-| ⏸ | AUTH-04 | BOTH | cashier | Cashier login | Redirect to `/sales` |
-| ⏸ | AUTH-05 | BOTH | manager | Manager login | Redirect to `/dashboard` |
-| ⏸ | AUTH-06 | BOTH | viewer | Viewer login | Allowed route or blocked route matches role rules |
-| ⏸ | AUTH-07 | BOTH | cashier | Access admin route directly | Route blocked |
-| ⏸ | AUTH-08 | BOTH | manager | Access admin-only pages | Route blocked |
-| ⏸ | AUTH-09 | BOTH | admin | Refresh with active session | Session persists |
-| ⬜ | AUTH-10 | BOTH | admin | Change site from header | Current site changes and UI reflects it |
+| ✅ | AUTH-02 | BOTH | admin | Invalid login | Error message shown and session not created |
+| ✅ | AUTH-03 | BOTH | admin | Logout | Returns to login and session is cleared |
+| ✅ | AUTH-04 | BOTH | cashier | Cashier login | Redirect to `/sales` |
+| ✅ | AUTH-05 | BOTH | manager | Manager login | Redirect to `/dashboard` |
+| ✅ | AUTH-06 | BOTH | viewer | Viewer login | Allowed route or blocked route matches role rules |
+| ✅ | AUTH-07 | BOTH | cashier | Access admin route directly | Route blocked |
+| ✅ | AUTH-08 | BOTH | manager | Access admin-only pages | Route blocked |
+| ✅ | AUTH-09 | BOTH | admin | Refresh with active session | Session persists |
+| ⏸ | AUTH-10 | BOTH | admin | Change site from header | `ELEC` passed. Current site changes and UI reflects it. `WEB` still pending |
 
 ---
 
@@ -125,15 +161,15 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏸ | SHELL-01 | BOTH | admin | Sidebar expand/collapse | Width changes and labels hide/show correctly |
-| ⏸ | SHELL-02 | BOTH | admin | Mobile sidebar drawer | Opens, closes, overlay dismisses |
-| ⏸ | SHELL-03 | BOTH | admin | Active menu highlighting | Current route is highlighted |
-| ⬜ | SHELL-04 | BOTH | admin | Header user menu | Opens and logout action is present |
-| ⬜ | SHELL-05 | BOTH | admin | Site selector | Sites list loads and selection works |
-| ⬜ | SHELL-06 | BOTH | admin | Header connectivity indicator | Online/offline badge reflects state |
+| ✅ | SHELL-01 | BOTH | admin | Sidebar expand/collapse | Width changes and labels hide/show correctly |
+| ✅ | SHELL-02 | BOTH | admin | Mobile sidebar drawer | Opens, closes, overlay dismisses |
+| ✅ | SHELL-03 | BOTH | admin | Active menu highlighting | Current route is highlighted |
+| ⏸ | SHELL-04 | BOTH | admin | Header user menu | `ELEC` passed. Opens and logout action is present. `WEB` still pending |
+| ⏸ | SHELL-05 | BOTH | admin | Site selector | `ELEC` passed. Sites list loads and selection works. `WEB` still pending |
+| ⏸ | SHELL-06 | BOTH | admin | Header connectivity indicator | `ELEC` passed. Online/offline badge reflects state. `WEB` still pending |
 | ⬜ | SHELL-07 | ELEC | admin | Offline banner with queued changes | Banner content and retry visibility are correct |
 | ⬜ | SHELL-08 | ELEC | admin | Theme persistence | Theme remains after restart |
-| ⏸ | SHELL-09 | BOTH | admin | Responsive shell | No broken layout in desktop/tablet/mobile widths |
+| ✅ | SHELL-09 | BOTH | admin | Responsive shell | No broken layout in desktop/tablet/mobile widths |
 
 ---
 
@@ -141,12 +177,12 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏸ | DASH-01 | BOTH | admin | Load dashboard | No crash, all panels render |
-| ⏸ | DASH-02 | BOTH | admin | Revenue and order metrics | Numbers visible and formatted |
-| ⏸ | DASH-03 | BOTH | admin | Latest receipts panel | Recent sales list renders |
-| ⏸ | DASH-04 | BOTH | admin | Top products panel | Ranking renders |
-| ⏸ | DASH-05 | BOTH | admin | Low stock panel | Low stock items visible |
-| ⬜ | DASH-06 | BOTH | admin | Loading state | Skeleton or loader shown appropriately |
+| ✅ | DASH-01 | BOTH | admin | Load dashboard | No crash, all panels render |
+| ✅ | DASH-02 | BOTH | admin | Revenue and order metrics | Numbers visible and formatted |
+| ✅ | DASH-03 | BOTH | admin | Latest receipts panel | Recent sales list renders |
+| ✅ | DASH-04 | BOTH | admin | Top products panel | Ranking renders |
+| ✅ | DASH-05 | BOTH | admin | Low stock panel | Low stock items visible |
+| ⏸ | DASH-06 | BOTH | admin | Loading state | `ELEC` passed. Skeleton or loader shown appropriately. `WEB` still pending |
 | ⬜ | DASH-07 | BOTH | admin | Error state and retry | Error UI visible and retry works |
 
 ---
@@ -423,11 +459,29 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 | Status | ID | Environment | Evidence | Notes |
 |---|---|---|---|---|
-| ⬜ | AUTH-01 | WEB |  |  |
-| ⬜ | AUTH-01 | ELEC |  |  |
-| ⬜ | COMPANY-14 | ELEC |  |  |
-| ⬜ | SALES-08 | WEB |  |  |
-| ⬜ | SALES-08 | ELEC |  |  |
+| ✅ | AUTH-02 | ELEC | `output/playwright/auth-02-invalid-login-elec.png` | Invalid login stayed on `/login` and showed `Email or password is incorrect` |
+| ✅ | AUTH-03 | ELEC | `output/playwright/auth-03-logout-elec.png` | Logout returned to `/login` |
+| ✅ | AUTH-04 | ELEC | `output/playwright/auth-04-cashier-login-elec.png` | Cashier redirected to `/sales` |
+| ✅ | AUTH-05 | ELEC | `output/playwright/auth-05-manager-login-elec.png` | Manager redirected to `/dashboard` |
+| ✅ | AUTH-06 | ELEC | `output/playwright/auth-06-viewer-login-elec.png` | Viewer redirected to `/dashboard` |
+| ✅ | AUTH-07 | ELEC | `output/playwright/auth-07-cashier-blocked-elec.png` | Cashier direct access to `/company` redirected to `/sales` |
+| ✅ | AUTH-08 | ELEC | `output/playwright/auth-08-manager-blocked-elec.png` | Manager direct access to `/company` redirected to `/dashboard` |
+| ✅ | AUTH-09 | ELEC | `output/playwright/auth-09-session-refresh-elec.png` | Session persisted on reload after rerun with a stable authenticated state |
+| ✅ | AUTH-10 | ELEC | `output/playwright/shell-05-site-selector-elec.png` | Header site selector changed from `Main Site` to `North Site` |
+| ✅ | SHELL-01 | ELEC | `output/playwright/shell-01-collapse-elec.png` | Sidebar width changed from `296px` to `104px`; labels hidden in collapsed state |
+| ✅ | SHELL-02 | ELEC | `output/playwright/shell-02-mobile-drawer-elec.png` | Drawer opened and overlay click dismissed it |
+| ✅ | SHELL-03 | ELEC | `output/playwright/shell-03-active-menu-elec.png` | `Sites` nav link exposed `aria-current=page` on active route |
+| ✅ | SHELL-04 | ELEC | `output/playwright/shell-04-user-menu-elec.png` | User menu opened and exposed `Sign out` |
+| ✅ | SHELL-05 | ELEC | `output/playwright/shell-05-site-selector-elec.png` | Site selector loaded both active sites and applied the new selection |
+| ✅ | SHELL-06 | ELEC | `output/playwright/shell-06-connectivity-elec.png` | Header badge switched between `Offline` and `Online` |
+| ✅ | SHELL-09 | ELEC | `output/playwright/shell-09-responsive-elec-fixed.png` | Tablet/mobile horizontal overflow fixed and revalidated |
+| ✅ | DASH-01 | ELEC | `output/playwright/dash-01-dashboard-load-elec.png` | Dashboard loaded without crash and all main panels rendered |
+| ✅ | DASH-02 | ELEC | `output/playwright/dash-02-metrics-elec.png` | Revenue/order metrics visible and formatted |
+| ✅ | DASH-03 | ELEC | `output/playwright/dash-03-recent-sales-elec.png` | Latest receipts panel rendered |
+| ✅ | DASH-04 | ELEC | `output/playwright/dash-04-top-products-elec.png` | Top products ranking rendered |
+| ✅ | DASH-05 | ELEC | `output/playwright/dash-05-low-stock-elec.png` | Low-stock panel rendered |
+| ✅ | DASH-06 | ELEC | `output/playwright/dash-06-loading-elec.png` | Delayed renderer fetch showed dashboard loading skeleton |
+| ⬜ | DASH-07 | ELEC | `output/playwright/dash-07-error-elec.png` | Attempted renderer-side failure injection did not surface the query error state; keep pending |
 
 ---
 
