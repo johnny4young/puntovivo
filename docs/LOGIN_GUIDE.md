@@ -151,4 +151,5 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
 
 - logout is effectively client-side token clearing plus a lightweight API call
 - password changes and admin resets now invalidate older sessions through per-user session versioning
+- tokens are also revoked when the signed-in user's `email` or `role` changes, or when the tenant is disabled
 - site-aware business flows also depend on `x-site-id` once a site is selected in the app

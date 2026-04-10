@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { users } from '../db/schema.js';
+import { tenants, users } from '../db/schema.js';
 
 export const REFRESH_COOKIE_NAME = 'open_yojob_refresh';
 const ACCESS_TOKEN_TTL = '15m';
@@ -88,19 +88,28 @@ async function verifyToken(
 
     const user = await request.server.db
       .select({
+        email: users.email,
+        role: users.role,
         tenantId: users.tenantId,
         isActive: users.isActive,
         sessionVersion: users.sessionVersion,
+        tenantIsActive: tenants.isActive,
       })
       .from(users)
+      .innerJoin(tenants, eq(users.tenantId, tenants.id))
       .where(eq(users.id, payload.userId))
       .get();
 
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || !user.tenantIsActive) {
       return null;
     }
 
-    if (user.tenantId !== payload.tenantId || user.sessionVersion !== payload.sessionVersion) {
+    if (
+      user.tenantId !== payload.tenantId ||
+      user.email !== payload.email ||
+      user.role !== payload.role ||
+      user.sessionVersion !== payload.sessionVersion
+    ) {
       return null;
     }
 

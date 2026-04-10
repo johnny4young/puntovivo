@@ -36,6 +36,7 @@ Key references:
 - the same strong password policy is enforced for self-service changes, admin-created users, and admin resets
 - JWT payload includes tenant and role context
 - JWT payloads also include a per-user session version so password changes revoke prior sessions
+- token verification also re-checks live `email`, `role`, and tenant active state so outdated claims lose access immediately
 - server procedures rely on middleware for auth, tenant, and role enforcement
 - cookie-backed auth flows require a matching CSRF cookie/header pair
 

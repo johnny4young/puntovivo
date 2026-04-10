@@ -47,6 +47,7 @@ Session model:
 - session continuity comes from a rotated `httpOnly` refresh cookie
 - `health.check` can mint the readable CSRF cookie needed before calling cookie-backed unsafe auth procedures
 - password changes and admin password resets revoke older tokens through a per-user session version check
+- token validation also rejects stale `role`/`email` claims and tenants that are no longer active
 
 ## Current Router Surface
 
