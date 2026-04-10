@@ -137,7 +137,7 @@ Source:
 - Customer catalogs: identification types, person types, regime types, client types, commercial activities
 - Providers, categories, units, VAT rates, locations
 - Products with multi-price tiers, VAT, location, provider and unit support
-- Orders, purchases, purchase void, and order receiving into purchases
+- Orders, partial order receiving into purchases, purchases, and purchase void
 - Sales, sale void, sale refund, receipt printing, POS keyboard shortcuts, responsive checkout
 - Inventory stock, movements, adjustments, initial inventory, physical count
 - Sync queue, conflicts, merged resolution, and admin sync center
@@ -159,6 +159,7 @@ The React app is composed around:
 The shell also includes:
 
 - role-aware routing
+- route-level lazy loading for major business pages
 - role-aware sidebar visibility
 - offline/sync banner
 - shared loading, retry, and toast feedback patterns
@@ -188,6 +189,8 @@ Current top-level routes:
 
 Source:
 [App.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/App.tsx)
+
+The route modules are now lazy-loaded with Suspense fallbacks so the renderer does not eagerly ship every business screen in the initial bundle.
 
 ### Client data flow
 

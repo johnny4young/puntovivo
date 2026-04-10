@@ -10,8 +10,8 @@ This file replaces the old habit of spreading pending work across historical mig
 - Inventory is still tenant-wide rather than truly site-owned.
   Impact: site-to-site transfer workflows would be misleading until stock ownership is modeled per site or per location.
 
-- Orders do not yet support partial receipt.
-  Impact: the current flow is effectively `submitted -> received -> voided`, which is too coarse for staggered delivery scenarios.
+- Orders already support partial receipt, but procurement still lacks some follow-through around receiving workflows.
+  Examples: stronger operator guidance around staged deliveries, clearer audit/reporting around multi-receipt orders, and tighter downstream reconciliation after mixed receive/return scenarios.
 
 - Procurement still lacks some edge-case follow-through beyond the live purchase-return workflow.
   Examples: richer supplier credit-note handling, more explicit reconciliation after mixed return/void scenarios, and stronger audit surfaces around return approvals.
@@ -44,7 +44,7 @@ This file replaces the old habit of spreading pending work across historical mig
 ## Priority 4: Performance and UX Polish
 
 - The web build still emits large Vite chunk warnings.
-  Suggestion: split reporting/export libraries and high-cost feature modules more aggressively.
+  Suggestion: the route surface is now lazy-loaded, so the next pass should focus on the remaining export-heavy chunk (`exceljs`) and any other library-level splits that still exceed Vite's warning threshold.
 
 - Responsive/mobile refinement is strongest in Sales and weaker in some admin/maintenance screens.
   Suggestion: continue responsive QA across inventory, company settings, and larger catalog pages.
@@ -77,8 +77,8 @@ This file replaces the old habit of spreading pending work across historical mig
 
 If the team wants a practical implementation order, the strongest next candidates are:
 
-1. Partial receiving for orders
-2. Site-aware inventory ownership model
-3. Electron main-window sandbox hardening
-4. Bundle splitting for export/reporting dependencies
-5. Procurement audit and credit-note follow-up after returns
+1. Site-aware inventory ownership model
+2. Electron main-window sandbox hardening
+3. Library-level splitting for export/reporting dependencies after route lazy loading
+4. Procurement audit and credit-note follow-up after returns
+5. Broader Electron and sync smoke coverage
