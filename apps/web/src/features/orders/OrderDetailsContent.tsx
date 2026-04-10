@@ -12,6 +12,16 @@ export function OrderDetailsContent({
   receiveError,
   voidError,
 }: OrderDetailsContentProps) {
+  const progress = (order.items ?? []).reduce(
+    (summary, item) => {
+      summary.ordered += item.quantity;
+      summary.received += item.receivedQuantity ?? 0;
+      summary.pending += item.remainingQuantity ?? item.quantity;
+      return summary;
+    },
+    { ordered: 0, received: 0, pending: 0 }
+  );
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
@@ -39,6 +49,35 @@ export function OrderDetailsContent({
         <p className="text-xs uppercase tracking-wide text-primary-700">Committed Total</p>
         <p className="mt-2 text-xl font-semibold text-primary-900">{formatCurrency(order.total)}</p>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
+          <p className="text-xs uppercase tracking-wide text-secondary-500">Ordered Units</p>
+          <p className="mt-2 text-xl font-semibold text-secondary-900">{progress.ordered}</p>
+        </div>
+        <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
+          <p className="text-xs uppercase tracking-wide text-success-700">Received Units</p>
+          <p className="mt-2 text-xl font-semibold text-success-900">{progress.received}</p>
+        </div>
+        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
+          <p className="text-xs uppercase tracking-wide text-warning-700">Pending Units</p>
+          <p className="mt-2 text-xl font-semibold text-warning-900">{progress.pending}</p>
+        </div>
+      </div>
+
+      {order.status === 'partial_received' && (
+        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
+          <p className="text-xs uppercase tracking-wide text-warning-700">Staged Delivery</p>
+          <p className="mt-2 font-medium text-warning-900">
+            {order.linkedPurchaseCount ?? 0} receipt{order.linkedPurchaseCount === 1 ? '' : 's'} registered so far
+          </p>
+          <p className="text-sm text-warning-800">
+            {order.receivedPurchaseNumber
+              ? `Latest receipt ${order.receivedPurchaseNumber}. Keep receiving only the quantities that arrived in each batch.`
+              : 'Keep receiving only the quantities that arrived in each batch.'}
+          </p>
+        </div>
+      )}
 
       {(order.linkedPurchases?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">

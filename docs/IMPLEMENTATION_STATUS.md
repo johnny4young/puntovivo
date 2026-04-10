@@ -116,6 +116,7 @@ Current desktop-only operational features:
 - route-level lazy loading for major web modules to reduce the initial renderer bundle
 - export library splitting so Excel/PDF tooling loads on demand without tripping the previous Vite chunk warning
 - sync center retry/failure metrics and oldest-queued visibility for faster operator triage
+- order history receipt progress, quick receive actions, and staged-delivery guidance in order details
 
 ## Current Risks and Open Areas
 
@@ -123,7 +124,7 @@ The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 
 - deeper inventory modeling by site/location
 - remote sync strategy hardening beyond the current retry/failure observability
-- procurement edge cases beyond the live purchase-return flow
+- procurement edge cases beyond the live purchase-return flow and staged-delivery visibility
 - desktop security hardening and operational verification
 - ongoing performance cleanup and bundle hygiene
 - deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
