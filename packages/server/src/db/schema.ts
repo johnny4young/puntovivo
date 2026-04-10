@@ -91,6 +91,7 @@ export const users = sqliteTable(
     email: text('email').notNull().unique(),
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(),
+    sessionVersion: integer('session_version').notNull().default(1),
     role: text('role', { enum: userRoleEnum }).notNull().default('cashier'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     createdAt: text('created_at').notNull().default(new Date().toISOString()),

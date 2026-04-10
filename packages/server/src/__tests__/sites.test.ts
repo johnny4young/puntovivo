@@ -4,28 +4,33 @@ import { nanoid } from 'nanoid';
 import { createServer, type OpenYojobServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { companies, locations, sites, users } from '../db/schema.js';
+import { signAccessToken } from '../security/authTokens.js';
 import { appRouter } from '../trpc/router.js';
 import { createContext, type Context } from '../trpc/context.js';
 
 let server: OpenYojobServer;
 let tenantId: string;
 let userId: string;
+let userSessionVersion: number;
 let mainSiteId: string;
 let warehouseSiteId: string;
 let frontShelfLocationId: string;
 
 async function createTestContext(siteIdHeader?: string): Promise<Context> {
   const db = getDatabase();
+  const accessToken = signAccessToken(server.app, {
+    id: userId,
+    email: 'admin@localhost',
+    role: 'admin',
+    tenantId,
+    sessionVersion: userSessionVersion,
+  });
   const mockReq = {
     server: server.app,
-    headers: siteIdHeader ? { 'x-site-id': siteIdHeader } : {},
-    user: {
-      userId,
-      email: 'admin@localhost',
-      role: 'admin',
-      tenantId,
+    headers: {
+      ...(siteIdHeader ? { 'x-site-id': siteIdHeader } : {}),
+      authorization: `Bearer ${accessToken}`,
     },
-    jwtVerify: async () => {},
   } as unknown as Context['req'];
 
   const mockRes = {} as unknown as Context['res'];
@@ -67,6 +72,7 @@ describe('Sites tRPC Router', () => {
 
     userId = seededUser.id;
     tenantId = seededUser.tenantId;
+    userSessionVersion = seededUser.sessionVersion;
 
     const company = await db.select().from(companies).where(eq(companies.tenantId, tenantId)).get();
 

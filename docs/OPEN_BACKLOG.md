@@ -1,6 +1,6 @@
 # Open Backlog
 
-> Updated: April 9, 2026
+> Updated: April 10, 2026
 > Purpose: single file for current gaps, bugs, improvements, hardening, and suggested next steps
 
 This file replaces the old habit of spreading pending work across historical migration notes.
@@ -34,9 +34,6 @@ This file replaces the old habit of spreading pending work across historical mig
 
 - Main Electron window still runs with `sandbox: false`.
   Impact: the project already uses context isolation and disabled node integration, but sandboxing remains a meaningful hardening gap.
-
-- Password change does not force token/session invalidation across clients.
-  Impact: old tokens may remain valid until expiry unless the auth model is expanded.
 
 - Sensitive admin actions do not yet have a full audit trail.
   Candidates: user changes, backup restore, sync conflict resolution, purchase void, sale refund, company settings updates.

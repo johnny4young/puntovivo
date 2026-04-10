@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { syncQueue, users } from '../../db/schema.js';
+import { clearRefreshCookie } from '../../security/authTokens.js';
 import {
   createUserInput,
   listUsersInput,
@@ -202,9 +203,14 @@ export const usersRouter = router({
         .update(users)
         .set({
           passwordHash,
+          sessionVersion: sql`${users.sessionVersion} + 1`,
           updatedAt: now,
         })
         .where(eq(users.id, input.id));
+
+      if (input.id === ctx.user!.id) {
+        clearRefreshCookie(ctx.res);
+      }
 
       await ctx.db.insert(syncQueue).values({
         id: nanoid(),

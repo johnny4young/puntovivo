@@ -1,6 +1,6 @@
 # Open Yojob Architecture
 
-> Updated: April 9, 2026
+> Updated: April 10, 2026
 > Audience: developers and technical operators
 
 ## Overview
@@ -68,7 +68,7 @@ docs/               Project documentation
 - SQLite via `better-sqlite3`
 - Drizzle ORM for schema and query typing
 - tRPC 11 for the application API
-- hybrid auth with in-memory bearer access tokens and rotated refresh cookies
+- hybrid auth with in-memory bearer access tokens, rotated refresh cookies, and session-version invalidation on password changes
 - SSE for realtime notifications
 
 ### Context and guards
