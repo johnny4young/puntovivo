@@ -22,6 +22,48 @@ let testTenantId: string;
 let testUserId: string;
 const testDbPath = ':memory:';
 
+function getCookieValue(
+  setCookieHeader: string | string[] | undefined,
+  name: string
+): string | null {
+  const cookieHeaders = Array.isArray(setCookieHeader)
+    ? setCookieHeader
+    : setCookieHeader
+      ? [setCookieHeader]
+      : [];
+
+  for (const cookieHeader of cookieHeaders) {
+    const match = cookieHeader.match(new RegExp(`(?:^|\\s)${name}=([^;]+)`));
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+async function loginOverHttp() {
+  const response = await server.app.inject({
+    method: 'POST',
+    url: '/api/trpc/auth.login?batch=1',
+    headers: {
+      'content-type': 'application/json',
+    },
+    payload: JSON.stringify({
+      '0': {
+        email: 'trpctest@example.com',
+        password: 'TestPassword123!',
+      },
+    }),
+  });
+
+  return {
+    response,
+    sessionCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_session'),
+    csrfCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf'),
+  };
+}
+
 /**
  * Build a tRPC context for use with createCaller.
  * For public procedures, pass no user.
@@ -270,6 +312,65 @@ describe('Auth tRPC Router', () => {
       const caller = appRouter.createCaller(createTestContext());
 
       await expect(caller.auth.refresh()).rejects.toThrow(TRPCError);
+    });
+  });
+
+  describe('csrf protection', () => {
+    it('should issue a csrf cookie on query requests', async () => {
+      const response = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/health.check',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf')).toBeTruthy();
+    });
+
+    it('should reject authenticated mutations without a matching csrf header', async () => {
+      const { sessionCookie, csrfCookie } = await loginOverHttp();
+
+      expect(sessionCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`open_yojob_session=${sessionCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+        },
+        payload: '{}',
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({
+        error: 'CSRF_VALIDATION_FAILED',
+        message: 'Missing or invalid CSRF token',
+      });
+    });
+
+    it('should allow authenticated mutations when the csrf header matches the cookie', async () => {
+      const { sessionCookie, csrfCookie } = await loginOverHttp();
+
+      expect(sessionCookie).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.refresh?batch=1',
+        headers: {
+          cookie: [`open_yojob_session=${sessionCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+            '; '
+          ),
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: '{}',
+      });
+
+      expect(response.statusCode).toBe(200);
     });
   });
 

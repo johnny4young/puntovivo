@@ -15,6 +15,12 @@ import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
 import { ssePlugin } from './realtime/sse.js';
+import {
+  CSRF_HEADER_NAME,
+  ensureCsrfCookie,
+  getCsrfHeader,
+  isUnsafeMethod,
+} from './security/csrf.js';
 import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
 
@@ -87,7 +93,7 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   await app.register(cors, {
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-site-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-site-id', CSRF_HEADER_NAME],
     credentials: true,
   });
 
@@ -103,6 +109,29 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
     sign: {
       expiresIn: '7d',
     },
+  });
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/api/')) {
+      return;
+    }
+
+    const csrfToken = ensureCsrfCookie(request, reply);
+    const hasSessionCookie = typeof request.cookies.open_yojob_session === 'string';
+
+    if (!hasSessionCookie || !isUnsafeMethod(request.method)) {
+      return;
+    }
+
+    const csrfHeader = getCsrfHeader(request);
+    if (csrfHeader === csrfToken) {
+      return;
+    }
+
+    reply.code(403).send({
+      error: 'CSRF_VALIDATION_FAILED',
+      message: 'Missing or invalid CSRF token',
+    });
   });
 
   // Register rate limiting (must be registered before routes that use it)
