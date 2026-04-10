@@ -25,6 +25,12 @@ function Root() {
       links: [
         httpBatchLink({
           url: `${import.meta.env.VITE_API_URL || 'http://localhost:8090'}/api/trpc`,
+          fetch(url, options) {
+            return fetch(url, {
+              ...options,
+              credentials: 'include',
+            });
+          },
           headers() {
             return getTrpcHeaders();
           },

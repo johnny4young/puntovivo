@@ -184,17 +184,17 @@ function generateClientId(): string {
  * Fastify plugin for SSE support
  */
 const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
-const manager = new SseManager();
+  const manager = new SseManager();
 
-async function resolveTenantId(request: FastifyRequest): Promise<string | null> {
-  try {
-    await request.jwtVerify();
-    const payload = request.user as { tenantId?: unknown };
-    return typeof payload.tenantId === 'string' ? payload.tenantId : null;
-  } catch {
-    return null;
+  async function resolveTenantId(request: FastifyRequest): Promise<string | null> {
+    try {
+      await request.jwtVerify();
+      const payload = request.user as { tenantId?: unknown };
+      return typeof payload.tenantId === 'string' ? payload.tenantId : null;
+    } catch {
+      return null;
+    }
   }
-}
 
   // Decorate fastify instance with SSE manager
   fastify.decorate('sse', manager);
@@ -221,7 +221,6 @@ async function resolveTenantId(request: FastifyRequest): Promise<string | null> 
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
         'X-Accel-Buffering': 'no', // Disable nginx buffering
       });
 

@@ -3,12 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TRPCClientError } from '@trpc/client';
 import type { User, Tenant, LoginCredentials } from '@/types';
 import { vanillaClient } from '@/lib/trpc';
-import {
-  clearAuthSession,
-  getStoredAuthToken,
-  persistAuthSession,
-  persistAuthToken,
-} from './authStorage';
+import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 
 interface AuthContextType {
@@ -92,15 +87,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let isMounted = true;
 
     const initAuth = async () => {
-      const token = getStoredAuthToken();
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const session = mapSession(await vanillaClient.auth.me.query());
-        persistAuthSession(token, session);
+        persistAuthSession(session);
 
         if (!isMounted) {
           return;
@@ -143,16 +132,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
 
     try {
-      const authData = await vanillaClient.auth.login.mutate({
+      await vanillaClient.auth.login.mutate({
         email: credentials.email,
         password: credentials.password,
       });
 
-      const token = authData.token;
-      persistAuthToken(token);
       const session = mapSession(await vanillaClient.auth.me.query());
 
-      persistAuthSession(token, session);
+      persistAuthSession(session);
       setUser(session.user);
       setTenant(session.tenant);
 

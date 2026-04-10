@@ -1,6 +1,6 @@
 /**
  * tRPC Client Configuration
- * 
+ *
  * Configured tRPC client for Open Yojob web app
  */
 
@@ -13,12 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 
 export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const token = localStorage.getItem('auth_token');
   const siteId = getStoredSiteId();
-
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
 
   if (siteId) {
     headers['x-site-id'] = siteId;
@@ -35,6 +30,12 @@ export const vanillaClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${API_URL}/api/trpc`,
+      fetch(url, options) {
+        return fetch(url, {
+          ...options,
+          credentials: 'include',
+        });
+      },
       headers() {
         return getTrpcHeaders();
       },
