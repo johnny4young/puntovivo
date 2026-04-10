@@ -153,9 +153,24 @@ async function getSyncOverview(
   db: DatabaseInstance,
   tenantId: string
 ) {
-  const [queueCountRow, conflictCountRow, lastSyncAt] = await Promise.all([
+  const [queueCountRow, retryingCountRow, failedCountRow, oldestPendingRow, conflictCountRow, lastSyncAt] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)` })
+      .from(syncQueue)
+      .where(eq(syncQueue.tenantId, tenantId))
+      .get(),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(syncQueue)
+      .where(and(eq(syncQueue.tenantId, tenantId), sql`${syncQueue.attempts} > 0`))
+      .get(),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(syncQueue)
+      .where(and(eq(syncQueue.tenantId, tenantId), sql`${syncQueue.lastError} is not null`))
+      .get(),
+    db
+      .select({ createdAt: sql<string | null>`min(${syncQueue.createdAt})` })
       .from(syncQueue)
       .where(eq(syncQueue.tenantId, tenantId))
       .get(),
@@ -168,13 +183,19 @@ async function getSyncOverview(
   ]);
 
   const pendingCount = queueCountRow?.count ?? 0;
+  const retryingCount = retryingCountRow?.count ?? 0;
+  const failedCount = failedCountRow?.count ?? 0;
   const conflictsCount = conflictCountRow?.count ?? 0;
+  const oldestPendingAt = oldestPendingRow?.createdAt ?? null;
 
   return {
     pendingCount,
+    retryingCount,
+    failedCount,
     conflictsCount,
     externalSyncEnabled: true,
     lastSyncAt,
+    oldestPendingAt,
     status: conflictsCount > 0 ? 'conflict' : pendingCount > 0 ? 'pending' : 'synced',
   } as const;
 }

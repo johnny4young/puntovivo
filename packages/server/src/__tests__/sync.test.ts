@@ -132,8 +132,11 @@ describe('Sync tRPC Router', () => {
       const result = await caller.sync.status();
 
       expect(result.pendingCount).toBe(0);
+      expect(result.retryingCount).toBe(0);
+      expect(result.failedCount).toBe(0);
       expect(result.conflictsCount).toBe(0);
       expect(result.externalSyncEnabled).toBe(true);
+      expect(result.oldestPendingAt).toBeNull();
       expect(result.status).toBe('synced');
     });
   });
@@ -318,18 +321,44 @@ describe('Sync tRPC Router', () => {
         .get();
       expect(conflictRow?.status).toBe('pending');
       expect(conflictRow?.entityId).toBe(missingEntityId);
+
+      const status = await caller.sync.status();
+      expect(status.pendingCount).toBe(1);
+      expect(status.retryingCount).toBe(1);
+      expect(status.failedCount).toBe(1);
+      expect(status.oldestPendingAt).not.toBeNull();
     });
   });
 
   describe('sync.pull', () => {
-    it('returns a sync snapshot with queue items and conflicts', async () => {
+    it('returns a sync snapshot with queue items, conflicts, and retry observability', async () => {
       const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const now = new Date().toISOString();
+
+      await db.insert(syncQueue).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId: nanoid(),
+        operation: 'update',
+        data: { name: 'Retrying product' },
+        localVersion: 1,
+        attempts: 2,
+        lastError: 'Remote endpoint unavailable',
+        createdAt: now,
+      });
+
       const result = await caller.sync.pull({ queueLimit: 10, conflictLimit: 10 });
 
       expect(Array.isArray(result.queue)).toBe(true);
       expect(Array.isArray(result.conflicts)).toBe(true);
       expect(result.pendingCount).toBeGreaterThanOrEqual(0);
+      expect(result.retryingCount).toBeGreaterThanOrEqual(1);
+      expect(result.failedCount).toBeGreaterThanOrEqual(1);
       expect(result.conflictsCount).toBeGreaterThanOrEqual(0);
+      expect(result.oldestPendingAt).not.toBeNull();
+      expect(result.queue[0]?.attempts).toBeGreaterThanOrEqual(0);
     });
   });
 

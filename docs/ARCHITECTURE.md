@@ -262,6 +262,7 @@ The project currently includes:
 - conflict tracking
 - server-side queue processing APIs
 - desktop-side sync helpers
+- sync center observability for pending work, retry/failure counts, conflicts, oldest queued change, and last successful sync time
 - web sync center UI
 - merged conflict resolution
 

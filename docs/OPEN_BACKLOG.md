@@ -28,7 +28,7 @@ This file replaces the old habit of spreading pending work across historical mig
   Suggestion: define a long-term ownership boundary so offline behavior stays predictable across browser-only and desktop modes.
 
 - Sync observability is still shallow.
-  Suggestion: add richer audit/log surfaces for queue failures, repeated conflicts, and last successful remote reconciliation by tenant.
+  Suggestion: the sync center now shows retry/failure counts, oldest queued work, and last successful sync time. The next pass should add richer audit/log surfaces for queue failures, repeated conflicts, and per-tenant reconciliation history.
 
 ## Priority 3: Security and Operational Risks
 
