@@ -552,7 +552,6 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items (purchase_id);
     CREATE INDEX IF NOT EXISTS idx_purchase_items_product ON purchase_items (product_id);
-    CREATE INDEX IF NOT EXISTS idx_purchase_items_source_order_item ON purchase_items (source_order_item_id);
 
     -- Purchase Returns
     CREATE TABLE IF NOT EXISTS purchase_returns (
