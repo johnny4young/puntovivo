@@ -92,7 +92,23 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
   );
 
   return (
-    <div className="card p-6">
+    <section className="card p-5 sm:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Receipts</p>
+          <div>
+            <h2 className="font-display text-3xl text-secondary-950">Sales history</h2>
+            <p className="mt-2 text-sm text-secondary-600">
+              Review recent receipts, payment states, and cashier activity without leaving the POS
+              workspace.
+            </p>
+          </div>
+        </div>
+        {!isLoading && !error && (
+          <span className="badge badge-secondary">{sales.length} records loaded</span>
+        )}
+      </div>
+
       {isLoading && <TableLoadingState message="Loading sales..." rowCount={6} />}
       {error && <TableErrorState title="Unable to load sales" message={error} onRetry={onRetry} />}
       {!isLoading && !error && (
@@ -112,6 +128,6 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
           />
         </div>
       )}
-    </div>
+    </section>
   );
 }

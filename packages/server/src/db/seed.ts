@@ -36,6 +36,9 @@ export const DEFAULT_ADMIN = {
   name: 'Administrator',
 };
 
+export const DEFAULT_DEVELOPMENT_ADMIN_PASSWORD = 'Admin123!Dev';
+export const DEVELOPMENT_ADMIN_PASSWORD_ENV = 'OPEN_YOJOB_DEV_ADMIN_PASSWORD';
+
 export const DEFAULT_TENANT = {
   name: 'Default Business',
   slug: 'default',
@@ -96,6 +99,26 @@ const DEFAULT_COMMERCIAL_ACTIVITIES = [
   { code: '4649', name: 'Wholesale Trade in Consumer Goods' },
 ] as const;
 
+function resolveSeedAdminPassword() {
+  const runtimeEnv = process.env.OPEN_YOJOB_RUNTIME_ENV;
+  const isProduction =
+    runtimeEnv != null ? runtimeEnv === 'production' : process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    return {
+      password: randomBytes(16)
+        .toString('base64')
+        .replace(/[^a-zA-Z0-9]/g, ''),
+      isFixed: false,
+    };
+  }
+
+  return {
+    password: process.env[DEVELOPMENT_ADMIN_PASSWORD_ENV] || DEFAULT_DEVELOPMENT_ADMIN_PASSWORD,
+    isFixed: true,
+  };
+}
+
 /**
  * Seed default data if the database is empty
  */
@@ -125,7 +148,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
 
   const tenantId = tenant.id;
 
-  let randomPassword: string | null = null;
+  let seededAdminPassword: { value: string; isFixed: boolean } | null = null;
   const existingAdmin = await db
     .select()
     .from(users)
@@ -133,10 +156,12 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
     .get();
 
   if (!existingAdmin) {
-    randomPassword = randomBytes(16)
-      .toString('base64')
-      .replace(/[^a-zA-Z0-9]/g, '');
-    const passwordHash = await argon2.hash(randomPassword);
+    const resolvedAdminPassword = resolveSeedAdminPassword();
+    const passwordHash = await argon2.hash(resolvedAdminPassword.password);
+    seededAdminPassword = {
+      value: resolvedAdminPassword.password,
+      isFixed: resolvedAdminPassword.isFixed,
+    };
 
     await db.insert(users).values({
       id: nanoid(),
@@ -394,15 +419,25 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
 
   console.log('[Database] Default data seeded successfully');
 
-  if (randomPassword) {
+  if (seededAdminPassword) {
     console.log('[Database] ═══════════════════════════════════════════════════════════');
-    console.log('[Database] ⚠️  IMPORTANT: Save these admin credentials securely!');
+    console.log(
+      seededAdminPassword.isFixed
+        ? '[Database] Development admin credentials are ready'
+        : '[Database] ⚠️  IMPORTANT: Save these admin credentials securely!'
+    );
     console.log('[Database] ═══════════════════════════════════════════════════════════');
     console.log(`[Database] Email:    ${DEFAULT_ADMIN.email}`);
-    console.log(`[Database] Password: ${randomPassword}`);
+    console.log(`[Database] Password: ${seededAdminPassword.value}`);
     console.log('[Database] ═══════════════════════════════════════════════════════════');
-    console.log('[Database] ⚠️  This password will NOT be shown again!');
-    console.log('[Database] ⚠️  Please change it immediately after first login.');
+    if (seededAdminPassword.isFixed) {
+      console.log(
+        `[Database] Non-production mode uses a fixed password. Override it with ${DEVELOPMENT_ADMIN_PASSWORD_ENV}.`
+      );
+    } else {
+      console.log('[Database] ⚠️  This password will NOT be shown again!');
+      console.log('[Database] ⚠️  Please change it immediately after first login.');
+    }
     console.log('[Database] ═══════════════════════════════════════════════════════════');
   }
 }

@@ -14,9 +14,9 @@ export function TableErrorState({
   retryLabel = 'Retry',
 }: TableErrorStateProps) {
   return (
-    <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-4">
+    <div className="rounded-[24px] border border-danger-200/70 bg-danger-50/90 px-4 py-4 shadow-[var(--shadow-card)]">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/70">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/75">
           <AlertTriangle className="h-5 w-5 text-danger-600" />
         </div>
         <div className="min-w-0 flex-1 space-y-2">

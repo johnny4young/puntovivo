@@ -4,26 +4,26 @@ import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center rounded-md text-sm font-medium',
-    'transition-colors focus-visible:outline-none focus-visible:ring-2',
-    'focus-visible:ring-ring focus-visible:ring-offset-2',
-    'disabled:opacity-50 disabled:pointer-events-none ring-offset-background',
+    'inline-flex items-center justify-center rounded-2xl text-sm font-semibold',
+    'transition-all duration-200 focus-visible:outline-none focus-visible:ring-2',
+    'focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none',
   ],
   {
     variants: {
       variant: {
-        primary: 'bg-primary-600 text-white hover:bg-primary-700',
+        primary:
+          'bg-primary text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)] hover:-translate-y-0.5 hover:bg-primary-700',
         secondary: 'bg-secondary-100 text-secondary-900 hover:bg-secondary-200',
-        outline: 'border border-input hover:bg-accent hover:text-accent-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        destructive: 'bg-danger-500 text-white hover:bg-danger-700',
+        outline: 'border border-line-strong/70 bg-surface/86 text-secondary-900 hover:border-primary-300 hover:bg-primary-50/80 hover:text-primary-700',
+        ghost: 'text-secondary-600 hover:bg-secondary-100/80 hover:text-secondary-900',
+        destructive: 'bg-danger-500 text-white hover:-translate-y-0.5 hover:bg-danger-700',
         link: 'text-primary-600 underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-10 py-2 px-4',
+        default: 'h-11 px-4 py-2.5',
         sm: 'h-9 px-3 text-xs',
-        lg: 'h-11 px-8',
-        icon: 'h-10 w-10',
+        lg: 'h-12 px-8',
+        icon: 'h-10 w-10 rounded-2xl px-0 py-0',
       },
     },
     defaultVariants: {

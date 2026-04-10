@@ -60,17 +60,25 @@ export function OfflineStatusBanner() {
   const canRetry = isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
 
   return (
-    <div className="border-b border-secondary-200 bg-white px-6 py-3">
+    <div className="px-4 pb-1 pt-3 sm:px-6 xl:px-8">
       <div
         className={cn(
-          'flex flex-col gap-3 rounded-2xl border px-4 py-3 md:flex-row md:items-center md:justify-between',
-          bannerCopy.tone === 'danger' && 'border-danger-200 bg-danger-50 text-danger-700',
-          bannerCopy.tone === 'warning' && 'border-warning-500/30 bg-warning-50 text-warning-700',
-          bannerCopy.tone === 'primary' && 'border-primary-200 bg-primary-50 text-primary-700'
+          'shell-panel flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between',
+          bannerCopy.tone === 'danger' && 'border-danger-200/75 bg-danger-50/90 text-danger-700',
+          bannerCopy.tone === 'warning' &&
+            'border-warning-500/20 bg-warning-50/90 text-warning-700',
+          bannerCopy.tone === 'primary' && 'border-primary-200/75 bg-primary-50/85 text-primary-700'
         )}
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5">
+          <div
+            className={cn(
+              'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+              bannerCopy.tone === 'danger' && 'bg-white/70 text-danger-600',
+              bannerCopy.tone === 'warning' && 'bg-white/65 text-warning-700',
+              bannerCopy.tone === 'primary' && 'bg-white/70 text-primary-700'
+            )}
+          >
             {bannerCopy.tone === 'danger' ? (
               <AlertTriangle className="h-5 w-5" />
             ) : (

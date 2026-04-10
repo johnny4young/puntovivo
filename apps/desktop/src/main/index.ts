@@ -38,6 +38,7 @@ if (require('electron-squirrel-startup')) {
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 // Check if we're in development mode - electron-forge start sets app.isPackaged = false
 const isDev = !app.isPackaged;
+process.env.OPEN_YOJOB_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 
 console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
 

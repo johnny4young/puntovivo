@@ -29,6 +29,7 @@ async function main(): Promise<void> {
   const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
   const jwtSecret = process.env.JWT_SECRET;
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
+  process.env.OPEN_YOJOB_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
   console.log('==========================================');
   console.log('  Open Yojob Server - Standalone Mode');
@@ -69,7 +70,11 @@ async function main(): Promise<void> {
     console.log();
     console.log('  Default admin account:');
     console.log('  - Email: admin@localhost');
-    console.log('  - Password: (generated on first run, shown once in seed output)');
+    console.log(
+      process.env.NODE_ENV === 'production'
+        ? '  - Password: (generated on first run, shown once in seed output)'
+        : '  - Password: Admin123!Dev (or OPEN_YOJOB_DEV_ADMIN_PASSWORD if set before first seed)'
+    );
     console.log('  - See docs/LOGIN_GUIDE.md for details');
     console.log();
     console.log('  Press Ctrl+C to stop');

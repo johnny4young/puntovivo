@@ -1,24 +1,19 @@
-import { Menu, Bell, Search, User, LogOut, Wifi, WifiOff } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Bell, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Select } from '@/components/form-controls/Select';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { Select } from '@/components/form-controls/Select';
 import { isOnline } from '@/lib/utils';
 
 interface HeaderProps {
-  onToggleSidebar: () => void;
+  onOpenSidebar: () => void;
 }
 
-export function Header({ onToggleSidebar }: HeaderProps) {
+export function Header({ onOpenSidebar }: HeaderProps) {
   const { user, logout } = useAuth();
   const { currentTenant, currentSite, isLoadingSites, sites, switchSite } = useTenant();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const siteOptions = sites.map(site => ({
-    value: site.id,
-    label: site.name,
-  }));
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -33,109 +28,105 @@ export function Header({ onToggleSidebar }: HeaderProps) {
     };
   }, []);
 
+  const siteOptions = sites.map(site => ({
+    value: site.id,
+    label: site.name,
+  }));
+
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white border-b border-secondary-200">
-      <div className="flex h-full items-center justify-between px-4">
-        {/* Left side */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onToggleSidebar}
-            className="p-2 rounded-lg hover:bg-secondary-100 text-secondary-500 lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-
-          {/* Search */}
-          <div className="hidden md:flex items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
-              <input type="text" placeholder="Search..." className="input pl-10 w-64" />
-            </div>
-          </div>
-        </div>
-
-        {/* Right side */}
-        <div className="flex items-center gap-3">
-          {/* Online status */}
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              online ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700'
-            }`}
-          >
-            {online ? (
-              <>
-                <Wifi className="h-3.5 w-3.5" />
-                Online
-              </>
-            ) : (
-              <>
-                <WifiOff className="h-3.5 w-3.5" />
-                Offline
-              </>
-            )}
-          </div>
-
-          {/* Tenant name */}
-          {currentTenant && (
-            <span className="hidden md:block text-sm text-secondary-600">{currentTenant.name}</span>
-          )}
-
-          {currentTenant && (
-            <div className="hidden lg:flex items-center gap-2 min-w-52">
-              <span className="text-xs font-medium uppercase tracking-wide text-secondary-500">
-                Site
-              </span>
-              <Select
-                options={siteOptions}
-                value={currentSite?.id ?? null}
-                onChange={value => {
-                  if (typeof value === 'string') {
-                    void switchSite(value);
-                  }
-                }}
-                placeholder={isLoadingSites ? 'Loading sites...' : 'Select a site'}
-                disabled={isLoadingSites || siteOptions.length <= 1}
-                className="py-1.5"
-                wrapperClassName="w-44"
-              />
-            </div>
-          )}
-
-          {/* Notifications */}
-          <button className="p-2 rounded-lg hover:bg-secondary-100 text-secondary-500 relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-danger-500" />
-          </button>
-
-          {/* User menu */}
-          <div className="relative">
+    <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-8">
+      <div className="shell-panel px-4 py-3 sm:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-secondary-100"
+              type="button"
+              className="btn-outline btn-icon lg:hidden"
+              onClick={onOpenSidebar}
+              aria-label="Open navigation"
             >
-              <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <User className="h-5 w-5 text-primary-600" />
-              </div>
-              <span className="hidden md:block text-sm font-medium text-secondary-700">
-                {user?.name || 'User'}
-              </span>
+              <Menu className="h-5 w-5" />
             </button>
 
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border border-secondary-200 py-1 animate-fade-in">
-                <div className="px-4 py-2 border-b border-secondary-100">
-                  <p className="text-sm font-medium text-secondary-900">{user?.name}</p>
-                  <p className="text-xs text-secondary-500">{user?.email}</p>
-                </div>
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign out
-                </button>
+            <div className="min-w-0">
+              <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Point Of Sale</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-2xl text-secondary-950">Operator workspace</h2>
+                {currentTenant && <span className="badge badge-secondary">{currentTenant.name}</span>}
               </div>
-            )}
+            </div>
+          </div>
+
+          <div className="flex flex-1 flex-col gap-3 xl:max-w-[58rem] xl:flex-row xl:items-center xl:justify-end">
+            <div className="relative xl:min-w-[18rem] xl:max-w-[22rem] xl:flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
+              <input className="input pl-10" placeholder="Quick search products, customers, receipts" />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,16rem)_auto_auto] xl:items-center">
+              <div className={online ? 'badge badge-success' : 'badge badge-warning'}>
+                {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                {online ? 'Online' : 'Offline'}
+              </div>
+
+              <div className="min-w-[14rem]">
+                <Select
+                  options={siteOptions}
+                  value={currentSite?.id ?? null}
+                  onChange={value => {
+                    if (typeof value === 'string') {
+                      void switchSite(value);
+                    }
+                  }}
+                  placeholder={isLoadingSites ? 'Loading sites...' : 'Select a site'}
+                  disabled={isLoadingSites || siteOptions.length <= 1}
+                  className="select-trigger"
+                />
+              </div>
+
+              <button type="button" className="btn-outline btn-icon relative" aria-label="Notifications">
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-500" />
+              </button>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  className="btn-outline flex w-full items-center justify-between gap-3 px-3.5 sm:w-auto"
+                  onClick={() => setShowUserMenu(current => !current)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+                      <User className="h-4.5 w-4.5" />
+                    </span>
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-semibold text-secondary-950">
+                        {user?.name ?? 'User'}
+                      </span>
+                      <span className="block truncate text-xs text-secondary-500">
+                        {user?.role ?? 'session'}
+                      </span>
+                    </span>
+                  </div>
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 z-20 mt-3 w-72 animate-pop-in rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]">
+                    <div className="card-inset px-4 py-3">
+                      <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
+                      <p className="mt-1 text-xs text-secondary-500">{user?.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="btn-ghost mt-3 w-full justify-start px-3"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

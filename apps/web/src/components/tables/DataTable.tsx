@@ -144,7 +144,6 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       <div className="data-table-toolbar">
         {searchKey && (
           <input
@@ -164,8 +163,7 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-secondary-200 overflow-hidden">
+      <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
         <table className="data-table">
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
@@ -227,7 +225,7 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="h-24 text-center">
+                <td colSpan={columns.length} className="h-28 text-center text-secondary-500">
                   No results.
                 </td>
               </tr>
@@ -236,16 +234,17 @@ export function DataTable<TData, TValue>({
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="data-table-pagination">
         <div className="text-sm text-secondary-600">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}{' '}
-          to{' '}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-            table.getFilteredRowModel().rows.length
-          )}{' '}
-          of {table.getFilteredRowModel().rows.length} entries
+          {table.getFilteredRowModel().rows.length === 0
+            ? 'No entries to display'
+            : `Showing ${
+                table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1
+              } to ${Math.min(
+                (table.getState().pagination.pageIndex + 1) *
+                  table.getState().pagination.pageSize,
+                table.getFilteredRowModel().rows.length
+              )} of ${table.getFilteredRowModel().rows.length} entries`}
         </div>
         <div className="flex items-center space-x-2">
           <button

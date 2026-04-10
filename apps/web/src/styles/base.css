@@ -1,0 +1,48 @@
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    color: var(--foreground);
+    font-family: var(--font-ui);
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01" 1, "cv05" 1, "rlig" 1, "calt" 1;
+    background:
+      radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent) 0, transparent 34%),
+      radial-gradient(circle at top right, color-mix(in oklch, var(--warning-500) 10%, transparent) 0, transparent 28%),
+      linear-gradient(180deg, color-mix(in oklch, var(--surface-2) 72%, transparent), transparent 34%),
+      var(--background);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, color-mix(in oklch, var(--line) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklch, var(--line) 18%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.18), transparent 38%);
+    opacity: 0.4;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 28%, white);
+    color: var(--foreground);
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display-face);
+    letter-spacing: -0.03em;
+  }
+}
