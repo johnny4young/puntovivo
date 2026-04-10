@@ -17,9 +17,24 @@ export const loginInput = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const strongPasswordSchema = z.string().superRefine((password, ctx) => {
+  const validation = validatePasswordStrength(password);
+
+  if (validation.valid) {
+    return;
+  }
+
+  for (const error of validation.errors) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: error,
+    });
+  }
+});
+
 export const changePasswordInput = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(12, 'Password must be at least 12 characters'),
+  newPassword: strongPasswordSchema,
 });
 
 // ============================================================================

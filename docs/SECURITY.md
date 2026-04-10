@@ -33,6 +33,7 @@ Key references:
 - password hashes use Argon2
 - access JWTs are sent as bearer tokens and kept in memory on the web client
 - refresh tokens live in an `httpOnly` cookie and are rotated through `auth.refresh`
+- the same strong password policy is enforced for self-service changes, admin-created users, and admin resets
 - JWT payload includes tenant and role context
 - JWT payloads also include a per-user session version so password changes revoke prior sessions
 - server procedures rely on middleware for auth, tenant, and role enforcement

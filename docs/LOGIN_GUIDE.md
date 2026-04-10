@@ -13,6 +13,14 @@ Open Yojob uses:
 - role-based route and procedure guards
 - tenant isolation in server context
 
+Password policy for user creation, reset, and self-service password change:
+
+- at least 12 characters
+- at least one uppercase letter
+- at least one lowercase letter
+- at least one number
+- at least one special character
+
 The canonical auth transport is tRPC on `/api/trpc`.
 
 ## Seeded Admin Account
@@ -63,6 +71,12 @@ Source:
 - Choose `Change password`.
 - Submit your current password and a new password that meets the strength policy.
 - After success, the app signs you out and older tokens stop working.
+
+## Admin Password Management
+
+- Admins must use the same strong password policy when creating users.
+- Admin password resets also require the same strong password policy.
+- If an admin resets their own password from the users screen, the app signs them out immediately.
 
 ## Current Auth Procedures
 

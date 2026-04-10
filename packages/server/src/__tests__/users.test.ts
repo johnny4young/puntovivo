@@ -113,7 +113,7 @@ describe('Users tRPC Router', () => {
     const created = await caller.users.create({
       email: 'cashier@example.com',
       name: 'Cashier User',
-      password: 'TempPass123',
+      password: 'TempPass123!Aa',
       role: 'cashier',
       isActive: true,
     });
@@ -136,7 +136,7 @@ describe('Users tRPC Router', () => {
 
     const reset = await caller.users.resetPassword({
       id: created.id,
-      newPassword: 'NewTempPass123',
+      newPassword: 'NewTempPass123!Aa',
     });
 
     expect(reset.success).toBe(true);
@@ -215,5 +215,34 @@ describe('Users tRPC Router', () => {
       expect(err).toBeInstanceOf(TRPCError);
       expect((err as TRPCError).code).toBe('FORBIDDEN');
     }
+  });
+
+  it('rejects weak passwords on user creation and password reset', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.users.create({
+        email: 'weak-user@example.com',
+        name: 'Weak User',
+        password: 'weakpass1',
+        role: 'cashier',
+        isActive: true,
+      })
+    ).rejects.toThrow('Password must be at least 12 characters');
+
+    const created = await caller.users.create({
+      email: 'strong-user@example.com',
+      name: 'Strong User',
+      password: 'StrongPass123!',
+      role: 'cashier',
+      isActive: true,
+    });
+
+    await expect(
+      caller.users.resetPassword({
+        id: created.id,
+        newPassword: 'weakpass1',
+      })
+    ).rejects.toThrow('Password must be at least 12 characters');
   });
 });
