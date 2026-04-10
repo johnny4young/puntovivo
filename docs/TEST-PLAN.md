@@ -120,6 +120,9 @@ Execution matrix for manual validation and later automation with Playwright Web 
   - `DASH-04`
   - `DASH-05`
   - `DASH-06` (`ELEC` completed; `WEB` still pending)
+- Additional Electron desktop validation completed on 2026-04-10:
+  - `SHELL-07`
+  - `SHELL-08`
 - Electron setup data created during continuation:
   - Additional active site: `North Site`
   - Additional users for role validation:
@@ -129,6 +132,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 - Issues fixed during continuation:
   - Electron main-process renderer log listener updated to the non-deprecated `console-message` event shape.
   - Responsive shell overflow fixed in the shared web layout after `SHELL-09` failed in Electron tablet/mobile widths.
+- Issues fixed during additional desktop validation:
+  - Desktop sync bridge updated to accept the full set of queued entity types used by the embedded backend, fixing repeated `Unsupported sync entity type: purchases` failures during queue processing.
+  - Desktop startup no longer opens DevTools by default in development; opt-in now requires `OPEN_YOJOB_OPEN_DEVTOOLS=true`.
+  - `useOfflineSync` now polls desktop sync status while Electron is active so the offline banner reflects queued changes created after connectivity drops.
 - Electron evidence root:
   - `output/playwright/`
 - Electron blocked / still pending after continuation:
@@ -167,8 +174,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ⏸ | SHELL-04 | BOTH | admin | Header user menu | `ELEC` passed. Opens and logout action is present. `WEB` still pending |
 | ⏸ | SHELL-05 | BOTH | admin | Site selector | `ELEC` passed. Sites list loads and selection works. `WEB` still pending |
 | ⏸ | SHELL-06 | BOTH | admin | Header connectivity indicator | `ELEC` passed. Online/offline badge reflects state. `WEB` still pending |
-| ⬜ | SHELL-07 | ELEC | admin | Offline banner with queued changes | Banner content and retry visibility are correct |
-| ⬜ | SHELL-08 | ELEC | admin | Theme persistence | Theme remains after restart |
+| ✅ | SHELL-07 | ELEC | admin | Offline banner with queued changes | Banner content and retry visibility are correct |
+| ✅ | SHELL-08 | ELEC | admin | Theme persistence | Theme remains after restart |
 | ✅ | SHELL-09 | BOTH | admin | Responsive shell | No broken layout in desktop/tablet/mobile widths |
 
 ---

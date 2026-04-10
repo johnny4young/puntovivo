@@ -38,6 +38,7 @@ if (require('electron-squirrel-startup')) {
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 // Check if we're in development mode - electron-forge start sets app.isPackaged = false
 const isDev = !app.isPackaged;
+const shouldOpenDevTools = process.env.OPEN_YOJOB_OPEN_DEVTOOLS === 'true';
 process.env.OPEN_YOJOB_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 
 console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
@@ -145,6 +146,31 @@ const SYNC_ENTITY_TYPE_MAP: Record<string, string> = {
   sale_item: 'sale_items',
   category: 'categories',
   inventory_movement: 'inventory_movements',
+  company: 'companies',
+  country: 'countries',
+  department: 'departments',
+  city: 'cities',
+  identification_type: 'identification_types',
+  person_type: 'person_types',
+  regime_type: 'regime_types',
+  client_type: 'client_types',
+  commercial_activity: 'commercial_activities',
+  location: 'locations',
+  site: 'sites',
+  unit: 'units',
+  user: 'users',
+  provider: 'providers',
+  vat_rate: 'vat_rates',
+  logo: 'logos',
+  sequential: 'sequentials',
+  order: 'orders',
+  order_item: 'order_items',
+  purchase: 'purchases',
+  purchase_item: 'purchase_items',
+  purchase_return: 'purchase_returns',
+  purchase_return_item: 'purchase_return_items',
+  sale_return: 'sale_returns',
+  initial_inventory_item: 'initial_inventory',
 };
 const SYNC_ENTITY_CONFIG = {
   category_x_provider: {
@@ -160,6 +186,7 @@ const SYNC_ENTITY_CONFIG = {
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
+  companies: { tableName: 'companies', supportsSyncMetadata: false, touchUpdatedAt: false },
   countries: { tableName: 'countries', supportsSyncMetadata: false, touchUpdatedAt: false },
   customers: { tableName: 'customers', supportsSyncMetadata: true, touchUpdatedAt: true },
   departments: { tableName: 'departments', supportsSyncMetadata: false, touchUpdatedAt: false },
@@ -168,17 +195,26 @@ const SYNC_ENTITY_CONFIG = {
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
+  initial_inventory: {
+    tableName: 'initial_inventory',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
   inventory_movements: {
     tableName: 'inventory_movements',
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
+  locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: { tableName: 'location_x_site', supportsSyncMetadata: false, touchUpdatedAt: false },
   order_items: { tableName: 'order_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
+  providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
+  purchase_items: { tableName: 'purchase_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {
     tableName: 'purchase_return_items',
     supportsSyncMetadata: false,
@@ -189,6 +225,11 @@ const SYNC_ENTITY_CONFIG = {
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
+  sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sites: { tableName: 'sites', supportsSyncMetadata: false, touchUpdatedAt: false },
+  units: { tableName: 'units', supportsSyncMetadata: false, touchUpdatedAt: false },
+  users: { tableName: 'users', supportsSyncMetadata: false, touchUpdatedAt: false },
+  vat_rates: { tableName: 'vat_rates', supportsSyncMetadata: false, touchUpdatedAt: false },
 } as const;
 const tableColumnsCache = new Map<AllowedDesktopTable, Set<string>>();
 
@@ -535,6 +576,34 @@ function findLocalSyncEntity(
          FROM purchase_return_items pri
          INNER JOIN purchase_returns pr ON pr.id = pri.purchase_return_id
          WHERE pri.id = ? AND pr.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+
+    return Boolean(row?.id);
+  }
+
+  if (tableName === 'order_items') {
+    const row = sqlite
+      .prepare(
+        `SELECT oi.id
+         FROM order_items oi
+         INNER JOIN orders o ON o.id = oi.order_id
+         WHERE oi.id = ? AND o.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+
+    return Boolean(row?.id);
+  }
+
+  if (tableName === 'purchase_items') {
+    const row = sqlite
+      .prepare(
+        `SELECT pi.id
+         FROM purchase_items pi
+         INNER JOIN purchases p ON p.id = pi.purchase_id
+         WHERE pi.id = ? AND p.tenant_id = ?
          LIMIT 1`
       )
       .get(entityId, tenantId) as { id: string } | undefined;
@@ -1345,8 +1414,9 @@ function createWindow(): void {
     // Development mode: load from web dev server
     console.log(`[Dev Mode] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
     mainWindow.loadURL(WEB_DEV_SERVER_URL);
-    // Open DevTools in development
-    mainWindow.webContents.openDevTools();
+    if (shouldOpenDevTools) {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     // Production mode: load from packaged web app
     const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
