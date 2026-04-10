@@ -178,6 +178,12 @@ const SYNC_ENTITY_CONFIG = {
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
+  purchase_return_items: {
+    tableName: 'purchase_return_items',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
+  purchase_returns: { tableName: 'purchase_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_returns: { tableName: 'sale_returns', supportsSyncMetadata: true, touchUpdatedAt: true },
@@ -514,6 +520,20 @@ function findLocalSyncEntity(
          FROM sale_items si
          INNER JOIN sales s ON s.id = si.sale_id
          WHERE si.id = ? AND s.tenant_id = ?
+         LIMIT 1`
+      )
+      .get(entityId, tenantId) as { id: string } | undefined;
+
+    return Boolean(row?.id);
+  }
+
+  if (tableName === 'purchase_return_items') {
+    const row = sqlite
+      .prepare(
+        `SELECT pri.id
+         FROM purchase_return_items pri
+         INNER JOIN purchase_returns pr ON pr.id = pri.purchase_return_id
+         WHERE pri.id = ? AND pr.tenant_id = ?
          LIMIT 1`
       )
       .get(entityId, tenantId) as { id: string } | undefined;

@@ -166,7 +166,6 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_companies_tenant ON companies (tenant_id);
-    CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_tenant_name ON companies (tenant_id, name);
 
     -- Sites
@@ -428,8 +427,6 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_products_sku ON products (sku);
     CREATE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode);
     CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id);
-    CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id);
-    CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_products_tenant_sku ON products (tenant_id, sku);
 
     -- Unit X Product
@@ -536,11 +533,9 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_provider ON purchases (provider_id);
-    CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_site ON purchases (site_id);
     CREATE INDEX IF NOT EXISTS idx_purchases_created_by ON purchases (created_by);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_tenant_number ON purchases (tenant_id, purchase_number);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id);
 
     -- Purchase Items
     CREATE TABLE IF NOT EXISTS purchase_items (
@@ -556,6 +551,40 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase ON purchase_items (purchase_id);
     CREATE INDEX IF NOT EXISTS idx_purchase_items_product ON purchase_items (product_id);
+
+    -- Purchase Returns
+    CREATE TABLE IF NOT EXISTS purchase_returns (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      return_amount REAL NOT NULL DEFAULT 0,
+      reason TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchase_returns_tenant ON purchase_returns (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_returns_purchase ON purchase_returns (purchase_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_returns_created_by ON purchase_returns (created_by);
+
+    -- Purchase Return Items
+    CREATE TABLE IF NOT EXISTS purchase_return_items (
+      id TEXT PRIMARY KEY,
+      purchase_return_id TEXT NOT NULL REFERENCES purchase_returns(id) ON DELETE CASCADE,
+      purchase_item_id TEXT NOT NULL REFERENCES purchase_items(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity INTEGER NOT NULL DEFAULT 1,
+      unit_id TEXT NOT NULL REFERENCES units(id),
+      unit_equivalence REAL NOT NULL DEFAULT 1,
+      cost_per_unit REAL NOT NULL DEFAULT 0,
+      base_unit_cost REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_purchase_return_items_return ON purchase_return_items (purchase_return_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_return_items_purchase_item ON purchase_return_items (purchase_item_id);
+    CREATE INDEX IF NOT EXISTS idx_purchase_return_items_product ON purchase_return_items (product_id);
 
     -- Orders
     CREATE TABLE IF NOT EXISTS orders (
@@ -766,9 +795,11 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
   ensureColumn(client, 'companies', 'logo_id', 'logo_id TEXT REFERENCES logos(id)');
-  client.exec('CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
-  client.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id)');
-  client.exec('CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id)');
+  createIndexIfColumnsExist(client, 'products', ['provider_id'], 'CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id)');
+  createIndexIfColumnsExist(client, 'products', ['vat_rate_id'], 'CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id)');
+  createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
+  createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_order_unique ON purchases (order_id)');
+  createIndexIfColumnsExist(client, 'companies', ['logo_id'], 'CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id)');
 }
 
 function ensureColumn(
@@ -786,6 +817,23 @@ function ensureColumn(
   }
 
   client.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`);
+}
+
+function createIndexIfColumnsExist(
+  client: Database.Database,
+  tableName: string,
+  columnNames: string[],
+  statement: string
+): void {
+  const columns = client
+    .prepare(`PRAGMA table_info(${tableName})`)
+    .all() as Array<{ name: string }>;
+
+  if (!columnNames.every(columnName => columns.some(column => column.name === columnName))) {
+    return;
+  }
+
+  client.exec(statement);
 }
 
 // Re-export schema

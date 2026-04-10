@@ -10,6 +10,8 @@ import {
   products,
   providers,
   purchaseItems,
+  purchaseReturnItems,
+  purchaseReturns,
   purchases,
   sequentials,
   sites,
@@ -23,12 +25,26 @@ import {
   createPurchaseFromOrderInput,
   getPurchaseInput,
   listPurchasesInput,
+  returnPurchaseInput,
   voidPurchaseInput,
 } from '../schemas/purchases.js';
 import type { CreatePurchaseInput } from '../schemas/purchases.js';
 
 type ResolvedPurchaseItem = {
   id: string;
+  productId: string;
+  quantity: number;
+  unitId: string;
+  unitEquivalence: number;
+  costPerUnit: number;
+  baseUnitCost: number;
+  total: number;
+  normalizedQuantity: number;
+};
+
+type ResolvedPurchaseReturnItem = {
+  id: string;
+  purchaseItemId: string;
   productId: string;
   quantity: number;
   unitId: string;
@@ -53,6 +69,14 @@ function buildVoidedPurchaseNotes(existingNotes: string | null, reason: string |
   }
 
   return `${existingNotes ? `${existingNotes} | ` : ''}Voided: ${reason}`;
+}
+
+function buildReturnedPurchaseNotes(existingNotes: string | null, reason: string | undefined) {
+  if (!reason) {
+    return existingNotes;
+  }
+
+  return `${existingNotes ? `${existingNotes} | ` : ''}Returned: ${reason}`;
 }
 
 function getNormalizedPurchaseQuantity(quantity: number, equivalence: number) {
@@ -219,6 +243,129 @@ async function resolvePurchaseItems(
   };
 }
 
+async function resolvePurchaseReturnItems(
+  db: Context['db'],
+  tenantId: string,
+  purchaseId: string,
+  inputItems: Array<{ purchaseItemId: string; quantity: number }>
+) {
+  const purchaseItemIds = [...new Set(inputItems.map(item => item.purchaseItemId))];
+
+  if (purchaseItemIds.length !== inputItems.length) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Duplicate purchase lines cannot be returned in the same request',
+    });
+  }
+
+  const purchaseLineItems = await db
+    .select({
+      id: purchaseItems.id,
+      purchaseId: purchaseItems.purchaseId,
+      productId: purchaseItems.productId,
+      productName: products.name,
+      quantity: purchaseItems.quantity,
+      unitId: purchaseItems.unitId,
+      unitEquivalence: purchaseItems.unitEquivalence,
+      costPerUnit: purchaseItems.costPerUnit,
+      baseUnitCost: purchaseItems.baseUnitCost,
+      total: purchaseItems.total,
+    })
+    .from(purchaseItems)
+    .innerJoin(products, eq(purchaseItems.productId, products.id))
+    .innerJoin(purchases, eq(purchaseItems.purchaseId, purchases.id))
+    .where(and(eq(purchases.tenantId, tenantId), eq(purchaseItems.purchaseId, purchaseId)))
+    .all();
+
+  if (purchaseLineItems.length === 0) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Cannot return a purchase without line items',
+    });
+  }
+
+  const purchaseItemMap = new Map(purchaseLineItems.map(item => [item.id, item]));
+  const returnedQuantities = await db
+    .select({
+      purchaseItemId: purchaseReturnItems.purchaseItemId,
+      returnedQuantity: sql<number>`coalesce(sum(${purchaseReturnItems.quantity}), 0)`,
+    })
+    .from(purchaseReturnItems)
+    .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
+    .where(eq(purchaseReturns.purchaseId, purchaseId))
+    .groupBy(purchaseReturnItems.purchaseItemId)
+    .all();
+
+  const returnedQuantityMap = new Map(
+    returnedQuantities.map(item => [item.purchaseItemId, item.returnedQuantity ?? 0])
+  );
+
+  const rows: ResolvedPurchaseReturnItem[] = [];
+  let returnAmount = 0;
+
+  for (const inputItem of inputItems) {
+    const purchaseItem = purchaseItemMap.get(inputItem.purchaseItemId);
+
+    if (!purchaseItem) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `Purchase line ${inputItem.purchaseItemId} was not found`,
+      });
+    }
+
+    const alreadyReturnedQuantity = returnedQuantityMap.get(inputItem.purchaseItemId) ?? 0;
+    const remainingQuantity = purchaseItem.quantity - alreadyReturnedQuantity;
+
+    if (remainingQuantity <= 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Purchase line "${purchaseItem.productName}" has already been fully returned`,
+      });
+    }
+
+    if (inputItem.quantity > remainingQuantity) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Cannot return ${inputItem.quantity} units for "${purchaseItem.productName}" because only ${remainingQuantity} remain available to return`,
+      });
+    }
+
+    const normalizedQuantity = getNormalizedPurchaseQuantity(
+      inputItem.quantity,
+      purchaseItem.unitEquivalence
+    );
+    const total = inputItem.quantity * purchaseItem.costPerUnit;
+    const nextReturnedQuantity = alreadyReturnedQuantity + inputItem.quantity;
+
+    rows.push({
+      id: nanoid(),
+      purchaseItemId: inputItem.purchaseItemId,
+      productId: purchaseItem.productId,
+      quantity: inputItem.quantity,
+      unitId: purchaseItem.unitId,
+      unitEquivalence: purchaseItem.unitEquivalence,
+      costPerUnit: purchaseItem.costPerUnit,
+      baseUnitCost: purchaseItem.baseUnitCost,
+      total,
+      normalizedQuantity,
+    });
+    returnAmount += total;
+    returnedQuantityMap.set(inputItem.purchaseItemId, nextReturnedQuantity);
+  }
+
+  const totalFullyReturnedItems = purchaseLineItems.reduce((count, item) => {
+    const nextReturnedQuantity = returnedQuantityMap.get(item.id) ?? 0;
+    return nextReturnedQuantity === item.quantity ? count + 1 : count;
+  }, 0);
+
+  return {
+    rows,
+    returnAmount,
+    totalItemCount: purchaseLineItems.length,
+    totalFullyReturnedItems,
+  };
+}
+
 async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId: string) {
   const purchase = await db
     .select({
@@ -274,7 +421,76 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
     .where(eq(purchaseItems.purchaseId, purchaseId))
     .all();
 
-  return { ...purchase, items };
+  const returns = await db
+    .select({
+      id: purchaseReturns.id,
+      purchaseId: purchaseReturns.purchaseId,
+      returnAmount: purchaseReturns.returnAmount,
+      reason: purchaseReturns.reason,
+      createdBy: purchaseReturns.createdBy,
+      createdAt: purchaseReturns.createdAt,
+      updatedAt: purchaseReturns.updatedAt,
+    })
+    .from(purchaseReturns)
+    .where(eq(purchaseReturns.purchaseId, purchaseId))
+    .orderBy(desc(purchaseReturns.createdAt))
+    .all();
+
+  const returnItems = await db
+    .select({
+      id: purchaseReturnItems.id,
+      purchaseReturnId: purchaseReturnItems.purchaseReturnId,
+      purchaseItemId: purchaseReturnItems.purchaseItemId,
+      productId: purchaseReturnItems.productId,
+      productName: products.name,
+      productSku: products.sku,
+      quantity: purchaseReturnItems.quantity,
+      unitId: purchaseReturnItems.unitId,
+      unitEquivalence: purchaseReturnItems.unitEquivalence,
+      unitName: units.name,
+      unitAbbreviation: units.abbreviation,
+      costPerUnit: purchaseReturnItems.costPerUnit,
+      baseUnitCost: purchaseReturnItems.baseUnitCost,
+      total: purchaseReturnItems.total,
+    })
+    .from(purchaseReturnItems)
+    .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
+    .innerJoin(products, eq(purchaseReturnItems.productId, products.id))
+    .innerJoin(units, eq(purchaseReturnItems.unitId, units.id))
+    .where(eq(purchaseReturns.purchaseId, purchaseId))
+    .all();
+
+  const returnedQuantityByItem = new Map<string, number>();
+  for (const item of returnItems) {
+    returnedQuantityByItem.set(
+      item.purchaseItemId,
+      (returnedQuantityByItem.get(item.purchaseItemId) ?? 0) + item.quantity
+    );
+  }
+
+  const returnsWithItems = returns.map(returnRecord => ({
+    ...returnRecord,
+    items: returnItems.filter(item => item.purchaseReturnId === returnRecord.id),
+  }));
+
+  const returnedAmount = returns.reduce((sum, returnRecord) => sum + returnRecord.returnAmount, 0);
+  const returnedAt = returns[0]?.createdAt ?? null;
+
+  return {
+    ...purchase,
+    returnedAmount,
+    returnedAt,
+    returnCount: returns.length,
+    returns: returnsWithItems,
+    items: items.map(item => {
+      const returnedQuantity = returnedQuantityByItem.get(item.id) ?? 0;
+      return {
+        ...item,
+        returnedQuantity,
+        remainingQuantity: item.quantity - returnedQuantity,
+      };
+    }),
+  };
 }
 
 export const purchasesRouter = router({
@@ -674,6 +890,225 @@ export const purchasesRouter = router({
       });
 
       return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
+    }),
+
+  returnPurchase: managerOrAdminProcedure
+    .input(returnPurchaseInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(purchases)
+        .where(and(eq(purchases.id, input.id), eq(purchases.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Purchase not found' });
+      }
+
+      if (existing.status === 'voided') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Voided purchases cannot be returned',
+        });
+      }
+
+      if (existing.status === 'returned') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Purchase has already been fully returned',
+        });
+      }
+
+      if (existing.status !== 'completed' && existing.status !== 'partial_returned') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only completed purchases can be returned',
+        });
+      }
+
+      const resolvedReturn = await resolvePurchaseReturnItems(
+        ctx.db,
+        ctx.tenantId,
+        input.id,
+        input.items
+      );
+
+      const productIds = [...new Set(resolvedReturn.rows.map(item => item.productId))];
+      const currentProducts = await ctx.db
+        .select({
+          id: products.id,
+          name: products.name,
+          stock: products.stock,
+        })
+        .from(products)
+        .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
+        .all();
+
+      const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+      const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+      const now = new Date().toISOString();
+      const purchaseReturnId = nanoid();
+      const nextStatus =
+        resolvedReturn.totalFullyReturnedItems === resolvedReturn.totalItemCount
+          ? 'returned'
+          : 'partial_returned';
+
+      ctx.db.transaction(tx => {
+        tx.insert(purchaseReturns)
+          .values({
+            id: purchaseReturnId,
+            tenantId: ctx.tenantId,
+            purchaseId: input.id,
+            returnAmount: resolvedReturn.returnAmount,
+            reason: input.reason,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        for (const item of resolvedReturn.rows) {
+          const product = productStockState.get(item.productId);
+
+          if (!product) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: `Product ${item.productId} was not found while returning the purchase`,
+            });
+          }
+
+          if (product.stock < item.normalizedQuantity) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot return purchase items because product "${product.name}" only has ${product.stock} units in stock`,
+            });
+          }
+
+          const previousStock = product.stock;
+          const newStock = previousStock - item.normalizedQuantity;
+          productStockState.set(item.productId, {
+            ...product,
+            stock: newStock,
+          });
+
+          tx.insert(purchaseReturnItems)
+            .values({
+              id: item.id,
+              purchaseReturnId,
+              purchaseItemId: item.purchaseItemId,
+              productId: item.productId,
+              quantity: item.quantity,
+              unitId: item.unitId,
+              unitEquivalence: item.unitEquivalence,
+              costPerUnit: item.costPerUnit,
+              baseUnitCost: item.baseUnitCost,
+              total: item.total,
+            })
+            .run();
+
+          tx.update(products)
+            .set({
+              stock: newStock,
+              syncStatus: 'pending',
+              syncVersion: sql`${products.syncVersion} + 1`,
+              updatedAt: now,
+            })
+            .where(eq(products.id, item.productId))
+            .run();
+
+          tx.insert(inventoryMovements)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              productId: item.productId,
+              type: 'return',
+              quantity: -item.normalizedQuantity,
+              previousStock,
+              newStock,
+              reference: purchaseReturnId,
+              notes: `Returned purchase ${existing.purchaseNumber}`,
+              createdBy: ctx.user!.id,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+            })
+            .run();
+
+          tx.insert(syncQueue)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'purchase_return_items',
+              entityId: item.id,
+              operation: 'create',
+              data: {
+                id: item.id,
+                purchaseReturnId,
+                purchaseItemId: item.purchaseItemId,
+                productId: item.productId,
+                quantity: item.quantity,
+                unitId: item.unitId,
+                total: item.total,
+              },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            })
+            .run();
+        }
+
+        tx.update(purchases)
+          .set({
+            status: nextStatus,
+            notes: buildReturnedPurchaseNotes(existing.notes, input.reason),
+            updatedAt: now,
+            syncStatus: 'pending',
+            syncVersion: nextSyncVersion,
+          })
+          .where(eq(purchases.id, input.id))
+          .run();
+
+        tx.insert(syncQueue)
+          .values([
+            {
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'purchase_returns',
+              entityId: purchaseReturnId,
+              operation: 'create',
+              data: {
+                id: purchaseReturnId,
+                purchaseId: input.id,
+                returnAmount: resolvedReturn.returnAmount,
+                reason: input.reason ?? null,
+              },
+              localVersion: 1,
+              attempts: 0,
+              createdAt: now,
+            },
+            {
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              entityType: 'purchases',
+              entityId: input.id,
+              operation: 'update',
+              data: {
+                id: input.id,
+                status: nextStatus,
+                reason: input.reason ?? null,
+                returnId: purchaseReturnId,
+              },
+              localVersion: nextSyncVersion,
+              attempts: 0,
+              createdAt: now,
+            },
+          ])
+          .run();
+      });
+
+      return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
     }),
 
   void: adminProcedure.input(voidPurchaseInput).mutation(async ({ ctx, input }) => {

@@ -1,10 +1,6 @@
 import {
-  AlertTriangle,
   ArrowUpRight,
-  BarChart3,
-  DollarSign,
   Package,
-  ShoppingCart,
 } from 'lucide-react';
 import type { ElementType } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
@@ -18,8 +14,7 @@ interface DashboardLoadingStateProps {
 }
 
 interface DashboardStatsGridProps {
-  stats: DashboardSummary['stats'];
-  formatCurrency: (amount: number) => string;
+  metrics: DashboardStatMetric[];
 }
 
 interface RevenueTrendCardProps {
@@ -44,6 +39,14 @@ interface LowStockAlertsCardProps {
 }
 
 interface StatCardProps {
+  title: string;
+  value: string;
+  label: string;
+  icon: ElementType;
+  iconColor: string;
+}
+
+export interface DashboardStatMetric {
   title: string;
   value: string;
   label: string;
@@ -105,37 +108,19 @@ export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
   );
 }
 
-export function DashboardStatsGrid({ stats, formatCurrency }: DashboardStatsGridProps) {
+export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-      <StatCard
-        title="Today's Sales"
-        value={formatCurrency(stats.todayRevenue.value)}
-        label={stats.todayRevenue.label}
-        icon={DollarSign}
-        iconColor="bg-success-500"
-      />
-      <StatCard
-        title="Orders Today"
-        value={stats.todayOrders.value.toLocaleString()}
-        label={stats.todayOrders.label}
-        icon={ShoppingCart}
-        iconColor="bg-primary-500"
-      />
-      <StatCard
-        title="Low Stock Alerts"
-        value={stats.lowStockCount.value.toLocaleString()}
-        label={stats.lowStockCount.label}
-        icon={AlertTriangle}
-        iconColor="bg-warning-500"
-      />
-      <StatCard
-        title="30-Day Revenue"
-        value={formatCurrency(stats.revenueThirtyDays.value)}
-        label={stats.revenueThirtyDays.label}
-        icon={BarChart3}
-        iconColor="bg-secondary-500"
-      />
+      {metrics.map(metric => (
+        <StatCard
+          key={metric.title}
+          title={metric.title}
+          value={metric.value}
+          label={metric.label}
+          icon={metric.icon}
+          iconColor={metric.iconColor}
+        />
+      ))}
     </div>
   );
 }
