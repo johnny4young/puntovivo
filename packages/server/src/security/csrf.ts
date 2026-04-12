@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-export const CSRF_COOKIE_NAME = 'open_yojob_csrf';
+export const CSRF_COOKIE_NAME = 'puntovivo_csrf';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);

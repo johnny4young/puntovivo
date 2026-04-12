@@ -1,4 +1,4 @@
-# Open Yojob Test Plan
+# Puntovivo Test Plan
 
 Execution matrix for manual validation and later automation with Playwright Web and Playwright Electron.
 
@@ -134,7 +134,7 @@ Execution matrix for manual validation and later automation with Playwright Web 
   - Responsive shell overflow fixed in the shared web layout after `SHELL-09` failed in Electron tablet/mobile widths.
 - Issues fixed during additional desktop validation:
   - Desktop sync bridge updated to accept the full set of queued entity types used by the embedded backend, fixing repeated `Unsupported sync entity type: purchases` failures during queue processing.
-  - Desktop startup no longer opens DevTools by default in development; opt-in now requires `OPEN_YOJOB_OPEN_DEVTOOLS=true`.
+  - Desktop startup no longer opens DevTools by default in development; opt-in now requires `PUNTOVIVO_OPEN_DEVTOOLS=true`.
   - `useOfflineSync` now polls desktop sync status while Electron is active so the offline banner reflects queued changes created after connectivity drops.
 - Electron evidence root:
   - `output/playwright/`

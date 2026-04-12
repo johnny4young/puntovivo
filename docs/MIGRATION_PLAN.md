@@ -8,7 +8,7 @@ current Electron + React + Fastify stack.
 
 It is now a historical-reference summary with live annotations.
 For current execution status, use:
-[IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/open_yojob/docs/IMPLEMENTATION_STATUS.md)
+[IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/puntovivo/docs/IMPLEMENTATION_STATUS.md)
 
 ## Migration Outcome
 
@@ -63,7 +63,7 @@ It is mostly enhancement and hardening work:
 - performance and packaging cleanup
 
 Those are tracked in:
-[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
+[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)
 
 ## Practical Guidance
 

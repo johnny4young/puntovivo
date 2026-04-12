@@ -1,7 +1,7 @@
 {
-  "name": "@open-yojob/server",
+  "name": "@puntovivo/server",
   "version": "1.0.0",
-  "description": "Open Yojob Backend Server - Fastify + Drizzle + SQLite",
+  "description": "Puntovivo Backend Server - Fastify + Drizzle + SQLite",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -70,6 +70,6 @@
     "sqlite",
     "electron"
   ],
-  "author": "Open Yojob",
+  "author": "Puntovivo",
   "license": "MIT"
 }

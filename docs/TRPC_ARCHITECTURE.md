@@ -4,7 +4,7 @@
 
 ## Summary
 
-Open Yojob is a tRPC-first application.
+Puntovivo is a tRPC-first application.
 The canonical application API is:
 
 - `/api/trpc`
@@ -33,7 +33,7 @@ Two non-tRPC endpoints still exist intentionally:
 ## Client Configuration
 
 The web client is configured in:
-[trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)
+[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
 
 Current request headers:
 
@@ -83,7 +83,7 @@ Current root router modules:
 - `users`
 
 Source:
-[router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts)
+[router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
 
 ## Why tRPC Matters in This Repo
 
@@ -102,12 +102,12 @@ Source:
 ## Reference Files
 
 - Server entry:
-  [index.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/index.ts)
+  [index.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/index.ts)
 - Root router:
-  [router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts)
+  [router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
 - Context:
-  [context.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/context.ts)
+  [context.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/context.ts)
 - Middleware:
-  [middleware](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/middleware)
+  [middleware](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/middleware)
 - Client:
-  [trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)
+  [trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)

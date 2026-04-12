@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users } from '../db/schema.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let tenantId: string;
 let adminUserId: string;
 

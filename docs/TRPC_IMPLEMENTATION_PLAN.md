@@ -24,11 +24,11 @@ They are now things like:
 - how to reduce bundle size and operational risk
 
 Track those in:
-[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
+[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)
 
 ## Current Recommended Reading Order
 
-1. [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/open_yojob/docs/IMPLEMENTATION_STATUS.md)
-2. [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/open_yojob/docs/TRPC_ARCHITECTURE.md)
-3. [TRPC_TESTING_GUIDE.md](/Users/johnny4young/Personal/github/open_yojob/docs/TRPC_TESTING_GUIDE.md)
-4. [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
+1. [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/puntovivo/docs/IMPLEMENTATION_STATUS.md)
+2. [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
+3. [TRPC_TESTING_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_TESTING_GUIDE.md)
+4. [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)

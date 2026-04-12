@@ -4,7 +4,7 @@
 
 ## Current Styling Stack
 
-Open Yojob currently uses:
+Puntovivo currently uses:
 
 - Tailwind CSS v4 via the Vite plugin
 - CSS variables in `index.css`
@@ -13,8 +13,8 @@ Open Yojob currently uses:
 
 Primary files:
 
-- [index.css](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/index.css)
-- [utils.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/utils.ts)
+- [index.css](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/index.css)
+- [utils.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/utils.ts)
 
 ## Theme Model
 
@@ -25,7 +25,7 @@ The app supports:
 - `system`
 
 Theme state is managed through:
-[ThemeProvider.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/components/feedback/ThemeProvider.tsx)
+[ThemeProvider.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/components/feedback/ThemeProvider.tsx)
 
 Behavior:
 

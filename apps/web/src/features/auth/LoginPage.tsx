@@ -31,7 +31,7 @@ export function LoginPage() {
               Move sales, stock, and receiving from one calm console.
             </h1>
             <p className="mt-6 max-w-md text-base leading-7 text-secondary-600">
-              Open Yojob is built for operators who need checkout speed, stock visibility, and
+              Puntovivo is built for operators who need checkout speed, stock visibility, and
               dependable control over purchasing and inventory flow.
             </p>
           </div>
@@ -68,7 +68,7 @@ export function LoginPage() {
                 <Package2 className="h-6 w-6" />
               </div>
               <div>
-                <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Open Yojob</p>
+                <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Puntovivo</p>
                 <h2 className="font-display text-3xl text-secondary-950">Sign in to continue</h2>
               </div>
             </div>
@@ -161,7 +161,7 @@ export function LoginPage() {
 
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-line/70 pt-5 text-xs text-secondary-500">
             <span>Built for daily retail operations</span>
-            <span>Open Yojob © {new Date().getFullYear()}</span>
+            <span>Puntovivo © {new Date().getFullYear()}</span>
           </div>
         </section>
       </div>

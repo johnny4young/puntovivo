@@ -17,8 +17,8 @@ npm run build            # Build web + create desktop packages
 Run tests per workspace:
 
 ```
-npm run test --workspace=@open-yojob/web     # React + Vitest (watch mode)
-npm run test --workspace=@open-yojob/server  # Server + Vitest
+npm run test --workspace=@puntovivo/web     # React + Vitest (watch mode)
+npm run test --workspace=@puntovivo/server  # Server + Vitest
 ```
 
 ## Native module rebuild (non-obvious requirement)
@@ -29,7 +29,7 @@ After `npm install`, you **must** rebuild native modules for Electron:
 npx electron-rebuild -m apps/desktop
 ```
 
-Or use the workspace shortcut: `npm run rebuild --workspace=@open-yojob/desktop`
+Or use the workspace shortcut: `npm run rebuild --workspace=@puntovivo/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
@@ -43,7 +43,7 @@ node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 
 ## Architecture landmine: embedded backend
 
-The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@open-yojob/server` directly. Do not assume a separate server process exists.
+The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@puntovivo/server` directly. Do not assume a separate server process exists.
 
 ## tRPC is the primary transport
 

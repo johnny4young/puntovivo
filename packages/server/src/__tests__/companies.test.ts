@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { companies, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
 
@@ -73,7 +73,7 @@ describe('Companies tRPC Router', () => {
     });
 
     const updated = await caller.companies.upsert({
-      name: 'Updated Open Yojob LLC',
+      name: 'Updated Puntovivo LLC',
       taxId: '900123456',
       email: 'finance@example.com',
       phone: '555-0199',
@@ -81,7 +81,7 @@ describe('Companies tRPC Router', () => {
       logoId: logo.id,
     });
 
-    expect(updated.name).toBe('Updated Open Yojob LLC');
+    expect(updated.name).toBe('Updated Puntovivo LLC');
     expect(updated.taxId).toBe('900123456');
     expect(updated.logoId).toBe(logo.id);
     expect(updated.logoUrl).toBe('https://example.com/brand-logo.png');

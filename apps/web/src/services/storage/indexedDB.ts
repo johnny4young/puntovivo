@@ -14,7 +14,7 @@ import type {
 } from '@/types';
 
 // Database configuration
-const DB_NAME = 'open_yojob_db';
+const DB_NAME = 'puntovivo_db';
 const DB_VERSION = 1;
 
 // Store names as const for type safety

@@ -146,4 +146,4 @@ The main feature modules currently composed on top of shared components are:
 - large feature dialogs/pages should be split once they start carrying too much workflow logic
 
 For the live shell and routing context, see:
-[ARCHITECTURE.md](/Users/johnny4young/Personal/github/open_yojob/docs/ARCHITECTURE.md)
+[ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/ARCHITECTURE.md)

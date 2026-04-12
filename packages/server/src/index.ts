@@ -1,5 +1,5 @@
 /**
- * Open Yojob Server - Main Entry Point
+ * Puntovivo Server - Main Entry Point
  *
  * Fastify server with Drizzle ORM and SQLite for the POS system.
  * Can run embedded in Electron or standalone.
@@ -40,7 +40,7 @@ export interface ServerOptions {
   corsOrigins?: string[];
 }
 
-export interface OpenYojobServer {
+export interface PuntovivoServer {
   /** The Fastify instance */
   app: FastifyInstance;
   /** The database instance */
@@ -54,9 +54,9 @@ export interface OpenYojobServer {
 }
 
 /**
- * Create and configure the Open Yojob server
+ * Create and configure the Puntovivo server
  */
-export async function createServer(options: ServerOptions): Promise<OpenYojobServer> {
+export async function createServer(options: ServerOptions): Promise<PuntovivoServer> {
   const {
     dbPath,
     port = 8090,
@@ -162,7 +162,7 @@ export async function createServer(options: ServerOptions): Promise<OpenYojobSer
   // Keep the legacy health endpoint as a compatibility surface while
   // `health.check` on `/api/trpc` remains the canonical health procedure.
   app.get('/api/health', async (_request, reply) => {
-    reply.header('x-open-yojob-compat', 'legacy-health');
+    reply.header('x-puntovivo-compat', 'legacy-health');
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),

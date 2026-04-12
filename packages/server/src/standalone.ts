@@ -1,7 +1,7 @@
 /**
  * Standalone Server Entry Point
  *
- * Run the Open Yojob server as a standalone process (for development or web deployment).
+ * Run the Puntovivo server as a standalone process (for development or web deployment).
  *
  * Usage:
  *   npm run dev        - Development with hot reload
@@ -29,10 +29,10 @@ async function main(): Promise<void> {
   const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
   const jwtSecret = process.env.JWT_SECRET;
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
-  process.env.OPEN_YOJOB_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  process.env.PUNTOVIVO_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
   console.log('==========================================');
-  console.log('  Open Yojob Server - Standalone Mode');
+  console.log('  Puntovivo Server - Standalone Mode');
   console.log('==========================================');
   console.log();
 
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     console.log(
       process.env.NODE_ENV === 'production'
         ? '  - Password: (generated on first run, shown once in seed output)'
-        : '  - Password: Admin123!Dev (or OPEN_YOJOB_DEV_ADMIN_PASSWORD if set before first seed)'
+        : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
     );
     console.log('  - See docs/LOGIN_GUIDE.md for details');
     console.log();

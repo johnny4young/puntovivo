@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Open Yojob - tRPC Endpoints",
-    "description": "Collection for testing tRPC endpoints in Open Yojob",
+    "name": "Puntovivo - tRPC Endpoints",
+    "description": "Collection for testing tRPC endpoints in Puntovivo",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

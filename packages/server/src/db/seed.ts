@@ -37,7 +37,7 @@ export const DEFAULT_ADMIN = {
 };
 
 export const DEFAULT_DEVELOPMENT_ADMIN_PASSWORD = 'Admin123!Dev';
-export const DEVELOPMENT_ADMIN_PASSWORD_ENV = 'OPEN_YOJOB_DEV_ADMIN_PASSWORD';
+export const DEVELOPMENT_ADMIN_PASSWORD_ENV = 'PUNTOVIVO_DEV_ADMIN_PASSWORD';
 
 export const DEFAULT_TENANT = {
   name: 'Default Business',
@@ -100,7 +100,7 @@ const DEFAULT_COMMERCIAL_ACTIVITIES = [
 ] as const;
 
 function resolveSeedAdminPassword() {
-  const runtimeEnv = process.env.OPEN_YOJOB_RUNTIME_ENV;
+  const runtimeEnv = process.env.PUNTOVIVO_RUNTIME_ENV;
   const isProduction =
     runtimeEnv != null ? runtimeEnv === 'production' : process.env.NODE_ENV === 'production';
 

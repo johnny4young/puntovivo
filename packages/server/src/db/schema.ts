@@ -1,5 +1,5 @@
 /**
- * Drizzle ORM Schema for Open Yojob POS System
+ * Drizzle ORM Schema for Puntovivo POS System
  *
  * This is the source-of-truth schema for the SQLite database.
  * All tables support multi-tenant isolation via tenant_id.

@@ -16,11 +16,11 @@ import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
   createServer,
-  type OpenYojobServer,
+  type PuntovivoServer,
   appSettings,
   syncConflicts,
   syncQueue,
-} from '@open-yojob/server';
+} from '@puntovivo/server';
 import { and, eq, sql } from 'drizzle-orm';
 import {
   checkForAppUpdates,
@@ -38,13 +38,13 @@ if (require('electron-squirrel-startup')) {
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 // Check if we're in development mode - electron-forge start sets app.isPackaged = false
 const isDev = !app.isPackaged;
-const shouldOpenDevTools = process.env.OPEN_YOJOB_OPEN_DEVTOOLS === 'true';
-process.env.OPEN_YOJOB_RUNTIME_ENV ??= isDev ? 'development' : 'production';
+const shouldOpenDevTools = process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
+process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 
 console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
 
 let mainWindow: BrowserWindow | null = null;
-let server: OpenYojobServer | null = null;
+let server: PuntovivoServer | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 let currentTraySettings: TraySettings = {
@@ -235,7 +235,7 @@ const tableColumnsCache = new Map<AllowedDesktopTable, Set<string>>();
 
 function createBackupFileName(now = new Date()): string {
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
-  return `open-yojob-backup-${timestamp}.db`;
+  return `puntovivo-backup-${timestamp}.db`;
 }
 
 async function ensureParentDirectoryExists(filePath: string): Promise<void> {
@@ -257,7 +257,7 @@ async function removeSqliteSidecars(dbPath: string): Promise<void> {
   );
 }
 
-async function startEmbeddedServer(): Promise<OpenYojobServer> {
+async function startEmbeddedServer(): Promise<PuntovivoServer> {
   console.log(`[Server] Starting embedded server...`);
   console.log(`[Server] Database path: ${DB_PATH}`);
 
@@ -302,7 +302,7 @@ async function runWithServerRestart<T>(
   }
 }
 
-function getServerDatabase(): OpenYojobServer['db'] {
+function getServerDatabase(): PuntovivoServer['db'] {
   if (!server) {
     throw new Error('The embedded server is not available');
   }
@@ -311,7 +311,7 @@ function getServerDatabase(): OpenYojobServer['db'] {
 }
 
 function getSqliteClient() {
-  return getServerDatabase() as OpenYojobServer['db'] & {
+  return getServerDatabase() as PuntovivoServer['db'] & {
     $client: import('better-sqlite3').Database;
   };
 }
@@ -1264,7 +1264,7 @@ function refreshTray(settings = currentTraySettings) {
 
   if (!tray) {
     tray = new Tray(createTrayIcon());
-    tray.setToolTip('Open Yojob');
+    tray.setToolTip('Puntovivo');
     tray.on('click', () => {
       toggleMainWindowVisibility();
     });
@@ -1372,7 +1372,7 @@ function createWindow(): void {
     minHeight: 768,
     show: false,
     autoHideMenuBar: true,
-    title: 'Open Yojob - POS Solutions',
+    title: 'Puntovivo - POS Solutions',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: false,

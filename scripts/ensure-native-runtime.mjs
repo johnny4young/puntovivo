@@ -13,14 +13,14 @@ const stateFile = path.join(
   repoRoot,
   'node_modules',
   '.cache',
-  'open-yojob',
+  'puntovivo',
   'native-runtime-state.json'
 );
 const nativeBinaryCacheDir = path.join(
   repoRoot,
   'node_modules',
   '.cache',
-  'open-yojob',
+  'puntovivo',
   'native-binaries'
 );
 
@@ -172,7 +172,7 @@ async function main() {
   } else {
     runCommand(
       npmCommand,
-      ['run', 'rebuild', '--workspace=@open-yojob/desktop'],
+      ['run', 'rebuild', '--workspace=@puntovivo/desktop'],
       'Rebuilding better-sqlite3 for Electron'
     );
   }

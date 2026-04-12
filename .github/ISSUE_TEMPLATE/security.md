@@ -1,6 +1,6 @@
 ---
 name: Security Vulnerability Report
-about: Report a security vulnerability in Open Yojob
+about: Report a security vulnerability in Puntovivo
 title: '[SECURITY] '
 labels: security, high-priority, vulnerability
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 
 ## Summary
 
-A comprehensive security analysis has identified multiple vulnerabilities in the Open Yojob POS system. This issue tracks the remediation of these security concerns.
+A comprehensive security analysis has identified multiple vulnerabilities in the Puntovivo POS system. This issue tracks the remediation of these security concerns.
 
 **Full Report:** See `docs/SECURITY.md` for complete details.
 

@@ -18,7 +18,7 @@ interface ThemeContextValue {
   setPreference: (preference: ThemePreference) => Promise<void>;
 }
 
-const THEME_STORAGE_KEY = 'open-yojob-theme-preference';
+const THEME_STORAGE_KEY = 'puntovivo-theme-preference';
 const defaultPreference: ThemePreference = 'system';
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);

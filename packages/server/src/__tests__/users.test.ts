@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
 
@@ -50,8 +50,8 @@ async function loginOverHttp(email: string, password: string) {
   return {
     response,
     accessToken: response.json()[0]?.result?.data?.token as string | undefined,
-    refreshCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_refresh'),
-    csrfCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf'),
+    refreshCookie: getCookieValue(response.headers['set-cookie'], 'puntovivo_refresh'),
+    csrfCookie: getCookieValue(response.headers['set-cookie'], 'puntovivo_csrf'),
   };
 }
 
@@ -183,7 +183,7 @@ describe('Users tRPC Router', () => {
       method: 'POST',
       url: '/api/trpc/auth.refresh?batch=1',
       headers: {
-        cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
           '; '
         ),
         'content-type': 'application/json',
@@ -260,7 +260,7 @@ describe('Users tRPC Router', () => {
       method: 'POST',
       url: '/api/trpc/auth.refresh?batch=1',
       headers: {
-        cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+        cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
           '; '
         ),
         'content-type': 'application/json',

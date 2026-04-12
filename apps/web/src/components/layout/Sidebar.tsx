@@ -97,7 +97,7 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
         {!collapsed && (
           <div className="min-w-0">
             <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Retail Console</p>
-            <h1 className="truncate font-display text-2xl text-secondary-950">Open Yojob</h1>
+            <h1 className="truncate font-display text-2xl text-secondary-950">Puntovivo</h1>
             <p className="truncate text-xs text-secondary-600">
               Sales, stock, and receiving in one workspace
             </p>

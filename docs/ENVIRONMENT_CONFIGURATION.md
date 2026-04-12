@@ -4,15 +4,15 @@
 
 ## Overview
 
-Open Yojob reads configuration from two places:
+Puntovivo reads configuration from two places:
 
 - root `.env` for server and desktop-oriented runtime settings
 - `apps/web/.env` for Vite-bundled web settings
 
 Examples live in:
 
-- [.env.example](/Users/johnny4young/Personal/github/open_yojob/.env.example)
-- [apps/web/.env.example](/Users/johnny4young/Personal/github/open_yojob/apps/web/.env.example)
+- [.env.example](/Users/johnny4young/Personal/github/puntovivo/.env.example)
+- [apps/web/.env.example](/Users/johnny4young/Personal/github/puntovivo/apps/web/.env.example)
 
 ## Root Environment Variables
 
@@ -29,7 +29,7 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 | `VERBOSE` | `false` unless explicitly enabled | Server logging |
 
 The standalone server reads these in:
-[standalone.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/standalone.ts)
+[standalone.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/standalone.ts)
 
 ### Desktop / Electron runtime
 
@@ -41,8 +41,8 @@ The standalone server reads these in:
 
 Relevant files:
 
-- [index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/main/index.ts)
-- [auto-updater.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/main/auto-updater.ts)
+- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+- [auto-updater.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/auto-updater.ts)
 
 ## Web Environment Variables
 
@@ -53,10 +53,10 @@ These are bundled by Vite and must be present as `VITE_*`.
 | `VITE_API_URL` | `http://localhost:8090` | Base server URL used by the tRPC client |
 | `VITE_ENABLE_OFFLINE` | `true` | UI/feature toggle for offline support |
 | `VITE_SYNC_INTERVAL` | `30000` | Sync polling interval in browser mode |
-| `VITE_APP_NAME` | `Open Yojob` | Display label |
+| `VITE_APP_NAME` | `Puntovivo` | Display label |
 
 Relevant file:
-[trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)
+[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
 
 ## Common Setups
 

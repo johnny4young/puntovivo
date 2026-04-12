@@ -183,7 +183,7 @@ export function initAutoUpdater(): AutoUpdateStatus {
     updateElectronApp({
       updateSource: {
         type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: 'johnny4young/open_yojob',
+        repo: 'johnny4young/puntovivo',
       },
       updateInterval: UPDATE_INTERVAL,
       notifyUser: false,

@@ -57,7 +57,7 @@ describe('CompanyBackupCard', () => {
       createDatabaseBackup: vi.fn().mockResolvedValue({
         success: true,
         cancelled: false,
-        path: '/tmp/open-yojob-backup.db',
+        path: '/tmp/puntovivo-backup.db',
       }),
     };
 
@@ -66,7 +66,7 @@ describe('CompanyBackupCard', () => {
     await user.click(screen.getByRole('button', { name: /create backup/i }));
 
     expect(window.electron.createDatabaseBackup).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/backup saved to \/tmp\/open-yojob-backup\.db/i)).toBeInTheDocument();
+    expect(screen.getByText(/backup saved to \/tmp\/puntovivo-backup\.db/i)).toBeInTheDocument();
   });
 
   it('asks for confirmation before restoring a backup', async () => {
@@ -74,7 +74,7 @@ describe('CompanyBackupCard', () => {
     const restoreDatabaseBackup = vi.fn().mockResolvedValue({
       success: true,
       cancelled: false,
-      path: '/tmp/open-yojob-backup.db',
+      path: '/tmp/puntovivo-backup.db',
     });
 
     window.electron = {
