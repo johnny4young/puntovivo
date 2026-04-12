@@ -88,6 +88,11 @@ export function PurchasesHistoryTable({
               <div className="space-y-1">
                 <p className="text-sm font-medium text-danger-600">Fully returned</p>
                 <p className="text-xs text-secondary-500">{formatCurrency(returnedAmount)} reversed</p>
+                {row.original.latestReturnCreatedByName && (
+                  <p className="text-xs text-secondary-500">
+                    By {row.original.latestReturnCreatedByName}
+                  </p>
+                )}
               </div>
             );
           }
@@ -107,6 +112,11 @@ export function PurchasesHistoryTable({
                 {row.original.latestReturnReason && (
                   <p className="line-clamp-2 text-xs text-secondary-500">
                     {row.original.latestReturnReason}
+                  </p>
+                )}
+                {row.original.latestReturnCreatedByName && (
+                  <p className="text-xs text-secondary-500">
+                    By {row.original.latestReturnCreatedByName}
                   </p>
                 )}
               </div>

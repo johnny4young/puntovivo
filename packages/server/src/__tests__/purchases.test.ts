@@ -26,6 +26,7 @@ import type { Context } from '../trpc/context.js';
 let server: OpenYojobServer;
 let tenantId: string;
 let userId: string;
+let userName: string;
 let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
@@ -80,6 +81,7 @@ describe('Purchases tRPC Router', () => {
 
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
+    userName = seededUser.name;
 
     const seededSite = await db
       .select()
@@ -607,6 +609,7 @@ describe('Purchases tRPC Router', () => {
       returnCount: 1,
       returnedAmount: 18,
       latestReturnReason: 'Damaged boxes',
+      latestReturnCreatedByName: userName,
     });
     expect(listedPurchase?.returnedAt).toBeTruthy();
   });

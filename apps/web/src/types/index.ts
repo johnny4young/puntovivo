@@ -381,6 +381,7 @@ export interface Purchase {
   returnedAmount?: number | null;
   returnedAt?: string | null;
   latestReturnReason?: string | null;
+  latestReturnCreatedByName?: string | null;
   returnCount?: number;
   returns?: PurchaseReturn[];
   subtotal: number;
@@ -420,6 +421,7 @@ export interface PurchaseReturn {
   returnAmount: number;
   reason?: string | null;
   createdBy: string;
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
   items?: PurchaseReturnItem[];

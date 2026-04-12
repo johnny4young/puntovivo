@@ -14,7 +14,7 @@ This file replaces the old habit of spreading pending work across historical mig
   Examples: richer audit/reporting around multi-receipt orders and tighter downstream reconciliation after mixed receive/return scenarios. The operator-facing staged-delivery guidance and quick receive access are now live in the orders workflow.
 
 - Procurement still lacks some edge-case follow-through beyond the live purchase-return workflow.
-  Examples: richer supplier credit-note handling, more explicit reconciliation after mixed return/void scenarios, and stronger approval-oriented audit surfaces. Purchase history/export now expose basic return audit metadata, so the next pass should move past visibility into approval and accounting follow-through.
+  Examples: richer supplier credit-note handling, more explicit reconciliation after mixed return/void scenarios, and stronger approval-oriented audit surfaces. Purchase history/export now expose basic return audit metadata plus the latest return actor, so the next pass should move past visibility into approval and accounting follow-through.
 
 - There is no explicit credit-note or accounting layer beyond operational refund/void status.
   Impact: fiscal and accounting reconciliation may need a richer document model later.

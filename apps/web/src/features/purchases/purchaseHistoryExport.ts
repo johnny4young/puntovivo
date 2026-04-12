@@ -50,6 +50,11 @@ export const purchaseHistoryExportColumns: ExportColumn<Purchase>[] = [
     formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
   },
   {
+    key: 'latestReturnCreatedByName',
+    header: 'Latest Return By',
+    formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
+  },
+  {
     key: 'notes',
     header: 'Notes',
     formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),

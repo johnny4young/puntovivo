@@ -137,7 +137,7 @@ Source:
 - Customer catalogs: identification types, person types, regime types, client types, commercial activities
 - Providers, categories, units, VAT rates, locations
 - Products with multi-price tiers, VAT, location, provider and unit support
-- Orders, partial order receiving into purchases, staged-delivery receipt progress, purchases, purchase return audit metadata, and purchase void
+- Orders, partial order receiving into purchases, staged-delivery receipt progress, purchases, purchase return audit metadata with actor visibility, and purchase void
 - Sales, sale void, sale refund, receipt printing, POS keyboard shortcuts, responsive checkout
 - Inventory stock, movements, adjustments, initial inventory, physical count
 - Sync queue, conflicts, merged resolution, and admin sync center
