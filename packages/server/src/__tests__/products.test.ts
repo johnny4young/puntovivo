@@ -2,13 +2,13 @@ import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { categories, locations, providers, units, users, vatRates } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
 let categoryId: string;

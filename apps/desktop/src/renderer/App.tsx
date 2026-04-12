@@ -85,7 +85,7 @@ function App() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Open Yojob</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Puntovivo</h1>
           <p className="text-gray-600">POS Solutions System</p>
         </div>
 

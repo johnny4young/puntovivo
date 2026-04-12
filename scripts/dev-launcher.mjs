@@ -13,19 +13,19 @@ const mode = process.argv[2] ?? 'desktop';
 const MODE_CONFIG = {
   web: {
     ports: [3000],
-    steps: [{ name: 'WEB', args: ['run', 'dev', '--workspace=@open-yojob/web'] }],
+    steps: [{ name: 'WEB', args: ['run', 'dev', '--workspace=@puntovivo/web'] }],
   },
   server: {
     ports: [8090],
-    steps: [{ name: 'SERVER', args: ['run', 'dev', '--workspace=@open-yojob/server'] }],
+    steps: [{ name: 'SERVER', args: ['run', 'dev', '--workspace=@puntovivo/server'] }],
   },
   fullstack: {
     ports: [3000, 8090],
     steps: [
-      { name: 'SERVER', args: ['run', 'dev', '--workspace=@open-yojob/server'] },
+      { name: 'SERVER', args: ['run', 'dev', '--workspace=@puntovivo/server'] },
       {
         name: 'WEB',
-        args: ['run', 'dev', '--workspace=@open-yojob/web'],
+        args: ['run', 'dev', '--workspace=@puntovivo/web'],
         waitForUrl: 'http://127.0.0.1:8090/api/health',
       },
     ],
@@ -33,10 +33,10 @@ const MODE_CONFIG = {
   desktop: {
     ports: [3000, 8090],
     steps: [
-      { name: 'WEB', args: ['run', 'dev', '--workspace=@open-yojob/web'] },
+      { name: 'WEB', args: ['run', 'dev', '--workspace=@puntovivo/web'] },
       {
         name: 'DESKTOP',
-        args: ['run', 'start', '--workspace=@open-yojob/desktop'],
+        args: ['run', 'start', '--workspace=@puntovivo/desktop'],
         waitForUrl: 'http://localhost:3000',
       },
     ],
@@ -46,7 +46,7 @@ const MODE_CONFIG = {
     steps: [
       {
         name: 'DESKTOP',
-        args: ['run', 'start', '--workspace=@open-yojob/desktop'],
+        args: ['run', 'start', '--workspace=@puntovivo/desktop'],
         waitForUrl: 'http://localhost:3000',
         requireExistingUrl: true,
       },

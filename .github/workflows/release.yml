@@ -57,14 +57,14 @@ jobs:
         run: npm ci
 
       - name: Build web app
-        run: npm run build --workspace=@open-yojob/web
+        run: npm run build --workspace=@puntovivo/web
         env:
           VITE_API_URL: ${{ vars.PRODUCTION_API_URL }}
 
       - name: Create web archive
         run: |
           cd apps/web/dist
-          zip -r ../../../open-yojob-web-${{ github.ref_name }}.zip .
+          zip -r ../../../puntovivo-web-${{ github.ref_name }}.zip .
 
       - name: Upload web release
         uses: actions/upload-release-asset@v1
@@ -72,8 +72,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./open-yojob-web-${{ github.ref_name }}.zip
-          asset_name: open-yojob-web-${{ github.ref_name }}.zip
+          asset_path: ./puntovivo-web-${{ github.ref_name }}.zip
+          asset_name: puntovivo-web-${{ github.ref_name }}.zip
           asset_content_type: application/zip
 
   # ============================================================================
@@ -115,13 +115,13 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
 
       - name: Build server package
-        run: npm run build --workspace=@open-yojob/server
+        run: npm run build --workspace=@puntovivo/server
 
       - name: Rebuild native modules
-        run: npm run rebuild --workspace=@open-yojob/desktop
+        run: npm run rebuild --workspace=@puntovivo/desktop
 
       - name: Build and package desktop app
-        run: npm run make --workspace=@open-yojob/desktop
+        run: npm run make --workspace=@puntovivo/desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

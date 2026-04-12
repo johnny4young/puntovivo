@@ -28,7 +28,7 @@ npx electron-rebuild -m apps/desktop
 To prepare the current shell/runtime for server-side tests:
 
 ```bash
-npm run native:ensure:node --workspace=@open-yojob/server
+npm run native:ensure:node --workspace=@puntovivo/server
 ```
 
 ## Recommended Commands
@@ -36,27 +36,27 @@ npm run native:ensure:node --workspace=@open-yojob/server
 ### Focused server suite
 
 ```bash
-npm exec --workspace=@open-yojob/server -- vitest run sales --reporter=dot
-npm exec --workspace=@open-yojob/server -- vitest run purchases --reporter=dot
-npm exec --workspace=@open-yojob/server -- vitest run dashboard sync --reporter=dot
+npm exec --workspace=@puntovivo/server -- vitest run sales --reporter=dot
+npm exec --workspace=@puntovivo/server -- vitest run purchases --reporter=dot
+npm exec --workspace=@puntovivo/server -- vitest run dashboard sync --reporter=dot
 ```
 
 ### Full web suite
 
 ```bash
-npm run test --workspace=@open-yojob/web -- --run
+npm run test --workspace=@puntovivo/web -- --run
 ```
 
 ### Web production build
 
 ```bash
-npm run build --workspace=@open-yojob/web
+npm run build --workspace=@puntovivo/web
 ```
 
 ### Desktop typecheck
 
 ```bash
-npm run typecheck --workspace=@open-yojob/desktop
+npm run typecheck --workspace=@puntovivo/desktop
 ```
 
 ## Preferred Server Test Pattern

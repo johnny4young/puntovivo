@@ -1,8 +1,8 @@
 #!/bin/bash
-# Quick setup verification script for Open Yojob
+# Quick setup verification script for Puntovivo
 
 echo "======================================"
-echo "  Open Yojob - Setup Verification"
+echo "  Puntovivo - Setup Verification"
 echo "======================================"
 echo ""
 

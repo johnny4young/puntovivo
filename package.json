@@ -1,5 +1,5 @@
 {
-  "name": "open-yojob",
+  "name": "puntovivo",
   "version": "1.0.0",
   "description": "Modern POS Solutions System - Desktop Application",
   "private": true,
@@ -17,11 +17,11 @@
     "dev:desktop": "node ./scripts/dev-launcher.mjs desktop",
     "dev:desktop-only": "node ./scripts/dev-launcher.mjs desktop-only",
     "dev:stop": "node ./scripts/dev-launcher.mjs stop",
-    "build": "npm run build --workspace=@open-yojob/web && npm run make --workspace=@open-yojob/desktop",
-    "build:web": "npm run build --workspace=@open-yojob/web",
-    "start": "npm run start --workspace=@open-yojob/desktop",
-    "make": "npm run make --workspace=@open-yojob/desktop",
-    "publish": "npm run publish --workspace=@open-yojob/desktop",
+    "build": "npm run build --workspace=@puntovivo/web && npm run make --workspace=@puntovivo/desktop",
+    "build:web": "npm run build --workspace=@puntovivo/web",
+    "start": "npm run start --workspace=@puntovivo/desktop",
+    "make": "npm run make --workspace=@puntovivo/desktop",
+    "publish": "npm run publish --workspace=@puntovivo/desktop",
     "clean": "rm -rf node_modules apps/*/node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },

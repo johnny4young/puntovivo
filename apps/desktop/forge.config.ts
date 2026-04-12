@@ -10,9 +10,9 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    appBundleId: 'com.openyojob.pos',
-    name: 'Open Yojob',
-    executableName: 'open-yojob',
+    appBundleId: 'com.puntovivo.pos',
+    name: 'Puntovivo',
+    executableName: 'puntovivo',
     extraResource: [
       // Include the built web app for production
       '../web/dist',
@@ -24,23 +24,23 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerSquirrel({
-      name: 'OpenYojob',
+      name: 'Puntovivo',
     }),
     new MakerZIP({}, ['darwin']),
     new MakerDeb({
       options: {
-        name: 'open-yojob',
-        bin: 'open-yojob',
-        maintainer: 'Open Yojob',
-        homepage: 'https://github.com/johnny4young/open_yojob',
+        name: 'puntovivo',
+        bin: 'puntovivo',
+        maintainer: 'Puntovivo',
+        homepage: 'https://github.com/johnny4young/puntovivo',
         categories: ['Office'],
       },
     }),
     new MakerRpm({
       options: {
-        name: 'open-yojob',
-        bin: 'open-yojob',
-        homepage: 'https://github.com/johnny4young/open_yojob',
+        name: 'puntovivo',
+        bin: 'puntovivo',
+        homepage: 'https://github.com/johnny4young/puntovivo',
         categories: ['Office'],
       },
     }),
@@ -51,7 +51,7 @@ const config: ForgeConfig = {
       config: {
         repository: {
           owner: 'johnny4young',
-          name: 'open_yojob',
+          name: 'puntovivo',
         },
         prerelease: false,
         draft: true,

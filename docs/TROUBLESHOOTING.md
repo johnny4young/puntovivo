@@ -13,13 +13,13 @@
 ### Fix
 
 ```bash
-npm run native:ensure:electron --workspace=@open-yojob/desktop
+npm run native:ensure:electron --workspace=@puntovivo/desktop
 ```
 
 If server tests later fail because the shell runtime needs the Node build:
 
 ```bash
-npm run native:ensure:node --workspace=@open-yojob/server
+npm run native:ensure:node --workspace=@puntovivo/server
 ```
 
 ## 2. Desktop opens with blank or broken UI
@@ -82,8 +82,8 @@ Root scripts are the combined app scripts.
 Desktop-specific debug scripts live in the desktop workspace:
 
 ```bash
-npm run dev:debug --workspace=@open-yojob/desktop
-npm run dev:debug-brk --workspace=@open-yojob/desktop
+npm run dev:debug --workspace=@puntovivo/desktop
+npm run dev:debug-brk --workspace=@puntovivo/desktop
 ```
 
 ## 7. Web build fails with chunk warnings
@@ -96,12 +96,12 @@ Treat them as a performance follow-up unless `vite build` exits non-zero.
 Check:
 
 - seeded email is `admin@localhost`
-- in development/non-production, try `Admin123!Dev` unless you overrode `OPEN_YOJOB_DEV_ADMIN_PASSWORD`
+- in development/non-production, try `Admin123!Dev` unless you overrode `PUNTOVIVO_DEV_ADMIN_PASSWORD`
 - in production, copy the generated password from first-run output
 - the tenant and user are active
 
 See:
-[LOGIN_GUIDE.md](/Users/johnny4young/Personal/github/open_yojob/docs/LOGIN_GUIDE.md)
+[LOGIN_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/LOGIN_GUIDE.md)
 
 ## 9. Sync behavior looks stale
 
@@ -123,7 +123,7 @@ If needed, use the sync center in the Company page to:
 ```bash
 node --version
 npm install
-npm run native:ensure:electron --workspace=@open-yojob/desktop
+npm run native:ensure:electron --workspace=@puntovivo/desktop
 curl http://localhost:8090/api/health
-npm run test --workspace=@open-yojob/web -- --run
+npm run test --workspace=@puntovivo/web -- --run
 ```

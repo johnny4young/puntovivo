@@ -20,14 +20,14 @@ describe('trpc auth transport', () => {
         clear: vi.fn(),
       },
     });
-    document.cookie = 'open_yojob_csrf=test-csrf-token; path=/';
+    document.cookie = 'puntovivo_csrf=test-csrf-token; path=/';
   });
 
   afterEach(() => {
     clearAccessToken();
     setAuthSessionExpiredHandler(null);
     document.cookie =
-      'open_yojob_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
 
   it('refreshes an expired access token and retries the request once', async () => {

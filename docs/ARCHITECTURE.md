@@ -1,11 +1,11 @@
-# Open Yojob Architecture
+# Puntovivo Architecture
 
 > Updated: April 11, 2026
 > Audience: developers and technical operators
 
 ## Overview
 
-Open Yojob is a multi-tenant POS application delivered primarily as an Electron desktop app.
+Puntovivo is a multi-tenant POS application delivered primarily as an Electron desktop app.
 The system has three runtime shapes:
 
 - Desktop: Electron main process embeds the Fastify server in-process and loads the React app.
@@ -127,7 +127,7 @@ The current root router assembles:
 - `users`
 
 Source:
-[router.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/router.ts)
+[router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
 
 ### Business modules already implemented
 
@@ -189,7 +189,7 @@ Current top-level routes:
 - `/users`
 
 Source:
-[App.tsx](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/App.tsx)
+[App.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/App.tsx)
 
 The route modules are now lazy-loaded with Suspense fallbacks so the renderer does not eagerly ship every business screen in the initial bundle.
 
@@ -206,12 +206,12 @@ Normal flow:
 7. UI invalidates affected queries after mutations.
 
 Direct client config:
-[trpc.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/lib/trpc.ts)
+[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
 
 ## Desktop Architecture
 
 For a detailed explanation of desktop lifecycle, IPC, and watch-state usage, see:
-[DESKTOP_RUNTIME_GUIDE.md](/Users/johnny4young/Personal/github/open_yojob/docs/DESKTOP_RUNTIME_GUIDE.md)
+[DESKTOP_RUNTIME_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/DESKTOP_RUNTIME_GUIDE.md)
 
 ### Main-process responsibilities
 
@@ -237,7 +237,7 @@ The preload script exposes:
 - `window.api` as a compatibility aggregate
 
 Source:
-[index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/preload/index.ts)
+[index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
 
 ## Persistence and Sync Model
 
@@ -297,7 +297,7 @@ The strongest forward path is:
 
 The active roadmap for this work lives in:
 
-- [PLAN.md](/Users/johnny4young/Personal/github/open_yojob/docs/PLAN.md)
+- [PLAN.md](/Users/johnny4young/Personal/github/puntovivo/docs/PLAN.md)
 
 ## Design Constraints That Matter
 
@@ -310,10 +310,10 @@ The active roadmap for this work lives in:
 ## Where To Look Next
 
 - Current execution status:
-  [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/open_yojob/docs/IMPLEMENTATION_STATUS.md)
+  [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/puntovivo/docs/IMPLEMENTATION_STATUS.md)
 - Strategic plan and technical roadmap:
-  [PLAN.md](/Users/johnny4young/Personal/github/open_yojob/docs/PLAN.md)
+  [PLAN.md](/Users/johnny4young/Personal/github/puntovivo/docs/PLAN.md)
 - tRPC transport details:
-  [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/open_yojob/docs/TRPC_ARCHITECTURE.md)
+  [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
 - Open backlog:
-  [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
+  [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)

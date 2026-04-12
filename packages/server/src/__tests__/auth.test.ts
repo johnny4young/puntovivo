@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users, tenants } from '../db/schema.js';
 import { hash, verify } from 'argon2';
@@ -17,7 +17,7 @@ import { eq } from 'drizzle-orm';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let testTenantId: string;
 let testUserId: string;
 const testDbPath = ':memory:';
@@ -60,8 +60,8 @@ async function loginOverHttp() {
   return {
     response,
     accessToken: response.json()[0]?.result?.data?.token as string | undefined,
-    refreshCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_refresh'),
-    csrfCookie: getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf'),
+    refreshCookie: getCookieValue(response.headers['set-cookie'], 'puntovivo_refresh'),
+    csrfCookie: getCookieValue(response.headers['set-cookie'], 'puntovivo_csrf'),
   };
 }
 
@@ -304,7 +304,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -360,7 +360,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -389,7 +389,7 @@ describe('Auth tRPC Router', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(getCookieValue(response.headers['set-cookie'], 'open_yojob_csrf')).toBeTruthy();
+      expect(getCookieValue(response.headers['set-cookie'], 'puntovivo_csrf')).toBeTruthy();
     });
 
     it('should reject authenticated mutations without a matching csrf header', async () => {
@@ -402,7 +402,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -427,7 +427,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -539,7 +539,7 @@ describe('Auth tRPC Router', () => {
         url: '/api/trpc/auth.changePassword?batch=1',
         headers: {
           authorization: `Bearer ${accessToken}`,
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',
@@ -569,7 +569,7 @@ describe('Auth tRPC Router', () => {
         method: 'POST',
         url: '/api/trpc/auth.refresh?batch=1',
         headers: {
-          cookie: [`open_yojob_refresh=${refreshCookie}`, `open_yojob_csrf=${csrfCookie}`].join(
+          cookie: [`puntovivo_refresh=${refreshCookie}`, `puntovivo_csrf=${csrfCookie}`].join(
             '; '
           ),
           'content-type': 'application/json',

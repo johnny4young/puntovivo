@@ -216,7 +216,7 @@ export function buildSaleReceiptHtml(
       <body>
         <main class="receipt">
           <header class="header">
-            <div class="brand">Open Yojob</div>
+            <div class="brand">Puntovivo</div>
             <div class="receipt-number">${escapeHtml(sale.saleNumber)}</div>
             <div class="muted">${escapeHtml(formatDateTime(sale.createdAt))}</div>
           </header>

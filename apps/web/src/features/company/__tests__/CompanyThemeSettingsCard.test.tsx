@@ -53,7 +53,7 @@ describe('CompanyThemeSettingsCard', () => {
     await user.click(screen.getByRole('button', { name: /dark/i }));
 
     await waitFor(() => {
-      expect(window.localStorage.getItem('open-yojob-theme-preference')).toBe('dark');
+      expect(window.localStorage.getItem('puntovivo-theme-preference')).toBe('dark');
     });
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });

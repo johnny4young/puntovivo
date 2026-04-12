@@ -1,16 +1,16 @@
 /**
  * tRPC Client Configuration
  *
- * Configured tRPC client for Open Yojob web app
+ * Configured tRPC client for Puntovivo web app
  */
 
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
-import type { AppRouter } from '@open-yojob/server';
+import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
-const CSRF_COOKIE_NAME = 'open_yojob_csrf';
+const CSRF_COOKIE_NAME = 'puntovivo_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const REFRESH_PATH = `${API_URL}/api/trpc/auth.refresh?batch=1`;
 let accessToken: string | null = null;

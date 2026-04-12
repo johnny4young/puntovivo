@@ -20,11 +20,11 @@ The project already includes the main baseline controls expected for the current
 
 Key references:
 
-- [index.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/index.ts)
-- [auth.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/routers/auth.ts)
-- [roles.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/middleware/roles.ts)
-- [index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/main/index.ts)
-- [index.ts](/Users/johnny4young/Personal/github/open_yojob/apps/desktop/src/preload/index.ts)
+- [index.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/index.ts)
+- [auth.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/routers/auth.ts)
+- [roles.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/middleware/roles.ts)
+- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
 
 ## Strengths Already in Place
 
@@ -104,4 +104,4 @@ Manual auth flow checks now need to account for the hybrid model:
 5. after `auth.changePassword` or `users.resetPassword`, expect previously issued access and refresh tokens to stop working
 
 For current non-security product gaps, see:
-[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
+[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)

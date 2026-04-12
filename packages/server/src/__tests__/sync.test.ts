@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TRPCError } from '@trpc/server';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { products, syncConflicts, syncQueue, tenants, users } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
@@ -17,7 +17,7 @@ import { nanoid } from 'nanoid';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let testTenantId: string;
 let testUserId: string;
 const testDbPath = ':memory:';

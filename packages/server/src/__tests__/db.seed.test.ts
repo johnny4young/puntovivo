@@ -82,7 +82,7 @@ describe('database foundation seed', () => {
   });
 
   it('adds newer purchase item columns before creating dependent indexes on a legacy database', async () => {
-    const dbPath = join(tmpdir(), `open-yojob-legacy-${Date.now()}.sqlite`);
+    const dbPath = join(tmpdir(), `puntovivo-legacy-${Date.now()}.sqlite`);
     const legacyDb = new Database(dbPath);
 
     legacyDb.exec(`

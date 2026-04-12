@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { tenants, users } from '../db/schema.js';
 
-export const REFRESH_COOKIE_NAME = 'open_yojob_refresh';
+export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 

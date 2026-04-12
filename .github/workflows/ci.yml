@@ -31,16 +31,16 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npm run build --workspace=@open-yojob/web -- --noEmit || (cd apps/web && npx tsc --noEmit)
+        run: npm run build --workspace=@puntovivo/web -- --noEmit || (cd apps/web && npx tsc --noEmit)
 
       - name: Lint
-        run: npm run lint --workspace=@open-yojob/web
+        run: npm run lint --workspace=@puntovivo/web
 
       - name: Run tests
-        run: npm run test --workspace=@open-yojob/web -- --run
+        run: npm run test --workspace=@puntovivo/web -- --run
 
       - name: Build
-        run: npm run build --workspace=@open-yojob/web
+        run: npm run build --workspace=@puntovivo/web
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
@@ -81,7 +81,7 @@ jobs:
         run: npm ci
 
       - name: Build server package
-        run: npm run build --workspace=@open-yojob/server
+        run: npm run build --workspace=@puntovivo/server
 
       # Install native dependencies on Linux
       - name: Install Linux dependencies
@@ -91,10 +91,10 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
 
       - name: Rebuild native modules
-        run: npm run rebuild --workspace=@open-yojob/desktop
+        run: npm run rebuild --workspace=@puntovivo/desktop
 
       - name: Build and package desktop app
-        run: npm run make --workspace=@open-yojob/desktop
+        run: npm run make --workspace=@puntovivo/desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -127,13 +127,13 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npm run build --workspace=@open-yojob/server
+        run: npm run build --workspace=@puntovivo/server
 
       - name: Lint
-        run: npm run lint --workspace=@open-yojob/server
+        run: npm run lint --workspace=@puntovivo/server
 
       - name: Run tests
-        run: npm run test --workspace=@open-yojob/server
+        run: npm run test --workspace=@puntovivo/server
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v6

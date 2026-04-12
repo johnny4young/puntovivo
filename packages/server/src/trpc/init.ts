@@ -1,7 +1,7 @@
 /**
  * tRPC Initialization
  * 
- * Base tRPC configuration for Open Yojob
+ * Base tRPC configuration for Puntovivo
  */
 
 import { initTRPC } from '@trpc/server';

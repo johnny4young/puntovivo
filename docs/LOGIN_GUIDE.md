@@ -4,7 +4,7 @@
 
 ## Authentication Model
 
-Open Yojob uses:
+Puntovivo uses:
 
 - Argon2 password hashing
 - in-memory bearer access tokens
@@ -34,7 +34,7 @@ On first database creation, the system creates an admin account:
 You can override the non-production default before first seed with:
 
 ```bash
-OPEN_YOJOB_DEV_ADMIN_PASSWORD="your-dev-password"
+PUNTOVIVO_DEV_ADMIN_PASSWORD="your-dev-password"
 ```
 
 If you miss the production password, recreate the database for that environment and let seed run again.
@@ -54,7 +54,7 @@ Current route defaults:
 - everyone else defaults to `/dashboard`
 
 Source:
-[roleAccess.ts](/Users/johnny4young/Personal/github/open_yojob/apps/web/src/features/auth/roleAccess.ts)
+[roleAccess.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/auth/roleAccess.ts)
 
 ## Auth Flow
 
@@ -87,7 +87,7 @@ Source:
 - `auth.changePassword`
 
 Source:
-[auth.ts](/Users/johnny4young/Personal/github/open_yojob/packages/server/src/trpc/routers/auth.ts)
+[auth.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/routers/auth.ts)
 
 ## Running the App
 
@@ -112,7 +112,7 @@ npm run dev:fullstack
 Check:
 
 - you are using `admin@localhost`
-- in development, try `Admin123!Dev` unless you overrode `OPEN_YOJOB_DEV_ADMIN_PASSWORD`
+- in development, try `Admin123!Dev` unless you overrode `PUNTOVIVO_DEV_ADMIN_PASSWORD`
 - in production, copy the generated password exactly
 - the database was actually seeded
 - the user account is active
@@ -130,13 +130,13 @@ curl http://localhost:8090/api/health
 Rebuild Electron native modules:
 
 ```bash
-npm run native:ensure:electron --workspace=@open-yojob/desktop
+npm run native:ensure:electron --workspace=@puntovivo/desktop
 ```
 
 If server tests later fail due to `better-sqlite3` mismatch in the current shell runtime:
 
 ```bash
-npm run native:ensure:node --workspace=@open-yojob/server
+npm run native:ensure:node --workspace=@puntovivo/server
 ```
 
 ## Authenticated Manual Request Example

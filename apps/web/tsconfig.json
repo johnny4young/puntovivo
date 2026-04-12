@@ -21,8 +21,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@open-yojob/server": ["../../packages/server/src/index.ts"],
-      "@open-yojob/server/*": ["../../packages/server/src/*"]
+      "@puntovivo/server": ["../../packages/server/src/index.ts"],
+      "@puntovivo/server/*": ["../../packages/server/src/*"]
     }
   },
   "include": ["src"],

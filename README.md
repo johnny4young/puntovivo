@@ -1,4 +1,4 @@
-# Open Yojob
+# Puntovivo
 
 <p align="center">
   <strong>Modern POS (Point of Sale) Desktop Application</strong><br>
@@ -56,7 +56,7 @@ See [docs/STYLING.md](./docs/STYLING.md) for detailed styling guidelines.
 ## Project Structure
 
 ```
-open_yojob/
+puntovivo/
 ├── apps/
 │   ├── desktop/                # Electron Forge desktop app
 │   │   ├── forge.config.ts     # Electron Forge configuration
@@ -74,7 +74,7 @@ open_yojob/
 │   │           └── index.css
 │   └── web/                    # Standalone web app (shares components)
 ├── packages/
-│   └── server/                 # @open-yojob/server package
+│   └── server/                 # @puntovivo/server package
 │       ├── src/
 │       │   ├── index.ts        # Server factory (createServer)
 │       │   ├── db/             # Drizzle ORM schema & migrations
@@ -101,8 +101,8 @@ open_yojob/
 
 ```bash
 # Clone repository
-git clone https://github.com/johnny4young/open_yojob.git
-cd open_yojob
+git clone https://github.com/johnny4young/puntovivo.git
+cd puntovivo
 
 # Install dependencies
 npm install
@@ -176,9 +176,9 @@ cd packages/server && npm run dev
 
 The SQLite database is stored at:
 
-- **macOS**: `~/Library/Application Support/open-yojob/data/local.db`
-- **Windows**: `%APPDATA%\open-yojob\data\local.db`
-- **Linux**: `~/.config/open-yojob/data/local.db`
+- **macOS**: `~/Library/Application Support/puntovivo/data/local.db`
+- **Windows**: `%APPDATA%\puntovivo\data\local.db`
+- **Linux**: `~/.config/puntovivo/data/local.db`
 
 ### Default Credentials
 
@@ -435,5 +435,5 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ---
 
 <p align="center">
-  Made with ❤️ by the Open Yojob team
+  Made with ❤️ by the Puntovivo team
 </p>

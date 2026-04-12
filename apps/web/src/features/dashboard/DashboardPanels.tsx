@@ -1,7 +1,7 @@
 import { ArrowUpRight, Package } from 'lucide-react';
 import type { ElementType } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
-import type { AppRouter } from '@open-yojob/server';
+import type { AppRouter } from '@puntovivo/server';
 import { cn } from '@/lib/utils';
 
 type DashboardSummary = inferRouterOutputs<AppRouter>['dashboard']['summary'];

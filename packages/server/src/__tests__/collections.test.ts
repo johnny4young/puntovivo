@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
-import { createServer, type OpenYojobServer } from '../index.js';
+import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   categories,
@@ -29,7 +29,7 @@ import { nanoid } from 'nanoid';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
-let server: OpenYojobServer;
+let server: PuntovivoServer;
 let testTenantId: string;
 let adminUserId: string;
 let cashierUserId: string;
