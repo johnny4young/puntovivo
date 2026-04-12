@@ -1,6 +1,6 @@
 # Implementation Status
 
-> Updated: April 10, 2026
+> Updated: April 11, 2026
 > Source of truth: repository scan of `apps/web`, `apps/desktop`, and `packages/server`
 
 ## Executive Summary
@@ -11,6 +11,14 @@ The project is no longer in early migration. The application already runs with a
 - Core administration, catalog, product, inventory, sales, orders, and purchases flows are implemented.
 - Desktop operations now include backup/restore, receipt printing, tray/theme/update settings, and sync controls.
 - The remaining work is mostly hardening, deeper operational flows, performance, and edge-case coverage.
+
+After the April 11, 2026 market comparison pass, the status should now be read this way:
+
+- the app already has a strong operational POS core for catalog, stock, purchases, sales, and desktop/offline workflows
+- the biggest competitive gaps are not basic CRUD; they are cash control, multi-location inventory ownership, loyalty/promotions, omnichannel fulfillment, fiscal localization, accounting follow-through, and integration readiness
+- logistics, transport execution, and hybrid local/remote data topology are now also first-order design gaps, not secondary refinements
+- relative to Colombia-first competitors, the most visible missing pieces are cash opening/closing, stronger fiscal/electronic document coverage, and deeper accounting adjacency
+- relative to US/EU/global leaders, the biggest gaps are omnichannel, loyalty/gift cards, advanced inventory intelligence, transfer workflows, and extensibility
 
 ## Phase Status
 
@@ -124,12 +132,51 @@ Current desktop-only operational features:
 The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 
 - deeper inventory modeling by site/location
+- cashier shift and cash drawer control
+- quotations, reservations, and quote-to-order flows
+- promotions, loyalty, gift cards, and store credit
+- omnichannel orders, pickup, and ship-from-store workflows
+- country-specific fiscal localization, especially Colombia electronic POS / invoicing requirements
+- multi-currency and locale-ready transaction modeling
+- advanced procurement controls: RFQ, approvals, landed cost, invoice matching
+- serial/lot/batch/expiry controls and more advanced item modeling
+- richer replenishment, forecast, and inventory intelligence
 - remote sync strategy hardening beyond the current retry/failure observability
 - procurement edge cases beyond the live purchase-return flow, staged-delivery visibility, and basic return audit metadata with actor visibility
 - desktop security hardening and operational verification
 - ongoing performance cleanup and bundle hygiene
 - deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
 - broader integration/E2E coverage
+
+## Competitive Capability Matrix
+
+| Capability | Repo status | Notes |
+| --- | --- | --- |
+| Catalogs, pricing, products, units | Implemented | Solid baseline, including multi-unit pricing. |
+| Sales checkout, voids, refunds, receipts | Implemented | Strong for a current local POS core. |
+| Purchases, orders, partial receiving, returns | Implemented | Operationally useful and beyond MVP level. |
+| Inventory adjustments and movement history | Implemented | Still centered on tenant-wide stock. |
+| Multi-site inventory ownership and transfers | Partial / missing | Sites exist, but stock ownership and transfer workflows are not first-class. |
+| Outbound logistics and transport execution | Missing | No pick/pack/ship, shipment tracking, dispatch, or proof-of-delivery surface exists yet. |
+| Cash opening, closing, arqueo, discrepancies | Missing | High commercial priority for Colombia and retail operations. |
+| Loyalty, coupons, promotions, gift cards | Missing | Common market expectation now. |
+| Quotations and quote-to-order | Missing | Needed for B2B, services, and higher-ticket sales. |
+| Omnichannel pickup / ship-from-store | Missing | Expected in stronger commerce stacks. |
+| Fiscal localization and electronic document depth | Partial | VAT and sequentials exist; country adapters and deeper fiscal flows do not. |
+| Accounting layer and formal credit/debit note model | Missing | Current refund/void model is operational, not accounting-complete. |
+| RFQ, approvals, landed cost, supplier invoice match | Partial | Procurement exists, but not ERP-grade control. |
+| Serial, batch, expiry, variants, bundles/recipes | Missing | Needed to broaden vertical coverage. |
+| Replenishment, aging, sell-through, forecasting | Missing | Important for manager workflows and margin control. |
+| Audit log and approval engine | Partial | Role guards exist; action-level auditability does not. |
+| API, webhooks, ecosystem integrations | Missing | Strategic moat and integration enabler. |
+| Hybrid SQLite local + remote PostgreSQL/SQLite authority | Missing | Current persistence and migration layer are still strongly SQLite-specific. |
+
+## Read This Alongside
+
+The current product strategy and implementation details for the missing capabilities now live in:
+
+- [PLAN.md](/Users/johnny4young/Personal/github/open_yojob/docs/PLAN.md)
+- [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/open_yojob/docs/OPEN_BACKLOG.md)
 
 ### Deferred Technical Migration
 

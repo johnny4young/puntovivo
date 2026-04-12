@@ -238,6 +238,9 @@ AUTO_UPDATE=false npm run start
 - **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues and fixes
 - **[Debugging](./docs/DEBUGGING.md)** - Debugging the Electron app
 - **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports
+- **[Plan / Roadmap](./docs/PLAN.md)** - Strategic product plan and phased technical roadmap
+- **[Implementation Status](./docs/IMPLEMENTATION_STATUS.md)** - Current product coverage and competitive gap matrix
+- **[Open Backlog](./docs/OPEN_BACKLOG.md)** - Current gaps, priorities, and next slices
 
 ### Feature Documentation
 
