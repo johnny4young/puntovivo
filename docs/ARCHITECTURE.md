@@ -1,6 +1,6 @@
 # Open Yojob Architecture
 
-> Updated: April 10, 2026
+> Updated: April 11, 2026
 > Audience: developers and technical operators
 
 ## Overview
@@ -271,6 +271,34 @@ The project currently includes:
 
 This is an app-level sync framework, not yet a full documented remote multi-node replication story.
 
+## Persistence Reality Today
+
+The current persistence layer is optimized for local SQLite:
+
+- `packages/server/src/db/schema.ts` uses Drizzle SQLite schema primitives
+- `packages/server/src/db/index.ts` uses `better-sqlite3`
+- startup schema sync is written as raw SQLite DDL
+- desktop runtime assumptions also expect a local SQLite database and allowlisted local bridge access
+
+That means:
+
+- standalone/local-first SQLite is a strong fit today
+- remote-authoritative deployments are conceptually possible through the existing tRPC and sync boundaries
+- PostgreSQL support would require deliberate abstraction work rather than a simple driver swap
+
+## Future Data Topology Direction
+
+The strongest forward path is:
+
+1. keep SQLite as the local/offline database
+2. introduce dialect-neutral repository and migration boundaries
+3. formalize a remote-authority sync contract
+4. support remote SQLite or PostgreSQL depending on deployment mode
+
+The active roadmap for this work lives in:
+
+- [PLAN.md](/Users/johnny4young/Personal/github/open_yojob/docs/PLAN.md)
+
 ## Design Constraints That Matter
 
 - Fastify is embedded in Electron main for desktop mode. It is not a child process.
@@ -283,6 +311,8 @@ This is an app-level sync framework, not yet a full documented remote multi-node
 
 - Current execution status:
   [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/open_yojob/docs/IMPLEMENTATION_STATUS.md)
+- Strategic plan and technical roadmap:
+  [PLAN.md](/Users/johnny4young/Personal/github/open_yojob/docs/PLAN.md)
 - tRPC transport details:
   [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/open_yojob/docs/TRPC_ARCHITECTURE.md)
 - Open backlog:
