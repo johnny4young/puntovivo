@@ -39,12 +39,14 @@ describe('PurchasesHistoryTable', () => {
             returnedAt: '2026-04-10T11:00:00.000Z',
             returnCount: 1,
             latestReturnReason: 'Damaged boxes',
+            latestReturnCreatedByName: 'Admin User',
           }),
           createPurchase({
             id: 'purchase-2',
             purchaseNumber: 'COM-000002',
             status: 'returned',
             returnedAmount: 48,
+            latestReturnCreatedByName: 'Manager User',
           }),
         ]}
         isLoading={false}
@@ -62,8 +64,10 @@ describe('PurchasesHistoryTable', () => {
     expect(screen.getByText('1 return')).toBeInTheDocument();
     expect(screen.getByText('$18.00 reversed')).toBeInTheDocument();
     expect(screen.getByText('Damaged boxes')).toBeInTheDocument();
+    expect(screen.getByText('By Admin User')).toBeInTheDocument();
     expect(screen.getByText('Fully returned')).toBeInTheDocument();
     expect(screen.getByText('$48.00 reversed')).toBeInTheDocument();
+    expect(screen.getByText('By Manager User')).toBeInTheDocument();
 
     expect(
       screen.queryByRole('button', { name: 'Return items for COM-000002' })

@@ -18,6 +18,7 @@ import {
   syncQueue,
   unitXProduct,
   units,
+  users,
 } from '../../db/schema.js';
 import type { Context } from '../context.js';
 import {
@@ -589,10 +590,12 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
       returnAmount: purchaseReturns.returnAmount,
       reason: purchaseReturns.reason,
       createdBy: purchaseReturns.createdBy,
+      createdByName: users.name,
       createdAt: purchaseReturns.createdAt,
       updatedAt: purchaseReturns.updatedAt,
     })
     .from(purchaseReturns)
+    .leftJoin(users, eq(purchaseReturns.createdBy, users.id))
     .where(eq(purchaseReturns.purchaseId, purchaseId))
     .orderBy(desc(purchaseReturns.createdAt))
     .all();
@@ -637,12 +640,14 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
   const returnedAmount = returns.reduce((sum, returnRecord) => sum + returnRecord.returnAmount, 0);
   const returnedAt = returns[0]?.createdAt ?? null;
   const latestReturnReason = returns[0]?.reason ?? null;
+  const latestReturnCreatedByName = returns[0]?.createdByName ?? null;
 
   return {
     ...purchase,
     returnedAmount,
     returnedAt,
     latestReturnReason,
+    latestReturnCreatedByName,
     returnCount: returns.length,
     returns: returnsWithItems,
     items: items.map(item => {
@@ -714,9 +719,11 @@ export const purchasesRouter = router({
             purchaseId: purchaseReturns.purchaseId,
             returnAmount: purchaseReturns.returnAmount,
             reason: purchaseReturns.reason,
+            createdByName: users.name,
             createdAt: purchaseReturns.createdAt,
           })
           .from(purchaseReturns)
+          .leftJoin(users, eq(purchaseReturns.createdBy, users.id))
           .where(inArray(purchaseReturns.purchaseId, purchaseIds))
           .orderBy(desc(purchaseReturns.createdAt))
           .all()
@@ -728,6 +735,7 @@ export const purchasesRouter = router({
         returnedAmount: number;
         returnedAt: string | null;
         latestReturnReason: string | null;
+        latestReturnCreatedByName: string | null;
         returnCount: number;
       }
     >();
@@ -744,6 +752,7 @@ export const purchasesRouter = router({
         returnedAmount: returnRow.returnAmount,
         returnedAt: returnRow.createdAt,
         latestReturnReason: returnRow.reason ?? null,
+        latestReturnCreatedByName: returnRow.createdByName ?? null,
         returnCount: 1,
       });
     }
@@ -756,6 +765,8 @@ export const purchasesRouter = router({
         returnedAmount: returnSummaryByPurchaseId.get(item.id)?.returnedAmount ?? 0,
         returnedAt: returnSummaryByPurchaseId.get(item.id)?.returnedAt ?? null,
         latestReturnReason: returnSummaryByPurchaseId.get(item.id)?.latestReturnReason ?? null,
+        latestReturnCreatedByName:
+          returnSummaryByPurchaseId.get(item.id)?.latestReturnCreatedByName ?? null,
         returnCount: returnSummaryByPurchaseId.get(item.id)?.returnCount ?? 0,
       })),
       page,

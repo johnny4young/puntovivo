@@ -56,6 +56,11 @@ export function PurchaseDetailsContent({
               Latest return on {formatDateTime(purchase.returnedAt)}
             </p>
           )}
+          {purchase.latestReturnCreatedByName && (
+            <p className="mt-1 text-xs text-warning-700">
+              Registered by {purchase.latestReturnCreatedByName}
+            </p>
+          )}
           {purchase.latestReturnReason && (
             <p className="mt-1 text-sm text-warning-800">{purchase.latestReturnReason}</p>
           )}
@@ -132,6 +137,9 @@ export function PurchaseDetailsContent({
                   <p className="text-xs text-secondary-500">
                     {formatDateTime(returnRecord.createdAt)}
                   </p>
+                  {returnRecord.createdByName && (
+                    <p className="text-xs text-secondary-500">{returnRecord.createdByName}</p>
+                  )}
                 </div>
                 <p className="text-sm text-secondary-700">
                   {returnRecord.reason ?? 'Returned without a note'}
