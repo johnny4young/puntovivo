@@ -210,6 +210,9 @@ Direct client config:
 
 ## Desktop Architecture
 
+For a detailed explanation of desktop lifecycle, IPC, and watch-state usage, see:
+[DESKTOP_RUNTIME_GUIDE.md](/Users/johnny4young/Personal/github/open_yojob/docs/DESKTOP_RUNTIME_GUIDE.md)
+
 ### Main-process responsibilities
 
 The Electron main process currently owns:
