@@ -137,30 +137,97 @@ Current desktop-only operational features:
 
 The biggest remaining work is no longer CRUD coverage. It is concentrated in:
 
-- deeper inventory modeling by site/location
+### Platform Foundation (All Verticals)
+
+- **CRITICAL: `stock` and `quantity` are `integer` in schema** — must migrate to `real` across `products.stock`, `saleItems.quantity`, `purchaseItems.quantity`, `orderItems.quantity`, `inventoryMovements.quantity`. This is the #1 technical blocker for ferreterías (cannot sell 2.5m of cable) and supermarkets (cannot sell 0.75kg of produce). Currently confirmed in `packages/server/src/db/schema.ts`.
+- **module activation system** — prerequisite for multi-vertical support (pharmacy, restaurant, supermarket, hardware store)
+- **compound tax engine** — IVA + impuesto al consumo 8% (restaurants) + impuesto saludable (supermarkets) + bolsa plástica
+- **fractional quantity support in checkout** — critical for ferreterías (by the meter) and supermarkets (by weight)
+- **JSON metadata columns on products** — vertical-specific attributes without schema explosion
 - cashier shift and cash drawer control
+- deeper inventory modeling by site/location
+- split payments, installments, on-account, and layaway payment models
+- **CRITICAL: Credit sales (ventas a crédito) missing** — no installment schedule (`credit_installments`), no partial payment posting (`credit_payments` / abonos), no `company_credit_settings` configurable per tenant/company/site. This is a deeply embedded LatAm commercial practice in ferreterías, farmacias, and B2B (see PLAN.md §3.12 and Phase 5 Extension).
+- customer credit accounts (30/60/90 day terms) for ferreterías and B2B
 - quotations, reservations, and quote-to-order flows
 - promotions, loyalty, gift cards, and store credit
-- omnichannel orders, pickup, and ship-from-store workflows
+- serial/lot/batch/expiry controls — legally required for pharmacies and supermarkets (FEFO)
+- product variants (size/color matrix) — critical for fashion retail
+- retención en la fuente, rete-IVA, rete-ICA handling at POS
+- documento soporte electrónico (purchases from non-invoicers)
+- **CRITICAL: Fiscal rules are Colombia-hardcoded** — IVA rates, INC, propina (Ley 1935/2018 tip rules), DIAN endpoints, fiscal regime codes are all constants in the codebase. A `country_fiscal_profiles` table driven by `companies.country_code` must replace these so any country's rules can be configured (see PLAN.md §3.13 and Phase 11 Extension). Colombia behavior is fully preserved as the "CO" profile.
 - country-specific fiscal localization, especially Colombia electronic POS / invoicing requirements
-- multi-currency and locale-ready transaction modeling
 - advanced procurement controls: RFQ, approvals, landed cost, invoice matching
-- serial/lot/batch/expiry controls and more advanced item modeling
-- richer replenishment, forecast, and inventory intelligence
-- remote sync strategy hardening beyond the current retry/failure observability
-- procurement edge cases beyond the live purchase-return flow, staged-delivery visibility, and basic return audit metadata with actor visibility
-- desktop security hardening and operational verification
-- ongoing performance cleanup and bundle hygiene
-- deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
-- broader integration/E2E coverage
-- split payments, installments, on-account, and layaway payment models
 - employee shift management, commissions, and time tracking
-- restaurant/food service features (tables, KDS, modifiers, tips)
-- service business features (appointments, scheduling)
 - advanced reporting and BI (GMROI, ABC, CLV, cohort analysis)
 - public API, webhooks, and integration ecosystem
 - multi-currency support
 - hybrid SQLite + PostgreSQL data topology
+
+### Vertical-Specific Gaps (NEW — from multi-vertical deep research)
+
+**Pharmacy** (legally mandated features for Colombian farmacia operations):
+- controlled substance tracking and Libro de Control (Resolución 1478/2006)
+- prescription management with partial dispensing
+- INVIMA Registro Sanitario enforcement on products
+- CNPMDM regulated price ceiling enforcement
+- EPS billing and RIPS generation (Resolución 3374/2000)
+- SISMED price reporting (Resolución 4002/2007)
+- FNE monthly reporting (Fondo Nacional de Estupefacientes)
+- generic substitution suggestions (INN/DCI grouping)
+- patient medication history (historia farmacoterapéutica)
+- INVIMA recall management with lot-to-patient traceability
+- cold chain product flags
+
+**Supermarket/Grocery**:
+- weighing scale integration (serial RS232, USB HID — Toledo, CAS, Mettler Toledo)
+- PLU code management and variable-weight barcode parsing (GS1 DataBar)
+- age-restricted product controls (alcohol, tobacco — 18+ in Colombia)
+- fresh department production/shrinkage tracking by type
+- multi-department P&L reporting
+- DSD (Direct Store Delivery) receiving workflows
+- impuesto saludable calculation (Ley 2277/2022)
+- automated near-expiry markdown rules
+- vendor-funded promotions and rebate tracking
+
+**Hardware Store (Ferretería)**:
+- unit conversion management (sheets↔m², rolls↔linear m, bags↔kg)
+- in-house barcode generation for products without manufacturer barcodes
+- bulk pricing / quantity breaks (automatic tier application at POS)
+- project/job quoting with project templates
+- cut-to-size service charges on sale lines
+- product technical specifications as searchable attributes
+- FTS5 full-text search for high-SKU environments (10,000-50,000 SKUs)
+- partial-use returns (return 3m of a 10m cable purchase)
+
+**Restaurant/Food Service**:
+- table management and floor plan editor
+- KDS with multi-station routing (grill, fryer, bar, dessert)
+- impuesto al consumo 8% (separate from IVA, on-premises consumption)
+- combo/meal deal pricing engine
+- delivery aggregator integration (Rappi, iFood, PedidosYa, Uber Eats)
+- tab management with pre-authorization holds
+- daypart menus (breakfast/lunch/dinner auto-switching)
+- waste tracking: theoretical vs actual food cost
+- recipe costing / BOM
+- allergen/dietary flags on products
+- propina (voluntary 10% tip) handling per SIC regulations
+
+**General Retail Sub-Verticals**:
+- warranty management + extended warranty sales (electronics)
+- consignment vendor management (jewelry, boutiques)
+- trade-in / buy-back programs (electronics, jewelry)
+- season/collection management with markdown scheduling (fashion)
+
+### Ongoing Technical Work
+
+- omnichannel orders, pickup, and ship-from-store workflows
+- remote sync strategy hardening beyond the current retry/failure observability
+- procurement edge cases beyond the live purchase-return flow
+- desktop security hardening and operational verification
+- ongoing performance cleanup and bundle hygiene
+- deferred database runtime migration from `better-sqlite3` to `node:sqlite` once `node:sqlite` is no longer marked as `release candidate`
+- broader integration/E2E coverage
 
 ## Competitive Capability Matrix
 
@@ -475,9 +542,15 @@ These areas match or exceed the basics of most competitors:
 
 | Priority | Feature Area | # Competitors that have it | Impact |
 | --- | --- | --- | --- |
+| **Critical** | Module activation system (multi-vertical foundation) | Odoo, Square | Prerequisite for serving ANY vertical beyond generic retail |
+| **Critical** | Tax groups / compound tax (IVA + INC + imp. saludable) | All Colombian competitors | Legal compliance for restaurants and supermarkets |
 | **Critical** | Cash management (sessions, close, over/short) | 8/8 major competitors | Cannot operate retail without it in LatAm |
 | **Critical** | Split payments / multi-tender | 7/8 major competitors | Basic checkout expectation |
+| **Critical** | Layaway / apartado (payment schedules, inventory reservation) | Common in LatAm retail | Deeply embedded Colombian purchasing pattern |
+| **Critical** | Credit sales (ventas a crédito) with installments + abonos | Lightspeed, Loyverse, all ERP POS | Ferreterías, farmacias, B2B — fundamental LatAm commercial practice |
+| **Critical** | Country-parametrizable fiscal rules (taxes + propina) | Odoo, Square, Shopify (40-70 countries) | Current Colombia-hardcoded logic blocks multi-country deployment |
 | **Critical** | Electronic invoicing (Colombia DIAN) | Required by law | Legal compliance gap |
+| **Critical** | Company fiscal regime classification | All Colombian competitors | Determines IVA charging, withholding behavior |
 | **Critical** | Site-owned inventory + transfers | 6/8 major competitors | Blocks multi-store operations |
 | **High** | Gift cards + store credit | 6/8 major competitors | Revenue and retention driver |
 | **High** | Loyalty program | 6/8 major competitors | Customer retention expectation |
@@ -515,6 +588,36 @@ The current product strategy and implementation details for the missing capabili
 
 - [PLAN.md](/Users/johnny4young/Personal/github/puntovivo/docs/PLAN.md) — full technical roadmap with DB, API, UI, and test tickets per phase
 - [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md) — operational gaps and suggested next slices
+
+### Multi-Vertical Readiness Matrix (NEW)
+
+| Vertical | Can Operate Today? | Blocking Gaps | Earliest Usable After |
+| --- | --- | --- | --- |
+| **Generic Retail / Tienda** | Partial — no cash management | Cash sessions, split payments | Phase 1 |
+| **Ferretería** | No — no fractional units, no credit terms | Fractional qty, unit conversion, customer credit, project quoting | Phase 5 |
+| **Supermercado** | No — no scales, no perishable management | Scale integration, PLU, lot/expiry, impuesto saludable | Phase 6 + Phase 14 |
+| **Farmacia** | No — missing all legally required features | Lot/batch, Rx, controlled substances, RIPS, SISMED, INVIMA | Phase 6 + Phase 13 |
+| **Restaurante** | No — no tables, no KDS | Table management, KDS, INC 8%, modifiers, tips | Phase 12 |
+| **Fashion/Apparel** | No — no variants | Size/color matrix, season management | Phase 6 |
+| **Electronics** | No — no serial tracking | Serial numbers, warranty management | Phase 6 |
+| **B2B / Wholesale** | No — no credit terms, no quotations | Customer credit, quotations, retención en la fuente | Phase 5 + Phase 11 |
+| **Services** | No — no appointments | Appointment scheduling, calendar | Phase 12 |
+
+### Colombian Tax Compliance Readiness (NEW)
+
+| Tax Type | Applies To | Current Status | Phase |
+| --- | --- | --- | --- |
+| IVA (0%, 5%, 19%) | All | Basic (single rate per product) | **Needs tax groups — Phase 0** |
+| Impuesto al Consumo 8% | Restaurants (on-premises) | Missing | Phase 0 |
+| Impuesto Saludable (15-20%) | Sugary drinks, ultra-processed | Missing | Phase 0 |
+| Bolsa Plástica (COP $90/bag) | Retail, supermarkets | Missing | Phase 0 |
+| Retención en la Fuente | B2B transactions | Missing | Phase 11 |
+| Rete-IVA | B2B, specific regimes | Missing | Phase 11 |
+| Rete-ICA | B2B, municipality-specific | Missing | Phase 11 |
+| Documento Equivalente POS Electrónico | All (mandatory 2024+) | Missing | Phase 11 |
+| Factura Electrónica | All above 3,500 UVT income | Missing | Phase 11 |
+| Nota Crédito Electrónica | All | Missing | Phase 11 |
+| Documento Soporte Electrónico | Purchases from non-invoicers | Missing | Phase 11 |
 
 ### Deferred Technical Migration
 

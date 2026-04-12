@@ -27,8 +27,10 @@ The app is no longer missing "basic POS." The biggest gaps are now:
 - employee management, commissions, and time tracking
 - advanced reporting and business intelligence
 - fiscal localization and accounting depth
+- **country-parametrizable fiscal rules** — current Colombia-hardcoded IVA/INC/propina/DIAN logic must become a profile-driven system before any non-Colombian deployment
 - multi-currency support
 - payment method depth (split payments, installments, credit accounts)
+- **credit sales (ventas a crédito)** — installment schedules (cuotas), partial payment posting (abonos), configurable per tenant/company/site
 - restaurant/food service adaptations (tables, kitchen display, modifiers)
 - appointment/service scheduling
 - a future-ready hybrid data topology for local SQLite plus remote source-of-truth infrastructure
@@ -390,23 +392,581 @@ Dashboard types:
 
 **Current repo status**: Sites exist but no hierarchy, no transfer workflow, no price books, no consolidated reporting beyond basic multi-site.
 
-### 3.11 Multi-Vertical Adaptability
+### 3.11 Multi-Vertical Adaptability — Deep Analysis
 
 **Academic basis**: Clements & Northrop "Software Product Lines: Practices and Patterns".
 
-A POS system adaptable to multiple business types needs:
+Puntovivo aims to serve multiple business types from a single codebase: tiendas, supermercados, farmacias, ferreterías, retail especializado, restaurantes, and more. This requires a deliberate product-line architecture, not just feature accumulation.
 
-| Business Type | Key Differentiators |
+#### 3.11.1 Vertical-Specific Requirements Summary
+
+| Business Type | Key Differentiators (Beyond Generic POS) |
 | --- | --- |
-| **Retail** | Barcode scanning, variant management, returns, gift registry, loyalty |
-| **Restaurant** | Table management, course firing, modifiers, split checks, tips, KDS |
-| **Services** | Appointment scheduling, duration tracking, staff assignment, consumable tracking |
-| **Wholesale/B2B** | Customer-specific pricing, credit terms, large quantities, pallet units, tax-exempt, EDI |
-| **E-commerce** | Catalog management, shipping, digital payments, cart abandonment |
+| **Retail General** | Barcode scanning, variant management (size/color matrix), returns, gift registry, loyalty, layaway, consignment |
+| **Fashion/Apparel** | Size/color matrix, style numbers, season management, markdown scheduling by age, lookbook/outfit cross-sell |
+| **Electronics** | Per-unit serial tracking, warranty management, extended warranty sales, repair/service tracking, trade-in programs |
+| **Supermarket/Grocery** | Weighing scale integration, PLU codes, variable-weight barcodes (GS1 DataBar), perishable FEFO, fresh department production/shrink, DSD receiving, age-restricted product controls, multi-department reporting, loyalty cards, self-checkout |
+| **Pharmacy** | Controlled substance tracking (Resolución 1478), prescription management, lot/batch traceability, expiry/FEFO, INVIMA Registro Sanitario, SISMED reporting, EPS billing/RIPS, regulated pricing ceilings (CNPMDM), generic substitution, patient medication history, drug interaction alerts, cold chain flags |
+| **Hardware Store (Ferretería)** | Fractional unit sales (by meter/kg/liter), cut-to-size service charges, unit conversion (sheets↔m², rolls↔linear m), project quoting, contractor credit accounts (30/60/90 days), special orders/back-orders, product cross-reference/compatibility, technical specs as attributes, bulk pricing/quantity breaks, in-house barcode generation, partial-use returns, high-SKU search optimization |
+| **Restaurant** | Table management, floor plan, KDS with multi-station routing, course firing, modifiers, split checks, tips (propina voluntaria), tab management, combo/meal deal engine, daypart menus, delivery aggregator integration (Rappi/iFood/Uber Eats/PedidosYa), waste tracking vs theoretical food cost, recipe costing/BOM, allergen tracking, QR ordering, impuesto al consumo 8%, kitchen printer routing by station, delivery zones |
+| **Services** | Appointment scheduling, calendar with employee lanes, duration tracking, staff assignment, consumable tracking, recurring appointments |
+| **Wholesale/B2B** | Customer-specific pricing, credit terms and aging, large quantities, pallet units, tax-exempt customers, EDI, RFQ workflows, blanket orders |
+| **Pet Store** | Pet profiles linked to customer, recurring purchase reminders, grooming scheduling, loyalty tied to pet |
+| **Optical/Eyewear** | Prescription management (optical Rx), lens customization orders, insurance billing, repair services |
+| **Jewelry** | Consignment tracking, appraisal management, custom order management, precious metal weight, certification records (GIA, etc.) |
 
-Configuration-driven approach: Feature flags, configurable workflows, custom fields, configurable receipt layouts, module activation patterns.
+#### 3.11.2 Architecture Patterns for Multi-Vertical (Research Findings)
 
-**Current repo status**: Retail-focused. No restaurant, service, or B2B-specific adaptations.
+**How competitors handle it**:
+
+- **Odoo**: Module-based architecture. Core POS is one module; restaurant mode, loyalty, etc. are separate installable modules. Each module adds its own models, views, and business logic. Feature activation is per-database (company). Odoo uses a manifest file (`__manifest__.py`) per module declaring dependencies.
+- **Square**: Separate products — Square for Retail and Square for Restaurants are different apps sharing a common payment/customer backend. UI and workflows are distinct.
+- **Lightspeed**: Separate products — Lightspeed Retail (X-Series) and Lightspeed Restaurant (L-Series) are completely different codebases with different feature sets.
+- **Loyverse**: Single app with feature toggles. Restaurant-specific features (tables, KDS) are activated via settings. Simpler approach, fewer verticals.
+- **Toast**: Restaurant-only. Deep vertical focus rather than multi-vertical.
+
+**Recommended pattern for Puntovivo** (configuration-driven module activation):
+
+1. **Module Registry**: A `modules` table where each tenant/site activates specific feature modules (`pharmacy`, `restaurant`, `hardware_store`, `supermarket`, etc.). Each module unlocks specific UI routes, checkout behaviors, product attributes, and reports.
+
+2. **JSON Metadata Columns**: Instead of EAV (too complex, poor query performance in SQLite), use typed JSON columns on core entities for vertical-specific attributes. Example: `products.vertical_metadata` stores `{ "registro_sanitario": "...", "controlled_schedule": "II", "inn_dci": "..." }` for pharmacy, or `{ "voltage": "110V", "thread_type": "M6" }` for hardware.
+
+3. **Configurable Checkout Flows**: The POS checkout component reads module flags to determine behavior — show table selector (restaurant), require prescription (pharmacy), read scale (supermarket), allow fractional quantities (hardware store).
+
+4. **Vertical-Specific Role Templates**: Pre-configured role profiles per vertical — `pharmacist` role with controlled-substance access, `waiter` role with table/course actions, `cashier` with standard POS.
+
+5. **Template-Based Documents**: Receipt templates, labels, and reports configurable per module. Pharmacy receipts include lot/expiry and Registro Sanitario. Restaurant receipts include table/covers and propina. Hardware store receipts include cut-to-size details.
+
+6. **Module-Conditional Navigation**: Sidebar items, dashboard widgets, and settings pages conditionally rendered based on active modules. A pharmacy sees "Prescriptions" and "Controlled Substances" in the sidebar; a hardware store sees "Project Quotes" and "Contractor Accounts".
+
+**Current repo status**: No module activation system. No vertical-specific product attributes. No configurable checkout flows. The codebase is retail-focused with generic POS capabilities. Phase 0 in the roadmap now includes `DB-004` (module activation table) and `API-004` (module registry), which are the foundation for multi-vertical.
+
+#### 3.11.3 Pharmacy Vertical — Detailed Gap Analysis
+
+The pharmacy vertical is uniquely demanding because of heavy regulation. Colombia's pharmaceutical regulatory framework creates features that are **legally required to operate**, not just competitive advantages.
+
+| # | Feature | Regulation | Legal Req? | Effort | Priority |
+| --- | --- | --- | --- | --- | --- |
+| P-1 | Lot/batch tracking + expiry/FEFO | Resolución 1403/2007, BPM | Yes | Moderate | Critical |
+| P-2 | INVIMA Registro Sanitario on products | Decreto 677/1995 | Yes | Low | Critical |
+| P-3 | Regulated price ceiling enforcement | CNPMDM Circulares | Yes | Moderate | Critical |
+| P-4 | Prescription management (Rx capture, partial dispensing, validity) | Decreto 2200/2005 | Yes (for Rx) | High | Critical |
+| P-5 | Controlled substance tracking + FNE monthly report | Resolución 1478/2006, Resolución 315/2020 | Yes | High | Critical |
+| P-6 | Patient prescription history (historia farmacoterapéutica) | Decreto 2200/2005 | Yes (full-service) | Moderate | High |
+| P-7 | EPS billing + RIPS generation | Resolución 3374/2000 | Yes (EPS contracts) | High | High |
+| P-8 | SISMED price reporting | Resolución 4002/2007 | Yes | Moderate | High |
+| P-9 | Generic substitution suggestions (INN/DCI grouping) | Decreto 2200/2005, Circular 04/2006 | Encouraged | Moderate | Moderate |
+| P-10 | Cold chain product flags + storage zone tracking | Resolución 1403/2007, BPA | Yes | Low | Moderate |
+| P-11 | Pharmaceutical returns + INVIMA recall management | Decreto 677/1995 | Yes | Moderate | Moderate |
+| P-12 | Drug interaction alerts | Ley 212/1995 (professional) | Professional duty | High | Low-Moderate |
+
+**Key competitors**: Logifarma (full pharma workflow, FNE, RIPS, SISMED), Infoware Farmacias (strong inventory/lot), DrugStore (Rx + EPS), Siigo Farmacia (accounting backbone but weak on pharma-specific features).
+
+**Market opportunity**: No modern, offline-capable, open-source pharmacy POS exists in Colombia. Legacy systems (Logifarma, Infoware) have outdated UIs and on-premise limitations.
+
+#### 3.11.4 Supermarket/Grocery Vertical — Detailed Gap Analysis
+
+| # | Feature | Priority | Effort | Notes |
+| --- | --- | --- | --- | --- |
+| S-1 | Weighing scale integration (serial RS232, USB HID) | Critical | High | Toledo, CAS, Mettler Toledo protocols. POS sends "request weight" → scale responds. Requires `serialport` npm in Electron main process. |
+| S-2 | PLU code management + variable-weight barcodes (GS1 DataBar) | Critical | Moderate | Barcode format: prefix (2x) + PLU (5 digits) + weight/price (5 digits) + check digit. Must parse embedded price/weight from scanned barcode. |
+| S-3 | Perishable inventory management (FEFO, use-by dates, automated markdowns) | Critical | Moderate | Shared with pharmacy (lot/batch/expiry). Automated markdown rules near expiry. |
+| S-4 | Age-restricted product controls | High | Low | Flag on product, prompt at POS for ID verification. Colombian law: alcohol 18+, tobacco 18+. |
+| S-5 | Multi-department reporting + P&L by department | High | Moderate | Department hierarchy on products/categories. Gross margin by department. |
+| S-6 | Fresh department management (bakery, deli, meat) | Moderate | Moderate | Production tracking, shrink by department (theft, damage, spoilage, admin error), yield tracking. |
+| S-7 | DSD (Direct Store Delivery) receiving | Moderate | Moderate | Vendor delivers directly to shelf (Coca-Cola, Postobón, etc.). Separate receiving workflow bypassing warehouse. |
+| S-8 | Promotional flyer/circular management with auto price activation | Moderate | Moderate | Scheduled promotions with start/end dates, automatic price changes. Shared with promotions engine (Phase 7). |
+| S-9 | Vendor-funded promotions and rebate tracking | Moderate | Moderate | Track promotional allowances from suppliers, apply at POS, reconcile rebates. |
+| S-10 | Shelf label printing + electronic shelf labels | Moderate | Moderate | ZPL barcode labels per product/location. ESL via API integration (SoluM, Hanshow). |
+| S-11 | Self-checkout / express lane | Low | High | Simplified UI for customer-facing mode. Requires significant UX work. |
+| S-12 | Customer-facing display | Low | Moderate | Second screen showing cart items, totals, and advertising. Electron can manage dual screens. |
+| S-13 | Colombian specifics: IVA categories (0%, 5%, 19% for food), bolsa plástica tax, impuesto saludable (sugary drinks/ultra-processed 2023+) | High | Moderate | Tax group system needed. Bolsa plástica: COP $90/bag (2026). Impuesto saludable: 15%→20% in 2025. |
+
+**Key competitors for supermarket**: Caja Registradora (Colombia-local), Loggro, SAP Business One (large chains: Éxito, Olímpica, Jumbo use enterprise systems), Odoo with supermarket modules.
+
+#### 3.11.5 Hardware Store (Ferretería) Vertical — Detailed Gap Analysis
+
+| # | Feature | Priority | Effort | Notes |
+| --- | --- | --- | --- | --- |
+| H-1 | Fractional unit sales (by meter, kg, liter, etc.) | Critical | Moderate | Current system has units but needs decimal quantity support in checkout with arbitrary precision. Cable by the meter, paint by the liter, wood by board-foot. |
+| H-2 | Unit conversion management (sheets↔m², rolls↔linear m, bags↔kg) | Critical | Moderate | Product has a "purchase unit" and one or more "sale units" with conversion factors. Buy a roll of 100m, sell by the meter. |
+| H-3 | In-house barcode generation | High | Low | Many ferretería products lack manufacturer barcodes. Auto-generate internal barcodes (EAN-13 with in-house prefix) and print via label printer. |
+| H-4 | Bulk pricing / quantity breaks | High | Moderate | Price tiers: 1-9 units = $X, 10-49 = $Y, 50+ = $Z. Automatic tier application at POS based on line quantity. Can extend existing multi-tier pricing. |
+| H-5 | Contractor/professional credit accounts (30/60/90 days) | High | Moderate | Credit limit, terms, aging report. Shared with customer credit accounts (Phase 5, DB-403). Colombian ferreterías heavily depend on contractor credit. |
+| H-6 | Project/job quoting | High | Moderate | Customer brings a project list → staff builds a quote with materials, quantities, prices. Shared with quotations module (Phase 5). Needs "project template" concept (bathroom kit, kitchen kit). |
+| H-7 | Cut-to-size services and service charges | Moderate | Low | Add service line items to sale (pipe cutting, glass cutting, wood cutting). Service charges on receipt. |
+| H-8 | Product technical specifications as searchable attributes | Moderate | Moderate | Voltage, amperage, diameter, thread type, material, color, length, etc. Needed for staff product lookup ("I need a 3/8 galvanized screw"). JSON metadata column + search index. |
+| H-9 | Special orders / back-orders for non-stock items | Moderate | Moderate | Customer orders a product not in stock → create special order → link to PO when ordered → notify customer on arrival. |
+| H-10 | Returns with partial use | Moderate | Low | Customer bought 10m of cable, used 7m, returns 3m. System must accept partial-quantity returns and restock the returned portion. |
+| H-11 | Product cross-reference / compatibility | Low | Moderate | "Which screws fit this anchor?" Compatibility groups or related products. |
+| H-12 | High-SKU search optimization | Moderate | Moderate | Ferreterías typically have 10,000-50,000 SKUs. Fast fuzzy search, search by partial name, by code, by technical spec. SQLite FTS5 full-text search index. |
+
+**Key competitors for ferretería**: ManagementPro (Mexico, specialized), POS Ferretería (posferreteria.com, Colombia), Alegra POS (generic), World Office, Siigo.
+
+**Market insight**: Most Colombian ferreterías use basic systems or paper. A modern offline-capable POS with fractional units, contractor credit, and project quoting would be highly differentiated.
+
+#### 3.11.6 Restaurant/Food Service Vertical — Detailed Gap Analysis (Beyond Phase 12)
+
+Phase 12 in the current roadmap covers the basics (tables, KDS, modifiers, tips, appointments). The following are deeper restaurant-specific gaps identified through research:
+
+| # | Feature | Priority | Effort | Notes |
+| --- | --- | --- | --- | --- |
+| R-1 | Multi-station kitchen routing (grill, fryer, bar, dessert, prep) | Critical | Moderate | Each product or modifier group routes to a specific kitchen station/printer. Not just one KDS — multiple screens per kitchen area. |
+| R-2 | Impuesto al consumo 8% (Colombian restaurant consumption tax) | Critical | Moderate | **NOT additive to IVA — it REPLACES IVA for restaurants**. Restaurants above ~3,500 UVT income charge 8% consumption tax instead of 19% IVA on prepared food/beverages. Tax base EXCLUDES tips. Non-creditable (unlike IVA). Mixed establishments (grocery + prepared food) must handle both tax types on the same receipt. Requires tax type discriminator on products (IVA vs CONSUMO, mutually exclusive). |
+| R-3 | Combo/meal deal pricing engine | High | Moderate | "Almuerzo ejecutivo" / "Combo #1" with component selection. Price != sum of components. Customer selects options within groups (choose drink, choose side). |
+| R-4 | Delivery aggregator integration (Rappi, iFood, PedidosYa, Uber Eats) | High | High | Receive orders via webhooks, auto-create kitchen orders, update status back. Consider third-party aggregator middleware (Deliverect, GetOrder) to avoid 4 separate integrations. |
+| R-5 | Tab management with pre-authorization holds | High | Moderate | Open a tab → run up charges → close with payment. Bar/lounge workflow. Optional credit card pre-auth hold. |
+| R-6 | Menu versioning / daypart management | Moderate | Moderate | Different menus for breakfast/lunch/dinner. Products visible/available based on time of day. Automatic menu switching. |
+| R-7 | Waste tracking: theoretical vs actual food cost | Moderate | Moderate | Track waste events (spoilage, overcooking, spills). Compare actual cost vs theoretical (recipe cost × units sold). Food cost variance report. |
+| R-8 | Allergen tracking and dietary flags | Moderate | Low | Product attributes: gluten, dairy, nuts, shellfish, vegan, etc. Display on KDS and optionally on customer-facing menus/QR ordering. |
+| R-9 | Propina (tip) handling — **Ley 1935 de 2018 compliance** | **Critical** (legal) | Moderate | Tips are ALWAYS voluntary by law. POS MUST present a consent dialog ("¿Desea incluir la propina voluntaria del 10%? Sí / No / Otro valor"). Suggested amount CANNOT exceed 10%. Tips MUST be distributed among ALL workers (not just waiters) within 1 month. Tips are NOT revenue (no IVA, no INC, no withholding). Tips MUST appear as separate line item excluded from tax base. SIC (Superintendencia de Industria y Comercio) supervises compliance — violations sanctioned under Ley 1480. In electronic invoice XML, tip is a distinct concept, not part of tax base. |
+| R-10 | Delivery zone management with minimums | Moderate | Moderate | Define zones by neighborhood/polygon, set minimum order amounts, delivery fees, estimated times per zone. |
+| R-11 | Reservations and waitlist management | Low | Moderate | Calendar-based table reservations, walk-in waitlist with estimated wait times, SMS/WhatsApp notification when table ready. |
+| R-12 | Drive-through workflows | Low | Moderate | Order at window → prepare → deliver at pickup window. Specialized queue view. Low priority for Colombian market. |
+| R-13 | Catering / event orders | Low | Moderate | Large advance orders with deposits, special menus, delivery logistics. Shared with quotation module. |
+
+#### 3.11.7 General Retail Sub-Verticals — Cross-Cutting Gap Analysis
+
+| # | Feature | Sub-Verticals That Need It | Priority | Effort |
+| --- | --- | --- | --- | --- |
+| GR-1 | Product variants (size/color matrix) | Fashion, footwear, electronics | Critical | High (already in Phase 6) |
+| GR-2 | Serial number tracking per unit | Electronics, appliances, jewelry | High | High (already in Phase 6) |
+| GR-3 | Warranty management + extended warranty sales | Electronics, appliances | High | Moderate |
+| GR-4 | Layaway with payment schedules | All retail | High | Moderate (already in Phase 5) |
+| GR-5 | Consignment vendor management | Jewelry, boutiques, art galleries | Moderate | Moderate |
+| GR-6 | Trade-in / buy-back programs | Electronics, jewelry, automotive parts | Moderate | Moderate |
+| GR-7 | Gift registry / wish lists | All retail, especially jewelry, baby stores | Low | Moderate |
+| GR-8 | Rental management (tools, equipment, costumes) | Hardware, party supplies, equipment | Low | High |
+| GR-9 | Season/collection management with markdown scheduling | Fashion, footwear | Moderate | Moderate |
+| GR-10 | Product personalization/engraving service charges | Jewelry, gifts | Low | Low |
+| GR-11 | Retención en la fuente at POS | All B2B retail (Colombia) | High | Moderate |
+| GR-12 | Rete-IVA and Rete-ICA handling | All B2B retail (Colombia) | High | Moderate |
+| GR-13 | Régimen responsable vs no responsable de IVA | All retail (Colombia) | Critical | Low |
+| GR-14 | Documento Soporte (purchases from non-invoicers) | All retail (Colombia) | High | Moderate |
+| GR-15 | **Layaway / Apartado** (payment schedules, inventory reservation) | ALL retail (deeply embedded LatAm purchasing pattern) | **Critical** | High |
+| GR-16 | Customer special orders with deposits | All retail (electronics, furniture, optical, jewelry) | High | Moderate |
+| GR-17 | Repair/service ticket management | Electronics, optical, jewelry, cell phones | High | High |
+| GR-18 | Company-level fiscal regime classification (Responsable IVA, Gran Contribuyente, Régimen Simple) | All Colombian businesses | **Critical** | Low |
+
+#### 3.11.8 Colombian Fiscal/Tax Gaps Across All Verticals
+
+Several tax-related gaps apply to ALL business types operating in Colombia:
+
+| # | Feature | Applies To | Legal Status | Priority |
+| --- | --- | --- | --- | --- |
+| T-1 | Tax groups (IVA 0%, 5%, 19% + impuesto al consumo 8% + impuesto saludable 15-20%) | All | Required | Critical |
+| T-2 | Tax type discriminator per product: IVA vs CONSUMO (mutually exclusive for restaurants — restaurants charge 8% INC, NOT 19% IVA) | Restaurants, mixed establishments | Required | Critical |
+| T-3 | Retención en la fuente (income withholding at source) | B2B transactions | Required | High |
+| T-4 | Rete-IVA (VAT withholding) | B2B, specific regimes | Required | High |
+| T-5 | Rete-ICA (industry/commerce tax withholding) | B2B, municipality-specific | Required | Moderate |
+| T-6 | Tax-exempt customers (diplomats, special entities) | All | Required | Moderate |
+| T-7 | Impuesto saludable (sugary drinks 15%→20%, ultra-processed 10%→15%→20%) | Supermarkets, tiendas | Required since 2023 | High |
+| T-8 | Bolsa plástica tax (COP $90/bag in 2026) | Supermarkets, retail | Required | Moderate |
+| T-9 | Documento Soporte Electrónico (purchases from non-invoicers) | All | Required | High |
+| T-10 | GMF (4x1000 financial transaction tax) awareness in payment reconciliation | All | Awareness | Low |
+
+#### 3.11.9 Cross-Vertical Feature Dependency Map
+
+Many vertical-specific features share underlying platform capabilities:
+
+| Platform Capability | Verticals That Need It | Phase |
+| --- | --- | --- |
+| Module activation system | ALL | Phase 0 |
+| JSON metadata columns on products | Pharmacy, hardware, electronics, restaurant | Phase 0 |
+| Tax groups (compound/multi-tax) | ALL Colombian businesses | Phase 0 or Phase 1 |
+| Lot/batch/expiry tracking | Pharmacy, supermarket, food | Phase 6 |
+| Fractional quantity support in checkout | Hardware store, supermarket (by weight) | Phase 1 addon |
+| Customer credit accounts | Hardware store (contractors), B2B, jewelry | Phase 5 |
+| Quotations | Hardware store (projects), B2B, jewelry (custom orders) | Phase 5 |
+| Recipe/BOM | Restaurant, bakery, production | Phase 6 |
+| Weighing scale integration | Supermarket, bulk retail | Phase 6 addon |
+| Prescription/Rx management | Pharmacy, optical | Pharmacy module |
+| Table management + KDS | Restaurant | Phase 12 |
+| Appointment scheduling | Services, pet grooming, optical | Phase 12 |
+| Promotions engine | ALL | Phase 7 |
+| Serial number tracking | Electronics, jewelry, appliances | Phase 6 |
+
+**Key insight**: The vertical modules are mostly compositions of shared platform capabilities, NOT entirely separate feature sets. The most effective strategy is to build the platform capabilities in the right order, then compose vertical-specific modules that activate and configure those capabilities.
+
+#### 3.11.10 Recommended Module Directory Structure
+
+```text
+packages/server/src/modules/
+  core/              -- shared: products, sales, inventory, customers (always active)
+  restaurant/        -- tables, floors, kitchen orders, courses, tips, combos
+    router.ts        -- tRPC procedures for restaurant module
+    schema.ts        -- restaurant-specific table definitions
+    service.ts       -- business logic
+  pharmacy/          -- Rx, controlled substances, RIPS, SISMED, FNE, lot FEFO
+    router.ts
+    schema.ts
+    service.ts
+  ferreteria/        -- unit conversion, project quoting, cut-to-size, FTS5 search
+    router.ts
+    schema.ts
+    service.ts
+  supermarket/       -- scale integration, PLU, DSD receiving, perishable markdowns
+    router.ts
+    schema.ts
+    service.ts
+```
+
+Each module exports:
+- A tRPC router creator that gets composed into the main router
+- Schema definitions (DDL) that get created when the module is activated
+- A capabilities declaration (what boolean flags this module enables)
+- Default configuration (categories, roles, receipt templates)
+
+#### 3.11.11 Checkout Pipeline Pattern
+
+The checkout screen diverges the most across verticals. Use a configurable step pipeline:
+
+| Vertical | Checkout Pipeline |
+| --- | --- |
+| **Retail** | Scan Items → Review Cart → Select Payment → Process → Print Receipt |
+| **Supermarket** | Scan/Weigh Items → Review Cart → Bag Count → Select Payment → Process → Print Receipt |
+| **Pharmacy** | Scan Items → Link Prescription → Verify Lot → Controlled Substance Check → Review → Payment → Print → Patient Counseling |
+| **Ferretería** | Scan/Measure Items → Unit Selection → Review Cart → Service Charges → Payment → Print |
+| **Restaurant** | Select Table → Take Order → Send to Kitchen → (serve) → Split Check → Add Tip → Payment → Print |
+
+Each step is a lazy-loaded React component. The active vertical determines which pipeline executes. Non-active vertical steps never get bundled.
+
+#### 3.11.12 Implementation Priority for Multi-Vertical Foundation
+
+| Item | Impact | Effort | Priority |
+| --- | --- | --- | --- |
+| `vertical` field on sites | High | Low | **P0** |
+| JSON `metadata` on products | High | Low | **P0** |
+| `SiteCapabilities` React Context | High | Medium | **P0** |
+| Tax group engine (compound tax) | High | Medium | **P0** |
+| Capability-filtered sidebar navigation | Medium | Low | **P1** |
+| Checkout step pipeline | High | Medium | **P1** |
+| Receipt template registry | Medium | Medium | **P1** |
+| Module directory structure (server) | High | Medium | **P1** |
+| tRPC router composition per module | High | Medium | **P2** |
+| Dashboard widget registry per module | Medium | Medium | **P2** |
+| Lazy loading per module (React.lazy) | Medium | Low | **P2** |
+| Module-aware DDL migrations | Medium | High | **P3** |
+| Setup wizard per vertical | High | High | **P3** |
+| SQLite generated columns + indexes on JSON metadata | Medium | Low | **P3** |
+
+### 3.12 Credit Sales (Ventas a Crédito) — Analysis and Design
+
+#### 3.12.1 Business Model
+
+A credit sale allows a customer to take goods immediately but pay later — partially or in full — under a documented payment agreement. In Latin American retail this is a widespread and deeply embedded commercial practice, especially in hardware stores (ferreterías), pharmacies, and wholesale/B2B contexts.
+
+Key concepts:
+
+- **Venta a crédito**: The merchant sells goods without collecting the full amount at the time of the transaction. The outstanding balance becomes an account receivable.
+- **Cuotas (installments)**: The outstanding balance is divided into a fixed number of periodic payments (usually monthly) on pre-agreed due dates.
+- **Cuota inicial / Enganche**: The upfront payment at the time of sale. Can be 0% (no payment required) up to any agreed percentage. The minimum is configurable per tenant, company, or store.
+- **Abono**: A partial payment posted against an existing credit invoice. The customer can walk into the store and pay any amount at any time — not necessarily aligned to the installment schedule. An abono reduces the outstanding balance and is applied against one or more pending installments.
+- **Tasa de interés**: Credit may be interest-free (0%) or carry a monthly interest rate. The platform must compute and display the effective total cost of credit (TEC) for informed consent.
+- **Saldo vencido (overdue balance)**: When installments are not paid by their due date (plus any grace period), the balance transitions to overdue. Overdue balances may accrue additional interest (mora) depending on the configured policy.
+
+This is distinct from the `customer_credit_accounts` concept (Phase 5, DB-403 / API-403), which is a revolving credit account (running tab model). Credit sales are per-invoice credit agreements with explicit installment schedules tied to a specific sale document.
+
+#### 3.12.2 Configuration Model
+
+Credit sales behavior is configurable at three levels (most specific wins):
+
+```
+Tenant (company_id)
+  └─ Company (companies.id)
+       └─ Site (sites.id)
+```
+
+Configuration parameters:
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `credit_sales_enabled` | boolean | Master switch — credit sales allowed at this level |
+| `min_downpayment_pct` | integer 0–100 | Minimum upfront payment percentage (0 = no payment required) |
+| `max_credit_days` | integer | Maximum days a credit sale can remain open (e.g., 90) |
+| `max_installments` | integer | Maximum number of installments allowed (e.g., 12) |
+| `interest_rate_monthly_pct` | decimal | Monthly interest rate (0 = interest-free) |
+| `mora_rate_daily_pct` | decimal | Daily interest rate for overdue installments |
+| `require_approval_above_amount` | decimal | Amounts above this threshold require manager approval |
+| `max_credit_per_customer` | decimal | Global outstanding credit ceiling per customer |
+| `grace_period_days` | integer | Days after due date before installment becomes overdue |
+| `allow_abono_any_amount` | boolean | Whether customers can pay arbitrary amounts (abonos) |
+| `require_customer_id` | boolean | Whether a credit sale requires a fully-identified customer |
+
+#### 3.12.3 Data Model
+
+```
+company_credit_settings
+  company_id (FK, nullable — null = tenant-level default)
+  site_id (FK, nullable — null = applies to all sites in company)
+  credit_sales_enabled
+  min_downpayment_pct
+  max_credit_days
+  max_installments
+  interest_rate_monthly_pct
+  mora_rate_daily_pct
+  require_approval_above_amount
+  max_credit_per_customer
+  grace_period_days
+  allow_abono_any_amount
+  require_customer_id
+
+credit_sales
+  id
+  sale_id (FK → sales — the original POS transaction)
+  customer_id (FK → customers, non-nullable for credit sales)
+  total_amount
+  downpayment_amount (collected at time of sale)
+  outstanding_balance (computed: total - downpayment - sum of payments)
+  interest_total (0 for interest-free)
+  status [active | partially_paid | fully_paid | overdue | written_off | cancelled]
+  approved_by (FK → users, nullable — required if above threshold)
+  installment_count
+  first_due_date
+  created_at
+  notes
+
+credit_installments
+  id
+  credit_sale_id (FK)
+  installment_number (1-based)
+  due_date
+  principal_amount
+  interest_amount
+  total_amount (principal + interest)
+  outstanding_amount (initially = total_amount; decremented by abono applications)
+  status [pending | partially_paid | paid | overdue | waived]
+  paid_at (nullable)
+
+credit_payments    ← this is an "abono"
+  id
+  credit_sale_id (FK)
+  amount
+  payment_method (cash | bank_transfer | card | etc.)
+  reference (nullable — bank reference, voucher number)
+  received_by (FK → users)
+  received_at
+  notes
+  applied_installments JSON   ← [{installment_id, amount_applied}]
+```
+
+Abono application logic:
+1. Payment is posted to `credit_payments`.
+2. The amount is distributed across installments in chronological order (oldest pending first), unless the customer specifies a different application.
+3. `credit_installments.outstanding_amount` decrements per installment; status transitions: `pending → partially_paid → paid`.
+4. `credit_sales.outstanding_balance` recomputes after each payment.
+5. Status transitions: `active → partially_paid` when any installment paid; `→ fully_paid` when balance reaches zero.
+
+#### 3.12.4 Colombian Legal Context
+
+- A "venta a crédito" in Colombia must be documented as a **Factura Electrónica de Venta** (not a DEE/POS document). The DEE (Documento Equivalente POS) is exclusively for cash transactions at the point of sale per DIAN Resolución 000202/2025. A credit sale with deferred payment is a factura, regardless of amount.
+- The factura a crédito must include payment terms in the `cac:PaymentTerms` UBL element.
+- Interest rates are bounded by the **Usury Rate** (*interés bancario corriente* + ceiling set quarterly by Superfinanciera de Colombia). Exceeding this is criminally penalized (Ley 599/2000 Art. 305).
+- **Mora interest**: The default mora rate is the same as the agreed interest rate, unless a higher mora was explicitly contracted (Commercial Code Art. 884).
+- The credit relationship between merchant and customer is governed by:
+  - Código Civil Art. 1617 (mora y perjuicios)
+  - Código de Comercio Art. 884 (interés mercantil)
+  - Estatuto del Consumidor Ley 1480/2011 (retail credit disclosure obligations)
+  - Decreto 4861/2008 and subsequent SFC circulares on consumer credit
+
+#### 3.12.5 Implementation Scope in Puntovivo
+
+Credit sales integrate with:
+- **Phase 5** (payment method depth): credit sale creation, installment schedule, abono recording
+- **Phase 11** (fiscal): credit sales generate factura electrónica (not DEE), so fiscal document generation must support credit payment terms in the UBL output
+- **Phase 9** (reporting): accounts receivable aging, credit portfolio health, overdue alerts
+- **Phase 7** (loyalty): credit history may inform customer segment or loyalty tier
+
+---
+
+### 3.13 Country-Parametrizable Fiscal Rules — Analysis and Design
+
+#### 3.13.1 The Problem: Colombia-Hardcoded Fiscal Logic
+
+The current codebase treats fiscal rules as Colombia-specific constants:
+
+- **Tax rates**: IVA (0%, 5%, 19%), INC (8%), impuesto saludable, bolsa plástica — hardcoded Colombian DIAN codes
+- **Propina (tip)**: Ley 1935/2018 — Colombian voluntary service charge law, consent dialog required, max 10% suggestion, excluded from tax base, mandatory worker distribution
+- **Electronic invoicing**: DIAN DEE and factura electrónica, DIAN web service endpoints, CUFE/CUDE SHA-384
+- **Fiscal regimes**: Responsable de IVA, No Responsable de IVA, Régimen Simple de Tributación, Gran Contribuyente — all Colombian DIAN regime codes
+- **Withholding**: Retención en la fuente, autorretenedor, agente de retención — Colombian withholding framework
+- **Municipal taxes**: ICA (Impuesto de Industria y Comercio) — Colombian only
+- **Document types**: Factura Electrónica, DEE, Nota Crédito Electrónica — DIAN document taxonomy
+
+If Puntovivo is deployed in Ecuador, Perú, Chile, Panamá, or any other country, all of this breaks or is irrelevant.
+
+#### 3.13.2 Target Countries and Their Fiscal Profiles
+
+| Country | VAT/GST | Consumption Tax | Electronic Invoicing | Special Rules |
+| --- | --- | --- | --- | --- |
+| **Colombia** | IVA 0%/5%/19% | INC 8% (restaurants), impuesto saludable | DIAN DEE + Factura Electrónica | Ley 1935 propina, retención, ICA |
+| **Ecuador** | IVA 12% | ICE (selective consumption tax, variable) | SRI factura electrónica | Punto de emisión, CAF |
+| **Perú** | IGV 18% | ISC (selective consumption) | SUNAT Factura Electrónica (CFDI-like) | Boleta de venta for retail |
+| **Chile** | IVA 19% | — | SII Boleta Electrónica (mandatory 2024) | RUT, folio management |
+| **México** | IVA 16% / 8% (border) | IEPS (fuel, alcohol, tobacco, sugary drinks) | SAT CFDI 4.0 | RFC, complementos |
+| **Panamá** | ITBMS 7% | — | DGI Factura Electrónica | — |
+| **Argentina** | IVA 21%/10.5%/2.7% | — | AFIP Comprobante Electrónico | Inscripción, categoría monotributo |
+| **Venezuela** | IVA 16% | IGTF 3% (financial transactions) | SENIAT — | Multiple exchange rates |
+
+#### 3.13.3 Proposed Architecture: Fiscal Profile System
+
+**Core concept**: Replace hardcoded country-specific rules with a `country_fiscal_profiles` configuration table that defines all fiscal rules for a given country. The application's tax engine, tip dialog, electronic invoicing adapter, and document generation all read from the active profile.
+
+**Profile selection**: determined by `companies.country_code` (already on the companies table).
+
+**Profile schema** (stored as structured JSON columns in SQLite):
+
+```json
+{
+  "tax_types": [
+    {
+      "code": "IVA",
+      "name": "Impuesto al Valor Agregado",
+      "rates": [0, 5, 19],
+      "default_rate": 19,
+      "applies_to": "all",
+      "calculation_base": "net_price",
+      "mutual_exclusion_group": null,
+      "is_additive_with": ["INC", "BOLSA"]
+    },
+    {
+      "code": "INC",
+      "name": "Impuesto Nacional al Consumo",
+      "rates": [8],
+      "default_rate": 8,
+      "applies_to": "prepared_food_services",
+      "calculation_base": "net_price",
+      "mutual_exclusion_group": "consumption_tax",
+      "is_additive_with": []
+    }
+  ],
+  "tip_rules": {
+    "enabled": true,
+    "label": "Propina",
+    "max_suggested_pct": 10,
+    "requires_consent_dialog": true,
+    "consent_dialog_text": "La propina es voluntaria. ¿Desea agregar propina al servicio?",
+    "excluded_from_tax_base": true,
+    "distribution_required": true,
+    "distribution_deadline_days": 30,
+    "legal_reference": "Ley 1935/2018 Art. 1"
+  },
+  "electronic_invoicing": {
+    "required": true,
+    "provider_code": "DIAN",
+    "adapter": "dian_colombia",
+    "document_types": ["DEE", "INVOICE", "CREDIT_NOTE", "DEBIT_NOTE"],
+    "pos_document_type": "DEE",
+    "credit_sale_document_type": "INVOICE",
+    "hash_algorithm": "SHA-384",
+    "test_endpoint": "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
+    "prod_endpoint": "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
+    "legal_reference": "Resolución DIAN 000202/2025"
+  },
+  "withholding_rules": {
+    "enabled": true,
+    "types": [
+      { "code": "RTEFUENTE", "name": "Retención en la Fuente", "applicable_to_regimes": ["GRAN_CONTRIBUYENTE"] }
+    ]
+  },
+  "regime_types": [
+    { "code": "RESPONSABLE_IVA", "name": "Responsable de IVA", "charges_vat": true },
+    { "code": "NO_RESPONSABLE_IVA", "name": "No Responsable de IVA", "charges_vat": false },
+    { "code": "REGIMEN_SIMPLE", "name": "Régimen Simple de Tributación", "charges_vat": false },
+    { "code": "GRAN_CONTRIBUYENTE", "name": "Gran Contribuyente", "charges_vat": true, "withholding_agent": true }
+  ],
+  "municipal_taxes": [
+    { "code": "ICA", "name": "Impuesto de Industria y Comercio", "rate_variable": true, "applies_to": "gross_income" }
+  ]
+}
+```
+
+**Profile table** (one row per country code, seeded at startup):
+
+```
+country_fiscal_profiles
+  country_code (PK — ISO 3166-1 alpha-2)
+  name
+  currency_code (ISO 4217)
+  tax_config_json
+  tip_config_json
+  electronic_invoicing_config_json
+  withholding_config_json
+  regime_types_json
+  municipal_taxes_json
+  created_at
+  updated_at
+```
+
+**Company-level overrides** (for companies that deviate from country defaults, e.g., a free-zone company):
+
+```
+company_fiscal_overrides
+  company_id (FK, PK)
+  tax_config_json (nullable — replaces country default if set)
+  tip_config_json (nullable)
+  electronic_invoicing_config_json (nullable)
+  withholding_config_json (nullable)
+  notes
+```
+
+#### 3.13.4 Electronic Invoicing Adapter Pattern
+
+The `fiscal_adapter` interface (TypeScript):
+
+```typescript
+interface FiscalAdapter {
+  readonly providerCode: string;                    // e.g. "DIAN", "SRI", "SUNAT"
+  generateDocument(sale: Sale, profile: FiscalProfile): Promise<FiscalDocument>;
+  sign(document: FiscalDocument, cert: FiscalCertificate): Promise<SignedDocument>;
+  transmit(signed: SignedDocument): Promise<TransmitResult>;
+  handleContingency(sale: Sale): Promise<ContingencyDocument>;
+  generateCreditNote(original: FiscalDocument, reason: string): Promise<FiscalDocument>;
+}
+```
+
+Active adapter is selected by `electronic_invoicing_config.adapter`:
+- `"dian_colombia"` → existing Colombia DIAN implementation (Phase 11)
+- `"sri_ecuador"` → Ecuador SRI adapter (future)
+- `"sunat_peru"` → Perú SUNAT adapter (future)
+- `"sii_chile"` → Chile SII adapter (future)
+- `"none"` → no electronic invoicing required
+
+#### 3.13.5 Tip/Propina Parametrization
+
+The propina Ley 1935/2018 implementation (Phase 12, API-1106) is currently Colombia-specific. Under the parametrized system:
+
+- The POS tip dialog reads `tip_config_json` from the active profile.
+- If `tip_rules.enabled = false` (e.g., for a country with no tip regulation), no dialog appears.
+- If `requires_consent_dialog = true`, the consent text from `consent_dialog_text` is displayed — the exact text is country-specific and legally mandated.
+- `excluded_from_tax_base` controls whether the tip amount is excluded from the IVA/INC calculation.
+- `distribution_required = true` triggers reporting obligations tracked in `tip_distribution_log`.
+
+Countries where voluntary service charges are regulated differ significantly:
+- Colombia (Ley 1935/2018): max 10%, voluntary, excluded from tax, distributed to ALL workers within 30 days
+- México: propina is entirely voluntary, no legal framework, but IS subject to IVA if employer-declared
+- Chile: no legal framework for restaurant tips; they are typically paid directly by the customer to the worker
+- USA: tip is subject to FICA and income tax; employer must report
+
+#### 3.13.6 Tax Engine Isolation
+
+The current tax calculation is called at several points (sale line totaling, purchase line totaling, dashboard). Under the parametrized system:
+
+1. `resolveFiscalProfile(companyId)` → loads `country_fiscal_profiles` + `company_fiscal_overrides`
+2. `taxEngine.compute(lineItems, profile)` → applies profile tax rules with mutual exclusion and additivity
+3. `fiscalAdapter(profile.electronic_invoicing_config.adapter)` → selected at runtime
+
+This makes the tax engine a pure function of profile + line items, not a hard-coded Colombian function. Colombia continues to work exactly as today — its behavior is simply the "CO" profile.
+
+#### 3.13.7 Migration Strategy
+
+1. **Extract**: Identify all Colombia-hardcoded constants (IVA rates, INC rates, regime codes, propina rules, DIAN endpoints) across the codebase.
+2. **Seed**: Create a "CO" `country_fiscal_profiles` row in the DB seed with all extracted values.
+3. **Refactor**: Replace each hardcoded constant with a lookup from the active profile.
+4. **Test**: Verify that all existing Colombia tests still pass with profile-driven values.
+5. **Extend**: Adding Ecuador or Chile becomes a new profile row with a new adapter — no code changes required for the existing Colombia path.
+
+---
 
 ## 4. Current Support For Transport, Product Handling, Tracking, and Logistics
 
@@ -511,10 +1071,14 @@ Industry-standard POD methods:
 | **PIN/Code Verification** | Customer provides code to confirm | Secure deliveries, age-restricted items |
 | **Recipient Name** | Record of who received | B2B, front-desk deliveries |
 
-## 6. Product and Logistics Gap Matrix
+## 6. Product, Logistics, and Multi-Vertical Gap Matrix
+
+### 6.1 Core Platform Gaps (All Verticals)
 
 | Capability cluster | Market expectation | Current repo status | Gap level |
 | --- | --- | --- | --- |
+| Module activation system | tenant/site-level vertical selection | Missing | **Critical (new)** |
+| Tax groups / compound tax | multi-tax per product (IVA + INC + impuesto saludable) | Missing | **Critical (new)** |
 | Inbound logistics | PO, receipt, returns | Implemented | Low |
 | Site/warehouse inventory ownership | balances by site/bin/location | Partial | Critical |
 | Internal transfers | request, ship, receive, in-transit | Missing | Critical |
@@ -538,6 +1102,62 @@ Industry-standard POD methods:
 | Fiscal localization (Colombia) | electronic POS, electronic invoice | Partial | Critical |
 | Public API and webhooks | integration ecosystem | Missing | High |
 | Audit trail | action-level, manager overrides | Partial | High |
+| JSON metadata columns on products | vertical-specific product attributes | Missing | **High (new)** |
+| Fractional quantity support in checkout | decimal qty with arbitrary precision | Missing | **High (new)** |
+| Customer credit accounts (30/60/90 day terms) | credit limit, aging, statement | Missing | **High (new)** |
+| Retención en la fuente / Rete-IVA / Rete-ICA | B2B tax withholdings at POS | Missing | **High (new)** |
+| Documento Soporte Electrónico | purchases from non-invoicers | Missing | **High (new)** |
+
+### 6.2 Vertical-Specific Gap Matrix
+
+| Capability | Pharmacy | Supermarket | Hardware Store | Restaurant | Gen. Retail | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Module activation** | Required | Required | Required | Required | Required | Missing |
+| Lot/batch/expiry (FEFO) | **Critical** (legal) | **Critical** | Low | Low | Low | Missing |
+| Controlled substance tracking | **Critical** (legal) | — | — | — | — | Missing |
+| Prescription management | **Critical** (legal) | — | — | — | Optical only | Missing |
+| INVIMA Registro Sanitario | **Critical** (legal) | — | — | — | — | Missing |
+| Regulated price ceilings (CNPMDM) | **Critical** (legal) | — | — | — | — | Missing |
+| EPS billing + RIPS | **High** (legal) | — | — | — | — | Missing |
+| SISMED reporting | **High** (legal) | — | — | — | — | Missing |
+| Generic substitution (INN/DCI) | **Moderate** | — | — | — | — | Missing |
+| Cold chain flags | **Moderate** | Moderate | — | Moderate | — | Missing |
+| Drug interaction alerts | Low-Moderate | — | — | — | — | Missing |
+| Weighing scale integration | — | **Critical** | Low | — | — | Missing |
+| PLU codes + variable-weight barcodes | — | **Critical** | — | — | — | Missing |
+| Age-restricted product controls | — | **High** | — | Moderate | — | Missing |
+| Fresh dept production/shrink | — | **Moderate** | — | — | — | Missing |
+| DSD receiving | — | **Moderate** | — | — | — | Missing |
+| Multi-department P&L | — | **High** | — | — | Moderate | Missing |
+| Impuesto saludable | — | **High** (legal) | — | — | — | Missing |
+| Bolsa plástica tax | — | **Moderate** (legal) | — | — | Moderate | Missing |
+| Fractional unit sales | — | **Critical** (weight) | **Critical** | — | — | Missing |
+| Unit conversion management | — | Low | **Critical** | — | — | Missing |
+| In-house barcode generation | — | Low | **High** | — | Low | Missing |
+| Bulk pricing / quantity breaks | — | Low | **High** | — | Moderate | Missing |
+| Contractor credit (30/60/90) | — | — | **High** | — | Moderate | Missing |
+| Project/job quoting | — | — | **High** | — | — | Missing |
+| Cut-to-size service charges | — | — | **Moderate** | — | — | Missing |
+| Technical specs as product attrs | — | — | **Moderate** | — | — | Missing |
+| High-SKU search (FTS5) | — | Moderate | **Moderate** | — | — | Missing |
+| Partial-use returns | — | — | **Moderate** | — | — | Missing |
+| Table management + floor plan | — | — | — | **Critical** | — | Missing |
+| KDS multi-station routing | — | — | — | **Critical** | — | Missing |
+| Impuesto al consumo 8% | — | — | — | **Critical** (legal) | — | Missing |
+| Combo/meal deal engine | — | — | — | **High** | — | Missing |
+| Delivery aggregator integration | — | — | — | **High** | — | Missing |
+| Tab management | — | — | — | **High** | — | Missing |
+| Daypart menus | — | — | — | **Moderate** | — | Missing |
+| Waste tracking (actual vs theoretical) | — | Moderate | — | **Moderate** | — | Missing |
+| Recipe costing / BOM | — | — | — | **Moderate** | — | Missing |
+| Allergen/dietary flags | — | — | — | **Moderate** | — | Missing |
+| Propina (voluntary 10%) | — | — | — | **Moderate** | — | Missing |
+| Size/color variant matrix | — | — | — | — | **Critical** (fashion) | Missing |
+| Serial number per unit | — | — | — | — | **High** (electronics) | Missing |
+| Warranty management | — | — | — | — | **High** (electronics) | Missing |
+| Consignment tracking | — | — | — | — | **Moderate** (jewelry) | Missing |
+| Season/markdown scheduling | — | — | — | — | **Moderate** (fashion) | Missing |
+| Trade-in / buy-back | — | — | — | — | **Moderate** (electronics) | Missing |
 
 ## 7. Recommended Logistics Model For Puntovivo
 
@@ -843,44 +1463,60 @@ Recommended target architecture for Puntovivo:
 This roadmap is deliberately technical.
 Each phase includes concrete tracks for DB, tRPC, UI, and tests.
 
-### Phase 0: Architecture Foundation
+### Phase 0: Architecture Foundation and Multi-Vertical Module System
 
 Goal:
-- prepare the codebase for logistics expansion, dual-database compatibility, and module-driven feature activation
+- prepare the codebase for logistics expansion, dual-database compatibility, multi-vertical module activation, and compound tax support
+- this is the most critical phase because it creates the architectural seams that ALL subsequent vertical work plugs into
 
 DB tickets:
 
 - `DB-001` Introduce dialect-neutral schema conventions
 - `DB-002` Replace raw schema bootstrap with versioned Drizzle migrations
 - `DB-003` Define money, quantity, and timestamp normalization rules
-- `DB-004` Create `feature_flags` or module activation table for business-type customization
+- `DB-004` Add `vertical` column to `sites` table (enum: `retail`, `supermarket`, `pharmacy`, `ferreteria`, `restaurant`, `restaurant_qsr`, `services`, `wholesale`) — defaulting to `retail`. This is the single most important multi-vertical change.
+- `DB-005` Add `metadata` JSON column to `products` table for vertical-specific attributes — typed via `text('metadata', { mode: 'json' }).$type<ProductMetadata>()` with discriminated union types per vertical (PharmacyProductMeta, FerreteriaProductMeta, RestaurantProductMeta, etc.)
+- `DB-006` Add `settings` JSON column to `sites` table for site-level configuration and capabilities map
+- `DB-007` Create `tax_groups` table (name, taxes JSON array with rate/type/applies_to) — supports compound tax scenarios AND mutual exclusivity. **Critical design rule**: IVA and INC (impuesto al consumo) are MUTUALLY EXCLUSIVE for restaurants — restaurants above ~3,500 UVT charge 8% INC instead of 19% IVA on prepared food. However, a mixed establishment (supermarket with deli) may have IVA products AND INC products on the same receipt. Impuesto saludable and bolsa plástica ARE additive with IVA.
+- `DB-008` Create `tax_group_items` table (tax_group_id, tax_type [iva, inc, imp_saludable, bolsa_plastica, custom], rate, calculation_base [pre_tax, post_iva, fixed_amount], exclusive_with [array of tax_types this is mutually exclusive with])
+- `DB-009` Link products to tax_groups instead of single VAT rate (migration: create default tax groups from existing vatRates, update product references)
 
 tRPC tickets:
 
 - `API-001` Introduce repository/service boundaries for core domains
 - `API-002` Separate persistence concerns from router procedures
 - `API-003` Define sync acknowledgement contract
-- `API-004` Create module registry for optional feature enablement
+- `API-004` Create module registry service: resolve site vertical → compute `SiteCapabilities` map → inject into tRPC context. Capabilities are boolean flags (`hasTableManagement`, `hasLotTracking`, `hasCutToLength`, `hasScaleIntegration`, etc.) computed from vertical + site settings.
+- `API-005` Compound tax calculation engine: given a cart of items, each with a tax_group, compute all applicable taxes with correct ordering (IVA on base, INC on base, impuesto saludable on base, bolsa plástica as fixed amount)
+- `API-006` Module-conditional tRPC router composition: each vertical module exports a router creator; the main router conditionally includes module routers based on active modules
 
 UI tickets:
 
 - `UI-001` Add system diagnostics page for runtime topology
 - `UI-002` Add admin-facing sync topology indicators
-- `UI-003` Create module activation settings page
+- `UI-003` Create vertical/module activation settings page — site setup wizard that when selecting a vertical: activates the module, creates vertical-specific categories, sets up vertical-specific role templates, pre-configures receipt templates
+- `UI-004` Create `SiteCapabilities` React Context provider — computed from site vertical and settings, consumed by all components for conditional rendering
+- `UI-005` Extend `Sidebar.tsx` navigation items with `requiredCapability?: keyof SiteCapabilities` filtering — items with a required capability only render when the capability is active
+- `UI-006` Update checkout to read tax groups and display compound taxes separately on receipt (IVA line, INC line, impuesto saludable line, bolsa plástica line)
 
 Test tickets:
 
 - `TEST-001` Add persistence contract tests reusable across dialects
 - `TEST-002` Add schema migration smoke tests
 - `TEST-003` Add sync contract tests for accepted/conflicted/rejected flows
+- `TEST-004` Compound tax calculation: IVA 19% + INC 8% on same item produces correct total
+- `TEST-005` SiteCapabilities correctly computed from vertical + settings for each vertical type
+- `TEST-006` Module-conditional sidebar only shows items for active vertical
 
-### Phase 1: Cash Management and Shift Control
+### Phase 1: Cash Management, Shift Control, and Fractional Quantity Foundation
 
 Goal:
 - implement the most critical missing commercial feature for LatAm retail
+- unblock fractional quantity sales (required by ferreterías and supermarkets)
 
 DB tickets:
 
+- `DB-050` **CRITICAL MIGRATION: Convert `stock` and `quantity` from `integer` to `real` across ALL tables** — currently `products.stock`, `saleItems.quantity`, `purchaseItems.quantity`, `orderItems.quantity`, `inventoryMovements.quantity` are all `integer`. This blocks ferreterías (sell 2.5m of cable), supermarkets (sell 0.75kg of produce), and any business selling fractional units. Add product flags: `sell_by_fraction` (boolean), `fraction_step` (real, e.g., 0.5 for half-meter increments), `fraction_minimum` (real). This is the single most impactful schema migration for multi-vertical support.
 - `DB-051` Create `cash_sessions` table (register, cashier, site, opening_float, opening_count_denominations, expected_balance, actual_count, actual_count_denominations, over_short, status, opened_at, closed_at)
 - `DB-052` Create `cash_movements` table (session_id, type [sale, refund, paid_in, paid_out, skim, replenishment], amount, reference_id, note, created_by)
 - `DB-053` Create `denomination_templates` table for standardized float breakdowns
@@ -1003,18 +1639,21 @@ Test tickets:
 - `TEST-302` Proof of delivery closes shipment correctly
 - `TEST-303` Exception handling keeps stock/accountability consistent
 
-### Phase 5: Payment Method Depth and Quotations
+### Phase 5: Payment Method Depth, Quotations, and Layaway
 
 Goal:
-- support complex payment scenarios and pre-sale conversion flows
+- support complex payment scenarios, pre-sale conversion flows, and the deeply embedded Latin American "apartado" purchasing pattern
 
 DB tickets:
 
 - `DB-401` Create `quotations` and `quotation_items` with validity period, version tracking, margin analysis fields
 - `DB-402` Add `sale_payments` for multi-tender support (each payment has method, amount, reference, status)
-- `DB-403` Create `customer_credit_accounts` with credit limit, balance, aging buckets
+- `DB-403` Create `customer_credit_accounts` with credit limit, balance, aging buckets (current, 30, 60, 90 days)
 - `DB-404` Create `gift_cards` and `store_credits` with balance tracking
-- `DB-405` Create `payment_installments` for layaway/installment schedules
+- `DB-405` Create `layaway_orders` and `layaway_payments` (customer_id, items JSON, total, deposit, payment_schedule JSON [dates+amounts], status [active, completed, cancelled, forfeited], forfeiture_policy_pct, inventory_reservation flag)
+- `DB-406` Create `special_orders` (customer_id, product_id, description, deposit_amount, deposit_paid, estimated_arrival, provider_id, status [pending, ordered, arrived, notified, delivered, cancelled])
+- `DB-407` Create `service_tickets` (customer_id, device_description, serial_number, problem, status [received, diagnosing, awaiting_parts, in_repair, ready, delivered, cancelled], assigned_to, parts_used JSON, labor_charge, estimated_completion)
+- `DB-408` Add fiscal regime fields to `companies` table: `fiscal_regime` (enum: responsable_iva, no_responsable_iva, regimen_simple, gran_contribuyente), `autorretenedor` (boolean), `agente_retencion` (boolean)
 
 tRPC tickets:
 
@@ -1023,7 +1662,10 @@ tRPC tickets:
 - `API-403` On-account sales: credit check, balance update, aging report
 - `API-404` Gift card issue/activate/redeem/balance-check
 - `API-405` Store credit issue/redeem on return or standalone
-- `API-406` Layaway/installment: create schedule, record payments, handle early payoff
+- `API-406` Layaway/apartado: create layaway order with deposit + payment schedule, record installment payments, reserve inventory (available but not sellable), convert to final sale on full payment, handle cancellation with configurable forfeiture policy
+- `API-407` Special orders: create with deposit, link to PO when ordered from provider, notify customer on arrival, convert to sale on delivery
+- `API-408` Service tickets: full status workflow (received → diagnosing → awaiting_parts → in_repair → ready → delivered), parts consumption from inventory, labor charge calculation, customer notification triggers
+- `API-409` Company fiscal regime: affect tax calculation behavior based on regime (responsable_iva charges IVA, no_responsable does not; gran_contribuyente has special withholding rules; autorretenedor self-withholds)
 
 UI tickets:
 
@@ -1033,6 +1675,10 @@ UI tickets:
 - `UI-404` Gift card issuance, lookup, and redemption in checkout
 - `UI-405` Store credit balance display and application in checkout
 - `UI-406` Quotation follow-up reminders and win/loss tracking
+- `UI-407` Layaway/apartado management: create layaway, view payment schedule, record installment, cancel with forfeiture
+- `UI-408` Special order tracking: create, link to PO, mark arrived, notify customer
+- `UI-409` Service ticket management: intake form, status board, parts usage, customer notification
+- `UI-410` Company fiscal regime settings page
 
 Test tickets:
 
@@ -1041,6 +1687,57 @@ Test tickets:
 - `TEST-403` On-account sale fails when exceeding credit limit
 - `TEST-404` Gift card redemption reduces balance correctly
 - `TEST-405` Return to store credit creates credit entry
+- `TEST-406` Layaway reserves inventory (not sellable to others)
+- `TEST-407` Layaway cancellation applies forfeiture percentage correctly
+- `TEST-408` Layaway full payment converts to completed sale
+- `TEST-409` Service ticket parts consumption decrements inventory
+- `TEST-410` Company fiscal regime correctly affects IVA charging behavior
+
+#### Phase 5 Extension: Credit Sales (Ventas a Crédito) and Abonos
+
+Goal:
+- support the deeply embedded LatAm commercial practice of selling on credit with installment schedules and partial payment posting
+
+DB tickets:
+
+- `DB-409` Create `company_credit_settings` (company_id FK nullable, site_id FK nullable, credit_sales_enabled boolean, min_downpayment_pct integer 0–100 default 0, max_credit_days integer, max_installments integer, interest_rate_monthly_pct decimal default 0, mora_rate_daily_pct decimal default 0, require_approval_above_amount decimal, max_credit_per_customer decimal, grace_period_days integer default 3, allow_abono_any_amount boolean default true, require_customer_id boolean default true — resolution order: site > company > tenant default)
+- `DB-410` Create `credit_sales` (id, sale_id FK, customer_id FK non-nullable, total_amount, downpayment_amount, outstanding_balance, interest_total, status [active | partially_paid | fully_paid | overdue | written_off | cancelled], approved_by FK users nullable, installment_count, first_due_date, created_at, notes)
+- `DB-411` Create `credit_installments` (id, credit_sale_id FK, installment_number, due_date, principal_amount, interest_amount, total_amount, outstanding_amount, status [pending | partially_paid | paid | overdue | waived], paid_at nullable)
+- `DB-412` Create `credit_payments` (id — represents an "abono", credit_sale_id FK, amount, payment_method, reference nullable, received_by FK users, received_at, notes, applied_installments_json — [{installment_id, amount_applied}])
+
+tRPC tickets:
+
+- `API-410` `creditSettings.get` / `.upsert` — fetch and configure credit settings for company/site; resolve the most-specific applicable config for a given sale context
+- `API-411` `creditSales.create` — create a credit sale linked to a completed sale; validate: customer has account, downpayment >= min_downpayment_pct, outstanding balance <= max_credit_per_customer, approve or require manager approval above threshold; generate installment schedule (principal + interest per installment); Colombia: validate that a factura electrónica is generated (not DEE)
+- `API-412` `creditSales.list` — list credit sales with filter by status, customer, date range, site; include outstanding balance and days overdue
+- `API-413` `creditSales.get` — fetch credit sale with installment schedule and payment history
+- `API-414` `creditSales.abono` (record a credit payment) — post payment amount, apply to installments in chronological order; update `credit_installments.outstanding_amount` and `status`; recompute `credit_sales.outstanding_balance` and `status`; emit `credit_payment_recorded` event for sync
+- `API-415` `creditSales.overdueScan` — scheduled procedure to transition installments past grace period to `overdue` and credit_sales to `overdue`; calculates accrued mora; can be triggered on demand or by a cron job
+- `API-416` `creditSales.writtenOff` — write off uncollectable credit sale (manager role required); moves status to `written_off` and creates accounting event
+- `API-417` `creditSales.aging` — accounts receivable aging report: buckets by current / 30 / 60 / 90 / 90+ days; per customer breakdown and grand total
+
+UI tickets:
+
+- `UI-411` Credit sales settings page (per company/site): enable/disable, configure min downpayment %, max installments, interest rate, approval threshold
+- `UI-412` Checkout extension: when credit is enabled and customer is identified, show "Venta a Crédito" tender option; collect downpayment amount; show projected installment schedule before confirming
+- `UI-413` Credit sale confirmation dialog: show full installment schedule (dates, amounts, total cost of credit), require customer acknowledgment
+- `UI-414` Manager approval dialog: triggered when sale exceeds `require_approval_above_amount`; manager enters PIN or credentials
+- `UI-415` Abono (payment posting) screen: select customer, shows all open credit sales; enter payment amount and method; auto-applies to oldest installments; shows updated balance
+- `UI-416` Credit portfolio management list: all open credit sales across the company, sortable by due date, balance, status; overdue highlighted
+- `UI-417` Customer credit history: within customer detail screen, show all credit sales (open and closed), installment schedule, payment history, outstanding balance
+
+Test tickets:
+
+- `TEST-411` Credit sale creates correct installment schedule (principal + interest per installment, sum equals total)
+- `TEST-412` Downpayment below minimum is rejected
+- `TEST-413` Credit sale exceeding max_credit_per_customer is blocked without manager approval
+- `TEST-414` Abono application distributes correctly to chronologically oldest installments first
+- `TEST-415` Abono that partially pays an installment transitions it to `partially_paid`
+- `TEST-416` Final abono that zeroes outstanding_balance transitions credit_sale to `fully_paid`
+- `TEST-417` Overdue scan transitions installments past grace_period_days to `overdue`
+- `TEST-418` Interest-free credit (0% rate) produces zero interest_total
+- `TEST-419` Colombia credit sale generates factura electrónica (not DEE) via fiscal adapter
+- `TEST-420` Credit settings resolution uses most specific level (site > company > tenant)
 
 ### Phase 6: Product Handling and Advanced Inventory
 
@@ -1345,6 +2042,53 @@ Test tickets:
 - `TEST-1008` Multi-currency conversion accuracy
 - `TEST-1009` API key authentication and rate limiting
 
+#### Phase 11 Extension: Country-Parametrizable Fiscal Rules
+
+Goal:
+- remove all Colombia-hardcoded fiscal logic from application code and replace with a profile-driven system so any country's rules can be configured without code changes
+
+DB tickets:
+
+- `DB-1020` Create `country_fiscal_profiles` (country_code PK ISO alpha-2, name, currency_code ISO 4217, tax_config_json, tip_config_json, electronic_invoicing_config_json, withholding_config_json, regime_types_json, municipal_taxes_json, updated_at)
+- `DB-1021` Seed `country_fiscal_profiles` with "CO" (Colombia) profile: all existing IVA/INC rates, propina Ley 1935/2018 rules, DIAN DEE + factura configuration, retención en la fuente, ICA, all Colombian regime codes — existing behavior is 100% preserved, now driven by profile
+- `DB-1022` Create `company_fiscal_overrides` (company_id FK PK, tax_config_json nullable, tip_config_json nullable, electronic_invoicing_config_json nullable, withholding_config_json nullable, notes — company-level deviations from country defaults, e.g., free-zone companies with tax exemptions)
+- `DB-1023` Alter `fiscal_documents.document_type` to accept profile-defined document type codes (not hardcoded DEE/INVOICE enum), and add `fiscal_adapter_code` column tracking which adapter generated each document
+
+tRPC tickets:
+
+- `API-1020` `fiscalProfiles.list` — list all seeded country fiscal profiles (country_code, name, currency_code)
+- `API-1021` `fiscalProfiles.get` — fetch full profile by country_code including all JSON config
+- `API-1022` `fiscalProfiles.resolve(companyId)` — return the effective profile for a company: merges company_fiscal_overrides on top of country profile; this is the function called by all tax calculation paths
+- `API-1023` `fiscalProfiles.updateOverride` — set company-level fiscal overrides (admin role, audit-logged)
+- `API-1024` Tax engine refactor: replace all Colombia-hardcoded rate lookups with calls to `fiscalProfiles.resolve(companyId).tax_config`; make `computeTax(lineItems, profile)` a pure function; mutual exclusion groups enforced from profile config (not from hardcoded IVA vs INC logic)
+- `API-1025` Tip rules refactor: replace hardcoded Ley 1935/2018 constants with `profile.tip_config`; tip dialog shown only when `tip_rules.enabled = true`; consent text, max %, and exclusion-from-tax-base all read from profile; `distribution_required` flag drives reporting obligation
+- `API-1026` Fiscal adapter factory: `getFiscalAdapter(profile.electronic_invoicing_config.adapter)` returns the correct adapter instance; supported adapter codes: `"dian_colombia"` (existing implementation), `"none"` (no e-invoicing); future adapters (`"sri_ecuador"`, `"sunat_peru"`, `"sii_chile"`) pluggable without touching existing code
+- `API-1027` `sales.create` refactor: resolve profile before document type selection; use `profile.electronic_invoicing_config.pos_document_type` for cash sales and `profile.electronic_invoicing_config.credit_sale_document_type` for credit sales (connects to Phase 5 Extension credit sales)
+- `API-1028` Regime type refactor: `companies.fiscal_regime` values are validated against `profile.regime_types[].code`, not a hardcoded Colombian enum; regime-based tax behavior (charges_vat, withholding_agent) read from profile
+- `API-1029` Add "CO" default fiscal profile seeding to DB bootstrap so that existing deployments work after migration with zero behavior change
+
+UI tickets:
+
+- `UI-1020` Company settings: replace hardcoded Colombian fiscal regime dropdown with profile-driven regime selector (options loaded from resolved profile)
+- `UI-1021` Tax rate selector on products: load available tax types and rates from active fiscal profile, not hardcoded constants
+- `UI-1022` POS tip dialog: render consent text and max % from active profile; hide tip option entirely when `tip_rules.enabled = false`; show distribution notice when `distribution_required = true`
+- `UI-1023` Fiscal profile admin view (superadmin only): list profiles, view full JSON config, create custom profiles for unlisted countries
+- `UI-1024` Company fiscal override editor: allow company admins to see their effective fiscal profile and set overrides (subject to access control)
+
+Test tickets:
+
+- `TEST-1020` Colombia "CO" profile resolves all existing tax rates correctly (IVA 0%/5%/19%, INC 8%)
+- `TEST-1021` `computeTax` with CO profile produces identical results to previous hardcoded implementation for all existing test cases
+- `TEST-1022` Mutual exclusion: IVA and INC on same product line triggers error when both assigned (profile: mutual_exclusion_group = "consumption_tax")
+- `TEST-1023` Tip dialog renders with CO profile (enabled, 10% max, consent required, excluded from tax base)
+- `TEST-1024` Tip dialog is suppressed for a hypothetical country profile with `tip_rules.enabled = false`
+- `TEST-1025` Fiscal adapter factory returns `DianColombiaAdapter` for CO profile
+- `TEST-1026` Fiscal adapter factory returns `NullAdapter` for profile with `adapter = "none"`
+- `TEST-1027` `fiscalProfiles.resolve` merges company_fiscal_overrides on top of country profile correctly
+- `TEST-1028` Colombian regime type "NO_RESPONSABLE_IVA" resolves `charges_vat = false` from profile (not hardcoded)
+- `TEST-1029` Credit sale in CO profile uses `"INVOICE"` document type (not `"DEE"`) per `credit_sale_document_type` config
+- `TEST-1030` Seeded CO profile is present in DB after bootstrap; all existing e2e tests pass without change
+
 ### Phase 12: Restaurant and Service Vertical Modules
 
 Goal:
@@ -1366,9 +2110,12 @@ tRPC tickets:
 - `API-1103` Course firing: hold courses until fired by server
 - `API-1104` Modifier application to sale items with price adjustments
 - `API-1105` Split check: divide a table session into multiple sales
-- `API-1106` Tip management: per-employee, tip pool, tip-out percentage
+- `API-1106` Tip management (Ley 1935/2018 compliant): mandatory consent dialog before finalizing sale, suggested amount ≤ 10%, tip excluded from all tax bases (IVA, INC), tip distribution tracking among ALL service workers, monthly settlement records
 - `API-1107` Appointment CRUD with calendar view and conflict detection
 - `API-1108` Auto-86ing: automatically disable items when ingredient stock hits zero
+- `API-1109` Menu entity with daypart scheduling: create menus with time/day rules, resolve active menu at checkout based on time + channel (dine-in, takeout, delivery), menu-specific pricing overrides per product
+- `API-1110` Combo/set menu engine: define combos with slots (main + side + drink), slot constraints (min/max selections), fixed combo pricing, automatic combo detection at checkout, prix fixe support for "almuerzo ejecutivo"
+- `API-1111` Kitchen printer routing: map products to station printers (grill, bar, cold prep), split order across multiple printers, reprint/void tickets per station
 
 UI tickets:
 
@@ -1377,17 +2124,166 @@ UI tickets:
 - `UI-1103` Kitchen Display System (KDS): order cards with timers, bump bar support
 - `UI-1104` Modifier selection in checkout item detail
 - `UI-1105` Split check dialog with item-level or equal-split options
-- `UI-1106` Tip entry after payment
+- `UI-1106` Tip consent dialog (Ley 1935 compliance): "¿Desea incluir la propina voluntaria?" with Sí (10%) / No / Otro valor buttons. Must appear BEFORE payment is finalized.
 - `UI-1107` Appointment calendar with employee lanes and booking
 - `UI-1108` Service mode checkout with duration and consumables
+- `UI-1109` Menu management: create/edit menus with daypart schedules, assign products with menu-specific prices
+- `UI-1110` Combo builder: define combo slots with product options, set combo price, preview margin
+- `UI-1111` Kitchen printer configuration: map printers to stations, test print per station
 
 Test tickets:
 
 - `TEST-1101` Table session links correctly to sale
 - `TEST-1102` Kitchen order status transitions are valid
 - `TEST-1103` Split check math distributes items correctly
-- `TEST-1104` Tip pool distribution is proportional
+- `TEST-1104` Tip pool distribution is proportional across all service workers
 - `TEST-1105` Appointment conflict detection prevents double-booking
+- `TEST-1106` Tip is excluded from consumption tax (INC 8%) base calculation
+- `TEST-1107` Tip consent flag is mandatory before payment — cannot skip
+- `TEST-1108` Daypart menu auto-activates at configured time
+- `TEST-1109` Combo pricing applies correctly when all slots are filled
+- `TEST-1110` Kitchen printer routing sends correct items to correct station printer
+
+### Phase 13: Pharmacy Vertical Module
+
+Goal:
+- enable legal pharmacy operations in Colombia through regulatory-compliant dispensing, tracking, and reporting
+
+Prerequisites: Phase 0 (module activation, JSON metadata), Phase 6 (lot/batch/expiry, serial tracking), Phase 11 (DIAN fiscal documents)
+
+DB tickets:
+
+- `DB-1201` Create `prescriptions` (patient_id, prescriber_name, prescriber_license, date, diagnosis_cie10, validity_days, status [active, partial, fulfilled, expired])
+- `DB-1202` Create `prescription_items` (prescription_id, product_id, dosage, quantity_authorized, quantity_dispensed, refill_count, refill_remaining)
+- `DB-1203` Create `dispensation_records` (prescription_item_id, sale_item_id, lot_id, quantity, dispensed_by, dispensed_at)
+- `DB-1204` Create `controlled_substance_ledger` (product_id, lot_id, date, type [purchase, dispensation, adjustment, destruction], quantity, running_balance, prescription_id, patient_id, created_by)
+- `DB-1205` Create `fne_reports` (period, status [draft, submitted], submitted_at, file_content)
+- `DB-1206` Create `rips_records` (sale_id, patient_id, eps_id, diagnosis_cie10, copago, cuota_moderadora, items JSON, rips_file_content)
+- `DB-1207` Add pharmacy-specific product fields: `invima_registro_sanitario`, `controlled_schedule` (enum: none, I, II, III, IV), `inn_dci`, `atc_code`, `pharmaceutical_form`, `concentration`, `storage_condition` (enum: room, cold_2_8, frozen_minus20), `max_regulated_price`, `price_regulation_source`
+- `DB-1208` Create `eps_contracts` (eps_id, eps_name, contract_number, copago_rules JSON)
+- `DB-1209` Create `equivalence_groups` (inn_dci, pharmaceutical_form, concentration) for generic substitution
+
+tRPC tickets:
+
+- `API-1201` Prescription CRUD with validity checking, partial dispensing, and refill tracking
+- `API-1202` Controlled substance dispensation with ledger entry and prescription requirement enforcement
+- `API-1203` FNE monthly report generation (Fondo Nacional de Estupefacientes format)
+- `API-1204` RIPS generation per EPS contract (Resolución 3374/2000 format)
+- `API-1205` SISMED price report generation (ATC code + Registro Sanitario + quantities + prices)
+- `API-1206` Regulated price ceiling enforcement at POS (block sale above CNPMDM ceiling)
+- `API-1207` Generic substitution suggestions at POS (lookup by INN/DCI group)
+- `API-1208` Patient medication history lookup by cédula
+- `API-1209` INVIMA recall processing: quarantine lot, identify affected patients, generate notification list
+
+UI tickets:
+
+- `UI-1201` Prescription capture form at POS (prescriber, patient, items, Rx scan/photo)
+- `UI-1202` Controlled substance dispensation flow with ledger confirmation
+- `UI-1203` Patient medication history lookup screen
+- `UI-1204` FNE report generation and submission tracking
+- `UI-1205` RIPS generation per EPS billing period
+- `UI-1206` SISMED report generation
+- `UI-1207` Generic substitution suggestion popup at POS
+- `UI-1208` Regulated price alert/block on product pricing
+- `UI-1209` INVIMA recall management: affected lots, patient notifications
+
+Test tickets:
+
+- `TEST-1201` Controlled substance sale requires valid prescription
+- `TEST-1202` Partial dispensing tracks remaining authorized quantity
+- `TEST-1203` FNE ledger running balance is accurate
+- `TEST-1204` Expired prescription blocks dispensation
+- `TEST-1205` Regulated price ceiling prevents over-pricing
+- `TEST-1206` RIPS file format matches Resolución 3374 specification
+
+### Phase 14: Supermarket Vertical Module
+
+Goal:
+- enable full supermarket operations with weighing, produce management, and perishable workflows
+
+Prerequisites: Phase 0 (module activation), Phase 1 (fractional quantities), Phase 6 (lot/batch/expiry), Phase 7 (promotions)
+
+DB tickets:
+
+- `DB-1301` Create `scale_configurations` (site_id, port, baud_rate, protocol [toledo, cas, mettler, generic], parity, data_bits, stop_bits)
+- `DB-1302` Create `plu_codes` (product_id, plu_number, barcode_prefix, price_embedded, weight_embedded)
+- `DB-1303` Create `departments` (name, code, parent_department_id, margin_target) — supermarket department hierarchy separate from product categories
+- `DB-1304` Create `shrinkage_records` (product_id, department_id, type [theft, damage, spoilage, admin_error, markdown], quantity, value, recorded_by, date)
+- `DB-1305` Create `dsd_receiving` (vendor_id, site_id, items JSON, received_by, verified_by, date, status)
+- `DB-1306` Add product fields for supermarket: `sold_by_weight` flag, `plu_code`, `age_restricted` flag, `age_minimum`, `department_id`, `perishable` flag, `shelf_life_days`
+- `DB-1307` Create `vendor_promotions` (vendor_id, product_id, allowance_amount, promotion_period, rebate_type, status)
+
+tRPC tickets:
+
+- `API-1301` Scale reading service: connect to serial/USB scale, request weight, return value
+- `API-1302` Variable-weight barcode parsing: decode GS1 DataBar embedded price/weight from scanned barcode
+- `API-1303` Age restriction enforcement at POS: prompt for ID verification, log check
+- `API-1304` Department-level P&L reporting: sales, cost, margin, shrinkage by department
+- `API-1305` Shrinkage recording and analysis by type and department
+- `API-1306` DSD receiving workflow: vendor-direct receiving with verification
+- `API-1307` Automated markdown rules for near-expiry perishables
+- `API-1308` Impuesto saludable calculation (sugary drinks, ultra-processed products per Ley 2277/2022)
+
+UI tickets:
+
+- `UI-1301` Scale connection setup and test page
+- `UI-1302` POS: automatic weight reading for products marked `sold_by_weight`
+- `UI-1303` Age verification prompt at POS for restricted products
+- `UI-1304` Department-level reporting dashboard
+- `UI-1305` Shrinkage recording form and trend reports
+- `UI-1306` DSD receiving screen (vendor arrives with product, staff verifies and records)
+- `UI-1307` Perishable markdown management with expiry-based rules
+
+Test tickets:
+
+- `TEST-1301` Variable-weight barcode correctly decodes embedded price/weight
+- `TEST-1302` Age-restricted product blocks sale without verification
+- `TEST-1303` Department shrinkage totals match individual records
+- `TEST-1304` Impuesto saludable applies correct rate by product category
+
+### Phase 15: Hardware Store (Ferretería) Vertical Module
+
+Goal:
+- enable ferretería-specific workflows: fractional selling, unit conversion, project quoting, contractor accounts
+
+Prerequisites: Phase 0 (module activation, JSON metadata), Phase 1 (fractional quantities), Phase 5 (quotations, customer credit)
+
+DB tickets:
+
+- `DB-1401` Create `product_sale_units` (product_id, unit_id, conversion_factor, is_default_sale_unit, barcode) — a product can be sold in multiple units with conversion factors
+- `DB-1402` Create `service_charges` (name, price, unit, description) — cut-to-size, delivery, etc.
+- `DB-1403` Create `project_templates` (name, description, items JSON) — "bathroom remodel kit", "electrical kit"
+- `DB-1404` Add product technical specification fields via JSON metadata: `voltage`, `amperage`, `diameter`, `thread_type`, `material`, `length`, `weight_per_unit`, etc.
+- `DB-1405` Create FTS5 virtual table `products_fts` for full-text product search across name, code, barcode, and technical specs
+
+tRPC tickets:
+
+- `API-1401` Multi-unit product sale: select sale unit → apply conversion factor → calculate price per sale unit
+- `API-1402` In-house barcode generation: auto-generate EAN-13 with internal prefix, link to product
+- `API-1403` Project template management: create/edit templates, apply template to quotation (explode all items)
+- `API-1404` Service charge application to sale lines
+- `API-1405` Partial-use return: return fractional quantity of a product
+- `API-1406` Full-text product search using FTS5: search by name, code, barcode, or technical specs
+- `API-1407` Bulk pricing tier auto-application at POS based on line quantity
+
+UI tickets:
+
+- `UI-1401` Product form: manage multiple sale units with conversion factors
+- `UI-1402` POS: unit selector on sale line (meters, kilos, sheets, etc.)
+- `UI-1403` Barcode generation and label print button on product form
+- `UI-1404` Project template builder (drag products, set quantities)
+- `UI-1405` Quote from project template (customer selects template → pre-filled quote)
+- `UI-1406` Service charge addition at POS (cutting fee, delivery fee)
+- `UI-1407` Enhanced product search with fuzzy matching and technical spec filters
+
+Test tickets:
+
+- `TEST-1401` Unit conversion correctly calculates price per sale unit
+- `TEST-1402` Generated barcode is valid EAN-13 with correct check digit
+- `TEST-1403` Project template explodes all items into quotation
+- `TEST-1404` Bulk pricing applies correct tier based on quantity
+- `TEST-1405` Partial-use return restocks correct fractional quantity
+- `TEST-1406` FTS5 search returns relevant results for technical specs
 
 ## 13. Colombia Payment Ecosystem
 
@@ -1592,33 +2488,67 @@ Key SLAs:
 | iFood/Domicilios (delivery) | Yes | Yes (REST, event-driven) | Medium-High | **P2** |
 | DIAN RUT/RUES (validation) | Via third-party | Yes (REST) | Medium | **P3** |
 
-## 16. Recommended Implementation Order
+## 16. Recommended Implementation Order (Updated for Multi-Vertical Strategy)
 
-If the team wants the highest practical return:
+If the team wants the highest practical return across multiple business types:
 
-1. Phase 0 — architecture foundation and module system
-2. Phase 1 — **cash management and shift control** (highest commercial priority for LatAm)
-3. Phase 2 — site-owned inventory and transfers
-4. Phase 3 — outbound logistics documents
-5. Phase 5 — payment depth and quotations
-6. Phase 7 — loyalty, promotions, and commercial expansion
-7. Phase 4 — transport execution and tracking
-8. Phase 6 — advanced product handling
-9. Phase 8 — employee management and audit trail
-10. Phase 9 — advanced reporting and BI
-11. Phase 10 — hybrid database runtime foundation
-12. Phase 11 — fiscal/accounting/integration depth
-13. Phase 12 — restaurant and service verticals
+1. **Phase 0** — Architecture foundation, module activation system, JSON metadata columns, tax group engine
+2. **Phase 1** — **Cash management and shift control** + fractional quantity support + compound tax (IVA + INC + impuesto saludable)
+3. **Phase 2** — Site-owned inventory and transfers
+4. **Phase 5** — Payment depth, quotations, and customer credit accounts (unlocks ferretería + B2B)
+5. **Phase 6** — Advanced product handling: lot/batch/expiry, variants, serial numbers, bundles/BOM (unlocks pharmacy + supermarket + electronics + restaurant)
+6. **Phase 7** — Loyalty, promotions, and commercial expansion
+7. **Phase 3** — Outbound logistics documents
+8. **Phase 11** — Fiscal localization (DIAN), Colombian tax depth (retención, rete-IVA, rete-ICA, documento soporte)
+9. **Phase 4** — Transport execution and tracking
+10. **Phase 8** — Employee management and audit trail
+11. **Phase 9** — Advanced reporting and BI
+12. **Phase 12** — Restaurant and service vertical modules (tables, KDS, modifiers, appointments)
+13. **Phase 10** — Hybrid database runtime
+14. **Phase 13 (NEW)** — Pharmacy vertical module (Rx, controlled substances, RIPS, SISMED)
+15. **Phase 14 (NEW)** — Supermarket vertical module (weighing scale, PLU, DSD, perishable workflows)
+16. **Phase 15 (NEW)** — Hardware store vertical module (unit conversion, project quoting, product specs search)
 
-Why this order:
+### Why this order changed from the previous plan:
 
-- cash management is the most visible gap for Colombian/LatAm retail — every competitor has it
-- logistics without believable stock ownership is dangerous
-- payment depth and quotations unlock B2B and higher-ticket sales
-- loyalty/promotions are a market expectation that drives retention
-- hybrid runtime without repository boundaries will create expensive rewrites
-- transport and tracking become much easier once fulfillment documents exist
-- restaurant/service verticals are optional modules that expand addressable market
+- **Phase 0 now includes module activation and tax groups** — these are prerequisites for ANY vertical. Without compound tax, restaurants and supermarkets cannot operate legally in Colombia. Without module activation, every vertical-specific feature is a hardcoded if/else.
+- **Phase 1 now includes fractional quantities** — this is critical for both ferreterías (by the meter) and supermarkets (by weight). It touches the same checkout flow as cash management.
+- **Phase 5 moved up** — customer credit accounts (30/60/90 days) are essential for ferreterías and B2B. Quotations enable project-based selling for hardware stores.
+- **Phase 6 moved up** — lot/batch/expiry is legally required for pharmacies, critical for supermarkets, and needed for restaurant recipe costing. This is the gateway to all regulated verticals.
+- **Phase 11 moved up** — Colombian fiscal compliance (retención, rete-IVA, documento soporte) blocks legal operation for B2B transactions. Without this, ferreterías cannot sell to contractors properly.
+- **Phase 12 stays** — restaurant features are optional modules, not blocking for other verticals.
+- **Phases 13-15 are new** — these are vertical-specific modules that COMPOSE capabilities built in earlier phases. They are mostly configuration + specialized UI + regulatory reporting, not new platform capabilities.
+
+### Implementation Dependency Chain:
+
+The following dependency chain must be respected across phases — building out of order creates rework:
+
+0. **Fractional quantity migration** (Phase 1, DB-050) → `integer` to `real` across stock/quantity fields. Blocks ferretería, supermarket, and any weight-based selling. Must be the first schema migration.
+1. **Company fiscal regime fields** (Phase 5, DB-408) → must exist before withholding tax engine
+2. **Tax groups / compound tax** (Phase 0, DB-007-009) → must exist before any vertical-specific tax (INC 8%, impuesto saludable)
+3. **Withholding tax engine** (retención + rete-IVA + rete-ICA) (Phase 11) → depends on company regime + tax groups
+4. **Facturación electrónica** (Phase 11) → depends on correct tax calculations including withholdings
+5. **Product variants** (Phase 6, DB-501) → must exist before fashion/apparel vertical works
+6. **Serial number tracking** (Phase 6, DB-502) → depends on variant infrastructure (serials are per-variant, not per-parent)
+7. **Lot/batch/expiry** (Phase 6, DB-503) → prerequisite for pharmacy and supermarket verticals
+8. **Layaway/apartado** (Phase 5, DB-405) → requires payment scheduling infrastructure that also benefits installments and deposits
+9. **Customer credit accounts** (Phase 5, DB-403) → prerequisite for ferretería and B2B verticals
+10. **Loyalty program** (Phase 7) → independent but should work with customer model and variant model
+11. **Service tickets** (Phase 5, DB-407) → standalone but benefits from serial tracking for electronics
+12. **Appointment scheduling** (Phase 12) → standalone module serving pet grooming, optical, jewelry
+
+### Multi-Vertical Activation Strategy:
+
+| After Phase... | Verticals Unlocked |
+| --- | --- |
+| Phase 1 | Generic retail, tiendas |
+| Phase 5 | Ferreterías (credit + quoting), B2B retail |
+| Phase 6 | Pharmacies (basic — lot/expiry), supermarkets (basic — perishables), electronics (serials), fashion (variants) |
+| Phase 11 | All Colombian businesses (full fiscal compliance) |
+| Phase 12 | Restaurants, food service, service businesses |
+| Phase 13 | Pharmacies (full — Rx, controlled, RIPS, SISMED) |
+| Phase 14 | Supermarkets (full — scales, PLU, DSD) |
+| Phase 15 | Hardware stores (full — unit conversion, project quoting, specs search) |
 
 ## 17. Immediate Documentation Updates Needed
 
@@ -1633,6 +2563,10 @@ These docs should exist after the first implementation phases:
 - `docs/DOMAIN_GLOSSARY.md`
 - `docs/PROMOTION_ENGINE_DESIGN.md`
 - `docs/REPORTING_KPI_DEFINITIONS.md`
+- `docs/MULTI_VERTICAL_MODULE_GUIDE.md` — how to activate, configure, and extend vertical modules
+- `docs/PHARMACY_REGULATORY_GUIDE.md` — INVIMA, controlled substances, RIPS, SISMED, FNE compliance
+- `docs/COLOMBIAN_TAX_ENGINE.md` — IVA, INC, impuesto saludable, retención, rete-IVA, rete-ICA, bolsa plástica
+- `docs/VERTICAL_PRODUCT_METADATA_SCHEMA.md` — JSON metadata column schemas per vertical
 
 ## 18. Sources
 
