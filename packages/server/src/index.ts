@@ -88,6 +88,12 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
           // Use basic logging instead
         }
       : false,
+    // tRPC batch URLs encode comma-separated procedure names as a single route param.
+    // The default limit (100) is too short for multi-procedure batches on this router.
+    // Use routerOptions per Fastify v5 API (top-level maxParamLength is deprecated).
+    routerOptions: {
+      maxParamLength: 1024,
+    },
   });
 
   // Register CORS
