@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Category } from '@/types';
 
@@ -51,6 +52,7 @@ export function CategoryFormModal({
   onClose,
   onSubmit,
 }: CategoryFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<CategoryFormValues>({
     defaultValues: mapCategoryToForm(category),
   });
@@ -62,14 +64,14 @@ export function CategoryFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Category' : 'Edit Category'}
+      title={isCreate ? t('categories.form.createTitle') : t('categories.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('categories.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Category' : 'Save Changes'}
+            {isSaving ? t('categories.form.submitting') : isCreate ? t('categories.form.create') : t('categories.form.save')}
           </ModalButton>
         </>
       }
@@ -77,12 +79,12 @@ export function CategoryFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="category-name" className="label">
-            Category Name
+            {t('categories.form.fields.name')}
           </label>
           <input
             id="category-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Category name is required' })}
+            {...form.register('name', { required: t('categories.form.fields.nameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -91,10 +93,10 @@ export function CategoryFormModal({
 
         <div>
           <label htmlFor="category-parent" className="label">
-            Parent Category
+            {t('categories.form.fields.parentCategory')}
           </label>
           <select id="category-parent" className="input mt-1" {...form.register('parentId')}>
-            <option value="">No parent</option>
+            <option value="">{t('categories.form.fields.noParent')}</option>
             {parentOptions.map(option => (
               <option key={option.id} value={option.id}>
                 {`${'  '.repeat(option.depth)}${option.name}`}
@@ -105,7 +107,7 @@ export function CategoryFormModal({
 
         <div>
           <label htmlFor="category-description" className="label">
-            Description
+            {t('categories.form.fields.description')}
           </label>
           <textarea
             id="category-description"

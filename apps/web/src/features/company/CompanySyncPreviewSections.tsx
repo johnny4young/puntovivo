@@ -1,4 +1,5 @@
 import { AlertTriangle, GitMerge } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { PendingResolution } from '@/features/company/CompanySyncConflictModal';
 import { formatDateTime } from '@/lib/utils';
 
@@ -30,20 +31,21 @@ export function CompanySyncQueuePreview({
   isLoading,
   items,
 }: CompanySyncQueuePreviewProps) {
+  const { t } = useTranslation('settings');
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-secondary-900">Pending Queue</h3>
+        <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.queue.title')}</h3>
         <p className="mt-1 text-sm text-secondary-500">
-          Most recent queued operations waiting to be acknowledged as synced.
+          {t('company.sync.queue.description')}
         </p>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-secondary-500">Loading queued operations...</p>
+        <p className="text-sm text-secondary-500">{t('company.sync.queue.loading')}</p>
       ) : items.length === 0 ? (
         <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          No queued operations are pending.
+          {t('company.sync.queue.empty')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -57,11 +59,11 @@ export function CompanySyncQueuePreview({
                   {item.operation}
                 </span>
               </div>
-              <p className="mt-3 text-sm text-secondary-700">Entity ID: {item.entityId}</p>
-              <p className="mt-1 text-xs text-secondary-500">Queued {formatDateTime(item.createdAt)}</p>
+              <p className="mt-3 text-sm text-secondary-700">{t('company.sync.queue.entityId', { id: item.entityId })}</p>
+              <p className="mt-1 text-xs text-secondary-500">{t('company.sync.queue.queued', { date: formatDateTime(item.createdAt) })}</p>
               {(item.attempts ?? 0) > 0 && (
                 <p className="mt-2 text-xs font-medium uppercase tracking-wide text-warning-700">
-                  Retry attempt {item.attempts}
+                  {t('company.sync.queue.retryAttempt', { count: item.attempts })}
                 </p>
               )}
               {item.lastError && <p className="mt-2 text-sm text-danger-600">{item.lastError}</p>}
@@ -86,20 +88,21 @@ export function CompanySyncConflictPreview({
   isResolving,
   onOpenResolution,
 }: CompanySyncConflictPreviewProps) {
+  const { t } = useTranslation('settings');
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-secondary-900">Conflicts</h3>
+        <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.title')}</h3>
         <p className="mt-1 text-sm text-secondary-500">
-          Conflicts stop automatic sync for the affected entity until someone resolves them.
+          {t('company.sync.conflict.description')}
         </p>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-secondary-500">Loading conflicts...</p>
+        <p className="text-sm text-secondary-500">{t('company.sync.conflict.loading')}</p>
       ) : conflicts.length === 0 ? (
         <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          No sync conflicts need review.
+          {t('company.sync.conflict.empty')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -116,7 +119,7 @@ export function CompanySyncConflictPreview({
                       {conflict.entityType} · {conflict.entityId}
                     </p>
                     <p className="text-xs text-secondary-500">
-                      Created {formatDateTime(conflict.createdAt)}
+                      {t('company.sync.conflict.created', { date: formatDateTime(conflict.createdAt) })}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -135,7 +138,7 @@ export function CompanySyncConflictPreview({
                         })
                       }
                     >
-                      Keep Local
+                      {t('company.sync.conflict.keepLocal')}
                     </button>
                     <button
                       type="button"
@@ -152,7 +155,7 @@ export function CompanySyncConflictPreview({
                         })
                       }
                     >
-                      Accept Remote
+                      {t('company.sync.conflict.acceptRemote')}
                     </button>
                     <button
                       type="button"
@@ -170,7 +173,7 @@ export function CompanySyncConflictPreview({
                       }
                     >
                       <GitMerge className="h-4 w-4" />
-                      Merge
+                      {t('company.sync.conflict.merge')}
                     </button>
                   </div>
                 </div>

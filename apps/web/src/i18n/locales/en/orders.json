@@ -1,0 +1,73 @@
+{
+  "page": {
+    "title": "Purchase Orders",
+    "description": "Prepare supplier orders, track staged deliveries, and receive arrived stock in batches when needed.",
+    "activeSite": "Active site",
+    "noSite": "No site selected",
+    "noSiteWarning": "Select an active site before creating a purchase order so the correct sequential is used.",
+    "openOrders": "Open Orders",
+    "committedSpend": "Committed Spend",
+    "providersUsed": "Providers Used",
+    "draftTotal": "Draft Total"
+  },
+  "checkout": {
+    "kicker": "Current Request",
+    "description": "Adjust ordered quantities and supplier costs before sending the order.",
+    "addProduct": "Add Product",
+    "clear": "Clear",
+    "createOrder": "Create Order",
+    "finalizeTitle": "Finalize",
+    "finalizeDescription": "Review provider, site, and committed total before saving.",
+    "search": "Search",
+    "items": "Items",
+    "baseUnits": "Base units requested",
+    "total": "Total",
+    "requestingSite": "Requesting site",
+    "stockNote": "Purchase orders reserve the document number and provider request details, but they do not update stock until an actual purchase is registered."
+  },
+  "dialog": {
+    "addProduct": "Add Product to Purchase Order",
+    "addButton": "Add to order"
+  },
+  "toast": {
+    "success": "Purchase order created",
+    "successDetail": "is ready for supplier follow-up",
+    "error": "Unable to create purchase order"
+  },
+  "cart": {
+    "empty": "Search and add products to start a purchase order.",
+    "product": "Product",
+    "qty": "Qty",
+    "costPerUnit": "Cost / Unit",
+    "baseUnits": "Base Units",
+    "lineTotal": "Line Total",
+    "currentStock": "Current stock {{count}}",
+    "removeItem": "Remove {{name}}"
+  },
+  "table": {
+    "orderNumber": "Order #",
+    "date": "Date",
+    "provider": "Provider",
+    "site": "Site",
+    "status": "Status",
+    "receipts": "Receipts",
+    "total": "Total",
+    "actions": "Actions",
+    "noReceipts": "No receipts yet",
+    "receiptCount_one": "{{count}} receipt",
+    "receiptCount_other": "{{count}} receipts",
+    "latestReceipt": "Latest {{number}}",
+    "searchPlaceholder": "Search by order number...",
+    "loading": "Loading purchase orders...",
+    "loadError": "Unable to load purchase orders",
+    "receive": "Receive",
+    "viewOrder": "View {{number}}",
+    "viewOrderTitle": "View order"
+  },
+  "status": {
+    "submitted": "Submitted",
+    "partial_received": "Partial received",
+    "received": "Received",
+    "voided": "Voided"
+  }
+}

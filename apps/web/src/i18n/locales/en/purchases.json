@@ -1,0 +1,78 @@
+{
+  "page": {
+    "title": "Purchases",
+    "description": "Register inbound stock, review purchase history, return received stock, and void completed purchases when required.",
+    "activeSite": "Active site",
+    "noSite": "No site selected",
+    "noSiteWarning": "Select an active site before registering a purchase so the correct sequential is used.",
+    "completed": "Completed Purchases",
+    "recentSpend": "Recent Spend",
+    "providersUsed": "Providers Used",
+    "draftTotal": "Draft Total"
+  },
+  "checkout": {
+    "kicker": "Current Purchase",
+    "description": "Adjust received quantities and costs before updating stock.",
+    "addProduct": "Add Product",
+    "clear": "Clear",
+    "register": "Register Purchase",
+    "finalizeTitle": "Finalize",
+    "finalizeDescription": "Review stock impact and provider registration before saving.",
+    "search": "Search",
+    "items": "Items",
+    "baseUnits": "Base units added",
+    "total": "Total",
+    "receivingSite": "Receiving site",
+    "stockNote": "Purchase costs update product cost history and increase stock using the selected unit equivalence.",
+    "empty": "Search and add products to start a purchase order."
+  },
+  "cart": {
+    "product": "Product",
+    "qty": "Qty",
+    "costPerUnit": "Cost / Unit",
+    "baseUnits": "Base Units",
+    "lineTotal": "Line Total",
+    "currentStock": "Current stock {{count}}",
+    "removeItem": "Remove {{name}}"
+  },
+  "dialog": {
+    "addProduct": "Add Product to Purchase",
+    "addButton": "Add to purchase"
+  },
+  "toast": {
+    "success": "Purchase registered",
+    "successDetail": "item(s) added to stock",
+    "error": "Unable to register purchase"
+  },
+  "table": {
+    "purchaseNumber": "Purchase #",
+    "date": "Date",
+    "provider": "Provider",
+    "site": "Site",
+    "status": "Status",
+    "returns": "Returns",
+    "total": "Total",
+    "actions": "Actions",
+    "fullyReturned": "Fully returned",
+    "reversed": "{{amount}} reversed",
+    "by": "By {{name}}",
+    "latest": "Latest {{date}}",
+    "returnCount_one": "{{count}} return",
+    "returnCount_other": "{{count}} returns",
+    "open": "Open",
+    "searchPlaceholder": "Search by purchase number...",
+    "loading": "Loading purchases...",
+    "loadError": "Unable to load purchases",
+    "returnItems": "Return items for {{number}}",
+    "returnItemsTitle": "Return items",
+    "viewPurchase": "View {{number}}",
+    "viewPurchaseTitle": "View purchase",
+    "exportTitle": "Purchase History"
+  },
+  "status": {
+    "completed": "Completed",
+    "partial_returned": "Partial returned",
+    "returned": "Returned",
+    "voided": "Voided"
+  }
+}

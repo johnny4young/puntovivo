@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { KeyRound, Pencil, Plus, UserRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
@@ -10,7 +11,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getPasswordRequirementMessage } from '@/features/auth/passwordPolicy';
+import { getPasswordRequirementMessage, type PasswordRequirementKey } from '@/features/auth/passwordPolicy';
 import { getErrorMessage } from '@/lib/utils';
 
 interface UserFormValues {
@@ -60,9 +61,11 @@ function UserFormModal({
   onClose,
   onSubmit,
 }: UserFormModalProps) {
+  const { t } = useTranslation(['settings', 'common']);
   const form = useForm<UserFormValues>({
     defaultValues: mapUserToForm(user),
   });
+  const translatePasswordRequirement = (key: PasswordRequirementKey) => t(`common:passwordPolicy.${key}`);
 
   const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !user;
@@ -71,14 +74,14 @@ function UserFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create User' : 'Edit User'}
+      title={isCreate ? t('users.form.createTitle') : t('users.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('users.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create User' : 'Save Changes'}
+            {isSaving ? t('users.form.submitting') : isCreate ? t('users.form.create') : t('users.form.save')}
           </ModalButton>
         </>
       }
@@ -86,36 +89,36 @@ function UserFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="user-name" className="label">
-            Name
+            {t('users.form.name')}
           </label>
           <input
             id="user-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Name is required' })}
+            {...form.register('name', { required: t('users.form.nameRequired') })}
           />
         </div>
 
         <div>
           <label htmlFor="user-email" className="label">
-            Email
+            {t('users.form.email')}
           </label>
           <input
             id="user-email"
             type="email"
             className="input mt-1"
-            {...form.register('email', { required: 'Email is required' })}
+            {...form.register('email', { required: t('users.form.emailRequired') })}
           />
         </div>
 
         <div>
           <label htmlFor="user-role" className="label">
-            Role
+            {t('users.form.role')}
           </label>
           <select id="user-role" className="input mt-1" {...form.register('role')}>
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-            <option value="cashier">Cashier</option>
-            <option value="viewer">Viewer</option>
+            <option value="admin">{t('users.roles.admin')}</option>
+            <option value="manager">{t('users.roles.manager')}</option>
+            <option value="cashier">{t('users.roles.cashier')}</option>
+            <option value="viewer">{t('users.roles.viewer')}</option>
           </select>
         </div>
 
@@ -125,21 +128,21 @@ function UserFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          User is active
+          {t('users.form.isActive')}
         </label>
 
         {isCreate && (
           <div>
             <label htmlFor="user-password" className="label">
-              Initial Password
+              {t('users.form.initialPassword')}
             </label>
             <input
               id="user-password"
               type="password"
               className="input mt-1"
               {...form.register('password', {
-                required: 'Password is required',
-                validate: value => getPasswordRequirementMessage(value) ?? true,
+                required: t('users.form.passwordRequired'),
+                validate: value => getPasswordRequirementMessage(value, translatePasswordRequirement) ?? true,
               })}
             />
             {form.formState.errors.password && (
@@ -171,9 +174,11 @@ function ResetPasswordModal({
   onClose,
   onSubmit,
 }: ResetPasswordModalProps) {
+  const { t } = useTranslation(['settings', 'common']);
   const form = useForm<{ password: string }>({
     defaultValues: { password: '' },
   });
+  const translatePasswordRequirement = (key: PasswordRequirementKey) => t(`common:passwordPolicy.${key}`);
 
   const handleSubmit = form.handleSubmit(async values => {
     await onSubmit(values.password);
@@ -183,33 +188,33 @@ function ResetPasswordModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Reset Password"
+      title={t('users.resetPassword.title')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('users.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Resetting...' : 'Reset Password'}
+            {isSaving ? t('users.form.submitting') : t('users.resetPassword.submit')}
           </ModalButton>
         </>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <p className="text-sm text-secondary-600">
-          Set a new temporary password for {user?.name ?? 'this user'}.
+          {t('users.resetPassword.description')} {user?.name ?? t('users.resetPassword.fallbackUser')}.
         </p>
         <div>
           <label htmlFor="reset-password" className="label">
-            New Password
+            {t('users.resetPassword.newPassword')}
           </label>
           <input
             id="reset-password"
             type="password"
             className="input mt-1"
             {...form.register('password', {
-              required: 'Password is required',
-              validate: value => getPasswordRequirementMessage(value) ?? true,
+              required: t('users.form.passwordRequired'),
+              validate: value => getPasswordRequirementMessage(value, translatePasswordRequirement) ?? true,
             })}
           />
           {form.formState.errors.password && (
@@ -227,6 +232,7 @@ function canManageUsers(role: UserRole | undefined): boolean {
 }
 
 export function UsersPage() {
+  const { t } = useTranslation('settings');
   const { user: currentUser, logout } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -245,12 +251,12 @@ export function UsersPage() {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
       setEditingUser(null);
-      toast.success({ title: 'User created' });
+      toast.success({ title: t('users.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create user',
-        description: getErrorMessage(error, 'Unable to create user'),
+        title: t('users.toast.createError'),
+        description: getErrorMessage(error, t('users.toast.createError')),
       });
     },
   });
@@ -268,19 +274,19 @@ export function UsersPage() {
 
       if (updatedOwnClaims) {
         toast.success({
-          title: 'User updated',
-          description: 'Your account claims changed. Please sign in again.',
+          title: t('users.toast.updated'),
+          description: t('users.toast.claimsChanged'),
         });
         await logout();
         return;
       }
 
-      toast.success({ title: 'User updated' });
+      toast.success({ title: t('users.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update user',
-        description: getErrorMessage(error, 'Unable to update user'),
+        title: t('users.toast.updateError'),
+        description: getErrorMessage(error, t('users.toast.updateError')),
       });
     },
   });
@@ -291,19 +297,19 @@ export function UsersPage() {
 
       if (variables.id === currentUser?.id) {
         toast.success({
-          title: 'Password reset',
-          description: 'Your password changed. Please sign in again.',
+          title: t('users.toast.passwordReset'),
+          description: t('users.toast.passwordChanged'),
         });
         await logout();
         return;
       }
 
-      toast.success({ title: 'Password reset' });
+      toast.success({ title: t('users.toast.passwordReset') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to reset password',
-        description: getErrorMessage(error, 'Unable to reset password'),
+        title: t('users.toast.updateError'),
+        description: getErrorMessage(error, t('users.toast.updateError')),
       });
     },
   });
@@ -311,7 +317,7 @@ export function UsersPage() {
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: 'name',
-      header: 'User',
+      header: t('users.columns.user'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -327,17 +333,17 @@ export function UsersPage() {
     },
     {
       accessorKey: 'role',
-      header: 'Role',
+      header: t('users.columns.role'),
       size: 120,
       cell: ({ row }) => <span className="capitalize">{row.original.role}</span>,
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('users.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('users.columns.active') : t('users.columns.inactive')}
         </span>
       ),
     },
@@ -393,13 +399,13 @@ export function UsersPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Users</h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('users.title')}</h1>
           <p className="mt-1 text-sm text-secondary-500">
-            Create staff accounts, assign roles, and reset passwords.
+            {t('users.description')}
           </p>
         </div>
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Only administrators can access user management.
+          {t('users.permissionNote')}
         </div>
       </div>
     );
@@ -409,9 +415,9 @@ export function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Users</h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('users.title')}</h1>
           <p className="mt-1 text-sm text-secondary-500">
-            Create staff accounts, assign roles, and reset passwords.
+            {t('users.description')}
           </p>
         </div>
         <button
@@ -423,15 +429,15 @@ export function UsersPage() {
           disabled={!canManage}
         >
           <Plus className="h-5 w-5" />
-          Add User
+          {t('users.add')}
         </button>
       </div>
 
       <div className="card p-6">
-        {usersQuery.isLoading && <TableLoadingState message="Loading users..." />}
+        {usersQuery.isLoading && <TableLoadingState message={t('users.loading')} />}
         {usersQuery.error && (
           <TableErrorState
-            title="Unable to load users"
+            title={t('users.error')}
             message={usersQuery.error.message}
             onRetry={() => {
               void usersQuery.refetch();
@@ -443,7 +449,7 @@ export function UsersPage() {
             columns={columns}
             data={users}
             searchKey="name"
-            searchPlaceholder="Search users..."
+            searchPlaceholder={t('users.search')}
             pageSize={10}
           />
         )}

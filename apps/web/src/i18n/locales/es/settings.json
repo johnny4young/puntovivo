@@ -1,0 +1,743 @@
+{
+  "providers": {
+    "title": "Proveedores",
+    "description": "Gestiona proveedores, contactos, asignaciones de ciudad y cobertura de categorías.",
+    "add": "Agregar proveedor",
+    "loading": "Cargando proveedores...",
+    "error": "No se pudieron cargar los proveedores",
+    "search": "Buscar proveedores...",
+    "columns": {
+      "name": "Nombre",
+      "contact": "Contacto",
+      "taxId": "NIT / RUT",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "city": "Ciudad",
+      "status": "Estado"
+    },
+    "form": {
+      "createTitle": "Crear proveedor",
+      "editTitle": "Editar proveedor",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear proveedor",
+      "save": "Guardar cambios",
+      "fields": {
+        "name": "Nombre del proveedor",
+        "nameRequired": "El nombre del proveedor es obligatorio",
+        "contactName": "Nombre del contacto",
+        "taxId": "NIT / RUT",
+        "phone": "Teléfono",
+        "email": "Correo electrónico",
+        "emailInvalid": "Dirección de correo inválida",
+        "city": "Ciudad",
+        "noCity": "Sin ciudad asignada",
+        "address": "Dirección",
+        "isActive": "Proveedor activo"
+      }
+    },
+    "categories": {
+      "manage": "Gestionar categorías para",
+      "title": "Gestionar categorías del proveedor",
+      "loading": "Cargando categorías del proveedor...",
+      "error": "No se pudieron cargar las categorías del proveedor",
+      "hint": "Selecciona las categorías de productos que este proveedor suministra habitualmente.",
+      "search": "Buscar categorías",
+      "searchPlaceholder": "Buscar por nombre de categoría",
+      "noMatch": "No se encontraron categorías coincidentes.",
+      "topLevel": "Categoría raíz",
+      "nested": "Categoría anidada",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "save": "Guardar asignaciones"
+    },
+    "delete": {
+      "title": "Eliminar proveedor",
+      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero."
+    },
+    "toast": {
+      "created": "Proveedor creado",
+      "createError": "No se pudo crear el proveedor",
+      "updated": "Proveedor actualizado",
+      "updateError": "No se pudo actualizar el proveedor",
+      "deleted": "Proveedor eliminado",
+      "deleteError": "No se pudo eliminar el proveedor"
+    }
+  },
+  "categories": {
+    "title": "Categorías",
+    "description": "Gestiona la jerarquía de categorías de productos usada en el catálogo y reportes.",
+    "add": "Agregar categoría",
+    "loading": "Cargando categorías...",
+    "error": "No se pudieron cargar las categorías",
+    "search": "Buscar categorías...",
+    "columns": {
+      "category": "Categoría",
+      "description": "Descripción",
+      "level": "Nivel",
+      "topLevel": "Categoría raíz",
+      "leaf": "Categoría hoja",
+      "children_one": "{{count}} subcategoría",
+      "children_other": "{{count}} subcategorías"
+    },
+    "form": {
+      "createTitle": "Crear categoría",
+      "editTitle": "Editar categoría",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear categoría",
+      "save": "Guardar cambios",
+      "fields": {
+        "name": "Nombre de la categoría",
+        "nameRequired": "El nombre de la categoría es obligatorio",
+        "parentCategory": "Categoría padre",
+        "noParent": "Sin categoría padre",
+        "description": "Descripción"
+      }
+    },
+    "delete": {
+      "title": "Eliminar categoría",
+      "description": "¿Estás seguro de que deseas eliminar esta categoría?"
+    },
+    "toast": {
+      "created": "Categoría creada",
+      "createError": "No se pudo crear la categoría",
+      "updated": "Categoría actualizada",
+      "updateError": "No se pudo actualizar la categoría",
+      "deleted": "Categoría eliminada",
+      "deleteError": "No se pudo eliminar la categoría"
+    }
+  },
+  "locations": {
+    "title": "Ubicaciones",
+    "description": "Gestiona ubicaciones de bodega y estantes usadas por el catálogo de productos.",
+    "add": "Agregar ubicación",
+    "loading": "Cargando ubicaciones...",
+    "error": "No se pudieron cargar las ubicaciones",
+    "search": "Buscar ubicaciones...",
+    "permissionNote": "Solo los administradores pueden modificar ubicaciones. Puedes revisar el catálogo.",
+    "columns": {
+      "location": "Ubicación",
+      "description": "Descripción",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "form": {
+      "createTitle": "Crear ubicación",
+      "editTitle": "Editar ubicación",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear ubicación",
+      "save": "Guardar cambios",
+      "fields": {
+        "code": "Código",
+        "codeRequired": "El código de ubicación es obligatorio",
+        "name": "Nombre",
+        "nameRequired": "El nombre de ubicación es obligatorio",
+        "description": "Descripción",
+        "isActive": "Ubicación activa"
+      }
+    },
+    "delete": {
+      "title": "Eliminar ubicación",
+      "description": "¿Eliminar? Los productos asignados a esta ubicación deben moverse primero.",
+      "submitting": "Eliminando...",
+      "confirm": "Eliminar"
+    },
+    "toast": {
+      "created": "Ubicación creada",
+      "createError": "No se pudo crear la ubicación",
+      "updated": "Ubicación actualizada",
+      "updateError": "No se pudo actualizar la ubicación",
+      "deleted": "Ubicación eliminada",
+      "deleteError": "No se pudo eliminar la ubicación"
+    }
+  },
+  "sites": {
+    "title": "Sedes",
+    "description": "Gestiona las ubicaciones físicas vinculadas a la empresa actual.",
+    "add": "Agregar sede",
+    "noCompany": "Crea el perfil de la empresa antes de agregar sedes.",
+    "loading": "Cargando sedes...",
+    "error": "No se pudieron cargar las sedes",
+    "search": "Buscar sedes...",
+    "columns": {
+      "site": "Sede",
+      "address": "Dirección",
+      "phone": "Teléfono",
+      "status": "Estado"
+    },
+    "form": {
+      "createTitle": "Crear sede",
+      "editTitle": "Editar sede",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear sede",
+      "save": "Guardar cambios",
+      "fields": {
+        "name": "Nombre de la sede",
+        "nameRequired": "El nombre de la sede es obligatorio",
+        "address": "Dirección",
+        "phone": "Teléfono",
+        "isActive": "Sede activa"
+      }
+    },
+    "locations": {
+      "manage": "Gestionar ubicaciones para",
+      "title": "Gestionar ubicaciones de la sede",
+      "loading": "Cargando asignaciones de ubicación...",
+      "error": "No se pudieron cargar las asignaciones de ubicación",
+      "hint": "Selecciona las ubicaciones de bodega o estantes disponibles desde esta sede.",
+      "search": "Buscar ubicaciones",
+      "searchPlaceholder": "Buscar por código o nombre",
+      "noMatch": "No se encontraron ubicaciones coincidentes.",
+      "inactive": "Inactivo",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "save": "Guardar asignaciones"
+    },
+    "delete": {
+      "title": "Eliminar sede",
+      "description": "¿Eliminar? Las sedes con consecutivos o ubicaciones asignadas no pueden eliminarse y deben limpiarse primero.",
+      "submitting": "Eliminando...",
+      "confirm": "Eliminar"
+    },
+    "toast": {
+      "created": "Sede creada",
+      "createError": "No se pudo crear la sede",
+      "updated": "Sede actualizada",
+      "updateError": "No se pudo actualizar la sede",
+      "deleted": "Sede eliminada",
+      "deleteError": "No se pudo eliminar la sede"
+    }
+  },
+  "company": {
+    "title": "Empresa",
+    "description": "Gestiona la identidad del negocio usada en todo el tenant.",
+    "loading": "Cargando identidad del negocio y configuración del puesto",
+    "error": "No se pudo cargar la configuración de la empresa",
+    "createPrompt": "Crea el perfil de tu empresa",
+    "createNote": "Este registro es usado por sedes, documentos futuros y configuración del negocio.",
+    "fields": {
+      "companyName": "Nombre de la empresa",
+      "companyNameRequired": "El nombre de la empresa es obligatorio",
+      "taxId": "NIT / RUT",
+      "email": "Correo electrónico",
+      "emailInvalid": "Dirección de correo inválida",
+      "phone": "Teléfono",
+      "address": "Dirección"
+    },
+    "sections": {
+      "backup": "Respaldo",
+      "autoUpdate": "Actualización automática",
+      "logoLibrary": "Biblioteca de logos",
+      "printSettings": "Configuración de impresión",
+      "sync": "Sincronización",
+      "themeSettings": "Configuración de tema",
+      "traySettings": "Configuración de bandeja"
+    },
+    "submitting": "Guardando...",
+    "save": "Guardar empresa",
+    "toast": {
+      "saved": "Configuración de empresa guardada",
+      "saveError": "No se pudo guardar la configuración de la empresa"
+    },
+    "tray": {
+      "title": "Bandeja del sistema",
+      "description": "Controla si esta estación de trabajo permanece disponible desde la bandeja del escritorio.",
+      "desktopOnly": "La configuración de bandeja está disponible en la app de escritorio Electron.",
+      "showIcon": "Mostrar ícono en la bandeja",
+      "showIconDescription": "Mantén un ícono en la bandeja del sistema para que la estación pueda reabrirse rápidamente.",
+      "closeToTray": "Cerrar ventana a la bandeja",
+      "closeToTrayDescription": "Oculta la ventana principal en lugar de cerrar la app al presionar el botón de cierre.",
+      "saving": "Guardando configuración de bandeja...",
+      "saved": "Configuración de bandeja guardada",
+      "saveError": "No se pudo guardar la configuración de bandeja"
+    },
+    "print": {
+      "title": "Configuración de impresión de recibos",
+      "description": "Configura cómo funciona la impresión de recibos en esta estación de trabajo.",
+      "desktopOnly": "La configuración de impresión está disponible en la app de escritorio Electron.",
+      "silentPrinting": "Impresión silenciosa",
+      "silentPrintingDescription": "Imprime recibos sin mostrar el diálogo de impresión del sistema operativo.",
+      "printBackground": "Imprimir gráficos de fondo",
+      "printBackgroundDescription": "Incluye estilos de fondo y sombreado del recibo en la salida impresa.",
+      "saving": "Guardando configuración de impresión...",
+      "saved": "Configuración de impresión de recibos guardada",
+      "saveError": "No se pudo guardar la configuración de impresión de recibos"
+    },
+    "logo": {
+      "title": "Biblioteca de logos",
+      "description": "Gestiona logos reutilizables del tenant y elige cuál representa a la empresa.",
+      "addLogo": "Agregar logo",
+      "currentLogo": "Logo actual de la empresa",
+      "selectedLogo": "Logo seleccionado",
+      "noLogoSelected": "No hay logo seleccionado para la empresa.",
+      "loadingTitle": "Biblioteca de logos",
+      "loadingDescription": "Cargando logos guardados del tenant.",
+      "loadError": "No se pudieron cargar los logos",
+      "emptyLibrary": "Aún no hay logos guardados. Agrega uno para comenzar a construir una biblioteca de marca reutilizable.",
+      "companyAssignments_one": "{{count}} asignación de empresa",
+      "companyAssignments_other": "{{count}} asignaciones de empresa",
+      "editTitle": "Editar logo",
+      "deleteTitle": "Eliminar logo",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "clear": "Quitar",
+      "selecting": "Seleccionando...",
+      "use": "Usar",
+      "deleteConfirmTitle": "Eliminar logo",
+      "deleteConfirmMessage": "¿Eliminar {{name}}? Los logos asignados a la empresa deben desasignarse primero.",
+      "deleting": "Eliminando...",
+      "deleteConfirm": "Eliminar logo",
+      "cancel": "Cancelar",
+      "toast": {
+        "created": "Logo creado",
+        "createError": "No se pudo crear el logo",
+        "updated": "Logo actualizado",
+        "updateError": "No se pudo actualizar el logo",
+        "deleted": "Logo eliminado",
+        "deleteError": "No se pudo eliminar el logo",
+        "logoUpdated": "Logo de empresa actualizado",
+        "logoUpdateError": "No se pudo actualizar el logo de la empresa"
+      },
+      "form": {
+        "addTitle": "Agregar logo",
+        "editTitle": "Editar logo",
+        "cancel": "Cancelar",
+        "saving": "Guardando...",
+        "create": "Crear logo",
+        "saveChanges": "Guardar cambios",
+        "logoName": "Nombre del logo",
+        "logoNameRequired": "El nombre del logo es obligatorio",
+        "imageUrl": "URL de imagen",
+        "imageUrlRequired": "La URL de imagen es obligatoria",
+        "imageUrlInvalid": "Ingresa una URL de imagen válida",
+        "isActive": "Logo activo"
+      }
+    },
+    "sync": {
+      "title": "Centro de sincronización",
+      "description": "Revisa los cambios pendientes, procesa la cola de sincronización local y resuelve conflictos cuando un elemento requiere atención manual.",
+      "pendingChanges": "Cambios pendientes",
+      "retrying": "Reintentando",
+      "failures": "Errores",
+      "conflicts": "Conflictos",
+      "lastSync": "Última sincronización",
+      "notYet": "Aún no",
+      "oldestQueued": "Cambio más antiguo en cola:",
+      "unknown": "Desconocido",
+      "failedItems_one": "{{count}} elemento en cola ya falló al menos una vez",
+      "failedItems_other": "{{count}} elementos en cola ya fallaron al menos una vez",
+      "toast": {
+        "syncWithIssues": "Sincronización completada con problemas",
+        "syncedChanges_one": "Se procesó {{count}} cambio en cola",
+        "syncedChanges_other": "Se procesaron {{count}} cambios en cola",
+        "alreadyUpToDate": "La sincronización ya está al día",
+        "queueError": "No se pudo procesar la cola de sincronización",
+        "snapshotRefreshed": "Instantánea de sincronización actualizada",
+        "snapshotError": "No se pudo obtener la instantánea de sincronización",
+        "conflictLocalWins": "Conflicto: se conservaron los cambios locales",
+        "conflictRemoteWins": "Conflicto: se aceptaron los cambios remotos",
+        "conflictMerged": "Conflicto fusionado correctamente",
+        "conflictError": "No se pudo resolver el conflicto"
+      },
+      "actions": {
+        "pulling": "Obteniendo...",
+        "pullSnapshot": "Obtener instantánea",
+        "refreshView": "Actualizar vista",
+        "processing": "Procesando...",
+        "processQueue": "Procesar cola"
+      },
+      "queue": {
+        "title": "Cola pendiente",
+        "description": "Operaciones en cola más recientes que esperan ser confirmadas como sincronizadas.",
+        "loading": "Cargando operaciones en cola...",
+        "empty": "No hay operaciones pendientes en cola.",
+        "entityId": "ID de entidad: {{id}}",
+        "queued": "En cola {{date}}",
+        "retryAttempt": "Intento de reintento {{count}}"
+      },
+      "conflict": {
+        "title": "Conflictos",
+        "description": "Los conflictos detienen la sincronización automática de la entidad afectada hasta que alguien los resuelva.",
+        "loading": "Cargando conflictos...",
+        "empty": "No hay conflictos de sincronización que revisar.",
+        "created": "Creado {{date}}",
+        "keepLocal": "Mantener local",
+        "acceptRemote": "Aceptar remoto",
+        "merge": "Fusionar"
+      }
+    },
+    "updater": {
+      "title": "Actualizaciones de la app",
+      "description": "Revisa el estado del actualizador, inicia una verificación manual y reinicia cuando una descarga esté lista para instalar.",
+      "desktopOnly": "Los controles de actualización están disponibles en la app de escritorio Electron.",
+      "updaterStatus": "Estado del actualizador",
+      "currentVersion": "Versión actual",
+      "latestDownload": "Última descarga",
+      "lastChecked": "Última verificación",
+      "notYet": "Aún no",
+      "downloadedUpdateReady": "Actualización descargada lista",
+      "updatePublished": "Actualización publicada",
+      "downloading": "El actualizador encontró una versión más reciente y la está descargando en segundo plano.",
+      "unknown": "Desconocido",
+      "none": "Ninguna",
+      "statusBadge": {
+        "unavailable": "No disponible",
+        "idle": "Al día",
+        "checking": "Verificando",
+        "available": "Descargando",
+        "downloaded": "Lista para instalar",
+        "error": "Error"
+      },
+      "statusMessage": {
+        "unavailable": "Las actualizaciones automáticas no están disponibles en este entorno.",
+        "checking": "Verificando el servicio de actualizaciones para una versión más reciente.",
+        "available": "Se está descargando una nueva versión en segundo plano.",
+        "downloaded": "Hay una actualización descargada lista. Reinicia la app para aplicarla.",
+        "error": "La última verificación de actualizaciones falló.",
+        "idle": "Esta estación de trabajo tiene la última versión disponible."
+      },
+      "actions": {
+        "checking": "Verificando...",
+        "checkForUpdates": "Buscar actualizaciones",
+        "restarting": "Reiniciando...",
+        "restartToInstall": "Reiniciar para instalar"
+      },
+      "toast": {
+        "checkingForUpdates": "Buscando actualizaciones",
+        "updatesUnavailable": "Actualizaciones no disponibles",
+        "checkError": "No se pudo verificar las actualizaciones",
+        "restarting": "Reiniciando para instalar la actualización",
+        "restartDescription": "La app de escritorio se cerrará y aplicará la versión descargada.",
+        "restartError": "No se pudo aplicar la actualización"
+      }
+    },
+    "backup": {
+      "title": "Respaldo de base de datos local",
+      "description": "Crea un respaldo de la base de datos SQLite local o restaura un respaldo anterior en este dispositivo.",
+      "restoreWarning": "La restauración reemplaza la base de datos local actual. Úsala solo cuando necesites revertir la estación de trabajo a un estado anterior.",
+      "desktopOnly": "Los controles de respaldo y restauración están disponibles en la app de escritorio Electron. La versión web es de solo lectura para el mantenimiento de la base de datos local.",
+      "createBackup": "Crear respaldo",
+      "creating": "Creando respaldo...",
+      "restoreBackup": "Restaurar respaldo",
+      "restoring": "Restaurando respaldo...",
+      "restoreModal": {
+        "title": "Restaurar respaldo de base de datos",
+        "message": "Restaurar un respaldo reemplazará la base de datos local actual y recargará la app. ¿Continuar?",
+        "confirm": "Restaurar respaldo"
+      },
+      "toast": {
+        "desktopOnly": "El respaldo solo está disponible en la app de escritorio",
+        "desktopOnlyDetail": "Los respaldos de base de datos solo están disponibles en la app de escritorio.",
+        "created": "Respaldo de base de datos creado",
+        "savedPath": "Respaldo guardado en {{path}}.",
+        "savedOk": "Respaldo creado correctamente.",
+        "failed": "Error al crear el respaldo de base de datos",
+        "cancelledTitle": "Creación de respaldo cancelada",
+        "cancelledDetail": "La creación del respaldo fue cancelada.",
+        "restoreDesktopOnly": "La restauración solo está disponible en la app de escritorio",
+        "restoreDesktopOnlyDetail": "La restauración de base de datos solo está disponible en la app de escritorio.",
+        "restored": "Respaldo de base de datos restaurado",
+        "restoredOk": "Respaldo restaurado correctamente. Recargando los datos de la aplicación...",
+        "restoreFailed": "Error al restaurar la base de datos",
+        "restoreCancelledTitle": "Restauración de base de datos cancelada",
+        "restoreCancelledDetail": "La restauración fue cancelada."
+      }
+    },
+    "theme": {
+      "title": "Apariencia",
+      "description": "Controla el tema del puesto de trabajo y si sigue las preferencias del sistema operativo.",
+      "browserNote": "Las sesiones de navegador guardan la preferencia de tema localmente en este dispositivo.",
+      "activeAppearance": "Apariencia activa:",
+      "options": {
+        "light": {
+          "label": "Claro",
+          "description": "Usa la interfaz clara en todo el puesto de trabajo."
+        },
+        "dark": {
+          "label": "Oscuro",
+          "description": "Usa la interfaz oscura en todo el puesto de trabajo."
+        },
+        "system": {
+          "label": "Sistema",
+          "description": "Sigue la preferencia de apariencia del sistema operativo."
+        }
+      },
+      "toast": {
+        "updated": "Tema actualizado",
+        "systemDescription": "La app ahora sigue la apariencia del sistema.",
+        "themeDescription": "La app ahora usa el tema {{theme}}.",
+        "updateError": "No se pudo actualizar el tema"
+      }
+    }
+  },
+  "units": {
+    "title": "Unidades",
+    "description": "Gestiona las unidades de medida usadas por productos y ventas.",
+    "add": "Agregar unidad",
+    "loading": "Cargando unidades...",
+    "error": "No se pudieron cargar las unidades",
+    "search": "Buscar unidades...",
+    "columns": {
+      "unit": "Unidad",
+      "abbreviation": "Abreviatura",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "form": {
+      "createTitle": "Crear unidad",
+      "editTitle": "Editar unidad",
+      "name": "Nombre de la unidad",
+      "nameRequired": "El nombre de la unidad es obligatorio",
+      "abbreviation": "Abreviatura",
+      "abbreviationRequired": "La abreviatura es obligatoria",
+      "isActive": "Unidad activa",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear unidad",
+      "save": "Guardar cambios"
+    },
+    "delete": {
+      "title": "Eliminar unidad",
+      "description": "¿Estás seguro de que deseas eliminar esta unidad?"
+    },
+    "toast": {
+      "created": "Unidad creada",
+      "createError": "No se pudo crear la unidad",
+      "updated": "Unidad actualizada",
+      "updateError": "No se pudo actualizar la unidad",
+      "deleted": "Unidad eliminada",
+      "deleteError": "No se pudo eliminar la unidad"
+    }
+  },
+  "vatRates": {
+    "title": "Tarifas IVA",
+    "description": "Gestiona los porcentajes de impuesto usados por productos y ventas.",
+    "add": "Agregar tarifa IVA",
+    "loading": "Cargando tarifas IVA...",
+    "error": "No se pudieron cargar las tarifas IVA",
+    "search": "Buscar tarifas IVA...",
+    "columns": {
+      "vatRate": "Tarifa IVA",
+      "rate": "Tasa",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "form": {
+      "createTitle": "Crear tarifa IVA",
+      "editTitle": "Editar tarifa IVA",
+      "name": "Nombre de la tarifa IVA",
+      "nameRequired": "El nombre de la tarifa IVA es obligatorio",
+      "percentage": "Porcentaje",
+      "rateRequired": "El porcentaje es obligatorio",
+      "rateNonNegative": "La tasa no puede ser negativa",
+      "rateMax": "La tasa no puede superar el 100",
+      "isActive": "Tarifa IVA activa",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear tarifa IVA",
+      "save": "Guardar cambios"
+    },
+    "delete": {
+      "title": "Eliminar tarifa IVA",
+      "description": "¿Estás seguro de que deseas eliminar esta tarifa IVA?"
+    },
+    "toast": {
+      "created": "Tarifa IVA creada",
+      "createError": "No se pudo crear la tarifa IVA",
+      "updated": "Tarifa IVA actualizada",
+      "updateError": "No se pudo actualizar la tarifa IVA",
+      "deleted": "Tarifa IVA eliminada",
+      "deleteError": "No se pudo eliminar la tarifa IVA"
+    }
+  },
+  "sequentials": {
+    "title": "Consecutivos",
+    "description": "Configura prefijos y números siguientes por sede y tipo de documento.",
+    "add": "Agregar consecutivo",
+    "loading": "Cargando consecutivos...",
+    "error": "No se pudieron cargar los consecutivos",
+    "search": "Buscar por sede...",
+    "noSite": "Crea al menos una sede activa antes de configurar los consecutivos.",
+    "incrementNote": "Los incrementos de secuencia durante la finalización de ventas y compras se implementarán más adelante. Esta página solo gestiona el prefijo guardado y el contador actual.",
+    "columns": {
+      "site": "Sede",
+      "documentType": "Tipo de documento",
+      "prefix": "Prefijo",
+      "currentValue": "Valor actual",
+      "preview": "Vista previa"
+    },
+    "docTypes": {
+      "sale": "Venta",
+      "purchase": "Compra",
+      "order": "Pedido"
+    },
+    "validation": {
+      "currentValueMin": "El valor actual debe ser cero o mayor"
+    },
+    "form": {
+      "createTitle": "Agregar consecutivo",
+      "editTitle": "Editar consecutivo",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear consecutivo",
+      "save": "Guardar cambios",
+      "siteRequired": "La sede es obligatoria",
+      "selectSite": "Selecciona una sede",
+      "documentTypeRequired": "El tipo de documento es obligatorio"
+    },
+    "delete": {
+      "title": "Eliminar consecutivo",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando..."
+    },
+    "toast": {
+      "created": "Consecutivo creado",
+      "createError": "No se pudo crear el consecutivo",
+      "updated": "Consecutivo actualizado",
+      "updateError": "No se pudo actualizar el consecutivo",
+      "deleted": "Consecutivo eliminado",
+      "deleteError": "No se pudo eliminar el consecutivo"
+    }
+  },
+  "geography": {
+    "title": "Geografía",
+    "tabs": {
+      "countries": "Países",
+      "departments": "Departamentos",
+      "cities": "Ciudades"
+    },
+    "countries": {
+      "description": "Gestiona el catálogo normalizado de países usado por registros de departamentos, ciudades y proveedores.",
+      "add": "Agregar país",
+      "loading": "Cargando países...",
+      "search": "Buscar países..."
+    },
+    "departments": {
+      "description": "Gestiona el catálogo normalizado de departamentos usado por registros de ciudades y proveedores.",
+      "add": "Agregar departamento",
+      "loading": "Cargando departamentos...",
+      "search": "Buscar departamentos..."
+    },
+    "cities": {
+      "description": "Gestiona el catálogo normalizado de ciudades usado por registros de proveedores.",
+      "add": "Agregar ciudad",
+      "loading": "Cargando ciudades...",
+      "search": "Buscar ciudades..."
+    },
+    "columns": {
+      "country": "País",
+      "department": "Departamento",
+      "city": "Ciudad",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "form": {
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "saveChanges": "Guardar cambios",
+      "country": {
+        "createTitle": "Crear país",
+        "editTitle": "Editar país",
+        "create": "Crear país",
+        "fields": {
+          "code": "Código",
+          "codeRequired": "El código del país es obligatorio",
+          "name": "Nombre",
+          "nameRequired": "El nombre del país es obligatorio",
+          "isActive": "País activo"
+        }
+      },
+      "department": {
+        "createTitle": "Crear departamento",
+        "editTitle": "Editar departamento",
+        "create": "Crear departamento",
+        "fields": {
+          "country": "País",
+          "countryRequired": "El país es obligatorio",
+          "selectCountry": "Selecciona un país",
+          "code": "Código",
+          "codeRequired": "El código del departamento es obligatorio",
+          "name": "Nombre",
+          "nameRequired": "El nombre del departamento es obligatorio",
+          "isActive": "Departamento activo"
+        }
+      },
+      "city": {
+        "createTitle": "Crear ciudad",
+        "editTitle": "Editar ciudad",
+        "create": "Crear ciudad",
+        "fields": {
+          "department": "Departamento",
+          "departmentRequired": "El departamento es obligatorio",
+          "selectDepartment": "Selecciona un departamento",
+          "code": "Código",
+          "codeRequired": "El código de la ciudad es obligatorio",
+          "name": "Nombre",
+          "nameRequired": "El nombre de la ciudad es obligatorio",
+          "isActive": "Ciudad activa"
+        }
+      }
+    }
+  },
+  "users": {
+    "title": "Usuarios",
+    "description": "Crea cuentas de personal, asigna roles y restablece contraseñas.",
+    "add": "Agregar usuario",
+    "permissionNote": "Solo los administradores pueden acceder a la gestión de usuarios.",
+    "loading": "Cargando usuarios...",
+    "error": "No se pudieron cargar los usuarios",
+    "search": "Buscar usuarios...",
+    "columns": {
+      "user": "Usuario",
+      "role": "Rol",
+      "status": "Estado",
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "roles": {
+      "admin": "Administrador",
+      "manager": "Gestor",
+      "cashier": "Cajero",
+      "viewer": "Observador"
+    },
+    "form": {
+      "createTitle": "Crear usuario",
+      "editTitle": "Editar usuario",
+      "name": "Nombre",
+      "nameRequired": "El nombre es obligatorio",
+      "email": "Correo electrónico",
+      "emailRequired": "El correo electrónico es obligatorio",
+      "role": "Rol",
+      "isActive": "Usuario activo",
+      "initialPassword": "Contraseña inicial",
+      "passwordRequired": "La contraseña es obligatoria",
+      "cancel": "Cancelar",
+      "submitting": "Guardando...",
+      "create": "Crear usuario",
+      "save": "Guardar cambios"
+    },
+    "resetPassword": {
+      "title": "Restablecer contraseña",
+      "description": "Establecer una contraseña temporal para",
+      "fallbackUser": "este usuario",
+      "newPassword": "Nueva contraseña",
+      "submit": "Restablecer contraseña"
+    },
+    "toast": {
+      "created": "Usuario creado",
+      "createError": "No se pudo crear el usuario",
+      "updated": "Usuario actualizado",
+      "updateError": "No se pudo actualizar el usuario",
+      "claimsChanged": "Tus permisos han cambiado. Por favor inicia sesión nuevamente",
+      "passwordReset": "Contraseña restablecida",
+      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente"
+    }
+  }
+}

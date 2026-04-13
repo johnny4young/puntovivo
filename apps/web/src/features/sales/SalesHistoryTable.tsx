@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -32,11 +33,12 @@ interface SalesHistoryTableProps {
 }
 
 export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: SalesHistoryTableProps) {
+  const { t } = useTranslation('sales');
   const columns = useMemo<ColumnDef<Sale>[]>(
     () => [
       {
         accessorKey: 'saleNumber',
-        header: 'Invoice #',
+        header: t('history.columns.invoiceNumber'),
         size: 130,
         cell: ({ row }) => (
           <span className="font-mono font-medium text-primary-600">{row.original.saleNumber}</span>
@@ -44,25 +46,25 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
       },
       {
         accessorKey: 'createdAt',
-        header: 'Date',
+        header: t('history.columns.date'),
         size: 180,
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         accessorKey: 'customerName',
-        header: 'Customer',
+        header: t('history.columns.customer'),
         size: 180,
-        cell: ({ row }) => row.original.customerName ?? 'Walk-in',
+        cell: ({ row }) => row.original.customerName ?? t('history.walkIn'),
       },
       {
         accessorKey: 'total',
-        header: 'Total',
+        header: t('history.columns.total'),
         size: 120,
         cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.total)}</span>,
       },
       {
         accessorKey: 'paymentStatus',
-        header: 'Payment',
+        header: t('history.columns.payment'),
         size: 120,
         cell: ({ row }) => (
           <span className={`badge ${paymentStatusColors[row.original.paymentStatus]}`}>
@@ -72,7 +74,7 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('history.columns.status'),
         size: 110,
         cell: ({ row }) => (
           <span className={`badge ${statusColors[row.original.status]}`}>{row.original.status}</span>
@@ -88,42 +90,41 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
         ),
       },
     ],
-    [onView]
+    [onView, t]
   );
 
   return (
     <section className="card p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Receipts</p>
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('history.kicker')}</p>
           <div>
-            <h2 className="font-display text-3xl text-secondary-950">Sales history</h2>
+            <h2 className="font-display text-3xl text-secondary-950">{t('history.title')}</h2>
             <p className="mt-2 text-sm text-secondary-600">
-              Review recent receipts, payment states, and cashier activity without leaving the POS
-              workspace.
+              {t('history.description')}
             </p>
           </div>
         </div>
         {!isLoading && !error && (
-          <span className="badge badge-secondary">{sales.length} records loaded</span>
+          <span className="badge badge-secondary">{sales.length} {t('history.recordsLoaded')}</span>
         )}
       </div>
 
-      {isLoading && <TableLoadingState message="Loading sales..." rowCount={6} />}
-      {error && <TableErrorState title="Unable to load sales" message={error} onRetry={onRetry} />}
+      {isLoading && <TableLoadingState message={t('history.loading')} rowCount={6} />}
+      {error && <TableErrorState title={t('history.error')} message={error} onRetry={onRetry} />}
       {!isLoading && !error && (
         <div className="space-y-4">
           <TableExportActions
             data={sales}
             columns={saleHistoryExportColumns}
             filename="sales-history"
-            title="Sales History"
+            title={t('history.exportTitle')}
           />
           <DataTable
             columns={columns}
             data={sales}
             searchKey="saleNumber"
-            searchPlaceholder="Search by invoice..."
+            searchPlaceholder={t('history.search')}
             pageSize={8}
           />
         </div>

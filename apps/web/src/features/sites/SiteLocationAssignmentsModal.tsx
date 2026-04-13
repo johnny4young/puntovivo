@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { MapPinned, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Location, Site } from '@/types';
@@ -29,6 +30,7 @@ export function SiteLocationAssignmentsModal({
   onClose,
   onSubmit,
 }: SiteLocationAssignmentsModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<SiteLocationAssignmentsValues>({
     defaultValues: {
       locationIds: initialLocationIds,
@@ -65,33 +67,33 @@ export function SiteLocationAssignmentsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={site ? `Manage Locations for ${site.name}` : 'Manage Site Locations'}
+      title={site ? `${t('sites.locations.manage')} ${site.name}` : t('sites.locations.title')}
       size="lg"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('sites.locations.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Assignments'}
+            {isSaving ? t('sites.locations.submitting') : t('sites.locations.save')}
           </ModalButton>
         </>
       }
     >
       <div className="space-y-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Select which warehouse or shelf locations can be used from this site.
+          {t('sites.locations.hint')}
         </div>
 
         <label className="block">
-          <span className="label">Search locations</span>
+          <span className="label">{t('sites.locations.search')}</span>
           <div className="relative mt-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
               className="input pl-9"
-              placeholder="Search by code or name"
+              placeholder={t('sites.locations.searchPlaceholder')}
             />
           </div>
         </label>
@@ -99,7 +101,7 @@ export function SiteLocationAssignmentsModal({
         <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
           {filteredLocations.length === 0 && (
             <div className="rounded-xl border border-secondary-200 bg-white px-4 py-6 text-center text-sm text-secondary-500">
-              No matching locations found.
+              {t('sites.locations.noMatch')}
             </div>
           )}
 
@@ -130,7 +132,7 @@ export function SiteLocationAssignmentsModal({
                     </span>
                     {!location.isActive && (
                       <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800">
-                        Inactive
+                        {t('sites.locations.inactive')}
                       </span>
                     )}
                   </div>

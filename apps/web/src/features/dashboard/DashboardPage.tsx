@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   DashboardLoadingState,
   DashboardStatsGrid,
@@ -25,78 +26,31 @@ function getMetricValue(metric: unknown) {
   return typeof value === 'number' ? value : 0;
 }
 
-function getMetricLabel(metric: unknown, fallback: string) {
-  if (!isObject(metric)) {
-    return fallback;
-  }
-
-  return typeof metric.label === 'string' ? metric.label : fallback;
+function getMetricLabel(_metric: unknown, fallback: string) {
+  return fallback;
 }
 
-function buildDashboardMetrics(
-  summary: unknown,
-  formatCurrency: (amount: number) => string
-): DashboardStatMetric[] {
-  const stats = isObject(summary) && isObject(summary.stats) ? summary.stats : {};
-
-  return [
-    {
-      title: "Today's Sales",
-      value: formatCurrency(getMetricValue('todayRevenue' in stats ? stats.todayRevenue : stats.revenue)),
-      label: getMetricLabel(
-        'todayRevenue' in stats ? stats.todayRevenue : stats.revenue,
-        'completed sales in the active tenant'
-      ),
-      icon: DollarSign,
-      tone: 'success',
-    },
-    {
-      title: 'Orders Today',
-      value: getMetricValue('todayOrders' in stats ? stats.todayOrders : stats.orders).toLocaleString(),
-      label: getMetricLabel(
-        'todayOrders' in stats ? stats.todayOrders : stats.orders,
-        'completed orders today'
-      ),
-      icon: ShoppingCart,
-      tone: 'primary',
-    },
-    {
-      title: 'Low Stock Alerts',
-      value: getMetricValue('lowStockCount' in stats ? stats.lowStockCount : stats.products).toLocaleString(),
-      label: getMetricLabel(
-        'lowStockCount' in stats ? stats.lowStockCount : stats.products,
-        'products at or below minimum stock'
-      ),
-      icon: AlertTriangle,
-      tone: 'warning',
-    },
-    {
-      title: '30-Day Revenue',
-      value: formatCurrency(
-        getMetricValue('revenueThirtyDays' in stats ? stats.revenueThirtyDays : stats.revenue)
-      ),
-      label: getMetricLabel(
-        'revenueThirtyDays' in stats ? stats.revenueThirtyDays : stats.revenue,
-        'completed sales over the last 30 days'
-      ),
-      icon: BarChart3,
-      tone: 'ink',
-    },
-  ];
+function getStatMetric(
+  stats: Record<string, unknown>,
+  primaryKey: string,
+  fallbackKey: string
+): unknown {
+  return primaryKey in stats ? stats[primaryKey] : stats[fallbackKey];
 }
 
 export function DashboardPage() {
   const { formatCurrency, formatDate, formatDateTime } = useTenantSettings();
+  const { t } = useTranslation('dashboard');
   const dashboardQuery = trpc.dashboard.summary.useQuery();
 
   if (dashboardQuery.isLoading) {
-    return <DashboardLoadingState title="Command center" />;
+    return <DashboardLoadingState title={t('page.kicker')} />;
   }
 
   if (dashboardQuery.error) {
     return (
       <QueryErrorState
-        title="Unable to load dashboard"
+        title={t('page.kicker')}
         message={dashboardQuery.error.message}
         onRetry={() => {
           void dashboardQuery.refetch();
@@ -110,7 +64,45 @@ export function DashboardPage() {
     return null;
   }
 
-  const metrics = buildDashboardMetrics(data, formatCurrency);
+  const stats: Record<string, unknown> = isObject(data) && isObject(data.stats) ? data.stats : {};
+
+  const metrics: DashboardStatMetric[] = [
+    {
+      title: t('metrics.todaySales.title'),
+      value: formatCurrency(getMetricValue(getStatMetric(stats, 'todayRevenue', 'revenue'))),
+      label: getMetricLabel(getStatMetric(stats, 'todayRevenue', 'revenue'), t('metrics.todaySales.fallbackLabel')),
+      icon: DollarSign,
+      tone: 'success',
+    },
+    {
+      title: t('metrics.ordersToday.title'),
+      value: getMetricValue(getStatMetric(stats, 'todayOrders', 'orders')).toLocaleString(),
+      label: getMetricLabel(getStatMetric(stats, 'todayOrders', 'orders'), t('metrics.ordersToday.fallbackLabel')),
+      icon: ShoppingCart,
+      tone: 'primary',
+    },
+    {
+      title: t('metrics.lowStockAlerts.title'),
+      value: getMetricValue(getStatMetric(stats, 'lowStockCount', 'products')).toLocaleString(),
+      label: getMetricLabel(
+        getStatMetric(stats, 'lowStockCount', 'products'),
+        t('metrics.lowStockAlerts.fallbackLabel')
+      ),
+      icon: AlertTriangle,
+      tone: 'warning',
+    },
+    {
+      title: t('metrics.thirtyDayRevenue.title'),
+      value: formatCurrency(getMetricValue(getStatMetric(stats, 'revenueThirtyDays', 'revenue'))),
+      label: getMetricLabel(
+        getStatMetric(stats, 'revenueThirtyDays', 'revenue'),
+        t('metrics.thirtyDayRevenue.fallbackLabel')
+      ),
+      icon: BarChart3,
+      tone: 'ink',
+    },
+  ];
+
   const revenueChart = Array.isArray(data.revenueChart) ? data.revenueChart : [];
   const lowStockItems = Array.isArray(data.lowStockItems) ? data.lowStockItems : [];
   const recentSales = Array.isArray(data.recentSales) ? data.recentSales : [];
@@ -123,13 +115,12 @@ export function DashboardPage() {
         <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
           <div className="space-y-5">
             <div className="space-y-3">
-              <p className="page-kicker">Command center</p>
+              <p className="page-kicker">{t('page.kicker')}</p>
               <h1 className="font-display text-5xl leading-[0.92] text-balance text-secondary-950">
-                Live pulse for checkout, revenue, and stock pressure.
+                {t('page.headline')}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-secondary-600">
-                Watch completed sales, low-stock pressure, and top-moving products without leaving the
-                operating workspace.
+                {t('page.description')}
               </p>
             </div>
 
@@ -138,26 +129,25 @@ export function DashboardPage() {
 
           <div className="card-inset flex flex-col justify-between gap-5 p-5 sm:p-6">
             <div>
-              <p className="page-kicker text-[0.62rem] tracking-[0.24em]">System freshness</p>
-              <h2 className="mt-3 font-display text-3xl text-secondary-950">Snapshot aligned</h2>
+              <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('page.freshness.kicker')}</p>
+              <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('page.freshness.title')}</h2>
               <p className="mt-3 text-sm leading-6 text-secondary-600">
-                This tenant dashboard was refreshed at {formatDateTime(generatedAt)} and includes
-                completed-sale metrics plus current low-stock attention points.
+                {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="metric-tile">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                  Revenue window
+                  {t('page.revenueWindow.label')}
                 </p>
-                <p className="mt-3 text-lg font-semibold text-secondary-950">Last 30 days</p>
+                <p className="mt-3 text-lg font-semibold text-secondary-950">{t('page.revenueWindow.value')}</p>
               </div>
               <div className="metric-tile">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                  Focus
+                  {t('page.focus.label')}
                 </p>
-                <p className="mt-3 text-lg font-semibold text-secondary-950">Sales + replenishment</p>
+                <p className="mt-3 text-lg font-semibold text-secondary-950">{t('page.focus.value')}</p>
               </div>
             </div>
           </div>

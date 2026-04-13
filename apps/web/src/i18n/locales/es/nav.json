@@ -1,0 +1,41 @@
+{
+  "brand": {
+    "kicker": "Consola Retail",
+    "title": "Puntovivo",
+    "tagline": "Ventas, inventario y compras en un solo espacio"
+  },
+  "sections": {
+    "overview": "Resumen",
+    "flow": "Operaciones",
+    "setup": "Configuración"
+  },
+  "items": {
+    "dashboard": "Panel",
+    "sales": "Ventas",
+    "inventory": "Inventario",
+    "orders": "Pedidos",
+    "purchases": "Compras",
+    "customers": "Clientes",
+    "products": "Productos",
+    "providers": "Proveedores",
+    "categories": "Categorías",
+    "locations": "Ubicaciones",
+    "company": "Empresa",
+    "sites": "Sedes",
+    "sequentials": "Consecutivos",
+    "geography": "Geografía",
+    "customerCatalogs": "Catálogos de clientes",
+    "units": "Unidades",
+    "vatRates": "Tarifas IVA",
+    "users": "Usuarios"
+  },
+  "actions": {
+    "collapseRail": "Contraer menú",
+    "expandNavigation": "Expandir navegación",
+    "closeNavigation": "Cerrar navegación"
+  },
+  "header": {
+    "kicker": "Punto de Venta",
+    "title": "Espacio de trabajo"
+  }
+}

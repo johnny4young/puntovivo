@@ -1,0 +1,126 @@
+{
+  "page": {
+    "title": "Clientes",
+    "description": "Gestiona perfiles de clientes, metadatos fiscales y detalles de clasificación.",
+    "add": "Agregar cliente"
+  },
+  "table": {
+    "loading": "Cargando clientes...",
+    "error": "No se pudieron cargar los clientes",
+    "search": "Buscar clientes...",
+    "name": "Nombre",
+    "description": "Descripción",
+    "email": "Correo",
+    "phone": "Teléfono",
+    "type": "Tipo",
+    "location": "Ubicación",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo"
+  },
+  "form": {
+    "createTitle": "Crear cliente",
+    "editTitle": "Editar cliente",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear cliente",
+    "save": "Guardar cambios",
+    "fields": {
+      "name": "Nombre",
+      "nameRequired": "El nombre del cliente es obligatorio",
+      "taxId": "NIT / RUT",
+      "email": "Correo electrónico",
+      "emailInvalid": "Dirección de correo inválida",
+      "phone": "Teléfono",
+      "identificationType": "Tipo de identificación",
+      "personType": "Tipo de persona",
+      "regimeType": "Tipo de régimen",
+      "clientType": "Tipo de cliente",
+      "commercialActivity": "Actividad comercial",
+      "notSet": "Sin asignar",
+      "address": "Dirección",
+      "city": "Ciudad",
+      "state": "Estado / Departamento",
+      "postalCode": "Código postal",
+      "country": "País",
+      "notes": "Notas",
+      "isActive": "Cliente activo"
+    }
+  },
+  "delete": {
+    "title": "Eliminar cliente",
+    "description": "¿Estás seguro de que deseas eliminar este cliente?"
+  },
+  "toast": {
+    "created": "Cliente creado",
+    "createError": "No se pudo crear el cliente",
+    "updated": "Cliente actualizado",
+    "updateError": "No se pudo actualizar el cliente",
+    "deleted": "Cliente eliminado",
+    "deleteError": "No se pudo eliminar el cliente"
+  },
+  "catalogs": {
+    "title": "Catálogos de clientes",
+    "tabs": {
+      "identificationTypes": "Tipos de identificación",
+      "personTypes": "Tipos de persona",
+      "regimeTypes": "Tipos de régimen",
+      "clientTypes": "Tipos de cliente",
+      "commercialActivities": "Actividades comerciales"
+    },
+    "types": {
+      "identificationTypes": {
+        "singular": "Tipo de identificación",
+        "description": "Gestiona el catálogo de códigos de identificación usados en los perfiles fiscales de clientes.",
+        "search": "Buscar tipos de identificación..."
+      },
+      "personTypes": {
+        "singular": "Tipo de persona",
+        "description": "Gestiona las clasificaciones de persona natural y persona jurídica para clientes.",
+        "search": "Buscar tipos de persona..."
+      },
+      "regimeTypes": {
+        "singular": "Tipo de régimen",
+        "description": "Gestiona los códigos de régimen fiscal usados en la clasificación fiscal de clientes.",
+        "search": "Buscar tipos de régimen..."
+      },
+      "clientTypes": {
+        "singular": "Tipo de cliente",
+        "description": "Gestiona las clasificaciones comerciales de clientes como minorista y mayorista.",
+        "search": "Buscar tipos de cliente..."
+      },
+      "commercialActivities": {
+        "singular": "Actividad comercial",
+        "description": "Gestiona los códigos de actividad empresarial usados en la clasificación fiscal y comercial de clientes.",
+        "search": "Buscar actividades comerciales..."
+      }
+    },
+    "add": "Agregar {{type}}",
+    "loading": "Cargando {{type}}...",
+    "deleting": "Eliminando...",
+    "cancel": "Cancelar",
+    "deleteTitle": "Eliminar {{type}}",
+    "deleteMessage": "¿Eliminar {{name}}? {{note}}",
+    "deleteNote": "Los clientes que todavía usen este código conservarán el valor guardado, pero las nuevas ediciones requerirán una entrada de catálogo activa.",
+    "form": {
+      "createTitle": "Crear {{type}}",
+      "editTitle": "Editar {{type}}",
+      "cancel": "Cancelar",
+      "saving": "Guardando...",
+      "create": "Crear {{type}}",
+      "save": "Guardar cambios",
+      "code": "Código",
+      "codeRequired": "El código de {{type}} es obligatorio",
+      "name": "Nombre",
+      "nameRequired": "El nombre de {{type}} es obligatorio",
+      "description": "Descripción",
+      "isActive": "{{type}} activo"
+    },
+    "toast": {
+      "created": "Elemento de catálogo creado",
+      "createError": "No se pudo guardar el elemento de catálogo",
+      "updated": "Elemento de catálogo actualizado",
+      "deleted": "Elemento de catálogo eliminado"
+    }
+  }
+}

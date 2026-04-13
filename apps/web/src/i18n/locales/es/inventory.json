@@ -1,0 +1,137 @@
+{
+  "page": {
+    "title": "Inventario",
+    "description": "Gestiona entradas contadas, conteos físicos y visibilidad de stock frente al catálogo activo.",
+    "tabs": {
+      "movements": "Movimientos",
+      "stockQuery": "Consulta de stock",
+      "initialInventory": "Inventario inicial"
+    },
+    "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
+    "stockNote": "El stock sigue siendo a nivel de tenant por ahora. Las entradas de inventario inicial y físico capturan la unidad contada y la normalizan en el modelo de stock compartido, evitando el error de acumulación del sistema anterior."
+  },
+  "stats": {
+    "totalUnits": "Total de unidades",
+    "inventoryValue": "Valor del inventario",
+    "lowStockItems": "Productos con stock bajo",
+    "recentFlow": "Flujo reciente",
+    "recentFlowDetail_one": "{{count}} entrada reciente · ajustes",
+    "recentFlowDetail_other": "{{count}} entradas recientes · ajustes"
+  },
+  "movements": {
+    "loading": "Cargando movimientos de inventario...",
+    "error": "No se pudieron cargar los movimientos de inventario",
+    "search": "Buscar movimientos por producto..."
+  },
+  "stock": {
+    "loading": "Cargando balances de stock...",
+    "error": "No se pudieron cargar los balances de stock",
+    "search": "Buscar stock por producto...",
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "lowStockOnly": "Mostrar solo stock bajo"
+  },
+  "entries": {
+    "loading": "Cargando entradas de inventario...",
+    "loadingShort": "Cargando entradas…",
+    "error": "No se pudieron cargar las entradas de inventario",
+    "search": "Buscar entradas por producto..."
+  },
+  "table": {
+    "initialInventory": "Inventario inicial",
+    "physicalCount": "Conteo físico",
+    "product": "Producto",
+    "unit": "Unidad",
+    "countedQty": "Cant. contada",
+    "normalized": "Normalizado",
+    "cost": "Costo",
+    "stockAfter": "Stock después",
+    "notes": "Notas",
+    "date": "Fecha",
+    "type": "Tipo",
+    "movement": "Movimiento",
+    "reference": "Referencia",
+    "unknownProduct": "Producto desconocido",
+    "noSku": "Sin SKU"
+  },
+  "newEntry": "Nueva entrada",
+  "newAdjustment": "Nuevo ajuste",
+  "dialogs": {
+    "selectProductEntry": "Seleccionar producto para inventario inicial",
+    "recordEntry": "Registrar entrada",
+    "selectProductAdjust": "Seleccionar producto para ajuste",
+    "adjustProduct": "Ajustar producto"
+  },
+  "toast": {
+    "adjustSuccess": "Stock ajustado",
+    "adjustError": "No se pudo ajustar el stock",
+    "entrySuccess": "Inventario inicial registrado",
+    "entryError": "No se pudo registrar la entrada de inventario"
+  },
+  "adjustment": {
+    "title": "Ajustar {{name}}",
+    "titleDefault": "Ajustar inventario",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "save": "Guardar ajuste",
+    "noProduct": "Selecciona un producto antes de ajustar el stock.",
+    "currentStock": "Stock actual",
+    "movement": "Movimiento",
+    "lowStockThreshold": "Umbral de stock bajo",
+    "notesPlaceholder": "Razón del ajuste",
+    "stockMin": "El stock debe ser cero o mayor"
+  },
+  "entry": {
+    "titleInitial": "Registrar inventario inicial",
+    "titlePhysical": "Registrar conteo físico",
+    "titleDefault": "Registrar inventario",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "save": "Guardar entrada",
+    "noSelection": "Selecciona un producto antes de registrar el inventario.",
+    "currentStock": "Stock actual",
+    "mode": "Modo",
+    "modeInitial": "{{label}} (acumular)",
+    "modePhysical": "{{label}} (reemplazar)",
+    "equivalence": "Equivalencia",
+    "quantityMin": "La cantidad debe ser mayor que cero",
+    "costMin": "El costo debe ser cero o mayor",
+    "notesPlaceholder": "Razón opcional o referencia de conteo"
+  },
+  "purchases": {
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "save": "Registrar devolución",
+    "hint": "Devuelve solo las cantidades que físicamente salen del stock hacia el proveedor.",
+    "noSku": "Sin SKU",
+    "costEach": "Costo {{amount}} c/u",
+    "received": "Recibido",
+    "returned": "Devuelto",
+    "available": "Disponible",
+    "returnQty": "Cantidad a devolver",
+    "returnQtyMin": "La cantidad a devolver no puede ser negativa",
+    "returnQtyMax": "Solo {{count}} unidades están disponibles para devolver",
+    "reason": "Motivo",
+    "reasonPlaceholder": "Nota opcional de devolución al proveedor",
+    "minItems": "Selecciona al menos una línea para devolver",
+    "modalTitle": "Devolver artículos de {{number}}"
+  },
+  "orders": {
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "save": "Crear recibo",
+    "hint": "Recibe solo las cantidades que físicamente entraron al stock en esta entrega.",
+    "noSku": "Sin SKU",
+    "costEach": "Costo {{amount}} c/u",
+    "ordered": "Pedido",
+    "received": "Recibido",
+    "pending": "Pendiente",
+    "receiveQty": "Cantidad a recibir",
+    "receiveQtyMin": "La cantidad recibida no puede ser negativa",
+    "receiveQtyMax": "Solo {{count}} unidades están pendientes de recibo",
+    "receiptNotes": "Notas del recibo",
+    "receiptNotesPlaceholder": "Nota opcional sobre este lote de entrega",
+    "minItems": "Selecciona al menos una línea para recibir",
+    "modalTitle": "Recibir artículos del pedido {{number}}"
+  }
+}

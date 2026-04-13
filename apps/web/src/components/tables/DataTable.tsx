@@ -12,6 +12,7 @@ import {
   RowSelectionState,
 } from '@tanstack/react-table';
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
   ChevronUp,
@@ -42,6 +43,7 @@ export function DataTable<TData, TValue>({
   onRowSelectionChange,
   pageSize = 10,
 }: DataTableProps<TData, TValue>) {
+  const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -226,7 +228,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <tr>
                 <td colSpan={columns.length} className="h-28 text-center text-secondary-500">
-                  No results.
+                  {t('table.noResults')}
                 </td>
               </tr>
             )}
@@ -237,21 +239,22 @@ export function DataTable<TData, TValue>({
       <div className="data-table-pagination">
         <div className="text-sm text-secondary-600">
           {table.getFilteredRowModel().rows.length === 0
-            ? 'No entries to display'
-            : `Showing ${
-                table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1
-              } to ${Math.min(
-                (table.getState().pagination.pageIndex + 1) *
-                  table.getState().pagination.pageSize,
-                table.getFilteredRowModel().rows.length
-              )} of ${table.getFilteredRowModel().rows.length} entries`}
+            ? t('table.noEntries')
+            : t('table.showing', {
+                from: table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1,
+                to: Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                ),
+                total: table.getFilteredRowModel().rows.length,
+              })}
         </div>
         <div className="flex items-center space-x-2">
           <button
             className="btn-outline btn-icon"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
-            aria-label="Go to first page"
+            aria-label={t('pagination.goToFirst')}
           >
             <ChevronsLeft className="h-4 w-4" />
           </button>
@@ -259,18 +262,18 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            aria-label="Go to previous page"
+            aria-label={t('pagination.goToPrevious')}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="text-sm text-secondary-600">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            {t('table.page', { current: table.getState().pagination.pageIndex + 1, total: table.getPageCount() })}
           </span>
           <button
             className="btn-outline btn-icon"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            aria-label="Go to next page"
+            aria-label={t('pagination.goToNext')}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -278,7 +281,7 @@ export function DataTable<TData, TValue>({
             className="btn-outline btn-icon"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
-            aria-label="Go to last page"
+            aria-label={t('pagination.goToLast')}
           >
             <ChevronsRight className="h-4 w-4" />
           </button>

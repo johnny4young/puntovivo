@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { FolderTree, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Category, Provider } from '@/types';
@@ -60,6 +61,7 @@ export function ProviderCategoryAssignmentsModal({
   onClose,
   onSubmit,
 }: ProviderCategoryAssignmentsModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<ProviderCategoryAssignmentsValues>({
     defaultValues: {
       categoryIds: initialCategoryIds,
@@ -100,33 +102,33 @@ export function ProviderCategoryAssignmentsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={provider ? `Manage Categories for ${provider.name}` : 'Manage Provider Categories'}
+      title={provider ? `${t('providers.categories.manage')} ${provider.name}` : t('providers.categories.title')}
       size="lg"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('providers.categories.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Assignments'}
+            {isSaving ? t('providers.categories.submitting') : t('providers.categories.save')}
           </ModalButton>
         </>
       }
     >
       <div className="space-y-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Select which product categories this provider commonly supplies.
+          {t('providers.categories.hint')}
         </div>
 
         <label className="block">
-          <span className="label">Search categories</span>
+          <span className="label">{t('providers.categories.search')}</span>
           <div className="relative mt-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
               className="input pl-9"
-              placeholder="Search by category name"
+              placeholder={t('providers.categories.searchPlaceholder')}
             />
           </div>
         </label>
@@ -134,7 +136,7 @@ export function ProviderCategoryAssignmentsModal({
         <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
           {filteredCategories.length === 0 && (
             <div className="rounded-xl border border-secondary-200 bg-white px-4 py-6 text-center text-sm text-secondary-500">
-              No matching categories found.
+              {t('providers.categories.noMatch')}
             </div>
           )}
 
@@ -163,7 +165,7 @@ export function ProviderCategoryAssignmentsModal({
                     <p className="font-medium text-secondary-900">{category.name}</p>
                   </div>
                   <p className="mt-1 text-sm text-secondary-500">
-                    {category.description || (category.depth === 0 ? 'Top-level category' : 'Nested category')}
+                    {category.description || (category.depth === 0 ? t('providers.categories.topLevel') : t('providers.categories.nested'))}
                   </p>
                 </div>
               </label>

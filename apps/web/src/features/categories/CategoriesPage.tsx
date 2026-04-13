@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -74,6 +75,7 @@ function toNullableString(value: string): string | null {
 }
 
 export function CategoriesPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -88,12 +90,12 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Category created' });
+      toast.success({ title: t('categories.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create category',
-        description: getErrorMessage(error, 'Unable to create category'),
+        title: t('categories.toast.createError'),
+        description: getErrorMessage(error, t('categories.toast.createError')),
       });
     },
   });
@@ -102,12 +104,12 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Category updated' });
+      toast.success({ title: t('categories.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update category',
-        description: getErrorMessage(error, 'Unable to update category'),
+        title: t('categories.toast.updateError'),
+        description: getErrorMessage(error, t('categories.toast.updateError')),
       });
     },
   });
@@ -116,12 +118,12 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       setCategoryToDelete(null);
-      toast.success({ title: 'Category deleted' });
+      toast.success({ title: t('categories.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete category',
-        description: getErrorMessage(error, 'Unable to delete category'),
+        title: t('categories.toast.deleteError'),
+        description: getErrorMessage(error, t('categories.toast.deleteError')),
       });
     },
   });
@@ -175,7 +177,7 @@ export function CategoriesPage() {
   const columns: ColumnDef<CategoryTreeRow>[] = [
     {
       accessorKey: 'name',
-      header: 'Category',
+      header: t('categories.columns.category'),
       size: 320,
       cell: ({ row }) => (
         <div className="flex items-center gap-3" style={{ paddingLeft: `${row.original.depth * 24}px` }}>
@@ -186,10 +188,10 @@ export function CategoriesPage() {
             <p className="font-medium text-secondary-900">{row.original.name}</p>
             <p className="text-xs text-secondary-500">
               {row.original.childCount > 0
-                ? `${row.original.childCount} child ${row.original.childCount === 1 ? 'category' : 'categories'}`
+                ? t('categories.columns.children', { count: row.original.childCount })
                 : row.original.depth === 0
-                  ? 'Top-level category'
-                  : 'Leaf category'}
+                  ? t('categories.columns.topLevel')
+                  : t('categories.columns.leaf')}
             </p>
           </div>
         </div>
@@ -197,13 +199,13 @@ export function CategoriesPage() {
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('categories.columns.description'),
       size: 260,
       cell: ({ row }) => row.original.description || '-',
     },
     {
       accessorKey: 'depth',
-      header: 'Level',
+      header: t('categories.columns.level'),
       size: 100,
       cell: ({ row }) => row.original.depth + 1,
     },
@@ -234,8 +236,8 @@ export function CategoriesPage() {
   return (
     <>
       <ResourcePage
-        title="Categories"
-        description="Manage the product category hierarchy used across catalog and reporting"
+        title={t('categories.title')}
+        description={t('categories.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"
@@ -243,7 +245,7 @@ export function CategoriesPage() {
             disabled={!canManage}
           >
             <Plus className="h-5 w-5" />
-            Add Category
+            {t('categories.add')}
           </button>
         }
         columns={columns}
@@ -251,8 +253,8 @@ export function CategoriesPage() {
         isLoading={categoriesQuery.isLoading}
         error={categoriesQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search categories..."
-        loadingMessage="Loading categories..."
+        searchPlaceholder={t('categories.search')}
+        loadingMessage={t('categories.loading')}
         onRetry={() => {
           void categoriesQuery.refetch();
         }}
@@ -278,9 +280,9 @@ export function CategoriesPage() {
             void deleteMutation.mutateAsync({ id: categoryToDelete.id });
           }
         }}
-        title="Delete Category"
-        message={`Are you sure you want to delete ${categoryToDelete?.name ?? 'this category'}?`}
-        confirmText="Delete Category"
+        title={t('categories.delete.title')}
+        message={t('categories.delete.description')}
+        confirmText={t('categories.delete.title')}
         loading={deleteMutation.isPending}
       />
     </>

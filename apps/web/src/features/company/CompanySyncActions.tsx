@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CloudDownload, CloudUpload, RefreshCw } from 'lucide-react';
 
 interface CompanySyncActionsProps {
@@ -19,6 +20,8 @@ export function CompanySyncActions({
   onRefreshView,
   onProcessQueue,
 }: CompanySyncActionsProps) {
+  const { t } = useTranslation('settings');
+
   return (
     <div className="flex flex-wrap gap-3">
       <button
@@ -28,7 +31,7 @@ export function CompanySyncActions({
         onClick={onPullSnapshot}
       >
         <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        {isPulling ? 'Pulling...' : 'Pull Snapshot'}
+        {isPulling ? t('company.sync.actions.pulling') : t('company.sync.actions.pullSnapshot')}
       </button>
       <button
         type="button"
@@ -37,7 +40,7 @@ export function CompanySyncActions({
         onClick={onRefreshView}
       >
         <CloudDownload className="h-4 w-4" />
-        Refresh View
+        {t('company.sync.actions.refreshView')}
       </button>
       <button
         type="button"
@@ -46,7 +49,7 @@ export function CompanySyncActions({
         onClick={onProcessQueue}
       >
         <CloudUpload className="h-4 w-4" />
-        {isPushing ? 'Processing...' : 'Process Queue'}
+        {isPushing ? t('company.sync.actions.processing') : t('company.sync.actions.processQueue')}
       </button>
     </div>
   );

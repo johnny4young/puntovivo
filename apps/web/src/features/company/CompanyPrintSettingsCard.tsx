@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ function PrintSettingToggle({
 }
 
 export function CompanyPrintSettingsCard() {
+  const { t } = useTranslation('settings');
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
   const toast = useToast();
@@ -73,12 +75,12 @@ export function CompanyPrintSettingsCard() {
     },
     onSuccess: settings => {
       queryClient.setQueryData(receiptPrintSettingsQueryKey, settings);
-      toast.success({ title: 'Receipt print settings saved' });
+      toast.success({ title: t('company.print.saved') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to save receipt print settings',
-        description: getErrorMessage(error, 'Unable to save receipt print settings'),
+        title: t('company.print.saveError'),
+        description: getErrorMessage(error, t('company.print.saveError')),
       });
     },
   });
@@ -101,16 +103,16 @@ export function CompanyPrintSettingsCard() {
           <Printer className="h-5 w-5 text-primary-700" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">Receipt Print Settings</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('company.print.title')}</h2>
           <p className="text-sm text-secondary-500">
-            Configure how desktop receipt printing behaves for this workstation.
+            {t('company.print.description')}
           </p>
         </div>
       </div>
 
       {!isDesktop && (
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Receipt print settings are available in the Electron desktop app.
+          {t('company.print.desktopOnly')}
         </div>
       )}
 
@@ -122,16 +124,16 @@ export function CompanyPrintSettingsCard() {
 
       <div className="space-y-3">
         <PrintSettingToggle
-          label="Silent Printing"
-          description="Print receipts without showing the operating system print dialog."
+          label={t('company.print.silentPrinting')}
+          description={t('company.print.silentPrintingDescription')}
           checked={settings.silent}
           disabled={!isDesktop || settingsQuery.isLoading || updateSettingsMutation.isPending}
           onChange={checked => updateSetting({ silent: checked })}
         />
 
         <PrintSettingToggle
-          label="Print Background Graphics"
-          description="Include receipt background styles and shading in the printed output."
+          label={t('company.print.printBackground')}
+          description={t('company.print.printBackgroundDescription')}
           checked={settings.printBackground}
           disabled={!isDesktop || settingsQuery.isLoading || updateSettingsMutation.isPending}
           onChange={checked => updateSetting({ printBackground: checked })}
@@ -139,7 +141,7 @@ export function CompanyPrintSettingsCard() {
       </div>
 
       {updateSettingsMutation.isPending && (
-        <p className="text-sm text-secondary-500">Saving print settings...</p>
+        <p className="text-sm text-secondary-500">{t('company.print.saving')}</p>
       )}
     </section>
   );

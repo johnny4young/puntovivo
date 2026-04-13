@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
+import i18next from '@/i18n';
 
 // Configure tailwind-merge for custom color palettes
 // In tailwind-merge v3, custom theme values are added per-scale
@@ -73,24 +74,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
+function getActiveLocale(): string {
+  if (typeof i18next.resolvedLanguage === 'string' && i18next.resolvedLanguage.length > 0) {
+    return i18next.resolvedLanguage;
+  }
+
+  if (typeof navigator !== 'undefined') {
+    return navigator.languages?.[0] ?? navigator.language ?? 'en-US';
+  }
+
+  return 'en-US';
+}
+
+export function formatCurrency(amount: number, currency = 'USD', locale = getActiveLocale()): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
   }).format(amount);
 }
 
-export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOptions): string {
+export function formatDate(
+  date: Date | string,
+  options?: Intl.DateTimeFormatOptions,
+  locale = getActiveLocale()
+): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     ...options,
   }).format(d);
 }
 
-export function formatDateTime(date: Date | string): string {
+export function formatDateTime(date: Date | string, locale = getActiveLocale()): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(d);

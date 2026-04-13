@@ -1,5 +1,40 @@
 import '@testing-library/jest-dom';
 import { vi, beforeAll, afterAll } from 'vitest';
+import '../i18n'; // initialize i18next so useTranslation works in tests
+
+const localStorageState = new Map<string, string>();
+const localStorageMock: Storage = {
+  get length() {
+    return localStorageState.size;
+  },
+  clear() {
+    localStorageState.clear();
+  },
+  getItem(key: string) {
+    return localStorageState.get(key) ?? null;
+  },
+  key(index: number) {
+    return Array.from(localStorageState.keys())[index] ?? null;
+  },
+  removeItem(key: string) {
+    localStorageState.delete(key);
+  },
+  setItem(key: string, value: string) {
+    localStorageState.set(key, String(value));
+  },
+};
+
+Object.defineProperty(window, 'localStorage', {
+  writable: true,
+  configurable: true,
+  value: localStorageMock,
+});
+
+Object.defineProperty(globalThis, 'localStorage', {
+  writable: true,
+  configurable: true,
+  value: localStorageMock,
+});
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {

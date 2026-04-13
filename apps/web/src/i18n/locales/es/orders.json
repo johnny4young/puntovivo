@@ -1,0 +1,73 @@
+{
+  "page": {
+    "title": "Órdenes de compra",
+    "description": "Prepara pedidos a proveedores, haz seguimiento de entregas por etapas y recibe stock llegado en lotes cuando sea necesario.",
+    "activeSite": "Sede activa",
+    "noSite": "Sin sede seleccionada",
+    "noSiteWarning": "Selecciona una sede activa antes de crear una orden de compra para usar el consecutivo correcto.",
+    "openOrders": "Órdenes abiertas",
+    "committedSpend": "Gasto comprometido",
+    "providersUsed": "Proveedores usados",
+    "draftTotal": "Total borrador"
+  },
+  "checkout": {
+    "kicker": "Solicitud actual",
+    "description": "Ajusta cantidades pedidas y costos del proveedor antes de enviar la orden.",
+    "addProduct": "Agregar producto",
+    "clear": "Limpiar",
+    "createOrder": "Crear orden",
+    "finalizeTitle": "Finalizar",
+    "finalizeDescription": "Revisa proveedor, sede y total comprometido antes de guardar.",
+    "search": "Buscar",
+    "items": "Artículos",
+    "baseUnits": "Unidades base solicitadas",
+    "total": "Total",
+    "requestingSite": "Sede solicitante",
+    "stockNote": "Las órdenes de compra reservan el número de documento y los detalles del proveedor, pero no actualizan el stock hasta que se registra una compra real."
+  },
+  "dialog": {
+    "addProduct": "Agregar producto a la orden de compra",
+    "addButton": "Agregar a la orden"
+  },
+  "toast": {
+    "success": "Orden de compra creada",
+    "successDetail": "lista para seguimiento con el proveedor",
+    "error": "No se pudo crear la orden de compra"
+  },
+  "cart": {
+    "empty": "Busca y agrega productos para iniciar una orden de compra.",
+    "product": "Producto",
+    "qty": "Cant.",
+    "costPerUnit": "Costo / Unidad",
+    "baseUnits": "Unidades base",
+    "lineTotal": "Total línea",
+    "currentStock": "Stock actual {{count}}",
+    "removeItem": "Eliminar {{name}}"
+  },
+  "table": {
+    "orderNumber": "Orden #",
+    "date": "Fecha",
+    "provider": "Proveedor",
+    "site": "Sede",
+    "status": "Estado",
+    "receipts": "Recibos",
+    "total": "Total",
+    "actions": "Acciones",
+    "noReceipts": "Sin recibos aún",
+    "receiptCount_one": "{{count}} recibo",
+    "receiptCount_other": "{{count}} recibos",
+    "latestReceipt": "Último {{number}}",
+    "searchPlaceholder": "Buscar por número de orden...",
+    "loading": "Cargando órdenes de compra...",
+    "loadError": "No se pudo cargar las órdenes de compra",
+    "receive": "Recibir",
+    "viewOrder": "Ver {{number}}",
+    "viewOrderTitle": "Ver orden"
+  },
+  "status": {
+    "submitted": "Enviada",
+    "partial_received": "Parcialmente recibida",
+    "received": "Recibida",
+    "voided": "Anulada"
+  }
+}

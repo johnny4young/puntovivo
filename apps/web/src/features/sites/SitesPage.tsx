@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
@@ -18,6 +19,7 @@ function canManageSites(role: UserRole | undefined): boolean {
 }
 
 export function SitesPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -48,12 +50,12 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Site created' });
+      toast.success({ title: t('sites.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create site',
-        description: getErrorMessage(error, 'Unable to create site'),
+        title: t('sites.toast.createError'),
+        description: getErrorMessage(error, t('sites.toast.createError')),
       });
     },
   });
@@ -62,12 +64,12 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Site updated' });
+      toast.success({ title: t('sites.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update site',
-        description: getErrorMessage(error, 'Unable to update site'),
+        title: t('sites.toast.updateError'),
+        description: getErrorMessage(error, t('sites.toast.updateError')),
       });
     },
   });
@@ -76,12 +78,12 @@ export function SitesPage() {
     onSuccess: async () => {
       await utils.sites.list.invalidate();
       setSiteToDelete(null);
-      toast.success({ title: 'Site deleted' });
+      toast.success({ title: t('sites.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete site',
-        description: getErrorMessage(error, 'Unable to delete site'),
+        title: t('sites.toast.deleteError'),
+        description: getErrorMessage(error, t('sites.toast.deleteError')),
       });
     },
   });
@@ -93,12 +95,12 @@ export function SitesPage() {
         utils.sites.listLocationAssignments.invalidate(),
       ]);
       setSiteForLocations(null);
-      toast.success({ title: 'Site locations updated' });
+      toast.success({ title: t('sites.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update site locations',
-        description: getErrorMessage(error, 'Unable to update site locations'),
+        title: t('sites.toast.updateError'),
+        description: getErrorMessage(error, t('sites.toast.updateError')),
       });
     },
   });
@@ -165,6 +167,7 @@ export function SitesPage() {
   };
 
   const columns = createSiteColumns({
+    t,
     canManage,
     onEdit: handleOpenEdit,
     onDelete: setSiteToDelete,
@@ -175,9 +178,9 @@ export function SitesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Sites</h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('sites.title')}</h1>
           <p className="mt-1 text-sm text-secondary-500">
-            Manage physical locations tied to the current company.
+            {t('sites.description')}
           </p>
         </div>
         <button
@@ -186,21 +189,21 @@ export function SitesPage() {
           disabled={!company || !canManage}
         >
           <Plus className="h-5 w-5" />
-          Add Site
+          {t('sites.add')}
         </button>
       </div>
 
       {!companyQuery.isLoading && !company && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Create the company profile first before adding sites.
+          {t('sites.noCompany')}
         </div>
       )}
 
       <div className="card p-6">
-        {sitesQuery.isLoading && <TableLoadingState message="Loading sites..." />}
+        {sitesQuery.isLoading && <TableLoadingState message={t('sites.loading')} />}
         {sitesQuery.error && (
           <TableErrorState
-            title="Unable to load sites"
+            title={t('sites.error')}
             message={sitesQuery.error.message}
             onRetry={() => {
               void sitesQuery.refetch();
@@ -212,7 +215,7 @@ export function SitesPage() {
             columns={columns}
             data={sites}
             searchKey="name"
-            searchPlaceholder="Search sites..."
+            searchPlaceholder={t('sites.search')}
             pageSize={10}
           />
         )}
@@ -244,20 +247,20 @@ export function SitesPage() {
       <Modal
         isOpen={!!siteForLocations && siteLocationAssignmentsQuery.isLoading}
         onClose={handleCloseLocationsModal}
-        title={siteForLocations ? `Manage Locations for ${siteForLocations.name}` : 'Manage Site Locations'}
+        title={siteForLocations ? `${t('sites.locations.manage')} ${siteForLocations.name}` : t('sites.locations.title')}
         size="sm"
       >
-        <div className="py-4 text-sm text-secondary-600">Loading location assignments...</div>
+        <div className="py-4 text-sm text-secondary-600">{t('sites.locations.loading')}</div>
       </Modal>
 
       <Modal
         isOpen={!!siteForLocations && !!siteLocationAssignmentsQuery.error}
         onClose={handleCloseLocationsModal}
-        title={siteForLocations ? `Manage Locations for ${siteForLocations.name}` : 'Manage Site Locations'}
+        title={siteForLocations ? `${t('sites.locations.manage')} ${siteForLocations.name}` : t('sites.locations.title')}
         size="sm"
       >
         <div className="py-4 text-sm text-danger-600">
-          {siteLocationAssignmentsQuery.error?.message ?? 'Unable to load location assignments.'}
+          {siteLocationAssignmentsQuery.error?.message ?? t('sites.locations.error')}
         </div>
       </Modal>
 
@@ -269,13 +272,9 @@ export function SitesPage() {
             void deleteMutation.mutateAsync({ id: siteToDelete.id });
           }
         }}
-        title="Delete Site"
-        message={
-          siteToDelete
-            ? `Delete "${siteToDelete.name}"? Sites with sequentials or assigned locations cannot be deleted and should be cleaned up first.`
-            : ''
-        }
-        confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+        title={t('sites.delete.title')}
+        message={siteToDelete ? t('sites.delete.description') : ''}
+        confirmText={deleteMutation.isPending ? t('sites.delete.submitting') : t('sites.delete.confirm')}
         loading={deleteMutation.isPending}
       />
     </div>

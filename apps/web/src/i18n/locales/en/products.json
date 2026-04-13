@@ -1,0 +1,106 @@
+{
+  "page": {
+    "title": "Products",
+    "kicker": "Products Catalog",
+    "description": "Manage catalog items, pricing tiers, and stock thresholds.",
+    "permissionNote": "Only administrators and managers can modify products. You can still review the catalog.",
+    "add": "Add Product"
+  },
+  "table": {
+    "loading": "Loading products...",
+    "error": "Unable to load products",
+    "search": "Search products...",
+    "product": "Product",
+    "category": "Category",
+    "provider": "Provider",
+    "location": "Location",
+    "tier1": "Tier 1",
+    "tier2": "Tier 2",
+    "tier3": "Tier 3",
+    "stock": "Stock",
+    "low": "Low",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "createTitle": "Create Product",
+    "editTitle": "Edit Product",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create Product",
+    "save": "Save Changes",
+    "tabs": {
+      "general": "General",
+      "pricing": "Pricing",
+      "units": "Units",
+      "providers": "Providers"
+    },
+    "fields": {
+      "name": "Name",
+      "nameRequired": "Product name is required",
+      "sku": "SKU",
+      "skuRequired": "SKU is required",
+      "description": "Description",
+      "category": "Category",
+      "noCategory": "No category",
+      "provider": "Provider",
+      "noProvider": "No provider",
+      "vatRate": "VAT Rate",
+      "manualTaxRate": "Manual tax rate",
+      "taxRate": "Tax Rate (%)",
+      "location": "Location",
+      "noLocation": "No location",
+      "barcode": "Barcode",
+      "stock": "Stock",
+      "minStock": "Min Stock",
+      "imageUrl": "Image URL",
+      "isActive": "Product is active",
+      "cost": "Cost",
+      "initialCost": "Initial Cost",
+      "priceTier1": "Price Tier 1",
+      "priceTier2": "Price Tier 2",
+      "priceTier3": "Price Tier 3",
+      "marginPercent": "Margin %",
+      "marginAmount": "Margin Amount",
+      "salePrice": "Sale Price"
+    },
+    "units": {
+      "title": "Unit assignments",
+      "description": "Define the base unit and any additional equivalence-based sale units.",
+      "addUnit": "Add Unit",
+      "unit": "Unit",
+      "selectUnit": "Select unit",
+      "unitRequired": "Unit is required",
+      "equivalence": "Equivalence",
+      "unitPrice": "Unit Price",
+      "baseUnit": "Base unit",
+      "remove": "Remove"
+    },
+    "providerAssignments": {
+      "title": "Provider associations",
+      "description": "Link this product to one or more suppliers.",
+      "addProvider": "Add Provider",
+      "empty": "No providers linked. Click \"Add Provider\" to associate a supplier.",
+      "provider": "Provider",
+      "selectProvider": "Select provider",
+      "providerRequired": "Provider is required",
+      "providerDuplicate": "Provider already selected",
+      "remove": "Remove"
+    }
+  },
+  "deactivate": {
+    "title": "Deactivate Product",
+    "description": "This will mark as inactive. You can reactivate it later by editing the record.",
+    "submitting": "Deactivating...",
+    "confirm": "Deactivate"
+  },
+  "toast": {
+    "created": "Product created",
+    "createError": "Unable to create product",
+    "updated": "Product updated",
+    "updateError": "Unable to update product",
+    "deactivated": "Product deactivated",
+    "deactivateError": "Unable to deactivate product"
+  }
+}

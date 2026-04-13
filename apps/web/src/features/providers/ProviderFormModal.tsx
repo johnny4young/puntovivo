@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { City, Provider } from '@/types';
 
@@ -60,6 +61,7 @@ export function ProviderFormModal({
   onClose,
   onSubmit,
 }: ProviderFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<ProviderFormValues>({
     defaultValues: mapProviderToForm(provider),
   });
@@ -71,14 +73,14 @@ export function ProviderFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Provider' : 'Edit Provider'}
+      title={isCreate ? t('providers.form.createTitle') : t('providers.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('providers.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Provider' : 'Save Changes'}
+            {isSaving ? t('providers.form.submitting') : isCreate ? t('providers.form.create') : t('providers.form.save')}
           </ModalButton>
         </>
       }
@@ -86,12 +88,12 @@ export function ProviderFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="provider-name" className="label">
-            Provider Name
+            {t('providers.form.fields.name')}
           </label>
           <input
             id="provider-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Provider name is required' })}
+            {...form.register('name', { required: t('providers.form.fields.nameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -100,7 +102,7 @@ export function ProviderFormModal({
 
         <div>
           <label htmlFor="provider-contact" className="label">
-            Contact Name
+            {t('providers.form.fields.contactName')}
           </label>
           <input id="provider-contact" className="input mt-1" {...form.register('contactName')} />
         </div>
@@ -108,14 +110,14 @@ export function ProviderFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="provider-tax-id" className="label">
-              Tax ID
+              {t('providers.form.fields.taxId')}
             </label>
             <input id="provider-tax-id" className="input mt-1" {...form.register('taxId')} />
           </div>
 
           <div>
             <label htmlFor="provider-phone" className="label">
-              Phone
+              {t('providers.form.fields.phone')}
             </label>
             <input id="provider-phone" className="input mt-1" {...form.register('phone')} />
           </div>
@@ -123,7 +125,7 @@ export function ProviderFormModal({
 
         <div>
           <label htmlFor="provider-email" className="label">
-            Email
+            {t('providers.form.fields.email')}
           </label>
           <input
             id="provider-email"
@@ -132,7 +134,7 @@ export function ProviderFormModal({
             {...form.register('email', {
               pattern: {
                 value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Invalid email address',
+                message: t('providers.form.fields.emailInvalid'),
               },
             })}
           />
@@ -143,10 +145,10 @@ export function ProviderFormModal({
 
         <div>
           <label htmlFor="provider-city" className="label">
-            City
+            {t('providers.form.fields.city')}
           </label>
           <select id="provider-city" className="input mt-1" {...form.register('cityId')}>
-            <option value="">No city assigned</option>
+            <option value="">{t('providers.form.fields.noCity')}</option>
             {cities.map(city => (
               <option key={city.id} value={city.id} disabled={!city.isActive}>
                 {city.name}
@@ -159,7 +161,7 @@ export function ProviderFormModal({
 
         <div>
           <label htmlFor="provider-address" className="label">
-            Address
+            {t('providers.form.fields.address')}
           </label>
           <textarea
             id="provider-address"
@@ -174,7 +176,7 @@ export function ProviderFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Provider is active
+          {t('providers.form.fields.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

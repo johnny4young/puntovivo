@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Download,
   Printer,
@@ -122,6 +123,7 @@ export function TableToolbar({
   showColumnToggle = true,
   showPrint = true,
 }: TableToolbarProps) {
+  const { t } = useTranslation('common');
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [columnsDropdownOpen, setColumnsDropdownOpen] = useState(false);
 
@@ -145,7 +147,7 @@ export function TableToolbar({
               <button
                 onClick={() => onSearchChange('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary-100 text-secondary-400 hover:text-secondary-600"
-                aria-label="Clear search"
+                aria-label={t('toolbar.clearSearch')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -155,9 +157,9 @@ export function TableToolbar({
 
         {selectedCount > 0 && (
           <div className="flex items-center gap-2 text-sm">
-            <span className="badge-primary">{selectedCount} selected</span>
+            <span className="badge-primary">{selectedCount} {t('toolbar.selected')}</span>
             {totalCount !== undefined && (
-              <span className="text-secondary-500">of {totalCount} total</span>
+              <span className="text-secondary-500">{t('toolbar.ofTotal', { total: totalCount })}</span>
             )}
           </div>
         )}
@@ -171,11 +173,11 @@ export function TableToolbar({
             <button
               onClick={() => setColumnsDropdownOpen(!columnsDropdownOpen)}
               className="btn-outline h-9 px-3 gap-2"
-              aria-label="Toggle columns"
+              aria-label={t('toolbar.toggleColumns')}
               aria-expanded={columnsDropdownOpen}
             >
               <Columns className="h-4 w-4" />
-              <span className="hidden sm:inline">Columns</span>
+              <span className="hidden sm:inline">{t('toolbar.columns')}</span>
               <ChevronDown
                 className={cn('h-4 w-4 transition-transform', columnsDropdownOpen && 'rotate-180')}
               />
@@ -188,7 +190,7 @@ export function TableToolbar({
             >
               <div className="p-2">
                 <div className="px-2 py-1.5 text-xs font-semibold text-secondary-500 uppercase tracking-wider">
-                  Toggle Columns
+                  {t('toolbar.toggleColumns')}
                 </div>
                 <div className="my-1 h-px bg-secondary-200" />
                 {columns.map(column => (
@@ -213,7 +215,7 @@ export function TableToolbar({
                   }}
                   className="w-full px-2 py-1.5 text-sm text-left text-primary-600 hover:bg-primary-50 rounded"
                 >
-                  Show all columns
+                  {t('toolbar.showAllColumns')}
                 </button>
               </div>
             </Dropdown>
@@ -227,7 +229,7 @@ export function TableToolbar({
               onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
               disabled={isExporting}
               className={cn('btn-outline h-9 px-3 gap-2', isExporting && 'opacity-70 cursor-wait')}
-              aria-label="Export options"
+              aria-label={t('toolbar.export')}
               aria-expanded={exportDropdownOpen}
             >
               {isExporting ? (
@@ -235,7 +237,7 @@ export function TableToolbar({
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+              <span className="hidden sm:inline">{isExporting ? t('toolbar.exporting') : t('toolbar.export')}</span>
               <ChevronDown
                 className={cn('h-4 w-4 transition-transform', exportDropdownOpen && 'rotate-180')}
               />
@@ -258,8 +260,8 @@ export function TableToolbar({
                   >
                     <File className="h-4 w-4 text-green-600" />
                     <div className="flex flex-col items-start">
-                      <span>Export as CSV</span>
-                      <span className="text-xs text-secondary-400">Comma-separated values</span>
+                      <span>{t('toolbar.exportCSV')}</span>
+                      <span className="text-xs text-secondary-400">{t('toolbar.exportCSVDesc')}</span>
                     </div>
                     {exportFormat === 'csv' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
                   </button>
@@ -275,8 +277,8 @@ export function TableToolbar({
                   >
                     <FileSpreadsheet className="h-4 w-4 text-green-700" />
                     <div className="flex flex-col items-start">
-                      <span>Export as Excel</span>
-                      <span className="text-xs text-secondary-400">Microsoft Excel format</span>
+                      <span>{t('toolbar.exportExcel')}</span>
+                      <span className="text-xs text-secondary-400">{t('toolbar.exportExcelDesc')}</span>
                     </div>
                     {exportFormat === 'excel' && (
                       <Loader2 className="ml-auto h-4 w-4 animate-spin" />
@@ -294,8 +296,8 @@ export function TableToolbar({
                   >
                     <FileText className="h-4 w-4 text-red-600" />
                     <div className="flex flex-col items-start">
-                      <span>Export as PDF</span>
-                      <span className="text-xs text-secondary-400">Portable Document Format</span>
+                      <span>{t('toolbar.exportPDF')}</span>
+                      <span className="text-xs text-secondary-400">{t('toolbar.exportPDFDesc')}</span>
                     </div>
                     {exportFormat === 'pdf' && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
                   </button>
@@ -307,9 +309,9 @@ export function TableToolbar({
 
         {/* Print button */}
         {showPrint && onPrint && (
-          <button onClick={onPrint} className="btn-outline h-9 px-3 gap-2" aria-label="Print table">
+          <button onClick={onPrint} className="btn-outline h-9 px-3 gap-2" aria-label={t('toolbar.print')}>
             <Printer className="h-4 w-4" />
-            <span className="hidden sm:inline">Print</span>
+            <span className="hidden sm:inline">{t('toolbar.print')}</span>
           </button>
         )}
       </div>

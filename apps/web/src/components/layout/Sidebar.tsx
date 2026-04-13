@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   BadgePercent,
   Building2,
@@ -39,55 +40,57 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
+// Navigation item stores a translation key instead of a resolved string
 type NavigationItem = {
-  name: string;
+  nameKey: string;
   href: string;
   icon: typeof LayoutDashboard;
   allowedRoles: readonly UserRole[];
 };
 
 type NavigationSection = {
-  title: string;
+  titleKey: string;
   items: readonly NavigationItem[];
 };
 
 const navigationSections = [
   {
-    title: 'Overview',
+    titleKey: 'sections.overview',
     items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, allowedRoles: dashboardRoles },
-      { name: 'Sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
-      { name: 'Inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.dashboard', href: '/dashboard', icon: LayoutDashboard, allowedRoles: dashboardRoles },
+      { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
+      { nameKey: 'items.inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
     ],
   },
   {
-    title: 'Flow',
+    titleKey: 'sections.flow',
     items: [
-      { name: 'Orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
-      { name: 'Purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
-      { name: 'Customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
-      { name: 'Products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
-      { name: 'Providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
-      { name: 'Categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
-      { name: 'Locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
     ],
   },
   {
-    title: 'Setup',
+    titleKey: 'sections.setup',
     items: [
-      { name: 'Company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
-      { name: 'Sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
-      { name: 'Sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
-      { name: 'Geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
-      { name: 'Customer Catalogs', href: '/customer-catalogs', icon: ClipboardList, allowedRoles: adminOnlyRoles },
-      { name: 'Units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
-      { name: 'VAT Rates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
-      { name: 'Users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.customerCatalogs', href: '/customer-catalogs', icon: ClipboardList, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.vatRates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
     ],
   },
 ] satisfies readonly NavigationSection[];
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation('nav');
   return (
     <div className="hero-surface px-4 py-4">
       <div className="relative z-10 flex items-center gap-3">
@@ -96,11 +99,9 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Retail Console</p>
-            <h1 className="truncate font-display text-2xl text-secondary-950">Puntovivo</h1>
-            <p className="truncate text-xs text-secondary-600">
-              Sales, stock, and receiving in one workspace
-            </p>
+            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('brand.kicker')}</p>
+            <h1 className="truncate font-display text-2xl text-secondary-950">{t('brand.title')}</h1>
+            <p className="truncate text-xs text-secondary-600">{t('brand.tagline')}</p>
           </div>
         )}
       </div>
@@ -117,11 +118,13 @@ function NavigationLink({
   collapsed: boolean;
   onNavigate: () => void;
 }) {
+  const { t } = useTranslation('nav');
+  const name = t(item.nameKey);
   return (
     <NavLink
       to={item.href}
       onClick={onNavigate}
-      title={collapsed ? item.name : undefined}
+      title={collapsed ? name : undefined}
       className={({ isActive }) =>
         cn(
           'group flex items-center gap-3 rounded-[20px] px-3 py-3 text-sm font-medium transition-all duration-200',
@@ -133,7 +136,7 @@ function NavigationLink({
       }
     >
       <item.icon className="h-5 w-5 shrink-0" />
-      {!collapsed && <span className="truncate">{item.name}</span>}
+      {!collapsed && <span className="truncate">{name}</span>}
     </NavLink>
   );
 }
@@ -147,6 +150,7 @@ function SidebarSections({
   onNavigate: () => void;
   role: UserRole | undefined;
 }) {
+  const { t } = useTranslation('nav');
   return (
     <div className="space-y-5">
       {navigationSections.map(section => {
@@ -157,10 +161,10 @@ function SidebarSections({
         }
 
         return (
-          <section key={section.title} className="space-y-2">
+          <section key={section.titleKey} className="space-y-2">
             {!collapsed && (
               <p className="px-2 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-secondary-500">
-                {section.title}
+                {t(section.titleKey)}
               </p>
             )}
             <div className="space-y-1.5">
@@ -187,6 +191,7 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const { user } = useAuth();
+  const { t } = useTranslation(['nav', 'common']);
 
   return (
     <>
@@ -211,7 +216,7 @@ export function Sidebar({
             type="button"
             className="btn-ghost btn-icon lg:hidden"
             onClick={onCloseMobile}
-            aria-label="Close navigation"
+            aria-label={t('nav:actions.closeNavigation')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -229,7 +234,7 @@ export function Sidebar({
           {!collapsed && user && (
             <div className="card-inset px-4 py-3">
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-secondary-500">
-                Signed in
+                {t('common:signedIn')}
               </p>
               <p className="mt-2 truncate text-sm font-semibold text-secondary-950">{user.name}</p>
               <p className="truncate text-xs text-secondary-500">{user.role}</p>
@@ -244,12 +249,12 @@ export function Sidebar({
             {collapsed ? (
               <>
                 <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Expand navigation</span>
+                <span className="sr-only">{t('nav:actions.expandNavigation')}</span>
               </>
             ) : (
               <>
                 <ChevronLeft className="h-4 w-4" />
-                Collapse rail
+                {t('nav:actions.collapseRail')}
               </>
             )}
           </button>

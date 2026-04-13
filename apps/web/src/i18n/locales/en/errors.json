@@ -1,0 +1,8 @@
+{
+  "boundary": {
+    "title": "Something went wrong",
+    "description": "The app hit an unexpected error while rendering this screen. You can retry the current session or reload the application.",
+    "retry": "Retry",
+    "reload": "Reload App"
+  }
+}

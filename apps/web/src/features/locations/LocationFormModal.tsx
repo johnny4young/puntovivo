@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Location } from '@/types';
 
@@ -46,6 +47,7 @@ export function LocationFormModal({
   onClose,
   onSubmit,
 }: LocationFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<LocationFormValues>({
     defaultValues: mapLocationToForm(location),
   });
@@ -57,14 +59,14 @@ export function LocationFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Location' : 'Edit Location'}
+      title={isCreate ? t('locations.form.createTitle') : t('locations.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('locations.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Location' : 'Save Changes'}
+            {isSaving ? t('locations.form.submitting') : isCreate ? t('locations.form.create') : t('locations.form.save')}
           </ModalButton>
         </>
       }
@@ -73,12 +75,12 @@ export function LocationFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="location-code" className="label">
-              Code
+              {t('locations.form.fields.code')}
             </label>
             <input
               id="location-code"
               className="input mt-1"
-              {...form.register('code', { required: 'Location code is required' })}
+              {...form.register('code', { required: t('locations.form.fields.codeRequired') })}
             />
             {form.formState.errors.code && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
@@ -87,12 +89,12 @@ export function LocationFormModal({
 
           <div>
             <label htmlFor="location-name" className="label">
-              Name
+              {t('locations.form.fields.name')}
             </label>
             <input
               id="location-name"
               className="input mt-1"
-              {...form.register('name', { required: 'Location name is required' })}
+              {...form.register('name', { required: t('locations.form.fields.nameRequired') })}
             />
             {form.formState.errors.name && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -102,7 +104,7 @@ export function LocationFormModal({
 
         <div>
           <label htmlFor="location-description" className="label">
-            Description
+            {t('locations.form.fields.description')}
           </label>
           <textarea
             id="location-description"
@@ -117,7 +119,7 @@ export function LocationFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Location is active
+          {t('locations.form.fields.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

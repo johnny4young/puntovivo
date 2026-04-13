@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -9,7 +10,6 @@ import {
   type CustomerCatalogFormValues,
 } from '@/features/customer-catalogs/CustomerCatalogFormModal';
 import {
-  customerCatalogConfig,
   customerCatalogTabs,
   type CustomerCatalogKey,
 } from '@/features/customer-catalogs/customerCatalogConfig';
@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc';
 import type { CustomerCatalogItem } from '@/types';
 
 export function CustomerCatalogsPage() {
+  const { t } = useTranslation('customers');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -50,7 +51,6 @@ export function CustomerCatalogsPage() {
   const commercialActivitiesUpdate = trpc.commercialActivities.update.useMutation();
   const commercialActivitiesDelete = trpc.commercialActivities.delete.useMutation();
 
-  const config = customerCatalogConfig[activeCatalog];
   const activeQuery =
     activeCatalog === 'identificationTypes'
       ? identificationTypesQuery
@@ -98,6 +98,11 @@ export function CustomerCatalogsPage() {
             : commercialActivitiesDelete;
 
   const canManage = user?.role === 'admin';
+
+  const singularType = t(`catalogs.types.${activeCatalog}.singular`);
+  const catalogDescription = t(`catalogs.types.${activeCatalog}.description`);
+  const searchPlaceholder = t(`catalogs.types.${activeCatalog}.search`);
+  const tabLabel = t(`catalogs.tabs.${activeCatalog}`);
 
   const resetMutations = () => {
     identificationTypesCreate.reset();
@@ -168,18 +173,18 @@ export function CustomerCatalogsPage() {
           id: editingItem.id,
           ...payload,
         });
-        toast.success({ title: `${config.singularLabel} updated` });
+        toast.success({ title: t('catalogs.toast.updated') });
       } else {
         await currentCreateMutation.mutateAsync(payload);
-        toast.success({ title: `${config.singularLabel} created` });
+        toast.success({ title: t('catalogs.toast.created') });
       }
 
       await invalidateActiveCatalog();
       handleCloseModal();
     } catch (error) {
       toast.error({
-        title: `Unable to save ${config.singularLabel.toLowerCase()}`,
-        description: getErrorMessage(error, `Unable to save ${config.singularLabel.toLowerCase()}`),
+        title: t('catalogs.toast.createError'),
+        description: getErrorMessage(error, t('catalogs.toast.createError')),
       });
     }
   };
@@ -193,14 +198,11 @@ export function CustomerCatalogsPage() {
       await currentDeleteMutation.mutateAsync({ id: itemToDelete.id });
       await invalidateActiveCatalog();
       setItemToDelete(null);
-      toast.success({ title: `${config.singularLabel} deleted` });
+      toast.success({ title: t('catalogs.toast.deleted') });
     } catch (error) {
       toast.error({
-        title: `Unable to delete ${config.singularLabel.toLowerCase()}`,
-        description: getErrorMessage(
-          error,
-          `Unable to delete ${config.singularLabel.toLowerCase()}`
-        ),
+        title: t('catalogs.toast.createError'),
+        description: getErrorMessage(error, t('catalogs.toast.createError')),
       });
     }
   };
@@ -208,7 +210,7 @@ export function CustomerCatalogsPage() {
   return (
     <>
       <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-secondary-200 bg-white p-2">
-        {customerCatalogTabs.map(([key, tabConfig]) => (
+        {customerCatalogTabs.map(([key]) => (
           <button
             key={key}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -222,18 +224,18 @@ export function CustomerCatalogsPage() {
               setItemToDelete(null);
             }}
           >
-            {tabConfig.pluralLabel}
+            {t(`catalogs.tabs.${key}`)}
           </button>
         ))}
       </div>
 
       <ResourcePage
-        title="Customer Catalogs"
-        description={config.description}
+        title={t('catalogs.title')}
+        description={catalogDescription}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />
-            Add {config.singularLabel}
+            {t('catalogs.add', { type: singularType })}
           </button>
         }
         columns={buildCustomerCatalogColumns(handleOpenEdit, setItemToDelete)}
@@ -241,8 +243,8 @@ export function CustomerCatalogsPage() {
         isLoading={activeQuery.isLoading}
         error={activeQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder={config.searchPlaceholder}
-        loadingMessage={`Loading ${config.pluralLabel.toLowerCase()}...`}
+        searchPlaceholder={searchPlaceholder}
+        loadingMessage={t('catalogs.loading', { type: tabLabel.toLowerCase() })}
         onRetry={() => {
           void activeQuery.refetch();
         }}
@@ -252,7 +254,7 @@ export function CustomerCatalogsPage() {
         key={`${activeCatalog}-${editingItem?.id ?? 'new-item'}-${modalInstanceKey}`}
         isOpen={isModalOpen}
         item={editingItem}
-        singularLabel={config.singularLabel}
+        singularLabel={singularType}
         isSaving={currentCreateMutation.isPending || currentUpdateMutation.isPending}
         error={currentCreateMutation.error?.message ?? currentUpdateMutation.error?.message ?? null}
         onClose={handleCloseModal}
@@ -261,14 +263,14 @@ export function CustomerCatalogsPage() {
 
       <ConfirmModal
         isOpen={!!itemToDelete}
-        title={`Delete ${config.singularLabel}`}
+        title={t('catalogs.deleteTitle', { type: singularType })}
         message={
           itemToDelete
-            ? `Delete ${itemToDelete.name}? Customers that still use code ${itemToDelete.code} will keep their stored value, but new edits will require an active catalog entry.`
+            ? t('catalogs.deleteMessage', { name: itemToDelete.name, note: t('catalogs.deleteNote') })
             : ''
         }
-        confirmText={currentDeleteMutation.isPending ? 'Deleting...' : `Delete ${config.singularLabel}`}
-        cancelText="Cancel"
+        confirmText={currentDeleteMutation.isPending ? t('catalogs.deleting') : t('catalogs.deleteTitle', { type: singularType })}
+        cancelText={t('catalogs.cancel')}
         variant="danger"
         loading={currentDeleteMutation.isPending}
         onConfirm={() => {

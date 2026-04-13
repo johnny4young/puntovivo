@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 type ToastTone = 'success' | 'error' | 'info' | 'warning';
@@ -76,6 +77,8 @@ function ToastViewport({
   toasts: ToastRecord[];
   onDismiss: (toastId: string) => void;
 }) {
+  const { t } = useTranslation('common');
+
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-3">
       {toasts.map(toast => {
@@ -102,7 +105,7 @@ function ToastViewport({
                 type="button"
                 className="rounded-md p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100"
                 onClick={() => onDismiss(toast.id)}
-                aria-label={`Dismiss ${toast.title}`}
+                aria-label={t('toast.dismiss', { title: toast.title })}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -148,11 +151,13 @@ export function ToastProvider({ children }: ToastProviderProps) {
   );
 
   useEffect(() => {
+    const timeoutIds = timeoutIdsRef.current;
+
     return () => {
-      for (const timeoutId of timeoutIdsRef.current.values()) {
+      for (const timeoutId of timeoutIds.values()) {
         clearTimeout(timeoutId);
       }
-      timeoutIdsRef.current.clear();
+      timeoutIds.clear();
     };
   }, []);
 

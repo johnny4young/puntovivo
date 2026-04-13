@@ -1,0 +1,743 @@
+{
+  "providers": {
+    "title": "Providers",
+    "description": "Manage suppliers, vendor contacts, city assignments, and supplied category coverage.",
+    "add": "Add Provider",
+    "loading": "Loading providers...",
+    "error": "Unable to load providers",
+    "search": "Search providers...",
+    "columns": {
+      "name": "Name",
+      "contact": "Contact",
+      "taxId": "Tax ID",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City",
+      "status": "Status"
+    },
+    "form": {
+      "createTitle": "Create Provider",
+      "editTitle": "Edit Provider",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Provider",
+      "save": "Save Changes",
+      "fields": {
+        "name": "Provider Name",
+        "nameRequired": "Provider name is required",
+        "contactName": "Contact Name",
+        "taxId": "Tax ID",
+        "phone": "Phone",
+        "email": "Email",
+        "emailInvalid": "Invalid email address",
+        "city": "City",
+        "noCity": "No city assigned",
+        "address": "Address",
+        "isActive": "Provider is active"
+      }
+    },
+    "categories": {
+      "manage": "Manage Categories for",
+      "title": "Manage Provider Categories",
+      "loading": "Loading provider categories...",
+      "error": "Unable to load provider categories",
+      "hint": "Select which product categories this provider commonly supplies.",
+      "search": "Search categories",
+      "searchPlaceholder": "Search by category name",
+      "noMatch": "No matching categories found.",
+      "topLevel": "Top-level category",
+      "nested": "Nested category",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "save": "Save Assignments"
+    },
+    "delete": {
+      "title": "Delete Provider",
+      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first."
+    },
+    "toast": {
+      "created": "Provider created",
+      "createError": "Unable to create provider",
+      "updated": "Provider updated",
+      "updateError": "Unable to update provider",
+      "deleted": "Provider deleted",
+      "deleteError": "Unable to delete provider"
+    }
+  },
+  "categories": {
+    "title": "Categories",
+    "description": "Manage the product category hierarchy used across catalog and reporting.",
+    "add": "Add Category",
+    "loading": "Loading categories...",
+    "error": "Unable to load categories",
+    "search": "Search categories...",
+    "columns": {
+      "category": "Category",
+      "description": "Description",
+      "level": "Level",
+      "topLevel": "Top-level category",
+      "leaf": "Leaf category",
+      "children_one": "{{count}} child category",
+      "children_other": "{{count}} child categories"
+    },
+    "form": {
+      "createTitle": "Create Category",
+      "editTitle": "Edit Category",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Category",
+      "save": "Save Changes",
+      "fields": {
+        "name": "Category Name",
+        "nameRequired": "Category name is required",
+        "parentCategory": "Parent Category",
+        "noParent": "No parent",
+        "description": "Description"
+      }
+    },
+    "delete": {
+      "title": "Delete Category",
+      "description": "Are you sure you want to delete this category?"
+    },
+    "toast": {
+      "created": "Category created",
+      "createError": "Unable to create category",
+      "updated": "Category updated",
+      "updateError": "Unable to update category",
+      "deleted": "Category deleted",
+      "deleteError": "Unable to delete category"
+    }
+  },
+  "locations": {
+    "title": "Locations",
+    "description": "Manage warehouse and shelf locations used by the product catalog.",
+    "add": "Add Location",
+    "loading": "Loading locations...",
+    "error": "Unable to load locations",
+    "search": "Search locations...",
+    "permissionNote": "Only administrators can modify locations. You can still review the catalog.",
+    "columns": {
+      "location": "Location",
+      "description": "Description",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "form": {
+      "createTitle": "Create Location",
+      "editTitle": "Edit Location",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Location",
+      "save": "Save Changes",
+      "fields": {
+        "code": "Code",
+        "codeRequired": "Location code is required",
+        "name": "Name",
+        "nameRequired": "Location name is required",
+        "description": "Description",
+        "isActive": "Location is active"
+      }
+    },
+    "delete": {
+      "title": "Delete Location",
+      "description": "Delete? Products assigned to this location must be moved first.",
+      "submitting": "Deleting...",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Location created",
+      "createError": "Unable to create location",
+      "updated": "Location updated",
+      "updateError": "Unable to update location",
+      "deleted": "Location deleted",
+      "deleteError": "Unable to delete location"
+    }
+  },
+  "sites": {
+    "title": "Sites",
+    "description": "Manage physical locations tied to the current company.",
+    "add": "Add Site",
+    "noCompany": "Create the company profile first before adding sites.",
+    "loading": "Loading sites...",
+    "error": "Unable to load sites",
+    "search": "Search sites...",
+    "columns": {
+      "site": "Site",
+      "address": "Address",
+      "phone": "Phone",
+      "status": "Status"
+    },
+    "form": {
+      "createTitle": "Create Site",
+      "editTitle": "Edit Site",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Site",
+      "save": "Save Changes",
+      "fields": {
+        "name": "Site Name",
+        "nameRequired": "Site name is required",
+        "address": "Address",
+        "phone": "Phone",
+        "isActive": "Site is active"
+      }
+    },
+    "locations": {
+      "manage": "Manage Locations for",
+      "title": "Manage Site Locations",
+      "loading": "Loading location assignments...",
+      "error": "Unable to load location assignments",
+      "hint": "Select which warehouse or shelf locations can be used from this site.",
+      "search": "Search locations",
+      "searchPlaceholder": "Search by code or name",
+      "noMatch": "No matching locations found.",
+      "inactive": "Inactive",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "save": "Save Assignments"
+    },
+    "delete": {
+      "title": "Delete Site",
+      "description": "Delete? Sites with sequentials or assigned locations cannot be deleted and should be cleaned up first.",
+      "submitting": "Deleting...",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Site created",
+      "createError": "Unable to create site",
+      "updated": "Site updated",
+      "updateError": "Unable to update site",
+      "deleted": "Site deleted",
+      "deleteError": "Unable to delete site"
+    }
+  },
+  "company": {
+    "title": "Company",
+    "description": "Manage the business identity used across your tenant.",
+    "loading": "Loading the business identity and workstation settings",
+    "error": "Unable to load company settings",
+    "createPrompt": "Create your company profile",
+    "createNote": "This record is used by sites, future documents, and business settings.",
+    "fields": {
+      "companyName": "Company Name",
+      "companyNameRequired": "Company name is required",
+      "taxId": "Tax ID",
+      "email": "Email",
+      "emailInvalid": "Invalid email address",
+      "phone": "Phone",
+      "address": "Address"
+    },
+    "sections": {
+      "backup": "Backup",
+      "autoUpdate": "Auto-Update",
+      "logoLibrary": "Logo Library",
+      "printSettings": "Print Settings",
+      "sync": "Sync",
+      "themeSettings": "Theme Settings",
+      "traySettings": "Tray Settings"
+    },
+    "submitting": "Saving...",
+    "save": "Save Company",
+    "toast": {
+      "saved": "Company settings saved",
+      "saveError": "Unable to save company settings"
+    },
+    "tray": {
+      "title": "System Tray",
+      "description": "Control whether this workstation stays available from the desktop tray.",
+      "desktopOnly": "Tray settings are available in the Electron desktop app.",
+      "showIcon": "Show Tray Icon",
+      "showIconDescription": "Keep a system tray icon available so the workstation can be reopened quickly.",
+      "closeToTray": "Close Window To Tray",
+      "closeToTrayDescription": "Hide the main window instead of quitting the app when the close button is used.",
+      "saving": "Saving tray settings...",
+      "saved": "Tray settings saved",
+      "saveError": "Unable to save tray settings"
+    },
+    "print": {
+      "title": "Receipt Print Settings",
+      "description": "Configure how desktop receipt printing behaves for this workstation.",
+      "desktopOnly": "Receipt print settings are available in the Electron desktop app.",
+      "silentPrinting": "Silent Printing",
+      "silentPrintingDescription": "Print receipts without showing the operating system print dialog.",
+      "printBackground": "Print Background Graphics",
+      "printBackgroundDescription": "Include receipt background styles and shading in the printed output.",
+      "saving": "Saving print settings...",
+      "saved": "Receipt print settings saved",
+      "saveError": "Unable to save receipt print settings"
+    },
+    "logo": {
+      "title": "Logo Library",
+      "description": "Manage reusable tenant logos and choose which one represents the company.",
+      "addLogo": "Add Logo",
+      "currentLogo": "Current company logo",
+      "selectedLogo": "Selected logo",
+      "noLogoSelected": "No logo selected for the company.",
+      "loadingTitle": "Logo library",
+      "loadingDescription": "Loading saved tenant logos.",
+      "loadError": "Unable to load logos",
+      "emptyLibrary": "No saved logos yet. Add one to start building a reusable brand library.",
+      "companyAssignments_one": "{{count}} company assignment",
+      "companyAssignments_other": "{{count}} company assignments",
+      "editTitle": "Edit logo",
+      "deleteTitle": "Delete logo",
+      "active": "Active",
+      "inactive": "Inactive",
+      "clear": "Clear",
+      "selecting": "Selecting...",
+      "use": "Use",
+      "deleteConfirmTitle": "Delete Logo",
+      "deleteConfirmMessage": "Delete {{name}}? Logos assigned to the company must be unassigned first.",
+      "deleting": "Deleting...",
+      "deleteConfirm": "Delete Logo",
+      "cancel": "Cancel",
+      "toast": {
+        "created": "Logo created",
+        "createError": "Unable to create logo",
+        "updated": "Logo updated",
+        "updateError": "Unable to update logo",
+        "deleted": "Logo deleted",
+        "deleteError": "Unable to delete logo",
+        "logoUpdated": "Company logo updated",
+        "logoUpdateError": "Unable to update company logo"
+      },
+      "form": {
+        "addTitle": "Add Logo",
+        "editTitle": "Edit Logo",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "create": "Create Logo",
+        "saveChanges": "Save Changes",
+        "logoName": "Logo Name",
+        "logoNameRequired": "Logo name is required",
+        "imageUrl": "Image URL",
+        "imageUrlRequired": "Image URL is required",
+        "imageUrlInvalid": "Enter a valid image URL",
+        "isActive": "Logo is active"
+      }
+    },
+    "sync": {
+      "title": "Sync Center",
+      "description": "Review queued changes, process the local sync queue, and resolve conflicts when a sync item needs manual attention.",
+      "pendingChanges": "Pending Changes",
+      "retrying": "Retrying",
+      "failures": "Failures",
+      "conflicts": "Conflicts",
+      "lastSync": "Last Sync",
+      "notYet": "Not yet",
+      "oldestQueued": "Oldest queued change:",
+      "unknown": "Unknown",
+      "failedItems_one": "{{count}} queued item already failed at least once",
+      "failedItems_other": "{{count}} queued items already failed at least once",
+      "toast": {
+        "syncWithIssues": "Sync completed with issues",
+        "syncedChanges_one": "Processed {{count}} queued change",
+        "syncedChanges_other": "Processed {{count}} queued changes",
+        "alreadyUpToDate": "Sync is already up to date",
+        "queueError": "Unable to process sync queue",
+        "snapshotRefreshed": "Sync snapshot refreshed",
+        "snapshotError": "Unable to pull sync snapshot",
+        "conflictLocalWins": "Conflict kept local changes",
+        "conflictRemoteWins": "Conflict accepted remote changes",
+        "conflictMerged": "Conflict merged successfully",
+        "conflictError": "Unable to resolve conflict"
+      },
+      "actions": {
+        "pulling": "Pulling...",
+        "pullSnapshot": "Pull Snapshot",
+        "refreshView": "Refresh View",
+        "processing": "Processing...",
+        "processQueue": "Process Queue"
+      },
+      "queue": {
+        "title": "Pending Queue",
+        "description": "Most recent queued operations waiting to be acknowledged as synced.",
+        "loading": "Loading queued operations...",
+        "empty": "No queued operations are pending.",
+        "entityId": "Entity ID: {{id}}",
+        "queued": "Queued {{date}}",
+        "retryAttempt": "Retry attempt {{count}}"
+      },
+      "conflict": {
+        "title": "Conflicts",
+        "description": "Conflicts stop automatic sync for the affected entity until someone resolves them.",
+        "loading": "Loading conflicts...",
+        "empty": "No sync conflicts need review.",
+        "created": "Created {{date}}",
+        "keepLocal": "Keep Local",
+        "acceptRemote": "Accept Remote",
+        "merge": "Merge"
+      }
+    },
+    "updater": {
+      "title": "App Updates",
+      "description": "Review the desktop updater status, trigger a manual check, and restart when a download is ready to install.",
+      "desktopOnly": "App update controls are available in the Electron desktop app.",
+      "updaterStatus": "Updater Status",
+      "currentVersion": "Current Version",
+      "latestDownload": "Latest Download",
+      "lastChecked": "Last Checked",
+      "notYet": "Not yet",
+      "downloadedUpdateReady": "Downloaded update ready",
+      "updatePublished": "Update published",
+      "downloading": "The updater has found a newer release and is downloading it in the background.",
+      "unknown": "Unknown",
+      "none": "None",
+      "statusBadge": {
+        "unavailable": "Unavailable",
+        "idle": "Up to Date",
+        "checking": "Checking",
+        "available": "Downloading",
+        "downloaded": "Ready to Install",
+        "error": "Error"
+      },
+      "statusMessage": {
+        "unavailable": "Automatic updates are not available in this runtime.",
+        "checking": "Checking the update service for a newer desktop build.",
+        "available": "A new desktop version is being downloaded in the background.",
+        "downloaded": "A downloaded update is ready. Restart the desktop app to apply it.",
+        "error": "The last update check failed.",
+        "idle": "This workstation is on the latest available desktop build."
+      },
+      "actions": {
+        "checking": "Checking...",
+        "checkForUpdates": "Check for Updates",
+        "restarting": "Restarting...",
+        "restartToInstall": "Restart to Install"
+      },
+      "toast": {
+        "checkingForUpdates": "Checking for updates",
+        "updatesUnavailable": "App updates unavailable",
+        "checkError": "Unable to check for updates",
+        "restarting": "Restarting to install update",
+        "restartDescription": "The desktop app will close and apply the downloaded release.",
+        "restartError": "Unable to apply update"
+      }
+    },
+    "backup": {
+      "title": "Local Database Backup",
+      "description": "Create a point-in-time backup of the local SQLite database or restore a previous backup on this device.",
+      "restoreWarning": "Restore replaces the current local database. Use it only when you intentionally need to roll the workstation back to a prior state.",
+      "desktopOnly": "Backup and restore controls are available in the Electron desktop app. The browser build stays read-only for local database maintenance.",
+      "createBackup": "Create Backup",
+      "creating": "Creating Backup...",
+      "restoreBackup": "Restore Backup",
+      "restoring": "Restoring Backup...",
+      "restoreModal": {
+        "title": "Restore Database Backup",
+        "message": "Restoring a backup will replace the current local database and reload the app. Continue?",
+        "confirm": "Restore Backup"
+      },
+      "toast": {
+        "desktopOnly": "Backup is available only in the desktop app",
+        "desktopOnlyDetail": "Database backups are available only in the desktop app.",
+        "created": "Database backup created",
+        "savedPath": "Backup saved to {{path}}.",
+        "savedOk": "Backup created successfully.",
+        "failed": "Database backup failed",
+        "cancelledTitle": "Backup creation cancelled",
+        "cancelledDetail": "Backup creation was cancelled.",
+        "restoreDesktopOnly": "Restore is available only in the desktop app",
+        "restoreDesktopOnlyDetail": "Database restore is available only in the desktop app.",
+        "restored": "Database backup restored",
+        "restoredOk": "Backup restored successfully. Reloading the application data...",
+        "restoreFailed": "Database restore failed",
+        "restoreCancelledTitle": "Database restore cancelled",
+        "restoreCancelledDetail": "Restore was cancelled."
+      }
+    },
+    "theme": {
+      "title": "Appearance",
+      "description": "Control the workstation theme and whether it follows the operating system.",
+      "browserNote": "Browser sessions store the theme preference locally in this device.",
+      "activeAppearance": "Active appearance:",
+      "options": {
+        "light": {
+          "label": "Light",
+          "description": "Use the light interface across the workstation."
+        },
+        "dark": {
+          "label": "Dark",
+          "description": "Use the dark interface across the workstation."
+        },
+        "system": {
+          "label": "System",
+          "description": "Follow the operating system appearance preference."
+        }
+      },
+      "toast": {
+        "updated": "Theme updated",
+        "systemDescription": "The app now follows the system appearance.",
+        "themeDescription": "The app is now using the {{theme}} theme.",
+        "updateError": "Unable to update theme"
+      }
+    }
+  },
+  "units": {
+    "title": "Units",
+    "description": "Manage measurement units used by products and sales.",
+    "add": "Add Unit",
+    "loading": "Loading units...",
+    "error": "Unable to load units",
+    "search": "Search units...",
+    "columns": {
+      "unit": "Unit",
+      "abbreviation": "Abbreviation",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "form": {
+      "createTitle": "Create Unit",
+      "editTitle": "Edit Unit",
+      "name": "Unit Name",
+      "nameRequired": "Unit name is required",
+      "abbreviation": "Abbreviation",
+      "abbreviationRequired": "Abbreviation is required",
+      "isActive": "Unit is active",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Unit",
+      "save": "Save Changes"
+    },
+    "delete": {
+      "title": "Delete Unit",
+      "description": "Are you sure you want to delete this unit?"
+    },
+    "toast": {
+      "created": "Unit created",
+      "createError": "Unable to create unit",
+      "updated": "Unit updated",
+      "updateError": "Unable to update unit",
+      "deleted": "Unit deleted",
+      "deleteError": "Unable to delete unit"
+    }
+  },
+  "vatRates": {
+    "title": "VAT Rates",
+    "description": "Manage tax percentages used by products and sales.",
+    "add": "Add VAT Rate",
+    "loading": "Loading VAT rates...",
+    "error": "Unable to load VAT rates",
+    "search": "Search VAT rates...",
+    "columns": {
+      "vatRate": "VAT Rate",
+      "rate": "Rate",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "form": {
+      "createTitle": "Create VAT Rate",
+      "editTitle": "Edit VAT Rate",
+      "name": "VAT Rate Name",
+      "nameRequired": "VAT rate name is required",
+      "percentage": "Percentage",
+      "rateRequired": "Percentage is required",
+      "rateNonNegative": "Rate must be non-negative",
+      "rateMax": "Rate cannot exceed 100",
+      "isActive": "VAT rate is active",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create VAT Rate",
+      "save": "Save Changes"
+    },
+    "delete": {
+      "title": "Delete VAT Rate",
+      "description": "Are you sure you want to delete this VAT rate?"
+    },
+    "toast": {
+      "created": "VAT rate created",
+      "createError": "Unable to create VAT rate",
+      "updated": "VAT rate updated",
+      "updateError": "Unable to update VAT rate",
+      "deleted": "VAT rate deleted",
+      "deleteError": "Unable to delete VAT rate"
+    }
+  },
+  "sequentials": {
+    "title": "Sequentials",
+    "description": "Configure prefixes and next numbers per site and document type.",
+    "add": "Add Sequential",
+    "loading": "Loading sequentials...",
+    "error": "Unable to load sequentials",
+    "search": "Search by site...",
+    "noSite": "Create at least one active site before configuring sequentials.",
+    "incrementNote": "Sequence increments during sale and purchase finalization will be implemented later. This page only manages the stored prefix and current counter.",
+    "columns": {
+      "site": "Site",
+      "documentType": "Document Type",
+      "prefix": "Prefix",
+      "currentValue": "Current Value",
+      "preview": "Preview"
+    },
+    "docTypes": {
+      "sale": "Sale",
+      "purchase": "Purchase",
+      "order": "Order"
+    },
+    "validation": {
+      "currentValueMin": "Current value must be zero or greater"
+    },
+    "form": {
+      "createTitle": "Add Sequential",
+      "editTitle": "Edit Sequential",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create Sequential",
+      "save": "Save Changes",
+      "siteRequired": "Site is required",
+      "selectSite": "Select a site",
+      "documentTypeRequired": "Document type is required"
+    },
+    "delete": {
+      "title": "Delete Sequential",
+      "confirm": "Delete",
+      "deleting": "Deleting..."
+    },
+    "toast": {
+      "created": "Sequential created",
+      "createError": "Unable to create sequential",
+      "updated": "Sequential updated",
+      "updateError": "Unable to update sequential",
+      "deleted": "Sequential deleted",
+      "deleteError": "Unable to delete sequential"
+    }
+  },
+  "geography": {
+    "title": "Geography",
+    "tabs": {
+      "countries": "Countries",
+      "departments": "Departments",
+      "cities": "Cities"
+    },
+    "countries": {
+      "description": "Manage the normalized country catalog used by department, city, and supplier records.",
+      "add": "Add Country",
+      "loading": "Loading countries...",
+      "search": "Search countries..."
+    },
+    "departments": {
+      "description": "Manage the normalized department catalog used by city and supplier records.",
+      "add": "Add Department",
+      "loading": "Loading departments...",
+      "search": "Search departments..."
+    },
+    "cities": {
+      "description": "Manage the normalized city catalog used by supplier records.",
+      "add": "Add City",
+      "loading": "Loading cities...",
+      "search": "Search cities..."
+    },
+    "columns": {
+      "country": "Country",
+      "department": "Department",
+      "city": "City",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "form": {
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "saveChanges": "Save Changes",
+      "country": {
+        "createTitle": "Create Country",
+        "editTitle": "Edit Country",
+        "create": "Create Country",
+        "fields": {
+          "code": "Code",
+          "codeRequired": "Country code is required",
+          "name": "Name",
+          "nameRequired": "Country name is required",
+          "isActive": "Country is active"
+        }
+      },
+      "department": {
+        "createTitle": "Create Department",
+        "editTitle": "Edit Department",
+        "create": "Create Department",
+        "fields": {
+          "country": "Country",
+          "countryRequired": "Country is required",
+          "selectCountry": "Select a country",
+          "code": "Code",
+          "codeRequired": "Department code is required",
+          "name": "Name",
+          "nameRequired": "Department name is required",
+          "isActive": "Department is active"
+        }
+      },
+      "city": {
+        "createTitle": "Create City",
+        "editTitle": "Edit City",
+        "create": "Create City",
+        "fields": {
+          "department": "Department",
+          "departmentRequired": "Department is required",
+          "selectDepartment": "Select a department",
+          "code": "Code",
+          "codeRequired": "City code is required",
+          "name": "Name",
+          "nameRequired": "City name is required",
+          "isActive": "City is active"
+        }
+      }
+    }
+  },
+  "users": {
+    "title": "Users",
+    "description": "Create staff accounts, assign roles, and reset passwords.",
+    "add": "Add User",
+    "permissionNote": "Only administrators can access user management.",
+    "loading": "Loading users...",
+    "error": "Unable to load users",
+    "search": "Search users...",
+    "columns": {
+      "user": "User",
+      "role": "Role",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "roles": {
+      "admin": "Admin",
+      "manager": "Manager",
+      "cashier": "Cashier",
+      "viewer": "Viewer"
+    },
+    "form": {
+      "createTitle": "Create User",
+      "editTitle": "Edit User",
+      "name": "Name",
+      "nameRequired": "Name is required",
+      "email": "Email",
+      "emailRequired": "Email is required",
+      "role": "Role",
+      "isActive": "User is active",
+      "initialPassword": "Initial Password",
+      "passwordRequired": "Password is required",
+      "cancel": "Cancel",
+      "submitting": "Saving...",
+      "create": "Create User",
+      "save": "Save Changes"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "description": "Set a new temporary password for",
+      "fallbackUser": "this user",
+      "newPassword": "New Password",
+      "submit": "Reset Password"
+    },
+    "toast": {
+      "created": "User created",
+      "createError": "Unable to create user",
+      "updated": "User updated",
+      "updateError": "Unable to update user",
+      "claimsChanged": "Your account claims changed. Please sign in again",
+      "passwordReset": "Password reset",
+      "passwordChanged": "Your password changed. Please sign in again"
+    }
+  }
+}

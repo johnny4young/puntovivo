@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import {
   getPurchaseLineTotal,
@@ -19,10 +20,11 @@ export function PurchaseCartTable({
   onCostChange,
   onRemove,
 }: PurchaseCartTableProps) {
+  const { t } = useTranslation('purchases');
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-10 text-center text-sm text-secondary-500">
-        Search and add products to start a purchase order.
+        {t('checkout.empty')}
       </div>
     );
   }
@@ -33,11 +35,11 @@ export function PurchaseCartTable({
         <table className="min-w-full divide-y divide-secondary-200">
           <thead className="bg-secondary-50">
             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-              <th className="px-4 py-3">Product</th>
-              <th className="px-4 py-3">Qty</th>
-              <th className="px-4 py-3">Cost / Unit</th>
-              <th className="px-4 py-3">Base Units</th>
-              <th className="px-4 py-3">Line Total</th>
+              <th className="px-4 py-3">{t('cart.product')}</th>
+              <th className="px-4 py-3">{t('cart.qty')}</th>
+              <th className="px-4 py-3">{t('cart.costPerUnit')}</th>
+              <th className="px-4 py-3">{t('cart.baseUnits')}</th>
+              <th className="px-4 py-3">{t('cart.lineTotal')}</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -52,7 +54,7 @@ export function PurchaseCartTable({
                       {' · '}
                       {item.unitName}
                       {' · '}
-                      Current stock {item.currentStock}
+                      {t('cart.currentStock', { count: item.currentStock })}
                     </p>
                   </div>
                 </td>
@@ -89,6 +91,7 @@ export function PurchaseCartTable({
                 <td className="px-4 py-3 text-right">
                   <button
                     className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+                    aria-label={t('cart.removeItem', { name: item.productName })}
                     onClick={() => onRemove(item.key)}
                   >
                     <Trash2 className="h-4 w-4" />

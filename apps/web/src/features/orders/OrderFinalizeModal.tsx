@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Provider } from '@/types';
@@ -27,6 +28,7 @@ export function OrderFinalizeModal({
   onClose,
   onSubmit,
 }: OrderFinalizeModalProps) {
+  const { t } = useTranslation('orders');
   const form = useForm<OrderFinalizeValues>({
     defaultValues: {
       providerId: '',
@@ -40,14 +42,14 @@ export function OrderFinalizeModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Purchase Order"
+      title={t('checkout.createOrder')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
             Cancel
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Create Order'}
+            {isSaving ? 'Saving...' : t('checkout.createOrder')}
           </ModalButton>
         </>
       }

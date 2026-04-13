@@ -1,0 +1,69 @@
+{
+  "page": {
+    "kicker": "Centro de mando",
+    "headline": "Pulso en tiempo real de caja, ingresos y presión de inventario.",
+    "description": "Monitorea ventas completadas, productos con bajo stock y los más vendidos sin salir del espacio de trabajo.",
+    "freshness": {
+      "kicker": "Actualización del sistema",
+      "title": "Instantánea sincronizada",
+      "description": "Este dashboard fue actualizado el {{time}} e incluye métricas de ventas completadas y alertas de reposición."
+    },
+    "revenueWindow": {
+      "label": "Ventana de ingresos",
+      "value": "Últimos 30 días"
+    },
+    "focus": {
+      "label": "Enfoque",
+      "value": "Ventas + reposición"
+    }
+  },
+  "metrics": {
+    "todaySales": {
+      "title": "Ventas de hoy",
+      "fallbackLabel": "ventas completadas en el tenant activo"
+    },
+    "ordersToday": {
+      "title": "Pedidos de hoy",
+      "fallbackLabel": "pedidos completados hoy"
+    },
+    "lowStockAlerts": {
+      "title": "Alertas de stock bajo",
+      "fallbackLabel": "productos en o por debajo del stock mínimo"
+    },
+    "thirtyDayRevenue": {
+      "title": "Ingresos 30 días",
+      "fallbackLabel": "ventas completadas en los últimos 30 días"
+    },
+    "live": "En vivo"
+  },
+  "revenue": {
+    "kicker": "Tendencia de ingresos",
+    "title": "Movimiento de treinta días",
+    "description": "Ventas completadas en los últimos 30 días con ingresos diarios y volumen de pedidos.",
+    "latestDay": "Último día"
+  },
+  "recentSales": {
+    "kicker": "Ventas recientes",
+    "title": "Últimos recibos completados",
+    "empty": "Aún no hay ventas registradas.",
+    "walkIn": "Cliente ocasional",
+    "noEmail": "Sin correo"
+  },
+  "topProducts": {
+    "kicker": "Productos destacados",
+    "title": "Más vendidos esta semana",
+    "empty": "Aún no hay datos de ventas de productos recientes."
+  },
+  "lowStock": {
+    "kicker": "Reposición",
+    "title": "Panel de atención de stock bajo",
+    "empty": "Sin productos con stock bajo por ahora.",
+    "minimum": "Mínimo {{count}}"
+  },
+  "unitsSold_one": "{{count}} unidad vendida",
+  "unitsSold_other": "{{count}} unidades vendidas",
+  "ordersCount_one": "{{count}} pedido",
+  "ordersCount_other": "{{count}} pedidos",
+  "stockCount_one": "{{count}} en stock",
+  "stockCount_other": "{{count}} en stock"
+}

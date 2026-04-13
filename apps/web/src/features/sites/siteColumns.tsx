@@ -1,13 +1,16 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Building2 as Building, MapPinned, Pencil, Trash2 } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import type { Site } from '@/types';
 
 export function createSiteColumns({
+  t,
   canManage,
   onEdit,
   onDelete,
   onManageLocations,
 }: {
+  t: TFunction;
   canManage: boolean;
   onEdit: (site: Site) => void;
   onDelete: (site: Site) => void;
@@ -16,7 +19,7 @@ export function createSiteColumns({
   return [
     {
       accessorKey: 'name',
-      header: 'Site',
+      header: t('sites.columns.site'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -32,7 +35,7 @@ export function createSiteColumns({
     },
     {
       accessorKey: 'phone',
-      header: 'Phone',
+      header: t('sites.columns.phone'),
       size: 180,
       cell: ({ row }) => row.original.phone || '-',
     },
@@ -44,7 +47,7 @@ export function createSiteColumns({
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('sites.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>

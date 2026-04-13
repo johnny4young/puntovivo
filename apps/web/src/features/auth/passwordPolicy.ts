@@ -1,23 +1,38 @@
-export function getPasswordRequirementMessage(password: string): string | null {
+export type PasswordRequirementKey =
+  | 'minLength'
+  | 'uppercase'
+  | 'lowercase'
+  | 'number'
+  | 'specialCharacter';
+
+export function getPasswordRequirementKey(password: string): PasswordRequirementKey | null {
   if (password.length < 12) {
-    return 'Password must be at least 12 characters';
+    return 'minLength';
   }
 
   if (!/[A-Z]/.test(password)) {
-    return 'Password must contain at least one uppercase letter';
+    return 'uppercase';
   }
 
   if (!/[a-z]/.test(password)) {
-    return 'Password must contain at least one lowercase letter';
+    return 'lowercase';
   }
 
   if (!/[0-9]/.test(password)) {
-    return 'Password must contain at least one number';
+    return 'number';
   }
 
   if (!/[^A-Za-z0-9]/.test(password)) {
-    return 'Password must contain at least one special character';
+    return 'specialCharacter';
   }
 
   return null;
+}
+
+export function getPasswordRequirementMessage(
+  password: string,
+  translate: (key: PasswordRequirementKey) => string
+): string | null {
+  const requirementKey = getPasswordRequirementKey(password);
+  return requirementKey ? translate(requirementKey) : null;
 }

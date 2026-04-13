@@ -1,5 +1,6 @@
 import { Building2 as Building, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import type { Company, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -54,6 +55,7 @@ interface CompanyFormProps {
 }
 
 function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFormProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<CompanyFormValues>({
     defaultValues: mapCompanyToForm(company),
   });
@@ -68,10 +70,10 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
         </div>
         <div>
           <p className="font-medium text-secondary-900">
-            {company?.name ?? 'Create your company profile'}
+            {company?.name ?? t('company.createPrompt')}
           </p>
           <p className="text-sm text-secondary-500">
-            This record is used by sites, future documents, and business settings.
+            {t('company.createNote')}
           </p>
         </div>
       </div>
@@ -79,13 +81,13 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="company-name" className="label">
-            Company Name
+            {t('company.fields.companyName')}
           </label>
           <input
             id="company-name"
             className="input mt-1"
             disabled={!canEdit}
-            {...form.register('name', { required: 'Company name is required' })}
+            {...form.register('name', { required: t('company.fields.companyNameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -94,7 +96,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
 
         <div>
           <label htmlFor="company-tax-id" className="label">
-            Tax ID
+            {t('company.fields.taxId')}
           </label>
           <input
             id="company-tax-id"
@@ -106,7 +108,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
 
         <div>
           <label htmlFor="company-email" className="label">
-            Email
+            {t('company.fields.email')}
           </label>
           <input
             id="company-email"
@@ -116,7 +118,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
             {...form.register('email', {
               pattern: {
                 value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Invalid email address',
+                message: t('company.fields.emailInvalid'),
               },
             })}
           />
@@ -127,7 +129,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
 
         <div>
           <label htmlFor="company-phone" className="label">
-            Phone
+            {t('company.fields.phone')}
           </label>
           <input
             id="company-phone"
@@ -140,7 +142,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
 
       <div>
         <label htmlFor="company-address" className="label">
-          Address
+          {t('company.fields.address')}
         </label>
         <textarea
           id="company-address"
@@ -159,7 +161,7 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
           className="btn-primary flex items-center gap-2"
         >
           <Save className="h-4 w-4" />
-          {isSaving ? 'Saving...' : 'Save Company'}
+          {isSaving ? t('company.submitting') : t('company.save')}
         </button>
       </div>
     </form>
@@ -171,6 +173,7 @@ function canManageCompany(role: UserRole | undefined): boolean {
 }
 
 export function CompanyPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -181,12 +184,12 @@ export function CompanyPage() {
   const upsertMutation = trpc.companies.upsert.useMutation({
     onSuccess: async company => {
       await utils.companies.getCurrent.setData(undefined, company);
-      toast.success({ title: 'Company settings saved' });
+      toast.success({ title: t('company.toast.saved') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to save company settings',
-        description: getErrorMessage(error, 'Unable to save company settings'),
+        title: t('company.toast.saveError'),
+        description: getErrorMessage(error, t('company.toast.saveError')),
       });
     },
   });
@@ -208,21 +211,21 @@ export function CompanyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-secondary-900">Company</h1>
+        <h1 className="text-2xl font-bold text-secondary-900">{t('company.title')}</h1>
         <p className="mt-1 text-sm text-secondary-500">
-          Manage the business identity used across your tenant.
+          {t('company.description')}
         </p>
       </div>
 
       {companyQuery.isLoading && (
         <PageLoadingState
-          title="Company"
-          description="Loading the business identity and workstation settings."
+          title={t('company.title')}
+          description={t('company.loading')}
         />
       )}
       {companyQuery.error && (
         <QueryErrorState
-          title="Unable to load company settings"
+          title={t('company.error')}
           message={companyQuery.error.message}
           onRetry={() => {
             void companyQuery.refetch();

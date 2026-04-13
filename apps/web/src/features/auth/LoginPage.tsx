@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, Package2, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import type { LoginCredentials } from '@/types';
 
 export function LoginPage() {
   const { login, isLoading, error } = useAuth();
+  const { t } = useTranslation('auth');
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,
@@ -26,13 +28,12 @@ export function LoginPage() {
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-7xl gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(24rem,30rem)]">
         <section className="hero-surface hidden min-h-[38rem] p-8 lg:flex lg:flex-col lg:justify-between xl:p-12">
           <div className="relative z-10 max-w-xl">
-            <p className="page-kicker">Retail command desk</p>
+            <p className="page-kicker">{t('login.kicker')}</p>
             <h1 className="mt-4 max-w-lg font-display text-6xl leading-[0.92] text-balance text-secondary-950">
-              Move sales, stock, and receiving from one calm console.
+              {t('login.headline')}
             </h1>
             <p className="mt-6 max-w-md text-base leading-7 text-secondary-600">
-              Puntovivo is built for operators who need checkout speed, stock visibility, and
-              dependable control over purchasing and inventory flow.
+              {t('login.description')}
             </p>
           </div>
 
@@ -40,23 +41,29 @@ export function LoginPage() {
             <div className="metric-tile">
               <ScanLine className="h-5 w-5 text-primary-600" />
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
-                Checkout
+                {t('login.checkoutTile.label')}
               </p>
-              <p className="mt-2 text-lg font-semibold text-secondary-950">Barcode-first POS rhythm</p>
+              <p className="mt-2 text-lg font-semibold text-secondary-950">
+                {t('login.checkoutTile.description')}
+              </p>
             </div>
             <div className="metric-tile">
               <Warehouse className="h-5 w-5 text-warning-700" />
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
-                Inventory
+                {t('login.inventoryTile.label')}
               </p>
-              <p className="mt-2 text-lg font-semibold text-secondary-950">Live stock pressure and receiving</p>
+              <p className="mt-2 text-lg font-semibold text-secondary-950">
+                {t('login.inventoryTile.description')}
+              </p>
             </div>
             <div className="metric-tile">
               <ShieldCheck className="h-5 w-5 text-success-700" />
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
-                Control
+                {t('login.controlTile.label')}
               </p>
-              <p className="mt-2 text-lg font-semibold text-secondary-950">Tenant-safe operation across sites</p>
+              <p className="mt-2 text-lg font-semibold text-secondary-950">
+                {t('login.controlTile.description')}
+              </p>
             </div>
           </div>
         </section>
@@ -69,13 +76,12 @@ export function LoginPage() {
               </div>
               <div>
                 <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Puntovivo</p>
-                <h2 className="font-display text-3xl text-secondary-950">Sign in to continue</h2>
+                <h2 className="font-display text-3xl text-secondary-950">{t('login.signInHeadline')}</h2>
               </div>
             </div>
 
             <p className="mt-6 max-w-sm text-sm leading-6 text-secondary-600">
-              Use your workstation credentials to access sales, inventory, purchasing, and
-              configuration for the active tenant.
+              {t('login.signInDescription')}
             </p>
 
             <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -87,19 +93,19 @@ export function LoginPage() {
 
               <div className="space-y-2">
                 <label htmlFor="email" className="label">
-                  Email
+                  {t('login.emailLabel')}
                 </label>
                 <input
                   id="email"
                   type="email"
                   autoComplete="email"
                   className="input"
-                  placeholder="admin@localhost"
+                  placeholder={t('login.emailPlaceholder')}
                   {...register('email', {
-                    required: 'Email is required',
+                    required: t('login.emailRequired'),
                     pattern: {
                       value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+(\.[A-Z]{2,})?$/i,
-                      message: 'Invalid email address',
+                      message: t('login.emailInvalid'),
                     },
                   })}
                 />
@@ -108,7 +114,7 @@ export function LoginPage() {
 
               <div className="space-y-2">
                 <label htmlFor="password" className="label">
-                  Password
+                  {t('login.passwordLabel')}
                 </label>
                 <div className="relative">
                   <input
@@ -118,10 +124,10 @@ export function LoginPage() {
                     className="input pr-11"
                     placeholder="••••••••"
                     {...register('password', {
-                      required: 'Password is required',
+                      required: t('login.passwordRequired'),
                       minLength: {
                         value: 6,
-                        message: 'Password must be at least 6 characters',
+                        message: t('login.passwordMinLength'),
                       },
                     })}
                   />
@@ -129,7 +135,7 @@ export function LoginPage() {
                     type="button"
                     className="btn-ghost btn-icon absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2"
                     onClick={() => setShowPassword(current => !current)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -147,12 +153,12 @@ export function LoginPage() {
                 {isLoading ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Signing in
+                    {t('login.signingIn')}
                   </>
                 ) : (
                   <>
                     <LogIn className="h-4 w-4" />
-                    Enter workspace
+                    {t('login.enterWorkspace')}
                   </>
                 )}
               </button>
@@ -160,7 +166,7 @@ export function LoginPage() {
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-line/70 pt-5 text-xs text-secondary-500">
-            <span>Built for daily retail operations</span>
+            <span>{t('login.footer')}</span>
             <span>Puntovivo © {new Date().getFullYear()}</span>
           </div>
         </section>

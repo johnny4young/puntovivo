@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -27,6 +29,7 @@ function formatLocation(customer: Customer): string {
 }
 
 export function CustomersPage() {
+  const { t } = useTranslation('customers');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -45,12 +48,12 @@ export function CustomersPage() {
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Customer created' });
+      toast.success({ title: t('toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create customer',
-        description: getErrorMessage(error, 'Unable to create customer'),
+        title: t('toast.createError'),
+        description: getErrorMessage(error, t('toast.createError')),
       });
     },
   });
@@ -58,12 +61,12 @@ export function CustomersPage() {
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Customer updated' });
+      toast.success({ title: t('toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update customer',
-        description: getErrorMessage(error, 'Unable to update customer'),
+        title: t('toast.updateError'),
+        description: getErrorMessage(error, t('toast.updateError')),
       });
     },
   });
@@ -72,12 +75,12 @@ export function CustomersPage() {
     onSuccess: async () => {
       await utils.customers.list.invalidate();
       setCustomerToDelete(null);
-      toast.success({ title: 'Customer deleted' });
+      toast.success({ title: t('toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete customer',
-        description: getErrorMessage(error, 'Unable to delete customer'),
+        title: t('toast.deleteError'),
+        description: getErrorMessage(error, t('toast.deleteError')),
       });
     },
   });
@@ -159,7 +162,7 @@ export function CustomersPage() {
   const columns: ColumnDef<Customer>[] = [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: () => i18next.t('customers:table.name'),
       size: 240,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -179,7 +182,7 @@ export function CustomersPage() {
     },
     {
       accessorKey: 'email',
-      header: 'Email',
+      header: () => i18next.t('customers:table.email'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-secondary-600">
@@ -190,7 +193,7 @@ export function CustomersPage() {
     },
     {
       accessorKey: 'phone',
-      header: 'Phone',
+      header: () => i18next.t('customers:table.phone'),
       size: 160,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-secondary-600">
@@ -201,23 +204,23 @@ export function CustomersPage() {
     },
     {
       accessorKey: 'clientTypeId',
-      header: 'Type',
+      header: () => i18next.t('customers:table.type'),
       size: 140,
       cell: ({ row }) => row.original.clientTypeId || '-',
     },
     {
       accessorKey: 'city',
-      header: 'Location',
+      header: () => i18next.t('customers:table.location'),
       size: 180,
       cell: ({ row }) => <span className="text-secondary-600">{formatLocation(row.original)}</span>,
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: () => i18next.t('customers:table.status'),
       size: 100,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
         </span>
       ),
     },
@@ -245,12 +248,12 @@ export function CustomersPage() {
   return (
     <>
       <ResourcePage
-        title="Customers"
-        description="Manage customer profiles, tax metadata, and classification details"
+        title={t('page.title')}
+        description={t('page.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate}>
             <Plus className="h-5 w-5" />
-            Add Customer
+            {t('page.add')}
           </button>
         }
         columns={columns}
@@ -258,8 +261,8 @@ export function CustomersPage() {
         isLoading={isLoading}
         error={error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search customers..."
-        loadingMessage="Loading customers..."
+        searchPlaceholder={t('table.search')}
+        loadingMessage={t('table.loading')}
         onRetry={() => {
           void refetch();
         }}
@@ -288,9 +291,9 @@ export function CustomersPage() {
             void deleteMutation.mutateAsync({ id: customerToDelete.id });
           }
         }}
-        title="Delete Customer"
-        message={`Are you sure you want to delete ${customerToDelete?.name ?? 'this customer'}?`}
-        confirmText="Delete Customer"
+        title={t('delete.title')}
+        message={t('delete.description')}
+        confirmText={t('delete.title')}
         loading={deleteMutation.isPending}
       />
     </>

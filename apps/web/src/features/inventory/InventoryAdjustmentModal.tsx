@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
 export interface InventoryAdjustmentProduct {
@@ -39,6 +40,7 @@ export function InventoryAdjustmentModal({
   onClose,
   onSubmit,
 }: InventoryAdjustmentModalProps) {
+  const { t } = useTranslation('inventory');
   const form = useForm<InventoryAdjustmentFormValues>({
     defaultValues: mapProductToForm(product),
   });
@@ -52,21 +54,21 @@ export function InventoryAdjustmentModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={product ? `Adjust ${product.name}` : 'Adjust Inventory'}
+      title={product ? t('adjustment.title', { name: product.name }) : t('adjustment.titleDefault')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('adjustment.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving || !product}>
-            {isSaving ? 'Saving...' : 'Save Adjustment'}
+            {isSaving ? t('adjustment.submitting') : t('adjustment.save')}
           </ModalButton>
         </>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         {!product ? (
-          <p className="text-sm text-secondary-500">Select a product before adjusting stock.</p>
+          <p className="text-sm text-secondary-500">{t('adjustment.noProduct')}</p>
         ) : (
           <>
             <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
@@ -79,7 +81,7 @@ export function InventoryAdjustmentModal({
                   </p>
                 </div>
                 <div className="text-right text-sm">
-                  <p className="text-secondary-500">Current stock</p>
+                  <p className="text-secondary-500">{t('adjustment.currentStock')}</p>
                   <p className="text-lg font-semibold text-secondary-900">{product.stock}</p>
                 </div>
               </div>
@@ -87,7 +89,7 @@ export function InventoryAdjustmentModal({
 
             <div>
               <label htmlFor="inventory-new-stock" className="label">
-                New Stock
+                {t('table.stockAfter')}
               </label>
               <input
                 id="inventory-new-stock"
@@ -96,7 +98,7 @@ export function InventoryAdjustmentModal({
                 className="input mt-1"
                 {...form.register('newStock', {
                   valueAsNumber: true,
-                  min: { value: 0, message: 'Stock must be zero or greater' },
+                  min: { value: 0, message: t('adjustment.stockMin') },
                 })}
               />
               {form.formState.errors.newStock && (
@@ -108,7 +110,7 @@ export function InventoryAdjustmentModal({
 
             <div className="rounded-lg border border-secondary-200 bg-white px-4 py-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-secondary-500">Movement</span>
+                <span className="text-secondary-500">{t('adjustment.movement')}</span>
                 <span
                   className={
                     delta > 0
@@ -123,19 +125,19 @@ export function InventoryAdjustmentModal({
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-secondary-500">Low stock threshold</span>
+                <span className="text-secondary-500">{t('adjustment.lowStockThreshold')}</span>
                 <span className="font-medium text-secondary-900">{product.minStock}</span>
               </div>
             </div>
 
             <div>
               <label htmlFor="inventory-adjustment-notes" className="label">
-                Notes
+                {t('table.notes')}
               </label>
               <textarea
                 id="inventory-adjustment-notes"
                 className="input mt-1 min-h-[96px]"
-                placeholder="Reason for the adjustment"
+                placeholder={t('adjustment.notesPlaceholder')}
                 {...form.register('notes')}
               />
             </div>

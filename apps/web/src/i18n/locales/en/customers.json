@@ -1,0 +1,126 @@
+{
+  "page": {
+    "title": "Customers",
+    "description": "Manage customer profiles, tax metadata, and classification details.",
+    "add": "Add Customer"
+  },
+  "table": {
+    "loading": "Loading customers...",
+    "error": "Unable to load customers",
+    "search": "Search customers...",
+    "name": "Name",
+    "description": "Description",
+    "email": "Email",
+    "phone": "Phone",
+    "type": "Type",
+    "location": "Location",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "createTitle": "Create Customer",
+    "editTitle": "Edit Customer",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create Customer",
+    "save": "Save Changes",
+    "fields": {
+      "name": "Name",
+      "nameRequired": "Customer name is required",
+      "taxId": "Tax ID",
+      "email": "Email",
+      "emailInvalid": "Invalid email address",
+      "phone": "Phone",
+      "identificationType": "Identification Type",
+      "personType": "Person Type",
+      "regimeType": "Regime Type",
+      "clientType": "Client Type",
+      "commercialActivity": "Commercial Activity",
+      "notSet": "Not set",
+      "address": "Address",
+      "city": "City",
+      "state": "State / Department",
+      "postalCode": "Postal Code",
+      "country": "Country",
+      "notes": "Notes",
+      "isActive": "Customer is active"
+    }
+  },
+  "delete": {
+    "title": "Delete Customer",
+    "description": "Are you sure you want to delete this customer?"
+  },
+  "toast": {
+    "created": "Customer created",
+    "createError": "Unable to create customer",
+    "updated": "Customer updated",
+    "updateError": "Unable to update customer",
+    "deleted": "Customer deleted",
+    "deleteError": "Unable to delete customer"
+  },
+  "catalogs": {
+    "title": "Customer Catalogs",
+    "tabs": {
+      "identificationTypes": "Identification Types",
+      "personTypes": "Person Types",
+      "regimeTypes": "Regime Types",
+      "clientTypes": "Client Types",
+      "commercialActivities": "Commercial Activities"
+    },
+    "types": {
+      "identificationTypes": {
+        "singular": "Identification Type",
+        "description": "Manage the identification code catalog used by customer tax profiles.",
+        "search": "Search identification types..."
+      },
+      "personTypes": {
+        "singular": "Person Type",
+        "description": "Manage natural-person and legal-entity classifications for customers.",
+        "search": "Search person types..."
+      },
+      "regimeTypes": {
+        "singular": "Regime Type",
+        "description": "Manage tax-regime codes used in customer fiscal classification.",
+        "search": "Search regime types..."
+      },
+      "clientTypes": {
+        "singular": "Client Type",
+        "description": "Manage commercial client classifications such as retail and wholesale.",
+        "search": "Search client types..."
+      },
+      "commercialActivities": {
+        "singular": "Commercial Activity",
+        "description": "Manage business activity codes used in customer fiscal and commercial classification.",
+        "search": "Search commercial activities..."
+      }
+    },
+    "add": "Add {{type}}",
+    "loading": "Loading {{type}}...",
+    "deleting": "Deleting...",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete {{type}}",
+    "deleteMessage": "Delete {{name}}? {{note}}",
+    "deleteNote": "Customers that still use this code will keep their stored value, but new edits will require an active catalog entry.",
+    "form": {
+      "createTitle": "Create {{type}}",
+      "editTitle": "Edit {{type}}",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "create": "Create {{type}}",
+      "save": "Save Changes",
+      "code": "Code",
+      "codeRequired": "{{type}} code is required",
+      "name": "Name",
+      "nameRequired": "{{type}} name is required",
+      "description": "Description",
+      "isActive": "{{type}} is active"
+    },
+    "toast": {
+      "created": "Catalog item created",
+      "createError": "Unable to save catalog item",
+      "updated": "Catalog item updated",
+      "deleted": "Catalog item deleted"
+    }
+  }
+}

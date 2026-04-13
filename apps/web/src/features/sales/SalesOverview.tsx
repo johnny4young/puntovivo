@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import { Receipt, Search, Store, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 
@@ -32,25 +33,25 @@ export function SalesOverview({
   onCharge,
   productInputRef,
 }: SalesOverviewProps) {
+  const { t } = useTranslation('sales');
   return (
     <section className="hero-surface p-5 sm:p-6 xl:p-7">
       <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.95fr)]">
         <div className="space-y-5">
           <div className="space-y-3">
-            <p className="page-kicker">Sales desk</p>
+            <p className="page-kicker">{t('page.kicker')}</p>
             <h1 className="font-display text-5xl leading-[0.92] text-balance text-secondary-950">
-              Checkout built for fast scanning and calm oversight.
+              {t('page.headline')}
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-secondary-600 sm:text-base">
-              Add products quickly, adjust units and discounts, then charge the active site with a
-              compact POS workspace built around daily speed.
+              {t('page.description')}
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             <div className="metric-tile">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                Today&apos;s sales
+                {t('page.todaySales')}
               </p>
               <p className="mt-3 text-3xl font-semibold text-secondary-950">
                 {isSummaryLoading ? '—' : formatCurrency(todaySalesTotal)}
@@ -58,7 +59,7 @@ export function SalesOverview({
             </div>
             <div className="metric-tile">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                Transactions
+                {t('page.transactions')}
               </p>
               <p className="mt-3 text-3xl font-semibold text-secondary-950">
                 {isSummaryLoading ? '—' : transactionCount}
@@ -66,7 +67,7 @@ export function SalesOverview({
             </div>
             <div className="metric-tile">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                Average order
+                {t('page.averageOrder')}
               </p>
               <p className="mt-3 text-3xl font-semibold text-secondary-950">
                 {isSummaryLoading ? '—' : formatCurrency(averageOrder)}
@@ -74,7 +75,7 @@ export function SalesOverview({
             </div>
             <div className="metric-tile">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                Draft total
+                {t('page.draftTotal')}
               </p>
               <p className="mt-3 text-3xl font-semibold text-primary-700">{formatCurrency(draftTotal)}</p>
             </div>
@@ -96,37 +97,37 @@ export function SalesOverview({
               </div>
               <div className="min-w-0">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                  Active site
+                  {t('checkout.activeSite')}
                 </p>
                 <p className="mt-2 truncate text-lg font-semibold text-secondary-950">
-                  {currentSiteName ?? 'No site selected'}
+                  {currentSiteName ?? t('checkout.noSite')}
                 </p>
                 <p className="mt-1 text-sm text-secondary-500">
-                  The selected site controls sequential numbering and stock validation.
+                  {t('checkout.activeSiteHint')}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <button className="btn-outline" onClick={onOpenSearch}>
                 <Search className="h-4 w-4" />
-                Add product
+                {t('checkout.addProduct')}
               </button>
               <button className="btn-primary" onClick={onCharge} disabled={!canCharge}>
                 <Receipt className="h-4 w-4" />
-                Charge sale
+                {t('checkout.chargeSale')}
               </button>
             </div>
           </div>
 
           {!currentSiteName && (
             <div className="rounded-[22px] border border-warning-500/20 bg-warning-50 px-4 py-4 text-sm text-warning-700">
-              Select an active site before charging so the correct sequential and stock scope are used.
+              {t('checkout.noSiteWarning')}
             </div>
           )}
 
           <div className="card-inset flex items-center gap-3 px-4 py-3 text-sm text-secondary-600">
             <TrendingUp className="h-4.5 w-4.5 text-primary-700" />
-            Keyboard-first workflow: `F5` catalog, `F1` charge, `Delete` remove current line.
+            {t('checkout.keyboardHint')}
           </div>
         </div>
       </div>

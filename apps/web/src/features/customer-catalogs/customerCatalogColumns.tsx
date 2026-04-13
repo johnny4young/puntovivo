@@ -1,5 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Trash2 } from 'lucide-react';
+import i18next from 'i18next';
 import type { CustomerCatalogItem } from '@/types';
 
 export function buildCustomerCatalogColumns(
@@ -9,7 +10,7 @@ export function buildCustomerCatalogColumns(
   return [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: () => i18next.t('customers:table.name'),
       size: 280,
       cell: ({ row }) => (
         <div>
@@ -20,17 +21,17 @@ export function buildCustomerCatalogColumns(
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: () => i18next.t('customers:table.description'),
       size: 360,
       cell: ({ row }) => row.original.description ?? '-',
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: () => i18next.t('customers:table.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
         </span>
       ),
     },

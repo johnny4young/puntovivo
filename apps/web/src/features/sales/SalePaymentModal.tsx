@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Customer, PaymentMethod } from '@/types';
@@ -38,6 +39,7 @@ export function SalePaymentModal({
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
+  const { t } = useTranslation('sales');
   const form = useForm<SalePaymentValues>({
     defaultValues: getDefaultValues(total),
   });
@@ -53,30 +55,30 @@ export function SalePaymentModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Charge Sale"
+      title={t('payment.title')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('payment.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Processing...' : 'Confirm Sale'}
+            {isSaving ? t('payment.processing') : t('payment.confirm')}
           </ModalButton>
         </>
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-sm text-primary-700">Sale total</p>
+          <p className="text-sm text-primary-700">{t('payment.saleTotal')}</p>
           <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(total)}</p>
         </div>
 
         <div>
           <label htmlFor="sale-payment-customer" className="label">
-            Customer
+            {t('payment.customer')}
           </label>
           <select id="sale-payment-customer" className="input mt-1" {...form.register('customerId')}>
-            <option value="">Walk-in customer</option>
+            <option value="">{t('payment.walkIn')}</option>
             {customers.map(customer => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
@@ -88,24 +90,24 @@ export function SalePaymentModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="sale-payment-method" className="label">
-              Payment method
+              {t('payment.paymentMethod')}
             </label>
             <select
               id="sale-payment-method"
               className="input mt-1"
               {...form.register('paymentMethod')}
             >
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="transfer">Transfer</option>
-              <option value="credit">Credit</option>
-              <option value="other">Other</option>
+              <option value="cash">{t('payment.cash')}</option>
+              <option value="card">{t('payment.card')}</option>
+              <option value="transfer">{t('payment.transfer')}</option>
+              <option value="credit">{t('payment.credit')}</option>
+              <option value="other">{t('payment.other')}</option>
             </select>
           </div>
 
           <div>
             <label htmlFor="sale-payment-amount" className="label">
-              Amount received
+              {t('payment.amountReceived')}
             </label>
             <input
               id="sale-payment-amount"
@@ -115,7 +117,7 @@ export function SalePaymentModal({
               className="input mt-1"
               {...form.register('amountReceived', {
                 valueAsNumber: true,
-                min: { value: 0, message: 'Amount received cannot be negative' },
+                min: { value: 0, message: t('payment.amountNegative') },
               })}
             />
             {form.formState.errors.amountReceived && (
@@ -128,11 +130,11 @@ export function SalePaymentModal({
 
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-secondary-500">Amount received</span>
+            <span className="text-secondary-500">{t('payment.amountReceived')}</span>
             <span className="font-medium text-secondary-900">{formatCurrency(amountReceived || 0)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-secondary-500">{isCash ? 'Change' : 'Outstanding balance'}</span>
+            <span className="text-secondary-500">{isCash ? t('payment.change') : t('payment.balance')}</span>
             <span className="font-medium text-secondary-900">
               {formatCurrency(isCash ? change : outstanding)}
             </span>
@@ -141,12 +143,12 @@ export function SalePaymentModal({
 
         <div>
           <label htmlFor="sale-payment-notes" className="label">
-            Notes
+            {t('payment.notes')}
           </label>
           <textarea
             id="sale-payment-notes"
             className="input mt-1 min-h-[96px]"
-            placeholder="Optional comments for the sale"
+            placeholder={t('payment.notesHint')}
             {...form.register('notes')}
           />
         </div>

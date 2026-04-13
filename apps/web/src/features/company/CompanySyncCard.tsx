@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CloudUpload } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { CompanySyncActions } from '@/features/company/CompanySyncActions';
@@ -34,6 +35,7 @@ function SyncMetric({ label, value }: SyncMetricProps) {
 }
 
 export function CompanySyncCard() {
+  const { t } = useTranslation('settings');
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
@@ -58,7 +60,7 @@ export function CompanySyncCard() {
 
       if (result.errors.length > 0) {
         toast.error({
-          title: 'Sync completed with issues',
+          title: t('company.sync.toast.syncWithIssues'),
           description: result.errors[0],
         });
         return;
@@ -67,14 +69,14 @@ export function CompanySyncCard() {
       toast.success({
         title:
           result.synced > 0
-            ? `Processed ${result.synced} queued change${result.synced === 1 ? '' : 's'}`
-            : 'Sync is already up to date',
+            ? t('company.sync.toast.syncedChanges', { count: result.synced })
+            : t('company.sync.toast.alreadyUpToDate'),
       });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to process sync queue',
-        description: getErrorMessage(error, 'Unable to process sync queue'),
+        title: t('company.sync.toast.queueError'),
+        description: getErrorMessage(error, t('company.sync.toast.queueError')),
       });
     },
   });
@@ -86,12 +88,12 @@ export function CompanySyncCard() {
       }),
     onSuccess: snapshot => {
       queryClient.setQueryData(syncSnapshotQueryKey, snapshot);
-      toast.success({ title: 'Sync snapshot refreshed' });
+      toast.success({ title: t('company.sync.toast.snapshotRefreshed') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to pull sync snapshot',
-        description: getErrorMessage(error, 'Unable to pull sync snapshot'),
+        title: t('company.sync.toast.snapshotError'),
+        description: getErrorMessage(error, t('company.sync.toast.snapshotError')),
       });
     },
   });
@@ -112,16 +114,16 @@ export function CompanySyncCard() {
       toast.success({
         title:
           variables.resolution === 'local_wins'
-            ? 'Conflict kept local changes'
+            ? t('company.sync.toast.conflictLocalWins')
             : variables.resolution === 'remote_wins'
-              ? 'Conflict accepted remote changes'
-              : 'Conflict merged successfully',
+              ? t('company.sync.toast.conflictRemoteWins')
+              : t('company.sync.toast.conflictMerged'),
       });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to resolve conflict',
-        description: getErrorMessage(error, 'Unable to resolve conflict'),
+        title: t('company.sync.toast.conflictError'),
+        description: getErrorMessage(error, t('company.sync.toast.conflictError')),
       });
     },
   });
@@ -138,33 +140,32 @@ export function CompanySyncCard() {
           <CloudUpload className="h-5 w-5 text-primary-700" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">Sync Center</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('company.sync.title')}</h2>
           <p className="text-sm text-secondary-500">
-            Review queued changes, process the local sync queue, and resolve conflicts when a sync
-            item needs manual attention.
+            {t('company.sync.description')}
           </p>
         </div>
       </div>
 
       {snapshotQuery.error && <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">{snapshotQuery.error.message}</div>}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <SyncMetric label="Pending Changes" value={snapshot?.pendingCount ?? '...'} />
-        <SyncMetric label="Retrying" value={snapshot?.retryingCount ?? '...'} />
-        <SyncMetric label="Failures" value={snapshot?.failedCount ?? '...'} />
-        <SyncMetric label="Conflicts" value={snapshot?.conflictsCount ?? '...'} />
-        <SyncMetric label="Last Sync" value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : 'Not yet'} />
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+        <SyncMetric label={t('company.sync.pendingChanges')} value={snapshot?.pendingCount ?? '...'} />
+        <SyncMetric label={t('company.sync.retrying')} value={snapshot?.retryingCount ?? '...'} />
+        <SyncMetric label={t('company.sync.failures')} value={snapshot?.failedCount ?? '...'} />
+        <SyncMetric label={t('company.sync.conflicts')} value={snapshot?.conflictsCount ?? '...'} />
+        <SyncMetric label={t('company.sync.lastSync')} value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('company.sync.notYet')} />
       </div>
 
       {snapshot && snapshot.pendingCount > 0 && (
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-700">
-          <span className="font-medium text-secondary-900">Oldest queued change:</span>{' '}
-          {snapshot.oldestPendingAt ? formatDateTime(snapshot.oldestPendingAt) : 'Unknown'}
+          <span className="font-medium text-secondary-900">{t('company.sync.oldestQueued')}</span>{' '}
+          {snapshot.oldestPendingAt ? formatDateTime(snapshot.oldestPendingAt) : t('company.sync.unknown')}
           {snapshot.failedCount > 0 && (
             <>
               {' · '}
               <span className="font-medium text-warning-800">
-                {snapshot.failedCount} queued item{snapshot.failedCount === 1 ? '' : 's'} already failed at least once
+                {t('company.sync.failedItems', { count: snapshot.failedCount })}
               </span>
             </>
           )}

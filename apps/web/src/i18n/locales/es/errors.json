@@ -1,0 +1,8 @@
+{
+  "boundary": {
+    "title": "Algo salió mal",
+    "description": "La aplicación encontró un error inesperado al renderizar esta pantalla. Puedes reintentar la sesión actual o recargar la aplicación.",
+    "retry": "Reintentar",
+    "reload": "Recargar la aplicación"
+  }
+}
