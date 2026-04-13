@@ -97,17 +97,28 @@ This file replaces the old habit of spreading pending work across historical mig
 
 - The terminology around tenant, site, location, order, purchase, void, and refund is now important enough to warrant a dedicated domain glossary.
 
+## Priority 7: Internationalization (i18n)
+
+- The application has **zero i18n infrastructure** — all 126 component files contain hardcoded English strings (~300+ labels, ~137 toasts, ~187 form fields).
+  Impact: English-only UI is a deployment blocker for Latin American operators (the primary target market). Every new feature phase adds more hardcoded strings that must later be extracted.
+
+- The recommended stack is `i18next` + `react-i18next` — runs in browser, Node.js, and Electron main; namespace-based splitting per feature area; fallback chain `es-CO` → `es` → `en`.
+  See: `docs/PLAN.md` section 17 for full architecture, phased rollout, and anti-patterns.
+
+- Priority: **between Phase 0 and Phase 1** — laying the i18n foundation before new feature phases prevents compounding technical debt. Foundation + high-visibility surfaces (~5 days) should land before cash management UI work begins.
+
 ## Suggested Next Slices
 
 If the team wants a practical implementation order, the strongest next candidates are:
 
 1. Cash management and shift control
-2. Site-aware inventory ownership model
-3. Stock transfers between sites/locations
-4. Fulfillment logistics documents: pick list, packing, delivery note
-5. Dispatch, shipment tracking, and proof of delivery
-6. Audit trail for sensitive actions
-7. Hybrid SQLite + remote authority architecture groundwork
-8. Quotations and quote-to-order
-9. Loyalty / promotions / store credit
-10. Colombia-oriented fiscal localization layer
+2. **i18n foundation + high-visibility surfaces (Spanish/English)** — deployment blocker for LATAM pilots
+3. Site-aware inventory ownership model
+4. Stock transfers between sites/locations
+5. Fulfillment logistics documents: pick list, packing, delivery note
+6. Dispatch, shipment tracking, and proof of delivery
+7. Audit trail for sensitive actions
+8. Hybrid SQLite + remote authority architecture groundwork
+9. Quotations and quote-to-order
+10. Loyalty / promotions / store credit
+11. Colombia-oriented fiscal localization layer

@@ -2493,7 +2493,8 @@ Key SLAs:
 If the team wants the highest practical return across multiple business types:
 
 1. **Phase 0** — Architecture foundation, module activation system, JSON metadata columns, tax group engine
-2. **Phase 1** — **Cash management and shift control** + fractional quantity support + compound tax (IVA + INC + impuesto saludable)
+2. **Phase 0.5 (NEW)** — **i18n foundation** (`i18next` + `react-i18next`), Spanish + English, high-visibility surfaces (auth, dashboard, sales, navigation). Full coverage + CI enforcement follows in parallel with Phase 1. See section 17 for details.
+3. **Phase 1** — **Cash management and shift control** + fractional quantity support + compound tax (IVA + INC + impuesto saludable)
 3. **Phase 2** — Site-owned inventory and transfers
 4. **Phase 5** — Payment depth, quotations, and customer credit accounts (unlocks ferretería + B2B)
 5. **Phase 6** — Advanced product handling: lot/batch/expiry, variants, serial numbers, bundles/BOM (unlocks pharmacy + supermarket + electronics + restaurant)
@@ -2550,7 +2551,142 @@ The following dependency chain must be respected across phases — building out 
 | Phase 14 | Supermarkets (full — scales, PLU, DSD) |
 | Phase 15 | Hardware stores (full — unit conversion, project quoting, specs search) |
 
-## 17. Immediate Documentation Updates Needed
+## 17. i18n System — Analysis & Design (PV-i18n)
+
+### 17.1 Current State
+
+Puntovivo has **zero i18n infrastructure**. All 126 component files (92 feature + 34 shared) contain hardcoded English strings: ~300+ user-facing labels, ~137 toast notifications, ~187 form fields/placeholders, plus validation messages, status badges, empty states, and modal titles.
+
+No i18n library is installed. The product is English-only with some Spanish-context domain terminology (DIAN, IVA, retención) appearing only in server-side fiscal logic.
+
+### 17.2 Why Now — Strategic Context
+
+Puntovivo targets **Latin American retail** (Colombia-first). The operator persona — store owners, cashiers, warehouse staff — overwhelmingly works in Spanish. English-only UI is a **deployment blocker** for any real-world pilot. Additionally:
+
+- Fiscal localization (Phase 11) will introduce Colombia-specific labels and document names that must display in Spanish
+- Multi-vertical expansion (ferretería, farmacia, supermercado) targets markets where Spanish is mandatory
+- An i18n foundation is easier to lay now than to retrofit after 10+ more phases of hardcoded strings
+
+### 17.3 Tech Stack Decision: `i18next` + `react-i18next`
+
+| Library | Why |
+|---------|-----|
+| `i18next` | Runs in browser (Vite/React), Node.js (Fastify standalone), and Electron main process — one library, all surfaces. Namespace support for per-feature splitting. Fallback chain: `es-CO` → `es` → `en` automatic. Framework-agnostic core. |
+| `react-i18next` | `useTranslation(namespace)` hook integrates with React render cycle. `<Trans>` component for JSX-embedded translated strings (links, bold). No prop-drilling. |
+
+**Rejected alternatives:**
+- `react-intl` — React-only, no Node/Electron main process support without duplicating logic
+- Custom solution — reinventing namespace loading, pluralization, interpolation, and fallback chains is wasted effort
+- Translation SaaS (Lokalise, Crowdin) — premature before having >2 languages; adds cost and CI complexity
+
+### 17.4 Architecture
+
+```
+apps/web/src/
+  i18n/
+    index.ts              ← i18next instance + init(), exported for import in main.tsx
+    resolveLocale.ts      ← navigator.languages[0] for web; app.getPreferredSystemLanguages() for Electron
+    locales/
+      en/
+        common.json       ← shared: buttons, statuses, pagination, table headers
+        auth.json
+        dashboard.json
+        sales.json
+        purchases.json
+        inventory.json
+        products.json
+        customers.json
+        settings.json     ← company, locations, sites, users, units, vat-rates, sequentials
+        errors.json       ← validation, API error, network error messages
+      es/
+        (same structure)
+
+packages/server/src/
+  i18n/
+    index.ts              ← server-side i18next for error messages, email templates (future)
+    locales/
+      en/
+        server.json       ← API error messages, seed data labels
+      es/
+        server.json
+```
+
+**Key rules:**
+- Semantic keys, never English text as keys: `sales.chargeButton` not `"Charge"`
+- Namespace = file name: `useTranslation('sales')` → `sales.json`
+- Config objects store `labelKey`, never resolved strings — resolve at render time
+- Never localize: code identifiers, product SKUs, API field names, file extensions
+- Server error messages sent to client use error codes; the client resolves the display text
+
+### 17.5 Settings Integration (Zustand)
+
+```typescript
+// In existing settings store — add one field
+interface AppSettings {
+  language: 'system' | 'en' | 'es';
+}
+
+// On change:
+i18next.changeLanguage(resolvedLocale);
+// React re-renders automatically via react-i18next context — no app reload needed
+```
+
+Persisted via Zustand's existing `persist` middleware. Default: `'system'` (auto-detect from browser/OS).
+
+### 17.6 Locale Resolution
+
+```typescript
+// apps/web/src/i18n/resolveLocale.ts
+export function resolveLocale(preference: 'system' | 'en' | 'es'): string {
+  if (preference !== 'system') return preference;
+
+  // Electron renderer has access to navigator
+  const browserLang = navigator.languages?.[0] ?? navigator.language ?? 'en';
+  // Normalize: "es-CO" → "es", "en-US" → "en"
+  return browserLang.startsWith('es') ? 'es' : 'en';
+}
+```
+
+For the Electron main process (future — dialog strings, tray menu):
+```typescript
+const { app } = require('electron');
+const lang = app.getPreferredSystemLanguages()[0] ?? 'en';
+```
+
+### 17.7 Phased Rollout
+
+| Phase | Scope | When | Effort |
+|-------|-------|------|--------|
+| **i18n-1: Foundation** | Install `i18next` + `react-i18next`. Create `apps/web/src/i18n/` scaffold. Wire `init()` in `main.tsx`. Add `language` to settings store. Create `en/common.json` + `es/common.json` stubs. Convert shared UI components (`apps/web/src/components/`) — buttons, status badges, table chrome, empty states. | Before any new feature phase | 2–3 days |
+| **i18n-2: High-Visibility Surfaces** | Convert `auth`, `dashboard`, `sales` (checkout flow), and top-level navigation/layout. These are the first screens any user sees. | Same sprint as i18n-1 or immediately after | 3–4 days |
+| **i18n-3: Full Feature Coverage** | Convert remaining features: `products`, `customers`, `purchases`, `inventory`, `orders`, plus settings screens (`company`, `locations`, `sites`, `users`, `units`, `vat-rates`, `sequentials`). | Next sprint | 4–5 days |
+| **i18n-4: Server + CI Enforcement** | Server-side error messages. Electron main process strings (dialogs, tray). CI lint rule: block new hardcoded strings in `.tsx` files. Missing-key and orphaned-key checks in CI. | Before contributor onboarding | 2–3 days |
+
+**Total estimate: ~12–15 days of focused work across 4 phases.**
+
+### 17.8 What NOT To Do
+
+| Anti-pattern | Why |
+|--------------|-----|
+| Translation SaaS in MVP | Cost, vendor lock-in, CI complexity before having real translators — add after 3+ languages |
+| Runtime bundle download | Keep all locales in repo for V1; TTFB and offline behavior are easier |
+| Localized code output | Generated file names, receipt template variables, export column names stay English |
+| Community language packs | Need a plugin loading model first (post-Phase 14 plugin architecture) |
+| Inline `t()` in Zustand stores | Store `labelKey` strings, resolve with `t()` only in React components at render time |
+| Over-splitting namespaces | Start with ~10 namespace files, not one per component — merge small features into `settings.json` |
+
+### 17.9 Priority Placement
+
+i18n sits **between Phase 0 (architecture foundation) and Phase 1 (cash management)** in the implementation order. Rationale:
+
+1. Phase 0 establishes the module activation system and tax engine — these create new UI that should be born i18n-ready
+2. i18n-1 and i18n-2 (foundation + high-visibility) should land before Phase 1 starts adding cash management UI
+3. i18n-3 (full coverage) can run in parallel with Phase 1 without blocking it
+4. i18n-4 (CI enforcement) must land before contributor onboarding to prevent regression
+
+This avoids the worst outcome: building 10+ more phases of hardcoded English strings and then doing a massive retroactive extraction.
+
+## 18. Immediate Documentation Updates Needed
 
 These docs should exist after the first implementation phases:
 
@@ -2567,6 +2703,7 @@ These docs should exist after the first implementation phases:
 - `docs/PHARMACY_REGULATORY_GUIDE.md` — INVIMA, controlled substances, RIPS, SISMED, FNE compliance
 - `docs/COLOMBIAN_TAX_ENGINE.md` — IVA, INC, impuesto saludable, retención, rete-IVA, rete-ICA, bolsa plástica
 - `docs/VERTICAL_PRODUCT_METADATA_SCHEMA.md` — JSON metadata column schemas per vertical
+- `docs/I18N_GUIDE.md` — i18n conventions, namespace mapping, key naming rules, and how to add a new language
 
 ## 18. Sources
 
