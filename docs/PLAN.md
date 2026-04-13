@@ -1,6 +1,6 @@
 # Puntovivo Strategic Plan and Technical Roadmap
 
-> Updated: April 12, 2026
+> Updated: April 13, 2026
 > Purpose: strategic product analysis plus technical roadmap for turning Puntovivo into a stronger POS, logistics, and multi-topology platform
 > Inputs: repository scan, current architecture docs, competitive analysis of 23+ POS systems, academic/industry POS frameworks, logistics platform research, and hybrid database architecture patterns
 
@@ -1158,6 +1158,180 @@ Industry-standard POD methods:
 | Consignment tracking | — | — | — | — | **Moderate** (jewelry) | Missing |
 | Season/markdown scheduling | — | — | — | — | **Moderate** (fashion) | Missing |
 | Trade-in / buy-back | — | — | — | — | **Moderate** (electronics) | Missing |
+
+### 6.3 Multi-Vertical Readiness Matrix
+
+| Vertical | Can Operate Today? | Blocking Gaps | Earliest Usable After |
+| --- | --- | --- | --- |
+| **Generic Retail / Tienda** | Partial — no cash management | Cash sessions, split payments | Phase 1 |
+| **Ferretería** | No — no fractional units, no credit terms | Fractional qty, unit conversion, customer credit, project quoting | Phase 5 |
+| **Supermercado** | No — no scales, no perishable management | Scale integration, PLU, lot/expiry, impuesto saludable | Phase 6 + Phase 14 |
+| **Farmacia** | No — missing all legally required features | Lot/batch, Rx, controlled substances, RIPS, SISMED, INVIMA | Phase 6 + Phase 13 |
+| **Restaurante** | No — no tables, no KDS | Table management, KDS, INC 8%, modifiers, tips | Phase 12 |
+| **Fashion/Apparel** | No — no variants | Size/color matrix, season management | Phase 6 |
+| **Electronics** | No — no serial tracking | Serial numbers, warranty management | Phase 6 |
+| **B2B / Wholesale** | No — no credit terms, no quotations | Customer credit, quotations, retención en la fuente | Phase 5 + Phase 11 |
+| **Services** | No — no appointments | Appointment scheduling, calendar | Phase 12 |
+
+### 6.4 Colombian Tax Compliance Readiness
+
+| Tax Type | Applies To | Current Status | Phase |
+| --- | --- | --- | --- |
+| IVA (0%, 5%, 19%) | All | Basic (single rate per product) | **Needs tax groups — Phase 0** |
+| Impuesto al Consumo 8% | Restaurants (on-premises) | Missing | Phase 0 |
+| Impuesto Saludable (15-20%) | Sugary drinks, ultra-processed | Missing | Phase 0 |
+| Bolsa Plástica (COP $90/bag) | Retail, supermarkets | Missing | Phase 0 |
+| Retención en la Fuente | B2B transactions | Missing | Phase 11 |
+| Rete-IVA | B2B, specific regimes | Missing | Phase 11 |
+| Rete-ICA | B2B, municipality-specific | Missing | Phase 11 |
+| DEE POS Electrónico | All (mandatory 2024+) | Missing | Phase 11 |
+| Factura Electrónica | All above 3,500 UVT | Missing | Phase 11 |
+| Nota Crédito Electrónica | All | Missing | Phase 11 |
+| Documento Soporte Electrónico | Purchases from non-invoicers | Missing | Phase 11 |
+
+### 6.5 Detailed Competitive Capability Matrices
+
+These matrices compare Puntovivo's current repo status against 8 major competitors per feature category.
+
+#### Core POS Operations
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Checkout / POS transaction | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Void / cancel transaction | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Refunds / returns | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Receipt printing | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Digital receipts (email/SMS) | Yes | Yes | Yes | Yes | No | Yes | No | Yes | Missing |
+| Offline mode | Limited | Limited | No | No | Yes | No | Yes | No | **Implemented (strong)** |
+| Desktop native app | No | No | No | No | No | No | No | No | **Implemented (unique)** |
+| Open source | No | No | No | No | No | Community | Yes | No | **Yes (unique)** |
+| Mobile-responsive POS | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | **Implemented** |
+| Keyboard shortcuts | Yes | Yes | Yes | No | No | Yes | No | No | **Implemented** |
+| Barcode scanning | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Custom sale / open price | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+| Kiosk / self-service mode | Yes | No | No | Yes | No | Yes | No | No | Missing |
+
+#### Payment Methods
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Cash payment | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Card payment | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** (basic) |
+| Split payments / multi-tender | Yes | Yes | Yes | Yes | No | Yes | Yes | No | Missing |
+| Partial payments / layaway | No | Yes | Yes | No | No | Yes | Yes | No | Missing |
+| Installment payments | Yes | No | No | No | No | Yes | No | No | Missing |
+| On-account / credit sales | No | No | Yes | No | No | Yes | Yes | Yes | Missing |
+| Gift card payment | Yes | Yes | Yes | Yes | No | Yes | No | No | Missing |
+| Store credit payment | Yes | Yes | Yes | No | No | Yes | No | No | Missing |
+| Tips / gratuity | Yes | Yes | Yes | Yes | No | Yes | No | No | Missing |
+| Deposits / prepayments | No | Yes | Yes | No | No | Yes | Yes | No | Missing |
+| Custom payment types | Yes | Yes | Yes | No | No | Yes | Yes | No | Missing |
+
+#### Cash Management
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Cash drawer sessions | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Missing |
+| Opening float / count | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Missing |
+| Blind close | Yes | Yes | Yes | Yes | No | No | No | No | Missing |
+| Denomination counting | Yes | No | Yes | Yes | No | No | No | No | Missing |
+| Paid-in / paid-out | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+| Cash skim / drop | Yes | No | Yes | Yes | No | No | No | No | Missing |
+| Over/short tracking | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+| Shift reports (X/Z reports) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Missing |
+| Multi-register per store | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+
+#### Inventory Management
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Stock tracking | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Movement history | Limited | Yes | Yes | No | Yes | Yes | Yes | No | **Implemented** |
+| Adjustments | Yes | Yes | Yes | No | Yes | Yes | Yes | Yes | **Implemented** |
+| Physical count / stock take | Yes | Yes | Yes | No | Yes | Yes | Yes | No | **Implemented** |
+| Low stock alerts | Yes | Yes | Yes | No | Yes | Yes | Yes | No | **Implemented** |
+| Multi-location balances | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Partial |
+| Inter-store transfers | No | Yes | Yes | No | Yes | Yes | Yes | No | Missing |
+| Product variants (size/color) | Yes | Yes | Yes | Yes | No | Yes | Yes | No | Missing |
+| Serial number tracking | No | No | Yes | No | No | Yes | Yes | No | Missing |
+| Batch / lot tracking | No | No | No | No | No | Yes | Yes | No | Missing |
+| Expiry date tracking | No | No | No | No | No | Yes | Yes | No | Missing |
+| Bundles / kits / combos | No | Yes | Yes | No | No | Yes | Yes | No | Missing |
+| Reorder points / auto PO | Yes | Yes | Yes | No | Yes | Yes | Yes | No | Missing |
+| Inventory costing method | No | WAC | WAC/FIFO | No | No | All | All | WAC | Missing |
+
+#### Procurement
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Purchase orders | Yes | Yes | Yes | No | Yes | Yes | Yes | Yes | **Implemented** |
+| Partial receiving | No | Yes | Yes | No | No | Yes | Yes | No | **Implemented** |
+| Purchase returns | No | No | Yes | No | No | Yes | Yes | No | **Implemented** |
+| Supplier management | Yes | Yes | Yes | No | Yes | Yes | Yes | Yes | **Implemented** |
+| RFQ / supplier quotes | No | No | No | No | No | Yes | Yes | No | Missing |
+| 3-way match (PO/receipt/invoice) | No | No | No | No | No | Yes | Yes | No | Missing |
+| Landed cost | No | No | Yes | No | No | Yes | Yes | No | Missing |
+| Blanket / framework orders | No | No | No | No | No | Yes | Yes | No | Missing |
+| Vendor rating / scorecard | No | No | No | No | No | Yes | Yes | No | Missing |
+
+#### Tax and Fiscal Compliance
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tax rate configuration | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+| Multi-tax / compound tax | Yes | Yes | Yes | Yes | No | Yes | Yes | Yes | Missing |
+| Tax groups | Yes | Yes | Yes | Yes | No | Yes | Yes | Yes | Missing |
+| Tax-exempt customers | Yes | Yes | Yes | No | No | Yes | Yes | Yes | Missing |
+| Electronic invoicing (Colombia) | No | No | No | No | No | Community | Community | **Yes** | Missing |
+| Credit notes (formal) | No | Yes | Yes | No | No | Yes | Yes | Yes | Missing |
+| Multi-country fiscal adapters | No | No | No | No | No | Yes (70+) | Yes (40+) | Limited | Missing |
+
+#### Integration and Extensibility
+
+| Capability | Square | Shopify | Lightspeed | Toast | Loyverse | Odoo | ERPNext | Siigo | Repo status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Public REST/GraphQL API | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Limited | Missing |
+| Webhooks | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+| API keys / OAuth | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Missing |
+| Accounting integration | Apps | Apps | Built-in | Apps | Apps | Built-in | Built-in | Built-in | Missing |
+| E-commerce integration | Yes | Built-in | Yes | Yes | No | Built-in | Yes | No | Missing |
+| App marketplace / plugins | 500+ | 8000+ | Yes | 200+ | No | 40000+ | Yes | No | Missing |
+| Import/export (CSV/Excel) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | **Implemented** |
+
+#### Hybrid Database / Data Architecture
+
+| Capability | Repo status | Notes |
+| --- | --- | --- |
+| SQLite local storage | **Implemented** | Core of desktop runtime via better-sqlite3 + Drizzle ORM |
+| Offline-first transactions | **Implemented** | Sales, inventory, and sync queue work offline |
+| Sync queue and conflict resolution | **Implemented** | App-level sync with conflict tables and retry metrics |
+| PostgreSQL remote support | Missing | Schema is SQLite-specific (sqliteTable, SQLite DDL) |
+| Dialect abstraction layer | Missing | Business logic directly depends on better-sqlite3 APIs |
+| Operation-based sync protocol | Missing | Current sync is CRUD-queue; no formal operation log |
+| Remote authority contract | Missing | No defined server-side sync acceptance/rejection model |
+| Multi-client conflict resolution | Partial | Basic conflict UI exists; field-level merge does not |
+
+### 6.6 Deferred Technical Migrations
+
+- `better-sqlite3` → `node:sqlite`: evaluate only after `node:sqlite` leaves release candidate status. Impacts `packages/server/src/db/index.ts` (Drizzle driver), `apps/desktop/src/main/index.ts` (raw `$client` bridge queries), and all dual Node/Electron native binary handling.
+
+### 6.7 Ongoing Technical Work
+
+- Omnichannel orders, pickup, and ship-from-store workflows
+- Remote sync strategy hardening beyond retry/failure observability
+- Procurement edge cases: supplier credit-note handling, mixed return/void reconciliation, approval-oriented audit surfaces
+- Desktop security hardening (Electron `sandbox: false`)
+- Performance cleanup and bundle hygiene
+- Browser IndexedDB vs Electron desktop DB: define long-term ownership boundary for consistent offline behavior
+- Broader integration/E2E coverage
+
+### 6.8 Operator Documentation Needs
+
+- Backup/restore runbook
+- Sync conflict resolution playbook
+- Release verification checklist
+- Workstation provisioning guide
+- Domain glossary (tenant, site, location, order, purchase, void, refund)
 
 ## 7. Recommended Logistics Model For Puntovivo
 

@@ -103,5 +103,5 @@ Manual auth flow checks now need to account for the hybrid model:
 4. send both the refresh cookie and `x-csrf-token` header when calling `auth.refresh` or other unsafe cookie-backed auth endpoints
 5. after `auth.changePassword` or `users.resetPassword`, expect previously issued access and refresh tokens to stop working
 
-For current non-security product gaps, see:
-[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)
+For current product gaps and roadmap, see:
+[ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)

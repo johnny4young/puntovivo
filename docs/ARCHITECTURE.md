@@ -297,7 +297,7 @@ The strongest forward path is:
 
 The active roadmap for this work lives in:
 
-- [PLAN.md](/Users/johnny4young/Personal/github/puntovivo/docs/PLAN.md)
+- [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
 
 ## Design Constraints That Matter
 
@@ -309,11 +309,7 @@ The active roadmap for this work lives in:
 
 ## Where To Look Next
 
-- Current execution status:
-  [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/puntovivo/docs/IMPLEMENTATION_STATUS.md)
-- Strategic plan and technical roadmap:
-  [PLAN.md](/Users/johnny4young/Personal/github/puntovivo/docs/PLAN.md)
+- Project status and roadmap:
+  [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
 - tRPC transport details:
   [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
-- Open backlog:
-  [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)
