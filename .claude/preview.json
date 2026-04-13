@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "puntovivo-fullstack",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:fullstack"],
+      "cwd": ".",
+      "port": 3000
+    }
+  ]
+}

@@ -51,7 +51,7 @@ Execution matrix for manual validation and later automation with Playwright Web 
 - Shutdown:
   - `npm run dev:stop`
 
-## Execution Snapshot - 2026-04-10
+## Execution Snapshot - 2026-04-12
 
 - Fully validated:
   - `AUTH-01`
@@ -79,6 +79,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
   - `SALES-08`
   - `SALES-11`
   - `SALES-12`
+  - `SALES-14`
+  - `SALES-15`
   - `SALES-18`
   - `ORDER-01`
   - `ORDER-02`
@@ -144,6 +146,16 @@ Execution matrix for manual validation and later automation with Playwright Web 
   - Browser `WEB` validations later in the run used the standalone server DB.
   - Earlier Electron validations used the desktop embedded DB.
   - Do not rerun passed IDs above unless the corresponding DB is intentionally reset.
+
+## Execution Snapshot - 2026-04-12
+
+- Newly validated via Playwright Web (standalone backend):
+  - `SALES-14` — Void sale: VTA-000001 voided, status changed to `voided`, stock for "Arroz Diana 500g" restored to 50 (confirmed in catalog dialog)
+  - `SALES-15` — Refund sale: VTA-000002 refunded, status changed to `refunded`, stock restored (server-side return confirmed)
+- Server-side integration tests added:
+  - `packages/server/src/__tests__/sales.test.ts` — new test: per-line discount percentage applies correctly to subtotal and VAT extraction (discount=10% on 19% VAT product)
+  - `packages/server/src/__tests__/server.test.ts` — new file: HTTP-level regression tests covering tRPC batch URL routing (`maxParamLength: 1024` fix), health endpoint, and CSRF protection
+- All server tests: 141 passed (23 test files)
 
 ---
 
@@ -398,8 +410,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | SALES-11 | BOTH | cashier | Change calculation | Correct amount shown |
 | ✅ | SALES-12 | BOTH | cashier | Sale details modal | Details render correctly |
 | ⬜ | SALES-13 | ELEC | cashier | Print receipt | Print action completes or opens fallback |
-| ⬜ | SALES-14 | BOTH | admin | Void sale | Status changes and stock reverses |
-| ⬜ | SALES-15 | BOTH | admin | Refund sale | Refund recorded and stock restored |
+| ✅ | SALES-14 | BOTH | admin | Void sale | Status changes and stock reverses |
+| ✅ | SALES-15 | BOTH | admin | Refund sale | Refund recorded and stock restored |
 | ⬜ | SALES-16 | BOTH | cashier | Search sales history | Filter works |
 | ⬜ | SALES-17 | BOTH | cashier | Keyboard shortcuts | Shortcuts trigger expected actions |
 | ✅ | SALES-18 | BOTH | cashier | Mobile or tablet sales layout | Checkout remains usable |
@@ -489,6 +501,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | DASH-05 | ELEC | `output/playwright/dash-05-low-stock-elec.png` | Low-stock panel rendered |
 | ✅ | DASH-06 | ELEC | `output/playwright/dash-06-loading-elec.png` | Delayed renderer fetch showed dashboard loading skeleton |
 | ⬜ | DASH-07 | ELEC | `output/playwright/dash-07-error-elec.png` | Attempted renderer-side failure injection did not surface the query error state; keep pending |
+| ✅ | SALES-14 | WEB | (Playwright snapshot) | VTA-000001 voided via history dialog; status column shows `voided`; stock for "Arroz Diana 500g" confirmed restored to 50 in catalog |
+| ✅ | SALES-15 | WEB | (Playwright snapshot) | VTA-000002 refunded via history dialog; status column shows `refunded`; stock confirmed restored server-side |
 
 ---
 

@@ -100,13 +100,16 @@ describe('Sales tRPC Router', () => {
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
 
+    // Use local-time noon to match the summary query which filters by local-time midnight boundaries.
+    // Using Date.UTC would cause failures in timezones west of UTC when local date != UTC date.
     const now = new Date();
-    const today = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12)
-    ).toISOString();
-    const yesterday = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 12)
-    ).toISOString();
+    const todayLocal = new Date(now);
+    todayLocal.setHours(12, 0, 0, 0);
+    const today = todayLocal.toISOString();
+    const yesterdayLocal = new Date(now);
+    yesterdayLocal.setDate(yesterdayLocal.getDate() - 1);
+    yesterdayLocal.setHours(12, 0, 0, 0);
+    const yesterday = yesterdayLocal.toISOString();
 
     await db.insert(sales).values([
       {
@@ -572,5 +575,83 @@ describe('Sales tRPC Router', () => {
     const summaryAfterRefund = await caller.sales.summary();
     expect(summaryAfterRefund.transactionCount).toBe(summaryBeforeCreate.transactionCount);
     expect(summaryAfterRefund.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
+  });
+
+  it('applies per-line discount percentage to both subtotal and VAT extraction', async () => {
+    // Validates that a 10% per-line discount reduces the effective price before
+    // VAT extraction so the cashier total, subtotal, and tax are all consistent.
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Discounted Water',
+      sku: 'DISC-01',
+      price: 1190,         // $11.90 price (19% VAT-inclusive)
+      price2: 1190,
+      price3: 1190,
+      cost: 500,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 19,
+      initialCost: 500,
+      stock: 10,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 1190,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const result = await caller.sales.create({
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 1190,
+          discount: 10,      // 10% discount → effective price = $1,071
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 1100,
+      discountAmount: 0,
+    });
+
+    // Effective VAT-inclusive price = 1190 * (1 - 0.10) = 1071
+    // Subtotal (ex-VAT) = 1071 / 1.19 ≈ 900
+    // Tax = 1071 - 900 ≈ 171
+    expect(result.total).toBeCloseTo(1071, 0);
+    expect(result.subtotal).toBeCloseTo(900, 0);
+    expect(result.taxAmount).toBeCloseTo(171, 0);
+    expect(result.change).toBeCloseTo(29, 0);
+
+    // Stock must decrement by 1 (base equivalence)
+    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(updatedProduct?.stock).toBe(9);
+
+    // Sale item must record the discount
+    const storedItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
+    expect(storedItems).toHaveLength(1);
+    expect(storedItems[0]?.discount).toBeCloseTo(10);
   });
 });

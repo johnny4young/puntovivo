@@ -58,3 +58,6 @@ backend/server
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Playwright MCP session artifacts (ephemeral tooling output)
+.playwright-mcp/
