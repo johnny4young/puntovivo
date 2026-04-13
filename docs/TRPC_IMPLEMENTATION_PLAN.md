@@ -24,11 +24,10 @@ They are now things like:
 - how to reduce bundle size and operational risk
 
 Track those in:
-[OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)
+[ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
 
 ## Current Recommended Reading Order
 
-1. [IMPLEMENTATION_STATUS.md](/Users/johnny4young/Personal/github/puntovivo/docs/IMPLEMENTATION_STATUS.md)
+1. [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
 2. [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
 3. [TRPC_TESTING_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_TESTING_GUIDE.md)
-4. [OPEN_BACKLOG.md](/Users/johnny4young/Personal/github/puntovivo/docs/OPEN_BACKLOG.md)

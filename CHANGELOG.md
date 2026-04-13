@@ -9,9 +9,11 @@ All notable changes to Puntovivo are documented here. Follows [Keep a Changelog]
 ### Added
 - HTTP-level regression test suite (`packages/server/src/__tests__/server.test.ts`) covering tRPC batch URL routing, the `maxParamLength: 1024` fix, legacy health endpoint, and CSRF protection
 - Integration test for per-line discount VAT extraction in `sales.test.ts` (discount=10% applied to a 19% VAT product, verifying subtotal, taxAmount, change, and stock decrement)
+- Launch configurations (`.claude/launch.json`) for dev server preview tooling
 
 ### Docs
 - Updated `TEST-PLAN.md` with 2026-04-12 execution snapshot; SALES-14 and SALES-15 marked passed after Playwright web validation
+- Consolidated work plan into `docs/ROADMAP.md`; removed `IMPLEMENTATION_STATUS.md`, `OPEN_BACKLOG.md`, and `MIGRATION_PLAN.md` (strategic `PLAN.md` retained as reference)
 
 ---
 
