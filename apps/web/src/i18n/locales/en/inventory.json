@@ -1,0 +1,137 @@
+{
+  "page": {
+    "title": "Inventory",
+    "description": "Manage counted entries, physical counts, and stock visibility against the live catalog.",
+    "tabs": {
+      "movements": "Movements",
+      "stockQuery": "Stock Query",
+      "initialInventory": "Initial Inventory"
+    },
+    "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
+    "stockNote": "Stock remains tenant-wide for now. Initial and physical inventory entries capture the counted unit and normalize it into the shared stock model, which avoids the legacy accumulation bug from the WinForms version."
+  },
+  "stats": {
+    "totalUnits": "Total Units",
+    "inventoryValue": "Inventory Value",
+    "lowStockItems": "Low Stock Items",
+    "recentFlow": "Recent Flow",
+    "recentFlowDetail_one": "{{count}} recent entry · adjustments",
+    "recentFlowDetail_other": "{{count}} recent entries · adjustments"
+  },
+  "movements": {
+    "loading": "Loading inventory movements...",
+    "error": "Unable to load inventory movements",
+    "search": "Search movements by product..."
+  },
+  "stock": {
+    "loading": "Loading stock balances...",
+    "error": "Unable to load stock balances",
+    "search": "Search stock by product...",
+    "category": "Category",
+    "allCategories": "All categories",
+    "lowStockOnly": "Show low stock only"
+  },
+  "entries": {
+    "loading": "Loading inventory entries...",
+    "loadingShort": "Loading entries…",
+    "error": "Unable to load inventory entries",
+    "search": "Search entries by product..."
+  },
+  "table": {
+    "initialInventory": "Initial inventory",
+    "physicalCount": "Physical count",
+    "product": "Product",
+    "unit": "Unit",
+    "countedQty": "Counted Qty",
+    "normalized": "Normalized",
+    "cost": "Cost",
+    "stockAfter": "Stock After",
+    "notes": "Notes",
+    "date": "Date",
+    "type": "Type",
+    "movement": "Movement",
+    "reference": "Reference",
+    "unknownProduct": "Unknown product",
+    "noSku": "No SKU"
+  },
+  "newEntry": "New Entry",
+  "newAdjustment": "New Adjustment",
+  "dialogs": {
+    "selectProductEntry": "Select Product for Initial Inventory",
+    "recordEntry": "Record Entry",
+    "selectProductAdjust": "Select Product for Adjustment",
+    "adjustProduct": "Adjust Product"
+  },
+  "toast": {
+    "adjustSuccess": "Stock adjusted",
+    "adjustError": "Unable to adjust stock",
+    "entrySuccess": "Initial inventory recorded",
+    "entryError": "Unable to record inventory entry"
+  },
+  "adjustment": {
+    "title": "Adjust {{name}}",
+    "titleDefault": "Adjust Inventory",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "save": "Save Adjustment",
+    "noProduct": "Select a product before adjusting stock.",
+    "currentStock": "Current stock",
+    "movement": "Movement",
+    "lowStockThreshold": "Low stock threshold",
+    "notesPlaceholder": "Reason for the adjustment",
+    "stockMin": "Stock must be zero or greater"
+  },
+  "entry": {
+    "titleInitial": "Record Initial Inventory",
+    "titlePhysical": "Record Physical Inventory",
+    "titleDefault": "Record Inventory",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "save": "Save Entry",
+    "noSelection": "Select a product before recording inventory.",
+    "currentStock": "Current stock",
+    "mode": "Mode",
+    "modeInitial": "{{label}} (accumulate)",
+    "modePhysical": "{{label}} (replace)",
+    "equivalence": "Equivalence",
+    "quantityMin": "Quantity must be greater than zero",
+    "costMin": "Cost must be zero or greater",
+    "notesPlaceholder": "Optional reason or count reference"
+  },
+  "purchases": {
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "save": "Record Return",
+    "hint": "Return only the quantities that are physically leaving stock back to the provider.",
+    "noSku": "No SKU",
+    "costEach": "Cost {{amount}} each",
+    "received": "Received",
+    "returned": "Returned",
+    "available": "Available",
+    "returnQty": "Return Quantity",
+    "returnQtyMin": "Return quantity cannot be negative",
+    "returnQtyMax": "Only {{count}} units remain available to return",
+    "reason": "Reason",
+    "reasonPlaceholder": "Optional supplier return note",
+    "minItems": "Select at least one line quantity to return",
+    "modalTitle": "Return Items for {{number}}"
+  },
+  "orders": {
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "save": "Create Receipt",
+    "hint": "Receive only the quantities that physically entered stock in this delivery.",
+    "noSku": "No SKU",
+    "costEach": "Cost {{amount}} each",
+    "ordered": "Ordered",
+    "received": "Received",
+    "pending": "Pending",
+    "receiveQty": "Receive Quantity",
+    "receiveQtyMin": "Received quantity cannot be negative",
+    "receiveQtyMax": "Only {{count}} units remain pending receipt",
+    "receiptNotes": "Receipt Notes",
+    "receiptNotesPlaceholder": "Optional note about this delivery batch",
+    "minItems": "Select at least one line quantity to receive",
+    "modalTitle": "Receive Items for {{number}}"
+  }
+}

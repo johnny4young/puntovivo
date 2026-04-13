@@ -6,6 +6,7 @@ import {
   type UseFormReturn,
   type UseFormRegisterReturn,
 } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Product } from '@/types';
 import { calculatePricing } from './pricing';
@@ -161,13 +162,6 @@ type MarginPercentField = 'marginPercent1' | 'marginPercent2' | 'marginPercent3'
 type MarginAmountField = 'marginAmount1' | 'marginAmount2' | 'marginAmount3';
 type ProductFormTab = 'general' | 'pricing' | 'units' | 'providers';
 
-const PRODUCT_FORM_TABS: Array<{ id: ProductFormTab; label: string }> = [
-  { id: 'general', label: 'General' },
-  { id: 'pricing', label: 'Pricing' },
-  { id: 'units', label: 'Units' },
-  { id: 'providers', label: 'Providers' },
-];
-
 export function ProductFormModal({
   mode,
   isOpen,
@@ -182,6 +176,7 @@ export function ProductFormModal({
   onClose,
   onSubmit,
 }: ProductFormModalProps) {
+  const { t } = useTranslation('products');
   const form = useForm<ProductFormValues>({
     defaultValues: mapProductToForm(product),
   });
@@ -197,9 +192,16 @@ export function ProductFormModal({
     name: 'providerAssignments',
   });
 
+  const PRODUCT_FORM_TABS: Array<{ id: ProductFormTab; label: string }> = [
+    { id: 'general', label: t('form.tabs.general') },
+    { id: 'pricing', label: t('form.tabs.pricing') },
+    { id: 'units', label: t('form.tabs.units') },
+    { id: 'providers', label: t('form.tabs.providers') },
+  ];
+
   const validateProviderAssignment = (providerId: string, index: number) => {
     if (!providerId) {
-      return 'Provider is required';
+      return t('form.providerAssignments.providerRequired');
     }
 
     const duplicateIndex = form
@@ -209,7 +211,7 @@ export function ProductFormModal({
           assignmentIndex !== index && assignment.providerId === providerId
       );
 
-    return duplicateIndex === -1 || 'Provider already selected';
+    return duplicateIndex === -1 || t('form.providerAssignments.providerDuplicate');
   };
 
   type PricingInput = { marginPercent: number } | { marginAmount: number } | { price: number };
@@ -272,15 +274,15 @@ export function ProductFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'create' ? 'Create Product' : 'Edit Product'}
+      title={mode === 'create' ? t('form.createTitle') : t('form.editTitle')}
       size="xl"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : mode === 'create' ? 'Create Product' : 'Save Changes'}
+            {isSaving ? t('form.submitting') : mode === 'create' ? t('form.create') : t('form.save')}
           </ModalButton>
         </>
       }
@@ -308,29 +310,29 @@ export function ProductFormModal({
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="product-name" className="label">
-                  Name
+                  {t('form.fields.name')}
                 </label>
                 <input
                   id="product-name"
                   className="input mt-1"
-                  {...form.register('name', { required: 'Product name is required' })}
+                  {...form.register('name', { required: t('form.fields.nameRequired') })}
                 />
               </div>
               <div>
                 <label htmlFor="product-sku" className="label">
-                  SKU
+                  {t('form.fields.sku')}
                 </label>
                 <input
                   id="product-sku"
                   className="input mt-1"
-                  {...form.register('sku', { required: 'SKU is required' })}
+                  {...form.register('sku', { required: t('form.fields.skuRequired') })}
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="product-description" className="label">
-                Description
+                {t('form.fields.description')}
               </label>
               <textarea
                 id="product-description"
@@ -342,10 +344,10 @@ export function ProductFormModal({
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="product-category" className="label">
-                  Category
+                  {t('form.fields.category')}
                 </label>
                 <select id="product-category" className="input mt-1" {...form.register('categoryId')}>
-                  <option value="">No category</option>
+                  <option value="">{t('form.fields.noCategory')}</option>
                   {categories.map(category => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -355,10 +357,10 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-provider" className="label">
-                  Provider
+                  {t('form.fields.provider')}
                 </label>
                 <select id="product-provider" className="input mt-1" {...form.register('providerId')}>
-                  <option value="">No provider</option>
+                  <option value="">{t('form.fields.noProvider')}</option>
                   {providers.map(provider => (
                     <option key={provider.id} value={provider.id}>
                       {provider.name}
@@ -368,7 +370,7 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-vat-rate" className="label">
-                  VAT Rate
+                  {t('form.fields.vatRate')}
                 </label>
                 <select
                   id="product-vat-rate"
@@ -383,7 +385,7 @@ export function ProductFormModal({
                     });
                   }}
                 >
-                  <option value="">Manual tax rate</option>
+                  <option value="">{t('form.fields.manualTaxRate')}</option>
                   {vatRates.map(vatRate => (
                     <option key={vatRate.id} value={vatRate.id}>
                       {vatRate.name} ({vatRate.rate}%)
@@ -393,7 +395,7 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-tax-rate" className="label">
-                  Tax Rate (%)
+                  {t('form.fields.taxRate')}
                 </label>
                 <input
                   id="product-tax-rate"
@@ -407,10 +409,10 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-location" className="label">
-                  Location
+                  {t('form.fields.location')}
                 </label>
                 <select id="product-location" className="input mt-1" {...form.register('locationId')}>
-                  <option value="">No location</option>
+                  <option value="">{t('form.fields.noLocation')}</option>
                   {locations.map(location => (
                     <option key={location.id} value={location.id}>
                       {location.name}
@@ -420,13 +422,13 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-barcode" className="label">
-                  Barcode
+                  {t('form.fields.barcode')}
                 </label>
                 <input id="product-barcode" className="input mt-1" {...form.register('barcode')} />
               </div>
               <div>
                 <label htmlFor="product-stock" className="label">
-                  Stock
+                  {t('form.fields.stock')}
                 </label>
                 <input
                   id="product-stock"
@@ -438,7 +440,7 @@ export function ProductFormModal({
               </div>
               <div>
                 <label htmlFor="product-min-stock" className="label">
-                  Min Stock
+                  {t('form.fields.minStock')}
                 </label>
                 <input
                   id="product-min-stock"
@@ -452,7 +454,7 @@ export function ProductFormModal({
 
             <div>
               <label htmlFor="product-image-url" className="label">
-                Image URL
+                {t('form.fields.imageUrl')}
               </label>
               <input id="product-image-url" className="input mt-1" {...form.register('imageUrl')} />
             </div>
@@ -463,7 +465,7 @@ export function ProductFormModal({
                 className="h-4 w-4 rounded border-secondary-300"
                 {...form.register('isActive')}
               />
-              Product is active
+              {t('form.fields.isActive')}
             </label>
           </>
         )}
@@ -532,12 +534,13 @@ function PricingSection({
   syncAllTiersFromCost,
   syncTier,
 }: PricingSectionProps) {
+  const { t } = useTranslation('products');
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="product-cost" className="label">
-            Cost
+            {t('form.fields.cost')}
           </label>
           <input
             id="product-cost"
@@ -554,7 +557,7 @@ function PricingSection({
         </div>
         <div>
           <label htmlFor="product-initial-cost" className="label">
-            Initial Cost
+            {t('form.fields.initialCost')}
           </label>
           <input
             id="product-initial-cost"
@@ -569,7 +572,7 @@ function PricingSection({
 
       <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
         <PricingTierSection
-          title="Price Tier 1"
+          title={t('form.fields.priceTier1')}
           priceField={form.register('price', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent1', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount1', { min: 0, valueAsNumber: true })}
@@ -582,7 +585,7 @@ function PricingSection({
           }
         />
         <PricingTierSection
-          title="Price Tier 2"
+          title={t('form.fields.priceTier2')}
           priceField={form.register('price2', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent2', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount2', { min: 0, valueAsNumber: true })}
@@ -595,7 +598,7 @@ function PricingSection({
           }
         />
         <PricingTierSection
-          title="Price Tier 3"
+          title={t('form.fields.priceTier3')}
           priceField={form.register('price3', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent3', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount3', { min: 0, valueAsNumber: true })}
@@ -625,13 +628,14 @@ function UnitAssignmentsSection({
   unitAssignmentsFieldArray,
   onBaseUnitChange,
 }: UnitAssignmentsSectionProps) {
+  const { t } = useTranslation('products');
   return (
     <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-secondary-900">Unit assignments</p>
+          <p className="text-sm font-medium text-secondary-900">{t('form.units.title')}</p>
           <p className="text-sm text-secondary-500">
-            Define the base unit and any additional equivalence-based sale units.
+            {t('form.units.description')}
           </p>
         </div>
         <button
@@ -646,7 +650,7 @@ function UnitAssignmentsSection({
             })
           }
         >
-          Add Unit
+          {t('form.units.addUnit')}
         </button>
       </div>
 
@@ -654,16 +658,16 @@ function UnitAssignmentsSection({
         {unitAssignmentsFieldArray.fields.map((field, index) => {
           const isBase = form.watch(`unitAssignments.${index}.isBase`);
           return (
-            <div key={field.id} className="grid gap-4 rounded-lg border border-secondary-200 p-4 md:grid-cols-4">
+            <div key={field.id} className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4">
               <div>
-                <label className="label">Unit</label>
+                <label className="label">{t('form.units.unit')}</label>
                 <select
                   className="input mt-1"
                   {...form.register(`unitAssignments.${index}.unitId` as const, {
-                    required: 'Unit is required',
+                    required: t('form.units.unitRequired'),
                   })}
                 >
-                  <option value="">Select unit</option>
+                  <option value="">{t('form.units.selectUnit')}</option>
                   {units.map(unit => (
                     <option key={unit.id} value={unit.id}>
                       {unit.name}
@@ -672,7 +676,7 @@ function UnitAssignmentsSection({
                 </select>
               </div>
               <div>
-                <label className="label">Equivalence</label>
+                <label className="label">{t('form.units.equivalence')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -686,7 +690,7 @@ function UnitAssignmentsSection({
                 />
               </div>
               <div>
-                <label className="label">Unit Price</label>
+                <label className="label">{t('form.units.unitPrice')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -705,7 +709,7 @@ function UnitAssignmentsSection({
                     checked={!!isBase}
                     onChange={() => onBaseUnitChange(index)}
                   />
-                  Base unit
+                  {t('form.units.baseUnit')}
                 </label>
                 <button
                   type="button"
@@ -722,7 +726,7 @@ function UnitAssignmentsSection({
                     }
                   }}
                 >
-                  Remove
+                  {t('form.units.remove')}
                 </button>
               </div>
             </div>
@@ -746,25 +750,26 @@ function ProviderAssignmentsSection({
   providerAssignmentsFieldArray,
   validateProviderAssignment,
 }: ProviderAssignmentsSectionProps) {
+  const { t } = useTranslation('products');
   return (
     <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-secondary-900">Provider associations</p>
-          <p className="text-sm text-secondary-500">Link this product to one or more suppliers.</p>
+          <p className="text-sm font-medium text-secondary-900">{t('form.providerAssignments.title')}</p>
+          <p className="text-sm text-secondary-500">{t('form.providerAssignments.description')}</p>
         </div>
         <button
           type="button"
           className="btn-outline"
           onClick={() => providerAssignmentsFieldArray.append({ providerId: '' })}
         >
-          Add Provider
+          {t('form.providerAssignments.addProvider')}
         </button>
       </div>
 
       {providerAssignmentsFieldArray.fields.length === 0 && (
         <p className="py-4 text-center text-sm text-secondary-500">
-          No providers linked. Click "Add Provider" to associate a supplier.
+          {t('form.providerAssignments.empty')}
         </p>
       )}
 
@@ -772,14 +777,14 @@ function ProviderAssignmentsSection({
         {providerAssignmentsFieldArray.fields.map((field, index) => (
           <div key={field.id} className="flex items-end gap-3 rounded-lg border border-secondary-200 p-4">
             <div className="flex-1">
-              <label className="label">Provider</label>
+              <label className="label">{t('form.providerAssignments.provider')}</label>
               <select
                 className="input mt-1"
                 {...form.register(`providerAssignments.${index}.providerId` as const, {
                   validate: value => validateProviderAssignment(value, index),
                 })}
               >
-                <option value="">Select provider</option>
+                <option value="">{t('form.providerAssignments.selectProvider')}</option>
                 {providers.map(provider => (
                   <option key={provider.id} value={provider.id}>
                     {provider.name}
@@ -792,7 +797,7 @@ function ProviderAssignmentsSection({
               className="btn-ghost text-danger-600"
               onClick={() => providerAssignmentsFieldArray.remove(index)}
             >
-              Remove
+              {t('form.providerAssignments.remove')}
             </button>
           </div>
         ))}
@@ -810,13 +815,14 @@ function PricingTierSection({
   onPercentChange,
   onAmountChange,
 }: PricingTierSectionProps) {
+  const { t } = useTranslation('products');
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <div className="md:col-span-3">
         <p className="text-sm font-medium text-secondary-900">{title}</p>
       </div>
       <div>
-        <label className="label">Margin %</label>
+        <label className="label">{t('form.fields.marginPercent')}</label>
         <input
           type="number"
           step="0.01"
@@ -830,7 +836,7 @@ function PricingTierSection({
         />
       </div>
       <div>
-        <label className="label">Margin Amount</label>
+        <label className="label">{t('form.fields.marginAmount')}</label>
         <input
           type="number"
           step="0.01"
@@ -844,7 +850,7 @@ function PricingTierSection({
         />
       </div>
       <div>
-        <label className="label">Sale Price</label>
+        <label className="label">{t('form.fields.salePrice')}</label>
         <input
           type="number"
           step="0.01"

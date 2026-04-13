@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Logo } from '@/types';
 
@@ -43,6 +44,7 @@ export function CompanyLogoFormModal({
   onClose,
   onSubmit,
 }: CompanyLogoFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<CompanyLogoFormValues>({
     defaultValues: mapLogoToForm(logo),
   });
@@ -53,14 +55,14 @@ export function CompanyLogoFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Add Logo' : 'Edit Logo'}
+      title={isCreate ? t('company.logo.form.addTitle') : t('company.logo.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('company.logo.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Logo' : 'Save Changes'}
+            {isSaving ? t('company.logo.form.saving') : isCreate ? t('company.logo.form.create') : t('company.logo.form.saveChanges')}
           </ModalButton>
         </>
       }
@@ -68,12 +70,12 @@ export function CompanyLogoFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="company-logo-name" className="label">
-            Logo Name
+            {t('company.logo.form.logoName')}
           </label>
           <input
             id="company-logo-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Logo name is required' })}
+            {...form.register('name', { required: t('company.logo.form.logoNameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -82,17 +84,17 @@ export function CompanyLogoFormModal({
 
         <div>
           <label htmlFor="company-logo-image-url" className="label">
-            Image URL
+            {t('company.logo.form.imageUrl')}
           </label>
           <input
             id="company-logo-image-url"
             className="input mt-1"
             placeholder="https://example.com/logo.png"
             {...form.register('imageUrl', {
-              required: 'Image URL is required',
+              required: t('company.logo.form.imageUrlRequired'),
               pattern: {
                 value: /^https?:\/\/.+/i,
-                message: 'Enter a valid image URL',
+                message: t('company.logo.form.imageUrlInvalid'),
               },
             })}
           />
@@ -107,7 +109,7 @@ export function CompanyLogoFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Logo is active
+          {t('company.logo.form.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

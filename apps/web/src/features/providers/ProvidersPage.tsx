@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -19,6 +20,7 @@ function canManageProviders(role: UserRole | undefined): boolean {
 }
 
 export function ProvidersPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -40,12 +42,12 @@ export function ProvidersPage() {
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Provider created' });
+      toast.success({ title: t('providers.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create provider',
-        description: getErrorMessage(error, 'Unable to create provider'),
+        title: t('providers.toast.createError'),
+        description: getErrorMessage(error, t('providers.toast.createError')),
       });
     },
   });
@@ -53,12 +55,12 @@ export function ProvidersPage() {
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Provider updated' });
+      toast.success({ title: t('providers.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update provider',
-        description: getErrorMessage(error, 'Unable to update provider'),
+        title: t('providers.toast.updateError'),
+        description: getErrorMessage(error, t('providers.toast.updateError')),
       });
     },
   });
@@ -66,12 +68,12 @@ export function ProvidersPage() {
     onSuccess: async () => {
       await utils.providers.list.invalidate();
       setProviderToDelete(null);
-      toast.success({ title: 'Provider deleted' });
+      toast.success({ title: t('providers.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete provider',
-        description: getErrorMessage(error, 'Unable to delete provider'),
+        title: t('providers.toast.deleteError'),
+        description: getErrorMessage(error, t('providers.toast.deleteError')),
       });
     },
   });
@@ -82,12 +84,12 @@ export function ProvidersPage() {
         utils.providers.listCategoryAssignments.invalidate(),
       ]);
       setProviderForCategories(null);
-      toast.success({ title: 'Provider categories updated' });
+      toast.success({ title: t('providers.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update provider categories',
-        description: getErrorMessage(error, 'Unable to update provider categories'),
+        title: t('providers.toast.updateError'),
+        description: getErrorMessage(error, t('providers.toast.updateError')),
       });
     },
   });
@@ -175,6 +177,7 @@ export function ProvidersPage() {
   }
 
   const columns = createProviderColumns({
+    t,
     canManage,
     canDelete,
     onEdit: handleOpenEdit,
@@ -185,12 +188,12 @@ export function ProvidersPage() {
   return (
     <>
       <ResourcePage
-        title="Providers"
-        description="Manage suppliers, vendor contacts, city assignments, and supplied category coverage."
+        title={t('providers.title')}
+        description={t('providers.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />
-            Add Provider
+            {t('providers.add')}
           </button>
         }
         columns={columns}
@@ -198,8 +201,8 @@ export function ProvidersPage() {
         isLoading={providersQuery.isLoading}
         error={providersQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search providers..."
-        loadingMessage="Loading providers..."
+        searchPlaceholder={t('providers.search')}
+        loadingMessage={t('providers.loading')}
         onRetry={() => {
           void providersQuery.refetch();
         }}
@@ -234,31 +237,35 @@ export function ProvidersPage() {
         isOpen={!!providerForCategories && providerCategoryAssignmentsQuery.isLoading}
         onClose={handleCloseCategoryModal}
         title={
-          providerForCategories ? `Manage Categories for ${providerForCategories.name}` : 'Manage Provider Categories'
+          providerForCategories
+            ? `${t('providers.categories.manage')} ${providerForCategories.name}`
+            : t('providers.categories.title')
         }
         size="sm"
       >
-        <div className="py-4 text-sm text-secondary-600">Loading provider categories...</div>
+        <div className="py-4 text-sm text-secondary-600">{t('providers.categories.loading')}</div>
       </Modal>
 
       <Modal
         isOpen={!!providerForCategories && !!providerCategoryAssignmentsQuery.error}
         onClose={handleCloseCategoryModal}
         title={
-          providerForCategories ? `Manage Categories for ${providerForCategories.name}` : 'Manage Provider Categories'
+          providerForCategories
+            ? `${t('providers.categories.manage')} ${providerForCategories.name}`
+            : t('providers.categories.title')
         }
         size="sm"
       >
         <div className="py-4 text-sm text-danger-600">
-          {providerCategoryAssignmentsQuery.error?.message ?? 'Unable to load provider categories.'}
+          {providerCategoryAssignmentsQuery.error?.message ?? t('providers.categories.error')}
         </div>
       </Modal>
 
       <ConfirmModal
         isOpen={!!providerToDelete}
-        title="Delete Provider"
-        message={`Are you sure you want to delete ${providerToDelete?.name ?? 'this provider'}? Providers with assigned categories must be cleaned up first.`}
-        confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete Provider'}
+        title={t('providers.delete.title')}
+        message={t('providers.delete.description')}
+        confirmText={deleteMutation.isPending ? 'Deleting...' : t('providers.delete.title')}
         cancelText="Cancel"
         loading={deleteMutation.isPending}
         variant="danger"

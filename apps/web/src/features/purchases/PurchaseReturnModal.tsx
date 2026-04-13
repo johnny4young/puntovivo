@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Purchase } from '@/types';
@@ -36,6 +37,7 @@ export function PurchaseReturnModal({
   onClose,
   onSubmit,
 }: PurchaseReturnModalProps) {
+  const { t } = useTranslation('inventory');
   const form = useForm<PurchaseReturnFormValues>({
     defaultValues: {
       items: (purchase.items ?? []).map(item => ({
@@ -52,7 +54,7 @@ export function PurchaseReturnModal({
     if (selectedItems.length === 0) {
       form.setError('root', {
         type: 'manual',
-        message: 'Select at least one line quantity to return',
+        message: t('purchases.minItems'),
       });
       return;
     }
@@ -70,15 +72,15 @@ export function PurchaseReturnModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Return Items for ${purchase.purchaseNumber}`}
+      title={t('purchases.modalTitle', { number: purchase.purchaseNumber })}
       size="xl"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('purchases.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Record Return'}
+            {isSaving ? t('purchases.submitting') : t('purchases.save')}
           </ModalButton>
         </>
       }
@@ -86,7 +88,7 @@ export function PurchaseReturnModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
           <p className="text-sm text-warning-700">
-            Return only the quantities that are physically leaving stock back to the provider.
+            {t('purchases.hint')}
           </p>
         </div>
 
@@ -104,26 +106,26 @@ export function PurchaseReturnModal({
                       {item.productName ?? item.productId}
                     </p>
                     <p className="text-xs text-secondary-500">
-                      {item.productSku ?? 'No SKU'}
+                      {item.productSku ?? t('purchases.noSku')}
                       {' · '}
                       {item.unitName ?? item.unitAbbreviation ?? item.unitId}
                     </p>
                     <p className="mt-2 text-sm text-secondary-600">
-                      Cost {formatCurrency(item.costPerUnit)} each
+                      {t('purchases.costEach', { amount: formatCurrency(item.costPerUnit) })}
                     </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Received</p>
+                      <p className="text-secondary-500">{t('purchases.received')}</p>
                       <p className="font-medium text-secondary-900">{item.quantity}</p>
                     </div>
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Returned</p>
+                      <p className="text-secondary-500">{t('purchases.returned')}</p>
                       <p className="font-medium text-secondary-900">{returnedQuantity}</p>
                     </div>
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Available</p>
+                      <p className="text-secondary-500">{t('purchases.available')}</p>
                       <p className="font-medium text-secondary-900">{remainingQuantity}</p>
                     </div>
                   </div>
@@ -131,7 +133,7 @@ export function PurchaseReturnModal({
 
                 <div className="mt-4 max-w-[180px]">
                   <label htmlFor={`purchase-return-${item.id}`} className="label">
-                    Return Quantity
+                    {t('purchases.returnQty')}
                   </label>
                   <input
                     id={`purchase-return-${item.id}`}
@@ -144,11 +146,11 @@ export function PurchaseReturnModal({
                       valueAsNumber: true,
                       min: {
                         value: 0,
-                        message: 'Return quantity cannot be negative',
+                        message: t('purchases.returnQtyMin'),
                       },
                       validate: value =>
                         value <= remainingQuantity ||
-                        `Only ${remainingQuantity} units remain available to return`,
+                        t('purchases.returnQtyMax', { count: remainingQuantity }),
                     })}
                   />
                   {fieldError && <p className="mt-1 text-sm text-danger-500">{fieldError}</p>}
@@ -160,12 +162,12 @@ export function PurchaseReturnModal({
 
         <div>
           <label htmlFor="purchase-return-reason" className="label">
-            Reason
+            {t('purchases.reason')}
           </label>
           <textarea
             id="purchase-return-reason"
             className="input mt-1 min-h-[96px]"
-            placeholder="Optional supplier return note"
+            placeholder={t('purchases.reasonPlaceholder')}
             {...form.register('reason')}
           />
         </div>

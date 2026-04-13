@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -51,6 +52,7 @@ function UnitFormModal({
   onClose,
   onSubmit,
 }: UnitFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<UnitFormValues>({
     defaultValues: mapUnitToForm(unit),
   });
@@ -62,14 +64,14 @@ function UnitFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Unit' : 'Edit Unit'}
+      title={isCreate ? t('units.form.createTitle') : t('units.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('units.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Unit' : 'Save Changes'}
+            {isSaving ? t('units.form.submitting') : isCreate ? t('units.form.create') : t('units.form.save')}
           </ModalButton>
         </>
       }
@@ -77,12 +79,12 @@ function UnitFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="unit-name" className="label">
-            Unit Name
+            {t('units.form.name')}
           </label>
           <input
             id="unit-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Unit name is required' })}
+            {...form.register('name', { required: t('units.form.nameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -91,12 +93,12 @@ function UnitFormModal({
 
         <div>
           <label htmlFor="unit-abbreviation" className="label">
-            Abbreviation
+            {t('units.form.abbreviation')}
           </label>
           <input
             id="unit-abbreviation"
             className="input mt-1"
-            {...form.register('abbreviation', { required: 'Abbreviation is required' })}
+            {...form.register('abbreviation', { required: t('units.form.abbreviationRequired') })}
           />
           {form.formState.errors.abbreviation && (
             <p className="mt-1 text-sm text-danger-500">
@@ -111,7 +113,7 @@ function UnitFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Unit is active
+          {t('units.form.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
@@ -125,6 +127,7 @@ function canManageUnits(role: UserRole | undefined): boolean {
 }
 
 export function UnitsPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -138,12 +141,12 @@ export function UnitsPage() {
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Unit created' });
+      toast.success({ title: t('units.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create unit',
-        description: getErrorMessage(error, 'Unable to create unit'),
+        title: t('units.toast.createError'),
+        description: getErrorMessage(error, t('units.toast.createError')),
       });
     },
   });
@@ -151,12 +154,12 @@ export function UnitsPage() {
     onSuccess: async () => {
       await utils.units.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Unit updated' });
+      toast.success({ title: t('units.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update unit',
-        description: getErrorMessage(error, 'Unable to update unit'),
+        title: t('units.toast.updateError'),
+        description: getErrorMessage(error, t('units.toast.updateError')),
       });
     },
   });
@@ -164,12 +167,12 @@ export function UnitsPage() {
     onSuccess: async () => {
       await utils.units.list.invalidate();
       setUnitToDelete(null);
-      toast.success({ title: 'Unit deleted' });
+      toast.success({ title: t('units.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete unit',
-        description: getErrorMessage(error, 'Unable to delete unit'),
+        title: t('units.toast.deleteError'),
+        description: getErrorMessage(error, t('units.toast.deleteError')),
       });
     },
   });
@@ -217,7 +220,7 @@ export function UnitsPage() {
   const columns: ColumnDef<Unit>[] = [
     {
       accessorKey: 'name',
-      header: 'Unit',
+      header: t('units.columns.unit'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -232,7 +235,7 @@ export function UnitsPage() {
     },
     {
       accessorKey: 'abbreviation',
-      header: 'Abbreviation',
+      header: t('units.columns.abbreviation'),
       size: 140,
       cell: ({ row }) => (
         <span className="font-medium text-secondary-900">{row.original.abbreviation}</span>
@@ -240,11 +243,11 @@ export function UnitsPage() {
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('units.columns.status'),
       size: 100,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('units.columns.active') : t('units.columns.inactive')}
         </span>
       ),
     },
@@ -276,8 +279,8 @@ export function UnitsPage() {
   return (
     <>
       <ResourcePage
-        title="Units"
-        description="Manage measurement units used by products and sales"
+        title={t('units.title')}
+        description={t('units.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"
@@ -285,7 +288,7 @@ export function UnitsPage() {
             disabled={!canManage}
           >
             <Plus className="h-5 w-5" />
-            Add Unit
+            {t('units.add')}
           </button>
         }
         columns={columns}
@@ -293,8 +296,8 @@ export function UnitsPage() {
         isLoading={isLoading}
         error={error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search units..."
-        loadingMessage="Loading units..."
+        searchPlaceholder={t('units.search')}
+        loadingMessage={t('units.loading')}
         onRetry={() => {
           void refetch();
         }}
@@ -318,9 +321,9 @@ export function UnitsPage() {
             void deleteMutation.mutateAsync({ id: unitToDelete.id });
           }
         }}
-        title="Delete Unit"
-        message={`Are you sure you want to delete ${unitToDelete?.name ?? 'this unit'}?`}
-        confirmText="Delete Unit"
+        title={t('units.delete.title')}
+        message={t('units.delete.description')}
+        confirmText={t('units.delete.title')}
         loading={deleteMutation.isPending}
       />
     </>

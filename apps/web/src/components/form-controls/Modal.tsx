@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, type ReactNode, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export interface ModalProps {
@@ -49,6 +50,7 @@ export function Modal({
   className,
   contentClassName,
 }: ModalProps) {
+  const { t } = useTranslation('common');
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
@@ -171,7 +173,7 @@ export function Modal({
                   'p-1.5 rounded-lg text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 transition-colors',
                   !title && 'ml-auto'
                 )}
-                aria-label="Close modal"
+                aria-label={t('actions.closeModal')}
               >
                 <X className="h-5 w-5" />
               </button>

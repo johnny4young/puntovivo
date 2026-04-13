@@ -130,13 +130,22 @@ This is the recommended implementation sequence. Each item links to its detailed
 
 ## 4. i18n Plan — Pre-Phase 1
 
-**Stack**: `i18next` + `react-i18next`
-**Fallback chain**: `es-CO` → `es` → `en`
-**Namespace splitting**: per feature area (common, sales, inventory, etc.)
+**Stack**: `i18next` + `react-i18next` — installed ✓
+**Fallback chain**: `es-CO` → `es` → `en` — configured ✓
+**Namespace splitting**: per feature area (common, auth, nav, sales, inventory, etc.)
 
-**Why first**: English-only UI is a deployment blocker for LatAm. Every new phase adds more hardcoded strings. Foundation (~5 days) should land before cash management UI.
+**Why first**: English-only UI is a deployment blocker for LatAm. Every new phase adds more hardcoded strings. Foundation should land before cash management UI.
 
 **Scope**: ~126 component files, ~300+ labels, ~137 toasts, ~187 form fields to extract.
+
+### Progress
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| i18n-1: Foundation | Install packages, scaffold `apps/web/src/i18n/`, wire in `main.tsx`, `en/` + `es/` stubs for `common`, `auth`, `nav` | **Done** |
+| i18n-2: High-visibility surfaces | `LoginPage`, `Sidebar`, `Header` converted to `useTranslation` | **Done** |
+| i18n-3: Full feature coverage | All feature modules (`sales`, `products`, `purchases`, `inventory`, `orders`, `customers`, settings screens) | Pending |
+| i18n-4: Server + CI enforcement | Server error messages, Electron main process strings, CI lint rule blocking new hardcoded strings | Pending |
 
 ---
 

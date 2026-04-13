@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18next, { type TFunction } from 'i18next';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   ArrowDownCircle,
@@ -60,10 +62,10 @@ const movementColors = {
   return: 'text-success-500',
 } as const;
 
-const viewLabels: Record<InventoryView, string> = {
-  movements: 'Movements',
-  stock: 'Stock Query',
-  entries: 'Initial Inventory',
+const viewKeys: Record<InventoryView, string> = {
+  movements: 'page.tabs.movements',
+  stock: 'page.tabs.stockQuery',
+  entries: 'page.tabs.initialInventory',
 };
 
 function canManageInventory(role: UserRole | undefined): boolean {
@@ -85,13 +87,13 @@ function getMovementDelta(movement: InventoryMovement): number {
 const movementColumns: ColumnDef<InventoryMovement>[] = [
   {
     accessorKey: 'createdAt',
-    header: 'Date',
+    header: () => i18next.t('inventory:table.date'),
     size: 180,
     cell: ({ row }) => formatDateTime(row.original.createdAt),
   },
   {
     accessorKey: 'type',
-    header: 'Type',
+    header: () => i18next.t('inventory:table.type'),
     size: 140,
     cell: ({ row }) => {
       const type = row.original.type;
@@ -106,13 +108,13 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
   },
   {
     accessorKey: 'productName',
-    header: 'Product',
+    header: () => i18next.t('inventory:table.product'),
     size: 230,
     cell: ({ row }) => (
       <div>
-        <p className="font-medium text-secondary-900">{row.original.productName ?? 'Unknown product'}</p>
+        <p className="font-medium text-secondary-900">{row.original.productName ?? i18next.t('inventory:table.unknownProduct')}</p>
         <p className="text-xs text-secondary-500">
-          {row.original.productSku ?? 'No SKU'}
+          {row.original.productSku ?? i18next.t('inventory:table.noSku')}
           {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
         </p>
       </div>
@@ -120,7 +122,7 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
   },
   {
     id: 'delta',
-    header: 'Movement',
+    header: () => i18next.t('inventory:table.movement'),
     size: 110,
     cell: ({ row }) => {
       const delta = getMovementDelta(row.original);
@@ -139,13 +141,13 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
   },
   {
     accessorKey: 'newStock',
-    header: 'Stock After',
+    header: () => i18next.t('inventory:table.stockAfter'),
     size: 110,
     cell: ({ row }) => <span className="font-medium text-secondary-900">{row.original.newStock}</span>,
   },
   {
     accessorKey: 'reference',
-    header: 'Reference',
+    header: () => i18next.t('inventory:table.reference'),
     size: 150,
     cell: ({ row }) => (
       <span className="font-mono text-sm text-primary-600">{row.original.reference || '—'}</span>
@@ -153,7 +155,7 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
   },
   {
     accessorKey: 'notes',
-    header: 'Notes',
+    header: () => i18next.t('inventory:table.notes'),
     size: 220,
     cell: ({ row }) => (
       <span className="block max-w-[220px] truncate text-secondary-500">{row.original.notes || '—'}</span>
@@ -168,7 +170,7 @@ function getStockColumns(
   return [
     {
       accessorKey: 'name',
-      header: 'Product',
+      header: () => i18next.t('inventory:table.product'),
       size: 250,
       cell: ({ row }) => (
         <div>
@@ -254,13 +256,15 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
     size: 160,
     cell: ({ row }) => (
       <span className={cn('badge', row.original.mode === 'initial' ? 'badge-primary' : 'badge-warning')}>
-        {row.original.mode === 'initial' ? 'Initial inventory' : 'Physical count'}
+        {row.original.mode === 'initial'
+          ? i18next.t('inventory:table.initialInventory')
+          : i18next.t('inventory:table.physicalCount')}
       </span>
     ),
   },
   {
     accessorKey: 'productName',
-    header: 'Product',
+    header: () => i18next.t('inventory:table.product'),
     size: 240,
     cell: ({ row }) => (
       <div>
@@ -271,34 +275,34 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
   },
   {
     accessorKey: 'unitName',
-    header: 'Unit',
+    header: () => i18next.t('inventory:table.unit'),
     size: 140,
     cell: ({ row }) => row.original.unitAbbreviation ?? row.original.unitName ?? '—',
   },
   {
     accessorKey: 'quantity',
-    header: 'Counted Qty',
+    header: () => i18next.t('inventory:table.countedQty'),
     size: 110,
   },
   {
     accessorKey: 'normalizedQuantity',
-    header: 'Normalized',
+    header: () => i18next.t('inventory:table.normalized'),
     size: 120,
   },
   {
     accessorKey: 'cost',
-    header: 'Cost',
+    header: () => i18next.t('inventory:table.cost'),
     size: 120,
     cell: ({ row }) => formatCurrency(row.original.cost),
   },
   {
     accessorKey: 'newStock',
-    header: 'Stock After',
+    header: () => i18next.t('inventory:table.stockAfter'),
     size: 120,
   },
   {
     accessorKey: 'notes',
-    header: 'Notes',
+    header: () => i18next.t('inventory:table.notes'),
     size: 220,
     cell: ({ row }) => (
       <span className="block max-w-[220px] truncate text-secondary-500">{row.original.notes || '—'}</span>
@@ -330,17 +334,20 @@ function mapSearchSelectionToAdjustmentProduct(
   };
 }
 
-function getSearchDialogCopy(mode: SearchMode | null) {
+function getSearchDialogCopy(
+  mode: SearchMode | null,
+  t: TFunction
+): { title: string; confirmLabel: string } {
   if (mode === 'entry') {
     return {
-      title: 'Select Product for Initial Inventory',
-      confirmLabel: 'Record Entry',
+      title: t('dialogs.selectProductEntry'),
+      confirmLabel: t('dialogs.recordEntry'),
     };
   }
 
   return {
-    title: 'Select Product for Adjustment',
-    confirmLabel: 'Adjust Product',
+    title: t('dialogs.selectProductAdjust'),
+    confirmLabel: t('dialogs.adjustProduct'),
   };
 }
 
@@ -359,18 +366,19 @@ function InventoryHeader({
   onNewEntry,
   onNewAdjustment,
 }: InventoryHeaderProps) {
+  const { t } = useTranslation('inventory');
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-secondary-900">Inventory</h1>
+        <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
         <p className="mt-1 text-sm text-secondary-500">
-          Manage counted entries, physical counts, and stock visibility against the live catalog.
+          {t('page.description')}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-secondary-200 bg-white p-1">
-          {(Object.keys(viewLabels) as InventoryView[]).map(view => (
+          {(Object.keys(viewKeys) as InventoryView[]).map(view => (
             <button
               key={view}
               className={cn(
@@ -381,7 +389,7 @@ function InventoryHeader({
               )}
               onClick={() => onViewChange(view)}
             >
-              {viewLabels[view]}
+              {t(viewKeys[view])}
             </button>
           ))}
         </div>
@@ -392,7 +400,7 @@ function InventoryHeader({
           disabled={!canManage}
         >
           <ClipboardList className="h-4 w-4" />
-          New Entry
+          {t('newEntry')}
         </button>
         <button
           className="btn-primary flex items-center gap-2"
@@ -400,7 +408,7 @@ function InventoryHeader({
           disabled={!canManage}
         >
           <Search className="h-4 w-4" />
-          New Adjustment
+          {t('newAdjustment')}
         </button>
       </div>
     </div>
@@ -416,7 +424,6 @@ interface InventorySummaryProps {
   recentOutbound: number;
   entriesCount: number;
   entriesLoading: boolean;
-  recentAdjustments: number;
 }
 
 function InventorySummaryCards({
@@ -428,8 +435,8 @@ function InventorySummaryCards({
   recentOutbound,
   entriesCount,
   entriesLoading,
-  recentAdjustments,
 }: InventorySummaryProps) {
+  const { t } = useTranslation('inventory');
   return (
     <div className="grid gap-4 md:grid-cols-4">
       <div className="card p-4">
@@ -438,7 +445,7 @@ function InventorySummaryCards({
             <Boxes className="h-5 w-5 text-primary-600" />
           </div>
           <div>
-            <p className="text-sm text-secondary-500">Total Units</p>
+            <p className="text-sm text-secondary-500">{t('stats.totalUnits')}</p>
             <p className="text-2xl font-bold text-secondary-900">{isLoading ? '—' : totalUnits}</p>
           </div>
         </div>
@@ -450,7 +457,7 @@ function InventorySummaryCards({
             <ArrowDownCircle className="h-5 w-5 text-success-600" />
           </div>
           <div>
-            <p className="text-sm text-secondary-500">Inventory Value</p>
+            <p className="text-sm text-secondary-500">{t('stats.inventoryValue')}</p>
             <p className="text-2xl font-bold text-secondary-900">
               {isLoading ? '—' : formatCurrency(totalValue)}
             </p>
@@ -464,7 +471,7 @@ function InventorySummaryCards({
             <RefreshCw className="h-5 w-5 text-warning-600" />
           </div>
           <div>
-            <p className="text-sm text-secondary-500">Low Stock Items</p>
+            <p className="text-sm text-secondary-500">{t('stats.lowStockItems')}</p>
             <p className="text-2xl font-bold text-danger-500">{isLoading ? '—' : lowStockCount}</p>
           </div>
         </div>
@@ -476,12 +483,14 @@ function InventorySummaryCards({
             <ClipboardList className="h-5 w-5 text-secondary-700" />
           </div>
           <div>
-            <p className="text-sm text-secondary-500">Recent Flow</p>
+            <p className="text-sm text-secondary-500">{t('stats.recentFlow')}</p>
             <p className="text-lg font-semibold text-secondary-900">
               +{recentInbound} / -{recentOutbound}
             </p>
             <p className="mt-1 text-xs text-secondary-500">
-              {entriesLoading ? 'Loading entries…' : `${entriesCount} recent entries · ${recentAdjustments} adjustments`}
+              {entriesLoading
+                ? t('entries.loadingShort')
+                : t('stats.recentFlowDetail', { count: entriesCount })}
             </p>
           </div>
         </div>
@@ -525,16 +534,17 @@ function InventoryDataPanel({
   canManage,
   onAdjust,
 }: InventoryDataPanelProps) {
+  const { t } = useTranslation('inventory');
   return (
     <div className="card p-6">
       {activeView === 'movements' && (
         <>
           {movementsLoading && (
-            <TableLoadingState message="Loading inventory movements..." rowCount={8} />
+            <TableLoadingState message={t('movements.loading')} rowCount={8} />
           )}
           {movementsError && (
             <TableErrorState
-              title="Unable to load inventory movements"
+              title={t('movements.error')}
               message={movementsError}
               onRetry={onRetryMovements}
             />
@@ -552,7 +562,7 @@ function InventoryDataPanel({
                 columns={movementColumns}
                 data={movements}
                 searchKey="productName"
-                searchPlaceholder="Search movements by product..."
+                searchPlaceholder={t('movements.search')}
                 pageSize={10}
               />
             </div>
@@ -562,10 +572,10 @@ function InventoryDataPanel({
 
       {activeView === 'stock' && (
         <>
-          {stockLoading && <TableLoadingState message="Loading stock balances..." rowCount={8} />}
+          {stockLoading && <TableLoadingState message={t('stock.loading')} rowCount={8} />}
           {stockError && (
             <TableErrorState
-              title="Unable to load stock balances"
+              title={t('stock.error')}
               message={stockError}
               onRetry={onRetryStock}
             />
@@ -583,7 +593,7 @@ function InventoryDataPanel({
                 columns={getStockColumns(onAdjust, canManage)}
                 data={stockItems}
                 searchKey="name"
-                searchPlaceholder="Search stock by product..."
+                searchPlaceholder={t('stock.search')}
                 pageSize={10}
               />
             </div>
@@ -594,11 +604,11 @@ function InventoryDataPanel({
       {activeView === 'entries' && (
         <>
           {entriesLoading && (
-            <TableLoadingState message="Loading inventory entries..." rowCount={8} />
+            <TableLoadingState message={t('entries.loading')} rowCount={8} />
           )}
           {entriesError && (
             <TableErrorState
-              title="Unable to load inventory entries"
+              title={t('entries.error')}
               message={entriesError}
               onRetry={onRetryEntries}
             />
@@ -616,7 +626,7 @@ function InventoryDataPanel({
                 columns={entryColumns}
                 data={entries}
                 searchKey="productName"
-                searchPlaceholder="Search entries by product..."
+                searchPlaceholder={t('entries.search')}
                 pageSize={10}
               />
             </div>
@@ -628,6 +638,7 @@ function InventoryDataPanel({
 }
 
 export function InventoryPage() {
+  const { t } = useTranslation('inventory');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -669,12 +680,12 @@ export function InventoryPage() {
       ]);
       setIsAdjustmentModalOpen(false);
       setSelectedProduct(null);
-      toast.success({ title: 'Stock adjusted' });
+      toast.success({ title: t('toast.adjustSuccess') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to adjust stock',
-        description: getErrorMessage(error, 'Unable to adjust stock'),
+        title: t('toast.adjustError'),
+        description: getErrorMessage(error, t('toast.adjustError')),
       });
     },
   });
@@ -689,12 +700,12 @@ export function InventoryPage() {
       ]);
       setEntrySelection(null);
       setIsSearchOpen(false);
-      toast.success({ title: 'Initial inventory recorded' });
+      toast.success({ title: t('toast.entrySuccess') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to record inventory entry',
-        description: getErrorMessage(error, 'Unable to record inventory entry'),
+        title: t('toast.entryError'),
+        description: getErrorMessage(error, t('toast.entryError')),
       });
     },
   });
@@ -704,7 +715,6 @@ export function InventoryPage() {
   const stockItems = (stockQuery.data?.items ?? []) as InventoryStockItem[];
   const entries = (entriesQuery.data?.items ?? []) as InitialInventoryEntry[];
   const stockSummary = stockQuery.data?.summary;
-  const recentAdjustments = movements.filter(movement => movement.type === 'adjustment').length;
   const recentInbound = movements
     .map(getMovementDelta)
     .filter(delta => delta > 0)
@@ -758,7 +768,7 @@ export function InventoryPage() {
     setEntrySelection(null);
   };
 
-  const searchDialogCopy = getSearchDialogCopy(searchMode);
+  const searchDialogCopy = getSearchDialogCopy(searchMode, t);
 
   return (
     <div className="space-y-6">
@@ -772,7 +782,7 @@ export function InventoryPage() {
 
       {!canManage && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Only administrators and managers can record entries or adjust stock. Inventory views remain available.
+          {t('page.permissionNote')}
         </div>
       )}
 
@@ -785,20 +795,19 @@ export function InventoryPage() {
         recentOutbound={recentOutbound}
         entriesCount={entries.length}
         entriesLoading={entriesQuery.isLoading}
-        recentAdjustments={recentAdjustments}
       />
 
       {activeView === 'stock' && (
         <div className="card p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <label className="block md:min-w-64">
-              <span className="label">Category</span>
+              <span className="label">{t('stock.category')}</span>
               <select
                 className="input mt-1"
                 value={stockCategoryId}
                 onChange={event => setStockCategoryId(event.target.value)}
               >
-                <option value="">All categories</option>
+                <option value="">{t('stock.allCategories')}</option>
                 {categories.map(category => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -814,7 +823,7 @@ export function InventoryPage() {
                 checked={lowStockOnly}
                 onChange={event => setLowStockOnly(event.target.checked)}
               />
-              Show low stock only
+              {t('stock.lowStockOnly')}
             </label>
           </div>
         </div>
@@ -889,7 +898,7 @@ export function InventoryPage() {
       />
 
       <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-        Stock remains tenant-wide for now. Initial and physical inventory entries capture the counted unit and normalize it into the shared stock model, which avoids the legacy accumulation bug from the WinForms version.
+        {t('page.stockNote')}
       </div>
     </div>
   );

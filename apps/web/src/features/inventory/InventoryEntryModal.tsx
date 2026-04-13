@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { InitialInventoryMode, ProductSearchSelection } from '@/types';
 
@@ -35,6 +36,7 @@ export function InventoryEntryModal({
   onClose,
   onSubmit,
 }: InventoryEntryModalProps) {
+  const { t } = useTranslation('inventory');
   const form = useForm<InventoryEntryFormValues>({
     defaultValues: mapSelectionToForm(selection),
   });
@@ -44,25 +46,31 @@ export function InventoryEntryModal({
   const mode = form.watch('mode');
   const normalizedQuantity = quantity * (selection?.unit.equivalence ?? 0);
 
+  const modalTitle = selection
+    ? mode === 'initial'
+      ? t('entry.titleInitial')
+      : t('entry.titlePhysical')
+    : t('entry.titleDefault');
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={selection ? `Record ${mode === 'initial' ? 'Initial' : 'Physical'} Inventory` : 'Record Inventory'}
+      title={modalTitle}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('entry.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving || !selection}>
-            {isSaving ? 'Saving...' : 'Save Entry'}
+            {isSaving ? t('entry.submitting') : t('entry.save')}
           </ModalButton>
         </>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         {!selection ? (
-          <p className="text-sm text-secondary-500">Select a product before recording inventory.</p>
+          <p className="text-sm text-secondary-500">{t('entry.noSelection')}</p>
         ) : (
           <>
             <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
@@ -75,7 +83,7 @@ export function InventoryEntryModal({
                   </p>
                 </div>
                 <div className="text-right text-sm">
-                  <p className="text-secondary-500">Current stock</p>
+                  <p className="text-secondary-500">{t('entry.currentStock')}</p>
                   <p className="text-lg font-semibold text-secondary-900">{selection.product.stock}</p>
                 </div>
               </div>
@@ -83,22 +91,22 @@ export function InventoryEntryModal({
 
             <div>
               <label htmlFor="inventory-entry-mode" className="label">
-                Mode
+                {t('entry.mode')}
               </label>
               <select
                 id="inventory-entry-mode"
                 className="input mt-1"
                 {...form.register('mode')}
               >
-                <option value="initial">Initial inventory (accumulate)</option>
-                <option value="physical">Physical inventory (replace)</option>
+                <option value="initial">{t('entry.modeInitial', { label: t('table.initialInventory') })}</option>
+                <option value="physical">{t('entry.modePhysical', { label: t('table.physicalCount') })}</option>
               </select>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor="inventory-entry-quantity" className="label">
-                  Quantity
+                  {t('table.countedQty')}
                 </label>
                 <input
                   id="inventory-entry-quantity"
@@ -108,7 +116,7 @@ export function InventoryEntryModal({
                   className="input mt-1"
                   {...form.register('quantity', {
                     valueAsNumber: true,
-                    min: { value: 0.000001, message: 'Quantity must be greater than zero' },
+                    min: { value: 0.000001, message: t('entry.quantityMin') },
                   })}
                 />
                 {form.formState.errors.quantity && (
@@ -120,7 +128,7 @@ export function InventoryEntryModal({
 
               <div>
                 <label htmlFor="inventory-entry-cost" className="label">
-                  Cost
+                  {t('table.cost')}
                 </label>
                 <input
                   id="inventory-entry-cost"
@@ -130,7 +138,7 @@ export function InventoryEntryModal({
                   className="input mt-1"
                   {...form.register('cost', {
                     valueAsNumber: true,
-                    min: { value: 0, message: 'Cost must be zero or greater' },
+                    min: { value: 0, message: t('entry.costMin') },
                   })}
                 />
                 {form.formState.errors.cost && (
@@ -141,29 +149,29 @@ export function InventoryEntryModal({
 
             <div className="rounded-lg border border-secondary-200 bg-white px-4 py-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-secondary-500">Unit</span>
+                <span className="text-secondary-500">{t('table.unit')}</span>
                 <span className="font-medium text-secondary-900">
                   {selection.unit.unitName ?? selection.unit.unitAbbreviation ?? selection.unit.unitId}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-secondary-500">Equivalence</span>
+                <span className="text-secondary-500">{t('entry.equivalence')}</span>
                 <span className="font-medium text-secondary-900">{selection.unit.equivalence}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-secondary-500">Normalized quantity</span>
+                <span className="text-secondary-500">{t('table.normalized')}</span>
                 <span className="font-medium text-secondary-900">{normalizedQuantity || 0}</span>
               </div>
             </div>
 
             <div>
               <label htmlFor="inventory-entry-notes" className="label">
-                Notes
+                {t('table.notes')}
               </label>
               <textarea
                 id="inventory-entry-notes"
                 className="input mt-1 min-h-[96px]"
-                placeholder="Optional reason or count reference"
+                placeholder={t('entry.notesPlaceholder')}
                 {...form.register('notes')}
               />
             </div>

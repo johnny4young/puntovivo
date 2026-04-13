@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { BadgePercent, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -51,6 +52,7 @@ function VatRateFormModal({
   onClose,
   onSubmit,
 }: VatRateFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<VatRateFormValues>({
     defaultValues: mapVatRateToForm(vatRate),
   });
@@ -62,14 +64,14 @@ function VatRateFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create VAT Rate' : 'Edit VAT Rate'}
+      title={isCreate ? t('vatRates.form.createTitle') : t('vatRates.form.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('vatRates.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create VAT Rate' : 'Save Changes'}
+            {isSaving ? t('vatRates.form.submitting') : isCreate ? t('vatRates.form.create') : t('vatRates.form.save')}
           </ModalButton>
         </>
       }
@@ -77,12 +79,12 @@ function VatRateFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="vat-rate-name" className="label">
-            VAT Rate Name
+            {t('vatRates.form.name')}
           </label>
           <input
             id="vat-rate-name"
             className="input mt-1"
-            {...form.register('name', { required: 'VAT rate name is required' })}
+            {...form.register('name', { required: t('vatRates.form.nameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -91,7 +93,7 @@ function VatRateFormModal({
 
         <div>
           <label htmlFor="vat-rate-value" className="label">
-            Percentage
+            {t('vatRates.form.percentage')}
           </label>
           <input
             id="vat-rate-value"
@@ -102,9 +104,9 @@ function VatRateFormModal({
             className="input mt-1"
             {...form.register('rate', {
               valueAsNumber: true,
-              required: 'Percentage is required',
-              min: { value: 0, message: 'Rate must be non-negative' },
-              max: { value: 100, message: 'Rate cannot exceed 100' },
+              required: t('vatRates.form.rateRequired'),
+              min: { value: 0, message: t('vatRates.form.rateNonNegative') },
+              max: { value: 100, message: t('vatRates.form.rateMax') },
             })}
           />
           {form.formState.errors.rate && (
@@ -118,7 +120,7 @@ function VatRateFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          VAT rate is active
+          {t('vatRates.form.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
@@ -132,6 +134,7 @@ function canManageVatRates(role: UserRole | undefined): boolean {
 }
 
 export function VatRatesPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -145,12 +148,12 @@ export function VatRatesPage() {
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'VAT rate created' });
+      toast.success({ title: t('vatRates.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create VAT rate',
-        description: getErrorMessage(error, 'Unable to create VAT rate'),
+        title: t('vatRates.toast.createError'),
+        description: getErrorMessage(error, t('vatRates.toast.createError')),
       });
     },
   });
@@ -158,12 +161,12 @@ export function VatRatesPage() {
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'VAT rate updated' });
+      toast.success({ title: t('vatRates.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update VAT rate',
-        description: getErrorMessage(error, 'Unable to update VAT rate'),
+        title: t('vatRates.toast.updateError'),
+        description: getErrorMessage(error, t('vatRates.toast.updateError')),
       });
     },
   });
@@ -171,12 +174,12 @@ export function VatRatesPage() {
     onSuccess: async () => {
       await utils.vatRates.list.invalidate();
       setVatRateToDelete(null);
-      toast.success({ title: 'VAT rate deleted' });
+      toast.success({ title: t('vatRates.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete VAT rate',
-        description: getErrorMessage(error, 'Unable to delete VAT rate'),
+        title: t('vatRates.toast.deleteError'),
+        description: getErrorMessage(error, t('vatRates.toast.deleteError')),
       });
     },
   });
@@ -224,7 +227,7 @@ export function VatRatesPage() {
   const columns: ColumnDef<VatRate>[] = [
     {
       accessorKey: 'name',
-      header: 'VAT Rate',
+      header: t('vatRates.columns.vatRate'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -239,7 +242,7 @@ export function VatRatesPage() {
     },
     {
       accessorKey: 'rate',
-      header: 'Rate',
+      header: t('vatRates.columns.rate'),
       size: 120,
       cell: ({ row }) => (
         <span className="font-medium text-secondary-900">{row.original.rate}%</span>
@@ -247,11 +250,11 @@ export function VatRatesPage() {
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('vatRates.columns.status'),
       size: 100,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('vatRates.columns.active') : t('vatRates.columns.inactive')}
         </span>
       ),
     },
@@ -283,8 +286,8 @@ export function VatRatesPage() {
   return (
     <>
       <ResourcePage
-        title="VAT Rates"
-        description="Manage tax percentages used by products and sales"
+        title={t('vatRates.title')}
+        description={t('vatRates.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"
@@ -292,7 +295,7 @@ export function VatRatesPage() {
             disabled={!canManage}
           >
             <Plus className="h-5 w-5" />
-            Add VAT Rate
+            {t('vatRates.add')}
           </button>
         }
         columns={columns}
@@ -300,8 +303,8 @@ export function VatRatesPage() {
         isLoading={isLoading}
         error={error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search VAT rates..."
-        loadingMessage="Loading VAT rates..."
+        searchPlaceholder={t('vatRates.search')}
+        loadingMessage={t('vatRates.loading')}
         onRetry={() => {
           void refetch();
         }}
@@ -325,9 +328,9 @@ export function VatRatesPage() {
             void deleteMutation.mutateAsync({ id: vatRateToDelete.id });
           }
         }}
-        title="Delete VAT Rate"
-        message={`Are you sure you want to delete ${vatRateToDelete?.name ?? 'this VAT rate'}?`}
-        confirmText="Delete VAT Rate"
+        title={t('vatRates.delete.title')}
+        message={t('vatRates.delete.description')}
+        confirmText={t('vatRates.delete.title')}
         loading={deleteMutation.isPending}
       />
     </>

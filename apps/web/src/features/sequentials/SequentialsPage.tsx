@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
@@ -26,11 +27,8 @@ const defaultValues: SequentialFormValues = {
   currentValue: 0,
 };
 
-const documentTypeLabels: Record<Sequential['documentType'], string> = {
-  sale: 'Sale',
-  purchase: 'Purchase',
-  order: 'Order',
-};
+// documentTypeLabels is now built inside the component using t()
+
 
 function mapSequentialToForm(sequential: Sequential | null): SequentialFormValues {
   if (!sequential) {
@@ -64,6 +62,12 @@ function SequentialFormModal({
   onClose,
   onSubmit,
 }: SequentialFormModalProps) {
+  const { t } = useTranslation('settings');
+  const localDocTypeLabels: Record<Sequential['documentType'], string> = {
+    sale: t('sequentials.docTypes.sale'),
+    purchase: t('sequentials.docTypes.purchase'),
+    order: t('sequentials.docTypes.order'),
+  };
   const form = useForm<SequentialFormValues>({
     defaultValues: mapSequentialToForm(sequential),
   });
@@ -79,14 +83,14 @@ function SequentialFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={sequential ? 'Edit Sequential' : 'Add Sequential'}
+      title={sequential ? t('sequentials.form.editTitle') : t('sequentials.form.createTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('sequentials.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : sequential ? 'Save Changes' : 'Create Sequential'}
+            {isSaving ? t('sequentials.form.submitting') : sequential ? t('sequentials.form.save') : t('sequentials.form.create')}
           </ModalButton>
         </>
       }
@@ -94,15 +98,15 @@ function SequentialFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="sequential-site" className="label">
-            Site
+            {t('sequentials.columns.site')}
           </label>
           <select
             id="sequential-site"
             className="input mt-1"
             disabled={!!sequential}
-            {...form.register('siteId', { required: 'Site is required' })}
+            {...form.register('siteId', { required: t('sequentials.form.siteRequired') })}
           >
-            <option value="">Select a site</option>
+            <option value="">{t('sequentials.form.selectSite')}</option>
             {sites.map(site => (
               <option key={site.id} value={site.id}>
                 {site.name}
@@ -113,15 +117,15 @@ function SequentialFormModal({
 
         <div>
           <label htmlFor="sequential-document-type" className="label">
-            Document Type
+            {t('sequentials.columns.documentType')}
           </label>
           <select
             id="sequential-document-type"
             className="input mt-1"
             disabled={!!sequential}
-            {...form.register('documentType', { required: 'Document type is required' })}
+            {...form.register('documentType', { required: t('sequentials.form.documentTypeRequired') })}
           >
-            {Object.entries(documentTypeLabels).map(([value, label]) => (
+            {Object.entries(localDocTypeLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -131,7 +135,7 @@ function SequentialFormModal({
 
         <div>
           <label htmlFor="sequential-prefix" className="label">
-            Prefix
+            {t('sequentials.columns.prefix')}
           </label>
           <input
             id="sequential-prefix"
@@ -143,7 +147,7 @@ function SequentialFormModal({
 
         <div>
           <label htmlFor="sequential-current-value" className="label">
-            Current Value
+            {t('sequentials.columns.currentValue')}
           </label>
           <input
             id="sequential-current-value"
@@ -152,7 +156,7 @@ function SequentialFormModal({
             className="input mt-1"
             {...form.register('currentValue', {
               valueAsNumber: true,
-              min: { value: 0, message: 'Current value must be zero or greater' },
+              min: { value: 0, message: t('sequentials.validation.currentValueMin') },
             })}
           />
           {form.formState.errors.currentValue && (
@@ -173,8 +177,15 @@ function canManageSequentials(role: UserRole | undefined): boolean {
 }
 
 export function SequentialsPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
+
+  const documentTypeLabels: Record<Sequential['documentType'], string> = {
+    sale: t('sequentials.docTypes.sale'),
+    purchase: t('sequentials.docTypes.purchase'),
+    order: t('sequentials.docTypes.order'),
+  };
   const utils = trpc.useUtils();
   const sitesQuery = trpc.sites.list.useQuery();
   const sequentialsQuery = trpc.sequentials.list.useQuery();
@@ -197,12 +208,12 @@ export function SequentialsPage() {
       await utils.sequentials.list.invalidate();
       setIsModalOpen(false);
       setEditingSequential(null);
-      toast.success({ title: editingSequential ? 'Sequential updated' : 'Sequential created' });
+      toast.success({ title: editingSequential ? t('sequentials.toast.updated') : t('sequentials.toast.created') });
     },
     onError: error => {
       const fallback = editingSequential
-        ? 'Unable to update sequential'
-        : 'Unable to create sequential';
+        ? t('sequentials.toast.updateError')
+        : t('sequentials.toast.createError');
 
       toast.error({
         title: fallback,
@@ -215,12 +226,12 @@ export function SequentialsPage() {
     onSuccess: async () => {
       await utils.sequentials.list.invalidate();
       setSequentialToDelete(null);
-      toast.success({ title: 'Sequential deleted' });
+      toast.success({ title: t('sequentials.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete sequential',
-        description: getErrorMessage(error, 'Unable to delete sequential'),
+        title: t('sequentials.toast.deleteError'),
+        description: getErrorMessage(error, t('sequentials.toast.deleteError')),
       });
     },
   });
@@ -228,30 +239,30 @@ export function SequentialsPage() {
   const columns: ColumnDef<Sequential>[] = [
     {
       accessorKey: 'siteName',
-      header: 'Site',
+      header: t('sequentials.columns.site'),
       size: 180,
     },
     {
       accessorKey: 'documentType',
-      header: 'Document Type',
+      header: t('sequentials.columns.documentType'),
       size: 140,
       cell: ({ row }) => documentTypeLabels[row.original.documentType],
     },
     {
       accessorKey: 'prefix',
-      header: 'Prefix',
+      header: t('sequentials.columns.prefix'),
       size: 120,
       cell: ({ row }) => <span className="font-mono font-medium">{row.original.prefix || '—'}</span>,
     },
     {
       accessorKey: 'currentValue',
-      header: 'Current Value',
+      header: t('sequentials.columns.currentValue'),
       size: 130,
       cell: ({ row }) => <span className="font-medium">{row.original.currentValue}</span>,
     },
     {
       id: 'preview',
-      header: 'Preview',
+      header: t('sequentials.columns.preview'),
       size: 160,
       cell: ({ row }) => (
         <span className="font-mono text-secondary-600">
@@ -295,9 +306,9 @@ export function SequentialsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Sequentials</h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('sequentials.title')}</h1>
           <p className="mt-1 text-sm text-secondary-500">
-            Configure prefixes and next numbers per site and document type.
+            {t('sequentials.description')}
           </p>
         </div>
         <button
@@ -309,15 +320,15 @@ export function SequentialsPage() {
           disabled={!canManage}
         >
           <Plus className="h-5 w-5" />
-          Add Sequential
+          {t('sequentials.add')}
         </button>
       </div>
 
       <div className="card p-6">
-        {sequentialsQuery.isLoading && <TableLoadingState message="Loading sequentials..." />}
+        {sequentialsQuery.isLoading && <TableLoadingState message={t('sequentials.loading')} />}
         {sequentialsQuery.error && (
           <TableErrorState
-            title="Unable to load sequentials"
+            title={t('sequentials.error')}
             message={sequentialsQuery.error.message}
             onRetry={() => {
               void sequentialsQuery.refetch();
@@ -329,7 +340,7 @@ export function SequentialsPage() {
             columns={columns}
             data={sequentials}
             searchKey="siteName"
-            searchPlaceholder="Search by site..."
+            searchPlaceholder={t('sequentials.search')}
             pageSize={10}
           />
         )}
@@ -357,25 +368,20 @@ export function SequentialsPage() {
             void deleteMutation.mutateAsync({ id: sequentialToDelete.id });
           }
         }}
-        title="Delete Sequential"
-        message={
-          sequentialToDelete
-            ? `Delete ${documentTypeLabels[sequentialToDelete.documentType]} sequential for ${sequentialToDelete.siteName}?`
-            : ''
-        }
-        confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+        title={t('sequentials.delete.title')}
+        message={sequentialToDelete ? `${t('sequentials.delete.title')}: ${documentTypeLabels[sequentialToDelete.documentType]} — ${sequentialToDelete.siteName}` : ''}
+        confirmText={deleteMutation.isPending ? t('sequentials.delete.deleting') : t('sequentials.delete.confirm')}
         loading={deleteMutation.isPending}
       />
 
       {!sitesQuery.isLoading && sites.length === 0 && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Create at least one active site before configuring sequentials.
+          {t('sequentials.noSite')}
         </div>
       )}
 
       <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-        Sequence increments during sale and purchase finalization will be implemented later. This
-        page only manages the stored prefix and current counter.
+        {t('sequentials.incrementNote')}
       </div>
     </div>
   );

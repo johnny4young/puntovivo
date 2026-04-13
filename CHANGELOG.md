@@ -7,6 +7,9 @@ All notable changes to Puntovivo are documented here. Follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added
+- i18n foundation: installed `i18next` + `react-i18next`; scaffold at `apps/web/src/i18n/` with `resolveLocale.ts` and bundled locale files
+- Locale files for `en` and `es` covering `common`, `auth`, and `nav` namespaces; fallback chain `es-CO` → `es` → `en`
+- Converted `LoginPage`, `Sidebar`, and `Header` to `useTranslation` — all user-visible strings on the highest-traffic screens are now localizable
 - HTTP-level regression test suite (`packages/server/src/__tests__/server.test.ts`) covering tRPC batch URL routing, the `maxParamLength: 1024` fix, legacy health endpoint, and CSRF protection
 - Integration test for per-line discount VAT extraction in `sales.test.ts` (discount=10% applied to a 19% VAT product, verifying subtotal, taxAmount, change, and stock decrement)
 - Launch configurations (`.claude/launch.json`) for dev server preview tooling

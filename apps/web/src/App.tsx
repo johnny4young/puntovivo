@@ -1,5 +1,6 @@
 import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FullscreenLoadingState,
   PageLoadingState,
@@ -87,12 +88,14 @@ function HomeRedirect() {
 }
 
 function LoginRoute({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('auth');
+
   return (
     <Suspense
       fallback={
         <FullscreenLoadingState
-          title="Loading sign-in"
-          description="Preparing the authentication screen."
+          title={t('login.loadingTitle')}
+          description={t('login.loadingDescription')}
         />
       }
     >
@@ -108,13 +111,15 @@ function ShellRoute({
   allowedRoles?: readonly UserRole[];
   children: ReactNode;
 }) {
+  const { t } = useTranslation('common');
+
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
       <Suspense
         fallback={
           <PageLoadingState
-            title="Loading page"
-            description="Preparing the requested workspace module."
+            title={t('loading.pageTitle')}
+            description={t('loading.pageDescription')}
           />
         }
       >

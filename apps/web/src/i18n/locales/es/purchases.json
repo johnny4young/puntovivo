@@ -1,0 +1,78 @@
+{
+  "page": {
+    "title": "Compras",
+    "description": "Registra stock entrante, revisa el historial de compras, devuelve stock recibido y anula compras completadas cuando sea necesario.",
+    "activeSite": "Sede activa",
+    "noSite": "Sin sede seleccionada",
+    "noSiteWarning": "Selecciona una sede activa antes de registrar una compra para usar el consecutivo correcto.",
+    "completed": "Compras completadas",
+    "recentSpend": "Gasto reciente",
+    "providersUsed": "Proveedores usados",
+    "draftTotal": "Total borrador"
+  },
+  "checkout": {
+    "kicker": "Compra actual",
+    "description": "Ajusta cantidades recibidas y costos antes de actualizar el stock.",
+    "addProduct": "Agregar producto",
+    "clear": "Limpiar",
+    "register": "Registrar compra",
+    "finalizeTitle": "Finalizar",
+    "finalizeDescription": "Revisa el impacto en stock y el registro del proveedor antes de guardar.",
+    "search": "Buscar",
+    "items": "Artículos",
+    "baseUnits": "Unidades base agregadas",
+    "total": "Total",
+    "receivingSite": "Sede receptora",
+    "stockNote": "Los costos de compra actualizan el historial de costos del producto e incrementan el stock usando la equivalencia de unidad seleccionada.",
+    "empty": "Busca y agrega productos para iniciar una compra."
+  },
+  "cart": {
+    "product": "Producto",
+    "qty": "Cant.",
+    "costPerUnit": "Costo / Unidad",
+    "baseUnits": "Unidades base",
+    "lineTotal": "Total línea",
+    "currentStock": "Stock actual {{count}}",
+    "removeItem": "Eliminar {{name}}"
+  },
+  "dialog": {
+    "addProduct": "Agregar producto a la compra",
+    "addButton": "Agregar a la compra"
+  },
+  "toast": {
+    "success": "Compra registrada",
+    "successDetail": "artículo(s) agregados al stock",
+    "error": "No se pudo registrar la compra"
+  },
+  "table": {
+    "purchaseNumber": "Recibo #",
+    "date": "Fecha",
+    "provider": "Proveedor",
+    "site": "Sede",
+    "status": "Estado",
+    "returns": "Devoluciones",
+    "total": "Total",
+    "actions": "Acciones",
+    "fullyReturned": "Totalmente devuelto",
+    "reversed": "{{amount}} revertido",
+    "by": "Por {{name}}",
+    "latest": "Último {{date}}",
+    "returnCount_one": "{{count}} devolución",
+    "returnCount_other": "{{count}} devoluciones",
+    "open": "Abierta",
+    "searchPlaceholder": "Buscar por número de recibo...",
+    "loading": "Cargando recibos...",
+    "loadError": "No se pudo cargar los recibos",
+    "returnItems": "Devolver artículos de {{number}}",
+    "returnItemsTitle": "Devolver artículos",
+    "viewPurchase": "Ver {{number}}",
+    "viewPurchaseTitle": "Ver recibo",
+    "exportTitle": "Historial de recibos"
+  },
+  "status": {
+    "completed": "Completado",
+    "partial_returned": "Parcialmente devuelto",
+    "returned": "Devuelto",
+    "voided": "Anulado"
+  }
+}

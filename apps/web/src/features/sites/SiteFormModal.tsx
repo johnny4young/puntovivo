@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Company, Site } from '@/types';
 
@@ -48,6 +49,7 @@ export function SiteFormModal({
   onClose,
   onSubmit,
 }: SiteFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<SiteFormValues>({
     defaultValues: mapSiteToForm(site),
   });
@@ -58,11 +60,11 @@ export function SiteFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={site ? 'Edit Site' : 'Create Site'}
+      title={site ? t('sites.form.editTitle') : t('sites.form.createTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('sites.form.cancel')}
           </ModalButton>
           <ModalButton
             variant="primary"
@@ -70,7 +72,7 @@ export function SiteFormModal({
             onClick={handleSubmit}
             disabled={isSaving || !company}
           >
-            {isSaving ? 'Saving...' : site ? 'Save Changes' : 'Create Site'}
+            {isSaving ? t('sites.form.submitting') : site ? t('sites.form.save') : t('sites.form.create')}
           </ModalButton>
         </>
       }
@@ -78,12 +80,12 @@ export function SiteFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="site-name" className="label">
-            Site Name
+            {t('sites.form.fields.name')}
           </label>
           <input
             id="site-name"
             className="input mt-1"
-            {...form.register('name', { required: 'Site name is required' })}
+            {...form.register('name', { required: t('sites.form.fields.nameRequired') })}
           />
           {form.formState.errors.name && (
             <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -91,13 +93,13 @@ export function SiteFormModal({
         </div>
         <div>
           <label htmlFor="site-address" className="label">
-            Address
+            {t('sites.form.fields.address')}
           </label>
           <textarea id="site-address" className="input mt-1 min-h-[88px]" {...form.register('address')} />
         </div>
         <div>
           <label htmlFor="site-phone" className="label">
-            Phone
+            {t('sites.form.fields.phone')}
           </label>
           <input id="site-phone" className="input mt-1" {...form.register('phone')} />
         </div>
@@ -107,7 +109,7 @@ export function SiteFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Site is active
+          {t('sites.form.fields.isActive')}
         </label>
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>

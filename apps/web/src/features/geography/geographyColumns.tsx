@@ -1,17 +1,19 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Building2, Flag, MapPinned, Pencil, Trash2 } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import type { City, Country, Department } from '@/types';
 
 export function buildCountryColumns(
   onEdit: (country: Country) => void,
   onDelete: (country: Country) => void,
   canEdit: boolean,
-  canDelete: boolean
+  canDelete: boolean,
+  t: TFunction
 ): ColumnDef<Country>[] {
   return [
     {
       accessorKey: 'name',
-      header: 'Country',
+      header: t('geography.columns.country'),
       size: 260,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -27,11 +29,11 @@ export function buildCountryColumns(
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),
     },
@@ -61,12 +63,13 @@ export function buildDepartmentColumns(
   onEdit: (department: Department) => void,
   onDelete: (department: Department) => void,
   canEdit: boolean,
-  canDelete: boolean
+  canDelete: boolean,
+  t: TFunction
 ): ColumnDef<Department>[] {
   return [
     {
       accessorKey: 'name',
-      header: 'Department',
+      header: t('geography.columns.department'),
       size: 260,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -82,17 +85,17 @@ export function buildDepartmentColumns(
     },
     {
       accessorKey: 'countryName',
-      header: 'Country',
+      header: t('geography.columns.country'),
       size: 200,
       cell: ({ row }) => row.original.countryName ?? '-',
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),
     },
@@ -122,12 +125,13 @@ export function buildCityColumns(
   onEdit: (city: City) => void,
   onDelete: (city: City) => void,
   canEdit: boolean,
-  canDelete: boolean
+  canDelete: boolean,
+  t: TFunction
 ): ColumnDef<City>[] {
   return [
     {
       accessorKey: 'name',
-      header: 'City',
+      header: t('geography.columns.city'),
       size: 260,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -143,23 +147,23 @@ export function buildCityColumns(
     },
     {
       accessorKey: 'departmentName',
-      header: 'Department',
+      header: t('geography.columns.department'),
       size: 200,
       cell: ({ row }) => row.original.departmentName ?? '-',
     },
     {
       accessorKey: 'countryName',
-      header: 'Country',
+      header: t('geography.columns.country'),
       size: 180,
       cell: ({ row }) => row.original.countryName ?? '-',
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),
     },

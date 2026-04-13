@@ -35,6 +35,8 @@ export interface SelectProps {
   wrapperClassName?: string;
   /** Custom render for options */
   renderOption?: (option: SelectOption) => ReactNode;
+  /** Custom class for the trigger label text */
+  triggerLabelClassName?: string;
 }
 
 export const Select = forwardRef<HTMLButtonElement, SelectProps>(
@@ -53,6 +55,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
       className,
       wrapperClassName,
       renderOption,
+      triggerLabelClassName,
     },
     ref
   ) => {
@@ -76,6 +79,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
         onChange?.(option.value);
         setIsOpen(false);
         setSearchTerm('');
+        setHighlightedIndex(0);
       },
       [onChange]
     );
@@ -99,16 +103,19 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             if (isOpen && filteredOptions[highlightedIndex]) {
               handleSelect(filteredOptions[highlightedIndex]);
             } else {
+              setHighlightedIndex(0);
               setIsOpen(true);
             }
             break;
           case 'Escape':
             setIsOpen(false);
             setSearchTerm('');
+            setHighlightedIndex(0);
             break;
           case 'ArrowDown':
             e.preventDefault();
             if (!isOpen) {
+              setHighlightedIndex(0);
               setIsOpen(true);
             } else {
               setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
@@ -131,6 +138,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
         if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
           setIsOpen(false);
           setSearchTerm('');
+          setHighlightedIndex(0);
         }
       };
 
@@ -144,14 +152,6 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
         searchInputRef.current.focus();
       }
     }, [isOpen, searchable]);
-
-    // Reset highlighted index when search changes
-    useEffect(() => {
-      // Reset index when search term changes to show first result
-      if (searchTerm !== '') {
-        setHighlightedIndex(0);
-      }
-    }, [searchTerm]);
 
     // Scroll highlighted option into view
     useEffect(() => {
@@ -186,7 +186,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             onClick={() => !disabled && setIsOpen(!isOpen)}
             onKeyDown={handleKeyDown}
             className={cn(
-              'select-trigger flex items-center justify-between text-left',
+              'select-trigger flex items-center justify-between gap-2 text-left',
               hasError && 'border-danger-400 ring-danger-100/60',
               disabled && 'cursor-not-allowed',
               className
@@ -194,11 +194,14 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             aria-haspopup="listbox"
             aria-expanded={isOpen}
           >
-            <span className={cn(!selectedOption && 'text-secondary-400')}>
+            <span
+              className={cn('min-w-0 flex-1 truncate', !selectedOption && 'text-secondary-400', triggerLabelClassName)}
+              title={selectedOption?.label ?? placeholder}
+            >
               {selectedOption?.label || placeholder}
             </span>
 
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               {clearable && selectedOption && !disabled && (
                 <span
                   role="button"
@@ -228,7 +231,10 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
                       ref={searchInputRef}
                       type="text"
                       value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
+                      onChange={e => {
+                        setSearchTerm(e.target.value);
+                        setHighlightedIndex(0);
+                      }}
                       placeholder="Search..."
                       className="input h-10 pl-9"
                     />

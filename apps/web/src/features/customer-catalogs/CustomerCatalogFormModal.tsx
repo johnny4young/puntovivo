@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { CustomerCatalogItem } from '@/types';
 
@@ -48,6 +49,7 @@ export function CustomerCatalogFormModal({
   onClose,
   onSubmit,
 }: CustomerCatalogFormModalProps) {
+  const { t } = useTranslation('customers');
   const form = useForm<CustomerCatalogFormValues>({
     defaultValues: mapCatalogItemToForm(item),
   });
@@ -59,14 +61,18 @@ export function CustomerCatalogFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? `Create ${singularLabel}` : `Edit ${singularLabel}`}
+      title={isCreate ? t('catalogs.form.createTitle', { type: singularLabel }) : t('catalogs.form.editTitle', { type: singularLabel })}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('catalogs.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? `Create ${singularLabel}` : 'Save Changes'}
+            {isSaving
+              ? t('catalogs.form.saving')
+              : isCreate
+                ? t('catalogs.form.create', { type: singularLabel })
+                : t('catalogs.form.save')}
           </ModalButton>
         </>
       }
@@ -75,12 +81,12 @@ export function CustomerCatalogFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="catalog-code" className="label">
-              Code
+              {t('catalogs.form.code')}
             </label>
             <input
               id="catalog-code"
               className="input mt-1"
-              {...form.register('code', { required: `${singularLabel} code is required` })}
+              {...form.register('code', { required: t('catalogs.form.codeRequired', { type: singularLabel }) })}
             />
             {form.formState.errors.code && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
@@ -89,12 +95,12 @@ export function CustomerCatalogFormModal({
 
           <div>
             <label htmlFor="catalog-name" className="label">
-              Name
+              {t('catalogs.form.name')}
             </label>
             <input
               id="catalog-name"
               className="input mt-1"
-              {...form.register('name', { required: `${singularLabel} name is required` })}
+              {...form.register('name', { required: t('catalogs.form.nameRequired', { type: singularLabel }) })}
             />
             {form.formState.errors.name && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -104,7 +110,7 @@ export function CustomerCatalogFormModal({
 
         <div>
           <label htmlFor="catalog-description" className="label">
-            Description
+            {t('catalogs.form.description')}
           </label>
           <textarea
             id="catalog-description"
@@ -119,7 +125,7 @@ export function CustomerCatalogFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          {singularLabel} is active
+          {t('catalogs.form.isActive', { type: singularLabel })}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

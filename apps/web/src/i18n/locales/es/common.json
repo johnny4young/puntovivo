@@ -1,0 +1,128 @@
+{
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "export": "Exportar",
+    "import": "Importar",
+    "refresh": "Actualizar",
+    "retry": "Reintentar",
+    "loading": "Cargando",
+    "closeModal": "Cerrar modal"
+  },
+  "status": {
+    "online": "En línea",
+    "offline": "Sin conexión",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "completed": "Completado",
+    "cancelled": "Cancelado",
+    "loading": "Cargando...",
+    "error": "Algo salió mal",
+    "noResults": "Sin resultados",
+    "noData": "Sin datos disponibles"
+  },
+  "pagination": {
+    "page": "Página",
+    "of": "de",
+    "rows": "filas",
+    "rowsPerPage": "Filas por página",
+    "next": "Página siguiente",
+    "previous": "Página anterior",
+    "first": "Primera página",
+    "last": "Última página",
+    "goToFirst": "Ir a la primera página",
+    "goToPrevious": "Ir a la página anterior",
+    "goToNext": "Ir a la página siguiente",
+    "goToLast": "Ir a la última página"
+  },
+  "table": {
+    "selectAll": "Seleccionar todo",
+    "selectRow": "Seleccionar fila",
+    "noResults": "Sin resultados.",
+    "noEntries": "Sin entradas para mostrar",
+    "showing": "Mostrando {{from}} a {{to}} de {{total}} entradas",
+    "page": "Página {{current}} de {{total}}",
+    "columns": "Columnas"
+  },
+  "notifications": "Notificaciones",
+  "language": {
+    "label": "Idioma",
+    "placeholder": "Seleccionar idioma",
+    "options": {
+      "system": "Sistema",
+      "es": "Español",
+      "en": "English"
+    }
+  },
+  "loading": {
+    "pageTitle": "Cargando página",
+    "pageDescription": "Preparando el módulo solicitado del espacio de trabajo."
+  },
+  "passwordPolicy": {
+    "minLength": "La contraseña debe tener al menos 12 caracteres",
+    "uppercase": "La contraseña debe contener al menos una letra mayúscula",
+    "lowercase": "La contraseña debe contener al menos una letra minúscula",
+    "number": "La contraseña debe contener al menos un número",
+    "specialCharacter": "La contraseña debe contener al menos un carácter especial"
+  },
+  "toast": {
+    "dismiss": "Descartar {{title}}"
+  },
+  "changePassword": "Cambiar contraseña",
+  "signOut": "Cerrar sesión",
+  "signedIn": "Sesión iniciada",
+  "user": "Usuario",
+  "session": "sesión",
+  "loadingSites": "Cargando sedes...",
+  "selectSite": "Seleccionar sede",
+  "quickSearch": "Búsqueda rápida de productos, clientes, recibos",
+  "toolbar": {
+    "toggleColumns": "Alternar columnas",
+    "showAllColumns": "Mostrar todas las columnas",
+    "columns": "Columnas",
+    "export": "Exportar",
+    "exporting": "Exportando...",
+    "exportCSV": "Exportar como CSV",
+    "exportCSVDesc": "Valores separados por coma",
+    "exportExcel": "Exportar como Excel",
+    "exportExcelDesc": "Formato Microsoft Excel",
+    "exportPDF": "Exportar como PDF",
+    "exportPDFDesc": "Formato de documento portátil",
+    "print": "Imprimir",
+    "clearSearch": "Limpiar búsqueda",
+    "selected": "seleccionado(s)",
+    "ofTotal": "de {{total}} en total"
+  },
+  "productSearch": {
+    "search": "Buscar",
+    "searchPlaceholder": "Buscar por SKU, nombre o código de barras",
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "provider": "Proveedor",
+    "allProviders": "Todos los proveedores",
+    "enterTerm": "Ingresa un término de búsqueda para encontrar productos.",
+    "sku": "SKU",
+    "name": "Nombre",
+    "stock": "Stock",
+    "price": "Precio",
+    "unit": "Unidad",
+    "searching": "Buscando productos...",
+    "noResults": "Ningún producto coincide con los filtros actuales.",
+    "noCategory": "Sin categoría",
+    "noProvider": "Sin proveedor",
+    "selection": "Selección",
+    "chooseProduct": "Selecciona una fila del producto para confirmar la unidad y el precio.",
+    "equivalence": "Equivalencia",
+    "availableStock": "Stock disponible",
+    "cancel": "Cancelar"
+  }
+}

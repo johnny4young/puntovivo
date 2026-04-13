@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Order } from '@/types';
@@ -36,6 +37,7 @@ export function OrderReceiveModal({
   onClose,
   onSubmit,
 }: OrderReceiveModalProps) {
+  const { t } = useTranslation('inventory');
   const form = useForm<OrderReceiveFormValues>({
     defaultValues: {
       items: (order.items ?? []).map(item => ({
@@ -52,7 +54,7 @@ export function OrderReceiveModal({
     if (selectedItems.length === 0) {
       form.setError('root', {
         type: 'manual',
-        message: 'Select at least one line quantity to receive',
+        message: t('orders.minItems'),
       });
       return;
     }
@@ -70,15 +72,15 @@ export function OrderReceiveModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Receive Items for ${order.orderNumber}`}
+      title={t('orders.modalTitle', { number: order.orderNumber })}
       size="xl"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('orders.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Create Receipt'}
+            {isSaving ? t('orders.submitting') : t('orders.save')}
           </ModalButton>
         </>
       }
@@ -86,7 +88,7 @@ export function OrderReceiveModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
           <p className="text-sm text-primary-700">
-            Receive only the quantities that physically entered stock in this delivery.
+            {t('orders.hint')}
           </p>
         </div>
 
@@ -104,26 +106,26 @@ export function OrderReceiveModal({
                       {item.productName ?? item.productId}
                     </p>
                     <p className="text-xs text-secondary-500">
-                      {item.productSku ?? 'No SKU'}
+                      {item.productSku ?? t('orders.noSku')}
                       {' · '}
                       {item.unitName ?? item.unitAbbreviation ?? item.unitId}
                     </p>
                     <p className="mt-2 text-sm text-secondary-600">
-                      Cost {formatCurrency(item.costPerUnit)} each
+                      {t('orders.costEach', { amount: formatCurrency(item.costPerUnit) })}
                     </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Ordered</p>
+                      <p className="text-secondary-500">{t('orders.ordered')}</p>
                       <p className="font-medium text-secondary-900">{item.quantity}</p>
                     </div>
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Received</p>
+                      <p className="text-secondary-500">{t('orders.received')}</p>
                       <p className="font-medium text-secondary-900">{receivedQuantity}</p>
                     </div>
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">Pending</p>
+                      <p className="text-secondary-500">{t('orders.pending')}</p>
                       <p className="font-medium text-secondary-900">{remainingQuantity}</p>
                     </div>
                   </div>
@@ -131,7 +133,7 @@ export function OrderReceiveModal({
 
                 <div className="mt-4 max-w-[180px]">
                   <label htmlFor={`order-receive-${item.id}`} className="label">
-                    Receive Quantity
+                    {t('orders.receiveQty')}
                   </label>
                   <input
                     id={`order-receive-${item.id}`}
@@ -144,11 +146,11 @@ export function OrderReceiveModal({
                       valueAsNumber: true,
                       min: {
                         value: 0,
-                        message: 'Received quantity cannot be negative',
+                        message: t('orders.receiveQtyMin'),
                       },
                       validate: value =>
                         value <= remainingQuantity ||
-                        `Only ${remainingQuantity} units remain pending receipt`,
+                        t('orders.receiveQtyMax', { count: remainingQuantity }),
                     })}
                   />
                   {fieldError && <p className="mt-1 text-sm text-danger-500">{fieldError}</p>}
@@ -160,12 +162,12 @@ export function OrderReceiveModal({
 
         <div>
           <label htmlFor="order-receive-notes" className="label">
-            Receipt Notes
+            {t('orders.receiptNotes')}
           </label>
           <textarea
             id="order-receive-notes"
             className="input mt-1 min-h-[96px]"
-            placeholder="Optional note about this delivery batch"
+            placeholder={t('orders.receiptNotesPlaceholder')}
             {...form.register('notes')}
           />
         </div>

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -32,7 +34,7 @@ const columns = (
 ): ColumnDef<Product>[] => [
   {
     accessorKey: 'name',
-    header: 'Product',
+    header: () => i18next.t('products:table.product'),
     size: 240,
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
@@ -48,61 +50,61 @@ const columns = (
   },
   {
     accessorKey: 'categoryName',
-    header: 'Category',
+    header: () => i18next.t('products:table.category'),
     size: 150,
     cell: ({ row }) => row.original.categoryName ?? '-',
   },
   {
     accessorKey: 'providerName',
-    header: 'Provider',
+    header: () => i18next.t('products:table.provider'),
     size: 160,
     cell: ({ row }) => row.original.providerName ?? '-',
   },
   {
     accessorKey: 'locationName',
-    header: 'Location',
+    header: () => i18next.t('products:table.location'),
     size: 180,
     cell: ({ row }) => row.original.locationName ?? '-',
   },
   {
     accessorKey: 'price',
-    header: 'Tier 1',
+    header: () => i18next.t('products:table.tier1'),
     size: 110,
     cell: ({ row }) => formatCurrency(row.original.price),
   },
   {
     accessorKey: 'price2',
-    header: 'Tier 2',
+    header: () => i18next.t('products:table.tier2'),
     size: 110,
     cell: ({ row }) => formatCurrency(row.original.price2),
   },
   {
     accessorKey: 'price3',
-    header: 'Tier 3',
+    header: () => i18next.t('products:table.tier3'),
     size: 110,
     cell: ({ row }) => formatCurrency(row.original.price3),
   },
   {
     accessorKey: 'stock',
-    header: 'Stock',
+    header: () => i18next.t('products:table.stock'),
     size: 90,
     cell: ({ row }) => {
       const isLow = row.original.stock < row.original.minStock;
       return (
         <span className={isLow ? 'font-medium text-danger-500' : ''}>
           {row.original.stock}
-          {isLow ? ' (Low)' : ''}
+          {isLow ? ` (${i18next.t('products:table.low')})` : ''}
         </span>
       );
     },
   },
   {
     accessorKey: 'isActive',
-    header: 'Status',
+    header: () => i18next.t('products:table.status'),
     size: 110,
     cell: ({ row }) => (
       <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-        {row.original.isActive ? 'Active' : 'Inactive'}
+        {row.original.isActive ? i18next.t('products:table.active') : i18next.t('products:table.inactive')}
       </span>
     ),
   },
@@ -132,6 +134,7 @@ const columns = (
 ];
 
 export function ProductsPage() {
+  const { t } = useTranslation('products');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -155,12 +158,12 @@ export function ProductsPage() {
     onSuccess: async () => {
       await utils.products.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Product created' });
+      toast.success({ title: t('toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create product',
-        description: getErrorMessage(error, 'Unable to create product'),
+        title: t('toast.createError'),
+        description: getErrorMessage(error, t('toast.createError')),
       });
     },
   });
@@ -168,12 +171,12 @@ export function ProductsPage() {
     onSuccess: async () => {
       await utils.products.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Product updated' });
+      toast.success({ title: t('toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update product',
-        description: getErrorMessage(error, 'Unable to update product'),
+        title: t('toast.updateError'),
+        description: getErrorMessage(error, t('toast.updateError')),
       });
     },
   });
@@ -181,12 +184,12 @@ export function ProductsPage() {
     onSuccess: async () => {
       await utils.products.list.invalidate();
       setProductToDelete(null);
-      toast.success({ title: 'Product deactivated' });
+      toast.success({ title: t('toast.deactivated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to deactivate product',
-        description: getErrorMessage(error, 'Unable to deactivate product'),
+        title: t('toast.deactivateError'),
+        description: getErrorMessage(error, t('toast.deactivateError')),
       });
     },
   });
@@ -310,9 +313,9 @@ export function ProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Products</h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
           <p className="mt-1 text-sm text-secondary-500">
-            Manage catalog items, pricing tiers, and stock thresholds.
+            {t('page.description')}
           </p>
         </div>
         <button
@@ -321,21 +324,21 @@ export function ProductsPage() {
           disabled={!canManage}
         >
           <Plus className="h-5 w-5" />
-          Add Product
+          {t('page.add')}
         </button>
       </div>
 
       {!canManage && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Only administrators and managers can modify products. You can still review the catalog.
+          {t('page.permissionNote')}
         </div>
       )}
 
       <div className="card p-6">
-        {productsQuery.isLoading && <TableLoadingState message="Loading products..." />}
+        {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}
         {productsQuery.error && (
           <TableErrorState
-            title="Unable to load products"
+            title={t('table.error')}
             message={productsQuery.error.message}
             onRetry={() => {
               void productsQuery.refetch();
@@ -363,7 +366,7 @@ export function ProductsPage() {
               )}
               data={products}
               searchKey="name"
-              searchPlaceholder="Search products..."
+              searchPlaceholder={t('table.search')}
               pageSize={10}
             />
           </div>
@@ -388,9 +391,9 @@ export function ProductsPage() {
 
       <ConfirmModal
         isOpen={!!productToDelete}
-        title="Deactivate Product"
-        message={`This will mark ${productToDelete?.name ?? 'this product'} as inactive. You can reactivate it later by editing the record.`}
-        confirmText={deleteMutation.isPending ? 'Deactivating...' : 'Deactivate'}
+        title={t('deactivate.title')}
+        message={t('deactivate.description')}
+        confirmText={deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')}
         onClose={() => setProductToDelete(null)}
         onConfirm={async () => {
           if (!productToDelete) {

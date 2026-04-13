@@ -1,14 +1,17 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { FolderTree, Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import type { Provider } from '@/types';
 
 export function createProviderColumns({
+  t,
   canManage,
   canDelete,
   onEdit,
   onDelete,
   onManageCategories,
 }: {
+  t: TFunction;
   canManage: boolean;
   canDelete: boolean;
   onEdit: (provider: Provider) => void;
@@ -18,7 +21,7 @@ export function createProviderColumns({
   return [
     {
       accessorKey: 'name',
-      header: 'Provider',
+      header: t('providers.columns.name'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -34,7 +37,7 @@ export function createProviderColumns({
     },
     {
       accessorKey: 'email',
-      header: 'Email',
+      header: t('providers.columns.email'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-secondary-600">
@@ -45,7 +48,7 @@ export function createProviderColumns({
     },
     {
       accessorKey: 'phone',
-      header: 'Phone',
+      header: t('providers.columns.phone'),
       size: 160,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-secondary-600">
@@ -56,7 +59,7 @@ export function createProviderColumns({
     },
     {
       accessorKey: 'cityName',
-      header: 'City',
+      header: t('providers.columns.city'),
       size: 220,
       cell: ({ row }) => (
         <div className="flex items-center gap-2 text-secondary-600">
@@ -77,13 +80,13 @@ export function createProviderColumns({
     },
     {
       accessorKey: 'taxId',
-      header: 'Tax ID',
+      header: t('providers.columns.taxId'),
       size: 150,
       cell: ({ row }) => row.original.taxId || '-',
     },
     {
       accessorKey: 'isActive',
-      header: 'Status',
+      header: t('providers.columns.status'),
       size: 100,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>

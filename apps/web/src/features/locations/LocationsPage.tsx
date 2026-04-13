@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { MapPinned, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -14,7 +16,8 @@ function canManageLocations(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
 
-const columns = (
+const buildColumns = (
+  t: TFunction,
   onEdit: (location: Location) => void,
   onDelete: (location: Location) => void,
   canEdit: boolean,
@@ -22,7 +25,7 @@ const columns = (
 ): ColumnDef<Location>[] => [
   {
     accessorKey: 'name',
-    header: 'Location',
+    header: t('locations.columns.location'),
     size: 240,
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
@@ -38,17 +41,17 @@ const columns = (
   },
   {
     accessorKey: 'description',
-    header: 'Description',
+    header: t('locations.columns.description'),
     size: 320,
     cell: ({ row }) => row.original.description ?? '-',
   },
   {
     accessorKey: 'isActive',
-    header: 'Status',
+    header: t('locations.columns.status'),
     size: 120,
     cell: ({ row }) => (
       <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-        {row.original.isActive ? 'Active' : 'Inactive'}
+        {row.original.isActive ? t('locations.columns.active') : t('locations.columns.inactive')}
       </span>
     ),
   },
@@ -78,6 +81,7 @@ const columns = (
 ];
 
 export function LocationsPage() {
+  const { t } = useTranslation('settings');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -91,12 +95,12 @@ export function LocationsPage() {
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Location created' });
+      toast.success({ title: t('locations.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create location',
-        description: getErrorMessage(error, 'Unable to create location'),
+        title: t('locations.toast.createError'),
+        description: getErrorMessage(error, t('locations.toast.createError')),
       });
     },
   });
@@ -104,12 +108,12 @@ export function LocationsPage() {
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Location updated' });
+      toast.success({ title: t('locations.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update location',
-        description: getErrorMessage(error, 'Unable to update location'),
+        title: t('locations.toast.updateError'),
+        description: getErrorMessage(error, t('locations.toast.updateError')),
       });
     },
   });
@@ -117,12 +121,12 @@ export function LocationsPage() {
     onSuccess: async () => {
       await utils.locations.list.invalidate();
       setLocationToDelete(null);
-      toast.success({ title: 'Location deleted' });
+      toast.success({ title: t('locations.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete location',
-        description: getErrorMessage(error, 'Unable to delete location'),
+        title: t('locations.toast.deleteError'),
+        description: getErrorMessage(error, t('locations.toast.deleteError')),
       });
     },
   });
@@ -175,21 +179,21 @@ export function LocationsPage() {
   return (
     <>
       <ResourcePage
-        title="Locations"
-        description="Manage warehouse and shelf locations used by the product catalog."
+        title={t('locations.title')}
+        description={t('locations.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />
-            Add Location
+            {t('locations.add')}
           </button>
         }
-        columns={columns(handleOpenEdit, setLocationToDelete, canManage, canDelete)}
+        columns={buildColumns(t, handleOpenEdit, setLocationToDelete, canManage, canDelete)}
         data={items}
         isLoading={locationsQuery.isLoading}
         error={locationsQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder="Search locations..."
-        loadingMessage="Loading locations..."
+        searchPlaceholder={t('locations.search')}
+        loadingMessage={t('locations.loading')}
         onRetry={() => {
           void locationsQuery.refetch();
         }}
@@ -197,7 +201,7 @@ export function LocationsPage() {
 
       {!canManage && (
         <div className="mt-6 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Only administrators can modify locations. You can still review the catalog.
+          {t('locations.permissionNote')}
         </div>
       )}
 
@@ -213,13 +217,9 @@ export function LocationsPage() {
 
       <ConfirmModal
         isOpen={!!locationToDelete}
-        title="Delete Location"
-        message={
-          locationToDelete
-            ? `Delete ${locationToDelete.name}? Products assigned to this location must be moved first.`
-            : ''
-        }
-        confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+        title={t('locations.delete.title')}
+        message={locationToDelete ? t('locations.delete.description') : ''}
+        confirmText={deleteMutation.isPending ? t('locations.delete.submitting') : t('locations.delete.confirm')}
         cancelText="Cancel"
         variant="danger"
         loading={deleteMutation.isPending}

@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Country } from '@/types';
 
@@ -43,6 +44,7 @@ export function CountryFormModal({
   onClose,
   onSubmit,
 }: CountryFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<CountryFormValues>({
     defaultValues: mapCountryToForm(country),
   });
@@ -54,14 +56,14 @@ export function CountryFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Country' : 'Edit Country'}
+      title={isCreate ? t('geography.form.country.createTitle') : t('geography.form.country.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('geography.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Country' : 'Save Changes'}
+            {isSaving ? t('geography.form.submitting') : isCreate ? t('geography.form.country.create') : t('geography.form.saveChanges')}
           </ModalButton>
         </>
       }
@@ -70,12 +72,12 @@ export function CountryFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="country-code" className="label">
-              Code
+              {t('geography.form.country.fields.code')}
             </label>
             <input
               id="country-code"
               className="input mt-1"
-              {...form.register('code', { required: 'Country code is required' })}
+              {...form.register('code', { required: t('geography.form.country.fields.codeRequired') })}
             />
             {form.formState.errors.code && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
@@ -84,12 +86,12 @@ export function CountryFormModal({
 
           <div>
             <label htmlFor="country-name" className="label">
-              Name
+              {t('geography.form.country.fields.name')}
             </label>
             <input
               id="country-name"
               className="input mt-1"
-              {...form.register('name', { required: 'Country name is required' })}
+              {...form.register('name', { required: t('geography.form.country.fields.nameRequired') })}
             />
             {form.formState.errors.name && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -103,7 +105,7 @@ export function CountryFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Country is active
+          {t('geography.form.country.fields.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

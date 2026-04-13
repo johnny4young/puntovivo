@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppWindow } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ function TraySettingToggle({
 }
 
 export function CompanyTraySettingsCard() {
+  const { t } = useTranslation('settings');
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
   const toast = useToast();
@@ -73,12 +75,12 @@ export function CompanyTraySettingsCard() {
     },
     onSuccess: settings => {
       queryClient.setQueryData(traySettingsQueryKey, settings);
-      toast.success({ title: 'Tray settings saved' });
+      toast.success({ title: t('company.tray.saved') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to save tray settings',
-        description: getErrorMessage(error, 'Unable to save tray settings'),
+        title: t('company.tray.saveError'),
+        description: getErrorMessage(error, t('company.tray.saveError')),
       });
     },
   });
@@ -105,16 +107,16 @@ export function CompanyTraySettingsCard() {
           <AppWindow className="h-5 w-5 text-secondary-700" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">System Tray</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('company.tray.title')}</h2>
           <p className="text-sm text-secondary-500">
-            Control whether this workstation stays available from the desktop tray.
+            {t('company.tray.description')}
           </p>
         </div>
       </div>
 
       {!isDesktop && (
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Tray settings are available in the Electron desktop app.
+          {t('company.tray.desktopOnly')}
         </div>
       )}
 
@@ -126,16 +128,16 @@ export function CompanyTraySettingsCard() {
 
       <div className="space-y-3">
         <TraySettingToggle
-          label="Show Tray Icon"
-          description="Keep a system tray icon available so the workstation can be reopened quickly."
+          label={t('company.tray.showIcon')}
+          description={t('company.tray.showIconDescription')}
           checked={settings.enabled}
           disabled={!isDesktop || settingsQuery.isLoading || updateSettingsMutation.isPending}
           onChange={checked => updateSettings({ enabled: checked })}
         />
 
         <TraySettingToggle
-          label="Close Window To Tray"
-          description="Hide the main window instead of quitting the app when the close button is used."
+          label={t('company.tray.closeToTray')}
+          description={t('company.tray.closeToTrayDescription')}
           checked={settings.enabled && settings.closeToTray}
           disabled={
             !isDesktop ||
@@ -148,7 +150,7 @@ export function CompanyTraySettingsCard() {
       </div>
 
       {updateSettingsMutation.isPending && (
-        <p className="text-sm text-secondary-500">Saving tray settings...</p>
+        <p className="text-sm text-secondary-500">{t('company.tray.saving')}</p>
       )}
     </section>
   );

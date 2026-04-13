@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MonitorCog, Moon, Sun } from 'lucide-react';
 import { useTheme, type ThemePreference } from '@/components/feedback/ThemeProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -11,32 +12,33 @@ interface ThemeOption {
   icon: typeof Sun;
 }
 
-const themeOptions: ThemeOption[] = [
-  {
-    value: 'light',
-    label: 'Light',
-    description: 'Use the light interface across the workstation.',
-    icon: Sun,
-  },
-  {
-    value: 'dark',
-    label: 'Dark',
-    description: 'Use the dark interface across the workstation.',
-    icon: Moon,
-  },
-  {
-    value: 'system',
-    label: 'System',
-    description: 'Follow the operating system appearance preference.',
-    icon: MonitorCog,
-  },
-];
-
 export function CompanyThemeSettingsCard() {
+  const { t } = useTranslation('settings');
   const { preference, resolvedTheme, isLoading, setPreference } = useTheme();
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const isDesktop = typeof window !== 'undefined' && Boolean(window.electron);
+
+  const themeOptions: ThemeOption[] = [
+    {
+      value: 'light',
+      label: t('company.theme.options.light.label'),
+      description: t('company.theme.options.light.description'),
+      icon: Sun,
+    },
+    {
+      value: 'dark',
+      label: t('company.theme.options.dark.label'),
+      description: t('company.theme.options.dark.description'),
+      icon: Moon,
+    },
+    {
+      value: 'system',
+      label: t('company.theme.options.system.label'),
+      description: t('company.theme.options.system.description'),
+      icon: MonitorCog,
+    },
+  ];
 
   const handleSelect = async (nextPreference: ThemePreference) => {
     if (nextPreference === preference || isSaving) {
@@ -48,16 +50,16 @@ export function CompanyThemeSettingsCard() {
     try {
       await setPreference(nextPreference);
       toast.success({
-        title: 'Theme updated',
+        title: t('company.theme.toast.updated'),
         description:
           nextPreference === 'system'
-            ? 'The app now follows the system appearance.'
-            : `The app is now using the ${nextPreference} theme.`,
+            ? t('company.theme.toast.systemDescription')
+            : t('company.theme.toast.themeDescription', { theme: nextPreference }),
       });
     } catch (error) {
       toast.error({
-        title: 'Unable to update theme',
-        description: getErrorMessage(error, 'Unable to update theme'),
+        title: t('company.theme.toast.updateError'),
+        description: getErrorMessage(error, t('company.theme.toast.updateError')),
       });
     } finally {
       setIsSaving(false);
@@ -71,16 +73,16 @@ export function CompanyThemeSettingsCard() {
           <MonitorCog className="h-5 w-5 text-secondary-700" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">Appearance</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('company.theme.title')}</h2>
           <p className="text-sm text-secondary-500">
-            Control the workstation theme and whether it follows the operating system.
+            {t('company.theme.description')}
           </p>
         </div>
       </div>
 
       {!isDesktop && (
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Browser sessions store the theme preference locally in this device.
+          {t('company.theme.browserNote')}
         </div>
       )}
 
@@ -130,7 +132,7 @@ export function CompanyThemeSettingsCard() {
       </div>
 
       <p className="text-sm text-secondary-500">
-        Active appearance: <span className="font-medium capitalize text-secondary-700">{resolvedTheme}</span>
+        {t('company.theme.activeAppearance')} <span className="font-medium capitalize text-secondary-700">{resolvedTheme}</span>
       </p>
     </section>
   );

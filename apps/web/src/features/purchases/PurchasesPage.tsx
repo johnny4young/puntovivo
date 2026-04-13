@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PackagePlus, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -28,6 +29,7 @@ interface PurchaseDialogState {
 }
 
 export function PurchasesPage() {
+  const { t } = useTranslation('purchases');
   const utils = trpc.useUtils();
   const toast = useToast();
   const { user } = useAuth();
@@ -58,14 +60,14 @@ export function PurchasesPage() {
       setPurchaseError(null);
       setIsFinalizeModalOpen(false);
       toast.success({
-        title: 'Purchase registered',
-        description: `${variables.items.length} item${variables.items.length === 1 ? '' : 's'} added to stock.`,
+        title: t('toast.success'),
+        description: `${variables.items.length} ${t('toast.successDetail')}`,
       });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to register purchase',
-        description: getErrorMessage(error, 'Unable to register purchase'),
+        title: t('toast.error'),
+        description: getErrorMessage(error, t('toast.error')),
       });
     },
   });
@@ -148,23 +150,23 @@ export function PurchasesPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-secondary-900">Purchases</h1>
+            <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
             <p className="mt-1 text-sm text-secondary-500">
-              Register inbound stock, review purchase history, return received stock, and void completed purchases when required
+              {t('page.description')}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
-              <p className="text-secondary-500">Active site</p>
-              <p className="font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>
+              <p className="text-secondary-500">{t('page.activeSite')}</p>
+              <p className="font-medium text-secondary-900">{currentSite?.name ?? t('page.noSite')}</p>
             </div>
             <button
               className="btn-outline flex items-center gap-2"
               onClick={() => setIsProductSearchOpen(true)}
             >
               <Search className="h-4 w-4" />
-              Add Product
+              {t('checkout.addProduct')}
             </button>
             <button
               className="btn-primary flex items-center gap-2"
@@ -172,28 +174,28 @@ export function PurchasesPage() {
               disabled={!currentSite || cartItems.length === 0}
             >
               <PackagePlus className="h-4 w-4" />
-              Register Purchase
+              {t('checkout.register')}
             </button>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Completed Purchases</p>
+            <p className="text-sm text-secondary-500">{t('page.completed')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">{completedPurchases.length}</p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Recent Spend</p>
+            <p className="text-sm text-secondary-500">{t('page.recentSpend')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">
               {formatCurrency(purchaseTotals.recentTotal)}
             </p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Providers Used</p>
+            <p className="text-sm text-secondary-500">{t('page.providersUsed')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">{purchaseTotals.providerCount}</p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Draft Total</p>
+            <p className="text-sm text-secondary-500">{t('page.draftTotal')}</p>
             <p className="mt-1 text-2xl font-bold text-primary-700">
               {formatCurrency(draftSummary.total)}
             </p>
@@ -202,7 +204,7 @@ export function PurchasesPage() {
 
         {!currentSite && (
           <div className="rounded-xl border border-warning-300 bg-warning-50 px-4 py-4 text-sm text-warning-700">
-            Select an active site before registering a purchase so the correct sequential is used.
+            {t('page.noSiteWarning')}
           </div>
         )}
 
@@ -210,9 +212,9 @@ export function PurchasesPage() {
           <div className="card p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-secondary-900">Current Purchase</h2>
+                <h2 className="text-lg font-semibold text-secondary-900">{t('checkout.kicker')}</h2>
                 <p className="text-sm text-secondary-500">
-                  Adjust received quantities and costs before updating stock
+                  {t('checkout.description')}
                 </p>
               </div>
               <button
@@ -220,7 +222,7 @@ export function PurchasesPage() {
                 onClick={() => setCartItems([])}
                 disabled={cartItems.length === 0}
               >
-                Clear
+                {t('checkout.clear')}
               </button>
             </div>
 
@@ -261,8 +263,8 @@ export function PurchasesPage() {
         onSelect={handleProductSelect}
         categories={categories}
         providers={providers}
-        title="Add Product to Purchase"
-        confirmLabel="Add to purchase"
+        title={t('dialog.addProduct')}
+        confirmLabel={t('dialog.addButton')}
       />
 
       <PurchaseFinalizeModal

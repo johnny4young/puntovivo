@@ -1,10 +1,11 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { getErrorMessage } from '@/lib/utils';
 import { useAuth } from './AuthProvider';
-import { getPasswordRequirementMessage } from './passwordPolicy';
+import { getPasswordRequirementMessage, type PasswordRequirementKey } from './passwordPolicy';
 
 interface ChangePasswordFormValues {
   currentPassword: string;
@@ -25,11 +26,14 @@ const defaultValues: ChangePasswordFormValues = {
 
 export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
   const { logout } = useAuth();
+  const { t } = useTranslation(['auth', 'common']);
   const toast = useToast();
   const form = useForm<ChangePasswordFormValues>({
     defaultValues,
   });
   const changePasswordMutation = trpc.auth.changePassword.useMutation();
+  const translatePasswordRequirement = (key: PasswordRequirementKey) =>
+    t(`common:passwordPolicy.${key}`);
 
   const handleClose = () => {
     form.reset(defaultValues);
@@ -44,8 +48,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
     handleClose();
     toast.success({
-      title: 'Password changed',
-      description: 'Please sign in again with your new password.',
+      title: t('changePassword.success'),
+      description: t('changePassword.successDescription'),
     });
     await logout();
   });
@@ -54,31 +58,32 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Change Password"
+      title={t('changePassword.title')}
       footer={
         <>
           <ModalButton onClick={handleClose} disabled={changePasswordMutation.isPending}>
-            Cancel
+            {t('changePassword.cancel')}
           </ModalButton>
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
             disabled={changePasswordMutation.isPending}
           >
-            {changePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
+            {changePasswordMutation.isPending
+              ? t('changePassword.updating')
+              : t('changePassword.submit')}
           </ModalButton>
         </>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <p className="text-sm text-secondary-600">
-          Use a new password with at least 12 characters, plus uppercase, lowercase, number, and
-          special character requirements.
+          {t('changePassword.requirements')}
         </p>
 
         <div>
           <label htmlFor="current-password" className="label">
-            Current Password
+            {t('changePassword.currentPassword')}
           </label>
           <input
             id="current-password"
@@ -86,7 +91,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             autoComplete="current-password"
             className="input mt-1"
             {...form.register('currentPassword', {
-              required: 'Current password is required',
+              required: t('changePassword.currentRequired'),
             })}
           />
           {form.formState.errors.currentPassword && (
@@ -98,7 +103,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
         <div>
           <label htmlFor="new-password" className="label">
-            New Password
+            {t('changePassword.newPassword')}
           </label>
           <input
             id="new-password"
@@ -106,8 +111,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             autoComplete="new-password"
             className="input mt-1"
             {...form.register('newPassword', {
-              required: 'New password is required',
-              validate: value => getPasswordRequirementMessage(value) ?? true,
+              required: t('changePassword.newRequired'),
+              validate: value => getPasswordRequirementMessage(value, translatePasswordRequirement) ?? true,
             })}
           />
           {form.formState.errors.newPassword && (
@@ -117,7 +122,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
         <div>
           <label htmlFor="confirm-password" className="label">
-            Confirm New Password
+            {t('changePassword.confirmPassword')}
           </label>
           <input
             id="confirm-password"
@@ -125,9 +130,9 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             autoComplete="new-password"
             className="input mt-1"
             {...form.register('confirmPassword', {
-              required: 'Please confirm your new password',
+              required: t('changePassword.confirmRequired'),
               validate: value =>
-                value === form.getValues('newPassword') || 'Passwords do not match',
+                value === form.getValues('newPassword') || t('changePassword.passwordMismatch'),
             })}
           />
           {form.formState.errors.confirmPassword && (
@@ -139,7 +144,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
         {changePasswordMutation.error && (
           <p className="text-sm text-danger-600">
-            {getErrorMessage(changePasswordMutation.error, 'Unable to change password')}
+            {getErrorMessage(changePasswordMutation.error, t('changePassword.updateError'))}
           </p>
         )}
       </form>

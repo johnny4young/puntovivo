@@ -1,0 +1,128 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loading": "Loading",
+    "closeModal": "Close modal"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "noResults": "No results found",
+    "noData": "No data available"
+  },
+  "pagination": {
+    "page": "Page",
+    "of": "of",
+    "rows": "rows",
+    "rowsPerPage": "Rows per page",
+    "next": "Next page",
+    "previous": "Previous page",
+    "first": "First page",
+    "last": "Last page",
+    "goToFirst": "Go to first page",
+    "goToPrevious": "Go to previous page",
+    "goToNext": "Go to next page",
+    "goToLast": "Go to last page"
+  },
+  "table": {
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "noResults": "No results.",
+    "noEntries": "No entries to display",
+    "showing": "Showing {{from}} to {{to}} of {{total}} entries",
+    "page": "Page {{current}} of {{total}}",
+    "columns": "Columns"
+  },
+  "notifications": "Notifications",
+  "language": {
+    "label": "Language",
+    "placeholder": "Select language",
+    "options": {
+      "system": "System",
+      "es": "Español",
+      "en": "English"
+    }
+  },
+  "loading": {
+    "pageTitle": "Loading page",
+    "pageDescription": "Preparing the requested workspace module."
+  },
+  "passwordPolicy": {
+    "minLength": "Password must be at least 12 characters",
+    "uppercase": "Password must contain at least one uppercase letter",
+    "lowercase": "Password must contain at least one lowercase letter",
+    "number": "Password must contain at least one number",
+    "specialCharacter": "Password must contain at least one special character"
+  },
+  "toast": {
+    "dismiss": "Dismiss {{title}}"
+  },
+  "changePassword": "Change password",
+  "signOut": "Sign out",
+  "signedIn": "Signed in",
+  "user": "User",
+  "session": "session",
+  "loadingSites": "Loading sites...",
+  "selectSite": "Select a site",
+  "quickSearch": "Quick search products, customers, receipts",
+  "toolbar": {
+    "toggleColumns": "Toggle Columns",
+    "showAllColumns": "Show all columns",
+    "columns": "Columns",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportCSV": "Export as CSV",
+    "exportCSVDesc": "Comma-separated values",
+    "exportExcel": "Export as Excel",
+    "exportExcelDesc": "Microsoft Excel format",
+    "exportPDF": "Export as PDF",
+    "exportPDFDesc": "Portable Document Format",
+    "print": "Print",
+    "clearSearch": "Clear search",
+    "selected": "selected",
+    "ofTotal": "of {{total}} total"
+  },
+  "productSearch": {
+    "search": "Search",
+    "searchPlaceholder": "Search by SKU, name, or barcode",
+    "category": "Category",
+    "allCategories": "All categories",
+    "provider": "Provider",
+    "allProviders": "All providers",
+    "enterTerm": "Enter a search term to find products.",
+    "sku": "SKU",
+    "name": "Name",
+    "stock": "Stock",
+    "price": "Price",
+    "unit": "Unit",
+    "searching": "Searching products...",
+    "noResults": "No products matched the current filters.",
+    "noCategory": "No category",
+    "noProvider": "No provider",
+    "selection": "Selection",
+    "chooseProduct": "Choose a product row to confirm the unit and price.",
+    "equivalence": "Equivalence",
+    "availableStock": "Available stock",
+    "cancel": "Cancel"
+  }
+}

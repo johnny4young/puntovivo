@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -18,6 +19,7 @@ interface CompanyLogoLibraryCardProps {
 }
 
 export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryCardProps) {
+  const { t } = useTranslation('settings');
   const toast = useToast();
   const utils = trpc.useUtils();
   const logosQuery = trpc.logos.list.useQuery({ includeInactive: true });
@@ -30,12 +32,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onSuccess: async () => {
       await utils.logos.list.invalidate();
       handleCloseModal();
-      toast.success({ title: 'Logo created' });
+      toast.success({ title: t('company.logo.toast.created') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create logo',
-        description: getErrorMessage(error, 'Unable to create logo'),
+        title: t('company.logo.toast.createError'),
+        description: getErrorMessage(error, t('company.logo.toast.createError')),
       });
     },
   });
@@ -44,12 +46,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onSuccess: async () => {
       await Promise.all([utils.logos.list.invalidate(), utils.companies.getCurrent.invalidate()]);
       handleCloseModal();
-      toast.success({ title: 'Logo updated' });
+      toast.success({ title: t('company.logo.toast.updated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update logo',
-        description: getErrorMessage(error, 'Unable to update logo'),
+        title: t('company.logo.toast.updateError'),
+        description: getErrorMessage(error, t('company.logo.toast.updateError')),
       });
     },
   });
@@ -58,12 +60,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onSuccess: async () => {
       await utils.logos.list.invalidate();
       setLogoToDelete(null);
-      toast.success({ title: 'Logo deleted' });
+      toast.success({ title: t('company.logo.toast.deleted') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to delete logo',
-        description: getErrorMessage(error, 'Unable to delete logo'),
+        title: t('company.logo.toast.deleteError'),
+        description: getErrorMessage(error, t('company.logo.toast.deleteError')),
       });
     },
   });
@@ -71,12 +73,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
   const selectLogoMutation = trpc.companies.setLogo.useMutation({
     onSuccess: async companyRecord => {
       await utils.companies.getCurrent.setData(undefined, companyRecord);
-      toast.success({ title: 'Company logo updated' });
+      toast.success({ title: t('company.logo.toast.logoUpdated') });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to update company logo',
-        description: getErrorMessage(error, 'Unable to update company logo'),
+        title: t('company.logo.toast.logoUpdateError'),
+        description: getErrorMessage(error, t('company.logo.toast.logoUpdateError')),
       });
     },
   });
@@ -126,19 +128,19 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       <div className="card p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-secondary-900">Logo Library</h2>
+            <h2 className="text-lg font-semibold text-secondary-900">{t('company.logo.title')}</h2>
             <p className="mt-1 text-sm text-secondary-500">
-              Manage reusable tenant logos and choose which one represents the company.
+              {t('company.logo.description')}
             </p>
           </div>
           <button className="btn-secondary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canEdit}>
             <Plus className="h-4 w-4" />
-            Add Logo
+            {t('company.logo.addLogo')}
           </button>
         </div>
 
         <div className="mt-6 rounded-2xl border border-secondary-200 bg-secondary-50 p-4">
-          <p className="text-sm font-medium text-secondary-800">Current company logo</p>
+          <p className="text-sm font-medium text-secondary-800">{t('company.logo.currentLogo')}</p>
           {company?.logoUrl ? (
             <div className="mt-3 flex items-center gap-4">
               <img
@@ -147,28 +149,28 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                 className="h-16 w-16 rounded-xl border border-secondary-200 bg-white object-contain p-2"
               />
               <div>
-                <p className="font-medium text-secondary-900">{company.logoName ?? 'Selected logo'}</p>
+                <p className="font-medium text-secondary-900">{company.logoName ?? t('company.logo.selectedLogo')}</p>
                 <p className="text-sm text-secondary-500">{company.logoUrl}</p>
               </div>
             </div>
           ) : (
             <div className="mt-3 flex items-center gap-3 text-sm text-secondary-500">
               <ImageOff className="h-4 w-4" />
-              No logo selected for the company.
+              {t('company.logo.noLogoSelected')}
             </div>
           )}
         </div>
 
         {logosQuery.isLoading && (
           <div className="mt-6">
-            <PageLoadingState title="Logo library" description="Loading saved tenant logos." />
+            <PageLoadingState title={t('company.logo.loadingTitle')} description={t('company.logo.loadingDescription')} />
           </div>
         )}
 
         {logosQuery.error && (
           <div className="mt-6">
             <QueryErrorState
-              title="Unable to load logos"
+              title={t('company.logo.loadError')}
               message={logosQuery.error.message}
               onRetry={() => {
                 void logosQuery.refetch();
@@ -181,7 +183,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {logos.length === 0 && (
               <div className="rounded-2xl border border-dashed border-secondary-300 bg-white px-4 py-8 text-center text-sm text-secondary-500 md:col-span-2 xl:col-span-3">
-                No saved logos yet. Add one to start building a reusable brand library.
+                {t('company.logo.emptyLibrary')}
               </div>
             )}
 
@@ -198,14 +200,14 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-secondary-900">{logo.name}</p>
-                      <p className="text-xs text-secondary-500">{logo.assignedCompanyCount ?? 0} company assignments</p>
+                      <p className="text-xs text-secondary-500">{t('company.logo.companyAssignments', { count: logo.assignedCompanyCount ?? 0 })}</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         className="btn-ghost btn-icon h-8 w-8"
                         onClick={() => handleOpenEdit(logo)}
                         disabled={!canEdit}
-                        title="Edit logo"
+                        title={t('company.logo.editTitle')}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -213,7 +215,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                         className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
                         onClick={() => setLogoToDelete(logo)}
                         disabled={!canEdit}
-                        title="Delete logo"
+                        title={t('company.logo.deleteTitle')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -228,7 +230,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
 
                   <div className="mt-4 flex items-center justify-between gap-2">
                     <span className={`badge ${logo.isActive ? 'badge-success' : 'badge-secondary'}`}>
-                      {logo.isActive ? 'Active' : 'Inactive'}
+                      {logo.isActive ? t('company.logo.active') : t('company.logo.inactive')}
                     </span>
                     <div className="flex gap-2">
                       {isSelected ? (
@@ -237,7 +239,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                           onClick={() => void selectLogoMutation.mutateAsync({ logoId: null })}
                           disabled={!canEdit || selectLogoMutation.isPending}
                         >
-                          Clear
+                          {t('company.logo.clear')}
                         </button>
                       ) : (
                         <button
@@ -246,7 +248,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                           disabled={!canEdit || isMutatingSelection}
                         >
                           <Check className="h-4 w-4" />
-                          {isMutatingSelection ? 'Selecting...' : 'Use'}
+                          {isMutatingSelection ? t('company.logo.selecting') : t('company.logo.use')}
                         </button>
                       )}
                     </div>
@@ -270,10 +272,10 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
 
       <ConfirmModal
         isOpen={!!logoToDelete}
-        title="Delete Logo"
-        message={`Delete ${logoToDelete?.name ?? 'this logo'}? Logos assigned to the company must be unassigned first.`}
-        confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete Logo'}
-        cancelText="Cancel"
+        title={t('company.logo.deleteConfirmTitle')}
+        message={t('company.logo.deleteConfirmMessage', { name: logoToDelete?.name ?? '' })}
+        confirmText={deleteMutation.isPending ? t('company.logo.deleting') : t('company.logo.deleteConfirm')}
+        cancelText={t('company.logo.cancel')}
         loading={deleteMutation.isPending}
         variant="danger"
         onConfirm={() => {

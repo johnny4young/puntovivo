@@ -1,0 +1,106 @@
+{
+  "page": {
+    "title": "Productos",
+    "kicker": "Catálogo de productos",
+    "description": "Gestiona artículos del catálogo, tarifas de precios y umbrales de stock.",
+    "permissionNote": "Solo administradores y gestores pueden modificar productos. Puedes revisar el catálogo.",
+    "add": "Agregar producto"
+  },
+  "table": {
+    "loading": "Cargando productos...",
+    "error": "No se pudieron cargar los productos",
+    "search": "Buscar productos...",
+    "product": "Producto",
+    "category": "Categoría",
+    "provider": "Proveedor",
+    "location": "Ubicación",
+    "tier1": "Tarifa 1",
+    "tier2": "Tarifa 2",
+    "tier3": "Tarifa 3",
+    "stock": "Stock",
+    "low": "Bajo",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo"
+  },
+  "form": {
+    "createTitle": "Crear producto",
+    "editTitle": "Editar producto",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear producto",
+    "save": "Guardar cambios",
+    "tabs": {
+      "general": "General",
+      "pricing": "Precios",
+      "units": "Unidades",
+      "providers": "Proveedores"
+    },
+    "fields": {
+      "name": "Nombre",
+      "nameRequired": "El nombre del producto es obligatorio",
+      "sku": "SKU",
+      "skuRequired": "El SKU es obligatorio",
+      "description": "Descripción",
+      "category": "Categoría",
+      "noCategory": "Sin categoría",
+      "provider": "Proveedor",
+      "noProvider": "Sin proveedor",
+      "vatRate": "Tarifa IVA",
+      "manualTaxRate": "Tasa de impuesto manual",
+      "taxRate": "Tasa de impuesto (%)",
+      "location": "Ubicación",
+      "noLocation": "Sin ubicación",
+      "barcode": "Código de barras",
+      "stock": "Stock",
+      "minStock": "Stock mínimo",
+      "imageUrl": "URL de imagen",
+      "isActive": "Producto activo",
+      "cost": "Costo",
+      "initialCost": "Costo inicial",
+      "priceTier1": "Tarifa de precio 1",
+      "priceTier2": "Tarifa de precio 2",
+      "priceTier3": "Tarifa de precio 3",
+      "marginPercent": "Margen %",
+      "marginAmount": "Valor de margen",
+      "salePrice": "Precio de venta"
+    },
+    "units": {
+      "title": "Asignaciones de unidad",
+      "description": "Define la unidad base y cualquier unidad de venta adicional basada en equivalencia.",
+      "addUnit": "Agregar unidad",
+      "unit": "Unidad",
+      "selectUnit": "Seleccionar unidad",
+      "unitRequired": "La unidad es obligatoria",
+      "equivalence": "Equivalencia",
+      "unitPrice": "Precio unitario",
+      "baseUnit": "Unidad base",
+      "remove": "Eliminar"
+    },
+    "providerAssignments": {
+      "title": "Asociaciones de proveedor",
+      "description": "Vincula este producto a uno o más proveedores.",
+      "addProvider": "Agregar proveedor",
+      "empty": "Sin proveedores vinculados. Haz clic en \"Agregar proveedor\" para asociar un proveedor.",
+      "provider": "Proveedor",
+      "selectProvider": "Seleccionar proveedor",
+      "providerRequired": "El proveedor es obligatorio",
+      "providerDuplicate": "Proveedor ya seleccionado",
+      "remove": "Eliminar"
+    }
+  },
+  "deactivate": {
+    "title": "Desactivar producto",
+    "description": "Se marcará como inactivo. Puedes reactivarlo editando el registro más adelante.",
+    "submitting": "Desactivando...",
+    "confirm": "Desactivar"
+  },
+  "toast": {
+    "created": "Producto creado",
+    "createError": "No se pudo crear el producto",
+    "updated": "Producto actualizado",
+    "updateError": "No se pudo actualizar el producto",
+    "deactivated": "Producto desactivado",
+    "deactivateError": "No se pudo desactivar el producto"
+  }
+}

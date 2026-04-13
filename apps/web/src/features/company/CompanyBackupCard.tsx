@@ -1,5 +1,6 @@
 import { AlertTriangle, DatabaseBackup, HardDriveDownload } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { getErrorMessage } from '@/lib/utils';
@@ -24,6 +25,7 @@ function getStatusClasses(tone: BackupStatus['tone']): string {
 }
 
 export function CompanyBackupCard() {
+  const { t } = useTranslation('settings');
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [status, setStatus] = useState<BackupStatus | null>(null);
@@ -33,10 +35,10 @@ export function CompanyBackupCard() {
 
   const handleCreateBackup = async () => {
     if (!electron) {
-      toast.info({ title: 'Backup is available only in the desktop app' });
+      toast.info({ title: t('company.backup.toast.desktopOnly') });
       setStatus({
         tone: 'info',
-        message: 'Database backups are available only in the desktop app.',
+        message: t('company.backup.toast.desktopOnlyDetail'),
       });
       return;
     }
@@ -47,33 +49,33 @@ export function CompanyBackupCard() {
       const result = await electron.createDatabaseBackup();
 
       if (result.cancelled) {
-        toast.info({ title: 'Backup creation cancelled' });
+        toast.info({ title: t('company.backup.toast.cancelledTitle') });
         setStatus({
           tone: 'info',
-          message: 'Backup creation was cancelled.',
+          message: t('company.backup.toast.cancelledDetail'),
         });
         return;
       }
 
       if (!result.success) {
-        throw new Error(result.error || 'Database backup failed');
+        throw new Error(result.error || t('company.backup.toast.failed'));
       }
 
-      toast.success({ title: 'Database backup created' });
+      toast.success({ title: t('company.backup.toast.created') });
       setStatus({
         tone: 'success',
         message: result.path
-          ? `Backup saved to ${result.path}.`
-          : 'Backup created successfully.',
+          ? t('company.backup.toast.savedPath', { path: result.path })
+          : t('company.backup.toast.savedOk'),
       });
     } catch (error) {
       toast.error({
-        title: 'Database backup failed',
-        description: getErrorMessage(error, 'Database backup failed'),
+        title: t('company.backup.toast.failed'),
+        description: getErrorMessage(error, t('company.backup.toast.failed')),
       });
       setStatus({
         tone: 'error',
-        message: getErrorMessage(error, 'Database backup failed'),
+        message: getErrorMessage(error, t('company.backup.toast.failed')),
       });
     } finally {
       setActiveAction(null);
@@ -82,10 +84,10 @@ export function CompanyBackupCard() {
 
   const handleRequestRestoreBackup = () => {
     if (!electron) {
-      toast.info({ title: 'Restore is available only in the desktop app' });
+      toast.info({ title: t('company.backup.toast.restoreDesktopOnly') });
       setStatus({
         tone: 'info',
-        message: 'Database restore is available only in the desktop app.',
+        message: t('company.backup.toast.restoreDesktopOnlyDetail'),
       });
       return;
     }
@@ -104,33 +106,33 @@ export function CompanyBackupCard() {
       const result = await electron.restoreDatabaseBackup();
 
       if (result.cancelled) {
-        toast.info({ title: 'Database restore cancelled' });
+        toast.info({ title: t('company.backup.toast.restoreCancelledTitle') });
         setStatus({
           tone: 'info',
-          message: 'Restore was cancelled.',
+          message: t('company.backup.toast.restoreCancelledDetail'),
         });
         setIsRestoreConfirmOpen(false);
         return;
       }
 
       if (!result.success) {
-        throw new Error(result.error || 'Database restore failed');
+        throw new Error(result.error || t('company.backup.toast.restoreFailed'));
       }
 
-      toast.success({ title: 'Database backup restored' });
+      toast.success({ title: t('company.backup.toast.restored') });
       setStatus({
         tone: 'success',
-        message: 'Backup restored successfully. Reloading the application data...',
+        message: t('company.backup.toast.restoredOk'),
       });
       setIsRestoreConfirmOpen(false);
     } catch (error) {
       toast.error({
-        title: 'Database restore failed',
-        description: getErrorMessage(error, 'Database restore failed'),
+        title: t('company.backup.toast.restoreFailed'),
+        description: getErrorMessage(error, t('company.backup.toast.restoreFailed')),
       });
       setStatus({
         tone: 'error',
-        message: getErrorMessage(error, 'Database restore failed'),
+        message: getErrorMessage(error, t('company.backup.toast.restoreFailed')),
       });
     } finally {
       setActiveAction(null);
@@ -144,10 +146,9 @@ export function CompanyBackupCard() {
           <DatabaseBackup className="h-5 w-5 text-warning-700" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">Local Database Backup</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">{t('company.backup.title')}</h2>
           <p className="text-sm text-secondary-500">
-            Create a point-in-time backup of the local SQLite database or restore a previous backup
-            on this device.
+            {t('company.backup.description')}
           </p>
         </div>
       </div>
@@ -155,17 +156,13 @@ export function CompanyBackupCard() {
       <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-900">
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            Restore replaces the current local database. Use it only when you intentionally need to
-            roll the workstation back to a prior state.
-          </p>
+          <p>{t('company.backup.restoreWarning')}</p>
         </div>
       </div>
 
       {!isDesktop && (
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          Backup and restore controls are available in the Electron desktop app. The browser build
-          stays read-only for local database maintenance.
+          {t('company.backup.desktopOnly')}
         </div>
       )}
 
@@ -183,7 +180,7 @@ export function CompanyBackupCard() {
           className="btn-primary flex items-center justify-center gap-2"
         >
           <DatabaseBackup className="h-4 w-4" />
-          {activeAction === 'backup' ? 'Creating Backup...' : 'Create Backup'}
+          {activeAction === 'backup' ? t('company.backup.creating') : t('company.backup.createBackup')}
         </button>
 
         <button
@@ -193,7 +190,7 @@ export function CompanyBackupCard() {
           className="btn-outline flex items-center justify-center gap-2"
         >
           <HardDriveDownload className="h-4 w-4" />
-          {activeAction === 'restore' ? 'Restoring Backup...' : 'Restore Backup'}
+          {activeAction === 'restore' ? t('company.backup.restoring') : t('company.backup.restoreBackup')}
         </button>
       </div>
 
@@ -203,9 +200,9 @@ export function CompanyBackupCard() {
         onConfirm={() => {
           void handleRestoreBackup();
         }}
-        title="Restore Database Backup"
-        message="Restoring a backup will replace the current local database and reload the app. Continue?"
-        confirmText="Restore Backup"
+        title={t('company.backup.restoreModal.title')}
+        message={t('company.backup.restoreModal.message')}
+        confirmText={t('company.backup.restoreModal.confirm')}
         loading={activeAction === 'restore'}
         variant="danger"
       />

@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import {
   buildCityColumns,
@@ -13,6 +14,7 @@ interface GeographyTabsProps {
 }
 
 export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
+  const { t } = useTranslation('settings');
   return (
     <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-secondary-200 bg-white p-2">
       <button
@@ -23,7 +25,7 @@ export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
         }`}
         onClick={() => onChange('countries')}
       >
-        Countries
+        {t('geography.tabs.countries')}
       </button>
       <button
         className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -33,7 +35,7 @@ export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
         }`}
         onClick={() => onChange('departments')}
       >
-        Departments
+        {t('geography.tabs.departments')}
       </button>
       <button
         className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -43,7 +45,7 @@ export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
         }`}
         onClick={() => onChange('cities')}
       >
-        Cities
+        {t('geography.tabs.cities')}
       </button>
     </div>
   );
@@ -70,23 +72,24 @@ export function CountryCatalogSection({
   onDelete,
   onRetry,
 }: CountryCatalogSectionProps) {
+  const { t } = useTranslation('settings');
   return (
     <ResourcePage
-      title="Geography"
-      description="Manage the normalized country catalog used by department, city, and supplier records."
+      title={t('geography.title')}
+      description={t('geography.countries.description')}
       action={
         <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
           <Plus className="h-5 w-5" />
-          Add Country
+          {t('geography.countries.add')}
         </button>
       }
-      columns={buildCountryColumns(onEdit, onDelete, canManage, canManage)}
+      columns={buildCountryColumns(onEdit, onDelete, canManage, canManage, t)}
       data={countries}
       isLoading={isLoading}
       error={error}
       searchKey="name"
-      searchPlaceholder="Search countries..."
-      loadingMessage="Loading countries..."
+      searchPlaceholder={t('geography.countries.search')}
+      loadingMessage={t('geography.countries.loading')}
       onRetry={onRetry}
     />
   );
@@ -113,23 +116,24 @@ export function DepartmentCatalogSection({
   onDelete,
   onRetry,
 }: DepartmentCatalogSectionProps) {
+  const { t } = useTranslation('settings');
   return (
     <ResourcePage
-      title="Geography"
-      description="Manage the normalized department catalog used by city and supplier records."
+      title={t('geography.title')}
+      description={t('geography.departments.description')}
       action={
         <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
           <Plus className="h-5 w-5" />
-          Add Department
+          {t('geography.departments.add')}
         </button>
       }
-      columns={buildDepartmentColumns(onEdit, onDelete, canManage, canManage)}
+      columns={buildDepartmentColumns(onEdit, onDelete, canManage, canManage, t)}
       data={departments}
       isLoading={isLoading}
       error={error}
       searchKey="name"
-      searchPlaceholder="Search departments..."
-      loadingMessage="Loading departments..."
+      searchPlaceholder={t('geography.departments.search')}
+      loadingMessage={t('geography.departments.loading')}
       onRetry={onRetry}
     />
   );
@@ -156,23 +160,24 @@ export function CityCatalogSection({
   onDelete,
   onRetry,
 }: CityCatalogSectionProps) {
+  const { t } = useTranslation('settings');
   return (
     <ResourcePage
-      title="Geography"
-      description="Manage the normalized city catalog used by supplier records."
+      title={t('geography.title')}
+      description={t('geography.cities.description')}
       action={
         <button className="btn-primary flex items-center gap-2" onClick={onCreate} disabled={!canManage}>
           <Plus className="h-5 w-5" />
-          Add City
+          {t('geography.cities.add')}
         </button>
       }
-      columns={buildCityColumns(onEdit, onDelete, canManage, canManage)}
+      columns={buildCityColumns(onEdit, onDelete, canManage, canManage, t)}
       data={cities}
       isLoading={isLoading}
       error={error}
       searchKey="name"
-      searchPlaceholder="Search cities..."
-      loadingMessage="Loading cities..."
+      searchPlaceholder={t('geography.cities.search')}
+      loadingMessage={t('geography.cities.loading')}
       onRetry={onRetry}
     />
   );

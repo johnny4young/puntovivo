@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ClipboardPlus, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -28,6 +29,7 @@ interface OrderDialogState {
 }
 
 export function OrdersPage() {
+  const { t } = useTranslation('orders');
   const utils = trpc.useUtils();
   const toast = useToast();
   const { user } = useAuth();
@@ -50,14 +52,14 @@ export function OrdersPage() {
       setOrderError(null);
       setIsFinalizeModalOpen(false);
       toast.success({
-        title: 'Purchase order created',
-        description: `${data.orderNumber} is ready for supplier follow-up.`,
+        title: t('toast.success'),
+        description: `${data.orderNumber} ${t('toast.successDetail')}`,
       });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to create purchase order',
-        description: getErrorMessage(error, 'Unable to create purchase order'),
+        title: t('toast.error'),
+        description: getErrorMessage(error, t('toast.error')),
       });
     },
   });
@@ -142,23 +144,23 @@ export function OrdersPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-secondary-900">Purchase Orders</h1>
+            <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
             <p className="mt-1 text-sm text-secondary-500">
-              Prepare supplier orders, track staged deliveries, and receive arrived stock in batches when needed
+              {t('page.description')}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
-              <p className="text-secondary-500">Active site</p>
-              <p className="font-medium text-secondary-900">{currentSite?.name ?? 'No site selected'}</p>
+              <p className="text-secondary-500">{t('page.activeSite')}</p>
+              <p className="font-medium text-secondary-900">{currentSite?.name ?? t('page.noSite')}</p>
             </div>
             <button
               className="btn-outline flex items-center gap-2"
               onClick={() => setIsProductSearchOpen(true)}
             >
               <Search className="h-4 w-4" />
-              Add Product
+              {t('checkout.addProduct')}
             </button>
             <button
               className="btn-primary flex items-center gap-2"
@@ -166,28 +168,28 @@ export function OrdersPage() {
               disabled={!currentSite || cartItems.length === 0}
             >
               <ClipboardPlus className="h-4 w-4" />
-              Create Order
+              {t('checkout.createOrder')}
             </button>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Open Orders</p>
+            <p className="text-sm text-secondary-500">{t('page.openOrders')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">{openOrders.length}</p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Committed Spend</p>
+            <p className="text-sm text-secondary-500">{t('page.committedSpend')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">
               {formatCurrency(orderTotals.committedTotal)}
             </p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Providers Used</p>
+            <p className="text-sm text-secondary-500">{t('page.providersUsed')}</p>
             <p className="mt-1 text-2xl font-bold text-secondary-900">{orderTotals.providerCount}</p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-secondary-500">Draft Total</p>
+            <p className="text-sm text-secondary-500">{t('page.draftTotal')}</p>
             <p className="mt-1 text-2xl font-bold text-primary-700">
               {formatCurrency(draftSummary.total)}
             </p>
@@ -196,7 +198,7 @@ export function OrdersPage() {
 
         {!currentSite && (
           <div className="rounded-xl border border-warning-300 bg-warning-50 px-4 py-4 text-sm text-warning-700">
-            Select an active site before creating a purchase order so the correct sequential is used.
+            {t('page.noSiteWarning')}
           </div>
         )}
 
@@ -204,9 +206,9 @@ export function OrdersPage() {
           <div className="card p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-secondary-900">Current Request</h2>
+                <h2 className="text-lg font-semibold text-secondary-900">{t('checkout.kicker')}</h2>
                 <p className="text-sm text-secondary-500">
-                  Adjust ordered quantities and supplier costs before sending the order
+                  {t('checkout.description')}
                 </p>
               </div>
               <button
@@ -214,7 +216,7 @@ export function OrdersPage() {
                 onClick={() => setCartItems([])}
                 disabled={cartItems.length === 0}
               >
-                Clear
+                {t('checkout.clear')}
               </button>
             </div>
 
@@ -255,8 +257,8 @@ export function OrdersPage() {
         onSelect={handleProductSelect}
         categories={categories}
         providers={providers}
-        title="Add Product to Purchase Order"
-        confirmLabel="Add to order"
+        title={t('dialog.addProduct')}
+        confirmLabel={t('dialog.addButton')}
       />
 
       <OrderFinalizeModal

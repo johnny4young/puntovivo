@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import { getLineTotals, type SaleCartItem } from '@/features/sales/saleCart';
 
@@ -23,10 +24,11 @@ export function SaleCartTable({
   quantityInputRefFor,
   discountInputRefFor,
 }: SaleCartTableProps) {
+  const { t } = useTranslation('sales');
   if (items.length === 0) {
     return (
       <div className="rounded-[24px] border border-dashed border-line-strong bg-surface-2/65 px-4 py-12 text-center text-sm text-secondary-500">
-        Search and add products to start a sale.
+        {t('cart.empty')}
       </div>
     );
   }
@@ -38,12 +40,12 @@ export function SaleCartTable({
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-surface-2/78">
               <tr className="text-left text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-secondary-500">
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Qty</th>
-                <th className="px-4 py-3">Discount %</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Tax</th>
-                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">{t('cart.product')}</th>
+                <th className="px-4 py-3">{t('cart.qty')}</th>
+                <th className="px-4 py-3">{t('cart.discount')}</th>
+                <th className="px-4 py-3">{t('cart.price')}</th>
+                <th className="px-4 py-3">{t('cart.tax')}</th>
+                <th className="px-4 py-3">{t('cart.total')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -70,7 +72,7 @@ export function SaleCartTable({
                           {' · '}
                           {item.unitName}
                           {' · '}
-                          Stock {item.availableStock}
+                          {t('cart.stock')} {item.availableStock}
                         </p>
                       </div>
                     </td>
@@ -81,14 +83,14 @@ export function SaleCartTable({
                         min={1}
                         step={1}
                         className="input w-24"
-                        aria-label={`Quantity for ${item.productName}`}
+                        aria-label={t('cart.qtyFor', { name: item.productName })}
                         value={item.quantity}
                         onFocus={() => onSelectItem(item.key)}
                         onChange={event =>
                           onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
                         }
                       />
-                      <p className="mt-1 text-xs text-secondary-500">Base qty {lineTotals.normalizedQuantity}</p>
+                      <p className="mt-1 text-xs text-secondary-500">{t('cart.baseQty')} {lineTotals.normalizedQuantity}</p>
                     </td>
                     <td className="px-4 py-4">
                       <input
@@ -98,7 +100,7 @@ export function SaleCartTable({
                         max={100}
                         step={1}
                         className="input w-24"
-                        aria-label={`Discount for ${item.productName}`}
+                        aria-label={t('cart.discountFor', { name: item.productName })}
                         value={item.discount}
                         onFocus={() => onSelectItem(item.key)}
                         onChange={event =>
@@ -121,7 +123,7 @@ export function SaleCartTable({
                     <td className="px-4 py-4 text-right">
                       <button
                         className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-                        aria-label={`Remove ${item.productName}`}
+                        aria-label={t('cart.removeItem', { name: item.productName })}
                         onClick={event => {
                           event.stopPropagation();
                           onRemove(item.key);
@@ -138,7 +140,7 @@ export function SaleCartTable({
         </div>
       </div>
 
-      <ul className="grid gap-3 lg:hidden" aria-label="Cart items">
+      <ul className="grid gap-3 lg:hidden" aria-label={t('cart.items')}>
         {items.map(item => {
           const lineTotals = getLineTotals(item);
           const isSelected = selectedItemKey === item.key;
@@ -151,7 +153,7 @@ export function SaleCartTable({
               <button
                 type="button"
                 className="w-full text-left"
-                aria-label={`Select ${item.productName}`}
+                aria-label={t('cart.selectItem', { name: item.productName })}
                 onClick={() => onSelectItem(item.key)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -163,20 +165,20 @@ export function SaleCartTable({
                       {item.unitName}
                     </p>
                   </div>
-                  <span className="badge badge-secondary">Stock {item.availableStock}</span>
+                  <span className="badge badge-secondary">{t('cart.stock')} {item.availableStock}</span>
                 </div>
               </button>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                  Quantity
+                  {t('cart.qty')}
                   <input
                     ref={quantityInputRefFor(item.key)}
                     type="number"
                     min={1}
                     step={1}
                     className="input mt-0"
-                    aria-label={`Quantity for ${item.productName}`}
+                    aria-label={t('cart.qtyFor', { name: item.productName })}
                     value={item.quantity}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event =>
@@ -185,7 +187,7 @@ export function SaleCartTable({
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                  Discount %
+                  {t('cart.discount')}
                   <input
                     ref={discountInputRefFor(item.key)}
                     type="number"
@@ -193,7 +195,7 @@ export function SaleCartTable({
                     max={100}
                     step={1}
                     className="input mt-0"
-                    aria-label={`Discount for ${item.productName}`}
+                    aria-label={t('cart.discountFor', { name: item.productName })}
                     value={item.discount}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event =>
@@ -208,19 +210,19 @@ export function SaleCartTable({
 
               <div className="mt-4 grid grid-cols-2 gap-3 rounded-[20px] bg-surface-2/80 px-3 py-3 text-sm">
                 <div>
-                  <p className="text-secondary-500">Price</p>
+                  <p className="text-secondary-500">{t('cart.price')}</p>
                   <p className="font-medium text-secondary-950">{formatCurrency(item.unitPrice)}</p>
                 </div>
                 <div>
-                  <p className="text-secondary-500">Tax</p>
+                  <p className="text-secondary-500">{t('cart.tax')}</p>
                   <p className="font-medium text-secondary-950">{formatCurrency(lineTotals.taxAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-secondary-500">Base qty</p>
+                  <p className="text-secondary-500">{t('cart.baseQty')}</p>
                   <p className="font-medium text-secondary-950">{lineTotals.normalizedQuantity}</p>
                 </div>
                 <div>
-                  <p className="text-secondary-500">Line total</p>
+                  <p className="text-secondary-500">{t('cart.lineTotal')}</p>
                   <p className="font-semibold text-secondary-950">{formatCurrency(lineTotals.total)}</p>
                 </div>
               </div>
@@ -229,11 +231,11 @@ export function SaleCartTable({
                 <button
                   type="button"
                   className="btn-ghost flex items-center gap-2 text-danger-500 hover:text-danger-700"
-                  aria-label={`Remove ${item.productName}`}
+                  aria-label={t('cart.removeItem', { name: item.productName })}
                   onClick={() => onRemove(item.key)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Remove
+                  {t('cart.remove')}
                 </button>
               </div>
             </li>

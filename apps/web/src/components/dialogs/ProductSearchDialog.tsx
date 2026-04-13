@@ -1,4 +1,5 @@
 import { useDeferredValue, useId, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
@@ -54,9 +55,10 @@ export function ProductSearchDialog({
   categories = [],
   providers = [],
   initialQuery = '',
-  title = 'Search Products',
-  confirmLabel = 'Select Product',
+  title,
+  confirmLabel,
 }: ProductSearchDialogProps) {
+  const { t } = useTranslation('common');
   const categoryFilterId = useId();
   const providerFilterId = useId();
   const searchInputId = useId();
@@ -124,13 +126,13 @@ export function ProductSearchDialog({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={title}
+      title={title ?? t('productSearch.search')}
       size="full"
       footer={
         <>
-          <ModalButton onClick={handleClose}>Cancel</ModalButton>
+          <ModalButton onClick={handleClose}>{t('productSearch.cancel')}</ModalButton>
           <ModalButton variant="primary" onClick={handleConfirm} disabled={!isSelectionValid}>
-            {confirmLabel}
+            {confirmLabel ?? t('productSearch.search')}
           </ModalButton>
         </>
       }
@@ -139,14 +141,14 @@ export function ProductSearchDialog({
         <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <label className="block">
             <span className="label" id={searchInputId}>
-              Search
+              {t('productSearch.search')}
             </span>
             <div className="relative mt-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
               <input
                 aria-labelledby={searchInputId}
                 className="input pl-10"
-                placeholder="Search by SKU, name, or barcode"
+                placeholder={t('productSearch.searchPlaceholder')}
                 value={query}
                 onChange={event => setQuery(event.target.value)}
               />
@@ -154,14 +156,14 @@ export function ProductSearchDialog({
           </label>
 
           <label className="block" htmlFor={categoryFilterId}>
-            <span className="label">Category</span>
+            <span className="label">{t('productSearch.category')}</span>
             <select
               id={categoryFilterId}
               className="input mt-1"
               value={categoryId}
               onChange={event => setCategoryId(event.target.value)}
             >
-              <option value="">All categories</option>
+              <option value="">{t('productSearch.allCategories')}</option>
               {categories.map(category => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -171,14 +173,14 @@ export function ProductSearchDialog({
           </label>
 
           <label className="block" htmlFor={providerFilterId}>
-            <span className="label">Provider</span>
+            <span className="label">{t('productSearch.provider')}</span>
             <select
               id={providerFilterId}
               className="input mt-1"
               value={providerId}
               onChange={event => setProviderId(event.target.value)}
             >
-              <option value="">All providers</option>
+              <option value="">{t('productSearch.allProviders')}</option>
               {providers.map(provider => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name}
@@ -190,7 +192,7 @@ export function ProductSearchDialog({
 
         {!searchEnabled && (
           <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-8 text-center text-sm text-secondary-500">
-            Enter a search term to find products.
+            {t('productSearch.enterTerm')}
           </div>
         )}
 
@@ -201,18 +203,18 @@ export function ProductSearchDialog({
                 <table className="min-w-full divide-y divide-secondary-200">
                   <thead className="bg-secondary-50">
                     <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                      <th className="px-4 py-3">SKU</th>
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-4 py-3">Stock</th>
-                      <th className="px-4 py-3">Price</th>
-                      <th className="px-4 py-3">Unit</th>
+                      <th className="px-4 py-3">{t('productSearch.sku')}</th>
+                      <th className="px-4 py-3">{t('productSearch.name')}</th>
+                      <th className="px-4 py-3">{t('productSearch.stock')}</th>
+                      <th className="px-4 py-3">{t('productSearch.price')}</th>
+                      <th className="px-4 py-3">{t('productSearch.unit')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-secondary-200 bg-white">
                     {productsQuery.isLoading && (
                       <tr>
                         <td className="px-4 py-6 text-sm text-secondary-500" colSpan={5}>
-                          Searching products...
+                          {t('productSearch.searching')}
                         </td>
                       </tr>
                     )}
@@ -228,7 +230,7 @@ export function ProductSearchDialog({
                     {isEmptyState && (
                       <tr>
                         <td className="px-4 py-6 text-sm text-secondary-500" colSpan={5}>
-                          No products matched the current filters.
+                          {t('productSearch.noResults')}
                         </td>
                       </tr>
                     )}
@@ -254,9 +256,9 @@ export function ProductSearchDialog({
                               <div>
                                 <p className="text-sm font-medium text-secondary-900">{product.name}</p>
                                 <p className="text-xs text-secondary-500">
-                                  {product.categoryName ?? 'No category'}
+                                  {product.categoryName ?? t('productSearch.noCategory')}
                                   {' · '}
-                                  {product.providerName ?? 'No provider'}
+                                  {product.providerName ?? t('productSearch.noProvider')}
                                 </p>
                               </div>
                             </td>
@@ -277,12 +279,12 @@ export function ProductSearchDialog({
 
             <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
-                Selection
+                {t('productSearch.selection')}
               </h3>
 
               {!selectedProduct || !selectedUnit ? (
                 <p className="mt-4 text-sm text-secondary-500">
-                  Choose a product row to confirm the unit and price.
+                  {t('productSearch.chooseProduct')}
                 </p>
               ) : (
                 <div className="mt-4 space-y-4">
@@ -294,7 +296,7 @@ export function ProductSearchDialog({
                   <div className="grid gap-3">
                     <div>
                       <label className="label" htmlFor={unitSelectId}>
-                        Unit
+                        {t('productSearch.unit')}
                       </label>
                       <select
                         id={unitSelectId}
@@ -321,17 +323,17 @@ export function ProductSearchDialog({
 
                     <div className="rounded-lg border border-secondary-200 bg-white px-3 py-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-secondary-500">Price</span>
+                        <span className="text-secondary-500">{t('productSearch.price')}</span>
                         <span className="font-medium text-secondary-900">
                           {formatCurrency(selectedUnit.price)}
                         </span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="text-secondary-500">Equivalence</span>
+                        <span className="text-secondary-500">{t('productSearch.equivalence')}</span>
                         <span className="font-medium text-secondary-900">{selectedUnit.equivalence}</span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="text-secondary-500">Available stock</span>
+                        <span className="text-secondary-500">{t('productSearch.availableStock')}</span>
                         <span className="font-medium text-secondary-900">{selectedProduct.stock}</span>
                       </div>
                     </div>

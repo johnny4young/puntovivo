@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 
@@ -28,21 +29,21 @@ export function SalesCartWorkspace({
   quantityInputRefFor,
   discountInputRefFor,
 }: SalesCartWorkspaceProps) {
+  const { t } = useTranslation('sales');
   return (
     <div className="card p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Active ticket</p>
-          <h2 className="mt-2 font-display text-3xl text-secondary-950">Current cart</h2>
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('checkout.activeTicket')}</p>
+          <h2 className="mt-2 font-display text-3xl text-secondary-950">{t('checkout.currentCart')}</h2>
           <p className="mt-2 max-w-2xl text-sm text-secondary-600">
-            Adjust quantities, discounts, and tax-inclusive totals before sending the sale to
-            payment.
+            {t('checkout.adjustHint')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="badge badge-secondary">{itemCount} line items</span>
+          <span className="badge badge-secondary">{t('checkout.lineItems', { count: itemCount })}</span>
           <button className="btn-ghost" onClick={onClearCart} disabled={items.length === 0}>
-            Clear cart
+            {t('checkout.clearCart')}
           </button>
         </div>
       </div>

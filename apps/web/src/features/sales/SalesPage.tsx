@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
@@ -42,6 +43,7 @@ function getRequestedPaymentStatus(values: SalePaymentValues, total: number): Pa
 }
 
 export function SalesPage() {
+  const { t } = useTranslation('sales');
   const utils = trpc.useUtils();
   const toast = useToast();
   const { currentSite } = useTenant();
@@ -85,14 +87,14 @@ export function SalesPage() {
       setSaleError(null);
       setIsPaymentModalOpen(false);
       toast.success({
-        title: 'Sale completed',
-        description: `${variables.items.length} item${variables.items.length === 1 ? '' : 's'} processed successfully.`,
+        title: t('toast.success'),
+        description: `${variables.items.length} ${t('toast.successDetail')}`,
       });
     },
     onError: error => {
       toast.error({
-        title: 'Unable to complete sale',
-        description: getErrorMessage(error, 'Unable to complete sale'),
+        title: t('toast.error'),
+        description: getErrorMessage(error, t('toast.error')),
       });
     },
   });
@@ -262,7 +264,7 @@ export function SalesPage() {
           categories={categories}
           providers={providers}
           initialQuery={productSearchInitialQuery}
-          title="Add Product to Sale"
+          title={t('checkout.addProduct')}
           confirmLabel="Add to cart"
         />
       )}

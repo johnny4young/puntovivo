@@ -1,5 +1,6 @@
 import { ArrowUpRight, Package } from 'lucide-react';
 import type { ElementType } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ const statToneClasses: Record<DashboardStatMetric['tone'], string> = {
 };
 
 function StatCard({ title, value, label, icon: Icon, tone }: StatCardProps) {
+  const { t } = useTranslation('dashboard');
   return (
     <div className="metric-tile">
       <div className="flex items-center justify-between gap-3">
@@ -66,7 +68,7 @@ function StatCard({ title, value, label, icon: Icon, tone }: StatCardProps) {
           <Icon className="h-5 w-5" />
         </div>
         <span className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-          Live
+          {t('metrics.live')}
         </span>
       </div>
       <div className="mt-6">
@@ -137,21 +139,20 @@ export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
 }
 
 export function RevenueTrendCard({ points, formatCurrency, formatDate }: RevenueTrendCardProps) {
+  const { t } = useTranslation('dashboard');
   const maxRevenue = points.reduce((highest, point) => Math.max(highest, point.revenue), 0);
 
   return (
     <section className="card p-6 sm:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Revenue trend</p>
-          <h2 className="mt-3 font-display text-3xl text-secondary-950">Thirty-day movement</h2>
-          <p className="mt-2 text-sm text-secondary-600">
-            Completed sales over the last 30 days with daily revenue and order volume.
-          </p>
+          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('revenue.kicker')}</p>
+          <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('revenue.title')}</h2>
+          <p className="mt-2 text-sm text-secondary-600">{t('revenue.description')}</p>
         </div>
         <div className="rounded-[22px] border border-line/70 bg-surface-2/70 px-4 py-3 text-right">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-            Latest day
+            {t('revenue.latestDay')}
           </p>
           <p className="mt-2 text-2xl font-semibold text-secondary-950">
             {formatCurrency(points[points.length - 1]?.revenue ?? 0)}
@@ -170,7 +171,9 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
                   <p className="text-[11px] font-semibold text-secondary-800">
                     {formatCurrency(point.revenue)}
                   </p>
-                  <p className="text-[10px] text-secondary-500">{point.orders} orders</p>
+                  <p className="text-[10px] text-secondary-500">
+                    {t('ordersCount', { count: point.orders })}
+                  </p>
                 </div>
                 <div
                   className="w-full rounded-t-[14px] bg-gradient-to-t from-primary-700 via-primary-500 to-primary-300 transition-transform duration-200 group-hover:scale-y-[1.03]"
@@ -190,16 +193,22 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
 }
 
 export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: RecentSalesCardProps) {
+  const { t } = useTranslation('dashboard');
+  const translateCustomerName = (customerName: string) =>
+    customerName === 'Walk-in customer' ? t('recentSales.walkIn') : customerName;
+  const translateCustomerEmail = (customerEmail: string) =>
+    customerEmail === 'No email' ? t('recentSales.noEmail') : customerEmail;
+
   return (
     <section className="card p-6 sm:p-7">
       <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Recent sales</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">Latest completed receipts</h2>
+        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('recentSales.kicker')}</p>
+        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('recentSales.title')}</h2>
       </div>
 
       <div className="mt-6">
         {sales.length === 0 ? (
-          <div className="card-inset px-4 py-6 text-sm text-secondary-500">No sales recorded yet.</div>
+          <div className="card-inset px-4 py-6 text-sm text-secondary-500">{t('recentSales.empty')}</div>
         ) : (
           <div className="space-y-3">
             {sales.map(sale => (
@@ -210,10 +219,10 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
                 <div className="min-w-0">
                   <p className="font-mono text-sm font-semibold text-primary-700">{sale.saleNumber}</p>
                   <p className="truncate text-sm font-semibold text-secondary-950">
-                    {sale.customerName}
+                    {translateCustomerName(sale.customerName)}
                   </p>
                   <p className="truncate text-xs text-secondary-500">
-                    {sale.customerEmail} · {formatDateTime(sale.createdAt)}
+                    {translateCustomerEmail(sale.customerEmail)} · {formatDateTime(sale.createdAt)}
                   </p>
                 </div>
                 <span className="text-base font-semibold text-secondary-950">
@@ -229,17 +238,18 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
 }
 
 export function TopProductsCard({ products, formatCurrency }: TopProductsCardProps) {
+  const { t } = useTranslation('dashboard');
   return (
     <section className="card p-6 sm:p-7">
       <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Top products</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">Best movers this week</h2>
+        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('topProducts.kicker')}</p>
+        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('topProducts.title')}</h2>
       </div>
 
       <div className="mt-6">
         {products.length === 0 ? (
           <div className="card-inset px-4 py-6 text-sm text-secondary-500">
-            No recent product sales data yet.
+            {t('topProducts.empty')}
           </div>
         ) : (
           <div className="space-y-3">
@@ -254,7 +264,9 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-secondary-950">{product.name}</p>
-                    <p className="text-xs text-secondary-500">{product.sales} units sold</p>
+                    <p className="text-xs text-secondary-500">
+                      {t('unitsSold', { count: product.sales })}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm font-semibold text-secondary-950">
@@ -271,17 +283,18 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
 }
 
 export function LowStockAlertsCard({ items }: LowStockAlertsCardProps) {
+  const { t } = useTranslation('dashboard');
   return (
     <section className="card p-6 sm:p-7">
       <div>
-        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Replenishment</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">Low-stock attention rail</h2>
+        <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('lowStock.kicker')}</p>
+        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('lowStock.title')}</h2>
       </div>
 
       <div className="mt-6">
         {items.length === 0 ? (
           <div className="card-inset px-4 py-6 text-sm text-secondary-500">
-            No low-stock products right now.
+            {t('lowStock.empty')}
           </div>
         ) : (
           <div className="space-y-3">
@@ -296,8 +309,12 @@ export function LowStockAlertsCard({ items }: LowStockAlertsCardProps) {
                     <p className="text-xs text-secondary-500">{item.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-danger-600">{item.stock} in stock</p>
-                    <p className="text-xs text-secondary-500">Minimum {item.minStock}</p>
+                    <p className="text-sm font-semibold text-danger-600">
+                      {t('stockCount', { count: item.stock })}
+                    </p>
+                    <p className="text-xs text-secondary-500">
+                      {t('lowStock.minimum', { count: item.minStock })}
+                    </p>
                   </div>
                 </div>
               </article>

@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Country, Department } from '@/types';
 
@@ -48,6 +49,7 @@ export function DepartmentFormModal({
   onClose,
   onSubmit,
 }: DepartmentFormModalProps) {
+  const { t } = useTranslation('settings');
   const form = useForm<DepartmentFormValues>({
     defaultValues: mapDepartmentToForm(department),
   });
@@ -59,14 +61,14 @@ export function DepartmentFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Department' : 'Edit Department'}
+      title={isCreate ? t('geography.form.department.createTitle') : t('geography.form.department.editTitle')}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('geography.form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Department' : 'Save Changes'}
+            {isSaving ? t('geography.form.submitting') : isCreate ? t('geography.form.department.create') : t('geography.form.saveChanges')}
           </ModalButton>
         </>
       }
@@ -74,14 +76,14 @@ export function DepartmentFormModal({
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="department-country" className="label">
-            Country
+            {t('geography.form.department.fields.country')}
           </label>
           <select
             id="department-country"
             className="input mt-1"
-            {...form.register('countryId', { required: 'Country is required' })}
+            {...form.register('countryId', { required: t('geography.form.department.fields.countryRequired') })}
           >
-            <option value="">Select a country</option>
+            <option value="">{t('geography.form.department.fields.selectCountry')}</option>
             {countries.map(country => (
               <option key={country.id} value={country.id} disabled={!country.isActive}>
                 {country.name} ({country.code})
@@ -96,12 +98,12 @@ export function DepartmentFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="department-code" className="label">
-              Code
+              {t('geography.form.department.fields.code')}
             </label>
             <input
               id="department-code"
               className="input mt-1"
-              {...form.register('code', { required: 'Department code is required' })}
+              {...form.register('code', { required: t('geography.form.department.fields.codeRequired') })}
             />
             {form.formState.errors.code && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
@@ -110,12 +112,12 @@ export function DepartmentFormModal({
 
           <div>
             <label htmlFor="department-name" className="label">
-              Name
+              {t('geography.form.department.fields.name')}
             </label>
             <input
               id="department-name"
               className="input mt-1"
-              {...form.register('name', { required: 'Department name is required' })}
+              {...form.register('name', { required: t('geography.form.department.fields.nameRequired') })}
             />
             {form.formState.errors.name && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -129,7 +131,7 @@ export function DepartmentFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Department is active
+          {t('geography.form.department.fields.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}

@@ -1,0 +1,41 @@
+{
+  "brand": {
+    "kicker": "Retail Console",
+    "title": "Puntovivo",
+    "tagline": "Sales, stock, and receiving in one workspace"
+  },
+  "sections": {
+    "overview": "Overview",
+    "flow": "Flow",
+    "setup": "Setup"
+  },
+  "items": {
+    "dashboard": "Dashboard",
+    "sales": "Sales",
+    "inventory": "Inventory",
+    "orders": "Orders",
+    "purchases": "Purchases",
+    "customers": "Customers",
+    "products": "Products",
+    "providers": "Providers",
+    "categories": "Categories",
+    "locations": "Locations",
+    "company": "Company",
+    "sites": "Sites",
+    "sequentials": "Sequentials",
+    "geography": "Geography",
+    "customerCatalogs": "Customer Catalogs",
+    "units": "Units",
+    "vatRates": "VAT Rates",
+    "users": "Users"
+  },
+  "actions": {
+    "collapseRail": "Collapse rail",
+    "expandNavigation": "Expand navigation",
+    "closeNavigation": "Close navigation"
+  },
+  "header": {
+    "kicker": "Point Of Sale",
+    "title": "Operator workspace"
+  }
+}

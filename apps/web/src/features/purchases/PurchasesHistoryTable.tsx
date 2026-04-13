@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, RotateCcw } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
@@ -35,11 +36,13 @@ export function PurchasesHistoryTable({
   onView,
   onReturn,
 }: PurchasesHistoryTableProps) {
+  const { t } = useTranslation('purchases');
+
   const columns = useMemo<ColumnDef<Purchase>[]>(
     () => [
       {
         accessorKey: 'purchaseNumber',
-        header: 'Purchase #',
+        header: t('table.purchaseNumber'),
         size: 140,
         cell: ({ row }) => (
           <span className="font-mono font-medium text-primary-600">
@@ -49,35 +52,35 @@ export function PurchasesHistoryTable({
       },
       {
         accessorKey: 'createdAt',
-        header: 'Date',
+        header: t('table.date'),
         size: 180,
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         accessorKey: 'providerName',
-        header: 'Provider',
+        header: t('table.provider'),
         size: 220,
         cell: ({ row }) => row.original.providerName,
       },
       {
         accessorKey: 'siteName',
-        header: 'Site',
+        header: t('table.site'),
         size: 160,
         cell: ({ row }) => row.original.siteName,
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: t('table.status'),
         size: 120,
         cell: ({ row }) => (
           <span className={purchaseStatusClassNames[row.original.status]}>
-            {row.original.status.replace(/_/g, ' ')}
+            {t(`status.${row.original.status}`)}
           </span>
         ),
       },
       {
         id: 'returns',
-        header: 'Returns',
+        header: t('table.returns'),
         size: 220,
         cell: ({ row }) => {
           const returnedAmount = row.original.returnedAmount ?? 0;
@@ -86,11 +89,13 @@ export function PurchasesHistoryTable({
           if (row.original.status === 'returned') {
             return (
               <div className="space-y-1">
-                <p className="text-sm font-medium text-danger-600">Fully returned</p>
-                <p className="text-xs text-secondary-500">{formatCurrency(returnedAmount)} reversed</p>
+                <p className="text-sm font-medium text-danger-600">{t('table.fullyReturned')}</p>
+                <p className="text-xs text-secondary-500">
+                  {t('table.reversed', { amount: formatCurrency(returnedAmount) })}
+                </p>
                 {row.original.latestReturnCreatedByName && (
                   <p className="text-xs text-secondary-500">
-                    By {row.original.latestReturnCreatedByName}
+                    {t('table.by', { name: row.original.latestReturnCreatedByName })}
                   </p>
                 )}
               </div>
@@ -101,12 +106,14 @@ export function PurchasesHistoryTable({
             return (
               <div className="space-y-1">
                 <p className="text-sm font-medium text-primary-700">
-                  {returnCount} return{returnCount === 1 ? '' : 's'}
+                  {t('table.returnCount', { count: returnCount })}
                 </p>
-                <p className="text-xs text-secondary-500">{formatCurrency(returnedAmount)} reversed</p>
+                <p className="text-xs text-secondary-500">
+                  {t('table.reversed', { amount: formatCurrency(returnedAmount) })}
+                </p>
                 {row.original.returnedAt && (
                   <p className="text-xs text-secondary-500">
-                    Latest {formatDateTime(row.original.returnedAt)}
+                    {t('table.latest', { date: formatDateTime(row.original.returnedAt) })}
                   </p>
                 )}
                 {row.original.latestReturnReason && (
@@ -116,25 +123,25 @@ export function PurchasesHistoryTable({
                 )}
                 {row.original.latestReturnCreatedByName && (
                   <p className="text-xs text-secondary-500">
-                    By {row.original.latestReturnCreatedByName}
+                    {t('table.by', { name: row.original.latestReturnCreatedByName })}
                   </p>
                 )}
               </div>
             );
           }
 
-          return <span className="text-sm text-secondary-500">Open</span>;
+          return <span className="text-sm text-secondary-500">{t('table.open')}</span>;
         },
       },
       {
         accessorKey: 'total',
-        header: 'Total',
+        header: t('table.total'),
         size: 120,
         cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.total)}</span>,
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: t('table.actions'),
         size: 132,
         cell: ({ row }) => {
           const canReturnPurchase =
@@ -147,8 +154,8 @@ export function PurchasesHistoryTable({
                 <button
                   className="btn-ghost btn-icon h-8 w-8"
                   onClick={() => onReturn(row.original.id)}
-                  aria-label={`Return items for ${row.original.purchaseNumber}`}
-                  title="Return items"
+                  aria-label={t('table.returnItems', { number: row.original.purchaseNumber })}
+                  title={t('table.returnItemsTitle')}
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
@@ -156,8 +163,8 @@ export function PurchasesHistoryTable({
               <button
                 className="btn-ghost btn-icon h-8 w-8"
                 onClick={() => onView(row.original.id)}
-                aria-label={`View ${row.original.purchaseNumber}`}
-                title="View purchase"
+                aria-label={t('table.viewPurchase', { number: row.original.purchaseNumber })}
+                title={t('table.viewPurchaseTitle')}
               >
                 <Eye className="h-4 w-4" />
               </button>
@@ -166,14 +173,14 @@ export function PurchasesHistoryTable({
         },
       },
     ],
-    [canManageReturns, onReturn, onView]
+    [canManageReturns, onReturn, onView, t]
   );
 
   return (
     <div className="card p-6">
-      {isLoading && <TableLoadingState message="Loading purchases..." rowCount={6} />}
+      {isLoading && <TableLoadingState message={t('table.loading')} rowCount={6} />}
       {error && (
-        <TableErrorState title="Unable to load purchases" message={error} onRetry={onRetry} />
+        <TableErrorState title={t('table.loadError')} message={error} onRetry={onRetry} />
       )}
       {!isLoading && !error && (
         <div className="space-y-4">
@@ -181,13 +188,13 @@ export function PurchasesHistoryTable({
             data={purchases}
             columns={purchaseHistoryExportColumns}
             filename="purchase-history"
-            title="Purchase History"
+            title={t('table.exportTitle')}
           />
           <DataTable
             columns={columns}
             data={purchases}
             searchKey="purchaseNumber"
-            searchPlaceholder="Search by purchase number..."
+            searchPlaceholder={t('table.searchPlaceholder')}
             pageSize={8}
           />
         </div>

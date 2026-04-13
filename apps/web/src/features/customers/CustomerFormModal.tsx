@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { Customer, CustomerCatalogItem } from '@/types';
 import { CustomerCatalogSelect } from '@/features/customers/CustomerCatalogSelect';
@@ -93,6 +94,7 @@ export function CustomerFormModal({
   onClose,
   onSubmit,
 }: CustomerFormModalProps) {
+  const { t } = useTranslation('customers');
   const form = useForm<CustomerFormValues>({
     defaultValues: mapCustomerToForm(customer),
   });
@@ -104,15 +106,15 @@ export function CustomerFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isCreate ? 'Create Customer' : 'Edit Customer'}
+      title={isCreate ? t('form.createTitle') : t('form.editTitle')}
       size="xl"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('form.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : isCreate ? 'Create Customer' : 'Save Changes'}
+            {isSaving ? t('form.submitting') : isCreate ? t('form.create') : t('form.save')}
           </ModalButton>
         </>
       }
@@ -121,12 +123,12 @@ export function CustomerFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="customer-name" className="label">
-              Name
+              {t('form.fields.name')}
             </label>
             <input
               id="customer-name"
               className="input mt-1"
-              {...form.register('name', { required: 'Customer name is required' })}
+              {...form.register('name', { required: t('form.fields.nameRequired') })}
             />
             {form.formState.errors.name && (
               <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
@@ -135,7 +137,7 @@ export function CustomerFormModal({
 
           <div>
             <label htmlFor="customer-tax-id" className="label">
-              Tax ID
+              {t('form.fields.taxId')}
             </label>
             <input id="customer-tax-id" className="input mt-1" {...form.register('taxId')} />
           </div>
@@ -144,7 +146,7 @@ export function CustomerFormModal({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="customer-email" className="label">
-              Email
+              {t('form.fields.email')}
             </label>
             <input
               id="customer-email"
@@ -153,7 +155,7 @@ export function CustomerFormModal({
               {...form.register('email', {
                 pattern: {
                   value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                  message: 'Invalid email address',
+                  message: t('form.fields.emailInvalid'),
                 },
               })}
             />
@@ -164,7 +166,7 @@ export function CustomerFormModal({
 
           <div>
             <label htmlFor="customer-phone" className="label">
-              Phone
+              {t('form.fields.phone')}
             </label>
             <input id="customer-phone" className="input mt-1" {...form.register('phone')} />
           </div>
@@ -173,40 +175,40 @@ export function CustomerFormModal({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <CustomerCatalogSelect
             id="customer-identification-type"
-            label="Identification Type"
-            placeholder="Not set"
+            label={t('form.fields.identificationType')}
+            placeholder={t('form.fields.notSet')}
             options={identificationTypes}
             registration={form.register('identificationTypeId')}
           />
 
           <CustomerCatalogSelect
             id="customer-person-type"
-            label="Person Type"
-            placeholder="Not set"
+            label={t('form.fields.personType')}
+            placeholder={t('form.fields.notSet')}
             options={personTypes}
             registration={form.register('personTypeId')}
           />
 
           <CustomerCatalogSelect
             id="customer-regime-type"
-            label="Regime Type"
-            placeholder="Not set"
+            label={t('form.fields.regimeType')}
+            placeholder={t('form.fields.notSet')}
             options={regimeTypes}
             registration={form.register('regimeTypeId')}
           />
 
           <CustomerCatalogSelect
             id="customer-client-type"
-            label="Client Type"
-            placeholder="Not set"
+            label={t('form.fields.clientType')}
+            placeholder={t('form.fields.notSet')}
             options={clientTypes}
             registration={form.register('clientTypeId')}
           />
 
           <CustomerCatalogSelect
             id="customer-commercial-activity"
-            label="Commercial Activity"
-            placeholder="Not set"
+            label={t('form.fields.commercialActivity')}
+            placeholder={t('form.fields.notSet')}
             options={commercialActivities}
             registration={form.register('commercialActivityId')}
           />
@@ -214,7 +216,7 @@ export function CustomerFormModal({
 
         <div>
           <label htmlFor="customer-address" className="label">
-            Address
+            {t('form.fields.address')}
           </label>
           <textarea
             id="customer-address"
@@ -226,21 +228,21 @@ export function CustomerFormModal({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <label htmlFor="customer-city" className="label">
-              City
+              {t('form.fields.city')}
             </label>
             <input id="customer-city" className="input mt-1" {...form.register('city')} />
           </div>
 
           <div>
             <label htmlFor="customer-state" className="label">
-              State / Department
+              {t('form.fields.state')}
             </label>
             <input id="customer-state" className="input mt-1" {...form.register('state')} />
           </div>
 
           <div>
             <label htmlFor="customer-postal-code" className="label">
-              Postal Code
+              {t('form.fields.postalCode')}
             </label>
             <input
               id="customer-postal-code"
@@ -251,7 +253,7 @@ export function CustomerFormModal({
 
           <div>
             <label htmlFor="customer-country" className="label">
-              Country
+              {t('form.fields.country')}
             </label>
             <input id="customer-country" className="input mt-1" {...form.register('country')} />
           </div>
@@ -259,7 +261,7 @@ export function CustomerFormModal({
 
         <div>
           <label htmlFor="customer-notes" className="label">
-            Notes
+            {t('form.fields.notes')}
           </label>
           <textarea
             id="customer-notes"
@@ -274,7 +276,7 @@ export function CustomerFormModal({
             className="h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          Customer is active
+          {t('form.fields.isActive')}
         </label>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
