@@ -41,6 +41,7 @@ import {
   searchProductsInput,
 } from '../schemas/products.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import type { CreateProductInput, UpdateProductInput } from '../schemas/products.js';
 
 const productSelection = {
@@ -67,6 +68,9 @@ const productSelection = {
   initialCost: products.initialCost,
   stock: products.stock,
   minStock: products.minStock,
+  sellByFraction: products.sellByFraction,
+  fractionStep: products.fractionStep,
+  fractionMinimum: products.fractionMinimum,
   isActive: products.isActive,
   barcode: products.barcode,
   imageUrl: products.imageUrl,
@@ -630,6 +634,11 @@ export const productsRouter = router({
       : [];
     const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
     const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
+    const resolvedFractionPolicy = resolveFractionPolicy({
+      sellByFraction: input.sellByFraction,
+      fractionStep: input.fractionStep,
+      fractionMinimum: input.fractionMinimum,
+    });
 
     await ctx.db.insert(products).values({
       id,
@@ -655,6 +664,9 @@ export const productsRouter = router({
       initialCost: input.initialCost,
       stock: input.stock,
       minStock: input.minStock,
+      sellByFraction: resolvedFractionPolicy.sellByFraction,
+      fractionStep: resolvedFractionPolicy.fractionStep,
+      fractionMinimum: resolvedFractionPolicy.fractionMinimum,
       isActive: input.isActive,
       barcode: input.barcode ?? null,
       imageUrl: input.imageUrl ?? null,
@@ -685,6 +697,9 @@ export const productsRouter = router({
         vatRateId: resolvedTax.vatRateId,
         providerId: normalizedProviderState?.providerId ?? null,
         locationId: resolvedLocationId,
+        sellByFraction: resolvedFractionPolicy.sellByFraction,
+        fractionStep: resolvedFractionPolicy.fractionStep,
+        fractionMinimum: resolvedFractionPolicy.fractionMinimum,
         providerAssignments: resolvedProviderAssignments,
         unitAssignments: resolvedUnitAssignments,
       },
@@ -767,6 +782,18 @@ export const productsRouter = router({
       updates.locationId !== undefined
         ? await resolveLocationId(ctx.db, ctx.tenantId, updates.locationId)
         : existing.locationId;
+    const resolvedFractionPolicy = resolveFractionPolicy(
+      {
+        sellByFraction: updates.sellByFraction,
+        fractionStep: updates.fractionStep,
+        fractionMinimum: updates.fractionMinimum,
+      },
+      {
+        sellByFraction: existing.sellByFraction ?? false,
+        fractionStep: existing.fractionStep,
+        fractionMinimum: existing.fractionMinimum,
+      }
+    );
     const updateData: Record<string, unknown> = {
       updatedAt: now,
       syncStatus: 'pending',
@@ -783,6 +810,9 @@ export const productsRouter = router({
       marginAmount3: normalizedPricing.marginAmount3,
       taxRate: resolvedTax.taxRate,
       vatRateId: resolvedTax.vatRateId,
+      sellByFraction: resolvedFractionPolicy.sellByFraction,
+      fractionStep: resolvedFractionPolicy.fractionStep,
+      fractionMinimum: resolvedFractionPolicy.fractionMinimum,
     };
 
     if (updates.name !== undefined) updateData.name = updates.name;

@@ -336,6 +336,22 @@ export function ProductSearchDialog({
                         <span className="text-secondary-500">{t('productSearch.availableStock')}</span>
                         <span className="font-medium text-secondary-900">{selectedProduct.stock}</span>
                       </div>
+                      {selectedProduct.sellByFraction && (
+                        <>
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <span className="text-secondary-500">{t('productSearch.fractionStep')}</span>
+                            <span className="font-medium text-secondary-900">
+                              {selectedProduct.fractionStep ?? '—'}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-sm">
+                            <span className="text-secondary-500">{t('productSearch.fractionMinimum')}</span>
+                            <span className="font-medium text-secondary-900">
+                              {selectedProduct.fractionMinimum ?? '—'}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

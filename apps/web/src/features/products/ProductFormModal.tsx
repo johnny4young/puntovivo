@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   useFieldArray,
   useForm,
+  useWatch,
   type UseFieldArrayReturn,
   type UseFormReturn,
   type UseFormRegisterReturn,
@@ -47,6 +48,9 @@ export interface ProductFormValues {
   taxRate: number;
   stock: number;
   minStock: number;
+  sellByFraction: boolean;
+  fractionStep: number;
+  fractionMinimum: number;
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];
@@ -63,38 +67,43 @@ export interface ProductProviderAssignmentFormValues {
   providerId: string;
 }
 
-const defaultValues: ProductFormValues = {
-  name: '',
-  sku: '',
-  description: '',
-  categoryId: '',
-  providerId: '',
-  vatRateId: '',
-  locationId: '',
-  barcode: '',
-  imageUrl: '',
-  cost: 0,
-  initialCost: 0,
-  price: 0,
-  price2: 0,
-  price3: 0,
-  marginPercent1: 0,
-  marginPercent2: 0,
-  marginPercent3: 0,
-  marginAmount1: 0,
-  marginAmount2: 0,
-  marginAmount3: 0,
-  taxRate: 0,
-  stock: 0,
-  minStock: 0,
-  isActive: true,
-  unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
-  providerAssignments: [],
-};
+function createDefaultValues(): ProductFormValues {
+  return {
+    name: '',
+    sku: '',
+    description: '',
+    categoryId: '',
+    providerId: '',
+    vatRateId: '',
+    locationId: '',
+    barcode: '',
+    imageUrl: '',
+    cost: 0,
+    initialCost: 0,
+    price: 0,
+    price2: 0,
+    price3: 0,
+    marginPercent1: 0,
+    marginPercent2: 0,
+    marginPercent3: 0,
+    marginAmount1: 0,
+    marginAmount2: 0,
+    marginAmount3: 0,
+    taxRate: 0,
+    stock: 0,
+    minStock: 0,
+    sellByFraction: false,
+    fractionStep: 0.01,
+    fractionMinimum: 0.01,
+    isActive: true,
+    unitAssignments: [{ unitId: '', equivalence: 1, price: 0, isBase: true }],
+    providerAssignments: [],
+  };
+}
 
-export function mapProductToForm(product: Product | null): ProductFormValues {
+function mapProductToForm(product: Product | null): ProductFormValues {
   if (!product) {
-    return defaultValues;
+    return createDefaultValues();
   }
 
   const normalizedProviders = normalizeProductProviderSelections(product);
@@ -123,6 +132,9 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     taxRate: product.taxRate,
     stock: product.stock,
     minStock: product.minStock,
+    sellByFraction: product.sellByFraction,
+    fractionStep: product.fractionStep ?? 0.01,
+    fractionMinimum: product.fractionMinimum ?? 0.01,
     isActive: product.isActive,
     unitAssignments:
       product.unitAssignments?.length
@@ -182,7 +194,10 @@ export function ProductFormModal({
   });
   const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
   const handleSubmit = form.handleSubmit(onSubmit);
-  const selectedVatRateId = form.watch('vatRateId');
+  const selectedVatRateId = useWatch({
+    control: form.control,
+    name: 'vatRateId',
+  });
   const unitAssignmentsFieldArray = useFieldArray({
     control: form.control,
     name: 'unitAssignments',
@@ -254,7 +269,14 @@ export function ProductFormModal({
   const taxRateField = form.register('taxRate', { min: 0, max: 100, valueAsNumber: true });
   const stockField = form.register('stock', { min: 0, valueAsNumber: true });
   const minStockField = form.register('minStock', { min: 0, valueAsNumber: true });
+  const fractionStepField = form.register('fractionStep', { min: 0.01, valueAsNumber: true });
+  const fractionMinimumField = form.register('fractionMinimum', { min: 0.01, valueAsNumber: true });
+  const sellByFractionField = form.register('sellByFraction');
   const vatRateField = form.register('vatRateId');
+  const sellByFraction = useWatch({
+    control: form.control,
+    name: 'sellByFraction',
+  });
 
   const handleBaseUnitChange = (index: number) => {
     const assignments = form.getValues('unitAssignments');
@@ -454,6 +476,69 @@ export function ProductFormModal({
               </div>
             </div>
 
+            <div className="rounded-xl border border-secondary-200 p-4">
+              <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-secondary-300"
+                  {...sellByFractionField}
+                  onChange={event => {
+                    sellByFractionField.onChange(event);
+
+                    if (event.target.checked) {
+                      const nextFractionStep = Math.max(0.01, form.getValues('fractionStep') || 0.01);
+                      const nextFractionMinimum = Math.max(
+                        form.getValues('fractionMinimum') || 0.01,
+                        nextFractionStep
+                      );
+
+                      form.setValue('fractionStep', nextFractionStep, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                      form.setValue('fractionMinimum', nextFractionMinimum, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                />
+                {t('form.fields.sellByFraction')}
+              </label>
+              <p className="mt-2 text-sm text-secondary-500">{t('form.fields.sellByFractionHelp')}</p>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="product-fraction-step" className="label">
+                    {t('form.fields.fractionStep')}
+                  </label>
+                  <input
+                    id="product-fraction-step"
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    disabled={!sellByFraction}
+                    className="input mt-1"
+                    {...fractionStepField}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="product-fraction-minimum" className="label">
+                    {t('form.fields.fractionMinimum')}
+                  </label>
+                  <input
+                    id="product-fraction-minimum"
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    disabled={!sellByFraction}
+                    className="input mt-1"
+                    {...fractionMinimumField}
+                  />
+                </div>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="product-image-url" className="label">
                 {t('form.fields.imageUrl')}
@@ -631,6 +716,11 @@ function UnitAssignmentsSection({
   onBaseUnitChange,
 }: UnitAssignmentsSectionProps) {
   const { t } = useTranslation('products');
+  const unitAssignments = useWatch({
+    control: form.control,
+    name: 'unitAssignments',
+  });
+
   return (
     <div className="space-y-4 rounded-xl border border-secondary-200 p-4">
       <div className="flex items-center justify-between">
@@ -658,7 +748,7 @@ function UnitAssignmentsSection({
 
       <div className="space-y-4">
         {unitAssignmentsFieldArray.fields.map((field, index) => {
-          const isBase = form.watch(`unitAssignments.${index}.isBase`);
+          const isBase = unitAssignments?.[index]?.isBase ?? false;
           return (
             <div key={field.id} className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4">
               <div>

@@ -400,6 +400,9 @@ describe('Sales tRPC Router', () => {
       initialCost: 5,
       stock: 2,
       minStock: 0,
+      sellByFraction: true,
+      fractionStep: 0.25,
+      fractionMinimum: 0.5,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -447,6 +450,136 @@ describe('Sales tRPC Router', () => {
       .get();
     expect(movement?.quantity).toBe(0.75);
     expect(movement?.newStock).toBeCloseTo(1.25);
+  });
+
+  it('rejects fractional sale quantities for products that require whole units', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Whole-unit soda',
+      sku: 'SALE-WHOLE-001',
+      price: 5,
+      price2: 5,
+      price3: 5,
+      cost: 2,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 2,
+      stock: 10,
+      minStock: 0,
+      sellByFraction: false,
+      fractionStep: null,
+      fractionMinimum: null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 5,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 0.5,
+            unitPrice: 5,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'completed',
+        amountReceived: 5,
+        discountAmount: 0,
+      })
+    ).rejects.toThrow(/whole units/);
+  });
+
+  it('rejects sale quantities that do not match the product fraction step', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Cable reel',
+      sku: 'SALE-STEP-001',
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      stock: 10,
+      minStock: 0,
+      sellByFraction: true,
+      fractionStep: 0.25,
+      fractionMinimum: 0.5,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 0.6,
+            unitPrice: 12,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'completed',
+        amountReceived: 12,
+        discountAmount: 0,
+      })
+    ).rejects.toThrow(/increments of 0.25/);
   });
 
   it('voids a completed sale, restores stock, and removes it from completed sales KPIs', async () => {

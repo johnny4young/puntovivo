@@ -13,6 +13,9 @@ export interface SaleCartItem {
   discount: number;
   taxRate: number;
   availableStock: number;
+  sellByFraction: boolean;
+  fractionStep?: number | null;
+  fractionMinimum?: number | null;
 }
 
 export interface SaleCartSummary {
@@ -24,6 +27,27 @@ export interface SaleCartSummary {
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function roundQuantity(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+export function getSaleQuantityStep(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep'>
+) {
+  return item.sellByFraction ? Math.max(item.fractionStep ?? 0.01, 0.01) : 1;
+}
+
+export function getSaleMinimumQuantity(
+  item: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
+) {
+  if (!item.sellByFraction) {
+    return 1;
+  }
+
+  const step = getSaleQuantityStep(item);
+  return Math.max(item.fractionMinimum ?? step, step);
 }
 
 export function getCartItemKey(productId: string, unitId: string) {
@@ -45,11 +69,14 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     unitId: selection.unit.unitId,
     unitName,
     unitEquivalence: selection.unit.equivalence,
-    quantity: 1,
+    quantity: getSaleMinimumQuantity(selection.product),
     unitPrice: selection.price,
     discount: 0,
     taxRate: selection.product.taxRate ?? 0,
     availableStock: selection.product.stock,
+    sellByFraction: selection.product.sellByFraction,
+    fractionStep: selection.product.fractionStep,
+    fractionMinimum: selection.product.fractionMinimum,
   };
 }
 
@@ -72,7 +99,11 @@ export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSel
   }
 
   return items.map((item, index) =>
-    index === existingIndex ? updateCartItem(item, { quantity: item.quantity + 1 }) : item
+    index === existingIndex
+      ? updateCartItem(item, {
+          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item)),
+        })
+      : item
   );
 }
 

@@ -220,6 +220,9 @@ export interface Product {
   initialCost: number;
   stock: number;
   minStock: number;
+  sellByFraction: boolean;
+  fractionStep?: number | null;
+  fractionMinimum?: number | null;
   isActive: boolean;
   barcode?: string | null;
   imageUrl?: string | null;

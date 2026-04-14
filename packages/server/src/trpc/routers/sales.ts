@@ -43,6 +43,7 @@ import {
   voidSaleInput,
 } from '../schemas/sales.js';
 import type { CreateSaleInput } from '../schemas/sales.js';
+import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 
 type ResolvedSaleItem = {
   id: string;
@@ -265,6 +266,13 @@ async function resolveSaleItems(
         message: `Unit selection is invalid for product "${product.name}"`,
       });
     }
+
+    assertSaleQuantityAllowed(item.quantity, {
+      name: product.name,
+      sellByFraction: product.sellByFraction ?? false,
+      fractionStep: product.fractionStep,
+      fractionMinimum: product.fractionMinimum,
+    });
 
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, assignment.equivalence);
     const remainingStock = remainingStockByProduct.get(item.productId) ?? product.stock;

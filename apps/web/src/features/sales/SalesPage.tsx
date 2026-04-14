@@ -23,8 +23,8 @@ import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
 import type { Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
   if (values.paymentMethod === 'credit') {
@@ -43,7 +43,7 @@ function getRequestedPaymentStatus(values: SalePaymentValues, total: number): Pa
 }
 
 export function SalesPage() {
-  const { t } = useTranslation('sales');
+  const { t } = useTranslation(['sales', 'errors']);
   const utils = trpc.useUtils();
   const toast = useToast();
   const { currentSite } = useTenant();
@@ -94,7 +94,7 @@ export function SalesPage() {
     onError: error => {
       toast.error({
         title: t('toast.error'),
-        description: getErrorMessage(error, t('toast.error')),
+        description: getServerErrorMessage(error),
       });
     },
   });
@@ -110,6 +110,9 @@ export function SalesPage() {
   const providers = ((providersQuery.data?.items ?? []) as Provider[]).filter(
     provider => provider.isActive
   );
+
+  const getServerErrorMessage = (error: unknown) =>
+    translateServerError(error, t, t('errors:server.unknown'));
 
   const handleProductSelect = (selection: Parameters<typeof mergeCartItem>[1]) => {
     setCartItems(currentItems => mergeCartItem(currentItems, selection));
@@ -179,7 +182,7 @@ export function SalesPage() {
         notes: values.notes || undefined,
       });
     } catch (error) {
-      setSaleError(error instanceof Error ? error.message : t('toast.errorFallback'));
+      setSaleError(getServerErrorMessage(error));
     }
   };
 

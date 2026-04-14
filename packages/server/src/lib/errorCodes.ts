@@ -18,6 +18,26 @@ export const SERVER_ERROR_CODES = {
   AUTH_USER_NOT_FOUND: 'AUTH_USER_NOT_FOUND',
   AUTH_CURRENT_PASSWORD_INCORRECT: 'AUTH_CURRENT_PASSWORD_INCORRECT',
   AUTH_PASSWORD_POLICY: 'AUTH_PASSWORD_POLICY',
+
+  // --- fraction policy domain (Phase 1 DB-050) ---
+  /** Admin config: sellByFraction=true but fractionStep is missing / ≤ 0. */
+  PRODUCT_FRACTION_STEP_REQUIRED: 'PRODUCT_FRACTION_STEP_REQUIRED',
+  /** Admin config: sellByFraction=true but fractionMinimum is missing / ≤ 0. */
+  PRODUCT_FRACTION_MINIMUM_REQUIRED: 'PRODUCT_FRACTION_MINIMUM_REQUIRED',
+  /** Admin config: fractionMinimum < fractionStep. */
+  PRODUCT_FRACTION_MINIMUM_BELOW_STEP: 'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
+  /** Admin config: fractionMinimum is not a multiple of fractionStep. */
+  PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED: 'PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED',
+  /** Sale path: quantity must be a whole number for this product. */
+  SALE_QUANTITY_NOT_WHOLE: 'SALE_QUANTITY_NOT_WHOLE',
+  /** Sale path: quantity is below the configured minimum. */
+  SALE_QUANTITY_BELOW_MINIMUM: 'SALE_QUANTITY_BELOW_MINIMUM',
+  /** Sale path: quantity does not match the configured step. */
+  SALE_QUANTITY_NOT_ALIGNED: 'SALE_QUANTITY_NOT_ALIGNED',
+  /** Sale path: sellByFraction=true but the policy columns are null. */
+  SALE_FRACTION_POLICY_MISSING: 'SALE_FRACTION_POLICY_MISSING',
+  /** Sale path: quantity is zero / negative / non-finite. */
+  SALE_QUANTITY_INVALID: 'SALE_QUANTITY_INVALID',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];
