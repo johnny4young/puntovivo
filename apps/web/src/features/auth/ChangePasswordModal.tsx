@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 import { useAuth } from './AuthProvider';
 import { getPasswordRequirementMessage, type PasswordRequirementKey } from './passwordPolicy';
 
@@ -26,7 +26,7 @@ const defaultValues: ChangePasswordFormValues = {
 
 export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
   const { logout } = useAuth();
-  const { t } = useTranslation(['auth', 'common']);
+  const { t } = useTranslation(['auth', 'common', 'errors']);
   const toast = useToast();
   const form = useForm<ChangePasswordFormValues>({
     defaultValues,
@@ -144,7 +144,11 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
         {changePasswordMutation.error && (
           <p className="text-sm text-danger-600">
-            {getErrorMessage(changePasswordMutation.error, t('changePassword.updateError'))}
+            {translateServerError(
+              changePasswordMutation.error,
+              t,
+              t('auth:changePassword.updateError')
+            )}
           </p>
         )}
       </form>

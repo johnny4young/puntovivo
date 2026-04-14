@@ -3,11 +3,15 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, Package2, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
 
 export function LoginPage() {
   const { login, isLoading, error } = useAuth();
-  const { t } = useTranslation('auth');
+  const { t } = useTranslation(['auth', 'errors']);
+  const errorMessage = error
+    ? translateServerError(error, t, t('errors:server.unknown'))
+    : null;
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,
@@ -85,9 +89,9 @@ export function LoginPage() {
             </p>
 
             <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-              {error && (
+              {errorMessage && (
                 <div className="rounded-[20px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-                  {error}
+                  {errorMessage}
                 </div>
               )}
 
