@@ -1,6 +1,7 @@
 export type LanguagePreference = 'system' | 'en' | 'es';
 const LANGUAGE_STORAGE_KEY = 'puntovivo-language-preference';
 const DEFAULT_LANGUAGE = 'en';
+export type SupportedAppLocale = 'en' | 'es';
 
 /**
  * Resolves the active language from the user preference or browser/OS language.
@@ -19,6 +20,14 @@ export function resolveLocale(preference: LanguagePreference): string {
   // Keep regional variants (es-CO, es-MX) so i18next fallback chain works:
   // es-CO → es → en
   return typeof browserLang === 'string' && browserLang.length > 0 ? browserLang : DEFAULT_LANGUAGE;
+}
+
+/**
+ * Collapse any resolved locale tag into the set supported by the Electron main
+ * process resources.
+ */
+export function toSupportedAppLocale(locale: string | null | undefined): SupportedAppLocale {
+  return typeof locale === 'string' && locale.toLowerCase().startsWith('es') ? 'es' : 'en';
 }
 
 function isLanguagePreference(value: unknown): value is LanguagePreference {

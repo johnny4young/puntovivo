@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { persistLanguagePreference, readLanguagePreference, resolveLocale } from './resolveLocale';
+import {
+  persistLanguagePreference,
+  readLanguagePreference,
+  resolveLocale,
+  toSupportedAppLocale,
+} from './resolveLocale';
 
 const originalNavigator = navigator;
 const originalLocalStorage = window.localStorage;
@@ -46,6 +51,19 @@ describe('resolveLocale', () => {
     });
 
     expect(resolveLocale('system')).toBe('en');
+  });
+});
+
+describe('toSupportedAppLocale', () => {
+  it('maps regional Spanish locales to the Electron-supported locale set', () => {
+    expect(toSupportedAppLocale('es-CO')).toBe('es');
+    expect(toSupportedAppLocale('es_MX')).toBe('es');
+  });
+
+  it('falls back to English for unknown or missing locales', () => {
+    expect(toSupportedAppLocale('en-US')).toBe('en');
+    expect(toSupportedAppLocale('pt-BR')).toBe('en');
+    expect(toSupportedAppLocale(undefined)).toBe('en');
   });
 });
 

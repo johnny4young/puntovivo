@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { readLanguagePreference, resolveLocale } from './resolveLocale';
+import { readLanguagePreference, resolveLocale, toSupportedAppLocale } from './resolveLocale';
 
 // Locale resources — bundled at build time (no async fetch needed, works offline)
 import enCommon from './locales/en/common.json';
@@ -38,6 +38,14 @@ function syncDocumentLanguage(language: string) {
   }
 
   document.documentElement.lang = language;
+}
+
+function syncElectronMainLocale(language: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  void window.electron?.updateMainLocale?.(toSupportedAppLocale(language));
 }
 
 void i18next.use(initReactI18next).init({
@@ -90,6 +98,8 @@ void i18next.use(initReactI18next).init({
 });
 
 syncDocumentLanguage(lng);
+syncElectronMainLocale(lng);
 i18next.on('languageChanged', syncDocumentLanguage);
+i18next.on('languageChanged', syncElectronMainLocale);
 
 export default i18next;

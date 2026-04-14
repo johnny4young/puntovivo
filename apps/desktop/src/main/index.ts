@@ -26,8 +26,10 @@ import {
   checkForAppUpdates,
   getAutoUpdateStatus,
   initAutoUpdater,
+  refreshAutoUpdateTranslations,
   restartToApplyAppUpdate,
 } from './auto-updater';
+import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -1264,7 +1266,7 @@ function refreshTray(settings = currentTraySettings) {
 
   if (!tray) {
     tray = new Tray(createTrayIcon());
-    tray.setToolTip('Puntovivo');
+    tray.setToolTip(t('tray.tooltip'));
     tray.on('click', () => {
       toggleMainWindowVisibility();
     });
@@ -1272,19 +1274,19 @@ function refreshTray(settings = currentTraySettings) {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: mainWindow?.isVisible() ? 'Hide Window' : 'Open Window',
+      label: mainWindow?.isVisible() ? t('tray.hideWindow') : t('tray.openWindow'),
       click: () => {
         toggleMainWindowVisibility();
       },
     },
     { type: 'separator' },
     {
-      label: settings.closeToTray ? 'Closing hides to tray' : 'Closing quits the app',
+      label: settings.closeToTray ? t('tray.closeHidesToTray') : t('tray.closeQuitsApp'),
       enabled: false,
     },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: t('tray.quit'),
       click: () => {
         isQuitting = true;
         app.quit();
@@ -1349,7 +1351,7 @@ async function printReceipt(
         },
         (success, failureReason) => {
           if (!success) {
-            reject(new Error(failureReason || 'Receipt printing failed'));
+            reject(new Error(failureReason || t('print.receiptFailed')));
             return;
           }
 
@@ -1372,7 +1374,7 @@ function createWindow(): void {
     minHeight: 768,
     show: false,
     autoHideMenuBar: true,
-    title: 'Puntovivo - POS Solutions',
+    title: t('app.windowTitle'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: false,
@@ -1446,11 +1448,11 @@ function createWindow(): void {
 
 async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
   const saveDialogOptions: SaveDialogOptions = {
-    title: 'Create Database Backup',
+    title: t('backup.createDialogTitle'),
     defaultPath: join(app.getPath('documents'), createBackupFileName()),
     filters: [
       {
-        name: 'SQLite Database',
+        name: t('backup.fileFilterName'),
         extensions: ['db', 'sqlite', 'sqlite3'],
       },
     ],
@@ -1479,7 +1481,7 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
       path: filePath,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Backup creation failed';
+    const message = error instanceof Error ? error.message : t('backup.createFailed');
     console.error('[Backup] Failed to create backup:', error);
     return {
       success: false,
@@ -1491,11 +1493,11 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
 
 async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
   const openDialogOptions: OpenDialogOptions = {
-    title: 'Restore Database Backup',
+    title: t('backup.restoreDialogTitle'),
     properties: ['openFile'],
     filters: [
       {
-        name: 'SQLite Database',
+        name: t('backup.fileFilterName'),
         extensions: ['db', 'sqlite', 'sqlite3'],
       },
     ],
@@ -1530,7 +1532,7 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
       path: selectedBackupPath,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Database restore failed';
+    const message = error instanceof Error ? error.message : t('backup.restoreFailed');
     console.error('[Backup] Failed to restore backup:', error);
     return {
       success: false,
@@ -1542,6 +1544,12 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
 
 // Initialize the application
 app.whenReady().then(async () => {
+  // Initialize main-process locale from Electron's detected system locale.
+  // The renderer will push updates via the 'update-main-locale' IPC channel
+  // when the user changes the preference in settings.
+  setMainLocale(normalizeMainLocale(app.getLocale()));
+  refreshAutoUpdateTranslations();
+
   // Initialize auto-updater (configurable via env)
   initAutoUpdater();
 
@@ -1610,6 +1618,14 @@ ipcMain.handle('get-tray-settings', async () => {
 });
 ipcMain.handle('update-tray-settings', async (_event, settings: unknown) => {
   return saveTraySettings(settings);
+});
+ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<MainLocale> => {
+  const next = normalizeMainLocale(typeof locale === 'string' ? locale : null);
+  setMainLocale(next);
+  refreshAutoUpdateTranslations();
+  mainWindow?.setTitle(t('app.windowTitle'));
+  refreshTray();
+  return next;
 });
 ipcMain.handle('db:getAll', async (_event, table: string, tenantId: string) => {
   return handleDesktopGetAll(table, tenantId);

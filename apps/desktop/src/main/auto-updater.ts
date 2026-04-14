@@ -1,5 +1,6 @@
 import { app, autoUpdater, type Event } from 'electron';
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
+import { t } from './i18n';
 
 const AUTO_UPDATE_ENABLED = process.env.AUTO_UPDATE !== 'false';
 const UPDATE_INTERVAL = process.env.AUTO_UPDATE_INTERVAL || '1 hour';
@@ -42,7 +43,7 @@ function createDefaultStatus(): AutoUpdateStatus {
     releaseDate: null,
     updateUrl: null,
     error: null,
-    reason: 'Automatic updates have not been initialized yet.',
+    reason: t('autoUpdate.notInitialized'),
   };
 }
 
@@ -75,6 +76,22 @@ function setUnavailable(reason: string): AutoUpdateStatus {
     releaseDate: null,
     updateUrl: null,
   });
+}
+
+function getUnavailableReason(): string {
+  if (!app.isPackaged) {
+    return t('autoUpdate.devBuild');
+  }
+
+  if (!AUTO_UPDATE_ENABLED) {
+    return t('autoUpdate.disabledByEnv');
+  }
+
+  if (!SUPPORTED_AUTO_UPDATE_PLATFORMS.has(process.platform)) {
+    return t('autoUpdate.platformUnsupported', { platform: process.platform });
+  }
+
+  return t('autoUpdate.notInitialized');
 }
 
 function attachListeners(): void {
@@ -156,17 +173,27 @@ export function getAutoUpdateStatus(): AutoUpdateStatus {
   return { ...autoUpdateStatus };
 }
 
+export function refreshAutoUpdateTranslations(): AutoUpdateStatus {
+  if (autoUpdateStatus.state !== 'unavailable') {
+    return getAutoUpdateStatus();
+  }
+
+  return updateStatus({
+    reason: getUnavailableReason(),
+  });
+}
+
 export function initAutoUpdater(): AutoUpdateStatus {
   if (!app.isPackaged) {
-    return setUnavailable('Automatic updates are unavailable in development builds.');
+    return setUnavailable(getUnavailableReason());
   }
 
   if (!AUTO_UPDATE_ENABLED) {
-    return setUnavailable('Automatic updates are disabled by the AUTO_UPDATE environment variable.');
+    return setUnavailable(getUnavailableReason());
   }
 
   if (!SUPPORTED_AUTO_UPDATE_PLATFORMS.has(process.platform)) {
-    return setUnavailable(`Automatic updates are not supported on ${process.platform}.`);
+    return setUnavailable(getUnavailableReason());
   }
 
   attachListeners();
@@ -198,7 +225,7 @@ export function initAutoUpdater(): AutoUpdateStatus {
     console.log('Auto-updater initialized successfully');
     console.log(`Update interval: ${UPDATE_INTERVAL}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to initialize auto-updater';
+    const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
     console.error('Failed to initialize auto-updater:', error);
 
     return updateStatus({
@@ -236,7 +263,7 @@ export function restartToApplyAppUpdate(): AutoUpdateActionResult {
   if (autoUpdateStatus.state !== 'downloaded') {
     return {
       success: false,
-      error: 'No downloaded update is ready to install.',
+      error: t('autoUpdate.noDownloadedUpdate'),
     };
   }
 

@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "Puntovivo",
+    "windowTitle": "Puntovivo - Soluciones POS"
+  },
+  "tray": {
+    "tooltip": "Puntovivo",
+    "hideWindow": "Ocultar ventana",
+    "openWindow": "Abrir ventana",
+    "closeHidesToTray": "Al cerrar, se oculta en la bandeja",
+    "closeQuitsApp": "Al cerrar, se sale de la aplicación",
+    "quit": "Salir"
+  },
+  "backup": {
+    "createDialogTitle": "Crear copia de seguridad",
+    "restoreDialogTitle": "Restaurar copia de seguridad",
+    "fileFilterName": "Base de datos SQLite",
+    "createFailed": "No se pudo crear la copia de seguridad",
+    "restoreFailed": "No se pudo restaurar la base de datos"
+  },
+  "print": {
+    "receiptFailed": "No se pudo imprimir el recibo"
+  },
+  "autoUpdate": {
+    "notInitialized": "Las actualizaciones automáticas aún no se han inicializado.",
+    "devBuild": "Las actualizaciones automáticas no están disponibles en versiones de desarrollo.",
+    "disabledByEnv": "Las actualizaciones automáticas están deshabilitadas por la variable de entorno AUTO_UPDATE.",
+    "platformUnsupported": "Las actualizaciones automáticas no son compatibles en {{platform}}.",
+    "noDownloadedUpdate": "No hay ninguna actualización descargada lista para instalar.",
+    "initFailed": "No se pudo inicializar el actualizador automático"
+  }
+}
