@@ -101,7 +101,7 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
       return (
         <div className={cn('flex items-center gap-2 font-medium capitalize', movementColors[type])}>
           <Icon className="h-4 w-4" />
-          <span>{type}</span>
+          <span>{i18next.t(`inventory:movements.types.${type}`)}</span>
         </div>
       );
     },
@@ -184,7 +184,7 @@ function getStockColumns(
     },
     {
       accessorKey: 'stock',
-      header: 'Stock',
+      header: () => i18next.t('inventory:stock.columns.stock'),
       size: 100,
       cell: ({ row }) => (
         <span className={row.original.isLowStock ? 'font-medium text-danger-500' : 'font-medium text-secondary-900'}>
@@ -194,34 +194,36 @@ function getStockColumns(
     },
     {
       accessorKey: 'minStock',
-      header: 'Min Stock',
+      header: () => i18next.t('inventory:stock.columns.minStock'),
       size: 110,
     },
     {
       accessorKey: 'price',
-      header: 'Sell Price',
+      header: () => i18next.t('inventory:stock.columns.sellPrice'),
       size: 120,
       cell: ({ row }) => formatCurrency(row.original.price),
     },
     {
       accessorKey: 'inventoryValue',
-      header: 'Valuation',
+      header: () => i18next.t('inventory:stock.columns.valuation'),
       size: 140,
       cell: ({ row }) => formatCurrency(row.original.inventoryValue),
     },
     {
       accessorKey: 'updatedAt',
-      header: 'Updated',
+      header: () => i18next.t('inventory:stock.columns.updated'),
       size: 170,
       cell: ({ row }) => formatDateTime(row.original.updatedAt),
     },
     {
       id: 'status',
-      header: 'Status',
+      header: () => i18next.t('inventory:stock.columns.status'),
       size: 120,
       cell: ({ row }) => (
         <span className={cn('badge', row.original.isLowStock ? 'badge-danger' : 'badge-success')}>
-          {row.original.isLowStock ? 'Low stock' : 'Healthy'}
+          {row.original.isLowStock
+            ? i18next.t('inventory:stock.status.lowStock')
+            : i18next.t('inventory:stock.status.healthy')}
         </span>
       ),
     },
@@ -234,7 +236,7 @@ function getStockColumns(
           className="btn-ghost btn-icon h-8 w-8"
           onClick={() => onAdjust(row.original)}
           disabled={!canManage}
-          title="Adjust stock"
+          title={i18next.t('inventory:stock.adjustStock')}
         >
           <SlidersHorizontal className="h-4 w-4" />
         </button>
@@ -246,13 +248,13 @@ function getStockColumns(
 const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
   {
     accessorKey: 'createdAt',
-    header: 'Date',
+    header: () => i18next.t('inventory:table.date'),
     size: 180,
     cell: ({ row }) => formatDateTime(row.original.createdAt),
   },
   {
     accessorKey: 'mode',
-    header: 'Mode',
+    header: () => i18next.t('inventory:table.mode'),
     size: 160,
     cell: ({ row }) => (
       <span className={cn('badge', row.original.mode === 'initial' ? 'badge-primary' : 'badge-warning')}>
@@ -268,8 +270,12 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
     size: 240,
     cell: ({ row }) => (
       <div>
-        <p className="font-medium text-secondary-900">{row.original.productName ?? 'Unknown product'}</p>
-        <p className="text-xs text-secondary-500">{row.original.productSku ?? 'No SKU'}</p>
+        <p className="font-medium text-secondary-900">
+          {row.original.productName ?? i18next.t('inventory:table.unknownProduct')}
+        </p>
+        <p className="text-xs text-secondary-500">
+          {row.original.productSku ?? i18next.t('inventory:table.noSku')}
+        </p>
       </div>
     ),
   },
@@ -556,7 +562,7 @@ function InventoryDataPanel({
                 data={movements}
                 columns={inventoryMovementExportColumns}
                 filename="inventory-movements"
-                title="Inventory Movements"
+                title={t('movements.exportTitle')}
               />
               <DataTable
                 columns={movementColumns}
@@ -587,7 +593,7 @@ function InventoryDataPanel({
                 data={stockItems}
                 columns={inventoryStockExportColumns}
                 filename="inventory-stock"
-                title="Inventory Stock"
+                title={t('stock.exportTitle')}
               />
               <DataTable
                 columns={getStockColumns(onAdjust, canManage)}
@@ -620,7 +626,7 @@ function InventoryDataPanel({
                 data={entries}
                 columns={inventoryEntryExportColumns}
                 filename="inventory-entries"
-                title="Initial Inventory Entries"
+                title={t('entries.exportTitle')}
               />
               <DataTable
                 columns={entryColumns}

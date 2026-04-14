@@ -68,7 +68,7 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
         size: 120,
         cell: ({ row }) => (
           <span className={`badge ${paymentStatusColors[row.original.paymentStatus]}`}>
-            {row.original.paymentStatus}
+            {t(`paymentStatus.${row.original.paymentStatus}`)}
           </span>
         ),
       },
@@ -77,14 +77,21 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
         header: t('history.columns.status'),
         size: 110,
         cell: ({ row }) => (
-          <span className={`badge ${statusColors[row.original.status]}`}>{row.original.status}</span>
+          <span className={`badge ${statusColors[row.original.status]}`}>
+            {t(`status.${row.original.status}`)}
+          </span>
         ),
       },
       {
         id: 'actions',
         size: 80,
         cell: ({ row }) => (
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onView(row.original.id)}>
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onView(row.original.id)}
+            aria-label={t('history.viewSale', { number: row.original.saleNumber })}
+            title={t('history.viewSaleTitle')}
+          >
             <Eye className="h-4 w-4" />
           </button>
         ),

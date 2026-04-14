@@ -13,7 +13,7 @@ export function OrderDetailsContent({
   receiveError,
   voidError,
 }: OrderDetailsContentProps) {
-  const { t } = useTranslation('orders');
+  const { t } = useTranslation(['orders', 'purchases']);
 
   const progress = (order.items ?? []).reduce(
     (summary, item) => {
@@ -105,7 +105,7 @@ export function OrderDetailsContent({
                 <div className="text-left sm:text-right">
                   <p className="font-medium text-secondary-900">{formatCurrency(purchase.total)}</p>
                   <p className="capitalize text-secondary-500">
-                    {t(`status.${purchase.status}`)}
+                    {t(`purchases:status.${purchase.status}`)}
                   </p>
                 </div>
               </div>

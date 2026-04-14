@@ -16,6 +16,10 @@
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
     "register": "Registrar compra",
+    "purchaseTotal": "Total de la compra",
+    "provider": "Proveedor",
+    "selectProvider": "Selecciona proveedor",
+    "providerRequired": "El proveedor es obligatorio",
     "finalizeTitle": "Finalizar",
     "finalizeDescription": "Revisa el impacto en stock y el registro del proveedor antes de guardar.",
     "search": "Buscar",
@@ -24,7 +28,8 @@
     "total": "Total",
     "receivingSite": "Sede receptora",
     "stockNote": "Los costos de compra actualizan el historial de costos del producto e incrementan el stock usando la equivalencia de unidad seleccionada.",
-    "empty": "Busca y agrega productos para iniciar una compra."
+    "empty": "Busca y agrega productos para iniciar una compra.",
+    "notesPlaceholder": "Referencia opcional o nota de recepción"
   },
   "cart": {
     "product": "Producto",
@@ -69,7 +74,17 @@
     "viewPurchaseTitle": "Ver recibo",
     "exportTitle": "Historial de recibos"
   },
+  "confirm": {
+    "void": {
+      "title": "Anular compra",
+      "message": "Al anular esta compra se restará del inventario todo el stock recibido. Usa devoluciones de artículos en su lugar cuando solo una parte del recibo regrese al proveedor.",
+      "confirmText": "Anular compra"
+    }
+  },
   "details": {
+    "modalTitle": "Compra {{purchaseNumber}}",
+    "modalFallbackTitle": "Detalles de la compra",
+    "loading": "Cargando detalles de la compra...",
     "provider": "Proveedor",
     "site": "Sede",
     "status": "Estado",
@@ -90,7 +105,18 @@
     "noSku": "Sin SKU",
     "returnHistory": "Historial de devoluciones",
     "returnedWithoutNote": "Devuelto sin nota",
-    "notes": "Notas"
+    "notes": "Notas",
+    "actions": {
+      "returnItems": "Devolver artículos"
+    },
+    "toast": {
+      "returnSuccessTitle": "Devolución de compra registrada y stock reducido",
+      "returnErrorTitle": "No se pudieron devolver los artículos de la compra",
+      "returnErrorFallback": "No se pudo registrar la devolución de la compra",
+      "voidSuccessTitle": "Compra anulada y stock revertido",
+      "voidErrorTitle": "No se pudo anular la compra",
+      "voidErrorFallback": "No se pudo anular la compra"
+    }
   },
   "status": {
     "completed": "Completado",

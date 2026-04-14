@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Printer } from 'lucide-react';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -15,6 +16,7 @@ interface SaleDetailsModalProps {
 }
 
 export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalProps) {
+  const { t } = useTranslation(['sales', 'common']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -36,17 +38,17 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),
       ]);
-      toast.success({ title: 'Sale refunded and stock restored' });
+      toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
       setPrintError(null);
       setReturnError(null);
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to refund the sale');
+      const message = getErrorMessage(error, t('sales:details.toast.refundErrorFallback'));
       setReturnError(message);
       toast.error({
-        title: 'Unable to refund sale',
+        title: t('sales:details.toast.refundErrorTitle'),
         description: message,
       });
     },
@@ -63,7 +65,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),
       ]);
-      toast.success({ title: 'Sale voided and stock restored' });
+      toast.success({ title: t('sales:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
       setPrintError(null);
       setReturnError(null);
@@ -71,10 +73,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to void the sale');
+      const message = getErrorMessage(error, t('sales:details.toast.voidErrorFallback'));
       setVoidError(message);
       toast.error({
-        title: 'Unable to void sale',
+        title: t('sales:details.toast.voidErrorTitle'),
         description: message,
       });
     },
@@ -115,7 +117,9 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     try {
       await printSaleReceipt(sale);
     } catch (error) {
-      setPrintError(error instanceof Error ? error.message : 'Unable to print the receipt');
+      setPrintError(
+        error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback')
+      );
     } finally {
       setIsPrinting(false);
     }
@@ -154,7 +158,11 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title={sale ? `Sale ${sale.saleNumber}` : 'Sale Details'}
+        title={
+          sale
+            ? t('sales:details.modalTitle', { saleNumber: sale.saleNumber })
+            : t('sales:details.modalFallbackTitle')
+        }
         size="full"
         footer={
           <>
@@ -164,7 +172,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
                 variant="primary"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
-                Refund Sale
+                {t('sales:confirm.refund.confirmText')}
               </ModalButton>
             )}
             {canVoidSale && (
@@ -173,7 +181,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
                 variant="danger"
                 disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
               >
-                Void Sale
+                {t('sales:confirm.void.confirmText')}
               </ModalButton>
             )}
             <ModalButton
@@ -183,14 +191,16 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             >
               <span className="inline-flex items-center gap-2">
                 <Printer className="h-4 w-4" />
-                {isPrinting ? 'Printing...' : 'Print Receipt'}
+                {isPrinting ? t('sales:details.actions.printing') : t('common:toolbar.print')}
               </span>
             </ModalButton>
-            <ModalButton onClick={handleClose}>Close</ModalButton>
+            <ModalButton onClick={handleClose}>{t('common:actions.close')}</ModalButton>
           </>
         }
       >
-        {saleQuery.isLoading && <p className="text-sm text-secondary-500">Loading sale details...</p>}
+        {saleQuery.isLoading && (
+          <p className="text-sm text-secondary-500">{t('sales:details.loading')}</p>
+        )}
         {saleQuery.error && <p className="text-sm text-danger-500">{saleQuery.error.message}</p>}
 
         {sale && (
@@ -209,9 +219,9 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         onConfirm={() => {
           void handleReturnSale();
         }}
-        title="Refund Sale"
-        message="Refunding this sale will restore stock for all sale items and exclude it from completed sales revenue while preserving the historical sale record."
-        confirmText="Refund Sale"
+        title={t('confirm.refund.title')}
+        message={t('confirm.refund.message')}
+        confirmText={t('confirm.refund.confirmText')}
         loading={returnMutation.isPending}
         variant="primary"
       />
@@ -222,9 +232,9 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         onConfirm={() => {
           void handleVoidSale();
         }}
-        title="Void Sale"
-        message="Voiding this sale will restore stock for all sale items and remove it from completed sales totals. This action cannot be undone."
-        confirmText="Void Sale"
+        title={t('confirm.void.title')}
+        message={t('confirm.void.message')}
+        confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
         variant="danger"
       />

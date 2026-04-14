@@ -16,6 +16,10 @@
     "addProduct": "Add Product",
     "clear": "Clear",
     "register": "Register Purchase",
+    "purchaseTotal": "Purchase total",
+    "provider": "Provider",
+    "selectProvider": "Select provider",
+    "providerRequired": "Provider is required",
     "finalizeTitle": "Finalize",
     "finalizeDescription": "Review stock impact and provider registration before saving.",
     "search": "Search",
@@ -24,7 +28,8 @@
     "total": "Total",
     "receivingSite": "Receiving site",
     "stockNote": "Purchase costs update product cost history and increase stock using the selected unit equivalence.",
-    "empty": "Search and add products to start a purchase order."
+    "empty": "Search and add products to start a purchase order.",
+    "notesPlaceholder": "Optional reference or receiving note"
   },
   "cart": {
     "product": "Product",
@@ -69,7 +74,17 @@
     "viewPurchaseTitle": "View purchase",
     "exportTitle": "Purchase History"
   },
+  "confirm": {
+    "void": {
+      "title": "Void Purchase",
+      "message": "Voiding this purchase will subtract all received stock from inventory. Use item returns instead when only part of the receipt is going back to the provider.",
+      "confirmText": "Void Purchase"
+    }
+  },
   "details": {
+    "modalTitle": "Purchase {{purchaseNumber}}",
+    "modalFallbackTitle": "Purchase Details",
+    "loading": "Loading purchase details...",
     "provider": "Provider",
     "site": "Site",
     "status": "Status",
@@ -90,7 +105,18 @@
     "noSku": "No SKU",
     "returnHistory": "Return History",
     "returnedWithoutNote": "Returned without a note",
-    "notes": "Notes"
+    "notes": "Notes",
+    "actions": {
+      "returnItems": "Return Items"
+    },
+    "toast": {
+      "returnSuccessTitle": "Purchase return recorded and stock reduced",
+      "returnErrorTitle": "Unable to return purchase items",
+      "returnErrorFallback": "Unable to record the purchase return",
+      "voidSuccessTitle": "Purchase voided and stock reversed",
+      "voidErrorTitle": "Unable to void purchase",
+      "voidErrorFallback": "Unable to void the purchase"
+    }
   },
   "status": {
     "completed": "Completed",

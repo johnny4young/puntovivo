@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -23,6 +24,7 @@ export function PurchaseDetailsModal({
   onClose,
   initialMode = 'details',
 }: PurchaseDetailsModalProps) {
+  const { t } = useTranslation(['purchases', 'common']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -43,15 +45,15 @@ export function PurchaseDetailsModal({
         utils.products.search.invalidate(),
         utils.dashboard.summary.invalidate(),
       ]);
-      toast.success({ title: 'Purchase return recorded and stock reduced' });
+      toast.success({ title: t('purchases:details.toast.returnSuccessTitle') });
       setIsReturnModalOpen(false);
       setReturnError(null);
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to record the purchase return');
+      const message = getErrorMessage(error, t('purchases:details.toast.returnErrorFallback'));
       setReturnError(message);
       toast.error({
-        title: 'Unable to return purchase items',
+        title: t('purchases:details.toast.returnErrorTitle'),
         description: message,
       });
     },
@@ -68,16 +70,16 @@ export function PurchaseDetailsModal({
         utils.products.search.invalidate(),
         utils.dashboard.summary.invalidate(),
       ]);
-      toast.success({ title: 'Purchase voided and stock reversed' });
+      toast.success({ title: t('purchases:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
       setVoidError(null);
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to void the purchase');
+      const message = getErrorMessage(error, t('purchases:details.toast.voidErrorFallback'));
       setVoidError(message);
       toast.error({
-        title: 'Unable to void purchase',
+        title: t('purchases:details.toast.voidErrorTitle'),
         description: message,
       });
     },
@@ -150,7 +152,11 @@ export function PurchaseDetailsModal({
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title={purchase ? `Purchase ${purchase.purchaseNumber}` : 'Purchase Details'}
+        title={
+          purchase
+            ? t('purchases:details.modalTitle', { purchaseNumber: purchase.purchaseNumber })
+            : t('purchases:details.modalFallbackTitle')
+        }
         size="full"
         footer={
           <>
@@ -160,7 +166,7 @@ export function PurchaseDetailsModal({
                 variant="primary"
                 disabled={returnMutation.isPending || voidMutation.isPending}
               >
-                Return Items
+                {t('purchases:details.actions.returnItems')}
               </ModalButton>
             )}
             {canVoidPurchase && (
@@ -169,15 +175,15 @@ export function PurchaseDetailsModal({
                 variant="danger"
                 disabled={returnMutation.isPending || voidMutation.isPending}
               >
-                Void Purchase
+                {t('purchases:confirm.void.confirmText')}
               </ModalButton>
             )}
-            <ModalButton onClick={handleClose}>Close</ModalButton>
+            <ModalButton onClick={handleClose}>{t('common:actions.close')}</ModalButton>
           </>
         }
       >
         {purchaseQuery.isLoading && (
-          <p className="text-sm text-secondary-500">Loading purchase details...</p>
+          <p className="text-sm text-secondary-500">{t('purchases:details.loading')}</p>
         )}
         {purchaseQuery.error && <p className="text-sm text-danger-500">{purchaseQuery.error.message}</p>}
 
@@ -208,9 +214,9 @@ export function PurchaseDetailsModal({
         onConfirm={() => {
           void handleVoidPurchase();
         }}
-        title="Void Purchase"
-        message="Voiding this purchase will subtract all received stock from inventory. Use item returns instead when only part of the receipt is going back to the provider."
-        confirmText="Void Purchase"
+        title={t('confirm.void.title')}
+        message={t('confirm.void.message')}
+        confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
         variant="danger"
       />

@@ -27,6 +27,7 @@
     "activeSiteHint": "La sede seleccionada controla la numeración consecutiva y la validación de stock.",
     "noSiteWarning": "Selecciona una sede activa antes de cobrar para usar el consecutivo y el alcance de stock correctos.",
     "keyboardHint": "Flujo con teclado: `F5` catálogo, `F1` cobrar, `Delete` eliminar línea actual",
+    "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
     "searchHint": "La búsqueda reutiliza el diálogo de catálogo existente con selección de unidad y validación de stock.",
     "activeTicket": "Ticket activo",
@@ -85,6 +86,8 @@
     "recordsLoaded": "registros cargados",
     "exportTitle": "Historial de ventas",
     "walkIn": "Ocasional",
+    "viewSale": "Ver {{number}}",
+    "viewSaleTitle": "Ver venta",
     "columns": {
       "invoiceNumber": "Factura #",
       "date": "Fecha",
@@ -95,6 +98,9 @@
     }
   },
   "details": {
+    "modalTitle": "Venta {{saleNumber}}",
+    "modalFallbackTitle": "Detalles de la venta",
+    "loading": "Cargando detalles de la venta...",
     "customer": "Cliente",
     "payment": "Pago",
     "status": "Estado",
@@ -112,7 +118,31 @@
     "vat": "IVA",
     "notes": "Notas",
     "noSku": "Sin SKU",
-    "unit": "Unidad"
+    "unit": "Unidad",
+    "actions": {
+      "printing": "Imprimiendo..."
+    },
+    "toast": {
+      "refundSuccessTitle": "Venta reembolsada y stock restaurado",
+      "refundErrorTitle": "No se pudo reembolsar la venta",
+      "refundErrorFallback": "No se pudo reembolsar la venta",
+      "voidSuccessTitle": "Venta anulada y stock restaurado",
+      "voidErrorTitle": "No se pudo anular la venta",
+      "voidErrorFallback": "No se pudo anular la venta",
+      "printErrorFallback": "No se pudo imprimir el recibo"
+    }
+  },
+  "confirm": {
+    "refund": {
+      "title": "Reembolsar venta",
+      "message": "Al reembolsar esta venta se restaurará el stock de todos los artículos y se excluirá de los ingresos de ventas completadas, conservando el registro histórico de la venta.",
+      "confirmText": "Reembolsar venta"
+    },
+    "void": {
+      "title": "Anular venta",
+      "message": "Al anular esta venta se restaurará el stock de todos los artículos y se eliminará de los totales de ventas completadas. Esta acción no se puede deshacer.",
+      "confirmText": "Anular venta"
+    }
   },
   "quickSearch": {
     "label": "Producto / código de barras",
@@ -135,6 +165,7 @@
   "toast": {
     "success": "Venta completada",
     "successDetail": "artículo(s) procesados correctamente",
-    "error": "No se pudo completar la venta"
+    "error": "No se pudo completar la venta",
+    "errorFallback": "No se pudo completar la venta"
   }
 }
