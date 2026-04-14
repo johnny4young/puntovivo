@@ -140,6 +140,7 @@ export function PurchaseReturnModal({
                     type="number"
                     min={0}
                     max={remainingQuantity}
+                    step="any"
                     className="input mt-1"
                     disabled={remainingQuantity <= 0}
                     {...form.register(`items.${index}.quantity`, {

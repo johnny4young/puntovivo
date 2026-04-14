@@ -95,6 +95,7 @@ export function InventoryAdjustmentModal({
                 id="inventory-new-stock"
                 type="number"
                 min={0}
+                step="any"
                 className="input mt-1"
                 {...form.register('newStock', {
                   valueAsNumber: true,

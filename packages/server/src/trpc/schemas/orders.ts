@@ -6,7 +6,7 @@ export const orderStatusEnum = z.enum(['submitted', 'partial_received', 'receive
 export const orderItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   unitId: z.string().min(1, 'Unit ID is required'),
-  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  quantity: z.number().positive('Quantity must be greater than zero'),
   costPerUnit: z.number().min(0, 'Cost per unit must be non-negative'),
 });
 

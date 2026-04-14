@@ -376,6 +376,79 @@ describe('Sales tRPC Router', () => {
     ).rejects.toThrow(/Insufficient stock/);
   });
 
+  it('creates sales with fractional quantities and preserves decimal stock deductions', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Bananas by weight',
+      sku: 'SALE-FRAC-001',
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      stock: 2,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const result = await caller.sales.create({
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 0.75,
+          unitPrice: 12,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 12,
+      discountAmount: 0,
+    });
+
+    expect(result.total).toBeCloseTo(9);
+    expect(result.items[0]?.quantity).toBe(0.75);
+
+    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(updatedProduct?.stock).toBeCloseTo(1.25);
+
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, result.id))
+      .get();
+    expect(movement?.quantity).toBe(0.75);
+    expect(movement?.newStock).toBeCloseTo(1.25);
+  });
+
   it('voids a completed sale, restores stock, and removes it from completed sales KPIs', async () => {
     const db = getDatabase();
     const productId = nanoid();
