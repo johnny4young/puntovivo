@@ -139,6 +139,8 @@
     "chooseProduct": "Selecciona una fila del producto para confirmar la unidad y el precio.",
     "equivalence": "Equivalencia",
     "availableStock": "Stock disponible",
+    "fractionStep": "Paso fraccional",
+    "fractionMinimum": "Cantidad mínima de venta",
     "cancel": "Cancelar"
   }
 }

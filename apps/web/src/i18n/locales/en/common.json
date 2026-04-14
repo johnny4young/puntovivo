@@ -139,6 +139,8 @@
     "chooseProduct": "Choose a product row to confirm the unit and price.",
     "equivalence": "Equivalence",
     "availableStock": "Available stock",
+    "fractionStep": "Fraction step",
+    "fractionMinimum": "Minimum sale quantity",
     "cancel": "Cancel"
   }
 }

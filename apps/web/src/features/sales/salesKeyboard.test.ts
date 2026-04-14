@@ -16,6 +16,9 @@ const sampleItems: SaleCartItem[] = [
     discount: 0,
     taxRate: 19,
     availableStock: 10,
+    sellByFraction: false,
+    fractionStep: null,
+    fractionMinimum: null,
   },
   {
     key: 'product-b:box',
@@ -30,6 +33,9 @@ const sampleItems: SaleCartItem[] = [
     discount: 0,
     taxRate: 19,
     availableStock: 5,
+    sellByFraction: false,
+    fractionStep: null,
+    fractionMinimum: null,
   },
 ];
 

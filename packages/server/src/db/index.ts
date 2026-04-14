@@ -416,6 +416,9 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       initial_cost REAL NOT NULL DEFAULT 0,
       stock REAL NOT NULL DEFAULT 0,
       min_stock REAL NOT NULL DEFAULT 0,
+      sell_by_fraction INTEGER NOT NULL DEFAULT 0,
+      fraction_step REAL,
+      fraction_minimum REAL,
       is_active INTEGER DEFAULT 1,
       barcode TEXT,
       image_url TEXT,
@@ -785,6 +788,14 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'products', 'provider_id', 'provider_id TEXT');
   ensureColumn(client, 'products', 'location_id', 'location_id TEXT');
   ensureColumn(client, 'products', 'initial_cost', 'initial_cost REAL NOT NULL DEFAULT 0');
+  ensureColumn(
+    client,
+    'products',
+    'sell_by_fraction',
+    'sell_by_fraction INTEGER NOT NULL DEFAULT 0'
+  );
+  ensureColumn(client, 'products', 'fraction_step', 'fraction_step REAL');
+  ensureColumn(client, 'products', 'fraction_minimum', 'fraction_minimum REAL');
   ensureColumn(client, 'departments', 'country_id', 'country_id TEXT REFERENCES countries(id)');
   ensureColumn(client, 'customers', 'identification_type_id', 'identification_type_id TEXT');
   ensureColumn(client, 'customers', 'person_type_id', 'person_type_id TEXT');

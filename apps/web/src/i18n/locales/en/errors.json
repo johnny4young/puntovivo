@@ -13,6 +13,15 @@
     "AUTH_USER_NOT_FOUND": "Your user account could not be found.",
     "AUTH_CURRENT_PASSWORD_INCORRECT": "Your current password is incorrect.",
     "AUTH_PASSWORD_POLICY": "Your new password does not meet the security requirements.",
+    "PRODUCT_FRACTION_STEP_REQUIRED": "Set a fraction step greater than zero before enabling fractional sales.",
+    "PRODUCT_FRACTION_MINIMUM_REQUIRED": "Set a minimum sale quantity greater than zero before enabling fractional sales.",
+    "PRODUCT_FRACTION_MINIMUM_BELOW_STEP": "The minimum sale quantity must be greater than or equal to the fraction step.",
+    "PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED": "The minimum sale quantity must be a multiple of the fraction step.",
+    "SALE_QUANTITY_NOT_WHOLE": "This product must be sold in whole units.",
+    "SALE_QUANTITY_BELOW_MINIMUM": "This product must be sold with a minimum quantity.",
+    "SALE_QUANTITY_NOT_ALIGNED": "This product must be sold in increments of its configured fraction step.",
+    "SALE_FRACTION_POLICY_MISSING": "This product is missing its fraction policy configuration.",
+    "SALE_QUANTITY_INVALID": "The quantity must be greater than zero.",
     "unknown": "Something went wrong. Please try again."
   }
 }

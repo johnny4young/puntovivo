@@ -1,7 +1,12 @@
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
-import { getLineTotals, type SaleCartItem } from '@/features/sales/saleCart';
+import {
+  getLineTotals,
+  getSaleMinimumQuantity,
+  getSaleQuantityStep,
+  type SaleCartItem,
+} from '@/features/sales/saleCart';
 
 interface SaleCartTableProps {
   items: SaleCartItem[];
@@ -80,8 +85,8 @@ export function SaleCartTable({
                       <input
                         ref={quantityInputRefFor(item.key)}
                         type="number"
-                        min={0.01}
-                        step="any"
+                        min={getSaleMinimumQuantity(item)}
+                        step={String(getSaleQuantityStep(item))}
                         className="input w-24"
                         aria-label={t('cart.qtyFor', { name: item.productName })}
                         value={item.quantity}
@@ -89,7 +94,10 @@ export function SaleCartTable({
                         onChange={event =>
                           onQuantityChange(
                             item.key,
-                            Math.max(0.01, Number(event.target.value) || 0.01)
+                            Math.max(
+                              getSaleMinimumQuantity(item),
+                              Number(event.target.value) || getSaleMinimumQuantity(item)
+                            )
                           )
                         }
                       />
@@ -178,8 +186,8 @@ export function SaleCartTable({
                   <input
                     ref={quantityInputRefFor(item.key)}
                     type="number"
-                    min={0.01}
-                    step="any"
+                    min={getSaleMinimumQuantity(item)}
+                    step={String(getSaleQuantityStep(item))}
                     className="input mt-0"
                     aria-label={t('cart.qtyFor', { name: item.productName })}
                     value={item.quantity}
@@ -187,7 +195,10 @@ export function SaleCartTable({
                     onChange={event =>
                       onQuantityChange(
                         item.key,
-                        Math.max(0.01, Number(event.target.value) || 0.01)
+                        Math.max(
+                          getSaleMinimumQuantity(item),
+                          Number(event.target.value) || getSaleMinimumQuantity(item)
+                        )
                       )
                     }
                   />

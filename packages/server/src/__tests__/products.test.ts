@@ -488,6 +488,9 @@ describe('Products tRPC Router', () => {
 
     expect(created.stock).toBe(2.5);
     expect(created.minStock).toBe(0.25);
+    expect(created.sellByFraction).toBe(false);
+    expect(created.fractionStep).toBeNull();
+    expect(created.fractionMinimum).toBeNull();
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.stock).toBe(2.5);
@@ -509,5 +512,100 @@ describe('Products tRPC Router', () => {
     });
     const match = listed.items.find(item => item.id === created.id);
     expect(match?.stock).toBe(0.75);
+  });
+
+  it('stores and updates product-level fraction policy fields', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'Cable flexible',
+      sku: 'FLEX-CABLE-01',
+      description: null,
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId,
+      barcode: null,
+      imageUrl: null,
+      cost: 1500,
+      initialCost: 1500,
+      price: 2200,
+      price2: 2200,
+      price3: 2200,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 12,
+      minStock: 1,
+      sellByFraction: true,
+      fractionStep: 0.25,
+      fractionMinimum: 0.5,
+      isActive: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 2200, isBase: true }],
+    });
+
+    expect(created.sellByFraction).toBe(true);
+    expect(created.fractionStep).toBe(0.25);
+    expect(created.fractionMinimum).toBe(0.5);
+
+    const updated = await caller.products.update({
+      id: created.id,
+      fractionStep: 0.5,
+      fractionMinimum: 1,
+    });
+
+    expect(updated.sellByFraction).toBe(true);
+    expect(updated.fractionStep).toBe(0.5);
+    expect(updated.fractionMinimum).toBe(1);
+
+    const searched = await caller.products.search({
+      q: 'FLEX-CABLE',
+      isActive: true,
+    });
+    const match = searched.items.find(item => item.id === created.id);
+    expect(match?.sellByFraction).toBe(true);
+    expect(match?.fractionStep).toBe(0.5);
+    expect(match?.fractionMinimum).toBe(1);
+  });
+
+  it('rejects invalid fraction policy configurations before persistence', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.create({
+        name: 'Broken Fraction Policy',
+        sku: 'BROKEN-FRAC-01',
+        description: null,
+        categoryId,
+        providerId,
+        vatRateId,
+        locationId: null,
+        barcode: null,
+        imageUrl: null,
+        cost: 10,
+        initialCost: 10,
+        price: 15,
+        price2: 15,
+        price3: 15,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: 5,
+        minStock: 1,
+        sellByFraction: true,
+        fractionStep: 0.25,
+        fractionMinimum: 0.3,
+        isActive: true,
+        unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 15, isBase: true }],
+      })
+    ).rejects.toThrow(/Fraction minimum must align/);
   });
 });

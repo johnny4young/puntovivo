@@ -652,6 +652,9 @@ export const products = sqliteTable(
     // change.
     stock: real('stock').notNull().default(0),
     minStock: real('min_stock').notNull().default(0),
+    sellByFraction: integer('sell_by_fraction', { mode: 'boolean' }).notNull().default(false),
+    fractionStep: real('fraction_step'),
+    fractionMinimum: real('fraction_minimum'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),

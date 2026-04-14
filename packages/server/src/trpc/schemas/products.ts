@@ -31,6 +31,12 @@ function hasDuplicateProviderAssignments(
   return new Set(providerIds).size !== providerIds.length;
 }
 
+// NOTE: Fraction policy business rules (step alignment, minimum >= step, etc.)
+// live in `services/fraction-policy.ts` as the single source of truth. The
+// Zod layer intentionally enforces only shape (numbers, nullability, >= 0) so
+// the two layers never drift. The router calls `resolveFractionPolicy` which
+// throws a coded TRPCError for any rule violation.
+
 // ============================================================================
 // Input Schemas
 // ============================================================================
@@ -70,6 +76,13 @@ export const createProductInput = z
     // and supermarkets (0.75 kg produce) can track fractional quantities.
     stock: z.number().min(0).default(0),
     minStock: z.number().min(0).default(0),
+    sellByFraction: z.boolean().default(false),
+    fractionStep: z.number().positive('Fraction step must be greater than zero').nullable().optional(),
+    fractionMinimum: z
+      .number()
+      .positive('Fraction minimum must be greater than zero')
+      .nullable()
+      .optional(),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),
@@ -114,6 +127,13 @@ export const updateProductInput = z
     // Phase 1 DB-050: see createProductInput above.
     stock: z.number().min(0).optional(),
     minStock: z.number().min(0).optional(),
+    sellByFraction: z.boolean().optional(),
+    fractionStep: z.number().positive('Fraction step must be greater than zero').nullable().optional(),
+    fractionMinimum: z
+      .number()
+      .positive('Fraction minimum must be greater than zero')
+      .nullable()
+      .optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),

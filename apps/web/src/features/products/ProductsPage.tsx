@@ -18,7 +18,8 @@ import {
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { formatCurrency, getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
+import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import type { Product, UserRole } from '@/types';
 
@@ -134,7 +135,7 @@ const columns = (
 ];
 
 export function ProductsPage() {
-  const { t } = useTranslation('products');
+  const { t } = useTranslation(['products', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -163,7 +164,7 @@ export function ProductsPage() {
     onError: error => {
       toast.error({
         title: t('toast.createError'),
-        description: getErrorMessage(error, t('toast.createError')),
+        description: getServerErrorMessage(error),
       });
     },
   });
@@ -176,7 +177,7 @@ export function ProductsPage() {
     onError: error => {
       toast.error({
         title: t('toast.updateError'),
-        description: getErrorMessage(error, t('toast.updateError')),
+        description: getServerErrorMessage(error),
       });
     },
   });
@@ -189,7 +190,7 @@ export function ProductsPage() {
     onError: error => {
       toast.error({
         title: t('toast.deactivateError'),
-        description: getErrorMessage(error, t('toast.deactivateError')),
+        description: getServerErrorMessage(error),
       });
     },
   });
@@ -239,9 +240,14 @@ export function ProductsPage() {
       }
     : editingProduct;
 
+  const getServerErrorMessage = (error: unknown) =>
+    translateServerError(error, t, t('errors:server.unknown'));
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
+    createMutation.reset();
+    updateMutation.reset();
   };
 
   const handleOpenCreate = () => {
@@ -288,6 +294,9 @@ export function ProductsPage() {
       taxRate: values.taxRate,
       stock: values.stock,
       minStock: values.minStock,
+      sellByFraction: values.sellByFraction,
+      fractionStep: values.sellByFraction ? values.fractionStep : null,
+      fractionMinimum: values.sellByFraction ? values.fractionMinimum : null,
       isActive: values.isActive,
       unitAssignments: values.unitAssignments.map(assignment => ({
         unitId: assignment.unitId,
@@ -384,7 +393,13 @@ export function ProductsPage() {
         units={units}
         vatRates={vatRates}
         isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+        error={
+          createMutation.error
+            ? getServerErrorMessage(createMutation.error)
+            : updateMutation.error
+              ? getServerErrorMessage(updateMutation.error)
+              : null
+        }
         onClose={handleCloseModal}
         onSubmit={handleSubmit}
       />

@@ -19,6 +19,9 @@ function createCartItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
     discount: 10,
     taxRate: 19,
     availableStock: 18,
+    sellByFraction: false,
+    fractionStep: null,
+    fractionMinimum: null,
     ...overrides,
   };
 }
