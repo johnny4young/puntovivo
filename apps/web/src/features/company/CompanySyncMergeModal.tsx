@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { PendingResolution } from '@/features/company/CompanySyncConflictModal';
 
@@ -52,6 +53,7 @@ function MergeModalContent({
   onClose,
   onConfirm,
 }: MergeModalContentProps) {
+  const { t } = useTranslation('settings');
   const [mergedJson, setMergedJson] = useState(() => buildInitialMergedJson(pendingResolution));
   const [error, setError] = useState<string | null>(null);
 
@@ -60,14 +62,14 @@ function MergeModalContent({
       const parsed = JSON.parse(mergedJson) as unknown;
 
       if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        setError('Merged data must be a JSON object.');
+        setError(t('company.sync.conflict.jsonObjectRequired'));
         return;
       }
 
       setError(null);
       onConfirm(parsed as Record<string, unknown>);
     } catch {
-      setError('Merged data must be valid JSON.');
+      setError(t('company.sync.conflict.jsonInvalid'));
     }
   };
 
@@ -75,33 +77,36 @@ function MergeModalContent({
     <Modal
       isOpen
       onClose={onClose}
-      title="Merge Conflict Data"
+      title={t('company.sync.conflict.mergeTitle')}
       size="xl"
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isLoading}>
-            Cancel
+            {t('common:actions.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleConfirm} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save Merge'}
+            {isLoading ? t('company.sync.conflict.saving') : t('company.sync.conflict.saveMerge')}
           </ModalButton>
         </>
       }
     >
       <div className="space-y-4">
         <p className="text-sm text-secondary-600">
-          Review the local and remote payloads for {pendingResolution.entityType} {pendingResolution.entityId}, then edit the merged JSON that should be requeued for sync.
+          {t('company.sync.conflict.mergeDescription', {
+            entityType: pendingResolution.entityType,
+            entityId: pendingResolution.entityId,
+          })}
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
-            <h3 className="text-sm font-semibold text-secondary-900">Local Data</h3>
+            <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.localData')}</h3>
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-secondary-700">
               {JSON.stringify(pendingResolution.localData ?? {}, null, 2)}
             </pre>
           </div>
           <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
-            <h3 className="text-sm font-semibold text-secondary-900">Remote Data</h3>
+            <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.remoteData')}</h3>
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-secondary-700">
               {JSON.stringify(pendingResolution.remoteData ?? {}, null, 2)}
             </pre>
@@ -113,7 +118,7 @@ function MergeModalContent({
             htmlFor="merged-sync-json"
             className="text-sm font-semibold text-secondary-900"
           >
-            Merged JSON
+            {t('company.sync.conflict.mergedJson')}
           </label>
           <textarea
             id="merged-sync-json"

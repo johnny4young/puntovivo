@@ -94,6 +94,44 @@
       "status": "Estado"
     }
   },
+  "details": {
+    "customer": "Cliente",
+    "payment": "Pago",
+    "status": "Estado",
+    "created": "Creado",
+    "walkIn": "Ocasional",
+    "refund": "Reembolso",
+    "refundNoNote": "Reembolso registrado sin nota",
+    "processedOn": "Procesado el {{date}}",
+    "product": "Producto",
+    "quantity": "Cantidad",
+    "unitPrice": "Precio unitario",
+    "tax": "IVA",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "vat": "IVA",
+    "notes": "Notas",
+    "noSku": "Sin SKU",
+    "unit": "Unidad"
+  },
+  "quickSearch": {
+    "label": "Producto / código de barras",
+    "placeholder": "Escanea código de barras o escribe SKU / nombre",
+    "search": "Buscar",
+    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar."
+  },
+  "paymentStatus": {
+    "pending": "Pendiente",
+    "paid": "Pagado",
+    "partial": "Parcial",
+    "refunded": "Reembolsado"
+  },
+  "status": {
+    "draft": "Borrador",
+    "completed": "Completada",
+    "cancelled": "Cancelada",
+    "voided": "Anulada"
+  },
   "toast": {
     "success": "Venta completada",
     "successDetail": "artículo(s) procesados correctamente",

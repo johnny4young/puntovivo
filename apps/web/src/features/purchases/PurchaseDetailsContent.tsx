@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
@@ -12,53 +13,55 @@ export function PurchaseDetailsContent({
   returnError,
   voidError,
 }: PurchaseDetailsContentProps) {
+  const { t } = useTranslation('purchases');
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Provider</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.provider')}</p>
           <p className="mt-2 font-medium text-secondary-900">{purchase.providerName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Site</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.site')}</p>
           <p className="mt-2 font-medium text-secondary-900">{purchase.siteName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Status</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.status')}</p>
           <p className="mt-2 font-medium capitalize text-secondary-900">
-            {purchase.status.replace(/_/g, ' ')}
+            {t(`status.${purchase.status}`)}
           </p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Created</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.created')}</p>
           <p className="mt-2 font-medium text-secondary-900">{formatDateTime(purchase.createdAt)}</p>
         </div>
       </div>
 
       {purchase.sourceOrderNumber && (
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-primary-700">Received From Order</p>
+          <p className="text-xs uppercase tracking-wide text-primary-700">{t('details.receivedFromOrder')}</p>
           <p className="mt-2 font-medium text-primary-900">{purchase.sourceOrderNumber}</p>
         </div>
       )}
 
       {purchase.returnCount ? (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">Supplier Returns</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.supplierReturns')}</p>
           <p className="mt-2 font-medium text-warning-900">
-            {purchase.returnCount} recorded return{purchase.returnCount === 1 ? '' : 's'}
+            {t('details.recordedReturn', { count: purchase.returnCount })}
           </p>
           <p className="text-sm text-warning-800">
-            {formatCurrency(purchase.returnedAmount ?? 0)} returned to the provider
+            {t('details.returnedToProvider', { amount: formatCurrency(purchase.returnedAmount ?? 0) })}
           </p>
           {purchase.returnedAt && (
             <p className="mt-1 text-xs text-warning-700">
-              Latest return on {formatDateTime(purchase.returnedAt)}
+              {t('details.latestReturnOn', { date: formatDateTime(purchase.returnedAt) })}
             </p>
           )}
           {purchase.latestReturnCreatedByName && (
             <p className="mt-1 text-xs text-warning-700">
-              Registered by {purchase.latestReturnCreatedByName}
+              {t('details.registeredBy', { name: purchase.latestReturnCreatedByName })}
             </p>
           )}
           {purchase.latestReturnReason && (
@@ -68,7 +71,7 @@ export function PurchaseDetailsContent({
       ) : null}
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-        <p className="text-xs uppercase tracking-wide text-primary-700">Total</p>
+        <p className="text-xs uppercase tracking-wide text-primary-700">{t('details.total')}</p>
         <p className="mt-2 text-xl font-semibold text-primary-900">
           {formatCurrency(purchase.total)}
         </p>
@@ -79,12 +82,12 @@ export function PurchaseDetailsContent({
           <table className="min-w-full divide-y divide-secondary-200">
             <thead className="bg-secondary-50">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Received</th>
-                <th className="px-4 py-3">Returned</th>
-                <th className="px-4 py-3">Remaining</th>
-                <th className="px-4 py-3">Cost / Unit</th>
-                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">{t('details.product')}</th>
+                <th className="px-4 py-3">{t('details.received')}</th>
+                <th className="px-4 py-3">{t('details.returned')}</th>
+                <th className="px-4 py-3">{t('details.remaining')}</th>
+                <th className="px-4 py-3">{t('details.costPerUnit')}</th>
+                <th className="px-4 py-3">{t('details.total')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-200 bg-white">
@@ -96,7 +99,7 @@ export function PurchaseDetailsContent({
                         {item.productName ?? item.productId}
                       </p>
                       <p className="text-xs text-secondary-500">
-                        {item.productSku ?? 'No SKU'}
+                        {item.productSku ?? t('details.noSku')}
                         {' · '}
                         {item.unitName ?? item.unitAbbreviation ?? item.unitId}
                       </p>
@@ -125,7 +128,7 @@ export function PurchaseDetailsContent({
       {purchase.returns && purchase.returns.length > 0 ? (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
-            Return History
+            {t('details.returnHistory')}
           </h3>
           {purchase.returns.map(returnRecord => (
             <div key={returnRecord.id} className="rounded-xl border border-secondary-200 px-4 py-4">
@@ -142,7 +145,7 @@ export function PurchaseDetailsContent({
                   )}
                 </div>
                 <p className="text-sm text-secondary-700">
-                  {returnRecord.reason ?? 'Returned without a note'}
+                  {returnRecord.reason ?? t('details.returnedWithoutNote')}
                 </p>
               </div>
               {returnRecord.items && returnRecord.items.length > 0 ? (
@@ -167,7 +170,7 @@ export function PurchaseDetailsContent({
 
       {purchase.notes && (
         <div className="rounded-xl border border-secondary-200 px-4 py-4">
-          <p className="text-sm text-secondary-500">Notes</p>
+          <p className="text-sm text-secondary-500">{t('details.notes')}</p>
           <p className="mt-2 text-sm text-secondary-700">{purchase.notes}</p>
         </div>
       )}

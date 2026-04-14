@@ -28,7 +28,7 @@ export function createSiteColumns({
           </div>
           <div>
             <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.address || 'No address'}</p>
+            <p className="text-xs text-secondary-500">{row.original.address || t('sites.columns.noAddress')}</p>
           </div>
         </div>
       ),
@@ -41,7 +41,7 @@ export function createSiteColumns({
     },
     {
       accessorKey: 'assignedLocationCount',
-      header: 'Locations',
+      header: t('sites.columns.locations'),
       size: 120,
       cell: ({ row }) => row.original.assignedLocationCount ?? 0,
     },
@@ -51,7 +51,7 @@ export function createSiteColumns({
       size: 120,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('common:status.active') : t('common:status.inactive')}
         </span>
       ),
     },
@@ -64,7 +64,7 @@ export function createSiteColumns({
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onManageLocations(row.original)}
             disabled={!canManage}
-            title="Manage site locations"
+            title={t('sites.columns.manageLocations')}
           >
             <MapPinned className="h-4 w-4" />
           </button>

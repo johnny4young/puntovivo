@@ -102,6 +102,22 @@
     "selected": "seleccionado(s)",
     "ofTotal": "de {{total}} en total"
   },
+  "offline": {
+    "youAreOffline": "Estás sin conexión",
+    "queuedChanges_one": "{{count}} cambio pendiente se sincronizará cuando regrese la conexión.",
+    "queuedChanges_other": "{{count}} cambios pendientes se sincronizarán cuando regrese la conexión.",
+    "localChanges": "Los cambios hechos en la app de escritorio se mantendrán locales hasta que regrese la conexión.",
+    "conflictsTitle": "Conflictos de sincronización requieren revisión",
+    "conflictsDesc_one": "{{count}} conflicto debe resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
+    "conflictsDesc_other": "{{count}} conflictos deben resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
+    "attentionTitle": "La sincronización necesita atención",
+    "pendingTitle": "Cambios pendientes esperando sincronización",
+    "pendingDesc_one": "{{count}} cambio pendiente se sincronizará automáticamente.",
+    "pendingDesc_other": "{{count}} cambios pendientes se sincronizarán automáticamente.",
+    "lastSync": "Última sincronización exitosa: {{date}}",
+    "syncing": "Sincronizando...",
+    "retrySync": "Reintentar sincronización"
+  },
   "productSearch": {
     "search": "Buscar",
     "searchPlaceholder": "Buscar por SKU, nombre o código de barras",

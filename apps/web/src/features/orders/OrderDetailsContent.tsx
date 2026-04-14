@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Order } from '@/types';
 
@@ -12,6 +13,8 @@ export function OrderDetailsContent({
   receiveError,
   voidError,
 }: OrderDetailsContentProps) {
+  const { t } = useTranslation('orders');
+
   const progress = (order.items ?? []).reduce(
     (summary, item) => {
       summary.ordered += item.quantity;
@@ -26,55 +29,55 @@ export function OrderDetailsContent({
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Provider</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.provider')}</p>
           <p className="mt-2 font-medium text-secondary-900">{order.providerName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Site</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.site')}</p>
           <p className="mt-2 font-medium text-secondary-900">{order.siteName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Status</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.status')}</p>
           <p className="mt-2 font-medium capitalize text-secondary-900">
-            {order.status.replace(/_/g, ' ')}
+            {t(`status.${order.status}`)}
           </p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Created</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.created')}</p>
           <p className="mt-2 font-medium text-secondary-900">{formatDateTime(order.createdAt)}</p>
         </div>
       </div>
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-        <p className="text-xs uppercase tracking-wide text-primary-700">Committed Total</p>
+        <p className="text-xs uppercase tracking-wide text-primary-700">{t('details.committedTotal')}</p>
         <p className="mt-2 text-xl font-semibold text-primary-900">{formatCurrency(order.total)}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">Ordered Units</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.orderedUnits')}</p>
           <p className="mt-2 text-xl font-semibold text-secondary-900">{progress.ordered}</p>
         </div>
         <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-success-700">Received Units</p>
+          <p className="text-xs uppercase tracking-wide text-success-700">{t('details.receivedUnits')}</p>
           <p className="mt-2 text-xl font-semibold text-success-900">{progress.received}</p>
         </div>
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">Pending Units</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.pendingUnits')}</p>
           <p className="mt-2 text-xl font-semibold text-warning-900">{progress.pending}</p>
         </div>
       </div>
 
       {order.status === 'partial_received' && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">Staged Delivery</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.stagedDelivery')}</p>
           <p className="mt-2 font-medium text-warning-900">
-            {order.linkedPurchaseCount ?? 0} receipt{order.linkedPurchaseCount === 1 ? '' : 's'} registered so far
+            {t('details.receiptCount', { count: order.linkedPurchaseCount ?? 0 })} {t('details.registeredSoFar')}
           </p>
           <p className="text-sm text-warning-800">
             {order.receivedPurchaseNumber
-              ? `Latest receipt ${order.receivedPurchaseNumber}. Keep receiving only the quantities that arrived in each batch.`
-              : 'Keep receiving only the quantities that arrived in each batch.'}
+              ? `${t('details.latestReceipt', { number: order.receivedPurchaseNumber })} ${t('details.keepReceiving')}`
+              : t('details.keepReceiving')}
           </p>
         </div>
       )}
@@ -83,9 +86,9 @@ export function OrderDetailsContent({
         <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-success-700">Receipts</p>
+              <p className="text-xs uppercase tracking-wide text-success-700">{t('details.receipts')}</p>
               <p className="mt-2 font-medium text-success-900">
-                {order.linkedPurchaseCount} purchase receipt{order.linkedPurchaseCount === 1 ? '' : 's'}
+                {t('details.receiptCount', { count: order.linkedPurchaseCount ?? 0 })}
               </p>
             </div>
           </div>
@@ -102,7 +105,7 @@ export function OrderDetailsContent({
                 <div className="text-left sm:text-right">
                   <p className="font-medium text-secondary-900">{formatCurrency(purchase.total)}</p>
                   <p className="capitalize text-secondary-500">
-                    {purchase.status.replace(/_/g, ' ')}
+                    {t(`status.${purchase.status}`)}
                   </p>
                 </div>
               </div>
@@ -116,13 +119,13 @@ export function OrderDetailsContent({
           <table className="min-w-full divide-y divide-secondary-200">
             <thead className="bg-secondary-50">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Ordered</th>
-                <th className="px-4 py-3">Received</th>
-                <th className="px-4 py-3">Pending</th>
-                <th className="px-4 py-3">Cost / Unit</th>
-                <th className="px-4 py-3">Base Cost</th>
-                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">{t('details.product')}</th>
+                <th className="px-4 py-3">{t('details.ordered')}</th>
+                <th className="px-4 py-3">{t('details.received')}</th>
+                <th className="px-4 py-3">{t('details.pending')}</th>
+                <th className="px-4 py-3">{t('details.costPerUnit')}</th>
+                <th className="px-4 py-3">{t('details.baseCost')}</th>
+                <th className="px-4 py-3">{t('details.total')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-200 bg-white">
@@ -134,7 +137,7 @@ export function OrderDetailsContent({
                         {item.productName ?? item.productId}
                       </p>
                       <p className="text-xs text-secondary-500">
-                        {item.productSku ?? 'No SKU'}
+                        {item.productSku ?? t('details.noSku')}
                         {' · '}
                         {item.unitName ?? item.unitAbbreviation ?? item.unitId}
                       </p>
@@ -165,7 +168,7 @@ export function OrderDetailsContent({
 
       {order.notes && (
         <div className="rounded-xl border border-secondary-200 px-4 py-4">
-          <p className="text-sm text-secondary-500">Notes</p>
+          <p className="text-sm text-secondary-500">{t('details.notes')}</p>
           <p className="mt-2 text-sm text-secondary-700">{order.notes}</p>
         </div>
       )}

@@ -30,17 +30,17 @@ export function SalesMobileCheckoutBar({
                 {formatCurrency(draftSummary.total)}
               </p>
               <p className="pb-0.5 text-sm text-secondary-500">
-                {draftSummary.itemCount} item{draftSummary.itemCount === 1 ? '' : 's'}
+                {t('checkout.lineItems', { count: draftSummary.itemCount })}
               </p>
             </div>
           </div>
           <button type="button" className="btn-outline" onClick={onOpenSearch}>
             <Search className="h-4 w-4" />
-            Search
+            {t('quickSearch.search')}
           </button>
           <button type="button" className="btn-primary" onClick={onCharge} disabled={!canCharge}>
             <Receipt className="h-4 w-4" />
-            Charge
+            {t('checkout.chargeSale')}
           </button>
         </div>
       </div>

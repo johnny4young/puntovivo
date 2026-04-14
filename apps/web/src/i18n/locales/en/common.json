@@ -102,6 +102,22 @@
     "selected": "selected",
     "ofTotal": "of {{total}} total"
   },
+  "offline": {
+    "youAreOffline": "You are offline",
+    "queuedChanges_one": "{{count}} queued change will sync when the connection returns.",
+    "queuedChanges_other": "{{count}} queued changes will sync when the connection returns.",
+    "localChanges": "Changes made in the desktop app will stay local until the connection returns.",
+    "conflictsTitle": "Sync conflicts require review",
+    "conflictsDesc_one": "{{count}} conflict needs to be resolved before all queued changes can sync cleanly.",
+    "conflictsDesc_other": "{{count}} conflicts need to be resolved before all queued changes can sync cleanly.",
+    "attentionTitle": "Sync needs attention",
+    "pendingTitle": "Pending changes waiting to sync",
+    "pendingDesc_one": "{{count}} queued change will sync automatically.",
+    "pendingDesc_other": "{{count}} queued changes will sync automatically.",
+    "lastSync": "Last successful sync: {{date}}",
+    "syncing": "Syncing...",
+    "retrySync": "Retry sync"
+  },
   "productSearch": {
     "search": "Search",
     "searchPlaceholder": "Search by SKU, name, or barcode",

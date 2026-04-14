@@ -94,6 +94,44 @@
       "status": "Status"
     }
   },
+  "details": {
+    "customer": "Customer",
+    "payment": "Payment",
+    "status": "Status",
+    "created": "Created",
+    "walkIn": "Walk-in",
+    "refund": "Refund",
+    "refundNoNote": "Refund recorded without a note",
+    "processedOn": "Processed on {{date}}",
+    "product": "Product",
+    "quantity": "Quantity",
+    "unitPrice": "Unit price",
+    "tax": "Tax",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "vat": "VAT",
+    "notes": "Notes",
+    "noSku": "No SKU",
+    "unit": "Unit"
+  },
+  "quickSearch": {
+    "label": "Product / barcode",
+    "placeholder": "Scan barcode or type SKU / name",
+    "search": "Search",
+    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge."
+  },
+  "paymentStatus": {
+    "pending": "Pending",
+    "paid": "Paid",
+    "partial": "Partial",
+    "refunded": "Refunded"
+  },
+  "status": {
+    "draft": "Draft",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "voided": "Voided"
+  },
   "toast": {
     "success": "Sale completed",
     "successDetail": "item(s) processed successfully",

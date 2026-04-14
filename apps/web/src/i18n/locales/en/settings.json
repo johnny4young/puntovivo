@@ -13,7 +13,10 @@
       "email": "Email",
       "phone": "Phone",
       "city": "City",
-      "status": "Status"
+      "status": "Status",
+      "categories": "Categories",
+      "noContact": "No contact",
+      "manageCategories": "Manage provider categories"
     },
     "form": {
       "createTitle": "Create Provider",
@@ -166,7 +169,10 @@
       "site": "Site",
       "address": "Address",
       "phone": "Phone",
-      "status": "Status"
+      "status": "Status",
+      "locations": "Locations",
+      "noAddress": "No address",
+      "manageLocations": "Manage site locations"
     },
     "form": {
       "createTitle": "Create Site",
@@ -367,7 +373,20 @@
         "created": "Created {{date}}",
         "keepLocal": "Keep Local",
         "acceptRemote": "Accept Remote",
-        "merge": "Merge"
+        "merge": "Merge",
+        "keepLocalTitle": "Keep Local Changes",
+        "acceptRemoteTitle": "Accept Remote Changes",
+        "keepLocalMessage": "Keep the local {{entityType}} changes for {{entityId}} and requeue them for sync?",
+        "acceptRemoteMessage": "Accept the remote version for {{entityType}} {{entityId}} and discard the local conflict state?",
+        "mergeTitle": "Merge Conflict Data",
+        "mergeDescription": "Review the local and remote payloads for {{entityType}} {{entityId}}, then edit the merged JSON that should be requeued for sync.",
+        "localData": "Local Data",
+        "remoteData": "Remote Data",
+        "mergedJson": "Merged JSON",
+        "saveMerge": "Save Merge",
+        "saving": "Saving...",
+        "jsonObjectRequired": "Merged data must be a JSON object.",
+        "jsonInvalid": "Merged data must be valid JSON."
       }
     },
     "updater": {
@@ -637,6 +656,18 @@
       "status": "Status",
       "active": "Active",
       "inactive": "Inactive"
+    },
+    "delete": {
+      "countryTitle": "Delete Country",
+      "countryMessage": "Delete {{name}}? You must remove or move all departments assigned to this country first.",
+      "countryConfirm": "Delete Country",
+      "departmentTitle": "Delete Department",
+      "departmentMessage": "Delete {{name}}? You must remove or move all cities assigned to this department first.",
+      "departmentConfirm": "Delete Department",
+      "cityTitle": "Delete City",
+      "cityMessage": "Delete {{name}}? Providers assigned to this city must be moved first.",
+      "cityConfirm": "Delete City",
+      "deleting": "Deleting..."
     },
     "form": {
       "cancel": "Cancel",
