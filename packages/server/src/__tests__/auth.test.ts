@@ -16,6 +16,7 @@ import { nanoid } from 'nanoid';
 import { eq } from 'drizzle-orm';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
 let server: PuntovivoServer;
 let testTenantId: string;
@@ -193,6 +194,11 @@ describe('Auth tRPC Router', () => {
         expect(err).toBeInstanceOf(TRPCError);
         expect((err as TRPCError).code).toBe('UNAUTHORIZED');
         expect((err as TRPCError).message).toBe('Email or password is incorrect');
+        // i18n-4: stable error code is attached via cause so the client can
+        // map it to a localized message regardless of server message text.
+        const cause = (err as TRPCError).cause;
+        expect(cause).toBeInstanceOf(ServerErrorWithCode);
+        expect((cause as ServerErrorWithCode).errorCode).toBe('AUTH_INVALID_CREDENTIALS');
       }
     });
 
@@ -246,6 +252,9 @@ describe('Auth tRPC Router', () => {
         expect(err).toBeInstanceOf(TRPCError);
         expect((err as TRPCError).code).toBe('UNAUTHORIZED');
         expect((err as TRPCError).message).toContain('disabled');
+        const cause = (err as TRPCError).cause;
+        expect(cause).toBeInstanceOf(ServerErrorWithCode);
+        expect((cause as ServerErrorWithCode).errorCode).toBe('AUTH_USER_DISABLED');
       }
     });
   });

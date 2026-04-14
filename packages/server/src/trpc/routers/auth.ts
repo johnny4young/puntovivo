@@ -14,7 +14,6 @@
  * @module trpc/routers/auth
  */
 
-import { TRPCError } from '@trpc/server';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import * as argon2 from 'argon2';
@@ -22,6 +21,7 @@ import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
 import { users, tenants } from '../../db/schema.js';
 import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
@@ -73,16 +73,18 @@ export const authRouter = router({
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
     if (!user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
         message: 'Email or password is incorrect',
       });
     }
 
     // Check if user is active
     if (!user.isActive) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_USER_DISABLED',
         message: 'Your account has been disabled. Please contact an administrator.',
       });
     }
@@ -90,8 +92,9 @@ export const authRouter = router({
     // Verify password
     const isValidPassword = await argon2.verify(user.passwordHash, password);
     if (!isValidPassword) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
         message: 'Email or password is incorrect',
       });
     }
@@ -100,8 +103,9 @@ export const authRouter = router({
     const tenant = await ctx.db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get();
 
     if (!tenant || !tenant.isActive) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_TENANT_DISABLED',
         message: 'Your organization has been disabled. Please contact support.',
       });
     }
@@ -142,8 +146,9 @@ export const authRouter = router({
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     const refreshPayload = await verifyRefreshToken(ctx.req);
     if (!refreshPayload) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_REFRESH_INVALID',
         message: 'Refresh session is invalid or missing',
       });
     }
@@ -152,8 +157,9 @@ export const authRouter = router({
     const user = await ctx.db.select().from(users).where(eq(users.id, refreshPayload.userId)).get();
 
     if (!user || !user.isActive) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_USER_DISABLED',
         message: 'User not found or disabled',
       });
     }
@@ -173,8 +179,9 @@ export const authRouter = router({
     const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
 
     if (!user) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'AUTH_USER_NOT_FOUND',
         message: 'User not found',
       });
     }
@@ -215,9 +222,11 @@ export const authRouter = router({
     // Validate password strength
     const validation = validatePasswordStrength(newPassword);
     if (!validation.valid) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'AUTH_PASSWORD_POLICY',
         message: `Password does not meet security requirements: ${validation.errors.join(', ')}`,
+        details: { errors: validation.errors },
       });
     }
 
@@ -225,8 +234,9 @@ export const authRouter = router({
     const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
 
     if (!user) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'AUTH_USER_NOT_FOUND',
         message: 'User not found',
       });
     }
@@ -234,8 +244,9 @@ export const authRouter = router({
     // Verify current password
     const isValidPassword = await argon2.verify(user.passwordHash, currentPassword);
     if (!isValidPassword) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_CURRENT_PASSWORD_INCORRECT',
         message: 'Current password is incorrect',
       });
     }

@@ -25,7 +25,12 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-  error: string | null;
+  /**
+   * The raw error from the most recent failed auth operation, or null when
+   * the last call succeeded. Locale-agnostic so consumers can render it via
+   * `translateServerError` against the active i18n locale.
+   */
+  error: unknown;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,7 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const navigate = useNavigate();
 
   const clearLocalSession = () => {
@@ -178,8 +183,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       navigate(getDefaultRouteForRole(session.user.role));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      setError(message);
+      // Store the raw error so consumers can translate it against the active
+      // locale via `translateServerError`. The provider itself stays
+      // locale-agnostic.
+      setError(err);
       throw err;
     } finally {
       setIsLoading(false);
