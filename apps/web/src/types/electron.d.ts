@@ -76,6 +76,7 @@ export interface ElectronAPI {
   printReceipt: (
     receiptHtml: string
   ) => Promise<{ success: boolean; error?: string }>;
+  updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
 }
 
 export interface DatabaseAPI {

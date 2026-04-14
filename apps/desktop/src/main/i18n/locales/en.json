@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "Puntovivo",
+    "windowTitle": "Puntovivo - POS Solutions"
+  },
+  "tray": {
+    "tooltip": "Puntovivo",
+    "hideWindow": "Hide Window",
+    "openWindow": "Open Window",
+    "closeHidesToTray": "Closing hides to tray",
+    "closeQuitsApp": "Closing quits the app",
+    "quit": "Quit"
+  },
+  "backup": {
+    "createDialogTitle": "Create Database Backup",
+    "restoreDialogTitle": "Restore Database Backup",
+    "fileFilterName": "SQLite Database",
+    "createFailed": "Backup creation failed",
+    "restoreFailed": "Database restore failed"
+  },
+  "print": {
+    "receiptFailed": "Receipt printing failed"
+  },
+  "autoUpdate": {
+    "notInitialized": "Automatic updates have not been initialized yet.",
+    "devBuild": "Automatic updates are unavailable in development builds.",
+    "disabledByEnv": "Automatic updates are disabled by the AUTO_UPDATE environment variable.",
+    "platformUnsupported": "Automatic updates are not supported on {{platform}}.",
+    "noDownloadedUpdate": "No downloaded update is ready to install.",
+    "initFailed": "Failed to initialize auto-updater"
+  }
+}

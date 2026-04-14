@@ -72,6 +72,7 @@ export interface ElectronAPI {
     error?: string;
   }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
+  updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
 }
 
 export interface DatabaseAPI {
@@ -129,6 +130,7 @@ const electronAPI: ElectronAPI = {
   createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
+  updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
 };
 
 const dbAPI: DatabaseAPI = {
