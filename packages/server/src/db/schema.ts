@@ -645,8 +645,13 @@ export const products = sqliteTable(
     providerId: text('provider_id').references(() => providers.id),
     locationId: text('location_id'),
     initialCost: real('initial_cost').notNull().default(0),
-    stock: integer('stock').notNull().default(0),
-    minStock: integer('min_stock').notNull().default(0),
+    // Phase 1 DB-050: stock is `real` so ferreterías (2.5 m cable)
+    // and supermarkets (0.75 kg produce) can sell by fraction. Existing
+    // integer values round-trip unchanged because SQLite stores both in the
+    // same numeric affinity — this is additive relaxation, not a breaking
+    // change.
+    stock: real('stock').notNull().default(0),
+    minStock: real('min_stock').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
@@ -1092,7 +1097,7 @@ export const purchaseItems = sqliteTable(
       .notNull()
       .references(() => products.id),
     sourceOrderItemId: text('source_order_item_id').references(() => orderItems.id),
-    quantity: integer('quantity').notNull().default(1),
+    quantity: real('quantity').notNull().default(1),
     unitId: text('unit_id')
       .notNull()
       .references(() => units.id),
@@ -1193,7 +1198,7 @@ export const purchaseReturnItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
-    quantity: integer('quantity').notNull().default(1),
+    quantity: real('quantity').notNull().default(1),
     unitId: text('unit_id')
       .notNull()
       .references(() => units.id),
@@ -1303,7 +1308,7 @@ export const orderItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
-    quantity: integer('quantity').notNull().default(1),
+    quantity: real('quantity').notNull().default(1),
     unitId: text('unit_id')
       .notNull()
       .references(() => units.id),
@@ -1403,7 +1408,7 @@ export const saleItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
-    quantity: integer('quantity').notNull().default(1),
+    quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
     unitId: text('unit_id').references(() => units.id),
     unitEquivalence: real('unit_equivalence').notNull().default(1),
@@ -1498,9 +1503,10 @@ export const inventoryMovements = sqliteTable(
       .notNull()
       .references(() => products.id),
     type: text('type', { enum: movementTypeEnum }).notNull(),
-    quantity: integer('quantity').notNull(),
-    previousStock: integer('previous_stock').notNull(),
-    newStock: integer('new_stock').notNull(),
+    // Phase 1 DB-050: movements store real quantities (2.5 m, 0.75 kg, …).
+    quantity: real('quantity').notNull(),
+    previousStock: real('previous_stock').notNull(),
+    newStock: real('new_stock').notNull(),
     reference: text('reference'),
     notes: text('notes'),
     createdBy: text('created_by')
@@ -1555,10 +1561,10 @@ export const initialInventory = sqliteTable(
     mode: text('mode', { enum: initialInventoryModeEnum }).notNull(),
     quantity: real('quantity').notNull(),
     unitEquivalence: real('unit_equivalence').notNull().default(1),
-    normalizedQuantity: integer('normalized_quantity').notNull(),
+    normalizedQuantity: real('normalized_quantity').notNull(),
     cost: real('cost').notNull().default(0),
-    previousStock: integer('previous_stock').notNull(),
-    newStock: integer('new_stock').notNull(),
+    previousStock: real('previous_stock').notNull(),
+    newStock: real('new_stock').notNull(),
     notes: text('notes'),
     createdBy: text('created_by')
       .notNull()

@@ -253,6 +253,85 @@ describe('Purchases tRPC Router', () => {
     expect(loaded.status).toBe('completed');
   });
 
+  it('creates purchases with fractional quantities and preserves decimal stock movement', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Fractional Purchase Supply',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Rice by weight',
+      sku: 'PUR-FRAC-001',
+      price: 8,
+      price2: 8,
+      price3: 8,
+      cost: 3,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 3,
+      stock: 1.5,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 8,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const result = await caller.purchases.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 0.75,
+          costPerUnit: 3,
+        },
+      ],
+      notes: 'Fractional replenishment',
+    });
+
+    expect(result.total).toBeCloseTo(2.25);
+    expect(result.items[0]?.quantity).toBe(0.75);
+
+    const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
+    expect(updatedProduct?.stock).toBeCloseTo(2.25);
+
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, result.id))
+      .get();
+    expect(movement?.quantity).toBe(0.75);
+    expect(movement?.newStock).toBeCloseTo(2.25);
+  });
+
   it('creates partial receipts from an order and marks the order as received when completed', async () => {
     const db = getDatabase();
     const providerId = nanoid();

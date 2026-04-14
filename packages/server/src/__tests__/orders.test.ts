@@ -230,6 +230,81 @@ describe('Orders tRPC Router', () => {
     expect(queuedEntities.some(item => item.entityType === 'orders')).toBe(true);
   });
 
+  it('creates purchase orders with fractional quantities without rounding line items', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Fractional Order Supply',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Copper Cable',
+      sku: 'ORD-FRAC-001',
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 5,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const result = await caller.orders.create({
+      providerId,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 0.75,
+          costPerUnit: 4,
+        },
+      ],
+    });
+
+    expect(result.total).toBeCloseTo(3);
+    expect(result.items[0]?.quantity).toBe(0.75);
+
+    const storedItem = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, result.id))
+      .get();
+    expect(storedItem?.quantity).toBe(0.75);
+    expect(storedItem?.total).toBeCloseTo(3);
+  });
+
   it('voids a submitted order without affecting product stock', async () => {
     const db = getDatabase();
     const providerId = nanoid();

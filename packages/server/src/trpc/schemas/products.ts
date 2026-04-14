@@ -66,8 +66,10 @@ export const createProductInput = z
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0, 'Initial cost must be non-negative').default(0),
-    stock: z.number().int().min(0).default(0),
-    minStock: z.number().int().min(0).default(0),
+    // Phase 1 DB-050: stock accepts real numbers so ferreterías (2.5 m cable)
+    // and supermarkets (0.75 kg produce) can track fractional quantities.
+    stock: z.number().min(0).default(0),
+    minStock: z.number().min(0).default(0),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),
@@ -109,8 +111,9 @@ export const updateProductInput = z
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0).optional(),
-    stock: z.number().int().min(0).optional(),
-    minStock: z.number().int().min(0).optional(),
+    // Phase 1 DB-050: see createProductInput above.
+    stock: z.number().min(0).optional(),
+    minStock: z.number().min(0).optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),

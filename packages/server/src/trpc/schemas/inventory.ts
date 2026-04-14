@@ -45,14 +45,16 @@ export const getMovementInput = z.object({
 export const createMovementInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   type: movementTypeEnum,
-  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  // Phase 1 DB-050: movements accept fractional quantities.
+  quantity: z.number().positive('Quantity must be greater than zero'),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const adjustStockInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
-  newStock: z.number().int().min(0, 'Stock must be non-negative'),
+  // Phase 1 DB-050: adjustments accept fractional stock targets.
+  newStock: z.number().min(0, 'Stock must be non-negative'),
   notes: z.string().optional(),
 });
 

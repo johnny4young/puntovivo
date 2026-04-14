@@ -80,14 +80,17 @@ export function SaleCartTable({
                       <input
                         ref={quantityInputRefFor(item.key)}
                         type="number"
-                        min={1}
-                        step={1}
+                        min={0.01}
+                        step="any"
                         className="input w-24"
                         aria-label={t('cart.qtyFor', { name: item.productName })}
                         value={item.quantity}
                         onFocus={() => onSelectItem(item.key)}
                         onChange={event =>
-                          onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
+                          onQuantityChange(
+                            item.key,
+                            Math.max(0.01, Number(event.target.value) || 0.01)
+                          )
                         }
                       />
                       <p className="mt-1 text-xs text-secondary-500">{t('cart.baseQty')} {lineTotals.normalizedQuantity}</p>
@@ -175,14 +178,17 @@ export function SaleCartTable({
                   <input
                     ref={quantityInputRefFor(item.key)}
                     type="number"
-                    min={1}
-                    step={1}
+                    min={0.01}
+                    step="any"
                     className="input mt-0"
                     aria-label={t('cart.qtyFor', { name: item.productName })}
                     value={item.quantity}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event =>
-                      onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
+                      onQuantityChange(
+                        item.key,
+                        Math.max(0.01, Number(event.target.value) || 0.01)
+                      )
                     }
                   />
                 </label>

@@ -14,13 +14,13 @@ export const purchaseStatusEnum = z.enum(['completed', 'partial_returned', 'retu
 export const purchaseItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   unitId: z.string().min(1, 'Unit ID is required'),
-  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  quantity: z.number().positive('Quantity must be greater than zero'),
   costPerUnit: z.number().min(0, 'Cost per unit must be non-negative'),
 });
 
 export const receiveOrderItemInput = z.object({
   orderItemId: z.string().min(1, 'Order item ID is required'),
-  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  quantity: z.number().positive('Quantity must be greater than zero'),
 });
 
 export const listPurchasesInput = paginationInput.extend({
@@ -53,7 +53,7 @@ export const voidPurchaseInput = z.object({
 
 export const returnPurchaseItemInput = z.object({
   purchaseItemId: z.string().min(1, 'Purchase item ID is required'),
-  quantity: z.number().int().min(1, 'Return quantity must be at least 1'),
+  quantity: z.number().positive('Return quantity must be greater than zero'),
 });
 
 export const returnPurchaseInput = z.object({

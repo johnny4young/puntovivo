@@ -77,13 +77,6 @@ function getNormalizedSaleQuantity(quantity: number, equivalence: number) {
     });
   }
 
-  if (!Number.isInteger(normalizedQuantity)) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'The selected quantity and unit equivalence must resolve to a whole stock quantity',
-    });
-  }
-
   return normalizedQuantity;
 }
 

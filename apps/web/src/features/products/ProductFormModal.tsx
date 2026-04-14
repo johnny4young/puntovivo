@@ -434,6 +434,7 @@ export function ProductFormModal({
                   id="product-stock"
                   type="number"
                   min="0"
+                  step="any"
                   className="input mt-1"
                   {...stockField}
                 />
@@ -446,6 +447,7 @@ export function ProductFormModal({
                   id="product-min-stock"
                   type="number"
                   min="0"
+                  step="any"
                   className="input mt-1"
                   {...minStockField}
                 />

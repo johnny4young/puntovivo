@@ -259,6 +259,67 @@ describe('Inventory tRPC Router', () => {
     expect(stock.isLowStock).toBe(false);
   });
 
+  // Phase 1 DB-050: adjusting a product's stock to a fractional target must
+  // round-trip through the inventory_movements ledger without rounding. This
+  // is the end-to-end contract that unblocks ferreterías (2.5 m cable) and
+  // supermarkets (0.75 kg produce).
+  it('adjusts stock to a fractional target and preserves precision in the movement ledger', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'Cable by the meter',
+      sku: 'INV-CABLE',
+      description: 'Sold by fraction',
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId: null,
+      barcode: '20001',
+      imageUrl: null,
+      cost: 1000,
+      initialCost: 1000,
+      price: 1500,
+      price2: 1500,
+      price3: 1500,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 5,
+      minStock: 0.5,
+      isActive: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 1500, isBase: true }],
+    });
+
+    const adjusted = await caller.inventory.adjustStock({
+      productId: created.id,
+      newStock: 2.5,
+      notes: 'Cut 2.5m piece for customer',
+    });
+
+    expect(adjusted.product.stock).toBe(2.5);
+
+    const movements = await caller.inventory.listMovements({
+      page: 1,
+      perPage: 20,
+      productId: created.id,
+    });
+
+    expect(movements.items).toHaveLength(1);
+    expect(movements.items[0]?.previousStock).toBe(5);
+    expect(movements.items[0]?.newStock).toBe(2.5);
+    // The movement's quantity is the magnitude of the change (2.5 m were
+    // removed), stored as a real value — no rounding.
+    expect(movements.items[0]?.quantity).toBe(2.5);
+
+    const stock = await caller.inventory.productStock({ productId: created.id });
+    expect(stock.stock).toBe(2.5);
+    expect(stock.isLowStock).toBe(false);
+  });
+
   it('records initial and physical inventory entries with normalized quantities', async () => {
     const caller = appRouter.createCaller(createTestContext());
 
@@ -341,5 +402,54 @@ describe('Inventory tRPC Router', () => {
     expect(
       movements.items.map(movement => movement.newStock).sort((left, right) => left - right)
     ).toEqual([5, 14]);
+  });
+
+  it('records fractional initial inventory entries without rounding normalized stock', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'Produce by weight',
+      sku: 'INV-FRACTIONAL-ENTRY',
+      description: null,
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId: null,
+      barcode: '10005',
+      imageUrl: null,
+      cost: 6,
+      initialCost: 6,
+      price: 9,
+      price2: 10,
+      price3: 11,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 1.25,
+      minStock: 0.5,
+      isActive: true,
+      unitAssignments: [{ unitId: baseUnitId, equivalence: 1, price: 9, isBase: true }],
+    });
+
+    const entry = await caller.inventory.recordEntry({
+      productId: created.id,
+      unitId: baseUnitId,
+      mode: 'initial',
+      quantity: 0.75,
+      cost: 6,
+      notes: 'Top-up produce weight',
+    });
+
+    expect(entry.quantity).toBe(0.75);
+    expect(entry.normalizedQuantity).toBe(0.75);
+    expect(entry.previousStock).toBe(1.25);
+    expect(entry.newStock).toBe(2);
+
+    const stock = await caller.inventory.productStock({ productId: created.id });
+    expect(stock.stock).toBe(2);
   });
 });

@@ -448,4 +448,66 @@ describe('Products tRPC Router', () => {
         expect((error as TRPCError).message).toContain('selected providers');
       });
   });
+
+  // Phase 1 DB-050: ferreterías (2.5 m cable) and supermarkets (0.75 kg
+  // produce) need fractional stock. This test locks in the end-to-end
+  // contract: Zod validation accepts decimals, SQLite round-trips them, and
+  // `products.update` preserves precision.
+  it('accepts and round-trips fractional stock values', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    const created = await caller.products.create({
+      name: 'THHN Cable',
+      sku: 'CABLE-THHN-12',
+      description: 'Electrical cable sold by the meter',
+      categoryId,
+      providerId,
+      vatRateId,
+      locationId,
+      barcode: null,
+      imageUrl: null,
+      cost: 2000,
+      initialCost: 2000,
+      price: 3500,
+      price2: 3500,
+      price3: 3500,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      stock: 2.5,
+      minStock: 0.25,
+      isActive: true,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 3500, isBase: true },
+      ],
+    });
+
+    expect(created.stock).toBe(2.5);
+    expect(created.minStock).toBe(0.25);
+
+    const fetched = await caller.products.getById({ id: created.id });
+    expect(fetched.stock).toBe(2.5);
+    expect(fetched.minStock).toBe(0.25);
+
+    const updated = await caller.products.update({
+      id: created.id,
+      stock: 0.75,
+      minStock: 0.1,
+    });
+    expect(updated.stock).toBe(0.75);
+    expect(updated.minStock).toBe(0.1);
+
+    // Round-trip via list as well — it uses a different SELECT path.
+    const listed = await caller.products.list({
+      page: 1,
+      perPage: 20,
+      search: 'THHN',
+    });
+    const match = listed.items.find(item => item.id === created.id);
+    expect(match?.stock).toBe(0.75);
+  });
 });

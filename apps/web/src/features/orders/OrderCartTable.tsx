@@ -62,12 +62,15 @@ export function OrderCartTable({
                 <td className="px-4 py-3">
                   <input
                     type="number"
-                    min={1}
-                    step={1}
+                    min={0.01}
+                    step="any"
                     className="input w-24"
                     value={item.quantity}
                     onChange={event =>
-                      onQuantityChange(item.key, Math.max(1, Number(event.target.value) || 1))
+                      onQuantityChange(
+                        item.key,
+                        Math.max(0.01, Number(event.target.value) || 0.01)
+                      )
                     }
                   />
                 </td>
