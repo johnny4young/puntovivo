@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import {
   CountryFormModal,
@@ -85,6 +86,8 @@ export function GeographyDialogs({
   onDismissDeleteDepartment,
   onDismissDeleteCity,
 }: GeographyDialogsProps) {
+  const { t } = useTranslation('settings');
+
   return (
     <>
       <CountryFormModal
@@ -121,14 +124,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!countryToDelete}
-        title="Delete Country"
+        title={t('geography.delete.countryTitle')}
         message={
           countryToDelete
-            ? `Delete ${countryToDelete.name}? You must remove or move all departments assigned to this country first.`
+            ? t('geography.delete.countryMessage', { name: countryToDelete.name })
             : ''
         }
-        confirmText={isCountryDeleting ? 'Deleting...' : 'Delete Country'}
-        cancelText="Cancel"
+        confirmText={isCountryDeleting ? t('geography.delete.deleting') : t('geography.delete.countryConfirm')}
+        cancelText={t('geography.form.cancel')}
         variant="danger"
         loading={isCountryDeleting}
         onConfirm={() => {
@@ -139,14 +142,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!departmentToDelete}
-        title="Delete Department"
+        title={t('geography.delete.departmentTitle')}
         message={
           departmentToDelete
-            ? `Delete ${departmentToDelete.name}? You must remove or move all cities assigned to this department first.`
+            ? t('geography.delete.departmentMessage', { name: departmentToDelete.name })
             : ''
         }
-        confirmText={isDepartmentDeleting ? 'Deleting...' : 'Delete Department'}
-        cancelText="Cancel"
+        confirmText={isDepartmentDeleting ? t('geography.delete.deleting') : t('geography.delete.departmentConfirm')}
+        cancelText={t('geography.form.cancel')}
         variant="danger"
         loading={isDepartmentDeleting}
         onConfirm={() => {
@@ -157,14 +160,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!cityToDelete}
-        title="Delete City"
+        title={t('geography.delete.cityTitle')}
         message={
           cityToDelete
-            ? `Delete ${cityToDelete.name}? Providers assigned to this city must be moved first.`
+            ? t('geography.delete.cityMessage', { name: cityToDelete.name })
             : ''
         }
-        confirmText={isCityDeleting ? 'Deleting...' : 'Delete City'}
-        cancelText="Cancel"
+        confirmText={isCityDeleting ? t('geography.delete.deleting') : t('geography.delete.cityConfirm')}
+        cancelText={t('geography.form.cancel')}
         variant="danger"
         loading={isCityDeleting}
         onConfirm={() => {

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 
 export type ConflictResolution = 'local_wins' | 'remote_wins' | 'merged';
@@ -24,19 +25,27 @@ export function CompanySyncConflictModal({
   onClose,
   onConfirm,
 }: CompanySyncConflictModalProps) {
+  const { t } = useTranslation('settings');
   const isLocalResolution = pendingResolution?.resolution === 'local_wins';
+
   const message = isLocalResolution
-    ? `Keep the local ${pendingResolution?.entityType} changes for ${pendingResolution?.entityId} and requeue them for sync?`
-    : `Accept the remote version for ${pendingResolution?.entityType} ${pendingResolution?.entityId} and discard the local conflict state?`;
+    ? t('company.sync.conflict.keepLocalMessage', {
+        entityType: pendingResolution?.entityType,
+        entityId: pendingResolution?.entityId,
+      })
+    : t('company.sync.conflict.acceptRemoteMessage', {
+        entityType: pendingResolution?.entityType,
+        entityId: pendingResolution?.entityId,
+      });
 
   return (
     <ConfirmModal
       isOpen={pendingResolution !== null}
       onClose={onClose}
       onConfirm={onConfirm}
-      title={isLocalResolution ? 'Keep Local Changes' : 'Accept Remote Changes'}
+      title={isLocalResolution ? t('company.sync.conflict.keepLocalTitle') : t('company.sync.conflict.acceptRemoteTitle')}
       message={message}
-      confirmText={isLocalResolution ? 'Keep Local' : 'Accept Remote'}
+      confirmText={isLocalResolution ? t('company.sync.conflict.keepLocal') : t('company.sync.conflict.acceptRemote')}
       loading={isLoading}
       variant={isLocalResolution ? 'primary' : 'danger'}
     />

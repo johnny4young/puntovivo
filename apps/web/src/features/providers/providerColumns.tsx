@@ -30,7 +30,7 @@ export function createProviderColumns({
           </div>
           <div>
             <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.contactName || 'No contact'}</p>
+            <p className="text-xs text-secondary-500">{row.original.contactName || t('providers.columns.noContact')}</p>
           </div>
         </div>
       ),
@@ -74,7 +74,7 @@ export function createProviderColumns({
     },
     {
       accessorKey: 'assignedCategoryCount',
-      header: 'Categories',
+      header: t('providers.columns.categories'),
       size: 120,
       cell: ({ row }) => row.original.assignedCategoryCount ?? 0,
     },
@@ -90,7 +90,7 @@ export function createProviderColumns({
       size: 100,
       cell: ({ row }) => (
         <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
-          {row.original.isActive ? 'Active' : 'Inactive'}
+          {row.original.isActive ? t('common:status.active') : t('common:status.inactive')}
         </span>
       ),
     },
@@ -103,7 +103,7 @@ export function createProviderColumns({
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onManageCategories(row.original)}
             disabled={!canManage}
-            title="Manage provider categories"
+            title={t('providers.columns.manageCategories')}
           >
             <FolderTree className="h-4 w-4" />
           </button>

@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18next from 'i18next';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
+import { formatCurrency } from '@/lib/utils';
 import { render } from '@/test/utils';
 
 describe('SalesMobileCheckoutBar', () => {
-  it('renders the draft summary and actions', () => {
+  it('renders the draft summary and actions in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    const expectedTotal = formatCurrency(23.8).replace(/\s+/g, ' ');
+
     render(
       <SalesMobileCheckoutBar
         draftSummary={{ itemCount: 3, subtotal: 20, taxAmount: 3.8, total: 23.8 }}
@@ -15,14 +20,18 @@ describe('SalesMobileCheckoutBar', () => {
       />
     );
 
-    expect(screen.getByText('Draft total')).toBeInTheDocument();
-    expect(screen.getByText('$23.80')).toBeInTheDocument();
-    expect(screen.getByText('3 items')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Charge' })).toBeEnabled();
+    expect(screen.getByText('Total borrador')).toBeInTheDocument();
+    expect(
+      screen.getByText(content => content.replace(/\s+/g, ' ') === expectedTotal)
+    ).toBeInTheDocument();
+    expect(screen.getByText('3 artículos')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Buscar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cobrar venta' })).toBeEnabled();
   });
 
-  it('disables charge and wires the action callbacks', async () => {
+  it('disables charge and wires the action callbacks in Spanish', async () => {
+    await i18next.changeLanguage('es');
+
     const user = userEvent.setup();
     const onOpenSearch = vi.fn();
     const onCharge = vi.fn();
@@ -36,10 +45,10 @@ describe('SalesMobileCheckoutBar', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
 
-    expect(screen.getByRole('button', { name: 'Charge' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cobrar venta' })).toBeDisabled();
     expect(onCharge).not.toHaveBeenCalled();
   });
 });

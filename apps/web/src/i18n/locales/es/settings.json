@@ -13,7 +13,10 @@
       "email": "Correo",
       "phone": "Teléfono",
       "city": "Ciudad",
-      "status": "Estado"
+      "status": "Estado",
+      "categories": "Categorías",
+      "noContact": "Sin contacto",
+      "manageCategories": "Gestionar categorías del proveedor"
     },
     "form": {
       "createTitle": "Crear proveedor",
@@ -166,7 +169,10 @@
       "site": "Sede",
       "address": "Dirección",
       "phone": "Teléfono",
-      "status": "Estado"
+      "status": "Estado",
+      "locations": "Ubicaciones",
+      "noAddress": "Sin dirección",
+      "manageLocations": "Gestionar ubicaciones de la sede"
     },
     "form": {
       "createTitle": "Crear sede",
@@ -367,7 +373,20 @@
         "created": "Creado {{date}}",
         "keepLocal": "Mantener local",
         "acceptRemote": "Aceptar remoto",
-        "merge": "Fusionar"
+        "merge": "Fusionar",
+        "keepLocalTitle": "Conservar cambios locales",
+        "acceptRemoteTitle": "Aceptar cambios remotos",
+        "keepLocalMessage": "¿Conservar los cambios locales de {{entityType}} para {{entityId}} y reencolarlos para sincronización?",
+        "acceptRemoteMessage": "¿Aceptar la versión remota de {{entityType}} {{entityId}} y descartar el estado de conflicto local?",
+        "mergeTitle": "Fusionar datos en conflicto",
+        "mergeDescription": "Revisa los datos locales y remotos de {{entityType}} {{entityId}}, luego edita el JSON fusionado que se reencolará para sincronización.",
+        "localData": "Datos locales",
+        "remoteData": "Datos remotos",
+        "mergedJson": "JSON fusionado",
+        "saveMerge": "Guardar fusión",
+        "saving": "Guardando...",
+        "jsonObjectRequired": "Los datos fusionados deben ser un objeto JSON.",
+        "jsonInvalid": "Los datos fusionados deben ser JSON válido."
       }
     },
     "updater": {
@@ -637,6 +656,18 @@
       "status": "Estado",
       "active": "Activo",
       "inactive": "Inactivo"
+    },
+    "delete": {
+      "countryTitle": "Eliminar país",
+      "countryMessage": "¿Eliminar {{name}}? Debes eliminar o mover todos los departamentos asignados a este país primero.",
+      "countryConfirm": "Eliminar país",
+      "departmentTitle": "Eliminar departamento",
+      "departmentMessage": "¿Eliminar {{name}}? Debes eliminar o mover todas las ciudades asignadas a este departamento primero.",
+      "departmentConfirm": "Eliminar departamento",
+      "cityTitle": "Eliminar ciudad",
+      "cityMessage": "¿Eliminar {{name}}? Los proveedores asignados a esta ciudad deben moverse primero.",
+      "cityConfirm": "Eliminar ciudad",
+      "deleting": "Eliminando..."
     },
     "form": {
       "cancel": "Cancelar",

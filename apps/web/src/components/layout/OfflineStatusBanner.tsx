@@ -1,53 +1,58 @@
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/hooks';
 import { cn, formatDateTime } from '@/lib/utils';
 
-function getBannerCopy({
-  isOnline,
-  pendingItems,
-  conflicts,
-  error,
-}: {
-  isOnline: boolean;
-  pendingItems: number;
-  conflicts: number;
-  error: string | null;
-}) {
+function getBannerCopy(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  {
+    isOnline,
+    pendingItems,
+    conflicts,
+    error,
+  }: {
+    isOnline: boolean;
+    pendingItems: number;
+    conflicts: number;
+    error: string | null;
+  }
+) {
   if (!isOnline) {
     return {
-      title: 'You are offline',
+      title: t('offline.youAreOffline'),
       description:
         pendingItems > 0
-          ? `${pendingItems} queued change${pendingItems === 1 ? '' : 's'} will sync when the connection returns.`
-          : 'Changes made in the desktop app will stay local until the connection returns.',
+          ? t('offline.queuedChanges', { count: pendingItems })
+          : t('offline.localChanges'),
       tone: 'warning',
     } as const;
   }
 
   if (conflicts > 0) {
     return {
-      title: 'Sync conflicts require review',
-      description: `${conflicts} conflict${conflicts === 1 ? '' : 's'} need to be resolved before all queued changes can sync cleanly.`,
+      title: t('offline.conflictsTitle'),
+      description: t('offline.conflictsDesc', { count: conflicts }),
       tone: 'danger',
     } as const;
   }
 
   if (error) {
     return {
-      title: 'Sync needs attention',
+      title: t('offline.attentionTitle'),
       description: error,
       tone: 'danger',
     } as const;
   }
 
   return {
-    title: 'Pending changes waiting to sync',
-    description: `${pendingItems} queued change${pendingItems === 1 ? '' : 's'} will sync automatically.`,
+    title: t('offline.pendingTitle'),
+    description: t('offline.pendingDesc', { count: pendingItems }),
     tone: 'primary',
   } as const;
 }
 
 export function OfflineStatusBanner() {
+  const { t } = useTranslation('common');
   const { isOnline, lastSync, pendingItems, conflicts, isSyncing, error, triggerSync } =
     useOfflineSync();
   const shouldShow = !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
@@ -56,7 +61,7 @@ export function OfflineStatusBanner() {
     return null;
   }
 
-  const bannerCopy = getBannerCopy({ isOnline, pendingItems, conflicts, error });
+  const bannerCopy = getBannerCopy(t, { isOnline, pendingItems, conflicts, error });
   const canRetry = isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
 
   return (
@@ -89,7 +94,7 @@ export function OfflineStatusBanner() {
             <p className="text-sm font-semibold">{bannerCopy.title}</p>
             <p className="text-sm">{bannerCopy.description}</p>
             {lastSync && (
-              <p className="text-xs opacity-80">Last successful sync: {formatDateTime(lastSync)}</p>
+              <p className="text-xs opacity-80">{t('offline.lastSync', { date: formatDateTime(lastSync) })}</p>
             )}
           </div>
         </div>
@@ -104,7 +109,7 @@ export function OfflineStatusBanner() {
             disabled={isSyncing}
           >
             <RefreshCw className={cn('h-4 w-4', isSyncing && 'animate-spin')} />
-            {isSyncing ? 'Syncing...' : 'Retry sync'}
+            {isSyncing ? t('offline.syncing') : t('offline.retrySync')}
           </button>
         )}
       </div>
