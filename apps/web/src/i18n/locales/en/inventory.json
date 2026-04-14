@@ -21,7 +21,15 @@
   "movements": {
     "loading": "Loading inventory movements...",
     "error": "Unable to load inventory movements",
-    "search": "Search movements by product..."
+    "search": "Search movements by product...",
+    "exportTitle": "Inventory Movements",
+    "types": {
+      "purchase": "Purchase",
+      "sale": "Sale",
+      "adjustment": "Adjustment",
+      "transfer": "Transfer",
+      "return": "Return"
+    }
   },
   "stock": {
     "loading": "Loading stock balances...",
@@ -29,13 +37,28 @@
     "search": "Search stock by product...",
     "category": "Category",
     "allCategories": "All categories",
-    "lowStockOnly": "Show low stock only"
+    "lowStockOnly": "Show low stock only",
+    "adjustStock": "Adjust stock",
+    "exportTitle": "Inventory Stock",
+    "columns": {
+      "stock": "Stock",
+      "minStock": "Min Stock",
+      "sellPrice": "Sell Price",
+      "valuation": "Valuation",
+      "updated": "Updated",
+      "status": "Status"
+    },
+    "status": {
+      "lowStock": "Low stock",
+      "healthy": "Healthy"
+    }
   },
   "entries": {
     "loading": "Loading inventory entries...",
     "loadingShort": "Loading entries…",
     "error": "Unable to load inventory entries",
-    "search": "Search entries by product..."
+    "search": "Search entries by product...",
+    "exportTitle": "Initial Inventory Entries"
   },
   "table": {
     "initialInventory": "Initial inventory",
@@ -48,6 +71,7 @@
     "stockAfter": "Stock After",
     "notes": "Notes",
     "date": "Date",
+    "mode": "Mode",
     "type": "Type",
     "movement": "Movement",
     "reference": "Reference",

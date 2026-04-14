@@ -16,6 +16,11 @@
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
     "createOrder": "Crear orden",
+    "submitting": "Guardando...",
+    "orderTotal": "Total de la orden",
+    "provider": "Proveedor",
+    "selectProvider": "Selecciona proveedor",
+    "providerRequired": "El proveedor es obligatorio",
     "finalizeTitle": "Finalizar",
     "finalizeDescription": "Revisa proveedor, sede y total comprometido antes de guardar.",
     "search": "Buscar",
@@ -23,7 +28,8 @@
     "baseUnits": "Unidades base solicitadas",
     "total": "Total",
     "requestingSite": "Sede solicitante",
-    "stockNote": "Las órdenes de compra reservan el número de documento y los detalles del proveedor, pero no actualizan el stock hasta que se registra una compra real."
+    "stockNote": "Las órdenes de compra reservan el número de documento y los detalles del proveedor, pero no actualizan el stock hasta que se registra una compra real.",
+    "notesPlaceholder": "Instrucciones opcionales para el proveedor o nota de seguimiento"
   },
   "dialog": {
     "addProduct": "Agregar producto a la orden de compra",
@@ -64,7 +70,17 @@
     "viewOrder": "Ver {{number}}",
     "viewOrderTitle": "Ver orden"
   },
+  "confirm": {
+    "void": {
+      "title": "Anular orden de compra",
+      "message": "Solo se permite anular esta orden antes de que se haya recibido stock contra ella.",
+      "confirmText": "Anular orden"
+    }
+  },
   "details": {
+    "modalTitle": "Orden de compra {{orderNumber}}",
+    "modalFallbackTitle": "Detalles de la orden de compra",
+    "loading": "Cargando detalles de la orden de compra...",
     "provider": "Proveedor",
     "site": "Sede",
     "status": "Estado",
@@ -88,7 +104,19 @@
     "baseCost": "Costo base",
     "total": "Total",
     "noSku": "Sin SKU",
-    "notes": "Notas"
+    "notes": "Notas",
+    "actions": {
+      "receiveItems": "Recibir artículos"
+    },
+    "toast": {
+      "receiveSuccessTitle": "Recibo de la orden creado",
+      "receiveSuccessDescription": "Se creó la compra {{purchaseNumber}}.",
+      "receiveErrorTitle": "No se pudo recibir la orden",
+      "receiveErrorFallback": "No se pudo recibir la orden",
+      "voidSuccessTitle": "Orden de compra anulada",
+      "voidErrorTitle": "No se pudo anular la orden",
+      "voidErrorFallback": "No se pudo anular la orden"
+    }
   },
   "status": {
     "submitted": "Enviada",

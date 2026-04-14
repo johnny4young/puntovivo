@@ -16,6 +16,11 @@
     "addProduct": "Add Product",
     "clear": "Clear",
     "createOrder": "Create Order",
+    "submitting": "Saving...",
+    "orderTotal": "Order total",
+    "provider": "Provider",
+    "selectProvider": "Select provider",
+    "providerRequired": "Provider is required",
     "finalizeTitle": "Finalize",
     "finalizeDescription": "Review provider, site, and committed total before saving.",
     "search": "Search",
@@ -23,7 +28,8 @@
     "baseUnits": "Base units requested",
     "total": "Total",
     "requestingSite": "Requesting site",
-    "stockNote": "Purchase orders reserve the document number and provider request details, but they do not update stock until an actual purchase is registered."
+    "stockNote": "Purchase orders reserve the document number and provider request details, but they do not update stock until an actual purchase is registered.",
+    "notesPlaceholder": "Optional supplier instructions or follow-up note"
   },
   "dialog": {
     "addProduct": "Add Product to Purchase Order",
@@ -64,7 +70,17 @@
     "viewOrder": "View {{number}}",
     "viewOrderTitle": "View order"
   },
+  "confirm": {
+    "void": {
+      "title": "Void Purchase Order",
+      "message": "Voiding this order is only allowed before any stock has been received against it.",
+      "confirmText": "Void Order"
+    }
+  },
   "details": {
+    "modalTitle": "Purchase Order {{orderNumber}}",
+    "modalFallbackTitle": "Purchase Order Details",
+    "loading": "Loading purchase order details...",
     "provider": "Provider",
     "site": "Site",
     "status": "Status",
@@ -88,7 +104,19 @@
     "baseCost": "Base Cost",
     "total": "Total",
     "noSku": "No SKU",
-    "notes": "Notes"
+    "notes": "Notes",
+    "actions": {
+      "receiveItems": "Receive Items"
+    },
+    "toast": {
+      "receiveSuccessTitle": "Order receipt created",
+      "receiveSuccessDescription": "Created purchase {{purchaseNumber}}.",
+      "receiveErrorTitle": "Unable to receive order",
+      "receiveErrorFallback": "Unable to receive the order",
+      "voidSuccessTitle": "Purchase order voided",
+      "voidErrorTitle": "Unable to void order",
+      "voidErrorFallback": "Unable to void the order"
+    }
   },
   "status": {
     "submitted": "Submitted",

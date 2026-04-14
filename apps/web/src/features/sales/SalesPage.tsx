@@ -179,7 +179,7 @@ export function SalesPage() {
         notes: values.notes || undefined,
       });
     } catch (error) {
-      setSaleError(error instanceof Error ? error.message : 'Unable to complete the sale');
+      setSaleError(error instanceof Error ? error.message : t('toast.errorFallback'));
     }
   };
 
@@ -265,7 +265,7 @@ export function SalesPage() {
           providers={providers}
           initialQuery={productSearchInitialQuery}
           title={t('checkout.addProduct')}
-          confirmLabel="Add to cart"
+          confirmLabel={t('checkout.addToCart')}
         />
       )}
 

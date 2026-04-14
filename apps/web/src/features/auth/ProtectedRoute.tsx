@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from './AuthProvider';
 import { ReactNode } from 'react';
 import type { UserRole } from '@/types';
@@ -11,14 +12,15 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { t } = useTranslation('auth');
   const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
     return (
       <FullscreenLoadingState
-        title="Loading workspace"
-        description="Restoring your session and access rules."
+        title={t('protected.loadingTitle')}
+        description={t('protected.loadingDescription')}
       />
     );
   }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -23,6 +24,7 @@ export function OrderDetailsModal({
   onClose,
   initialMode = 'details',
 }: OrderDetailsModalProps) {
+  const { t } = useTranslation(['orders', 'common']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -45,18 +47,20 @@ export function OrderDetailsModal({
         utils.products.search.invalidate(),
       ]);
       toast.success({
-        title: 'Order receipt created',
-        description: `Created purchase ${purchase.purchaseNumber}.`,
+        title: t('orders:details.toast.receiveSuccessTitle'),
+        description: t('orders:details.toast.receiveSuccessDescription', {
+          purchaseNumber: purchase.purchaseNumber,
+        }),
       });
       setIsReceiveModalOpen(false);
       setReceiveError(null);
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to receive the order');
+      const message = getErrorMessage(error, t('orders:details.toast.receiveErrorFallback'));
       setReceiveError(message);
       toast.error({
-        title: 'Unable to receive order',
+        title: t('orders:details.toast.receiveErrorTitle'),
         description: message,
       });
     },
@@ -68,16 +72,16 @@ export function OrderDetailsModal({
         utils.orders.list.invalidate(),
         utils.orders.getById.invalidate({ id: orderId ?? '' }),
       ]);
-      toast.success({ title: 'Purchase order voided' });
+      toast.success({ title: t('orders:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
       setVoidError(null);
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, 'Unable to void the order');
+      const message = getErrorMessage(error, t('orders:details.toast.voidErrorFallback'));
       setVoidError(message);
       toast.error({
-        title: 'Unable to void order',
+        title: t('orders:details.toast.voidErrorTitle'),
         description: message,
       });
     },
@@ -148,7 +152,11 @@ export function OrderDetailsModal({
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title={order ? `Purchase Order ${order.orderNumber}` : 'Purchase Order Details'}
+        title={
+          order
+            ? t('orders:details.modalTitle', { orderNumber: order.orderNumber })
+            : t('orders:details.modalFallbackTitle')
+        }
         size="full"
         footer={
           <>
@@ -158,7 +166,7 @@ export function OrderDetailsModal({
                 variant="primary"
                 disabled={receiveMutation.isPending}
               >
-                Receive Items
+                {t('orders:details.actions.receiveItems')}
               </ModalButton>
             )}
             {canVoidOrder && (
@@ -167,15 +175,15 @@ export function OrderDetailsModal({
                 variant="danger"
                 disabled={voidMutation.isPending}
               >
-                Void Order
+                {t('orders:confirm.void.confirmText')}
               </ModalButton>
             )}
-            <ModalButton onClick={handleClose}>Close</ModalButton>
+            <ModalButton onClick={handleClose}>{t('common:actions.close')}</ModalButton>
           </>
         }
       >
         {orderQuery.isLoading && (
-          <p className="text-sm text-secondary-500">Loading purchase order details...</p>
+          <p className="text-sm text-secondary-500">{t('orders:details.loading')}</p>
         )}
         {orderQuery.error && <p className="text-sm text-danger-500">{orderQuery.error.message}</p>}
         {order && (
@@ -205,9 +213,9 @@ export function OrderDetailsModal({
         onConfirm={() => {
           void handleVoidOrder();
         }}
-        title="Void Purchase Order"
-        message="Voiding this order is only allowed before any stock has been received against it."
-        confirmText="Void Order"
+        title={t('confirm.void.title')}
+        message={t('confirm.void.message')}
+        confirmText={t('confirm.void.confirmText')}
         loading={voidMutation.isPending}
         variant="danger"
       />

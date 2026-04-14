@@ -21,7 +21,15 @@
   "movements": {
     "loading": "Cargando movimientos de inventario...",
     "error": "No se pudieron cargar los movimientos de inventario",
-    "search": "Buscar movimientos por producto..."
+    "search": "Buscar movimientos por producto...",
+    "exportTitle": "Movimientos de inventario",
+    "types": {
+      "purchase": "Compra",
+      "sale": "Venta",
+      "adjustment": "Ajuste",
+      "transfer": "Transferencia",
+      "return": "Devolución"
+    }
   },
   "stock": {
     "loading": "Cargando balances de stock...",
@@ -29,13 +37,28 @@
     "search": "Buscar stock por producto...",
     "category": "Categoría",
     "allCategories": "Todas las categorías",
-    "lowStockOnly": "Mostrar solo stock bajo"
+    "lowStockOnly": "Mostrar solo stock bajo",
+    "adjustStock": "Ajustar stock",
+    "exportTitle": "Stock de inventario",
+    "columns": {
+      "stock": "Stock",
+      "minStock": "Stock mín.",
+      "sellPrice": "Precio venta",
+      "valuation": "Valorización",
+      "updated": "Actualizado",
+      "status": "Estado"
+    },
+    "status": {
+      "lowStock": "Stock bajo",
+      "healthy": "Saludable"
+    }
   },
   "entries": {
     "loading": "Cargando entradas de inventario...",
     "loadingShort": "Cargando entradas…",
     "error": "No se pudieron cargar las entradas de inventario",
-    "search": "Buscar entradas por producto..."
+    "search": "Buscar entradas por producto...",
+    "exportTitle": "Entradas de inventario inicial"
   },
   "table": {
     "initialInventory": "Inventario inicial",
@@ -48,6 +71,7 @@
     "stockAfter": "Stock después",
     "notes": "Notas",
     "date": "Fecha",
+    "mode": "Modo",
     "type": "Tipo",
     "movement": "Movimiento",
     "reference": "Referencia",

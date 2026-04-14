@@ -351,7 +351,7 @@ export function ProductsPage() {
               data={products}
               columns={productExportColumns}
               filename="products"
-              title="Products Catalog"
+              title={t('page.kicker')}
             />
             <DataTable
               columns={columns(

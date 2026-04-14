@@ -28,7 +28,7 @@ export function PurchaseFinalizeModal({
   onClose,
   onSubmit,
 }: PurchaseFinalizeModalProps) {
-  const { t } = useTranslation('purchases');
+  const { t } = useTranslation(['purchases', 'common']);
   const form = useForm<PurchaseFinalizeValues>({
     defaultValues: {
       providerId: '',
@@ -46,32 +46,32 @@ export function PurchaseFinalizeModal({
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('common:actions.cancel')}
           </ModalButton>
           <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? 'Saving...' : t('checkout.register')}
+            {isSaving ? t('purchases:checkout.submitting') : t('purchases:checkout.register')}
           </ModalButton>
         </>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-sm text-primary-700">Purchase total</p>
+          <p className="text-sm text-primary-700">{t('purchases:checkout.purchaseTotal')}</p>
           <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(total)}</p>
         </div>
 
         <div>
           <label htmlFor="purchase-provider" className="label">
-            Provider
+            {t('purchases:checkout.provider')}
           </label>
           <select
             id="purchase-provider"
             className="input mt-1"
             {...form.register('providerId', {
-              required: 'Provider is required',
+              required: t('purchases:checkout.providerRequired'),
             })}
           >
-            <option value="">Select provider</option>
+            <option value="">{t('purchases:checkout.selectProvider')}</option>
             {providers.map(provider => (
               <option key={provider.id} value={provider.id}>
                 {provider.name}
@@ -85,12 +85,12 @@ export function PurchaseFinalizeModal({
 
         <div>
           <label htmlFor="purchase-notes" className="label">
-            Notes
+            {t('purchases:details.notes')}
           </label>
           <textarea
             id="purchase-notes"
             className="input mt-1 min-h-[96px]"
-            placeholder="Optional reference or receiving note"
+            placeholder={t('checkout.notesPlaceholder')}
             {...form.register('notes')}
           />
         </div>
