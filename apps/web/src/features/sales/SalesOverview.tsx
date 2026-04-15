@@ -1,9 +1,10 @@
 import type { RefObject } from 'react';
 import { Receipt, Search, Store, TrendingUp, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CashSessionMovementTimeline } from '@/features/sales/CashSessionMovementTimeline';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
-import type { CashSession } from '@/types';
+import type { CashMovement, CashSession } from '@/types';
 
 interface SalesOverviewProps {
   currentSiteName: string | null;
@@ -17,12 +18,15 @@ interface SalesOverviewProps {
   canCloseCashSession: boolean;
   cashSession: CashSession | null;
   isCashSessionLoading: boolean;
+  cashMovements: CashMovement[];
+  isCashMovementsLoading: boolean;
   productSearchQuery: string;
   onProductSearchQueryChange: (value: string) => void;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
+  onOpenMovement: () => void;
   productInputRef: RefObject<HTMLInputElement | null>;
 }
 
@@ -38,12 +42,15 @@ export function SalesOverview({
   canCloseCashSession,
   cashSession,
   isCashSessionLoading,
+  cashMovements,
+  isCashMovementsLoading,
   productSearchQuery,
   onProductSearchQueryChange,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
   onCloseCashSession,
+  onOpenMovement,
   productInputRef,
 }: SalesOverviewProps) {
   const { t } = useTranslation('sales');
@@ -175,15 +182,25 @@ export function SalesOverview({
                     <div>
                       <p className="text-secondary-500">{t('cashSession.blindCloseHint')}</p>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-outline"
-                      onClick={onCloseCashSession}
-                      disabled={!canCloseCashSession}
-                    >
-                      <WalletCards className="h-4 w-4" />
-                      {t('cashSession.closeAction')}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="btn-outline" onClick={onOpenMovement}>
+                        <WalletCards className="h-4 w-4" />
+                        {t('cashSession.recordMovementAction')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={onCloseCashSession}
+                        disabled={!canCloseCashSession}
+                      >
+                        <WalletCards className="h-4 w-4" />
+                        {t('cashSession.closeAction')}
+                      </button>
+                    </div>
+                    <CashSessionMovementTimeline
+                      movements={cashMovements}
+                      isLoading={isCashMovementsLoading}
+                    />
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-secondary-500">{t('cashSession.hint')}</p>

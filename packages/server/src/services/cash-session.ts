@@ -1,9 +1,21 @@
 import { and, desc, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
-import { cashSessions, type CashSessionDenomination } from '../db/schema.js';
+import {
+  cashMovementTypeEnum,
+  cashSessions,
+  type CashSessionDenomination,
+} from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 
 const CASH_SESSION_EPSILON = 1e-6;
+const CASH_MOVEMENT_POSITIVE_TYPES = new Set<
+  (typeof cashMovementTypeEnum)[number]
+>(['sale', 'paid_in', 'replenishment']);
+const CASH_MOVEMENT_NEGATIVE_TYPES = new Set<
+  (typeof cashMovementTypeEnum)[number]
+>(['refund', 'paid_out', 'skim']);
+
+export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 
 export function normalizeRegisterName(registerName: string): string {
   const normalized = registerName.trim();
@@ -94,6 +106,22 @@ export function getClosingCountTotal(
 
 export function getCashSessionOverShort(expectedBalance: number, actualCount: number): number {
   return Math.round((actualCount - expectedBalance) * 100) / 100;
+}
+
+export function getCashMovementSignedAmount(type: CashMovementType, amount: number): number {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Cash movement amount must be greater than zero');
+  }
+
+  if (CASH_MOVEMENT_POSITIVE_TYPES.has(type)) {
+    return amount;
+  }
+
+  if (CASH_MOVEMENT_NEGATIVE_TYPES.has(type)) {
+    return -amount;
+  }
+
+  throw new Error(`Unsupported cash movement type: ${type}`);
 }
 
 export async function getActiveCashSessionForCashier(

@@ -1,6 +1,6 @@
 # tRPC Architecture
 
-> Updated: April 10, 2026
+> Updated: April 15, 2026
 
 ## Summary
 
@@ -76,6 +76,7 @@ Current root router modules:
 - `customers`
 - `purchases`
 - `sales`
+- `cashSessions`
 - `inventory`
 - `locations`
 - `sites`
@@ -91,6 +92,25 @@ Source:
 - business logic for sales, purchases, inventory, orders, and sync lives server-side
 - the old app-style REST client layers are no longer the primary application path
 - role enforcement is centralized in middleware instead of spread across screens
+
+## Cash Sessions Router
+
+`cashSessions` is the Phase 1 cash-management surface. It exposes:
+
+- `getActive` — returns the current cashier's open session for the active site, or `null`
+- `listRecent` — last 20 sessions for the tenant (any site)
+- `open` — opens a session after validating the opening float matches the denomination count
+- `close` — closes the session in blind mode (expected balance stays hidden until count submission) and writes `actualCount`, `overShort`, and `closedAt`
+- `movements` — paginated timeline of cash movements for a session (cashier sees own; admin/manager sees any session in the active site)
+- `recordMovement` — manual paid-in / paid-out / skim / replenishment entries with an audit note
+
+Automatic movements:
+
+- `sales.create` writes a `sale` cash movement against the cashier's active session when the sale is paid in cash
+- `sales.returnSale` writes a `refund` cash movement against the refunding cashier's active session
+- `sales.void` writes a `refund` cash movement against the ORIGINAL sale's session ONLY if that session is still open; voids that target a closed session leave the finalized over/short untouched
+
+Every movement updates `cash_sessions.expected_balance` inside the same transaction via a signed delta derived from `CASH_MOVEMENT_POSITIVE_TYPES` / `CASH_MOVEMENT_NEGATIVE_TYPES` in `services/cash-session.ts`.
 
 ## Current Exceptions and Boundaries
 

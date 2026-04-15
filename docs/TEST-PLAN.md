@@ -418,6 +418,25 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 ---
 
+## CASH SESSIONS
+
+| Status | ID | Runner | Role | Flow | Expected validation |
+|---|---|---|---|---|---|
+| ✅ | CASH-01 | BOTH | cashier | Sales desk with no open session | Primary CTA shows "Open cash session" and charge is blocked |
+| ✅ | CASH-02 | BOTH | cashier | Open cash session with mismatched float | Submit disabled, mismatch banner visible |
+| ✅ | CASH-03 | BOTH | cashier | Open cash session with balanced denomination count | Session created; header and side panel switch to "Charge sale" |
+| ✅ | CASH-04 | BOTH | cashier | Charge cash sale into active session | `sale` cash movement recorded; expected balance incremented |
+| ✅ | CASH-05 | BOTH | cashier | Record manual paid-in / paid-out / skim / replenishment | Timeline shows signed amount; expected balance updates |
+| ✅ | CASH-06 | BOTH | cashier | Record movement with empty note | Client validation blocks submit |
+| ✅ | CASH-07 | BOTH | cashier | Close session (blind) with matching count | Session transitions to `closed`; toast reports balanced/over/short |
+| ✅ | CASH-08 | BOTH | cashier | Close session with mismatched count | Submit disabled, mismatch banner visible |
+| ✅ | CASH-09 | BOTH | cashier | Expected balance hidden in active card | Only opening metadata and blind close hint are shown |
+| ✅ | CASH-10 | BOTH | manager | Refund cash sale | `refund` cash movement recorded against refunding cashier's active session |
+| ✅ | CASH-11 | BOTH | admin | Void sale whose session is still open | Original session is decremented via `refund` movement |
+| ✅ | CASH-12 | BOTH | admin | Void sale whose session is already closed | Sale voided, stock restored, closed session untouched |
+
+---
+
 ## ORDERS
 
 | Status | ID | Runner | Role | Flow | Expected validation |

@@ -5,6 +5,7 @@ import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashMovements,
   cashSessions,
   products,
   sites,
@@ -358,5 +359,146 @@ describe('Cash sessions tRPC Router', () => {
       .where(and(eq(cashSessions.cashierId, cashierId), eq(cashSessions.status, 'open')))
       .get();
     expect(stillNoSession).toBeUndefined();
+  });
+
+  it('records manual cash movements and exposes them through the session timeline', async () => {
+    const cashierId = nanoid();
+    const cashierEmail = 'cash-session-movements@example.com';
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: cashierEmail,
+      name: 'Cashier Movements',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: cashierEmail,
+        role: 'cashier',
+      })
+    );
+
+    const opened = await caller.cashSessions.open({
+      registerName: 'Movement register',
+      openingFloat: 120,
+      denominations: [{ value: 20, count: 6 }],
+    });
+
+    const paidIn = await caller.cashSessions.recordMovement({
+      type: 'paid_in',
+      amount: 30,
+      note: 'Coins replenished from safe',
+    });
+
+    const skim = await caller.cashSessions.recordMovement({
+      type: 'skim',
+      amount: 10,
+      note: 'Skimmed excess cash to safe',
+    });
+
+    expect(paidIn.sessionId).toBe(opened.id);
+    expect(paidIn.type).toBe('paid_in');
+    expect(skim.type).toBe('skim');
+
+    const movements = await caller.cashSessions.movements({
+      sessionId: opened.id,
+      limit: 10,
+    });
+
+    expect(movements).toHaveLength(2);
+    expect(movements[0]?.id).toBe(skim.id);
+    expect(movements[0]?.createdByName).toBe('Cashier Movements');
+    expect(movements[1]?.id).toBe(paidIn.id);
+
+    const updatedSession = await caller.cashSessions.getActive();
+    expect(updatedSession?.expectedBalance).toBe(140);
+
+    const persistedMovement = await db
+      .select()
+      .from(cashMovements)
+      .where(eq(cashMovements.id, paidIn.id))
+      .get();
+    expect(persistedMovement).toMatchObject({
+      sessionId: opened.id,
+      type: 'paid_in',
+      amount: 30,
+      note: 'Coins replenished from safe',
+      createdBy: cashierId,
+    });
+  });
+
+  it('does not expose another cashier session timeline to a regular cashier', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const ownerId = nanoid();
+    const viewerId = nanoid();
+
+    await db.insert(users).values([
+      {
+        id: ownerId,
+        tenantId,
+        email: 'cash-session-owner@example.com',
+        name: 'Cash Session Owner',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: viewerId,
+        tenantId,
+        email: 'cash-session-viewer@example.com',
+        name: 'Cash Session Viewer',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const ownerCaller = appRouter.createCaller(
+      createTestContext({
+        id: ownerId,
+        email: 'cash-session-owner@example.com',
+        role: 'cashier',
+      })
+    );
+    const viewerCaller = appRouter.createCaller(
+      createTestContext({
+        id: viewerId,
+        email: 'cash-session-viewer@example.com',
+        role: 'cashier',
+      })
+    );
+
+    const opened = await ownerCaller.cashSessions.open({
+      registerName: 'Owner register',
+      openingFloat: 80,
+      denominations: [{ value: 20, count: 4 }],
+    });
+
+    await ownerCaller.cashSessions.recordMovement({
+      type: 'paid_in',
+      amount: 15,
+      note: 'Owner-only note',
+    });
+
+    const movements = await viewerCaller.cashSessions.movements({
+      sessionId: opened.id,
+      limit: 10,
+    });
+
+    expect(movements).toEqual([]);
   });
 });

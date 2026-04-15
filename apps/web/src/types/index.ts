@@ -369,6 +369,13 @@ export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
+export type CashMovementType =
+  | 'sale'
+  | 'refund'
+  | 'paid_in'
+  | 'paid_out'
+  | 'skim'
+  | 'replenishment';
 
 export interface CashSessionDenomination {
   value: number;
@@ -394,6 +401,19 @@ export interface CashSession {
   closedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CashMovement {
+  id: string;
+  tenantId: string;
+  sessionId: string;
+  type: CashMovementType;
+  amount: number;
+  referenceId?: string | null;
+  note?: string | null;
+  createdBy: string;
+  createdByName?: string | null;
+  createdAt: string;
 }
 
 export interface Purchase {

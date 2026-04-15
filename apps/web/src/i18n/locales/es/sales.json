@@ -67,8 +67,24 @@
     "closingCount": "Conteo de cierre",
     "openAction": "Abrir caja",
     "closeAction": "Cerrar caja",
+    "recordMovementAction": "Registrar movimiento",
     "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
     "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.",
+    "movementTypes": {
+      "sale": "Venta en efectivo",
+      "refund": "Reembolso",
+      "paid_in": "Ingreso de caja",
+      "paid_out": "Salida de caja",
+      "skim": "Retiro a caja fuerte",
+      "replenishment": "Reposición de cambio"
+    },
+    "timeline": {
+      "title": "Línea de tiempo de movimientos",
+      "description": "Cada entrada y salida de efectivo registrada durante el turno activo.",
+      "loading": "Cargando movimientos de caja...",
+      "empty": "Todavía no se registran movimientos de caja en esta sesión.",
+      "unknownCashier": "Cajero desconocido"
+    },
     "form": {
       "title": "Abrir caja",
       "cancel": "Cancelar",
@@ -105,13 +121,34 @@
       "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}"
     },
+    "movementForm": {
+      "title": "Registrar movimiento de caja",
+      "cancel": "Cancelar",
+      "confirm": "Guardar movimiento",
+      "saving": "Guardando...",
+      "description": "Registra cada entrada o salida manual de efectivo para mantener auditable la línea de tiempo del cajón durante el turno.",
+      "type": "Tipo de movimiento",
+      "amount": "Monto",
+      "amountRequired": "El monto del movimiento debe ser mayor que cero.",
+      "note": "Nota",
+      "noteRequired": "Ingresa una nota corta de auditoría para el movimiento.",
+      "noteTooLong": "La nota del movimiento debe tener 240 caracteres o menos.",
+      "typeHints": {
+        "paid_in": "Usa ingreso de caja cuando agregas efectivo externo al cajón durante el turno.",
+        "paid_out": "Usa salida de caja cuando retiras efectivo del cajón para un gasto o traslado externo.",
+        "skim": "Usa retiro a caja fuerte cuando sacas excedente del cajón y lo envías a la caja fuerte.",
+        "replenishment": "Usa reposición de cambio cuando agregas sencillo al cajón para seguir operando."
+      }
+    },
     "toast": {
       "openSuccessTitle": "Caja abierta",
       "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}.",
       "closeSuccessTitle": "Caja cerrada",
       "closeBalancedDescription": "{{registerName}} cerró cuadrada en {{amount}}.",
       "closeOverDescription": "{{registerName}} cerró con un sobrante de {{amount}}.",
-      "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}."
+      "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}.",
+      "movementSuccessTitle": "Movimiento de caja registrado",
+      "movementSuccessDescription": "{{movementType}} registrado por {{amount}}."
     }
   },
   "payment": {
