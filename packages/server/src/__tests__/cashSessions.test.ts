@@ -169,6 +169,102 @@ describe('Cash sessions tRPC Router', () => {
     expectErrorCode(caught, 'CASH_SESSION_OPENING_FLOAT_MISMATCH');
   });
 
+  it('closes the active cash session with blind count and calculates over/short', async () => {
+    const cashierId = nanoid();
+    const cashierEmail = 'cash-session-close@example.com';
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: cashierEmail,
+      name: 'Cashier Close Session',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: cashierEmail,
+        role: 'cashier',
+      })
+    );
+
+    const opened = await caller.cashSessions.open({
+      registerName: 'Close register',
+      openingFloat: 100,
+      denominations: [{ value: 50, count: 2 }],
+    });
+
+    const closed = await caller.cashSessions.close({
+      actualCount: 110,
+      denominations: [{ value: 50, count: 2 }, { value: 10, count: 1 }],
+    });
+
+    expect(closed.id).toBe(opened.id);
+    expect(closed.status).toBe('closed');
+    expect(closed.actualCount).toBe(110);
+    expect(closed.actualCountDenominations).toEqual([
+      { value: 50, count: 2 },
+      { value: 10, count: 1 },
+    ]);
+    expect(closed.overShort).toBe(10);
+    expect(closed.closedAt).toEqual(expect.any(String));
+
+    const active = await caller.cashSessions.getActive();
+    expect(active).toBeNull();
+  });
+
+  it('rejects a closing count that does not match the denomination count', async () => {
+    const cashierId = nanoid();
+    const cashierEmail = 'cash-session-close-mismatch@example.com';
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: cashierEmail,
+      name: 'Cashier Close Mismatch',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: cashierEmail,
+        role: 'cashier',
+      })
+    );
+
+    await caller.cashSessions.open({
+      registerName: 'Mismatch close register',
+      openingFloat: 80,
+      denominations: [{ value: 20, count: 4 }],
+    });
+
+    let caught: unknown;
+    try {
+      await caller.cashSessions.close({
+        actualCount: 90,
+        denominations: [{ value: 20, count: 4 }],
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expectErrorCode(caught, 'CASH_SESSION_COUNT_MISMATCH');
+  });
+
   it('requires an active cash session before creating a sale', async () => {
     const cashierId = nanoid();
     const cashierEmail = 'cash-session-required@example.com';

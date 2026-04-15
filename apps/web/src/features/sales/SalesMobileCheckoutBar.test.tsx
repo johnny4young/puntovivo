@@ -32,9 +32,11 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
+        canCloseCashSession
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
       />
     );
 
@@ -47,12 +49,12 @@ describe('SalesMobileCheckoutBar', () => {
     expect(screen.getByRole('button', { name: 'Cobrar venta' })).toBeEnabled();
   });
 
-  it('disables charge and wires the action callbacks in Spanish', async () => {
+  it('shows the close action when the register is open but the cart is empty', async () => {
     await i18next.changeLanguage('es');
 
     const user = userEvent.setup();
     const onOpenSearch = vi.fn();
-    const onCharge = vi.fn();
+    const onCloseCashSession = vi.fn();
 
     render(
       <SalesMobileCheckoutBar
@@ -60,17 +62,22 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge={false}
         canOpenCashSession={false}
+        canCloseCashSession
         onOpenSearch={onOpenSearch}
-        onCharge={onCharge}
+        onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
+        onCloseCashSession={onCloseCashSession}
       />
     );
 
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
 
-    expect(screen.getByRole('button', { name: 'Cobrar venta' })).toBeDisabled();
-    expect(onCharge).not.toHaveBeenCalled();
+    const closeButton = screen.getByRole('button', { name: 'Cerrar caja' });
+    expect(closeButton).toBeEnabled();
+
+    await user.click(closeButton);
+    expect(onCloseCashSession).toHaveBeenCalledTimes(1);
   });
 
   it('shows "Abrir caja" instead of charge when no cash session is open', async () => {
@@ -86,9 +93,11 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={null}
         canCharge={false}
         canOpenCashSession
+        canCloseCashSession={false}
         onOpenSearch={vi.fn()}
         onCharge={onCharge}
         onOpenCashSession={onOpenCashSession}
+        onCloseCashSession={vi.fn()}
       />
     );
 
@@ -100,4 +109,5 @@ describe('SalesMobileCheckoutBar', () => {
     expect(onOpenCashSession).toHaveBeenCalledTimes(1);
     expect(onCharge).not.toHaveBeenCalled();
   });
+
 });

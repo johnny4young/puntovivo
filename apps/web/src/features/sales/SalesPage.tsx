@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
+  CashSessionCloseModal,
+  type CashSessionCloseValues,
+} from '@/features/sales/CashSessionCloseModal';
+import {
   CashSessionOpenModal,
   type CashSessionOpenValues,
 } from '@/features/sales/CashSessionOpenModal';
@@ -31,6 +35,7 @@ import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import type { CashSession, Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
+
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
   if (values.paymentMethod === 'credit') {
     return 'pending';
@@ -62,9 +67,12 @@ export function SalesPage() {
   const [paymentModalKey, setPaymentModalKey] = useState(0);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
+  const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
+  const [cashSessionCloseModalKey, setCashSessionCloseModalKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
+  const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
   const {
     productInputRef,
     focusProductInput,
@@ -135,6 +143,44 @@ export function SalesPage() {
       });
     },
   });
+  const closeCashSessionMutation = trpc.cashSessions.close.useMutation({
+    onSuccess: async cashSession => {
+      await utils.cashSessions.getActive.invalidate();
+      setCashSessionCloseError(null);
+      setIsCashSessionCloseModalOpen(false);
+
+      const overShort = cashSession.overShort ?? 0;
+      const absoluteOverShort = formatCurrency(Math.abs(overShort));
+      const description =
+        Math.abs(overShort) < 1e-6
+          ? t('cashSession.toast.closeBalancedDescription', {
+              registerName: cashSession.registerName,
+              amount: formatCurrency(cashSession.actualCount ?? 0),
+            })
+          : overShort > 0
+            ? t('cashSession.toast.closeOverDescription', {
+                registerName: cashSession.registerName,
+                amount: absoluteOverShort,
+              })
+            : t('cashSession.toast.closeShortDescription', {
+                registerName: cashSession.registerName,
+                amount: absoluteOverShort,
+              });
+
+      toast.success({
+        title: t('cashSession.toast.closeSuccessTitle'),
+        description,
+      });
+    },
+    onError: error => {
+      const description = getServerErrorMessage(error);
+      setCashSessionCloseError(description);
+      toast.error({
+        title: t('toast.error'),
+        description,
+      });
+    },
+  });
 
   const summary = summaryQuery.data;
   const draftSummary = getCartSummary(cartItems);
@@ -144,6 +190,8 @@ export function SalesPage() {
   const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
   const canOpenCashSession =
     !!currentSite && !hasActiveCashSession && !activeCashSessionQuery.isLoading;
+  const canCloseCashSession =
+    !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
@@ -223,6 +271,20 @@ export function SalesPage() {
     await openCashSessionMutation.mutateAsync(values);
   };
 
+  const handleOpenCloseCashSessionModal = () => {
+    if (!activeCashSession) {
+      return;
+    }
+
+    setCashSessionCloseError(null);
+    setCashSessionCloseModalKey(current => current + 1);
+    setIsCashSessionCloseModalOpen(true);
+  };
+
+  const handleCloseCashSession = async (values: CashSessionCloseValues) => {
+    await closeCashSessionMutation.mutateAsync(values);
+  };
+
   const handleCheckout = async (values: SalePaymentValues) => {
     try {
       await createMutation.mutateAsync({
@@ -272,6 +334,7 @@ export function SalesPage() {
           draftTotal={draftSummary.total}
           canCharge={canCharge}
           canOpenCashSession={canOpenCashSession}
+          canCloseCashSession={canCloseCashSession}
           cashSession={activeCashSession}
           isCashSessionLoading={activeCashSessionQuery.isLoading}
           productSearchQuery={productSearchQuery}
@@ -279,6 +342,7 @@ export function SalesPage() {
           onOpenSearch={() => handleOpenProductSearch(productSearchQuery)}
           onCharge={handleOpenPaymentModal}
           onOpenCashSession={handleOpenCashSessionModal}
+          onCloseCashSession={handleOpenCloseCashSessionModal}
           productInputRef={productInputRef}
         />
 
@@ -304,9 +368,11 @@ export function SalesPage() {
             draftSummary={draftSummary}
             canCharge={canCharge}
             canOpenCashSession={canOpenCashSession}
+            canCloseCashSession={canCloseCashSession}
             onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
             onOpenCashSession={handleOpenCashSessionModal}
+            onCloseCashSession={handleOpenCloseCashSessionModal}
           />
         </section>
 
@@ -326,9 +392,11 @@ export function SalesPage() {
         cashSession={activeCashSession}
         canCharge={canCharge}
         canOpenCashSession={canOpenCashSession}
+        canCloseCashSession={canCloseCashSession}
         onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleOpenPaymentModal}
         onOpenCashSession={handleOpenCashSessionModal}
+        onCloseCashSession={handleOpenCloseCashSessionModal}
       />
       {isProductSearchOpen && (
         <ProductSearchDialog
@@ -365,6 +433,17 @@ export function SalesPage() {
           error={cashSessionError}
           onClose={() => setIsCashSessionModalOpen(false)}
           onSubmit={handleCreateCashSession}
+        />
+      )}
+      {isCashSessionCloseModalOpen && (
+        <CashSessionCloseModal
+          key={cashSessionCloseModalKey}
+          cashSession={activeCashSession}
+          isOpen={isCashSessionCloseModalOpen}
+          isSaving={closeCashSessionMutation.isPending}
+          error={cashSessionCloseError}
+          onClose={() => setIsCashSessionCloseModalOpen(false)}
+          onSubmit={handleCloseCashSession}
         />
       )}
 

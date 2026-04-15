@@ -83,6 +83,8 @@ describe('errorCodes helper', () => {
       'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER',
       'CASH_SESSION_OPENING_FLOAT_MISMATCH',
       'CASH_SESSION_OPENING_FLOAT_INVALID',
+      'CASH_SESSION_COUNT_MISMATCH',
+      'CASH_SESSION_COUNT_INVALID',
     ];
     for (const code of expected) {
       expect(SERVER_ERROR_CODES).toHaveProperty(code, code);

@@ -64,8 +64,11 @@
     "openedAt": "Opened at",
     "expectedBalance": "Expected balance",
     "openingFloat": "Opening float",
+    "closingCount": "Closing count",
     "openAction": "Open cash session",
+    "closeAction": "Close cash session",
     "chargeBlocked": "Charging is enabled once the opening cash count is registered.",
+    "blindCloseHint": "Blind close keeps the expected drawer balance hidden until the closing count is submitted.",
     "form": {
       "title": "Open cash session",
       "cancel": "Cancel",
@@ -83,9 +86,32 @@
       "lineTotal": "Line total: {{total}}",
       "countFor": "Count for denomination {{denomination}}"
     },
+    "closeForm": {
+      "title": "Close cash session",
+      "cancel": "Cancel",
+      "confirm": "Close session",
+      "closing": "Closing...",
+      "description": "Count the full drawer, enter the blind closing total, and submit the denomination breakdown to reconcile the shift.",
+      "registerName": "Register",
+      "openedAt": "Opened at",
+      "actualCount": "Blind closing total",
+      "actualCountRequired": "Closing count cannot be negative.",
+      "countedTotal": "Denomination total",
+      "blindClose": "Blind close",
+      "blindCloseHint": "The expected drawer balance stays hidden until you submit the count.",
+      "mismatch": "The blind closing total must match the denomination count total.",
+      "denominations": "Closing denomination count",
+      "denominationsHint": "Use whole counts for every bill or coin still in the drawer.",
+      "lineTotal": "Line total: {{total}}",
+      "countFor": "Count for denomination {{denomination}}"
+    },
     "toast": {
       "openSuccessTitle": "Cash session opened",
-      "openSuccessDescription": "{{registerName}} is ready with {{amount}}."
+      "openSuccessDescription": "{{registerName}} is ready with {{amount}}.",
+      "closeSuccessTitle": "Cash session closed",
+      "closeBalancedDescription": "{{registerName}} closed balanced at {{amount}}.",
+      "closeOverDescription": "{{registerName}} closed with an overage of {{amount}}.",
+      "closeShortDescription": "{{registerName}} closed with a shortage of {{amount}}."
     }
   },
   "payment": {

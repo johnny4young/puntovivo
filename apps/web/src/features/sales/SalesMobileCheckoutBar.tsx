@@ -9,9 +9,11 @@ interface SalesMobileCheckoutBarProps {
   cashSession: CashSession | null;
   canCharge: boolean;
   canOpenCashSession: boolean;
+  canCloseCashSession: boolean;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
+  onCloseCashSession: () => void;
 }
 
 export function SalesMobileCheckoutBar({
@@ -19,14 +21,29 @@ export function SalesMobileCheckoutBar({
   cashSession,
   canCharge,
   canOpenCashSession,
+  canCloseCashSession,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
+  onCloseCashSession,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
-  const primaryAction = cashSession ? onCharge : onOpenCashSession;
-  const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
-  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+  const hasDraftItems = draftSummary.itemCount > 0;
+  const primaryAction = cashSession
+    ? hasDraftItems
+      ? onCharge
+      : onCloseCashSession
+    : onOpenCashSession;
+  const primaryActionLabel = cashSession
+    ? hasDraftItems
+      ? t('checkout.chargeSale')
+      : t('cashSession.closeAction')
+    : t('cashSession.openAction');
+  const primaryActionDisabled = cashSession
+    ? hasDraftItems
+      ? !canCharge
+      : !canCloseCashSession
+    : !canOpenCashSession;
 
   return (
     <div className="xl:hidden">
@@ -55,7 +72,11 @@ export function SalesMobileCheckoutBar({
             onClick={primaryAction}
             disabled={primaryActionDisabled}
           >
-            {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+            {cashSession && hasDraftItems ? (
+              <Receipt className="h-4 w-4" />
+            ) : (
+              <WalletCards className="h-4 w-4" />
+            )}
             {primaryActionLabel}
           </button>
         </div>

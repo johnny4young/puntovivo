@@ -11,9 +11,11 @@ interface SalesCheckoutPanelProps {
   draftSummary: SaleCartSummary;
   canCharge: boolean;
   canOpenCashSession: boolean;
+  canCloseCashSession: boolean;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
+  onCloseCashSession: () => void;
 }
 
 export function SalesCheckoutPanel({
@@ -23,9 +25,11 @@ export function SalesCheckoutPanel({
   draftSummary,
   canCharge,
   canOpenCashSession,
+  canCloseCashSession,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
+  onCloseCashSession,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
@@ -108,8 +112,17 @@ export function SalesCheckoutPanel({
               </p>
               {cashSession ? (
                 <div className="mt-2 space-y-1">
-                  <p>{t('cashSession.expectedBalance')}: {formatCurrency(cashSession.expectedBalance)}</p>
                   <p>{t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}</p>
+                  <p>{t('cashSession.blindCloseHint')}</p>
+                  <button
+                    type="button"
+                    className="btn-outline mt-2"
+                    onClick={onCloseCashSession}
+                    disabled={!canCloseCashSession}
+                  >
+                    <WalletCards className="h-4 w-4" />
+                    {t('cashSession.closeAction')}
+                  </button>
                 </div>
               ) : (
                 <p className="mt-2">{t('cashSession.chargeBlocked')}</p>
