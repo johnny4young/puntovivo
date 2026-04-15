@@ -64,8 +64,11 @@
     "openedAt": "Abierta",
     "expectedBalance": "Saldo esperado",
     "openingFloat": "Base de apertura",
+    "closingCount": "Conteo de cierre",
     "openAction": "Abrir caja",
+    "closeAction": "Cerrar caja",
     "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
+    "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.",
     "form": {
       "title": "Abrir caja",
       "cancel": "Cancelar",
@@ -83,9 +86,32 @@
       "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}"
     },
+    "closeForm": {
+      "title": "Cerrar caja",
+      "cancel": "Cancelar",
+      "confirm": "Cerrar caja",
+      "closing": "Cerrando...",
+      "description": "Cuenta todo el cajón, registra el total ciego de cierre y envía el desglose por denominaciones para reconciliar el turno.",
+      "registerName": "Registro",
+      "openedAt": "Abierta",
+      "actualCount": "Total ciego de cierre",
+      "actualCountRequired": "El conteo de cierre no puede ser negativo.",
+      "countedTotal": "Total por denominaciones",
+      "blindClose": "Cierre ciego",
+      "blindCloseHint": "El saldo esperado permanece oculto hasta que envías el conteo.",
+      "mismatch": "El total ciego de cierre debe coincidir con el total contado por denominaciones.",
+      "denominations": "Conteo final por denominaciones",
+      "denominationsHint": "Usa cantidades enteras para cada billete o moneda que quede en el cajón.",
+      "lineTotal": "Total de la línea: {{total}}",
+      "countFor": "Cantidad para la denominación {{denomination}}"
+    },
     "toast": {
       "openSuccessTitle": "Caja abierta",
-      "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}."
+      "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}.",
+      "closeSuccessTitle": "Caja cerrada",
+      "closeBalancedDescription": "{{registerName}} cerró cuadrada en {{amount}}.",
+      "closeOverDescription": "{{registerName}} cerró con un sobrante de {{amount}}.",
+      "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}."
     }
   },
   "payment": {

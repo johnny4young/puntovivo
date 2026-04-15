@@ -14,6 +14,7 @@ interface SalesOverviewProps {
   draftTotal: number;
   canCharge: boolean;
   canOpenCashSession: boolean;
+  canCloseCashSession: boolean;
   cashSession: CashSession | null;
   isCashSessionLoading: boolean;
   productSearchQuery: string;
@@ -21,6 +22,7 @@ interface SalesOverviewProps {
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
+  onCloseCashSession: () => void;
   productInputRef: RefObject<HTMLInputElement | null>;
 }
 
@@ -33,6 +35,7 @@ export function SalesOverview({
   draftTotal,
   canCharge,
   canOpenCashSession,
+  canCloseCashSession,
   cashSession,
   isCashSessionLoading,
   productSearchQuery,
@@ -40,6 +43,7 @@ export function SalesOverview({
   onOpenSearch,
   onCharge,
   onOpenCashSession,
+  onCloseCashSession,
   productInputRef,
 }: SalesOverviewProps) {
   const { t } = useTranslation('sales');
@@ -155,23 +159,31 @@ export function SalesOverview({
                       : t('cashSession.inactive')}
                 </p>
                 {cashSession ? (
-                  <div className="mt-3 grid gap-2 text-sm text-secondary-600 sm:grid-cols-3">
-                    <div>
-                      <p className="text-secondary-500">{t('cashSession.register')}</p>
-                      <p className="mt-1 font-medium text-secondary-900">{cashSession.registerName}</p>
+                  <div className="mt-3 space-y-3 text-sm text-secondary-600">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <p className="text-secondary-500">{t('cashSession.register')}</p>
+                        <p className="mt-1 font-medium text-secondary-900">{cashSession.registerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-secondary-500">{t('cashSession.openedAt')}</p>
+                        <p className="mt-1 font-medium text-secondary-900">
+                          {formatDateTime(cashSession.openedAt)}
+                        </p>
+                      </div>
                     </div>
                     <div>
-                      <p className="text-secondary-500">{t('cashSession.openedAt')}</p>
-                      <p className="mt-1 font-medium text-secondary-900">
-                        {formatDateTime(cashSession.openedAt)}
-                      </p>
+                      <p className="text-secondary-500">{t('cashSession.blindCloseHint')}</p>
                     </div>
-                    <div>
-                      <p className="text-secondary-500">{t('cashSession.expectedBalance')}</p>
-                      <p className="mt-1 font-medium text-secondary-900">
-                        {formatCurrency(cashSession.expectedBalance)}
-                      </p>
-                    </div>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={onCloseCashSession}
+                      disabled={!canCloseCashSession}
+                    >
+                      <WalletCards className="h-4 w-4" />
+                      {t('cashSession.closeAction')}
+                    </button>
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-secondary-500">{t('cashSession.hint')}</p>

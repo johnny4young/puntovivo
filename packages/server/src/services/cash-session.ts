@@ -27,30 +27,73 @@ export function amountsMatch(
   );
 }
 
+function assertCashAmountMatchesDenominations(args: {
+  amount: number;
+  denominations: readonly CashSessionDenomination[];
+  invalidCode: 'CASH_SESSION_OPENING_FLOAT_INVALID' | 'CASH_SESSION_COUNT_INVALID';
+  invalidMessage: string;
+  mismatchCode: 'CASH_SESSION_OPENING_FLOAT_MISMATCH' | 'CASH_SESSION_COUNT_MISMATCH';
+  mismatchMessage: string;
+  amountKey: 'openingFloat' | 'actualCount';
+}) {
+  const countedTotal = getCashSessionDenominationTotal(args.denominations);
+
+  if (!Number.isFinite(args.amount) || args.amount < 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: args.invalidCode,
+      message: args.invalidMessage,
+      details: { [args.amountKey]: args.amount },
+    });
+  }
+
+  if (Math.abs(countedTotal - args.amount) >= CASH_SESSION_EPSILON) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: args.mismatchCode,
+      message: args.mismatchMessage,
+      details: {
+        [args.amountKey]: args.amount,
+        countedTotal,
+      },
+    });
+  }
+
+  return countedTotal;
+}
+
 export function assertOpeningFloatMatchesDenominations(
   openingFloat: number,
   denominations: readonly CashSessionDenomination[]
 ): void {
-  if (!Number.isFinite(openingFloat) || openingFloat < 0) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'CASH_SESSION_OPENING_FLOAT_INVALID',
-      message: 'Opening float must be zero or greater',
-      details: { openingFloat },
-    });
-  }
+  assertCashAmountMatchesDenominations({
+    amount: openingFloat,
+    denominations,
+    invalidCode: 'CASH_SESSION_OPENING_FLOAT_INVALID',
+    invalidMessage: 'Opening float must be zero or greater',
+    mismatchCode: 'CASH_SESSION_OPENING_FLOAT_MISMATCH',
+    mismatchMessage: 'Opening float must match the denomination count total',
+    amountKey: 'openingFloat',
+  });
+}
 
-  if (!amountsMatch(openingFloat, denominations)) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'CASH_SESSION_OPENING_FLOAT_MISMATCH',
-      message: 'Opening float must match the denomination count total',
-      details: {
-        openingFloat,
-        countedTotal: getCashSessionDenominationTotal(denominations),
-      },
-    });
-  }
+export function getClosingCountTotal(
+  actualCount: number,
+  denominations: readonly CashSessionDenomination[]
+): number {
+  return assertCashAmountMatchesDenominations({
+    amount: actualCount,
+    denominations,
+    invalidCode: 'CASH_SESSION_COUNT_INVALID',
+    invalidMessage: 'Closing count must be zero or greater',
+    mismatchCode: 'CASH_SESSION_COUNT_MISMATCH',
+    mismatchMessage: 'Closing count must match the denomination count total',
+    amountKey: 'actualCount',
+  });
+}
+
+export function getCashSessionOverShort(expectedBalance: number, actualCount: number): number {
+  return Math.round((actualCount - expectedBalance) * 100) / 100;
 }
 
 export async function getActiveCashSessionForCashier(

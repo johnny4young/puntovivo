@@ -4,14 +4,20 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { cashSessions, sites, users } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
+  getCashSessionOverShort,
   assertOpeningFloatMatchesDenominations,
+  getClosingCountTotal,
   getActiveCashSessionForCashier,
   getOpenCashSessionForRegister,
   normalizeRegisterName,
 } from '../../services/cash-session.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { getActiveCashSessionInput, openCashSessionInput } from '../schemas/cashSessions.js';
+import {
+  closeCashSessionInput,
+  getActiveCashSessionInput,
+  openCashSessionInput,
+} from '../schemas/cashSessions.js';
 
 async function getCashSessionRecord(
   db: DatabaseInstance,
@@ -170,5 +176,62 @@ export const cashSessionsRouter = router({
     }
 
     return created;
+  }),
+
+  close: tenantProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
+    if (!ctx.user) {
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'CASH_SESSION_REQUIRED',
+        message: 'An authenticated user is required to close a cash session',
+      });
+    }
+
+    if (!ctx.siteId) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'CASH_SESSION_SITE_REQUIRED',
+        message: 'An active site is required before closing a cash session',
+      });
+    }
+
+    const activeSession = await getActiveCashSessionForCashier(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      ctx.user.id
+    );
+
+    if (!activeSession) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'CASH_SESSION_REQUIRED',
+        message: 'An open cash session is required before closing the register',
+      });
+    }
+
+    const actualCount = getClosingCountTotal(input.actualCount, input.denominations);
+    const overShort = getCashSessionOverShort(activeSession.expectedBalance, actualCount);
+    const closedAt = new Date().toISOString();
+
+    await ctx.db
+      .update(cashSessions)
+      .set({
+        actualCount,
+        actualCountDenominations: input.denominations,
+        overShort,
+        status: 'closed',
+        closedAt,
+        updatedAt: closedAt,
+      })
+      .where(eq(cashSessions.id, activeSession.id));
+
+    const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
+
+    if (!closedSession) {
+      throw new Error('Failed to load the closed cash session');
+    }
+
+    return closedSession;
   }),
 });

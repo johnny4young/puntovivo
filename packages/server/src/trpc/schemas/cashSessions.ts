@@ -22,6 +22,12 @@ export const openCashSessionInput = z.object({
   denominations: z.array(cashSessionDenominationInput).default([]),
 });
 
+export const closeCashSessionInput = z.object({
+  actualCount: z.number().min(0, 'Closing count cannot be negative'),
+  denominations: z.array(cashSessionDenominationInput).default([]),
+});
+
 export type CashSessionDenominationInput = z.infer<typeof cashSessionDenominationInput>;
 export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput>;
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
+export type CloseCashSessionInput = z.infer<typeof closeCashSessionInput>;
