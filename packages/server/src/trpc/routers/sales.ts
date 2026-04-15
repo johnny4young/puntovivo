@@ -21,6 +21,7 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  cashSessions,
   customers,
   inventoryMovements,
   products,
@@ -43,6 +44,7 @@ import {
   voidSaleInput,
 } from '../schemas/sales.js';
 import type { CreateSaleInput } from '../schemas/sales.js';
+import { requireActiveCashSession } from '../../services/cash-session.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 
 type ResolvedSaleItem = {
@@ -125,6 +127,44 @@ function buildReturnedSaleNotes(existingNotes: string | null, reason: string | u
   }
 
   return `${existingNotes ? `${existingNotes} | ` : ''}Refunded: ${reason}`;
+}
+
+function getCashCollectedAmount({
+  paymentMethod,
+  amountReceived,
+  total,
+  change,
+}: {
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  amountReceived: number | undefined;
+  total: number;
+  change: number;
+}) {
+  if (paymentMethod !== 'cash') {
+    return 0;
+  }
+
+  if (amountReceived === undefined) {
+    return total;
+  }
+
+  return Math.max(0, amountReceived - change);
+}
+
+function getPersistedCashContribution(sale: {
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  paymentStatus: 'pending' | 'paid' | 'partial' | 'refunded';
+  total: number;
+}) {
+  if (sale.paymentMethod !== 'cash') {
+    return 0;
+  }
+
+  if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+    return 0;
+  }
+
+  return sale.total;
 }
 
 function getRevenueEligibleSaleConditions(tenantId: string) {
@@ -524,6 +564,12 @@ export const salesRouter = router({
     const saleId = nanoid();
 
     await validateCustomer(ctx.db, ctx.tenantId, input.customerId);
+    const activeCashSession = await requireActiveCashSession(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      ctx.user!.id
+    );
 
     const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
     const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, input.items);
@@ -545,6 +591,15 @@ export const salesRouter = router({
     const change =
       input.amountReceived !== undefined && input.amountReceived > total
         ? input.amountReceived - total
+        : 0;
+    const cashCollectedAmount =
+      input.status === 'completed'
+        ? getCashCollectedAmount({
+            paymentMethod: input.paymentMethod,
+            amountReceived: input.amountReceived,
+            total,
+            change,
+          })
         : 0;
 
     if (input.amountReceived !== undefined && paymentStatus === 'paid' && input.amountReceived < total) {
@@ -580,6 +635,7 @@ export const salesRouter = router({
           paymentMethod: input.paymentMethod,
           paymentStatus,
           status: input.status,
+          cashSessionId: activeCashSession.id,
           notes: input.notes,
           createdBy: ctx.user!.id,
           syncStatus: 'pending',
@@ -641,6 +697,16 @@ export const salesRouter = router({
           .run();
       }
 
+      if (cashCollectedAmount > 0) {
+        tx.update(cashSessions)
+          .set({
+            expectedBalance: sql`${cashSessions.expectedBalance} + ${cashCollectedAmount}`,
+            updatedAt: now,
+          })
+          .where(eq(cashSessions.id, activeCashSession.id))
+          .run();
+      }
+
       tx.insert(syncQueue)
         .values({
           id: nanoid(),
@@ -653,6 +719,7 @@ export const salesRouter = router({
             saleNumber,
             total,
             siteId: sequentialContext.siteId,
+            cashSessionId: activeCashSession.id,
             paymentStatus,
           },
           localVersion: 1,
@@ -724,6 +791,12 @@ export const salesRouter = router({
    * Refund a completed sale and restore the related stock movements.
    */
   returnSale: managerOrAdminProcedure.input(returnSaleInput).mutation(async ({ ctx, input }) => {
+    const activeCashSession = await requireActiveCashSession(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      ctx.user!.id
+    );
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -904,6 +977,17 @@ export const salesRouter = router({
           },
         ])
         .run();
+
+      const refundCashImpact = getPersistedCashContribution(existing);
+      if (refundCashImpact > 0) {
+        tx.update(cashSessions)
+          .set({
+            expectedBalance: sql`${cashSessions.expectedBalance} - ${refundCashImpact}`,
+            updatedAt: now,
+          })
+          .where(eq(cashSessions.id, activeCashSession.id))
+          .run();
+      }
     });
 
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
@@ -913,6 +997,12 @@ export const salesRouter = router({
    * Void a completed sale (admin only) and reverse the related stock movements.
    */
   void: adminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
+    const activeCashSession = await requireActiveCashSession(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      ctx.user!.id
+    );
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -1040,6 +1130,17 @@ export const salesRouter = router({
           createdAt: now,
         })
         .run();
+
+      const voidCashImpact = getPersistedCashContribution(existing);
+      if (voidCashImpact > 0) {
+        tx.update(cashSessions)
+          .set({
+            expectedBalance: sql`${cashSessions.expectedBalance} - ${voidCashImpact}`,
+            updatedAt: now,
+          })
+          .where(eq(cashSessions.id, activeCashSession.id))
+          .run();
+      }
     });
 
     const updated = await ctx.db.select().from(sales).where(eq(sales.id, input.id)).get();

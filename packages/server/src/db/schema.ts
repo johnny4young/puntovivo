@@ -21,9 +21,15 @@ export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as c
 export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
 export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
+export const cashSessionStatusEnum = ['open', 'closed'] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
+
+export interface CashSessionDenomination {
+  value: number;
+  count: number;
+}
 
 // ============================================================================
 // TENANTS
@@ -72,6 +78,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   orders: many(orders),
   sales: many(sales),
   saleReturns: many(saleReturns),
+  cashSessions: many(cashSessions),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -113,6 +120,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   orders: many(orders),
   sales: many(sales),
   saleReturns: many(saleReturns),
+  cashSessions: many(cashSessions),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -232,6 +240,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
   sequentials: many(sequentials),
   purchases: many(purchases),
   orders: many(orders),
+  cashSessions: many(cashSessions),
   initialInventoryEntries: many(initialInventory),
 }));
 
@@ -1362,6 +1371,7 @@ export const sales = sqliteTable(
     paymentMethod: text('payment_method', { enum: paymentMethodEnum }).notNull().default('cash'),
     paymentStatus: text('payment_status', { enum: paymentStatusEnum }).notNull().default('pending'),
     status: text('status', { enum: saleStatusEnum }).notNull().default('draft'),
+    cashSessionId: text('cash_session_id').references(() => cashSessions.id),
     notes: text('notes'),
     createdBy: text('created_by')
       .notNull()
@@ -1375,6 +1385,7 @@ export const sales = sqliteTable(
   table => [
     index('idx_sales_tenant').on(table.tenantId),
     index('idx_sales_customer').on(table.customerId),
+    index('idx_sales_cash_session').on(table.cashSessionId),
     index('idx_sales_created_by').on(table.createdBy),
     uniqueIndex('idx_sales_tenant_number').on(table.tenantId, table.saleNumber),
   ]
@@ -1393,8 +1404,72 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     fields: [sales.createdBy],
     references: [users.id],
   }),
+  cashSession: one(cashSessions, {
+    fields: [sales.cashSessionId],
+    references: [cashSessions.id],
+  }),
   items: many(saleItems),
   returns: many(saleReturns),
+}));
+
+// ============================================================================
+// CASH SESSIONS
+// ============================================================================
+
+/** A cash session tracks the opening float, running expected balance, and reconciliation state for a cashier on a specific register/site. */
+export const cashSessions = sqliteTable(
+  'cash_sessions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    cashierId: text('cashier_id')
+      .notNull()
+      .references(() => users.id),
+    registerName: text('register_name').notNull(),
+    openingFloat: real('opening_float').notNull().default(0),
+    openingCountDenominations: text('opening_count_denominations', { mode: 'json' })
+      .$type<CashSessionDenomination[]>()
+      .notNull(),
+    expectedBalance: real('expected_balance').notNull().default(0),
+    actualCount: real('actual_count'),
+    actualCountDenominations: text('actual_count_denominations', { mode: 'json' })
+      .$type<CashSessionDenomination[] | null>(),
+    overShort: real('over_short'),
+    status: text('status', { enum: cashSessionStatusEnum }).notNull().default('open'),
+    openedAt: text('opened_at').notNull().default(new Date().toISOString()),
+    closedAt: text('closed_at'),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_cash_sessions_tenant').on(table.tenantId),
+    index('idx_cash_sessions_site').on(table.siteId),
+    index('idx_cash_sessions_cashier').on(table.cashierId),
+    index('idx_cash_sessions_status').on(table.status),
+    index('idx_cash_sessions_site_status').on(table.siteId, table.status),
+    index('idx_cash_sessions_register_status').on(table.siteId, table.registerName, table.status),
+  ]
+);
+
+export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [cashSessions.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [cashSessions.siteId],
+    references: [sites.id],
+  }),
+  cashier: one(users, {
+    fields: [cashSessions.cashierId],
+    references: [users.id],
+  }),
+  sales: many(sales),
 }));
 
 // ============================================================================

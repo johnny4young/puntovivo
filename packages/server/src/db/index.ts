@@ -629,6 +629,32 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items (order_id);
     CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items (product_id);
 
+    -- Cash Sessions
+    CREATE TABLE IF NOT EXISTS cash_sessions (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      cashier_id TEXT NOT NULL REFERENCES users(id),
+      register_name TEXT NOT NULL,
+      opening_float REAL NOT NULL DEFAULT 0,
+      opening_count_denominations TEXT NOT NULL,
+      expected_balance REAL NOT NULL DEFAULT 0,
+      actual_count REAL,
+      actual_count_denominations TEXT,
+      over_short REAL,
+      status TEXT NOT NULL DEFAULT 'open',
+      opened_at TEXT NOT NULL DEFAULT (datetime('now')),
+      closed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_tenant ON cash_sessions (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_site ON cash_sessions (site_id);
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_cashier ON cash_sessions (cashier_id);
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_status ON cash_sessions (status);
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_site_status ON cash_sessions (site_id, status);
+    CREATE INDEX IF NOT EXISTS idx_cash_sessions_register_status ON cash_sessions (site_id, register_name, status);
+
     -- Sales
     CREATE TABLE IF NOT EXISTS sales (
       id TEXT PRIMARY KEY,
@@ -642,6 +668,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       payment_method TEXT NOT NULL DEFAULT 'cash',
       payment_status TEXT NOT NULL DEFAULT 'pending',
       status TEXT NOT NULL DEFAULT 'draft',
+      cash_session_id TEXT REFERENCES cash_sessions(id),
       notes TEXT,
       created_by TEXT NOT NULL REFERENCES users(id),
       sync_status TEXT DEFAULT 'pending',
@@ -805,6 +832,27 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'purchases', 'status', "status TEXT NOT NULL DEFAULT 'completed'");
   ensureColumn(client, 'purchases', 'order_id', 'order_id TEXT');
   ensureColumn(client, 'purchase_items', 'source_order_item_id', 'source_order_item_id TEXT');
+  ensureColumn(client, 'cash_sessions', 'tenant_id', 'tenant_id TEXT');
+  ensureColumn(client, 'cash_sessions', 'site_id', 'site_id TEXT');
+  ensureColumn(client, 'cash_sessions', 'cashier_id', 'cashier_id TEXT');
+  ensureColumn(client, 'cash_sessions', 'register_name', "register_name TEXT NOT NULL DEFAULT 'Main register'");
+  ensureColumn(client, 'cash_sessions', 'opening_float', 'opening_float REAL NOT NULL DEFAULT 0');
+  ensureColumn(
+    client,
+    'cash_sessions',
+    'opening_count_denominations',
+    "opening_count_denominations TEXT NOT NULL DEFAULT '[]'"
+  );
+  ensureColumn(client, 'cash_sessions', 'expected_balance', 'expected_balance REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'cash_sessions', 'actual_count', 'actual_count REAL');
+  ensureColumn(client, 'cash_sessions', 'actual_count_denominations', 'actual_count_denominations TEXT');
+  ensureColumn(client, 'cash_sessions', 'over_short', 'over_short REAL');
+  ensureColumn(client, 'cash_sessions', 'status', "status TEXT NOT NULL DEFAULT 'open'");
+  ensureColumn(client, 'cash_sessions', 'opened_at', "opened_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  ensureColumn(client, 'cash_sessions', 'closed_at', 'closed_at TEXT');
+  ensureColumn(client, 'cash_sessions', 'created_at', "created_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  ensureColumn(client, 'cash_sessions', 'updated_at', "updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  ensureColumn(client, 'sales', 'cash_session_id', 'cash_session_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
@@ -815,6 +863,12 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');
   createIndexIfColumnsExist(client, 'companies', ['logo_id'], 'CREATE INDEX IF NOT EXISTS idx_companies_logo ON companies (logo_id)');
   createIndexIfColumnsExist(client, 'purchase_items', ['source_order_item_id'], 'CREATE INDEX IF NOT EXISTS idx_purchase_items_source_order_item ON purchase_items (source_order_item_id)');
+  createIndexIfColumnsExist(client, 'cash_sessions', ['site_id'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_site ON cash_sessions (site_id)');
+  createIndexIfColumnsExist(client, 'cash_sessions', ['cashier_id'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_cashier ON cash_sessions (cashier_id)');
+  createIndexIfColumnsExist(client, 'cash_sessions', ['status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_status ON cash_sessions (status)');
+  createIndexIfColumnsExist(client, 'cash_sessions', ['site_id', 'status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_site_status ON cash_sessions (site_id, status)');
+  createIndexIfColumnsExist(client, 'cash_sessions', ['site_id', 'register_name', 'status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_register_status ON cash_sessions (site_id, register_name, status)');
+  createIndexIfColumnsExist(client, 'sales', ['cash_session_id'], 'CREATE INDEX IF NOT EXISTS idx_sales_cash_session ON sales (cash_session_id)');
   client.exec('DROP INDEX IF EXISTS idx_purchases_order_unique');
 }
 

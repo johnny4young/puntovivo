@@ -368,6 +368,33 @@ export interface SaleItem {
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
+export type CashSessionStatus = 'open' | 'closed';
+
+export interface CashSessionDenomination {
+  value: number;
+  count: number;
+}
+
+export interface CashSession {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  siteName?: string | null;
+  cashierId: string;
+  cashierName?: string | null;
+  registerName: string;
+  openingFloat: number;
+  openingCountDenominations: CashSessionDenomination[];
+  expectedBalance: number;
+  actualCount?: number | null;
+  actualCountDenominations?: CashSessionDenomination[] | null;
+  overShort?: number | null;
+  status: CashSessionStatus;
+  openedAt: string;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Purchase {
   id: string;

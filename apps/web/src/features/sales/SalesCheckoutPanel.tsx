@@ -1,25 +1,37 @@
-import { Plus, Receipt, ScanLine } from 'lucide-react';
+import { Plus, Receipt, ScanLine, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
-import type { Site } from '@/types';
+import type { CashSession, Site } from '@/types';
 
 interface SalesCheckoutPanelProps {
   currentSite: Site | null;
+  cashSession: CashSession | null;
+  isCashSessionLoading: boolean;
   draftSummary: SaleCartSummary;
   canCharge: boolean;
+  canOpenCashSession: boolean;
   onOpenSearch: () => void;
   onCharge: () => void;
+  onOpenCashSession: () => void;
 }
 
 export function SalesCheckoutPanel({
   currentSite,
+  cashSession,
+  isCashSessionLoading,
   draftSummary,
   canCharge,
+  canOpenCashSession,
   onOpenSearch,
   onCharge,
+  onOpenCashSession,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
+  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
+  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+
   return (
     <aside className="card p-5 sm:p-6 xl:sticky xl:top-24">
       <div className="flex items-start justify-between gap-4">
@@ -79,15 +91,47 @@ export function SalesCheckoutPanel({
         </div>
 
         <div className="card-inset px-4 py-4 text-sm text-secondary-600">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
+              <WalletCards className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+                {t('cashSession.title')}
+              </p>
+              <p className="mt-2 font-semibold text-secondary-950">
+                {isCashSessionLoading
+                  ? '—'
+                  : cashSession
+                    ? cashSession.registerName
+                    : t('cashSession.inactive')}
+              </p>
+              {cashSession ? (
+                <div className="mt-2 space-y-1">
+                  <p>{t('cashSession.expectedBalance')}: {formatCurrency(cashSession.expectedBalance)}</p>
+                  <p>{t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}</p>
+                </div>
+              ) : (
+                <p className="mt-2">{t('cashSession.chargeBlocked')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="card-inset px-4 py-4 text-sm text-secondary-600">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
             {t('checkout.shortcuts')}
           </p>
           <p className="mt-2">{t('checkout.shortcutsHint')}</p>
         </div>
 
-        <button className="btn-primary hidden w-full justify-center xl:inline-flex" onClick={onCharge} disabled={!canCharge}>
-          <Receipt className="h-4 w-4" />
-          {t('checkout.chargeSale')}
+        <button
+          className="btn-primary hidden w-full justify-center xl:inline-flex"
+          onClick={primaryAction}
+          disabled={primaryActionDisabled}
+        >
+          {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+          {primaryActionLabel}
         </button>
       </div>
     </aside>

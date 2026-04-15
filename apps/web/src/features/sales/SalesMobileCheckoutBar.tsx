@@ -1,22 +1,33 @@
-import { Receipt, Search } from 'lucide-react';
+import { Receipt, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
+import type { CashSession } from '@/types';
 
 interface SalesMobileCheckoutBarProps {
   draftSummary: SaleCartSummary;
+  cashSession: CashSession | null;
   canCharge: boolean;
+  canOpenCashSession: boolean;
   onOpenSearch: () => void;
   onCharge: () => void;
+  onOpenCashSession: () => void;
 }
 
 export function SalesMobileCheckoutBar({
   draftSummary,
+  cashSession,
   canCharge,
+  canOpenCashSession,
   onOpenSearch,
   onCharge,
+  onOpenCashSession,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
+  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
+  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+
   return (
     <div className="xl:hidden">
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-surface/92 px-4 py-3 shadow-[0_-18px_40px_rgba(10,18,33,0.16)] backdrop-blur-xl">
@@ -38,9 +49,14 @@ export function SalesMobileCheckoutBar({
             <Search className="h-4 w-4" />
             {t('quickSearch.search')}
           </button>
-          <button type="button" className="btn-primary" onClick={onCharge} disabled={!canCharge}>
-            <Receipt className="h-4 w-4" />
-            {t('checkout.chargeSale')}
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+          >
+            {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+            {primaryActionLabel}
           </button>
         </div>
       </div>

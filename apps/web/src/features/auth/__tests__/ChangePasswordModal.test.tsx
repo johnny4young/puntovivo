@@ -96,9 +96,13 @@ describe('ChangePasswordModal', () => {
 
     render(<ChangePasswordModal isOpen onClose={vi.fn()} />);
 
-    await user.type(screen.getByLabelText(/contraseña actual/i), 'CurrentPassword123!');
-    await user.type(screen.getByLabelText(/^nueva contraseña$/i), 'NewPassword123!');
-    await user.type(screen.getByLabelText(/confirmar nueva contraseña/i), 'NewPassword123!');
+    const currentPasswordInput = await screen.findByLabelText(/contraseña actual/i);
+    const newPasswordInput = await screen.findByLabelText(/^nueva contraseña$/i);
+    const confirmPasswordInput = await screen.findByLabelText(/confirmar nueva contraseña/i);
+
+    await user.type(currentPasswordInput, 'CurrentPassword123!');
+    await user.type(newPasswordInput, 'NewPassword123!');
+    await user.type(confirmPasswordInput, 'NewPassword123!');
     await user.click(screen.getByRole('button', { name: /cambiar contraseña/i }));
 
     await waitFor(() => {

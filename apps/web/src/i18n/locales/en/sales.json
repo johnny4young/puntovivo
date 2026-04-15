@@ -55,6 +55,39 @@
     "discountFor": "Discount for {{name}}",
     "removeItem": "Remove {{name}}"
   },
+  "cashSession": {
+    "title": "Cash session",
+    "active": "Cash session active",
+    "inactive": "No open cash session",
+    "hint": "Open a register before charging or refunding sales so the drawer balance stays auditable.",
+    "register": "Register",
+    "openedAt": "Opened at",
+    "expectedBalance": "Expected balance",
+    "openingFloat": "Opening float",
+    "openAction": "Open cash session",
+    "chargeBlocked": "Charging is enabled once the opening cash count is registered.",
+    "form": {
+      "title": "Open cash session",
+      "cancel": "Cancel",
+      "confirm": "Open session",
+      "opening": "Opening...",
+      "registerName": "Register name",
+      "registerNameRequired": "Enter the register name.",
+      "openingFloat": "Opening float",
+      "openingFloatRequired": "Opening float cannot be negative.",
+      "countedTotal": "Counted total",
+      "description": "Count each denomination and confirm it matches the opening float before starting the shift.",
+      "mismatch": "The opening float must match the denomination count total.",
+      "denominations": "Denomination count",
+      "denominationsHint": "Use whole counts for each bill or coin available in the drawer.",
+      "lineTotal": "Line total: {{total}}",
+      "countFor": "Count for denomination {{denomination}}"
+    },
+    "toast": {
+      "openSuccessTitle": "Cash session opened",
+      "openSuccessDescription": "{{registerName}} is ready with {{amount}}."
+    }
+  },
   "payment": {
     "title": "Charge Sale",
     "saleTotal": "Sale total",

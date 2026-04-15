@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashSessions,
   customers,
   inventoryMovements,
   products,
@@ -25,6 +26,7 @@ let userId: string;
 let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
+let activeCashSessionId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
@@ -99,6 +101,17 @@ describe('Sales tRPC Router', () => {
 
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
+
+    const caller = appRouter.createCaller(createTestContext());
+    const activeCashSession = await caller.cashSessions.open({
+      registerName: 'Front register',
+      openingFloat: 200,
+      denominations: [
+        { value: 100, count: 2 },
+      ],
+    });
+
+    activeCashSessionId = activeCashSession.id;
 
     // Use local-time noon to match the summary query which filters by local-time midnight boundaries.
     // Using Date.UTC would cause failures in timezones west of UTC when local date != UTC date.
@@ -238,6 +251,13 @@ describe('Sales tRPC Router', () => {
     ]);
 
     const caller = appRouter.createCaller(createTestContext());
+    const cashSessionBeforeSale = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
     const result = await caller.sales.create({
       customerId,
       items: [
@@ -306,6 +326,27 @@ describe('Sales tRPC Router', () => {
       )
       .get();
     expect(sequential?.currentValue).toBe(1);
+
+    const storedSale = await db
+      .select({
+        cashSessionId: sales.cashSessionId,
+      })
+      .from(sales)
+      .where(eq(sales.id, result.id))
+      .get();
+    expect(storedSale?.cashSessionId).toBe(activeCashSessionId);
+
+    const cashSessionAfterSale = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
+    expect(cashSessionBeforeSale?.expectedBalance).toBeDefined();
+    expect(cashSessionAfterSale?.expectedBalance).toBeCloseTo(
+      (cashSessionBeforeSale?.expectedBalance ?? 0) + result.total
+    );
   });
 
   it('rejects sales that exceed available stock across repeated lines for the same product', async () => {
@@ -624,6 +665,13 @@ describe('Sales tRPC Router', () => {
 
     const caller = appRouter.createCaller(createTestContext());
     const summaryBeforeCreate = await caller.sales.summary();
+    const cashSessionBeforeCreate = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
     const created = await caller.sales.create({
       items: [
         {
@@ -644,6 +692,17 @@ describe('Sales tRPC Router', () => {
     const summaryBeforeVoid = await caller.sales.summary();
     expect(summaryBeforeVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount + 1);
     expect(summaryBeforeVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal + created.total);
+
+    const cashSessionAfterCreate = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
+    expect(cashSessionAfterCreate?.expectedBalance).toBeCloseTo(
+      (cashSessionBeforeCreate?.expectedBalance ?? 0) + created.total
+    );
 
     const voided = await caller.sales.void({
       id: created.id,
@@ -674,6 +733,17 @@ describe('Sales tRPC Router', () => {
     const summaryAfterVoid = await caller.sales.summary();
     expect(summaryAfterVoid.transactionCount).toBe(summaryBeforeCreate.transactionCount);
     expect(summaryAfterVoid.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
+
+    const cashSessionAfterVoid = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
+    expect(cashSessionAfterVoid?.expectedBalance).toBeCloseTo(
+      cashSessionBeforeCreate?.expectedBalance ?? 0
+    );
   });
 
   it('refunds a completed sale, restores stock, and excludes it from revenue KPIs', async () => {
@@ -718,6 +788,13 @@ describe('Sales tRPC Router', () => {
 
     const caller = appRouter.createCaller(createTestContext());
     const summaryBeforeCreate = await caller.sales.summary();
+    const cashSessionBeforeRefund = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
     const created = await caller.sales.create({
       items: [
         {
@@ -781,6 +858,17 @@ describe('Sales tRPC Router', () => {
     const summaryAfterRefund = await caller.sales.summary();
     expect(summaryAfterRefund.transactionCount).toBe(summaryBeforeCreate.transactionCount);
     expect(summaryAfterRefund.todaySalesTotal).toBeCloseTo(summaryBeforeCreate.todaySalesTotal);
+
+    const cashSessionAfterRefund = await db
+      .select({
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, activeCashSessionId))
+      .get();
+    expect(cashSessionAfterRefund?.expectedBalance).toBeCloseTo(
+      cashSessionBeforeRefund?.expectedBalance ?? 0
+    );
   });
 
   it('applies per-line discount percentage to both subtotal and VAT extraction', async () => {
