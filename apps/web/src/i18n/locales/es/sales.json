@@ -55,6 +55,39 @@
     "discountFor": "Descuento para {{name}}",
     "removeItem": "Eliminar {{name}}"
   },
+  "cashSession": {
+    "title": "Caja",
+    "active": "Caja activa",
+    "inactive": "Sin caja abierta",
+    "hint": "Abre un registro antes de cobrar o reembolsar ventas para mantener auditado el saldo del cajón.",
+    "register": "Registro",
+    "openedAt": "Abierta",
+    "expectedBalance": "Saldo esperado",
+    "openingFloat": "Base de apertura",
+    "openAction": "Abrir caja",
+    "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
+    "form": {
+      "title": "Abrir caja",
+      "cancel": "Cancelar",
+      "confirm": "Abrir caja",
+      "opening": "Abriendo...",
+      "registerName": "Nombre del registro",
+      "registerNameRequired": "Ingresa el nombre del registro.",
+      "openingFloat": "Base de apertura",
+      "openingFloatRequired": "La base de apertura no puede ser negativa.",
+      "countedTotal": "Total contado",
+      "description": "Cuenta cada denominación y confirma que coincida con la base de apertura antes de iniciar el turno.",
+      "mismatch": "La base de apertura debe coincidir con el total contado por denominaciones.",
+      "denominations": "Conteo por denominaciones",
+      "denominationsHint": "Usa cantidades enteras por billete o moneda disponible en el cajón.",
+      "lineTotal": "Total de la línea: {{total}}",
+      "countFor": "Cantidad para la denominación {{denomination}}"
+    },
+    "toast": {
+      "openSuccessTitle": "Caja abierta",
+      "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}."
+    }
+  },
   "payment": {
     "title": "Cobrar venta",
     "saleTotal": "Total de la venta",

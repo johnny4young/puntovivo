@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
+import {
+  CashSessionOpenModal,
+  type CashSessionOpenValues,
+} from '@/features/sales/CashSessionOpenModal';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
@@ -25,7 +29,8 @@ import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShor
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import type { Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
+import { formatCurrency } from '@/lib/utils';
+import type { CashSession, Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
   if (values.paymentMethod === 'credit') {
     return 'pending';
@@ -55,8 +60,11 @@ export function SalesPage() {
   const [productSearchDialogKey, setProductSearchDialogKey] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentModalKey, setPaymentModalKey] = useState(0);
+  const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
+  const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const {
     productInputRef,
     focusProductInput,
@@ -70,10 +78,17 @@ export function SalesPage() {
   const customersQuery = trpc.customers.list.useQuery({ page: 1, perPage: 100, isActive: true });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
+  const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
+    { siteId: currentSite?.id },
+    {
+      enabled: !!currentSite,
+    }
+  );
 
   const createMutation = trpc.sales.create.useMutation({
     onSuccess: async (_data, variables) => {
       await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.inventory.listMovements.invalidate(),
@@ -98,10 +113,37 @@ export function SalesPage() {
       });
     },
   });
+  const openCashSessionMutation = trpc.cashSessions.open.useMutation({
+    onSuccess: async cashSession => {
+      await utils.cashSessions.getActive.invalidate();
+      setCashSessionError(null);
+      setIsCashSessionModalOpen(false);
+      toast.success({
+        title: t('cashSession.toast.openSuccessTitle'),
+        description: t('cashSession.toast.openSuccessDescription', {
+          registerName: cashSession.registerName,
+          amount: formatCurrency(cashSession.openingFloat),
+        }),
+      });
+    },
+    onError: error => {
+      const description = getServerErrorMessage(error);
+      setCashSessionError(description);
+      toast.error({
+        title: t('toast.error'),
+        description,
+      });
+    },
+  });
 
   const summary = summaryQuery.data;
   const draftSummary = getCartSummary(cartItems);
   const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
+  const activeCashSession = (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
+  const hasActiveCashSession = !!activeCashSession;
+  const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
+  const canOpenCashSession =
+    !!currentSite && !hasActiveCashSession && !activeCashSessionQuery.isLoading;
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
@@ -157,9 +199,28 @@ export function SalesPage() {
       return;
     }
 
+    if (!hasActiveCashSession) {
+      handleOpenCashSessionModal();
+      return;
+    }
+
     setSaleError(null);
     setPaymentModalKey(current => current + 1);
     setIsPaymentModalOpen(true);
+  };
+
+  const handleOpenCashSessionModal = () => {
+    if (!currentSite) {
+      return;
+    }
+
+    setCashSessionError(null);
+    setCashSessionModalKey(current => current + 1);
+    setIsCashSessionModalOpen(true);
+  };
+
+  const handleCreateCashSession = async (values: CashSessionOpenValues) => {
+    await openCashSessionMutation.mutateAsync(values);
   };
 
   const handleCheckout = async (values: SalePaymentValues) => {
@@ -188,7 +249,7 @@ export function SalesPage() {
 
   useSalesKeyboardShortcuts({
     selectedItemKey: activeSelectedCartItemKey,
-    canCharge: !!currentSite && cartItems.length > 0,
+    canCharge,
     isProductSearchOpen,
     isPaymentModalOpen,
     onOpenSearch: () => handleOpenProductSearch(),
@@ -209,11 +270,15 @@ export function SalesPage() {
           transactionCount={summary?.transactionCount ?? 0}
           averageOrder={summary?.averageOrder ?? 0}
           draftTotal={draftSummary.total}
-          canCharge={!!currentSite && cartItems.length > 0}
+          canCharge={canCharge}
+          canOpenCashSession={canOpenCashSession}
+          cashSession={activeCashSession}
+          isCashSessionLoading={activeCashSessionQuery.isLoading}
           productSearchQuery={productSearchQuery}
           onProductSearchQueryChange={setProductSearchQuery}
           onOpenSearch={() => handleOpenProductSearch(productSearchQuery)}
           onCharge={handleOpenPaymentModal}
+          onOpenCashSession={handleOpenCashSessionModal}
           productInputRef={productInputRef}
         />
 
@@ -234,10 +299,14 @@ export function SalesPage() {
 
           <SalesCheckoutPanel
             currentSite={currentSite}
+            cashSession={activeCashSession}
+            isCashSessionLoading={activeCashSessionQuery.isLoading}
             draftSummary={draftSummary}
-            canCharge={!!currentSite && cartItems.length > 0}
+            canCharge={canCharge}
+            canOpenCashSession={canOpenCashSession}
             onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
+            onOpenCashSession={handleOpenCashSessionModal}
           />
         </section>
 
@@ -254,9 +323,12 @@ export function SalesPage() {
 
       <SalesMobileCheckoutBar
         draftSummary={draftSummary}
-        canCharge={!!currentSite && cartItems.length > 0}
+        cashSession={activeCashSession}
+        canCharge={canCharge}
+        canOpenCashSession={canOpenCashSession}
         onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleOpenPaymentModal}
+        onOpenCashSession={handleOpenCashSessionModal}
       />
       {isProductSearchOpen && (
         <ProductSearchDialog
@@ -282,6 +354,17 @@ export function SalesPage() {
           error={saleError}
           onClose={() => setIsPaymentModalOpen(false)}
           onSubmit={handleCheckout}
+        />
+      )}
+
+      {isCashSessionModalOpen && (
+        <CashSessionOpenModal
+          key={cashSessionModalKey}
+          isOpen={isCashSessionModalOpen}
+          isSaving={openCashSessionMutation.isPending}
+          error={cashSessionError}
+          onClose={() => setIsCashSessionModalOpen(false)}
+          onSubmit={handleCreateCashSession}
         />
       )}
 

@@ -65,7 +65,7 @@ function createTestContext(userPayload?: {
 
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers: userPayload && defaultSiteId ? { 'x-site-id': defaultSiteId } : {},
     user: userPayload
       ? {
           userId: userPayload.id,
@@ -94,7 +94,7 @@ function createTestContext(userPayload?: {
         }
       : null,
     tenantId: userPayload?.tenantId ?? null,
-    siteId: null,
+    siteId: userPayload?.tenantId ? defaultSiteId : null,
   };
 }
 
@@ -263,6 +263,32 @@ describe('Collections tRPC Routers', () => {
         updatedAt: new Date().toISOString(),
       });
     }
+
+    await appRouter.createCaller(
+      createTestContext({
+        id: adminUserId,
+        email: 'admin@collections-test.com',
+        role: 'admin',
+        tenantId: testTenantId,
+      })
+    ).cashSessions.open({
+      registerName: 'Admin register',
+      openingFloat: 100,
+      denominations: [{ value: 50, count: 2 }],
+    });
+
+    await appRouter.createCaller(
+      createTestContext({
+        id: cashierUserId,
+        email: 'cashier@collections-test.com',
+        role: 'cashier',
+        tenantId: testTenantId,
+      })
+    ).cashSessions.open({
+      registerName: 'Cashier register',
+      openingFloat: 50,
+      denominations: [{ value: 50, count: 1 }],
+    });
   });
 
   afterAll(async () => {

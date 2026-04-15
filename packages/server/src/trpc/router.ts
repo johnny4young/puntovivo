@@ -7,6 +7,7 @@
 import { router, publicProcedure } from './init.js';
 import { authRouter } from './routers/auth.js';
 import { categoriesRouter } from './routers/categories.js';
+import { cashSessionsRouter } from './routers/cashSessions.js';
 import { companiesRouter } from './routers/companies.js';
 import {
   clientTypesRouter,
@@ -44,6 +45,7 @@ export const appRouter = router({
     }),
   }),
   auth: authRouter,
+  cashSessions: cashSessionsRouter,
   companies: companiesRouter,
   countries: countriesRouter,
   identificationTypes: identificationTypesRouter,

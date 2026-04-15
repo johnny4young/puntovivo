@@ -66,7 +66,7 @@ describe('errorCodes helper', () => {
     expect(codedCause.details).toEqual({ errors: ['min length 12'] });
   });
 
-  it('SERVER_ERROR_CODES exposes every auth-domain code as a string constant', () => {
+  it('SERVER_ERROR_CODES exposes every auth/cash-session domain code as a string constant', () => {
     // Sanity-check the enum-like object so a code rename surfaces the
     // affected sites in one place rather than in every router that throws.
     const expected = [
@@ -77,6 +77,12 @@ describe('errorCodes helper', () => {
       'AUTH_USER_NOT_FOUND',
       'AUTH_CURRENT_PASSWORD_INCORRECT',
       'AUTH_PASSWORD_POLICY',
+      'CASH_SESSION_REQUIRED',
+      'CASH_SESSION_SITE_REQUIRED',
+      'CASH_SESSION_ALREADY_OPEN_FOR_CASHIER',
+      'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER',
+      'CASH_SESSION_OPENING_FLOAT_MISMATCH',
+      'CASH_SESSION_OPENING_FLOAT_INVALID',
     ];
     for (const code of expected) {
       expect(SERVER_ERROR_CODES).toHaveProperty(code, code);

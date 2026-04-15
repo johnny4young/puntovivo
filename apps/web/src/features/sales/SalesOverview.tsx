@@ -1,8 +1,9 @@
 import type { RefObject } from 'react';
-import { Receipt, Search, Store, TrendingUp } from 'lucide-react';
+import { Receipt, Search, Store, TrendingUp, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
+import type { CashSession } from '@/types';
 
 interface SalesOverviewProps {
   currentSiteName: string | null;
@@ -12,10 +13,14 @@ interface SalesOverviewProps {
   averageOrder: number;
   draftTotal: number;
   canCharge: boolean;
+  canOpenCashSession: boolean;
+  cashSession: CashSession | null;
+  isCashSessionLoading: boolean;
   productSearchQuery: string;
   onProductSearchQueryChange: (value: string) => void;
   onOpenSearch: () => void;
   onCharge: () => void;
+  onOpenCashSession: () => void;
   productInputRef: RefObject<HTMLInputElement | null>;
 }
 
@@ -27,13 +32,21 @@ export function SalesOverview({
   averageOrder,
   draftTotal,
   canCharge,
+  canOpenCashSession,
+  cashSession,
+  isCashSessionLoading,
   productSearchQuery,
   onProductSearchQueryChange,
   onOpenSearch,
   onCharge,
+  onOpenCashSession,
   productInputRef,
 }: SalesOverviewProps) {
   const { t } = useTranslation('sales');
+  const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
+  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+
   return (
     <section className="hero-surface p-5 sm:p-6 xl:p-7">
       <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.95fr)]">
@@ -112,9 +125,9 @@ export function SalesOverview({
                 <Search className="h-4 w-4" />
                 {t('checkout.addProduct')}
               </button>
-              <button className="btn-primary" onClick={onCharge} disabled={!canCharge}>
-                <Receipt className="h-4 w-4" />
-                {t('checkout.chargeSale')}
+              <button className="btn-primary" onClick={primaryAction} disabled={primaryActionDisabled}>
+                {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+                {primaryActionLabel}
               </button>
             </div>
           </div>
@@ -124,6 +137,48 @@ export function SalesOverview({
               {t('checkout.noSiteWarning')}
             </div>
           )}
+
+          <div className="card-inset px-4 py-4 text-sm text-secondary-600">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
+                <WalletCards className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+                  {t('cashSession.title')}
+                </p>
+                <p className="mt-2 text-base font-semibold text-secondary-950">
+                  {isCashSessionLoading
+                    ? '—'
+                    : cashSession
+                      ? t('cashSession.active')
+                      : t('cashSession.inactive')}
+                </p>
+                {cashSession ? (
+                  <div className="mt-3 grid gap-2 text-sm text-secondary-600 sm:grid-cols-3">
+                    <div>
+                      <p className="text-secondary-500">{t('cashSession.register')}</p>
+                      <p className="mt-1 font-medium text-secondary-900">{cashSession.registerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-secondary-500">{t('cashSession.openedAt')}</p>
+                      <p className="mt-1 font-medium text-secondary-900">
+                        {formatDateTime(cashSession.openedAt)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-secondary-500">{t('cashSession.expectedBalance')}</p>
+                      <p className="mt-1 font-medium text-secondary-900">
+                        {formatCurrency(cashSession.expectedBalance)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-secondary-500">{t('cashSession.hint')}</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="card-inset flex items-center gap-3 px-4 py-3 text-sm text-secondary-600">
             <TrendingUp className="h-4.5 w-4.5 text-primary-700" />
