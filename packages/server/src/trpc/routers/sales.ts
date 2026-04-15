@@ -21,6 +21,7 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  cashMovements,
   cashSessions,
   customers,
   inventoryMovements,
@@ -45,6 +46,7 @@ import {
 } from '../schemas/sales.js';
 import type { CreateSaleInput } from '../schemas/sales.js';
 import { requireActiveCashSession } from '../../services/cash-session.js';
+import { getCashMovementSignedAmount } from '../../services/cash-session.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 
 type ResolvedSaleItem = {
@@ -165,6 +167,46 @@ function getPersistedCashContribution(sale: {
   }
 
   return sale.total;
+}
+
+function insertCashMovement(args: {
+  tx: Context['db'];
+  tenantId: string;
+  sessionId: string;
+  type: 'sale' | 'refund';
+  amount: number;
+  referenceId: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}) {
+  if (args.amount <= 0) {
+    return;
+  }
+
+  args.tx
+    .insert(cashMovements)
+    .values({
+      id: nanoid(),
+      tenantId: args.tenantId,
+      sessionId: args.sessionId,
+      type: args.type,
+      amount: args.amount,
+      referenceId: args.referenceId,
+      note: args.note,
+      createdBy: args.createdBy,
+      createdAt: args.createdAt,
+    })
+    .run();
+
+  args.tx
+    .update(cashSessions)
+    .set({
+      expectedBalance: sql`${cashSessions.expectedBalance} + ${getCashMovementSignedAmount(args.type, args.amount)}`,
+      updatedAt: args.createdAt,
+    })
+    .where(eq(cashSessions.id, args.sessionId))
+    .run();
 }
 
 function getRevenueEligibleSaleConditions(tenantId: string) {
@@ -697,15 +739,17 @@ export const salesRouter = router({
           .run();
       }
 
-      if (cashCollectedAmount > 0) {
-        tx.update(cashSessions)
-          .set({
-            expectedBalance: sql`${cashSessions.expectedBalance} + ${cashCollectedAmount}`,
-            updatedAt: now,
-          })
-          .where(eq(cashSessions.id, activeCashSession.id))
-          .run();
-      }
+      insertCashMovement({
+        tx,
+        tenantId: ctx.tenantId,
+        sessionId: activeCashSession.id,
+        type: 'sale',
+        amount: cashCollectedAmount,
+        referenceId: saleId,
+        note: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
+        createdBy: ctx.user!.id,
+        createdAt: now,
+      });
 
       tx.insert(syncQueue)
         .values({
@@ -978,16 +1022,17 @@ export const salesRouter = router({
         ])
         .run();
 
-      const refundCashImpact = getPersistedCashContribution(existing);
-      if (refundCashImpact > 0) {
-        tx.update(cashSessions)
-          .set({
-            expectedBalance: sql`${cashSessions.expectedBalance} - ${refundCashImpact}`,
-            updatedAt: now,
-          })
-          .where(eq(cashSessions.id, activeCashSession.id))
-          .run();
-      }
+      insertCashMovement({
+        tx,
+        tenantId: ctx.tenantId,
+        sessionId: activeCashSession.id,
+        type: 'refund',
+        amount: getPersistedCashContribution(existing),
+        referenceId: input.id,
+        note: `Refunded sale ${existing.saleNumber}`,
+        createdBy: ctx.user!.id,
+        createdAt: now,
+      });
     });
 
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
@@ -997,12 +1042,11 @@ export const salesRouter = router({
    * Void a completed sale (admin only) and reverse the related stock movements.
    */
   void: adminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
-    const activeCashSession = await requireActiveCashSession(
-      ctx.db,
-      ctx.tenantId,
-      ctx.siteId,
-      ctx.user!.id
-    );
+    // Void is an admin action that's decoupled from a cashier's register:
+    // - if the original sale's cash session is still open, we reverse the cash
+    //   movement against that session (keeps its expected balance consistent);
+    // - if that session has already been closed, over/short is locked and we
+    //   simply void the sale without touching cash (matches real POS behavior).
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -1058,6 +1102,23 @@ export const salesRouter = router({
       .from(products)
       .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
       .all();
+
+    // Resolve the target cash session for the reversal: only reverse if the
+    // ORIGINAL session is still open; once closed, its over/short is finalized.
+    const voidTargetSession = existing.cashSessionId
+      ? await ctx.db
+          .select({ id: cashSessions.id, status: cashSessions.status })
+          .from(cashSessions)
+          .where(
+            and(
+              eq(cashSessions.id, existing.cashSessionId),
+              eq(cashSessions.tenantId, ctx.tenantId)
+            )
+          )
+          .get()
+      : null;
+    const voidReversibleSessionId =
+      voidTargetSession && voidTargetSession.status === 'open' ? voidTargetSession.id : null;
 
     const productStockState = new Map(currentProducts.map(product => [product.id, product.stock]));
     const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
@@ -1131,15 +1192,18 @@ export const salesRouter = router({
         })
         .run();
 
-      const voidCashImpact = getPersistedCashContribution(existing);
-      if (voidCashImpact > 0) {
-        tx.update(cashSessions)
-          .set({
-            expectedBalance: sql`${cashSessions.expectedBalance} - ${voidCashImpact}`,
-            updatedAt: now,
-          })
-          .where(eq(cashSessions.id, activeCashSession.id))
-          .run();
+      if (voidReversibleSessionId) {
+        insertCashMovement({
+          tx,
+          tenantId: ctx.tenantId,
+          sessionId: voidReversibleSessionId,
+          type: 'refund',
+          amount: getPersistedCashContribution(existing),
+          referenceId: input.id,
+          note: `Voided sale ${existing.saleNumber}`,
+          createdBy: ctx.user!.id,
+          createdAt: now,
+        });
       }
     });
 

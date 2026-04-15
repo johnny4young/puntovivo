@@ -22,6 +22,14 @@ export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 
 export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const cashSessionStatusEnum = ['open', 'closed'] as const;
+export const cashMovementTypeEnum = [
+  'sale',
+  'refund',
+  'paid_in',
+  'paid_out',
+  'skim',
+  'replenishment',
+] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
@@ -79,6 +87,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   sales: many(sales),
   saleReturns: many(saleReturns),
   cashSessions: many(cashSessions),
+  cashMovements: many(cashMovements),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -121,6 +130,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sales: many(sales),
   saleReturns: many(saleReturns),
   cashSessions: many(cashSessions),
+  cashMovements: many(cashMovements),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
 }));
@@ -1469,7 +1479,52 @@ export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => 
     fields: [cashSessions.cashierId],
     references: [users.id],
   }),
+  movements: many(cashMovements),
   sales: many(sales),
+}));
+
+/** A cash movement records each inflow/outflow linked to an open session so expected drawer balance stays auditable throughout the shift. */
+export const cashMovements = sqliteTable(
+  'cash_movements',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => cashSessions.id, { onDelete: 'cascade' }),
+    type: text('type', { enum: cashMovementTypeEnum }).notNull(),
+    amount: real('amount').notNull().default(0),
+    referenceId: text('reference_id'),
+    note: text('note'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_cash_movements_tenant').on(table.tenantId),
+    index('idx_cash_movements_session').on(table.sessionId),
+    index('idx_cash_movements_type').on(table.type),
+    index('idx_cash_movements_created_by').on(table.createdBy),
+    index('idx_cash_movements_session_created').on(table.sessionId, table.createdAt),
+  ]
+);
+
+export const cashMovementsRelations = relations(cashMovements, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [cashMovements.tenantId],
+    references: [tenants.id],
+  }),
+  session: one(cashSessions, {
+    fields: [cashMovements.sessionId],
+    references: [cashSessions.id],
+  }),
+  createdByUser: one(users, {
+    fields: [cashMovements.createdBy],
+    references: [users.id],
+  }),
 }));
 
 // ============================================================================

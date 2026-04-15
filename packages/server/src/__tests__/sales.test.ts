@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashMovements,
   cashSessions,
   customers,
   inventoryMovements,
@@ -347,6 +348,19 @@ describe('Sales tRPC Router', () => {
     expect(cashSessionAfterSale?.expectedBalance).toBeCloseTo(
       (cashSessionBeforeSale?.expectedBalance ?? 0) + result.total
     );
+
+    const cashMovement = await db
+      .select()
+      .from(cashMovements)
+      .where(eq(cashMovements.referenceId, result.id))
+      .get();
+    expect(cashMovement).toMatchObject({
+      sessionId: activeCashSessionId,
+      type: 'sale',
+      amount: result.total,
+      note: `Sale ${result.saleNumber} · Main Site`,
+      createdBy: userId,
+    });
   });
 
   it('rejects sales that exceed available stock across repeated lines for the same product', async () => {
@@ -744,6 +758,140 @@ describe('Sales tRPC Router', () => {
     expect(cashSessionAfterVoid?.expectedBalance).toBeCloseTo(
       cashSessionBeforeCreate?.expectedBalance ?? 0
     );
+
+    const cashReversal = await db
+      .select()
+      .from(cashMovements)
+      .where(and(eq(cashMovements.referenceId, created.id), eq(cashMovements.type, 'refund')))
+      .all();
+    expect(cashReversal).toHaveLength(1);
+    expect(cashReversal[0]).toMatchObject({
+      sessionId: activeCashSessionId,
+      amount: created.total,
+      note: `Voided sale ${created.saleNumber}`,
+      createdBy: userId,
+    });
+  });
+
+  it('voids a sale tied to a closed cash session without touching any cash movement', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const saleId = nanoid();
+    const closedSessionId = nanoid();
+    const now = new Date().toISOString();
+
+    // Seed a closed cash session with a known expected balance — the void must NOT
+    // modify this balance because over/short is already locked for closed sessions.
+    await db.insert(cashSessions).values({
+      id: closedSessionId,
+      tenantId,
+      siteId,
+      cashierId: userId,
+      registerName: 'Closed register',
+      openingFloat: 50,
+      openingCountDenominations: [{ value: 50, count: 1 }],
+      expectedBalance: 70,
+      actualCount: 70,
+      actualCountDenominations: [{ value: 50, count: 1 }, { value: 20, count: 1 }],
+      overShort: 0,
+      status: 'closed',
+      openedAt: now,
+      closedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Closed Session Voidable',
+      sku: 'CLOSED-VOID-01',
+      price: 20,
+      price2: 20,
+      price3: 20,
+      cost: 10,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 10,
+      stock: 5,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 20,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Insert the sale directly to attach it to the already-closed session.
+    await db.insert(sales).values({
+      id: saleId,
+      tenantId,
+      saleNumber: 'CLOSED-VOID-0001',
+      subtotal: 20,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 20,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: closedSessionId,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(saleItems).values({
+      id: nanoid(),
+      saleId,
+      productId,
+      quantity: 1,
+      unitPrice: 20,
+      unitId: baseUnitId,
+      unitEquivalence: 1,
+      discount: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      costAtSale: 10,
+      total: 20,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const voided = await caller.sales.void({
+      id: saleId,
+      reason: 'Admin cleanup from closed shift',
+    });
+
+    expect(voided.status).toBe('voided');
+
+    // Closed session's expected balance must stay pristine.
+    const closedSessionAfterVoid = await db
+      .select({ expectedBalance: cashSessions.expectedBalance })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, closedSessionId))
+      .get();
+    expect(closedSessionAfterVoid?.expectedBalance).toBe(70);
+
+    // And no cash movement should be recorded for this void.
+    const movements = await db
+      .select()
+      .from(cashMovements)
+      .where(eq(cashMovements.referenceId, saleId))
+      .all();
+    expect(movements).toHaveLength(0);
   });
 
   it('refunds a completed sale, restores stock, and excludes it from revenue KPIs', async () => {
@@ -869,6 +1017,19 @@ describe('Sales tRPC Router', () => {
     expect(cashSessionAfterRefund?.expectedBalance).toBeCloseTo(
       cashSessionBeforeRefund?.expectedBalance ?? 0
     );
+
+    const refundCashMovement = await db
+      .select()
+      .from(cashMovements)
+      .where(and(eq(cashMovements.referenceId, created.id), eq(cashMovements.type, 'refund')))
+      .all();
+    expect(refundCashMovement).toHaveLength(1);
+    expect(refundCashMovement[0]).toMatchObject({
+      sessionId: activeCashSessionId,
+      amount: created.total,
+      note: `Refunded sale ${created.saleNumber}`,
+      createdBy: userId,
+    });
   });
 
   it('applies per-line discount percentage to both subtotal and VAT extraction', async () => {

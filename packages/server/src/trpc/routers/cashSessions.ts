@@ -1,22 +1,25 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { cashSessions, sites, users } from '../../db/schema.js';
+import { cashMovements, cashSessions, sites, users } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   getCashSessionOverShort,
   assertOpeningFloatMatchesDenominations,
   getClosingCountTotal,
   getActiveCashSessionForCashier,
+  getCashMovementSignedAmount,
   getOpenCashSessionForRegister,
   normalizeRegisterName,
 } from '../../services/cash-session.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
+  cashSessionMovementsInput,
   closeCashSessionInput,
   getActiveCashSessionInput,
   openCashSessionInput,
+  recordCashMovementInput,
 } from '../schemas/cashSessions.js';
 
 async function getCashSessionRecord(
@@ -49,6 +52,47 @@ async function getCashSessionRecord(
     .innerJoin(sites, eq(cashSessions.siteId, sites.id))
     .innerJoin(users, eq(cashSessions.cashierId, users.id))
     .where(and(eq(cashSessions.id, id), eq(cashSessions.tenantId, tenantId)))
+    .get();
+}
+
+async function getCashSessionAccessRecord(
+  db: DatabaseInstance,
+  tenantId: string,
+  id: string
+) {
+  return db
+    .select({
+      id: cashSessions.id,
+      tenantId: cashSessions.tenantId,
+      siteId: cashSessions.siteId,
+      cashierId: cashSessions.cashierId,
+    })
+    .from(cashSessions)
+    .where(and(eq(cashSessions.id, id), eq(cashSessions.tenantId, tenantId)))
+    .get();
+}
+
+async function getCashMovementRecord(
+  db: DatabaseInstance,
+  tenantId: string,
+  id: string
+) {
+  return db
+    .select({
+      id: cashMovements.id,
+      tenantId: cashMovements.tenantId,
+      sessionId: cashMovements.sessionId,
+      type: cashMovements.type,
+      amount: cashMovements.amount,
+      referenceId: cashMovements.referenceId,
+      note: cashMovements.note,
+      createdBy: cashMovements.createdBy,
+      createdByName: users.name,
+      createdAt: cashMovements.createdAt,
+    })
+    .from(cashMovements)
+    .innerJoin(users, eq(cashMovements.createdBy, users.id))
+    .where(and(eq(cashMovements.id, id), eq(cashMovements.tenantId, tenantId)))
     .get();
 }
 
@@ -234,4 +278,134 @@ export const cashSessionsRouter = router({
 
     return closedSession;
   }),
+
+  movements: tenantProcedure.input(cashSessionMovementsInput).query(async ({ ctx, input }) => {
+    if (!ctx.user || !ctx.siteId) {
+      return [];
+    }
+
+    let sessionId = input.sessionId;
+
+    if (sessionId) {
+      const targetSession = await getCashSessionAccessRecord(ctx.db, ctx.tenantId, sessionId);
+      const isPrivilegedUser = ctx.user.role === 'admin' || ctx.user.role === 'manager';
+
+      if (
+        !targetSession ||
+        targetSession.siteId !== ctx.siteId ||
+        (!isPrivilegedUser && targetSession.cashierId !== ctx.user.id)
+      ) {
+        return [];
+      }
+    } else {
+      const activeSession = await getActiveCashSessionForCashier(
+        ctx.db,
+        ctx.tenantId,
+        ctx.siteId,
+        ctx.user.id
+      );
+
+      sessionId = activeSession?.id;
+    }
+
+    if (!sessionId) {
+      return [];
+    }
+
+    return ctx.db
+      .select({
+        id: cashMovements.id,
+        tenantId: cashMovements.tenantId,
+        sessionId: cashMovements.sessionId,
+        type: cashMovements.type,
+        amount: cashMovements.amount,
+        referenceId: cashMovements.referenceId,
+        note: cashMovements.note,
+        createdBy: cashMovements.createdBy,
+        createdByName: users.name,
+        createdAt: cashMovements.createdAt,
+      })
+      .from(cashMovements)
+      .innerJoin(cashSessions, eq(cashMovements.sessionId, cashSessions.id))
+      .innerJoin(users, eq(cashMovements.createdBy, users.id))
+      .where(
+        and(
+          eq(cashMovements.tenantId, ctx.tenantId),
+          eq(cashMovements.sessionId, sessionId),
+          eq(cashSessions.tenantId, ctx.tenantId)
+        )
+      )
+      .orderBy(desc(cashMovements.createdAt))
+      .limit(input.limit);
+  }),
+
+  recordMovement: tenantProcedure
+    .input(recordCashMovementInput)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.user) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'CASH_SESSION_REQUIRED',
+          message: 'An authenticated user is required to record a cash movement',
+        });
+      }
+
+      if (!ctx.siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'An active site is required before recording a cash movement',
+        });
+      }
+
+      const activeSession = await getActiveCashSessionForCashier(
+        ctx.db,
+        ctx.tenantId,
+        ctx.siteId,
+        ctx.user.id
+      );
+
+      if (!activeSession) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_REQUIRED',
+          message: 'An open cash session is required before recording a cash movement',
+        });
+      }
+
+      const now = new Date().toISOString();
+      const movementId = nanoid();
+      const signedAmount = getCashMovementSignedAmount(input.type, input.amount);
+
+      ctx.db.transaction(tx => {
+        tx.insert(cashMovements).values({
+          id: movementId,
+          tenantId: ctx.tenantId,
+          sessionId: activeSession.id,
+          type: input.type,
+          amount: input.amount,
+          referenceId: null,
+          note: input.note,
+          createdBy: ctx.user!.id,
+          createdAt: now,
+        }).run();
+
+        tx
+          .update(cashSessions)
+          .set({
+            expectedBalance: sql`${cashSessions.expectedBalance} + ${signedAmount}`,
+            updatedAt: now,
+          })
+          .where(eq(cashSessions.id, activeSession.id))
+          .run();
+      });
+
+      const movement = await getCashMovementRecord(ctx.db, ctx.tenantId, movementId);
+
+      if (!movement) {
+        throw new Error('Failed to load the created cash movement');
+      }
+
+      return movement;
+    }),
 });

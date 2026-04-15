@@ -16,6 +16,7 @@ interface SalesCheckoutPanelProps {
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
+  onOpenMovement: () => void;
 }
 
 export function SalesCheckoutPanel({
@@ -30,6 +31,7 @@ export function SalesCheckoutPanel({
   onCharge,
   onOpenCashSession,
   onCloseCashSession,
+  onOpenMovement,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
@@ -114,15 +116,21 @@ export function SalesCheckoutPanel({
                 <div className="mt-2 space-y-1">
                   <p>{t('cashSession.openedAt')}: {formatDateTime(cashSession.openedAt)}</p>
                   <p>{t('cashSession.blindCloseHint')}</p>
-                  <button
-                    type="button"
-                    className="btn-outline mt-2"
-                    onClick={onCloseCashSession}
-                    disabled={!canCloseCashSession}
-                  >
-                    <WalletCards className="h-4 w-4" />
-                    {t('cashSession.closeAction')}
-                  </button>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" className="btn-outline" onClick={onOpenMovement}>
+                      <WalletCards className="h-4 w-4" />
+                      {t('cashSession.recordMovementAction')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={onCloseCashSession}
+                      disabled={!canCloseCashSession}
+                    >
+                      <WalletCards className="h-4 w-4" />
+                      {t('cashSession.closeAction')}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p className="mt-2">{t('cashSession.chargeBlocked')}</p>

@@ -655,6 +655,24 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_cash_sessions_site_status ON cash_sessions (site_id, status);
     CREATE INDEX IF NOT EXISTS idx_cash_sessions_register_status ON cash_sessions (site_id, register_name, status);
 
+    -- Cash Movements
+    CREATE TABLE IF NOT EXISTS cash_movements (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      session_id TEXT NOT NULL REFERENCES cash_sessions(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      reference_id TEXT,
+      note TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cash_movements_tenant ON cash_movements (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_cash_movements_session ON cash_movements (session_id);
+    CREATE INDEX IF NOT EXISTS idx_cash_movements_type ON cash_movements (type);
+    CREATE INDEX IF NOT EXISTS idx_cash_movements_created_by ON cash_movements (created_by);
+    CREATE INDEX IF NOT EXISTS idx_cash_movements_session_created ON cash_movements (session_id, created_at);
+
     -- Sales
     CREATE TABLE IF NOT EXISTS sales (
       id TEXT PRIMARY KEY,
@@ -852,6 +870,14 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'cash_sessions', 'closed_at', 'closed_at TEXT');
   ensureColumn(client, 'cash_sessions', 'created_at', "created_at TEXT NOT NULL DEFAULT (datetime('now'))");
   ensureColumn(client, 'cash_sessions', 'updated_at', "updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  ensureColumn(client, 'cash_movements', 'tenant_id', 'tenant_id TEXT');
+  ensureColumn(client, 'cash_movements', 'session_id', 'session_id TEXT');
+  ensureColumn(client, 'cash_movements', 'type', "type TEXT NOT NULL DEFAULT 'paid_in'");
+  ensureColumn(client, 'cash_movements', 'amount', 'amount REAL NOT NULL DEFAULT 0');
+  ensureColumn(client, 'cash_movements', 'reference_id', 'reference_id TEXT');
+  ensureColumn(client, 'cash_movements', 'note', 'note TEXT');
+  ensureColumn(client, 'cash_movements', 'created_by', 'created_by TEXT');
+  ensureColumn(client, 'cash_movements', 'created_at', "created_at TEXT NOT NULL DEFAULT (datetime('now'))");
   ensureColumn(client, 'sales', 'cash_session_id', 'cash_session_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
@@ -868,6 +894,11 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   createIndexIfColumnsExist(client, 'cash_sessions', ['status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_status ON cash_sessions (status)');
   createIndexIfColumnsExist(client, 'cash_sessions', ['site_id', 'status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_site_status ON cash_sessions (site_id, status)');
   createIndexIfColumnsExist(client, 'cash_sessions', ['site_id', 'register_name', 'status'], 'CREATE INDEX IF NOT EXISTS idx_cash_sessions_register_status ON cash_sessions (site_id, register_name, status)');
+  createIndexIfColumnsExist(client, 'cash_movements', ['tenant_id'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_tenant ON cash_movements (tenant_id)');
+  createIndexIfColumnsExist(client, 'cash_movements', ['session_id'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_session ON cash_movements (session_id)');
+  createIndexIfColumnsExist(client, 'cash_movements', ['type'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_type ON cash_movements (type)');
+  createIndexIfColumnsExist(client, 'cash_movements', ['created_by'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_created_by ON cash_movements (created_by)');
+  createIndexIfColumnsExist(client, 'cash_movements', ['session_id', 'created_at'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_session_created ON cash_movements (session_id, created_at)');
   createIndexIfColumnsExist(client, 'sales', ['cash_session_id'], 'CREATE INDEX IF NOT EXISTS idx_sales_cash_session ON sales (cash_session_id)');
   client.exec('DROP INDEX IF EXISTS idx_purchases_order_unique');
 }

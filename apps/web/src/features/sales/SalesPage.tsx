@@ -7,6 +7,10 @@ import {
   type CashSessionCloseValues,
 } from '@/features/sales/CashSessionCloseModal';
 import {
+  CashSessionMovementModal,
+  type CashSessionMovementValues,
+} from '@/features/sales/CashSessionMovementModal';
+import {
   CashSessionOpenModal,
   type CashSessionOpenValues,
 } from '@/features/sales/CashSessionOpenModal';
@@ -34,7 +38,15 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
-import type { CashSession, Category, Customer, PaymentStatus, Provider, Sale } from '@/types';
+import type {
+  CashMovement,
+  CashSession,
+  Category,
+  Customer,
+  PaymentStatus,
+  Provider,
+  Sale,
+} from '@/types';
 
 function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
   if (values.paymentMethod === 'credit') {
@@ -69,10 +81,13 @@ export function SalesPage() {
   const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
   const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
   const [cashSessionCloseModalKey, setCashSessionCloseModalKey] = useState(0);
+  const [isCashSessionMovementModalOpen, setIsCashSessionMovementModalOpen] = useState(false);
+  const [cashSessionMovementModalKey, setCashSessionMovementModalKey] = useState(0);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
+  const [cashSessionMovementError, setCashSessionMovementError] = useState<string | null>(null);
   const {
     productInputRef,
     focusProductInput,
@@ -92,11 +107,22 @@ export function SalesPage() {
       enabled: !!currentSite,
     }
   );
+  const activeCashSession = (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
+  const cashMovementsQuery = trpc.cashSessions.movements.useQuery(
+    {
+      sessionId: activeCashSession?.id,
+      limit: 8,
+    },
+    {
+      enabled: !!activeCashSession?.id,
+    }
+  );
 
   const createMutation = trpc.sales.create.useMutation({
     onSuccess: async (_data, variables) => {
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.movements.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.inventory.listMovements.invalidate(),
@@ -181,11 +207,35 @@ export function SalesPage() {
       });
     },
   });
+  const recordCashMovementMutation = trpc.cashSessions.recordMovement.useMutation({
+    onSuccess: async movement => {
+      await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.movements.invalidate(),
+      ]);
+      setCashSessionMovementError(null);
+      setIsCashSessionMovementModalOpen(false);
+      toast.success({
+        title: t('cashSession.toast.movementSuccessTitle'),
+        description: t('cashSession.toast.movementSuccessDescription', {
+          movementType: t(`cashSession.movementTypes.${movement.type}`),
+          amount: formatCurrency(movement.amount),
+        }),
+      });
+    },
+    onError: error => {
+      const description = getServerErrorMessage(error);
+      setCashSessionMovementError(description);
+      toast.error({
+        title: t('toast.error'),
+        description,
+      });
+    },
+  });
 
   const summary = summaryQuery.data;
   const draftSummary = getCartSummary(cartItems);
   const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
-  const activeCashSession = (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
   const hasActiveCashSession = !!activeCashSession;
   const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
   const canOpenCashSession =
@@ -200,6 +250,7 @@ export function SalesPage() {
   const providers = ((providersQuery.data?.items ?? []) as Provider[]).filter(
     provider => provider.isActive
   );
+  const cashMovements = activeCashSession ? ((cashMovementsQuery.data ?? []) as CashMovement[]) : [];
 
   const getServerErrorMessage = (error: unknown) =>
     translateServerError(error, t, t('errors:server.unknown'));
@@ -285,6 +336,20 @@ export function SalesPage() {
     await closeCashSessionMutation.mutateAsync(values);
   };
 
+  const handleOpenCashSessionMovementModal = () => {
+    if (!activeCashSession) {
+      return;
+    }
+
+    setCashSessionMovementError(null);
+    setCashSessionMovementModalKey(current => current + 1);
+    setIsCashSessionMovementModalOpen(true);
+  };
+
+  const handleRecordCashMovement = async (values: CashSessionMovementValues) => {
+    await recordCashMovementMutation.mutateAsync(values);
+  };
+
   const handleCheckout = async (values: SalePaymentValues) => {
     try {
       await createMutation.mutateAsync({
@@ -337,12 +402,15 @@ export function SalesPage() {
           canCloseCashSession={canCloseCashSession}
           cashSession={activeCashSession}
           isCashSessionLoading={activeCashSessionQuery.isLoading}
+          cashMovements={cashMovements}
+          isCashMovementsLoading={cashMovementsQuery.isLoading}
           productSearchQuery={productSearchQuery}
           onProductSearchQueryChange={setProductSearchQuery}
           onOpenSearch={() => handleOpenProductSearch(productSearchQuery)}
           onCharge={handleOpenPaymentModal}
           onOpenCashSession={handleOpenCashSessionModal}
           onCloseCashSession={handleOpenCloseCashSessionModal}
+          onOpenMovement={handleOpenCashSessionMovementModal}
           productInputRef={productInputRef}
         />
 
@@ -373,6 +441,7 @@ export function SalesPage() {
             onCharge={handleOpenPaymentModal}
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
+            onOpenMovement={handleOpenCashSessionMovementModal}
           />
         </section>
 
@@ -444,6 +513,16 @@ export function SalesPage() {
           error={cashSessionCloseError}
           onClose={() => setIsCashSessionCloseModalOpen(false)}
           onSubmit={handleCloseCashSession}
+        />
+      )}
+      {isCashSessionMovementModalOpen && (
+        <CashSessionMovementModal
+          key={cashSessionMovementModalKey}
+          isOpen={isCashSessionMovementModalOpen}
+          isSaving={recordCashMovementMutation.isPending}
+          error={cashSessionMovementError}
+          onClose={() => setIsCashSessionMovementModalOpen(false)}
+          onSubmit={handleRecordCashMovement}
         />
       )}
 

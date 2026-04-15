@@ -29,6 +29,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const returnMutation = trpc.sales.returnSale.useMutation({
     onSuccess: async () => {
       await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.movements.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.sales.getById.invalidate({ id: saleId ?? '' }),
@@ -56,6 +58,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const voidMutation = trpc.sales.void.useMutation({
     onSuccess: async () => {
       await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.movements.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.sales.getById.invalidate({ id: saleId ?? '' }),

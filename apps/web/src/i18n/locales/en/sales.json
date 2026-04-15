@@ -67,8 +67,24 @@
     "closingCount": "Closing count",
     "openAction": "Open cash session",
     "closeAction": "Close cash session",
+    "recordMovementAction": "Record movement",
     "chargeBlocked": "Charging is enabled once the opening cash count is registered.",
     "blindCloseHint": "Blind close keeps the expected drawer balance hidden until the closing count is submitted.",
+    "movementTypes": {
+      "sale": "Cash sale",
+      "refund": "Refund",
+      "paid_in": "Paid in",
+      "paid_out": "Paid out",
+      "skim": "Skim",
+      "replenishment": "Replenishment"
+    },
+    "timeline": {
+      "title": "Movement timeline",
+      "description": "Every cash inflow and outflow recorded during the active shift.",
+      "loading": "Loading cash movements...",
+      "empty": "No cash movements have been recorded for this session yet.",
+      "unknownCashier": "Unknown cashier"
+    },
     "form": {
       "title": "Open cash session",
       "cancel": "Cancel",
@@ -105,13 +121,34 @@
       "lineTotal": "Line total: {{total}}",
       "countFor": "Count for denomination {{denomination}}"
     },
+    "movementForm": {
+      "title": "Record cash movement",
+      "cancel": "Cancel",
+      "confirm": "Save movement",
+      "saving": "Saving...",
+      "description": "Register every manual cash inflow or outflow so the drawer timeline stays auditable during the shift.",
+      "type": "Movement type",
+      "amount": "Amount",
+      "amountRequired": "Cash movement amount must be greater than zero.",
+      "note": "Note",
+      "noteRequired": "Enter a short audit note for the movement.",
+      "noteTooLong": "Cash movement note must be 240 characters or fewer.",
+      "typeHints": {
+        "paid_in": "Use paid in when extra cash is added to the drawer from outside the session.",
+        "paid_out": "Use paid out when cash leaves the drawer for an expense or external transfer.",
+        "skim": "Use skim when excess cash is removed from the drawer and sent to the safe.",
+        "replenishment": "Use replenishment when change is added to the drawer to keep operating."
+      }
+    },
     "toast": {
       "openSuccessTitle": "Cash session opened",
       "openSuccessDescription": "{{registerName}} is ready with {{amount}}.",
       "closeSuccessTitle": "Cash session closed",
       "closeBalancedDescription": "{{registerName}} closed balanced at {{amount}}.",
       "closeOverDescription": "{{registerName}} closed with an overage of {{amount}}.",
-      "closeShortDescription": "{{registerName}} closed with a shortage of {{amount}}."
+      "closeShortDescription": "{{registerName}} closed with a shortage of {{amount}}.",
+      "movementSuccessTitle": "Cash movement recorded",
+      "movementSuccessDescription": "{{movementType}} recorded for {{amount}}."
     }
   },
   "payment": {
