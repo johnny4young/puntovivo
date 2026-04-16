@@ -68,6 +68,13 @@
     "openAction": "Abrir caja",
     "closeAction": "Cerrar caja",
     "recordMovementAction": "Registrar movimiento",
+    "assignmentLabel": "Registro asignado",
+    "assignmentPlaceholder": "Selecciona un registro",
+    "assignmentHint": "Elige el cajón que vas a operar antes de abrir la caja.",
+    "assignmentUnavailable": "Todavía no hay registros asignables para este sitio.",
+    "assignmentOccupiedBy": "{{label}} · Abierto por {{cashier}}",
+    "assignmentOccupiedFallback": "{{label}} · Ya está abierto",
+    "assignmentSelectedHint": "El diálogo de apertura precargará la plantilla estándar de denominaciones de este registro.",
     "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
     "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.",
     "movementTypes": {

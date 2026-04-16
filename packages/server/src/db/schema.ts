@@ -90,6 +90,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   cashMovements: many(cashMovements),
   inventoryMovements: many(inventoryMovements),
   initialInventoryEntries: many(initialInventory),
+  denominationTemplates: many(denominationTemplates),
 }));
 
 // ============================================================================
@@ -251,6 +252,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
   purchases: many(purchases),
   orders: many(orders),
   cashSessions: many(cashSessions),
+  denominationTemplates: many(denominationTemplates),
   initialInventoryEntries: many(initialInventory),
 }));
 
@@ -1481,6 +1483,47 @@ export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => 
   }),
   movements: many(cashMovements),
   sales: many(sales),
+}));
+
+/** A denomination template stores the standard opening float breakdown for a site register so cashiers can reopen drawers consistently. */
+export const denominationTemplates = sqliteTable(
+  'denomination_templates',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    registerName: text('register_name').notNull(),
+    label: text('label').notNull(),
+    openingFloat: real('opening_float').notNull().default(0),
+    denominations: text('denominations', { mode: 'json' })
+      .$type<CashSessionDenomination[]>()
+      .notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_denomination_templates_tenant').on(table.tenantId),
+    index('idx_denomination_templates_site').on(table.siteId),
+    index('idx_denomination_templates_site_active').on(table.siteId, table.isActive, table.sortOrder),
+    uniqueIndex('idx_denomination_templates_site_register').on(table.siteId, table.registerName),
+  ]
+);
+
+export const denominationTemplatesRelations = relations(denominationTemplates, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [denominationTemplates.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [denominationTemplates.siteId],
+    references: [sites.id],
+  }),
 }));
 
 /** A cash movement records each inflow/outflow linked to an open session so expected drawer balance stays auditable throughout the shift. */

@@ -655,6 +655,25 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_cash_sessions_site_status ON cash_sessions (site_id, status);
     CREATE INDEX IF NOT EXISTS idx_cash_sessions_register_status ON cash_sessions (site_id, register_name, status);
 
+    -- Denomination Templates
+    CREATE TABLE IF NOT EXISTS denomination_templates (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      register_name TEXT NOT NULL,
+      label TEXT NOT NULL,
+      opening_float REAL NOT NULL DEFAULT 0,
+      denominations TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_denomination_templates_tenant ON denomination_templates (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_denomination_templates_site ON denomination_templates (site_id);
+    CREATE INDEX IF NOT EXISTS idx_denomination_templates_site_active ON denomination_templates (site_id, is_active, sort_order);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_denomination_templates_site_register ON denomination_templates (site_id, register_name);
+
     -- Cash Movements
     CREATE TABLE IF NOT EXISTS cash_movements (
       id TEXT PRIMARY KEY,

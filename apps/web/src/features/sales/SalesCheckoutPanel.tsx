@@ -1,12 +1,15 @@
 import { Plus, Receipt, ScanLine, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
-import type { CashSession, Site } from '@/types';
+import type { CashSession, RegisterAssignment, Site } from '@/types';
 
 interface SalesCheckoutPanelProps {
   currentSite: Site | null;
   cashSession: CashSession | null;
+  registerAssignments: RegisterAssignment[];
+  selectedRegisterAssignment: RegisterAssignment | null;
   isCashSessionLoading: boolean;
   draftSummary: SaleCartSummary;
   canCharge: boolean;
@@ -17,11 +20,14 @@ interface SalesCheckoutPanelProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
+  onRegisterAssignmentChange: (assignmentId: string | null) => void;
 }
 
 export function SalesCheckoutPanel({
   currentSite,
   cashSession,
+  registerAssignments,
+  selectedRegisterAssignment,
   isCashSessionLoading,
   draftSummary,
   canCharge,
@@ -32,6 +38,7 @@ export function SalesCheckoutPanel({
   onOpenCashSession,
   onCloseCashSession,
   onOpenMovement,
+  onRegisterAssignmentChange,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
@@ -94,6 +101,16 @@ export function SalesCheckoutPanel({
           <p className="mt-2 text-base font-semibold text-secondary-950">
             {currentSite?.name ?? t('checkout.noSite')}
           </p>
+          {!cashSession && (
+            <div className="mt-4">
+              <SalesRegisterAssignmentField
+                assignments={registerAssignments}
+                selectedAssignment={selectedRegisterAssignment}
+                disabled={!currentSite || isCashSessionLoading}
+                onChange={onRegisterAssignmentChange}
+              />
+            </div>
+          )}
         </div>
 
         <div className="card-inset px-4 py-4 text-sm text-secondary-600">

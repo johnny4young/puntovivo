@@ -3,9 +3,10 @@ import { Receipt, Search, Store, TrendingUp, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CashSessionMovementTimeline } from '@/features/sales/CashSessionMovementTimeline';
 import { CashSessionReportPanel } from '@/features/sales/CashSessionReportPanel';
+import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
-import type { CashMovement, CashSession, CashSessionReport } from '@/types';
+import type { CashMovement, CashSession, CashSessionReport, RegisterAssignment } from '@/types';
 
 interface SalesOverviewProps {
   currentSiteName: string | null;
@@ -18,6 +19,8 @@ interface SalesOverviewProps {
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
   cashSession: CashSession | null;
+  registerAssignments: RegisterAssignment[];
+  selectedRegisterAssignment: RegisterAssignment | null;
   isCashSessionLoading: boolean;
   cashMovements: CashMovement[];
   isCashMovementsLoading: boolean;
@@ -30,6 +33,7 @@ interface SalesOverviewProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
+  onRegisterAssignmentChange: (assignmentId: string | null) => void;
   productInputRef: RefObject<HTMLInputElement | null>;
 }
 
@@ -44,6 +48,8 @@ export function SalesOverview({
   canOpenCashSession,
   canCloseCashSession,
   cashSession,
+  registerAssignments,
+  selectedRegisterAssignment,
   isCashSessionLoading,
   cashMovements,
   isCashMovementsLoading,
@@ -56,6 +62,7 @@ export function SalesOverview({
   onOpenCashSession,
   onCloseCashSession,
   onOpenMovement,
+  onRegisterAssignmentChange,
   productInputRef,
 }: SalesOverviewProps) {
   const { t } = useTranslation('sales');
@@ -134,6 +141,16 @@ export function SalesOverview({
                 <p className="mt-1 max-w-sm text-sm leading-5 text-secondary-500">
                   {t('checkout.activeSiteHint')}
                 </p>
+                {!cashSession && (
+                  <div className="mt-4 max-w-sm">
+                    <SalesRegisterAssignmentField
+                      assignments={registerAssignments}
+                      selectedAssignment={selectedRegisterAssignment}
+                      disabled={!currentSiteName || isCashSessionLoading}
+                      onChange={onRegisterAssignmentChange}
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">

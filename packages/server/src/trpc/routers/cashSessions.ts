@@ -10,6 +10,8 @@ import {
   getActiveCashSessionForCashier,
   getCashMovementSignedAmount,
   getOpenCashSessionForRegister,
+  ensureRegisterAssignmentTemplate,
+  ensureRegisterAssignmentTemplatesForSite,
   normalizeRegisterName,
 } from '../../services/cash-session.js';
 import { router } from '../init.js';
@@ -139,6 +141,51 @@ async function getCashMovementRecord(
 }
 
 export const cashSessionsRouter = router({
+  registerAssignments: tenantProcedure.query(async ({ ctx }) => {
+    if (!ctx.siteId) {
+      return [];
+    }
+
+    const templates = await ensureRegisterAssignmentTemplatesForSite(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+    });
+    const openSessions = await ctx.db
+      .select({
+        id: cashSessions.id,
+        registerName: cashSessions.registerName,
+        cashierId: cashSessions.cashierId,
+        cashierName: users.name,
+        openedAt: cashSessions.openedAt,
+      })
+      .from(cashSessions)
+      .innerJoin(users, eq(cashSessions.cashierId, users.id))
+      .where(
+        and(
+          eq(cashSessions.tenantId, ctx.tenantId),
+          eq(cashSessions.siteId, ctx.siteId),
+          eq(cashSessions.status, 'open')
+        )
+      );
+
+    const openSessionByRegister = new Map(
+      openSessions.map(session => [normalizeRegisterName(session.registerName), session])
+    );
+
+    return templates.map(template => {
+      const openSession = openSessionByRegister.get(normalizeRegisterName(template.registerName));
+
+      return {
+        ...template,
+        isOccupied: !!openSession,
+        activeSessionId: openSession?.id ?? null,
+        activeCashierId: openSession?.cashierId ?? null,
+        activeCashierName: openSession?.cashierName ?? null,
+        openedAt: openSession?.openedAt ?? null,
+      };
+    });
+  }),
+
   getActive: tenantProcedure.input(getActiveCashSessionInput).query(async ({ ctx }) => {
     if (!ctx.siteId || !ctx.user) {
       return null;
@@ -295,6 +342,14 @@ export const cashSessionsRouter = router({
       closedAt: null,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await ensureRegisterAssignmentTemplate(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      registerName,
+      openingFloat: input.openingFloat,
+      denominations: input.denominations,
     });
 
     const created = await getCashSessionRecord(ctx.db, ctx.tenantId, id);

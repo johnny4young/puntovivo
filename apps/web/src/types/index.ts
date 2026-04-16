@@ -382,6 +382,25 @@ export interface CashSessionDenomination {
   count: number;
 }
 
+export interface RegisterAssignment {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  registerName: string;
+  label: string;
+  openingFloat: number;
+  denominations: CashSessionDenomination[];
+  sortOrder: number;
+  isActive: boolean;
+  isOccupied: boolean;
+  activeSessionId?: string | null;
+  activeCashierId?: string | null;
+  activeCashierName?: string | null;
+  openedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CashSession {
   id: string;
   tenantId: string;
