@@ -46,6 +46,7 @@ import type {
   Customer,
   PaymentStatus,
   Provider,
+  RegisterAssignment,
   Sale,
 } from '@/types';
 
@@ -84,6 +85,7 @@ export function SalesPage() {
   const [cashSessionCloseModalKey, setCashSessionCloseModalKey] = useState(0);
   const [isCashSessionMovementModalOpen, setIsCashSessionMovementModalOpen] = useState(false);
   const [cashSessionMovementModalKey, setCashSessionMovementModalKey] = useState(0);
+  const [selectedRegisterAssignmentId, setSelectedRegisterAssignmentId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
@@ -124,6 +126,9 @@ export function SalesPage() {
       enabled: !!currentSite,
     }
   );
+  const registerAssignmentsQuery = trpc.cashSessions.registerAssignments.useQuery(undefined, {
+    enabled: !!currentSite,
+  });
 
   const createMutation = trpc.sales.create.useMutation({
     onSuccess: async (_data, variables) => {
@@ -131,6 +136,7 @@ export function SalesPage() {
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
         utils.cashSessions.report.invalidate(),
+        utils.cashSessions.registerAssignments.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.inventory.listMovements.invalidate(),
@@ -160,6 +166,7 @@ export function SalesPage() {
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.report.invalidate(),
+        utils.cashSessions.registerAssignments.invalidate(),
       ]);
       setCashSessionError(null);
       setIsCashSessionModalOpen(false);
@@ -185,6 +192,7 @@ export function SalesPage() {
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.report.invalidate(),
+        utils.cashSessions.registerAssignments.invalidate(),
       ]);
       setCashSessionCloseError(null);
       setIsCashSessionCloseModalOpen(false);
@@ -227,6 +235,7 @@ export function SalesPage() {
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
         utils.cashSessions.report.invalidate(),
+        utils.cashSessions.registerAssignments.invalidate(),
       ]);
       setCashSessionMovementError(null);
       setIsCashSessionMovementModalOpen(false);
@@ -253,10 +262,6 @@ export function SalesPage() {
   const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
   const hasActiveCashSession = !!activeCashSession;
   const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
-  const canOpenCashSession =
-    !!currentSite && !hasActiveCashSession && !activeCashSessionQuery.isLoading;
-  const canCloseCashSession =
-    !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
@@ -267,6 +272,30 @@ export function SalesPage() {
   );
   const cashMovements = activeCashSession ? ((cashMovementsQuery.data ?? []) as CashMovement[]) : [];
   const cashSessionReport = (cashSessionReportQuery.data as CashSessionReport | undefined) ?? null;
+  const registerAssignments =
+    (registerAssignmentsQuery.data as RegisterAssignment[] | undefined) ?? [];
+  const selectedRegisterAssignment =
+    registerAssignments.find(assignment => {
+      if (activeCashSession) {
+        return assignment.registerName === activeCashSession.registerName;
+      }
+
+      return false;
+    }) ??
+    registerAssignments.find(assignment => assignment.id === selectedRegisterAssignmentId) ??
+    registerAssignments.find(assignment => !assignment.isOccupied) ??
+    registerAssignments[0] ??
+    null;
+  const hasAvailableRegisterAssignment =
+    !!selectedRegisterAssignment && !selectedRegisterAssignment.isOccupied;
+  const canOpenCashSession =
+    !!currentSite &&
+    !hasActiveCashSession &&
+    !activeCashSessionQuery.isLoading &&
+    !registerAssignmentsQuery.isLoading &&
+    hasAvailableRegisterAssignment;
+  const canCloseCashSession =
+    !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
 
   const getServerErrorMessage = (error: unknown) =>
     translateServerError(error, t, t('errors:server.unknown'));
@@ -325,7 +354,7 @@ export function SalesPage() {
   };
 
   const handleOpenCashSessionModal = () => {
-    if (!currentSite) {
+    if (!currentSite || !selectedRegisterAssignment || selectedRegisterAssignment.isOccupied) {
       return;
     }
 
@@ -417,6 +446,8 @@ export function SalesPage() {
           canOpenCashSession={canOpenCashSession}
           canCloseCashSession={canCloseCashSession}
           cashSession={activeCashSession}
+          registerAssignments={registerAssignments}
+          selectedRegisterAssignment={selectedRegisterAssignment}
           isCashSessionLoading={activeCashSessionQuery.isLoading}
           cashMovements={cashMovements}
           isCashMovementsLoading={cashMovementsQuery.isLoading}
@@ -429,6 +460,7 @@ export function SalesPage() {
           onOpenCashSession={handleOpenCashSessionModal}
           onCloseCashSession={handleOpenCloseCashSessionModal}
           onOpenMovement={handleOpenCashSessionMovementModal}
+          onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
           productInputRef={productInputRef}
         />
 
@@ -450,6 +482,8 @@ export function SalesPage() {
           <SalesCheckoutPanel
             currentSite={currentSite}
             cashSession={activeCashSession}
+            registerAssignments={registerAssignments}
+            selectedRegisterAssignment={selectedRegisterAssignment}
             isCashSessionLoading={activeCashSessionQuery.isLoading}
             draftSummary={draftSummary}
             canCharge={canCharge}
@@ -460,6 +494,7 @@ export function SalesPage() {
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
             onOpenMovement={handleOpenCashSessionMovementModal}
+            onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
           />
         </section>
 
@@ -514,10 +549,11 @@ export function SalesPage() {
 
       {isCashSessionModalOpen && (
         <CashSessionOpenModal
-          key={cashSessionModalKey}
+          key={`${cashSessionModalKey}-${selectedRegisterAssignment?.id ?? 'none'}`}
           isOpen={isCashSessionModalOpen}
           isSaving={openCashSessionMutation.isPending}
           error={cashSessionError}
+          defaultRegisterAssignment={selectedRegisterAssignment}
           onClose={() => setIsCashSessionModalOpen(false)}
           onSubmit={handleCreateCashSession}
         />

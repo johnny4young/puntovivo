@@ -436,6 +436,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | CASH-12 | BOTH | admin | Void sale whose session is already closed | Sale voided, stock restored, closed session untouched |
 | ✅ | CASH-13 | BOTH | admin | Cash management dashboard with active session + discrepant closure | Report shows active register, closure alert, and net over/short summary |
 | ✅ | CASH-14 | BOTH | cashier | Cash management dashboard while another cashier owns the open register | Report hides the other cashier session and shows only the current cashier scope |
+| ✅ | CASH-15 | BOTH | cashier | POS with register assignments available before opening | Checkout header/sidebar preselect an available register and keep occupied drawers disabled |
+| ✅ | CASH-16 | BOTH | cashier | Open session from an assigned register template | Opening dialog preloads register name, opening float, and denomination breakdown from the selected assignment |
 
 ---
 

@@ -2,7 +2,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
-import type { CashSessionDenomination } from '@/types';
+import type { CashSessionDenomination, RegisterAssignment } from '@/types';
 import {
   cashSessionTotalsMatch,
   createCashSessionDenominations,
@@ -19,15 +19,20 @@ interface CashSessionOpenModalProps {
   isOpen: boolean;
   isSaving: boolean;
   error: string | null;
+  defaultRegisterAssignment?: RegisterAssignment | null;
   onClose: () => void;
   onSubmit: (values: CashSessionOpenValues) => Promise<void>;
 }
 
-function createDefaultValues(): CashSessionOpenValues {
+function createDefaultValues(
+  defaultRegisterAssignment?: RegisterAssignment | null
+): CashSessionOpenValues {
   return {
-    registerName: 'Main register',
-    openingFloat: 0,
-    denominations: createCashSessionDenominations(),
+    registerName: defaultRegisterAssignment?.registerName ?? 'Main register',
+    openingFloat: defaultRegisterAssignment?.openingFloat ?? 0,
+    denominations:
+      defaultRegisterAssignment?.denominations.map(denomination => ({ ...denomination })) ??
+      createCashSessionDenominations(),
   };
 }
 
@@ -35,12 +40,13 @@ export function CashSessionOpenModal({
   isOpen,
   isSaving,
   error,
+  defaultRegisterAssignment,
   onClose,
   onSubmit,
 }: CashSessionOpenModalProps) {
   const { t } = useTranslation('sales');
   const form = useForm<CashSessionOpenValues>({
-    defaultValues: createDefaultValues(),
+    defaultValues: createDefaultValues(defaultRegisterAssignment),
   });
   const handleSubmit = form.handleSubmit(onSubmit);
   const denominationFieldArray = useFieldArray({

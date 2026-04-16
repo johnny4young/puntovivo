@@ -97,6 +97,7 @@ Source:
 
 `cashSessions` is the Phase 1 cash-management surface. It exposes:
 
+- `registerAssignments` — active-site register templates for POS assignment, including occupancy metadata for registers already opened by another cashier
 - `getActive` — returns the current cashier's open session for the active site, or `null`
 - `listRecent` — last 20 sessions for the tenant (any site)
 - `open` — opens a session after validating the opening float matches the denomination count
@@ -112,6 +113,8 @@ Automatic movements:
 - `sales.void` writes a `refund` cash movement against the ORIGINAL sale's session ONLY if that session is still open; voids that target a closed session leave the finalized over/short untouched
 
 Every movement updates `cash_sessions.expected_balance` inside the same transaction via a signed delta derived from `CASH_MOVEMENT_POSITIVE_TYPES` / `CASH_MOVEMENT_NEGATIVE_TYPES` in `services/cash-session.ts`.
+
+`registerAssignments` bootstraps standardized denomination templates from `denomination_templates` for the active site, backfills missing register templates from historical sessions, and lets the POS preload the opening dialog with the register's standard float breakdown.
 
 ## Current Exceptions and Boundaries
 

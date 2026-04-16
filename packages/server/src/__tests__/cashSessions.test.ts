@@ -7,6 +7,7 @@ import { getDatabase } from '../db/index.js';
 import {
   cashMovements,
   cashSessions,
+  denominationTemplates,
   products,
   sites,
   unitXProduct,
@@ -131,6 +132,76 @@ describe('Cash sessions tRPC Router', () => {
     const active = await caller.cashSessions.getActive();
     expect(active?.id).toBe(opened.id);
     expect(active?.openingCountDenominations).toEqual([{ value: 50, count: 3 }]);
+  });
+
+  it('bootstraps register assignments for the active site and syncs new registers from openings', async () => {
+    const cashierId = nanoid();
+    const cashierEmail = 'cash-session-register-template@example.com';
+    const now = new Date().toISOString();
+
+    await getDatabase().insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: cashierEmail,
+      name: 'Register Template Cashier',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: cashierEmail,
+        role: 'cashier',
+      })
+    );
+
+    const initialAssignments = await caller.cashSessions.registerAssignments();
+
+    expect(initialAssignments.length).toBeGreaterThan(0);
+    expect(initialAssignments[0]).toEqual(
+      expect.objectContaining({
+        registerName: expect.any(String),
+        label: expect.any(String),
+        isOccupied: expect.any(Boolean),
+      })
+    );
+
+    await caller.cashSessions.open({
+      registerName: 'Front register',
+      openingFloat: 100,
+      denominations: [{ value: 50, count: 2 }],
+    });
+
+    const nextAssignments = await caller.cashSessions.registerAssignments();
+    expect(nextAssignments).toContainEqual(
+      expect.objectContaining({
+        registerName: 'Front register',
+        openingFloat: 100,
+        denominations: [{ value: 50, count: 2 }],
+        isOccupied: true,
+        activeCashierName: 'Register Template Cashier',
+      })
+    );
+
+    const persistedTemplate = await getDatabase()
+      .select()
+      .from(denominationTemplates)
+      .where(
+        and(
+          eq(denominationTemplates.tenantId, tenantId),
+          eq(denominationTemplates.siteId, siteId),
+          eq(denominationTemplates.registerName, 'Front register')
+        )
+      )
+      .get();
+
+    expect(persistedTemplate).toBeDefined();
+    expect(persistedTemplate?.openingFloat).toBe(100);
+    expect(persistedTemplate?.denominations).toEqual([{ value: 50, count: 2 }]);
   });
 
   it('rejects an opening float that does not match the denomination count', async () => {

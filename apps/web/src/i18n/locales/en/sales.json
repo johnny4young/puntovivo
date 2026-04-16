@@ -68,6 +68,13 @@
     "openAction": "Open cash session",
     "closeAction": "Close cash session",
     "recordMovementAction": "Record movement",
+    "assignmentLabel": "Assigned register",
+    "assignmentPlaceholder": "Select a register",
+    "assignmentHint": "Choose the drawer you will operate before opening the cash session.",
+    "assignmentUnavailable": "No register assignments are available for this site yet.",
+    "assignmentOccupiedBy": "{{label}} · Open by {{cashier}}",
+    "assignmentOccupiedFallback": "{{label}} · Already open",
+    "assignmentSelectedHint": "The opening dialog will preload the standard denomination template for this register.",
     "chargeBlocked": "Charging is enabled once the opening cash count is registered.",
     "blindCloseHint": "Blind close keeps the expected drawer balance hidden until the closing count is submitted.",
     "movementTypes": {
