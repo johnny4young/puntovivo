@@ -61,7 +61,7 @@ export function CashSessionMovementModal({
       }
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <div className="rounded-[24px] border border-secondary-200 bg-secondary-50/80 p-4">
+        <div className="surface-panel-muted p-4">
           <p className="text-sm text-secondary-700">
             {t('cashSession.movementForm.description')}
           </p>

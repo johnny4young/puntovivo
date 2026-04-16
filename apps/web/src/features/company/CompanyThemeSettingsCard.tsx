@@ -81,9 +81,7 @@ export function CompanyThemeSettingsCard() {
       </div>
 
       {!isDesktop && (
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.theme.browserNote')}
-        </div>
+        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.theme.browserNote')}</div>
       )}
 
       <div className="space-y-3">
@@ -95,11 +93,7 @@ export function CompanyThemeSettingsCard() {
             <button
               key={option.value}
               type="button"
-              className={`flex w-full items-start justify-between gap-4 rounded-xl border px-4 py-4 text-left transition ${
-                isSelected
-                  ? 'border-primary-300 bg-primary-50'
-                  : 'border-secondary-200 bg-white hover:border-secondary-300'
-              }`}
+              className={`setting-toggle-card w-full text-left ${isSelected ? 'setting-toggle-card-active' : ''}`}
               onClick={() => {
                 void handleSelect(option.value);
               }}
@@ -107,8 +101,8 @@ export function CompanyThemeSettingsCard() {
             >
               <div className="flex items-start gap-3">
                 <div
-                  className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg ${
-                    isSelected ? 'bg-primary-100 text-primary-700' : 'bg-secondary-100 text-secondary-600'
+                  className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${
+                    isSelected ? 'bg-primary-100 text-primary-700' : 'bg-surface-2 text-secondary-600'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -120,7 +114,7 @@ export function CompanyThemeSettingsCard() {
               </div>
               <span
                 className={`mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
-                  isSelected ? 'border-primary-600 bg-primary-600' : 'border-secondary-300 bg-white'
+                  isSelected ? 'border-primary-600 bg-primary-600' : 'border-line-strong bg-surface'
                 }`}
                 aria-hidden="true"
               >

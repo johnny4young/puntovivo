@@ -44,15 +44,13 @@ export function CompanySyncQueuePreview({
       {isLoading ? (
         <p className="text-sm text-secondary-500">{t('company.sync.queue.loading')}</p>
       ) : items.length === 0 ? (
-        <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.sync.queue.empty')}
-        </p>
+        <p className="surface-panel-muted text-sm text-secondary-600">{t('company.sync.queue.empty')}</p>
       ) : (
         <div className="space-y-3">
           {items.map(item => (
-            <div key={item.id} className="rounded-xl border border-secondary-200 bg-white px-4 py-4">
+            <div key={item.id} className="surface-panel">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-700">
+                <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-secondary-700">
                   {item.entityType}
                 </span>
                 <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium uppercase text-primary-700">
@@ -101,9 +99,7 @@ export function CompanySyncConflictPreview({
       {isLoading ? (
         <p className="text-sm text-secondary-500">{t('company.sync.conflict.loading')}</p>
       ) : conflicts.length === 0 ? (
-        <p className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.sync.conflict.empty')}
-        </p>
+        <p className="surface-panel-muted text-sm text-secondary-600">{t('company.sync.conflict.empty')}</p>
       ) : (
         <div className="space-y-3">
           {conflicts.map(conflict => (

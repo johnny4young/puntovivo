@@ -84,8 +84,8 @@ puntovivo/
 ├── scripts/
 │   └── migration/              # Data migration tools
 ├── .github/workflows/
-│   ├── build.yml              # CI: lint & test
-│   └── release.yml            # CD: build & release desktop artifacts
+│   ├── build.yml              # CI: build validation on main / PRs
+│   └── release.yml            # Manual release workflow for tagged versions
 ├── package.json                # Root workspace config
 └── docs/                       # Documentation
 ```

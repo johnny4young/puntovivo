@@ -65,14 +65,14 @@ export function SalesOverview({
 
   return (
     <section className="hero-surface p-5 sm:p-6 xl:p-7">
-      <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.95fr)]">
+      <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22.5rem,0.92fr)] 2xl:grid-cols-[minmax(0,1.12fr)_minmax(24rem,0.88fr)]">
         <div className="space-y-5">
           <div className="space-y-3">
             <p className="page-kicker">{t('page.kicker')}</p>
-            <h1 className="font-display text-5xl leading-[0.92] text-balance text-secondary-950">
+            <h1 className="font-display text-4xl leading-[0.94] text-balance text-secondary-950 sm:text-[3.15rem] 2xl:text-[3.4rem]">
               {t('page.headline')}
             </h1>
-            <p className="max-w-2xl text-sm leading-7 text-secondary-600 sm:text-base">
+            <p className="max-w-xl text-sm leading-6 text-secondary-600 sm:text-[0.96rem]">
               {t('page.description')}
             </p>
           </div>
@@ -119,24 +119,24 @@ export function SalesOverview({
             inputRef={productInputRef}
           />
 
-          <div className="card-inset grid gap-3 p-4 sm:grid-cols-[1fr_auto]">
+          <div className="card-inset space-y-4 p-4">
             <div className="flex min-w-0 items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
                 <Store className="h-4.5 w-4.5" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 max-w-md">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   {t('checkout.activeSite')}
                 </p>
                 <p className="mt-2 truncate text-lg font-semibold text-secondary-950">
                   {currentSiteName ?? t('checkout.noSite')}
                 </p>
-                <p className="mt-1 text-sm text-secondary-500">
+                <p className="mt-1 max-w-sm text-sm leading-5 text-secondary-500">
                   {t('checkout.activeSiteHint')}
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <div className="flex flex-wrap items-center gap-2">
               <button className="btn-outline" onClick={onOpenSearch}>
                 <Search className="h-4 w-4" />
                 {t('checkout.addProduct')}
@@ -172,7 +172,7 @@ export function SalesOverview({
                 </p>
                 {cashSession ? (
                   <div className="mt-3 space-y-3 text-sm text-secondary-600">
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <p className="text-secondary-500">{t('cashSession.register')}</p>
                         <p className="mt-1 font-medium text-secondary-900">{cashSession.registerName}</p>
@@ -185,7 +185,7 @@ export function SalesOverview({
                       </div>
                     </div>
                     <div>
-                      <p className="text-secondary-500">{t('cashSession.blindCloseHint')}</p>
+                      <p className="text-xs leading-5 text-secondary-500">{t('cashSession.blindCloseHint')}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" className="btn-outline" onClick={onOpenMovement}>

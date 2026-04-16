@@ -27,14 +27,16 @@ export interface ModalProps {
   className?: string;
   /** Custom class for the modal content */
   contentClassName?: string;
+  /** Custom class for the modal footer */
+  footerClassName?: string;
 }
 
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-  full: 'max-w-4xl',
+  sm: 'max-w-[30rem]',
+  md: 'max-w-[38rem]',
+  lg: 'max-w-[56rem]',
+  xl: 'max-w-[64rem]',
+  full: 'max-w-[72rem]',
 };
 
 export function Modal({
@@ -49,6 +51,7 @@ export function Modal({
   showCloseButton = true,
   className,
   contentClassName,
+  footerClassName,
 }: ModalProps) {
   const { t } = useTranslation('common');
   const modalRef = useRef<HTMLDivElement>(null);
@@ -135,14 +138,14 @@ export function Modal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 animate-fade-in"
+        className="fixed inset-0 bg-secondary-950/60 backdrop-blur-sm animate-fade-in"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
@@ -151,17 +154,16 @@ export function Modal({
       <div
         ref={modalRef}
         className={cn(
-          'relative w-full bg-white rounded-xl shadow-xl animate-slide-in',
-          'flex flex-col max-h-[90vh]',
+          'modal-shell max-h-[min(92vh,56rem)] animate-slide-in sm:max-h-[90vh]',
           sizeClasses[size],
           className
         )}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
+          <div className="modal-header">
             {title && (
-              <h2 id="modal-title" className="text-lg font-semibold text-secondary-900">
+              <h2 id="modal-title" className="pr-4 font-display text-2xl leading-tight text-secondary-950 sm:text-[2rem]">
                 {title}
               </h2>
             )}
@@ -170,7 +172,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 className={cn(
-                  'p-1.5 rounded-lg text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 transition-colors',
+                  'btn-ghost btn-icon shrink-0',
                   !title && 'ml-auto'
                 )}
                 aria-label={t('actions.closeModal')}
@@ -182,11 +184,11 @@ export function Modal({
         )}
 
         {/* Body */}
-        <div className={cn('flex-1 overflow-y-auto px-6 py-4', contentClassName)}>{children}</div>
+        <div className={cn('modal-body', contentClassName)}>{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50 rounded-b-xl">
+          <div className={cn('modal-footer', footerClassName)}>
             {footer}
           </div>
         )}
@@ -217,10 +219,9 @@ export function ModalButton({
   className,
 }: ModalButtonProps) {
   const variantClasses = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500/20',
-    secondary:
-      'bg-white text-secondary-700 border border-secondary-300 hover:bg-secondary-50 focus:ring-secondary-500/20',
-    danger: 'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500/20',
+    primary: 'btn-primary',
+    secondary: 'btn-outline',
+    danger: 'btn-danger',
   };
 
   return (
@@ -229,9 +230,7 @@ export function ModalButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-        'focus:outline-none focus:ring-2 focus:ring-offset-0',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'w-full sm:w-auto sm:min-w-[9rem]',
         variantClasses[variant],
         className
       )}

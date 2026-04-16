@@ -1,12 +1,12 @@
 {
   "page": {
     "kicker": "Command center",
-    "headline": "Live pulse for checkout, revenue, and stock pressure.",
-    "description": "Watch completed sales, low-stock pressure, and top-moving products without leaving the operating workspace.",
+    "headline": "Sales, register, and stock in one view.",
+    "description": "Track revenue, inventory alerts, and top movers.",
     "freshness": {
-      "kicker": "System freshness",
-      "title": "Snapshot aligned",
-      "description": "This tenant dashboard was refreshed at {{time}} and includes completed-sale metrics plus current low-stock attention points."
+      "kicker": "Updated",
+      "title": "Last sync",
+      "description": "{{time}}"
     },
     "revenueWindow": {
       "label": "Revenue window",
@@ -20,43 +20,43 @@
   "metrics": {
     "todaySales": {
       "title": "Today's Sales",
-      "fallbackLabel": "completed sales in the active tenant"
+      "fallbackLabel": "active tenant"
     },
     "ordersToday": {
       "title": "Orders Today",
-      "fallbackLabel": "completed orders today"
+      "fallbackLabel": "completed today"
     },
     "lowStockAlerts": {
       "title": "Low Stock Alerts",
-      "fallbackLabel": "products at or below minimum stock"
+      "fallbackLabel": "at or below minimum"
     },
     "thirtyDayRevenue": {
       "title": "30-Day Revenue",
-      "fallbackLabel": "completed sales over the last 30 days"
+      "fallbackLabel": "last 30 days"
     },
     "live": "Live"
   },
   "revenue": {
     "kicker": "Revenue trend",
-    "title": "Thirty-day movement",
-    "description": "Completed sales over the last 30 days with daily revenue and order volume.",
+    "title": "30-day revenue",
+    "description": "Daily revenue and order volume.",
     "latestDay": "Latest day"
   },
   "recentSales": {
     "kicker": "Recent sales",
-    "title": "Latest completed receipts",
+    "title": "Recent sales",
     "empty": "No sales recorded yet.",
     "walkIn": "Walk-in customer",
     "noEmail": "No email"
   },
   "topProducts": {
     "kicker": "Top products",
-    "title": "Best movers this week",
+    "title": "Top movers",
     "empty": "No recent product sales data yet."
   },
   "lowStock": {
     "kicker": "Replenishment",
-    "title": "Low-stock attention rail",
+    "title": "Low stock",
     "empty": "No low-stock products right now.",
     "minimum": "Minimum {{count}}"
   },

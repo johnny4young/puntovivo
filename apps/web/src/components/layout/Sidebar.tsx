@@ -197,7 +197,7 @@ export function Sidebar({
     <>
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-secondary-950/35 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+          'fixed inset-0 z-40 bg-secondary-950/35 backdrop-blur-sm transition-opacity duration-200 xl:hidden',
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
         onClick={onCloseMobile}
@@ -205,8 +205,8 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0',
-          collapsed && 'lg:w-[6.5rem]',
+          'fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 bg-surface/88 px-3 py-3 backdrop-blur-2xl transition-transform duration-300 xl:translate-x-0',
+          collapsed && 'xl:w-[6.5rem]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -214,11 +214,11 @@ export function Sidebar({
           <SidebarBrand collapsed={collapsed} />
           <button
             type="button"
-            className="btn-ghost btn-icon lg:hidden"
+            className="btn-outline btn-icon mobile-shell-toggle xl:hidden"
             onClick={onCloseMobile}
             aria-label={t('nav:actions.closeNavigation')}
           >
-            <X className="h-5 w-5" />
+            <X className="h-5.5 w-5.5 shrink-0" strokeWidth={2.35} />
           </button>
         </div>
 
@@ -243,7 +243,7 @@ export function Sidebar({
 
           <button
             type="button"
-            className="btn-outline hidden w-full lg:inline-flex"
+            className="btn-outline hidden w-full xl:inline-flex"
             onClick={onToggleCollapse}
           >
             {collapsed ? (

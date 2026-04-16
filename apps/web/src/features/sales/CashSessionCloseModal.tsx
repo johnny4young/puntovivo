@@ -71,67 +71,70 @@ export function CashSessionCloseModal({
       title={t('cashSession.closeForm.title')}
       footer={
         <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
+          <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
             {t('cashSession.closeForm.cancel')}
           </ModalButton>
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
             disabled={isSaving || !cashSession || !!mismatchMessage}
+            className="sm:min-w-[10rem]"
           >
             {isSaving ? t('cashSession.closeForm.closing') : t('cashSession.closeForm.confirm')}
           </ModalButton>
         </>
       }
     >
-      <form className="space-y-5" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
-          <div className="rounded-[20px] border border-secondary-200 bg-secondary-50/70 px-4 py-3">
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-              {t('cashSession.closeForm.registerName')}
-            </p>
-            <p className="mt-2 text-lg font-semibold text-secondary-950">
-              {cashSession?.registerName ?? '—'}
-            </p>
-            <p className="mt-1 text-sm text-secondary-500">
-              {t('cashSession.closeForm.openedAt')}{' '}
-              {cashSession ? formatDateTime(cashSession.openedAt) : '—'}
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="cash-session-closing-count" className="label">
-              {t('cashSession.closeForm.actualCount')}
-            </label>
-            <input
-              id="cash-session-closing-count"
-              type="number"
-              min={0}
-              step="0.01"
-              className="input mt-1"
-              {...form.register('actualCount', {
-                valueAsNumber: true,
-                min: {
-                  value: 0,
-                  message: t('cashSession.closeForm.actualCountRequired'),
-                },
-              })}
-            />
-            {form.formState.errors.actualCount && (
-              <p className="mt-1 text-sm text-danger-500">
-                {form.formState.errors.actualCount.message}
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <section className="card-inset p-4 sm:p-5">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
+            <div className="card-inset bg-surface/92 px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+                {t('cashSession.closeForm.registerName')}
               </p>
-            )}
-          </div>
-        </div>
+              <p className="mt-2 text-lg font-semibold text-secondary-950">
+                {cashSession?.registerName ?? '—'}
+              </p>
+              <p className="mt-1 text-sm text-secondary-500">
+                {t('cashSession.closeForm.openedAt')}{' '}
+                {cashSession ? formatDateTime(cashSession.openedAt) : '—'}
+              </p>
+            </div>
 
-        <div className="rounded-[24px] border border-secondary-200 bg-secondary-50/80 p-4">
+            <div>
+              <label htmlFor="cash-session-closing-count" className="label">
+                {t('cashSession.closeForm.actualCount')}
+              </label>
+              <input
+                id="cash-session-closing-count"
+                type="number"
+                min={0}
+                step="0.01"
+                className="input mt-1"
+                {...form.register('actualCount', {
+                  valueAsNumber: true,
+                  min: {
+                    value: 0,
+                    message: t('cashSession.closeForm.actualCountRequired'),
+                  },
+                })}
+              />
+              {form.formState.errors.actualCount && (
+                <p className="mt-1 text-sm text-danger-500">
+                  {form.formState.errors.actualCount.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="card-inset p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.closeForm.countedTotal')}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-secondary-950">
+              <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
                 {formatCurrency(countedTotal)}
               </p>
             </div>
@@ -142,26 +145,23 @@ export function CashSessionCloseModal({
               </p>
             </div>
           </div>
-          <p className="mt-3 text-sm text-secondary-600">{t('cashSession.closeForm.description')}</p>
+          <p className="mt-3 text-sm leading-6 text-secondary-600">{t('cashSession.closeForm.description')}</p>
           {mismatchMessage && <p className="mt-3 text-sm text-danger-500">{mismatchMessage}</p>}
-        </div>
+        </section>
 
-        <div className="space-y-3">
+        <section className="space-y-3">
           <div>
-            <h3 className="text-sm font-semibold text-secondary-950">
+            <h3 className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-secondary-500">
               {t('cashSession.closeForm.denominations')}
             </h3>
-            <p className="mt-1 text-sm text-secondary-500">
+            <p className="mt-2 text-sm leading-6 text-secondary-500">
               {t('cashSession.closeForm.denominationsHint')}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             {denominationFieldArray.fields.map((field, index) => (
-              <div
-                key={field.value}
-                className="rounded-[20px] border border-secondary-200 bg-white px-4 py-3"
-              >
+              <div key={field.value} className="card-inset bg-surface/92 px-4 py-3">
                 <input
                   type="hidden"
                   {...form.register(`denominations.${index}.value`, {
@@ -201,7 +201,7 @@ export function CashSessionCloseModal({
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>

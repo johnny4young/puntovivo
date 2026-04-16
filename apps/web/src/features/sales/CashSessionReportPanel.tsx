@@ -47,7 +47,7 @@ function RecentClosureItem({ closure }: { closure: CashSession }) {
   const tone = getClosureTone(closure.overShort);
 
   return (
-    <article className="rounded-[20px] border border-secondary-200 bg-white px-4 py-3">
+    <article className="surface-panel py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-secondary-950">{closure.registerName}</p>
@@ -108,13 +108,11 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
       </div>
 
       {isLoading ? (
-        <div className="rounded-[20px] border border-dashed border-secondary-300 bg-white/70 px-4 py-5 text-sm text-secondary-500">
-          {t('cashSession.report.loading')}
-        </div>
+        <div className="surface-empty">{t('cashSession.report.loading')}</div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-            <div className="rounded-[20px] border border-secondary-200 bg-white px-4 py-4">
+            <div className="surface-panel">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.report.activeSessionsMetric')}
               </p>
@@ -122,7 +120,7 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
                 {summary.activeSessionCount}
               </p>
             </div>
-            <div className="rounded-[20px] border border-secondary-200 bg-white px-4 py-4">
+            <div className="surface-panel">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.report.activeRegistersMetric')}
               </p>
@@ -130,13 +128,13 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
                 {summary.activeRegisterCount}
               </p>
             </div>
-            <div className="rounded-[20px] border border-secondary-200 bg-white px-4 py-4">
+            <div className="surface-panel">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.report.reviewCountMetric')}
               </p>
               <p className="mt-2 text-2xl font-semibold text-secondary-950">{summary.reviewCount}</p>
             </div>
-            <div className="rounded-[20px] border border-secondary-200 bg-white px-4 py-4">
+            <div className="surface-panel">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.report.netOverShortMetric')}
               </p>
@@ -181,16 +179,11 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
                 </p>
               </div>
               {activeSessions.length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-secondary-300 bg-white/70 px-4 py-5 text-sm text-secondary-500">
-                  {t('cashSession.report.activeSessionsEmpty')}
-                </div>
+                <div className="surface-empty">{t('cashSession.report.activeSessionsEmpty')}</div>
               ) : (
                 <div className="space-y-2">
                   {activeSessions.map(session => (
-                    <article
-                      key={session.id}
-                      className="rounded-[20px] border border-secondary-200 bg-white px-4 py-3"
-                    >
+                    <article key={session.id} className="surface-panel py-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-secondary-950">
@@ -227,9 +220,7 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
                 </p>
               </div>
               {recentClosures.length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-secondary-300 bg-white/70 px-4 py-5 text-sm text-secondary-500">
-                  {t('cashSession.report.recentClosuresEmpty')}
-                </div>
+                <div className="surface-empty">{t('cashSession.report.recentClosuresEmpty')}</div>
               ) : (
                 <div className="space-y-2">
                   {recentClosures.map(closure => (

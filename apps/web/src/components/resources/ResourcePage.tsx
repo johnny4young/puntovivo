@@ -37,12 +37,12 @@ export function ResourcePage<TData>({
 }: ResourcePageProps<TData>) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="page-header-row">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-secondary-900">{title}</h1>
           <p className="mt-1 text-sm text-secondary-500">{description}</p>
         </div>
-        {action}
+        <div className="page-header-actions">{action}</div>
       </div>
 
       <div className="card p-6">

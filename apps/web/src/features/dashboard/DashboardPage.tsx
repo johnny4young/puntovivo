@@ -112,14 +112,14 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <section className="hero-surface p-6 sm:p-8">
-        <div className="relative z-10 grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
-          <div className="space-y-5">
-            <div className="space-y-3">
+        <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(17rem,20rem)] xl:items-start">
+          <div className="space-y-4">
+            <div className="space-y-2.5">
               <p className="page-kicker">{t('page.kicker')}</p>
-              <h1 className="font-display text-5xl leading-[0.92] text-balance text-secondary-950">
+              <h1 className="font-display text-3xl leading-[0.95] text-balance text-secondary-950 sm:text-4xl 2xl:text-[3.25rem]">
                 {t('page.headline')}
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-secondary-600">
+              <p className="max-w-lg text-sm leading-6 text-secondary-600 sm:text-[0.96rem]">
                 {t('page.description')}
               </p>
             </div>
@@ -127,27 +127,27 @@ export function DashboardPage() {
             <DashboardStatsGrid metrics={metrics} />
           </div>
 
-          <div className="card-inset flex flex-col justify-between gap-5 p-5 sm:p-6">
+          <div className="card-inset space-y-4 p-5">
             <div>
               <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('page.freshness.kicker')}</p>
-              <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('page.freshness.title')}</h2>
-              <p className="mt-3 text-sm leading-6 text-secondary-600">
+              <h2 className="mt-2 text-xl font-semibold text-secondary-950">{t('page.freshness.title')}</h2>
+              <p className="mt-2 text-sm text-secondary-600">
                 {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="metric-tile">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="metric-tile p-4">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   {t('page.revenueWindow.label')}
                 </p>
-                <p className="mt-3 text-lg font-semibold text-secondary-950">{t('page.revenueWindow.value')}</p>
+                <p className="mt-2 text-base font-semibold text-secondary-950">{t('page.revenueWindow.value')}</p>
               </div>
-              <div className="metric-tile">
+              <div className="metric-tile p-4">
                 <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                   {t('page.focus.label')}
                 </p>
-                <p className="mt-3 text-lg font-semibold text-secondary-950">{t('page.focus.value')}</p>
+                <p className="mt-2 text-base font-semibold text-secondary-950">{t('page.focus.value')}</p>
               </div>
             </div>
           </div>

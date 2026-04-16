@@ -128,89 +128,99 @@ export function ProductSearchDialog({
       onClose={handleClose}
       title={title ?? t('productSearch.search')}
       size="full"
+      footerClassName="sm:justify-between"
       footer={
         <>
-          <ModalButton onClick={handleClose}>{t('productSearch.cancel')}</ModalButton>
-          <ModalButton variant="primary" onClick={handleConfirm} disabled={!isSelectionValid}>
+          <ModalButton onClick={handleClose} className="sm:min-w-[8.5rem]">
+            {t('productSearch.cancel')}
+          </ModalButton>
+          <ModalButton
+            variant="primary"
+            onClick={handleConfirm}
+            disabled={!isSelectionValid}
+            className="sm:min-w-[11rem]"
+          >
             {confirmLabel ?? t('productSearch.search')}
           </ModalButton>
         </>
       }
     >
       <div className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="block">
-            <span className="label" id={searchInputId}>
-              {t('productSearch.search')}
-            </span>
-            <div className="relative mt-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
-              <input
-                aria-labelledby={searchInputId}
-                className="input pl-10"
-                placeholder={t('productSearch.searchPlaceholder')}
-                value={query}
-                onChange={event => setQuery(event.target.value)}
-              />
-            </div>
-          </label>
+        <section className="card-inset p-4 sm:p-5">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <label className="block">
+              <span className="label" id={searchInputId}>
+                {t('productSearch.search')}
+              </span>
+              <div className="relative mt-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
+                <input
+                  aria-labelledby={searchInputId}
+                  className="input pl-10"
+                  placeholder={t('productSearch.searchPlaceholder')}
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                />
+              </div>
+            </label>
 
-          <label className="block" htmlFor={categoryFilterId}>
-            <span className="label">{t('productSearch.category')}</span>
-            <select
-              id={categoryFilterId}
-              className="input mt-1"
-              value={categoryId}
-              onChange={event => setCategoryId(event.target.value)}
-            >
-              <option value="">{t('productSearch.allCategories')}</option>
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="block" htmlFor={categoryFilterId}>
+              <span className="label">{t('productSearch.category')}</span>
+              <select
+                id={categoryFilterId}
+                className="input mt-1"
+                value={categoryId}
+                onChange={event => setCategoryId(event.target.value)}
+              >
+                <option value="">{t('productSearch.allCategories')}</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="block" htmlFor={providerFilterId}>
-            <span className="label">{t('productSearch.provider')}</span>
-            <select
-              id={providerFilterId}
-              className="input mt-1"
-              value={providerId}
-              onChange={event => setProviderId(event.target.value)}
-            >
-              <option value="">{t('productSearch.allProviders')}</option>
-              {providers.map(provider => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            <label className="block" htmlFor={providerFilterId}>
+              <span className="label">{t('productSearch.provider')}</span>
+              <select
+                id={providerFilterId}
+                className="input mt-1"
+                value={providerId}
+                onChange={event => setProviderId(event.target.value)}
+              >
+                <option value="">{t('productSearch.allProviders')}</option>
+                {providers.map(provider => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
 
         {!searchEnabled && (
-          <div className="rounded-xl border border-dashed border-secondary-300 bg-secondary-50 px-4 py-8 text-center text-sm text-secondary-500">
+          <div className="card-inset flex min-h-44 items-center justify-center px-6 py-10 text-center text-sm leading-6 text-secondary-500">
             {t('productSearch.enterTerm')}
           </div>
         )}
 
         {searchEnabled && (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_320px]">
-            <div className="overflow-hidden rounded-xl border border-secondary-200">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(19rem,0.95fr)]">
+            <div className="card-inset overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-secondary-200">
-                  <thead className="bg-secondary-50">
-                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                      <th className="px-4 py-3">{t('productSearch.sku')}</th>
-                      <th className="px-4 py-3">{t('productSearch.name')}</th>
-                      <th className="px-4 py-3">{t('productSearch.stock')}</th>
-                      <th className="px-4 py-3">{t('productSearch.price')}</th>
-                      <th className="px-4 py-3">{t('productSearch.unit')}</th>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{t('productSearch.sku')}</th>
+                      <th>{t('productSearch.name')}</th>
+                      <th>{t('productSearch.stock')}</th>
+                      <th>{t('productSearch.price')}</th>
+                      <th>{t('productSearch.unit')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-secondary-200 bg-white">
+                  <tbody>
                     {productsQuery.isLoading && (
                       <tr>
                         <td className="px-4 py-6 text-sm text-secondary-500" colSpan={5}>
@@ -244,9 +254,8 @@ export function ProductSearchDialog({
                         return (
                           <tr
                             key={product.id}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected ? 'bg-primary-50' : 'hover:bg-secondary-50'
-                            }`}
+                            className="cursor-pointer"
+                            data-state={isSelected ? 'selected' : undefined}
                             onClick={() => handleProductSelect(product)}
                           >
                             <td className="px-4 py-3 text-sm font-medium text-secondary-700">
@@ -277,20 +286,20 @@ export function ProductSearchDialog({
               </div>
             </div>
 
-            <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
+            <aside className="card-inset p-4 sm:p-5 xl:sticky xl:top-0">
+              <h3 className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-secondary-500">
                 {t('productSearch.selection')}
               </h3>
 
               {!selectedProduct || !selectedUnit ? (
-                <p className="mt-4 text-sm text-secondary-500">
+                <p className="mt-5 text-sm leading-6 text-secondary-500">
                   {t('productSearch.chooseProduct')}
                 </p>
               ) : (
-                <div className="mt-4 space-y-4">
+                <div className="mt-5 space-y-4">
                   <div>
-                    <p className="text-lg font-semibold text-secondary-900">{selectedProduct.name}</p>
-                    <p className="text-sm text-secondary-500">{selectedProduct.sku}</p>
+                    <p className="text-xl font-semibold text-secondary-950">{selectedProduct.name}</p>
+                    <p className="mt-1 text-sm text-secondary-500">{selectedProduct.sku}</p>
                   </div>
 
                   <div className="grid gap-3">
@@ -321,7 +330,7 @@ export function ProductSearchDialog({
                       </select>
                     </div>
 
-                    <div className="rounded-lg border border-secondary-200 bg-white px-3 py-3">
+                    <div className="rounded-[20px] border border-line/70 bg-surface/92 px-4 py-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-secondary-500">{t('productSearch.price')}</span>
                         <span className="font-medium text-secondary-900">
@@ -356,7 +365,7 @@ export function ProductSearchDialog({
                   </div>
                 </div>
               )}
-            </div>
+            </aside>
           </div>
         )}
       </div>
