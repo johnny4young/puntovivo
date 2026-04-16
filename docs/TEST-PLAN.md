@@ -434,6 +434,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | CASH-10 | BOTH | manager | Refund cash sale | `refund` cash movement recorded against refunding cashier's active session |
 | ✅ | CASH-11 | BOTH | admin | Void sale whose session is still open | Original session is decremented via `refund` movement |
 | ✅ | CASH-12 | BOTH | admin | Void sale whose session is already closed | Sale voided, stock restored, closed session untouched |
+| ✅ | CASH-13 | BOTH | admin | Cash management dashboard with active session + discrepant closure | Report shows active register, closure alert, and net over/short summary |
+| ✅ | CASH-14 | BOTH | cashier | Cash management dashboard while another cashier owns the open register | Report hides the other cashier session and shows only the current cashier scope |
 
 ---
 

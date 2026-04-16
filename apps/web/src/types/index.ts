@@ -416,6 +416,21 @@ export interface CashMovement {
   createdAt: string;
 }
 
+export interface CashSessionReportSummary {
+  activeSessionCount: number;
+  activeRegisterCount: number;
+  recentClosureCount: number;
+  reviewCount: number;
+  netOverShort: number;
+  largestDiscrepancy: number;
+}
+
+export interface CashSessionReport {
+  summary: CashSessionReportSummary;
+  activeSessions: CashSession[];
+  recentClosures: CashSession[];
+}
+
 export interface Purchase {
   id: string;
   tenantId: string;

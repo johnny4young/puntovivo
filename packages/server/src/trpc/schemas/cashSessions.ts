@@ -34,6 +34,12 @@ export const cashSessionMovementsInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });
 
+export const cashSessionReportInput = z
+  .object({
+    limit: z.number().int().min(1).max(20).default(6),
+  })
+  .optional();
+
 export const recordCashMovementInput = z.object({
   type: manualCashMovementTypeEnum,
   amount: z.number().positive('Cash movement amount must be greater than zero'),
@@ -49,4 +55,5 @@ export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
 export type CloseCashSessionInput = z.infer<typeof closeCashSessionInput>;
 export type CashSessionMovementsInput = z.infer<typeof cashSessionMovementsInput>;
+export type CashSessionReportInput = z.infer<typeof cashSessionReportInput>;
 export type RecordCashMovementInput = z.infer<typeof recordCashMovementInput>;

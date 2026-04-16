@@ -2,9 +2,10 @@ import type { RefObject } from 'react';
 import { Receipt, Search, Store, TrendingUp, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CashSessionMovementTimeline } from '@/features/sales/CashSessionMovementTimeline';
+import { CashSessionReportPanel } from '@/features/sales/CashSessionReportPanel';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
-import type { CashMovement, CashSession } from '@/types';
+import type { CashMovement, CashSession, CashSessionReport } from '@/types';
 
 interface SalesOverviewProps {
   currentSiteName: string | null;
@@ -20,6 +21,8 @@ interface SalesOverviewProps {
   isCashSessionLoading: boolean;
   cashMovements: CashMovement[];
   isCashMovementsLoading: boolean;
+  cashSessionReport: CashSessionReport | null;
+  isCashSessionReportLoading: boolean;
   productSearchQuery: string;
   onProductSearchQueryChange: (value: string) => void;
   onOpenSearch: () => void;
@@ -44,6 +47,8 @@ export function SalesOverview({
   isCashSessionLoading,
   cashMovements,
   isCashMovementsLoading,
+  cashSessionReport,
+  isCashSessionReportLoading,
   productSearchQuery,
   onProductSearchQueryChange,
   onOpenSearch,
@@ -208,6 +213,11 @@ export function SalesOverview({
               </div>
             </div>
           </div>
+
+          <CashSessionReportPanel
+            report={cashSessionReport}
+            isLoading={isCashSessionReportLoading}
+          />
 
           <div className="card-inset flex items-center gap-3 px-4 py-3 text-sm text-secondary-600">
             <TrendingUp className="h-4.5 w-4.5 text-primary-700" />

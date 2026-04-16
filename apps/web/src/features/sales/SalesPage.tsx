@@ -41,6 +41,7 @@ import { formatCurrency } from '@/lib/utils';
 import type {
   CashMovement,
   CashSession,
+  CashSessionReport,
   Category,
   Customer,
   PaymentStatus,
@@ -117,12 +118,19 @@ export function SalesPage() {
       enabled: !!activeCashSession?.id,
     }
   );
+  const cashSessionReportQuery = trpc.cashSessions.report.useQuery(
+    { limit: 6 },
+    {
+      enabled: !!currentSite,
+    }
+  );
 
   const createMutation = trpc.sales.create.useMutation({
     onSuccess: async (_data, variables) => {
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
+        utils.cashSessions.report.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.inventory.listMovements.invalidate(),
@@ -149,7 +157,10 @@ export function SalesPage() {
   });
   const openCashSessionMutation = trpc.cashSessions.open.useMutation({
     onSuccess: async cashSession => {
-      await utils.cashSessions.getActive.invalidate();
+      await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.report.invalidate(),
+      ]);
       setCashSessionError(null);
       setIsCashSessionModalOpen(false);
       toast.success({
@@ -171,7 +182,10 @@ export function SalesPage() {
   });
   const closeCashSessionMutation = trpc.cashSessions.close.useMutation({
     onSuccess: async cashSession => {
-      await utils.cashSessions.getActive.invalidate();
+      await Promise.all([
+        utils.cashSessions.getActive.invalidate(),
+        utils.cashSessions.report.invalidate(),
+      ]);
       setCashSessionCloseError(null);
       setIsCashSessionCloseModalOpen(false);
 
@@ -212,6 +226,7 @@ export function SalesPage() {
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
+        utils.cashSessions.report.invalidate(),
       ]);
       setCashSessionMovementError(null);
       setIsCashSessionMovementModalOpen(false);
@@ -251,6 +266,7 @@ export function SalesPage() {
     provider => provider.isActive
   );
   const cashMovements = activeCashSession ? ((cashMovementsQuery.data ?? []) as CashMovement[]) : [];
+  const cashSessionReport = (cashSessionReportQuery.data as CashSessionReport | undefined) ?? null;
 
   const getServerErrorMessage = (error: unknown) =>
     translateServerError(error, t, t('errors:server.unknown'));
@@ -404,6 +420,8 @@ export function SalesPage() {
           isCashSessionLoading={activeCashSessionQuery.isLoading}
           cashMovements={cashMovements}
           isCashMovementsLoading={cashMovementsQuery.isLoading}
+          cashSessionReport={cashSessionReport}
+          isCashSessionReportLoading={cashSessionReportQuery.isLoading}
           productSearchQuery={productSearchQuery}
           onProductSearchQueryChange={setProductSearchQuery}
           onOpenSearch={() => handleOpenProductSearch(productSearchQuery)}
