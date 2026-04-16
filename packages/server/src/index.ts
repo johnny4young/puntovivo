@@ -157,7 +157,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     trpcOptions: {
       router: appRouter,
       createContext,
-      onError({ path, error }: { path?: string; error: any }) {
+      onError({ path, error }: { path?: string; error: unknown }) {
         if (verbose) {
           console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
         }

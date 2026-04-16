@@ -114,7 +114,7 @@ export class SseManager {
       try {
         client.reply.raw.write(message);
         sentCount++;
-      } catch (err) {
+      } catch {
         // Client probably disconnected
         this.removeClient(client.id);
       }
@@ -136,7 +136,7 @@ export class SseManager {
       const message = formatSseMessage(event);
       client.reply.raw.write(message);
       return true;
-    } catch (err) {
+    } catch {
       this.removeClient(clientId);
       return false;
     }
@@ -253,7 +253,7 @@ const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
             data: { timestamp: new Date().toISOString() },
           });
           reply.raw.write(heartbeat);
-        } catch (err) {
+        } catch {
           clearInterval(heartbeatInterval);
           manager.removeClient(clientId);
         }
