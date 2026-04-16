@@ -84,8 +84,9 @@ puntovivo/
 ├── scripts/
 │   └── migration/              # Data migration tools
 ├── .github/workflows/
-│   ├── build.yml              # CI: build validation on main / PRs
-│   └── release.yml            # Manual release workflow for tagged versions
+│   ├── ci.yml                 # CI: test, lint, and build validation on main / PRs
+│   ├── build.yml              # Desktop workspace validation on main / PRs
+│   └── release.yml            # Manual release workflow that creates the tag and publishes artifacts
 ├── package.json                # Root workspace config
 └── docs/                       # Documentation
 ```
