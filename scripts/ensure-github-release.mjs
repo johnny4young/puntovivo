@@ -2,6 +2,46 @@ import { spawnSync } from 'node:child_process';
 import { stderr } from 'node:process';
 
 /**
+ * @param {{ stdout?: string | Buffer | null; stderr?: string | Buffer | null }} result
+ */
+function getGhOutputText(result) {
+  return [result.stdout, result.stderr]
+    .map(value => String(value ?? '').trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+/**
+ * `gh release view` does not expose a stable machine-readable not-found code,
+ * so we intentionally match the known 404/release-missing responses and treat
+ * everything else as an operational failure that should stop the workflow.
+ *
+ * @param {{ status?: number | null; stdout?: string | Buffer | null; stderr?: string | Buffer | null }} result
+ */
+function isMissingReleaseLookup(result) {
+  if (result.status === 0) {
+    return false;
+  }
+
+  const outputText = getGhOutputText(result);
+  return /release\b.*\bnot found\b/i.test(outputText) || /\b404\b/.test(outputText);
+}
+
+/**
+ * @param {string} context
+ * @param {{ stdout?: string | Buffer | null; stderr?: string | Buffer | null }} result
+ */
+function formatGhFailure(context, result) {
+  const outputText = getGhOutputText(result);
+
+  if (outputText.length === 0) {
+    return `${context}.`;
+  }
+
+  return `${context}: ${outputText}`;
+}
+
+/**
  * @param {string} tag
  * @param {string} releaseName
  * @param {boolean} prerelease
@@ -27,6 +67,10 @@ export function ensureGitHubRelease(tag, releaseName, prerelease, dependencies =
     return { action: 'reuse' };
   }
 
+  if (!isMissingReleaseLookup(viewResult)) {
+    throw new Error(formatGhFailure(`Failed to inspect GitHub release ${tag}`, viewResult));
+  }
+
   const createArgs = ['release', 'create', tag, '--draft', '--title', releaseName];
   if (prerelease) {
     createArgs.push('--prerelease');
@@ -37,7 +81,7 @@ export function ensureGitHubRelease(tag, releaseName, prerelease, dependencies =
   });
 
   if (createResult.status !== 0) {
-    throw new Error(`Failed to create GitHub release for ${tag}.`);
+    throw new Error(formatGhFailure(`Failed to create GitHub release for ${tag}`, createResult));
   }
 
   return { action: 'create' };
@@ -60,7 +104,11 @@ export function publishGitHubRelease(tag, dependencies = {}) {
   });
 
   if (viewResult.status !== 0) {
-    throw new Error(`GitHub release ${tag} does not exist.`);
+    if (isMissingReleaseLookup(viewResult)) {
+      throw new Error(`GitHub release ${tag} does not exist.`);
+    }
+
+    throw new Error(formatGhFailure(`Failed to inspect GitHub release ${tag}`, viewResult));
   }
 
   const parsedResult = JSON.parse(String(viewResult.stdout));
@@ -73,7 +121,7 @@ export function publishGitHubRelease(tag, dependencies = {}) {
   });
 
   if (editResult.status !== 0) {
-    throw new Error(`Failed to publish GitHub release for ${tag}.`);
+    throw new Error(formatGhFailure(`Failed to publish GitHub release for ${tag}`, editResult));
   }
 
   return { action: 'publish' };

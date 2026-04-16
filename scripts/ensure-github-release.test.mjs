@@ -32,7 +32,7 @@ test('ensureGitHubRelease creates a missing prerelease', () => {
       calls.push({ command, args });
 
       if (args[1] === 'view') {
-        return { status: 1, stdout: '' };
+        return { status: 1, stdout: '', stderr: 'release not found' };
       }
 
       return { status: 0 };
@@ -70,13 +70,25 @@ test('ensureGitHubRelease fails when gh create fails', () => {
       ensureGitHubRelease('v1.2.3', 'Release v1.2.3', false, {
         spawn(_command, args) {
           if (args[1] === 'view') {
-            return { status: 1, stdout: '' };
+            return { status: 1, stdout: '', stderr: 'HTTP 404: release not found' };
           }
 
-          return { status: 1 };
+          return { status: 1, stderr: 'permission denied' };
         },
       }),
-    /Failed to create GitHub release for v1.2.3/
+    /Failed to create GitHub release for v1.2.3: permission denied/
+  );
+});
+
+test('ensureGitHubRelease fails when gh view errors for a non-404 reason', () => {
+  assert.throws(
+    () =>
+      ensureGitHubRelease('v1.2.3', 'Release v1.2.3', false, {
+        spawn() {
+          return { status: 1, stderr: 'authentication failed' };
+        },
+      }),
+    /Failed to inspect GitHub release v1.2.3: authentication failed/
   );
 });
 
@@ -129,9 +141,40 @@ test('publishGitHubRelease fails when the release does not exist', () => {
     () =>
       publishGitHubRelease('v1.2.3', {
         spawn() {
-          return { status: 1, stdout: '' };
+          return { status: 1, stdout: '', stderr: 'HTTP 404: release not found' };
         },
       }),
     /GitHub release v1.2.3 does not exist/
+  );
+});
+
+test('publishGitHubRelease fails when gh view errors for a non-404 reason', () => {
+  assert.throws(
+    () =>
+      publishGitHubRelease('v1.2.3', {
+        spawn() {
+          return { status: 1, stderr: 'network timeout' };
+        },
+      }),
+    /Failed to inspect GitHub release v1.2.3: network timeout/
+  );
+});
+
+test('publishGitHubRelease surfaces gh edit failures', () => {
+  assert.throws(
+    () =>
+      publishGitHubRelease('v1.2.3', {
+        spawn(_command, args) {
+          if (args[1] === 'view') {
+            return {
+              status: 0,
+              stdout: JSON.stringify({ isDraft: true }),
+            };
+          }
+
+          return { status: 1, stderr: 'validation failed' };
+        },
+      }),
+    /Failed to publish GitHub release for v1.2.3: validation failed/
   );
 });
