@@ -99,13 +99,13 @@ function MergeModalContent({
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
+          <div className="surface-panel-muted p-4">
             <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.localData')}</h3>
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-secondary-700">
               {JSON.stringify(pendingResolution.localData ?? {}, null, 2)}
             </pre>
           </div>
-          <div className="rounded-xl border border-secondary-200 bg-secondary-50 p-4">
+          <div className="surface-panel-muted p-4">
             <h3 className="text-sm font-semibold text-secondary-900">{t('company.sync.conflict.remoteData')}</h3>
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-secondary-700">
               {JSON.stringify(pendingResolution.remoteData ?? {}, null, 2)}

@@ -128,7 +128,7 @@ export function SalePaymentModal({
           </div>
         </div>
 
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4 text-sm">
+        <div className="surface-panel-muted text-sm">
           <div className="flex items-center justify-between">
             <span className="text-secondary-500">{t('payment.amountReceived')}</span>
             <span className="font-medium text-secondary-900">{formatCurrency(amountReceived || 0)}</span>

@@ -27,7 +27,7 @@ interface SyncMetricProps {
 
 function SyncMetric({ label, value }: SyncMetricProps) {
   return (
-    <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
+    <div className="surface-panel-muted">
       <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
       <p className="mt-2 text-lg font-semibold text-secondary-900">{value}</p>
     </div>
@@ -158,7 +158,7 @@ export function CompanySyncCard() {
       </div>
 
       {snapshot && snapshot.pendingCount > 0 && (
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-700">
+        <div className="surface-panel-muted text-sm text-secondary-700">
           <span className="font-medium text-secondary-900">{t('company.sync.oldestQueued')}</span>{' '}
           {snapshot.oldestPendingAt ? formatDateTime(snapshot.oldestPendingAt) : t('company.sync.unknown')}
           {snapshot.failedCount > 0 && (

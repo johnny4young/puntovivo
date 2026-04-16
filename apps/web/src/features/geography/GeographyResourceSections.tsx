@@ -16,33 +16,21 @@ interface GeographyTabsProps {
 export function GeographyTabs({ activeTab, onChange }: GeographyTabsProps) {
   const { t } = useTranslation('settings');
   return (
-    <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-secondary-200 bg-white p-2">
+    <div className="segmented-control mb-6">
       <button
-        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-          activeTab === 'countries'
-            ? 'bg-primary-600 text-white'
-            : 'text-secondary-600 hover:bg-secondary-100 hover:text-secondary-900'
-        }`}
+        className={`segmented-tab ${activeTab === 'countries' ? 'segmented-tab-active' : ''}`}
         onClick={() => onChange('countries')}
       >
         {t('geography.tabs.countries')}
       </button>
       <button
-        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-          activeTab === 'departments'
-            ? 'bg-primary-600 text-white'
-            : 'text-secondary-600 hover:bg-secondary-100 hover:text-secondary-900'
-        }`}
+        className={`segmented-tab ${activeTab === 'departments' ? 'segmented-tab-active' : ''}`}
         onClick={() => onChange('departments')}
       >
         {t('geography.tabs.departments')}
       </button>
       <button
-        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-          activeTab === 'cities'
-            ? 'bg-primary-600 text-white'
-            : 'text-secondary-600 hover:bg-secondary-100 hover:text-secondary-900'
-        }`}
+        className={`segmented-tab ${activeTab === 'cities' ? 'segmented-tab-active' : ''}`}
         onClick={() => onChange('cities')}
       >
         {t('geography.tabs.cities')}

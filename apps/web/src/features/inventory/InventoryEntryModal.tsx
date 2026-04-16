@@ -73,7 +73,7 @@ export function InventoryEntryModal({
           <p className="text-sm text-secondary-500">{t('entry.noSelection')}</p>
         ) : (
           <>
-            <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
+            <div className="surface-panel-muted">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium text-secondary-900">{selection.product.name}</p>
@@ -147,7 +147,7 @@ export function InventoryEntryModal({
               </div>
             </div>
 
-            <div className="rounded-lg border border-secondary-200 bg-white px-4 py-3 text-sm">
+            <div className="surface-panel py-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-secondary-500">{t('table.unit')}</span>
                 <span className="font-medium text-secondary-900">

@@ -48,13 +48,9 @@ export function CashSessionMovementTimeline({
       </div>
 
       {isLoading ? (
-        <div className="rounded-[20px] border border-dashed border-secondary-300 bg-white/70 px-4 py-5 text-sm text-secondary-500">
-          {t('cashSession.timeline.loading')}
-        </div>
+        <div className="surface-empty">{t('cashSession.timeline.loading')}</div>
       ) : movements.length === 0 ? (
-        <div className="rounded-[20px] border border-dashed border-secondary-300 bg-white/70 px-4 py-5 text-sm text-secondary-500">
-          {t('cashSession.timeline.empty')}
-        </div>
+        <div className="surface-empty">{t('cashSession.timeline.empty')}</div>
       ) : (
         <div className="space-y-2">
           {movements.map(movement => {
@@ -63,10 +59,7 @@ export function CashSessionMovementTimeline({
             const signedAmount = `${positive ? '+' : '-'}${formatCurrency(movement.amount)}`;
 
             return (
-              <article
-                key={movement.id}
-                className="rounded-[20px] border border-secondary-200 bg-white px-4 py-3"
-              >
+              <article key={movement.id} className="surface-panel py-3">
                 <div className="flex items-start gap-3">
                   <div
                     className={cn(

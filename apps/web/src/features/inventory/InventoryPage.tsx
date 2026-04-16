@@ -374,24 +374,22 @@ function InventoryHeader({
 }: InventoryHeaderProps) {
   const { t } = useTranslation('inventory');
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
+    <div className="page-header-row">
+      <div className="min-w-0">
         <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
         <p className="mt-1 text-sm text-secondary-500">
           {t('page.description')}
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-lg border border-secondary-200 bg-white p-1">
+      <div className="page-header-actions">
+        <div className="segmented-control">
           {(Object.keys(viewKeys) as InventoryView[]).map(view => (
             <button
               key={view}
               className={cn(
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                activeView === view
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-secondary-600 hover:text-secondary-900'
+                'segmented-tab',
+                activeView === view ? 'segmented-tab-active' : ''
               )}
               onClick={() => onViewChange(view)}
             >
@@ -903,9 +901,7 @@ export function InventoryPage() {
         onSubmit={handleEntrySubmit}
       />
 
-      <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-        {t('page.stockNote')}
-      </div>
+      <div className="surface-panel-muted text-sm text-secondary-600">{t('page.stockNote')}</div>
     </div>
   );
 }

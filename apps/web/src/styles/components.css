@@ -1,4 +1,35 @@
+/*
+ * Puntovivo Design Tokens — Component Layer
+ *
+ * Every class here lives inside @layer components so it can be
+ * overridden by utility classes when needed.
+ *
+ * Sections:
+ *   1. Shell & Layout        — app-shell, shell-panel, page-header-*
+ *   2. Cards & Surfaces      — card, card-inset, surface-panel, surface-empty, metric-tile, hero-surface
+ *   3. Buttons               — btn-primary, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-icon
+ *   4. Mobile Navigation     — mobile-shell-toggle
+ *   5. Segmented Controls    — segmented-control, segmented-tab
+ *   6. Settings              — setting-toggle-card
+ *   7. Modals                — modal-shell, modal-header, modal-body, modal-footer
+ *   8. Forms                 — label, input, select-trigger
+ *   9. Badges                — badge, badge-primary, badge-secondary, …
+ *  10. Page Typography       — page-heading, page-kicker, page-title, page-description
+ *  11. Data Tables           — data-table, data-table-toolbar, data-table-pagination
+ */
+
 @layer components {
+
+  /* ==========================================================================
+   * 1. SHELL & LAYOUT
+   *
+   * .app-shell       — Root wrapper. Sets min-height and text color.
+   * .shell-panel     — Header chrome bar. Rounded, bordered, glass-blur panel.
+   * .page-header-row — Responsive row that places H1 on the left and action
+   *                     buttons on the right. Stacks vertically on mobile.
+   * .page-header-actions — Flex container for action buttons inside a header row.
+   * ======================================================================== */
+
   .app-shell {
     @apply min-h-screen overflow-x-hidden text-foreground;
   }
@@ -7,6 +38,33 @@
     @apply rounded-[28px] border border-line/80 bg-surface/90 backdrop-blur-xl;
     box-shadow: var(--shadow-panel);
   }
+
+  .page-header-row {
+    @apply flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between;
+  }
+
+  .page-header-actions {
+    @apply flex flex-wrap items-center gap-2 md:gap-3;
+  }
+
+  /* ==========================================================================
+   * 2. CARDS & SURFACES
+   *
+   * .card              — Primary content card. Use for standalone sections like
+   *                       "Sales history", "Revenue trend", form groups.
+   * .card-inset        — Nested card inside a .card or .hero-surface. Use for
+   *                       metric summaries, shortcut hints, embedded panels.
+   * .surface-panel     — Bordered panel with surface background. Use for list
+   *                       items in reports, timeline entries, metric grids.
+   * .surface-panel-muted — Softer variant of surface-panel. Use for read-only
+   *                       notes, informational banners, "desktop only" notices.
+   * .surface-empty     — Dashed-border empty state. Use when a list or timeline
+   *                       has no items to display yet.
+   * .metric-tile       — KPI card with a subtle top-edge highlight. Use for
+   *                       dashboard stats (Today's sales, Low stock, etc.).
+   * .hero-surface      — Full-width hero banner with layered radial gradients.
+   *                       Use for Sales desk overview and Dashboard header.
+   * ======================================================================== */
 
   .card {
     @apply rounded-[28px] border border-line/80 bg-card/92 text-card-foreground backdrop-blur-xl;
@@ -17,10 +75,79 @@
     @apply rounded-[22px] border border-line/70 bg-surface-2/92;
   }
 
+  .surface-panel {
+    @apply rounded-[22px] border border-line/80 bg-surface px-4 py-4;
+  }
+
+  .surface-panel-muted {
+    @apply rounded-[22px] border border-line/75 bg-surface-2/86 px-4 py-4;
+  }
+
+  .surface-empty {
+    @apply rounded-[22px] border border-dashed border-line-strong/55 bg-surface-2/72 px-4 py-5 text-sm text-secondary-500;
+  }
+
+  .metric-tile {
+    @apply relative overflow-hidden rounded-[24px] border border-line/70 bg-surface-2/78 p-4 backdrop-blur;
+  }
+
+  .metric-tile::after {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 36%, white), transparent);
+  }
+
+  .hero-surface {
+    @apply relative overflow-hidden rounded-[32px] border border-line/70 bg-surface/90;
+    box-shadow: var(--shadow-panel);
+  }
+
+  .hero-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 12% 12%, color-mix(in oklch, var(--primary) 15%, transparent), transparent 36%),
+      radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--warning-500) 12%, transparent), transparent 24%),
+      linear-gradient(135deg, color-mix(in oklch, var(--surface-2) 70%, transparent), transparent 54%);
+  }
+
+  /* Dark overrides — cards & surfaces */
+  .dark .card-inset,
+  .dark .metric-tile {
+    @apply border-line-strong/40 bg-surface-2/84;
+  }
+
+  .dark .hero-surface {
+    @apply border-line-strong/45 bg-surface/96;
+  }
+
+  /* ==========================================================================
+   * 3. BUTTONS
+   *
+   * All button variants share a common base (min-h-11 for 44px touch target,
+   * rounded-2xl, gap-2, semibold text, focus ring, disabled state).
+   *
+   * .btn-primary   — Primary action (charge sale, save, confirm). Solid fill
+   *                   with shadow glow. Use sparingly — one per visible context.
+   * .btn-secondary — Secondary action (record movement, add product). Bordered
+   *                   with surface fill. Use next to primary when two actions
+   *                   share equal importance.
+   * .btn-outline   — Tertiary action (cancel, close session, filter). Bordered
+   *                   with transparent fill. Default for modal Cancel buttons.
+   * .btn-ghost     — Minimal action (close icon, collapse rail). No border.
+   * .btn-danger    — Destructive action (delete, void). Red fill with glow.
+   * .btn-icon      — Square modifier (40×40). Combine with any variant:
+   *                   className="btn-ghost btn-icon"
+   * ======================================================================== */
+
   .btn-primary,
+  .btn-secondary,
   .btn-outline,
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-45;
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-45;
   }
 
   .btn-primary {
@@ -33,12 +160,31 @@
     transform: translateY(-1px);
   }
 
+  .btn-secondary {
+    @apply border border-line-strong/70 bg-surface-2/84 text-secondary-950;
+  }
+
+  .btn-secondary:hover {
+    @apply border-primary-300 bg-primary-50/85 text-primary-700;
+    transform: translateY(-1px);
+  }
+
   .btn-outline {
     @apply border border-line-strong/70 bg-surface/86 text-secondary-900;
   }
 
   .btn-outline:hover {
     @apply border-primary-300 bg-primary-50/80 text-primary-700;
+  }
+
+  .btn-danger {
+    @apply border border-danger-600/20 bg-danger-600 text-white;
+    box-shadow: 0 18px 36px -24px color-mix(in oklch, var(--danger-600) 70%, transparent);
+  }
+
+  .btn-danger:hover {
+    background: color-mix(in oklch, var(--danger-600) 86%, black);
+    transform: translateY(-1px);
   }
 
   .btn-ghost {
@@ -52,6 +198,166 @@
   .btn-icon {
     @apply h-10 w-10 rounded-2xl px-0 py-0;
   }
+
+  /* Dark overrides — buttons */
+  .dark .btn-secondary {
+    @apply border-line-strong/60 bg-surface-2/88 text-secondary-950;
+  }
+
+  .dark .btn-secondary:hover {
+    @apply border-primary-400/40 bg-primary-400/14 text-secondary-950;
+  }
+
+  .dark .btn-outline {
+    @apply border-line-strong/60 bg-surface-2/84 text-secondary-950;
+  }
+
+  .dark .btn-outline:hover {
+    @apply border-primary-400/40 bg-primary-400/12 text-secondary-950;
+  }
+
+  /* ==========================================================================
+   * 4. MOBILE NAVIGATION
+   *
+   * .mobile-shell-toggle — Hamburger / close button for mobile sidebar.
+   *                         Apply alongside btn-outline btn-icon.
+   * ======================================================================== */
+
+  .mobile-shell-toggle {
+    @apply border-line-strong/70 bg-surface-2/88 text-secondary-900;
+  }
+
+  .mobile-shell-toggle svg {
+    color: inherit;
+    stroke: currentColor;
+  }
+
+  .dark .mobile-shell-toggle {
+    @apply border-primary-400/30 bg-primary-400/12 text-secondary-950;
+  }
+
+  .dark .mobile-shell-toggle:hover {
+    @apply border-primary-300/40 bg-primary-400/18 text-secondary-950;
+  }
+
+  /* ==========================================================================
+   * 5. SEGMENTED CONTROLS
+   *
+   * .segmented-control    — Pill-shaped container that holds tabs (Inventory
+   *                          views, Geography tabs, Customer Catalog tabs).
+   * .segmented-tab        — Individual tab button. Inactive state.
+   * .segmented-tab-active — Active tab. Solid primary fill with shadow.
+   *                          Apply conditionally: className={cn('segmented-tab',
+   *                          isActive && 'segmented-tab-active')}
+   * ======================================================================== */
+
+  .segmented-control {
+    @apply inline-flex flex-wrap items-center gap-2 rounded-[24px] border border-line/80 bg-surface-2/82 p-2;
+  }
+
+  .segmented-tab {
+    @apply rounded-[18px] px-4 py-2.5 text-sm font-medium text-secondary-600 transition-colors;
+  }
+
+  .segmented-tab:hover {
+    @apply bg-surface text-secondary-950;
+  }
+
+  .segmented-tab-active {
+    @apply bg-primary text-primary-foreground shadow-[0_14px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)];
+  }
+
+  /* ==========================================================================
+   * 6. SETTINGS
+   *
+   * .setting-toggle-card        — Selectable card for settings like theme
+   *                                picker. Shows border highlight on hover.
+   * .setting-toggle-card-active — Active/selected state with primary border
+   *                                and tinted background.
+   * ======================================================================== */
+
+  .setting-toggle-card {
+    @apply flex items-start justify-between gap-4 rounded-[22px] border border-line/80 bg-surface px-4 py-4 transition-colors;
+  }
+
+  .setting-toggle-card:hover {
+    @apply border-primary-200 bg-primary-50/40;
+  }
+
+  .setting-toggle-card-active {
+    @apply border-primary-300 bg-primary-50/70;
+  }
+
+  .dark .setting-toggle-card:hover {
+    @apply border-primary-400/30 bg-primary-400/10;
+  }
+
+  .dark .setting-toggle-card-active {
+    @apply border-primary-400/35 bg-primary-400/16;
+  }
+
+  /* ==========================================================================
+   * 7. MODALS
+   *
+   * .modal-shell  — Outer container with rounded corners, border, backdrop
+   *                  blur, and a radial gradient pseudo-element. Used by the
+   *                  reusable <Modal> component in form-controls/Modal.tsx.
+   * .modal-header — Top bar with title and close button. Has bottom border.
+   * .modal-body   — Scrollable content area.
+   * .modal-footer — Action bar at bottom. Stacks buttons vertically on mobile,
+   *                  aligns right on sm+. Has top border and muted background.
+   *
+   * All three inner sections use z-10 to layer above the ::before gradient.
+   * ======================================================================== */
+
+  .modal-shell {
+    @apply relative flex w-full flex-col overflow-hidden rounded-[32px] border border-line/80 bg-surface/96 text-secondary-950 backdrop-blur-xl;
+    box-shadow: var(--shadow-panel);
+  }
+
+  .modal-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 12% 10%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 34%),
+      linear-gradient(180deg, color-mix(in oklch, var(--surface) 92%, white), color-mix(in oklch, var(--surface-2) 55%, transparent));
+    opacity: 0.9;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    @apply relative z-10;
+  }
+
+  .modal-header {
+    @apply flex items-start justify-between gap-4 border-b border-line/75 px-5 py-4 sm:px-6 sm:py-5;
+  }
+
+  .modal-body {
+    @apply flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6;
+  }
+
+  .modal-footer {
+    @apply flex flex-col-reverse gap-3 border-t border-line/75 bg-surface-2/72 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6;
+  }
+
+  .dark .modal-footer {
+    @apply bg-surface-2/86;
+  }
+
+  /* ==========================================================================
+   * 8. FORMS
+   *
+   * .label          — Uppercase micro-label above inputs (REGISTER NAME, EMAIL).
+   * .input          — Text/number/textarea field. 44px height, rounded-2xl.
+   * .select-trigger — Styled like .input for custom <Select> components.
+   *
+   * Both .input and .select-trigger share hover, focus, and disabled states.
+   * Focus uses a 4px ring in light mode, a subtler ring in dark mode.
+   * ======================================================================== */
 
   .label {
     @apply block text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-secondary-500;
@@ -82,6 +388,17 @@
     @apply cursor-not-allowed border-line bg-surface-2 text-secondary-400;
   }
 
+  /* ==========================================================================
+   * 9. BADGES
+   *
+   * .badge            — Base badge (pill shape, uppercase micro text).
+   * .badge-primary    — Blue tone (active site, current view).
+   * .badge-secondary  — Gray tone (tenant name, neutral metadata).
+   * .badge-success    — Green tone (online status, balanced closure).
+   * .badge-warning    — Amber tone (offline status, discrepancy alert).
+   * .badge-danger     — Red tone (error state, overdue).
+   * ======================================================================== */
+
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em];
   }
@@ -106,6 +423,16 @@
     @apply bg-danger-50 text-danger-700;
   }
 
+  /* ==========================================================================
+   * 10. PAGE TYPOGRAPHY
+   *
+   * .page-heading     — Flex column container for kicker + title + description.
+   * .page-kicker      — Uppercase green micro-label above page titles
+   *                      (SALES DESK, COMMAND CENTER, REVENUE TREND).
+   * .page-title       — Display-font page heading (font-display text-4xl).
+   * .page-description — Muted body text below the title (max-w-2xl).
+   * ======================================================================== */
+
   .page-heading {
     @apply flex flex-col gap-2;
   }
@@ -121,6 +448,19 @@
   .page-description {
     @apply max-w-2xl text-sm text-secondary-600;
   }
+
+  /* ==========================================================================
+   * 11. DATA TABLES
+   *
+   * .data-table            — Base table element. Full-width, collapsed borders.
+   * .data-table thead      — Header row with muted surface background.
+   * .data-table th         — Uppercase column header (matches .label style).
+   * .data-table tbody tr   — Content row with hover and selected states.
+   * .data-table td         — Cell with vertical alignment.
+   * .data-table-toolbar    — Toolbar above the table (columns, export, print).
+   * .data-table-pagination — Footer bar below the table (page info, nav).
+   * .data-table-column-header — Flex wrapper for sortable column header + icon.
+   * ======================================================================== */
 
   .data-table-toolbar {
     @apply flex flex-col gap-3 rounded-[22px] border border-line/80 bg-surface-2/70 p-3 md:flex-row md:items-center md:justify-between;
@@ -150,16 +490,8 @@
     @apply bg-primary-50/55;
   }
 
-  .dark .data-table tbody tr:hover {
-    @apply bg-primary-100/10;
-  }
-
   .data-table tbody tr[data-state="selected"] {
     @apply bg-primary-50;
-  }
-
-  .dark .data-table tbody tr[data-state="selected"] {
-    @apply bg-primary-100/15;
   }
 
   .data-table td {
@@ -170,29 +502,12 @@
     @apply flex items-center gap-1.5;
   }
 
-  .hero-surface {
-    @apply relative overflow-hidden rounded-[32px] border border-line/70 bg-surface/90;
-    box-shadow: var(--shadow-panel);
+  /* Dark overrides — data tables */
+  .dark .data-table tbody tr:hover {
+    @apply bg-primary-100/10;
   }
 
-  .hero-surface::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(circle at 12% 12%, color-mix(in oklch, var(--primary) 15%, transparent), transparent 36%),
-      radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--warning-500) 12%, transparent), transparent 24%),
-      linear-gradient(135deg, color-mix(in oklch, var(--surface-2) 70%, transparent), transparent 54%);
-  }
-
-  .metric-tile {
-    @apply relative overflow-hidden rounded-[24px] border border-line/70 bg-surface-2/78 p-4 backdrop-blur;
-  }
-
-  .metric-tile::after {
-    content: "";
-    @apply absolute inset-x-0 top-0 h-px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 36%, white), transparent);
+  .dark .data-table tbody tr[data-state="selected"] {
+    @apply bg-primary-100/15;
   }
 }

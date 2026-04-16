@@ -60,23 +60,21 @@ const statToneClasses: Record<DashboardStatMetric['tone'], string> = {
 };
 
 function StatCard({ title, value, label, icon: Icon, tone }: StatCardProps) {
-  const { t } = useTranslation('dashboard');
   return (
-    <div className="metric-tile">
-      <div className="flex items-center justify-between gap-3">
-        <div className={cn('flex h-11 w-11 items-center justify-center rounded-[18px]', statToneClasses[tone])}>
+    <div className="metric-tile p-4 sm:p-5">
+      <div className="flex items-center gap-3">
+        <div className={cn('flex h-10 w-10 items-center justify-center rounded-[18px]', statToneClasses[tone])}>
           <Icon className="h-5 w-5" />
         </div>
-        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-          {t('metrics.live')}
-        </span>
-      </div>
-      <div className="mt-6">
-        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-secondary-500">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
           {title}
         </p>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-secondary-950">{value}</p>
-        <p className="mt-2 text-sm leading-6 text-secondary-600">{label}</p>
+      </div>
+      <div className="mt-4">
+        <p className="text-2xl font-semibold tracking-tight text-secondary-950 sm:text-[1.9rem]">{value}</p>
+        <p className="mt-2 line-clamp-2 text-xs leading-5 text-secondary-600 sm:text-sm sm:leading-6">
+          {label}
+        </p>
       </div>
     </div>
   );
@@ -147,21 +145,21 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('revenue.kicker')}</p>
-          <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('revenue.title')}</h2>
-          <p className="mt-2 text-sm text-secondary-600">{t('revenue.description')}</p>
+          <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('revenue.title')}</h2>
+          <p className="mt-2 text-sm leading-6 text-secondary-600">{t('revenue.description')}</p>
         </div>
-        <div className="rounded-[22px] border border-line/70 bg-surface-2/70 px-4 py-3 text-right">
+        <div className="card-inset px-4 py-3 text-right">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
             {t('revenue.latestDay')}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-secondary-950">
+          <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
             {formatCurrency(points[points.length - 1]?.revenue ?? 0)}
           </p>
         </div>
       </div>
 
       <div className="mt-6 rounded-[28px] border border-line/70 bg-surface-2/65 px-4 py-5 sm:px-6">
-        <div className="flex h-72 items-end gap-2">
+        <div className="flex h-64 items-end gap-2 sm:h-72">
           {points.map(point => {
             const height = maxRevenue === 0 ? 10 : Math.max((point.revenue / maxRevenue) * 100, 10);
 
@@ -203,7 +201,7 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
     <section className="card p-6 sm:p-7">
       <div>
         <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('recentSales.kicker')}</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('recentSales.title')}</h2>
+        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('recentSales.title')}</h2>
       </div>
 
       <div className="mt-6">
@@ -214,7 +212,7 @@ export function RecentSalesCard({ sales, formatCurrency, formatDateTime }: Recen
             {sales.map(sale => (
               <article
                 key={sale.id}
-                className="card-inset flex items-center justify-between gap-4 px-4 py-4"
+                className="card-inset flex items-center justify-between gap-4 px-4 py-3.5"
               >
                 <div className="min-w-0">
                   <p className="font-mono text-sm font-semibold text-primary-700">{sale.saleNumber}</p>
@@ -243,7 +241,7 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
     <section className="card p-6 sm:p-7">
       <div>
         <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('topProducts.kicker')}</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('topProducts.title')}</h2>
+        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('topProducts.title')}</h2>
       </div>
 
       <div className="mt-6">
@@ -256,7 +254,7 @@ export function TopProductsCard({ products, formatCurrency }: TopProductsCardPro
             {products.map(product => (
               <article
                 key={product.productId}
-                className="card-inset flex items-center justify-between gap-4 px-4 py-4"
+                className="card-inset flex items-center justify-between gap-4 px-4 py-3.5"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
@@ -288,7 +286,7 @@ export function LowStockAlertsCard({ items }: LowStockAlertsCardProps) {
     <section className="card p-6 sm:p-7">
       <div>
         <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('lowStock.kicker')}</p>
-        <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('lowStock.title')}</h2>
+        <h2 className="mt-2 font-display text-2xl text-secondary-950">{t('lowStock.title')}</h2>
       </div>
 
       <div className="mt-6">
@@ -301,7 +299,7 @@ export function LowStockAlertsCard({ items }: LowStockAlertsCardProps) {
             {items.map(item => (
               <article
                 key={item.productId}
-                className="rounded-[22px] border border-warning-500/20 bg-warning-50 px-4 py-4"
+                className="rounded-[22px] border border-warning-500/20 bg-warning-50 px-4 py-3.5"
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">

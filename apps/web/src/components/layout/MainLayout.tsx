@@ -21,7 +21,7 @@ export function MainLayout() {
       <div
         className={cn(
           'relative min-h-screen min-w-0 transition-[margin] duration-300',
-          sidebarCollapsed ? 'lg:ml-[6.5rem]' : 'lg:ml-[18.5rem]'
+          sidebarCollapsed ? 'xl:ml-[6.5rem]' : 'xl:ml-[18.5rem]'
         )}
       >
         <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />

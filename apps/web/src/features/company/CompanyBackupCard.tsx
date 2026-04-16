@@ -161,9 +161,7 @@ export function CompanyBackupCard() {
       </div>
 
       {!isDesktop && (
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.backup.desktopOnly')}
-        </div>
+        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.backup.desktopOnly')}</div>
       )}
 
       {status && (

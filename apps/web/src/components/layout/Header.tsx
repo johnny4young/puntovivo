@@ -65,39 +65,41 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-8">
       <div className="shell-panel px-4 py-3 sm:px-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="grid gap-4 xl:grid-cols-[minmax(18rem,21rem)_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[minmax(19rem,23rem)_minmax(0,1fr)]">
+          <div className="flex items-start gap-3">
             <button
               type="button"
-              className="btn-outline btn-icon lg:hidden"
+              className="btn-outline btn-icon mobile-shell-toggle xl:hidden"
               onClick={onOpenSidebar}
               aria-label={t('auth:login.openNavigation')}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5.5 w-5.5 shrink-0 text-current" strokeWidth={2.35} />
             </button>
 
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-2">
               <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('nav:header.kicker')}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-2xl text-secondary-950">{t('nav:header.title')}</h2>
+              <div className="space-y-2">
+                <h2 className="font-display text-[clamp(1.8rem,2vw,2.3rem)] leading-[0.96] text-secondary-950">
+                  {t('nav:header.title')}
+                </h2>
                 {currentTenant && <span className="badge badge-secondary">{currentTenant.name}</span>}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3 xl:max-w-[58rem] xl:flex-row xl:items-center xl:justify-end">
-            <div className="relative xl:min-w-[18rem] xl:max-w-[22rem] xl:flex-1">
+          <div className="grid gap-3 2xl:grid-cols-[minmax(16rem,1fr)_auto] 2xl:items-start">
+            <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
               <input className="input pl-10" placeholder={t('common:quickSearch')} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 xl:flex-nowrap">
+            <div className="flex flex-wrap items-center gap-3 2xl:justify-end">
               <div className={online ? 'badge badge-success' : 'badge badge-warning'}>
                 {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                 {online ? t('common:status.online') : t('common:status.offline')}
               </div>
 
-              <div className="w-[6rem] min-w-0 flex-none">
+              <div className="w-[5.7rem] min-w-0 flex-none sm:w-[6.1rem]">
                 <Select
                   options={languageOptions}
                   value={languagePreference}
@@ -105,11 +107,11 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                   placeholder={t('common:language.placeholder')}
                   label={t('common:language.label')}
                   className="select-trigger"
-                  triggerLabelClassName="max-w-[3rem]"
+                  triggerLabelClassName="max-w-[3.1rem]"
                 />
               </div>
 
-              <div className="min-w-[14rem] flex-1 xl:flex-none">
+              <div className="min-w-[11.5rem] flex-1 sm:min-w-[12.5rem] xl:min-w-[13rem] xl:max-w-[15rem] xl:flex-none">
                 <Select
                   options={siteOptions}
                   value={currentSite?.id ?? null}
@@ -136,7 +138,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <div className="relative shrink-0">
                 <button
                   type="button"
-                  className="btn-outline flex w-full items-center justify-between gap-3 px-3.5 sm:w-auto"
+                  className="btn-outline flex w-full min-w-[10.75rem] items-center justify-between gap-3 px-3 sm:w-auto"
                   onClick={() => setShowUserMenu(current => !current)}
                 >
                   <div className="flex items-center gap-3">
@@ -147,7 +149,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                       <span className="block truncate text-sm font-semibold text-secondary-950">
                         {user?.name ?? t('common:user')}
                       </span>
-                      <span className="block truncate text-xs text-secondary-500">
+                      <span className="hidden truncate text-xs text-secondary-500 xl:block">
                         {user?.role ?? t('common:session')}
                       </span>
                     </span>

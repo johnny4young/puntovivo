@@ -73,7 +73,7 @@ interface UpdateMetricProps {
 
 function UpdateMetric({ label, value }: UpdateMetricProps) {
   return (
-    <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
+    <div className="surface-panel-muted">
       <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
       <p className="mt-2 text-sm font-semibold text-secondary-900">{value}</p>
     </div>
@@ -184,9 +184,7 @@ export function CompanyAutoUpdateCard() {
       </div>
 
       {!isDesktop && (
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.updater.desktopOnly')}
-        </div>
+        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.updater.desktopOnly')}</div>
       )}
 
       {statusQuery.error && (
@@ -195,7 +193,7 @@ export function CompanyAutoUpdateCard() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-secondary-200 bg-white px-4 py-4">
+      <div className="surface-panel flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-medium text-secondary-900">{t('company.updater.updaterStatus')}</p>
           <p className="text-sm text-secondary-500">{getStatusMessage(status, t)}</p>

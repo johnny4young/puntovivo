@@ -32,7 +32,7 @@ function TraySettingToggle({
   onChange,
 }: TraySettingToggleProps) {
   return (
-    <label className="flex items-start justify-between gap-4 rounded-xl border border-secondary-200 bg-white px-4 py-4">
+    <label className="setting-toggle-card">
       <div>
         <p className="text-sm font-medium text-secondary-900">{label}</p>
         <p className="mt-1 text-sm text-secondary-500">{description}</p>
@@ -115,9 +115,7 @@ export function CompanyTraySettingsCard() {
       </div>
 
       {!isDesktop && (
-        <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-          {t('company.tray.desktopOnly')}
-        </div>
+        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.tray.desktopOnly')}</div>
       )}
 
       {settingsQuery.error && (

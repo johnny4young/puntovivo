@@ -209,14 +209,14 @@ export function CustomerCatalogsPage() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-secondary-200 bg-white p-2">
+      <div className="segmented-control mb-6">
         {customerCatalogTabs.map(([key]) => (
           <button
             key={key}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`segmented-tab ${
               activeCatalog === key
-                ? 'bg-primary-600 text-white'
-                : 'text-secondary-600 hover:bg-secondary-100 hover:text-secondary-900'
+                ? 'segmented-tab-active'
+                : ''
             }`}
             onClick={() => {
               setActiveCatalog(key);

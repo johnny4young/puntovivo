@@ -71,72 +71,75 @@ export function CashSessionOpenModal({
       title={t('cashSession.form.title')}
       footer={
         <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
+          <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
             {t('cashSession.form.cancel')}
           </ModalButton>
           <ModalButton
             variant="primary"
             onClick={handleSubmit}
             disabled={isSaving || !!mismatchMessage}
+            className="sm:min-w-[10rem]"
           >
             {isSaving ? t('cashSession.form.opening') : t('cashSession.form.confirm')}
           </ModalButton>
         </>
       }
     >
-      <form className="space-y-5" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
-          <div>
-            <label htmlFor="cash-session-register" className="label">
-              {t('cashSession.form.registerName')}
-            </label>
-            <input
-              id="cash-session-register"
-              className="input mt-1"
-              {...form.register('registerName', {
-                required: t('cashSession.form.registerNameRequired'),
-              })}
-            />
-            {form.formState.errors.registerName && (
-              <p className="mt-1 text-sm text-danger-500">
-                {form.formState.errors.registerName.message}
-              </p>
-            )}
-          </div>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <section className="card-inset p-4 sm:p-5">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
+            <div>
+              <label htmlFor="cash-session-register" className="label">
+                {t('cashSession.form.registerName')}
+              </label>
+              <input
+                id="cash-session-register"
+                className="input mt-1"
+                {...form.register('registerName', {
+                  required: t('cashSession.form.registerNameRequired'),
+                })}
+              />
+              {form.formState.errors.registerName && (
+                <p className="mt-1 text-sm text-danger-500">
+                  {form.formState.errors.registerName.message}
+                </p>
+              )}
+            </div>
 
-          <div>
-            <label htmlFor="cash-session-opening-float" className="label">
-              {t('cashSession.form.openingFloat')}
-            </label>
-            <input
-              id="cash-session-opening-float"
-              type="number"
-              min={0}
-              step="0.01"
-              className="input mt-1"
-              {...form.register('openingFloat', {
-                valueAsNumber: true,
-                min: {
-                  value: 0,
-                  message: t('cashSession.form.openingFloatRequired'),
-                },
-              })}
-            />
-            {form.formState.errors.openingFloat && (
-              <p className="mt-1 text-sm text-danger-500">
-                {form.formState.errors.openingFloat.message}
-              </p>
-            )}
+            <div>
+              <label htmlFor="cash-session-opening-float" className="label">
+                {t('cashSession.form.openingFloat')}
+              </label>
+              <input
+                id="cash-session-opening-float"
+                type="number"
+                min={0}
+                step="0.01"
+                className="input mt-1"
+                {...form.register('openingFloat', {
+                  valueAsNumber: true,
+                  min: {
+                    value: 0,
+                    message: t('cashSession.form.openingFloatRequired'),
+                  },
+                })}
+              />
+              {form.formState.errors.openingFloat && (
+                <p className="mt-1 text-sm text-danger-500">
+                  {form.formState.errors.openingFloat.message}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-[24px] border border-secondary-200 bg-secondary-50/80 p-4">
+        <section className="card-inset p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
                 {t('cashSession.form.countedTotal')}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-secondary-950">
+              <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
                 {formatCurrency(countedTotal)}
               </p>
             </div>
@@ -145,17 +148,17 @@ export function CashSessionOpenModal({
               <p className="mt-1 font-medium text-secondary-900">{formatCurrency(openingFloat || 0)}</p>
             </div>
           </div>
-          <p className="mt-3 text-sm text-secondary-600">{t('cashSession.form.description')}</p>
+          <p className="mt-3 text-sm leading-6 text-secondary-600">{t('cashSession.form.description')}</p>
           {mismatchMessage && <p className="mt-3 text-sm text-danger-500">{mismatchMessage}</p>}
-        </div>
+        </section>
 
-        <div className="space-y-3">
+        <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-secondary-950">
+              <h3 className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-secondary-500">
                 {t('cashSession.form.denominations')}
               </h3>
-              <p className="mt-1 text-sm text-secondary-500">
+              <p className="mt-2 text-sm leading-6 text-secondary-500">
                 {t('cashSession.form.denominationsHint')}
               </p>
             </div>
@@ -163,10 +166,7 @@ export function CashSessionOpenModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             {denominationFieldArray.fields.map((field, index) => (
-              <div
-                key={field.value}
-                className="rounded-[20px] border border-secondary-200 bg-white px-4 py-3"
-              >
+              <div key={field.value} className="card-inset bg-surface/92 px-4 py-3">
                 <input
                   type="hidden"
                   {...form.register(`denominations.${index}.value`, {
@@ -206,7 +206,7 @@ export function CashSessionOpenModal({
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>

@@ -139,14 +139,14 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
           </button>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-secondary-200 bg-secondary-50 p-4">
+        <div className="surface-panel-muted mt-6">
           <p className="text-sm font-medium text-secondary-800">{t('company.logo.currentLogo')}</p>
           {company?.logoUrl ? (
             <div className="mt-3 flex items-center gap-4">
               <img
                 src={company.logoUrl}
                 alt={company.logoName ?? company.name}
-                className="h-16 w-16 rounded-xl border border-secondary-200 bg-white object-contain p-2"
+                className="h-16 w-16 rounded-xl border border-line/80 bg-surface object-contain p-2"
               />
               <div>
                 <p className="font-medium text-secondary-900">{company.logoName ?? t('company.logo.selectedLogo')}</p>
@@ -182,7 +182,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         {!logosQuery.isLoading && !logosQuery.error && (
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {logos.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-secondary-300 bg-white px-4 py-8 text-center text-sm text-secondary-500 md:col-span-2 xl:col-span-3">
+              <div className="surface-empty px-4 py-8 text-center md:col-span-2 xl:col-span-3">
                 {t('company.logo.emptyLibrary')}
               </div>
             )}
@@ -195,7 +195,11 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               return (
                 <div
                   key={logo.id}
-                  className={`rounded-2xl border p-4 ${isSelected ? 'border-primary-300 bg-primary-50' : 'border-secondary-200 bg-white'}`}
+                  className={`rounded-2xl border p-4 ${
+                    isSelected
+                      ? 'border-primary-300 bg-primary-50/70 dark:border-primary-400/35 dark:bg-primary-400/14'
+                      : 'border-line/80 bg-surface'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -225,7 +229,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <img
                     src={logo.imageUrl}
                     alt={logo.name}
-                    className="mt-4 h-32 w-full rounded-xl border border-secondary-200 bg-secondary-50 object-contain p-3"
+                    className="mt-4 h-32 w-full rounded-xl border border-line/80 bg-surface-2/86 object-contain p-3"
                   />
 
                   <div className="mt-4 flex items-center justify-between gap-2">
