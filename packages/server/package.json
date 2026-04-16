@@ -16,6 +16,7 @@
     "native:rebuild:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
     "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "npm run native:ensure:node && tsx watch src/standalone.ts",
     "start": "npm run native:ensure:node && node dist/standalone.js",
     "test": "npm run native:ensure:node && vitest run",
