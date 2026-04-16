@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Site } from '@/types';
 import { clearStoredSiteId, getStoredSiteId, persistSiteId } from './siteStorage';
 
@@ -38,7 +38,15 @@ export function useActiveSite({
   sites: Site[];
   fallbackSiteId: string | null;
 }) {
-  const [currentSiteId, setCurrentSiteId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<{
+    tenantId: string | null;
+    siteId: string | null;
+  }>({
+    tenantId: null,
+    siteId: null,
+  });
+
+  const selectedSiteId = selection.tenantId === tenantId ? selection.siteId : null;
 
   const resolvedSiteId = useMemo(() => {
     if (!tenantId || sites.length === 0) {
@@ -46,36 +54,12 @@ export function useActiveSite({
     }
 
     return resolveSiteId({
-      currentSiteId,
+      currentSiteId: selectedSiteId,
       storedSiteId: getStoredSiteId(tenantId),
       fallbackSiteId,
       sites,
     });
-  }, [currentSiteId, fallbackSiteId, sites, tenantId]);
-
-  useEffect(() => {
-    if (!tenantId) {
-      setCurrentSiteId(null);
-    }
-  }, [tenantId]);
-
-  useEffect(() => {
-    if (!tenantId) {
-      return;
-    }
-
-    if (sites.length === 0) {
-      if (currentSiteId !== null) {
-        setCurrentSiteId(null);
-      }
-      clearStoredSiteId(tenantId);
-      return;
-    }
-
-    if (resolvedSiteId !== currentSiteId) {
-      setCurrentSiteId(resolvedSiteId);
-    }
-  }, [currentSiteId, resolvedSiteId, sites.length, tenantId]);
+  }, [selectedSiteId, fallbackSiteId, sites, tenantId]);
 
   useEffect(() => {
     if (!tenantId) {
@@ -95,13 +79,20 @@ export function useActiveSite({
     [resolvedSiteId, sites]
   );
 
-  const switchSite = async (siteId: string) => {
-    if (!sites.some(site => site.id === siteId)) {
-      return;
-    }
+  const switchSite = useCallback(
+    async (siteId: string) => {
+      if (!tenantId) {
+        return;
+      }
 
-    setCurrentSiteId(siteId);
-  };
+      if (!sites.some(site => site.id === siteId)) {
+        return;
+      }
+
+      setSelection({ tenantId, siteId });
+    },
+    [sites, tenantId]
+  );
 
   return {
     currentSite,

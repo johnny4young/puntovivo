@@ -136,6 +136,34 @@ export function StorageProvider({
     isElectron: isElectron(),
   });
 
+  const refreshPendingCountFor = useCallback(
+    async (
+      tenantIdOverride?: string | null,
+      { force = false }: { force?: boolean } = {}
+    ) => {
+      const tenantId = tenantIdOverride ?? state.tenantId;
+
+      if (!tenantId) return;
+      if (!force && !state.isInitialized) return;
+
+      try {
+        const count = state.isElectron
+          ? (await window.api!.sync.getStatus(tenantId)).pendingItems
+          : await getPendingCount(tenantId);
+
+        setState(prev => ({ ...prev, pendingSyncCount: count }));
+      } catch (error) {
+        console.error('Failed to refresh pending count:', error);
+      }
+    },
+    [state.isElectron, state.isInitialized, state.tenantId]
+  );
+
+  const refreshPendingCount = useCallback(
+    () => refreshPendingCountFor(),
+    [refreshPendingCountFor]
+  );
+
   // Initialize storage on mount
   useEffect(() => {
     let mounted = true;
@@ -154,6 +182,7 @@ export function StorageProvider({
             isInitialized: true,
             isInitializing: false,
           }));
+          void refreshPendingCountFor(initialTenantId ?? null, { force: true });
           onInitialized?.();
         }
       } catch (error) {
@@ -175,36 +204,17 @@ export function StorageProvider({
     return () => {
       mounted = false;
     };
-  }, [initialTenantId, onInitialized, onError]);
+  }, [initialTenantId, onInitialized, onError, refreshPendingCountFor]);
 
   // Set tenant ID
-  const setTenantId = useCallback((tenantId: string) => {
-    offlineStorage.setTenantId(tenantId);
-    setState(prev => ({ ...prev, tenantId }));
-  }, []);
-
-  // Refresh pending sync count
-  const refreshPendingCount = useCallback(async () => {
-    if (!state.tenantId) return;
-
-    try {
-      const count = state.isElectron
-        ? (await window.api!.sync.getStatus(state.tenantId)).pendingItems
-        : await getPendingCount(state.tenantId);
-
-      setState(prev => ({ ...prev, pendingSyncCount: count }));
-    } catch (error) {
-      console.error('Failed to refresh pending count:', error);
-    }
-  }, [state.tenantId, state.isElectron]);
-
-  // Refresh count when tenant changes
-  useEffect(() => {
-    if (state.isInitialized && state.tenantId) {
-      // refreshPendingCount is a callback that updates state
-      refreshPendingCount();
-    }
-  }, [state.isInitialized, state.tenantId, refreshPendingCount]);
+  const setTenantId = useCallback(
+    (tenantId: string) => {
+      offlineStorage.setTenantId(tenantId);
+      setState(prev => ({ ...prev, tenantId }));
+      void refreshPendingCountFor(tenantId, { force: true });
+    },
+    [refreshPendingCountFor]
+  );
 
   // Core CRUD methods
   const getAll = useCallback(
