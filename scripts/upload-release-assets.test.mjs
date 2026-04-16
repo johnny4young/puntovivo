@@ -33,6 +33,22 @@ test('collectReleaseAssetPaths returns only supported release assets in sorted o
   }
 });
 
+test('collectReleaseAssetPaths supports direct file inputs for prebuilt archives', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'puntovivo-release-assets-file-'));
+
+  try {
+    const archivePath = join(tempRoot, 'puntovivo-web-v1.2.3.zip');
+    const ignoredPath = join(tempRoot, 'puntovivo-web-v1.2.3.txt');
+
+    writeFileSync(archivePath, 'binary');
+    writeFileSync(ignoredPath, 'ignore');
+
+    assert.deepEqual(collectReleaseAssetPaths([archivePath, ignoredPath]), [archivePath]);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('uploadReleaseAssets shells out once per asset with gh release upload --clobber', () => {
   /** @type {Array<{command: string; args: string[]}>} */
   const calls = [];

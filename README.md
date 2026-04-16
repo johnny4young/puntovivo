@@ -230,9 +230,10 @@ AUTO_UPDATE=false npm run start
 1. Open GitHub Actions and run the manual `Release` workflow.
 2. Enter a version such as `1.0.0` or `v1.0.0`.
 3. The workflow normalizes the input to a git tag, creates or reuses the tag on `main`, and publishes the release artifacts.
-4. Desktop installers and archives are uploaded directly to the GitHub release from each platform build.
-5. If the workflow is re-run and the tag already points to the current `main` commit, the release safely reuses that tag instead of failing.
-6. The normalization, asset discovery, and rerun logic are covered by automated CI via `npm run test:release-script`.
+4. The workflow creates or reuses the draft GitHub release before any asset upload starts.
+5. The web archive plus desktop installers and archives are uploaded directly to the GitHub release from the build jobs.
+6. If the workflow is re-run and the tag or release already points to the current `main` commit, the release safely reuses that state instead of failing.
+7. The normalization, release reuse, asset discovery, and rerun logic are covered by automated CI via `npm run test:release-script`.
 
 ## Documentation
 
