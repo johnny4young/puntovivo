@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npm run build --workspace=@puntovivo/web -- --noEmit || (cd apps/web && npx tsc --noEmit)
+        run: npm run typecheck --workspace=@puntovivo/web
 
       - name: Lint
         run: npm run lint --workspace=@puntovivo/web
