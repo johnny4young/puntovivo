@@ -26,7 +26,7 @@
     "ci:web": "npm run typecheck --workspace=@puntovivo/web && npm run lint --workspace=@puntovivo/web && npm run test --workspace=@puntovivo/web -- --run && npm run build --workspace=@puntovivo/web",
     "ci:desktop": "npm run build --workspace=@puntovivo/server && npm run build --workspace=@puntovivo/web && npm run typecheck --workspace=@puntovivo/desktop && npm run lint --workspace=@puntovivo/desktop",
     "ci:server": "npm run typecheck --workspace=@puntovivo/server && npm run lint --workspace=@puntovivo/server && npm run test --workspace=@puntovivo/server",
-    "test:release-script": "node --test scripts/prepare-release-tag.test.mjs",
+    "test:release-script": "node --test scripts/prepare-release-tag.test.mjs scripts/upload-release-assets.test.mjs",
     "clean": "rm -rf node_modules apps/*/node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
