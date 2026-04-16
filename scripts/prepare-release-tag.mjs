@@ -77,7 +77,7 @@ export function resolveReleaseTagAction(state) {
 /**
  * @param {string[]} args
  */
-function runGit(args) {
+export function runGit(args) {
   return execFileSync('git', args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -87,7 +87,7 @@ function runGit(args) {
 /**
  * @param {string[]} args
  */
-function tryRunGit(args) {
+export function tryRunGit(args) {
   try {
     return runGit(args);
   } catch {
@@ -98,14 +98,14 @@ function tryRunGit(args) {
 /**
  * @param {string} tag
  */
-function getLocalTagCommit(tag) {
+export function getLocalTagCommit(tag) {
   return tryRunGit(['rev-parse', '--verify', `refs/tags/${tag}^{}`]);
 }
 
 /**
  * @param {string} tag
  */
-function getRemoteTagCommit(tag) {
+export function getRemoteTagCommit(tag) {
   const output = tryRunGit(['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${tag}^{}`]);
 
   if (!output) {
@@ -117,12 +117,22 @@ function getRemoteTagCommit(tag) {
 
 /**
  * @param {string} rawInput
+ * @param {{
+ *   getHeadCommit?: () => string;
+ *   getLocalTagCommit?: (tag: string) => string | null;
+ *   getRemoteTagCommit?: (tag: string) => string | null;
+ * }} [dependencies]
  */
-export function buildReleasePlan(rawInput) {
+export function buildReleasePlan(rawInput, dependencies = {}) {
   const preparedRelease = prepareReleaseTag(rawInput);
-  const targetCommit = runGit(['rev-parse', 'HEAD']);
-  const localTagCommit = getLocalTagCommit(preparedRelease.tag);
-  const remoteTagCommit = getRemoteTagCommit(preparedRelease.tag);
+  const {
+    getHeadCommit = () => runGit(['rev-parse', 'HEAD']),
+    getLocalTagCommit: getLocalTagCommitDependency = getLocalTagCommit,
+    getRemoteTagCommit: getRemoteTagCommitDependency = getRemoteTagCommit,
+  } = dependencies;
+  const targetCommit = getHeadCommit();
+  const localTagCommit = getLocalTagCommitDependency(preparedRelease.tag);
+  const remoteTagCommit = getRemoteTagCommitDependency(preparedRelease.tag);
   const action = resolveReleaseTagAction({
     targetCommit,
     localTagCommit,

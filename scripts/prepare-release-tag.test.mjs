@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareReleaseTag, resolveReleaseTagAction } from './prepare-release-tag.mjs';
+import {
+  buildReleasePlan,
+  prepareReleaseTag,
+  resolveReleaseTagAction,
+} from './prepare-release-tag.mjs';
 
 test('normalizes a bare semantic version into a v-prefixed tag', () => {
   assert.deepEqual(prepareReleaseTag('1.2.3'), {
@@ -102,5 +106,49 @@ test('fails when an existing local tag points to a different commit', () => {
         remoteTagCommit: null,
       }),
     /Local tag already points to def456, but main is at abc123/
+  );
+});
+
+test('buildReleasePlan calculates a create action from injected git dependencies', () => {
+  const releasePlan = buildReleasePlan('1.2.3', {
+    getHeadCommit: () => 'abc123',
+    getLocalTagCommit: () => null,
+    getRemoteTagCommit: () => null,
+  });
+
+  assert.deepEqual(releasePlan, {
+    input: '1.2.3',
+    version: '1.2.3',
+    tag: 'v1.2.3',
+    releaseName: 'Release v1.2.3',
+    prerelease: false,
+    targetCommit: 'abc123',
+    localTagCommit: null,
+    remoteTagCommit: null,
+    action: 'create',
+  });
+});
+
+test('buildReleasePlan calculates a reuse action from injected git dependencies', () => {
+  const releasePlan = buildReleasePlan('v1.2.3-rc.1', {
+    getHeadCommit: () => 'abc123',
+    getLocalTagCommit: () => 'abc123',
+    getRemoteTagCommit: () => 'abc123',
+  });
+
+  assert.equal(releasePlan.tag, 'v1.2.3-rc.1');
+  assert.equal(releasePlan.prerelease, true);
+  assert.equal(releasePlan.action, 'reuse');
+});
+
+test('buildReleasePlan surfaces conflicting remote tags through injected git dependencies', () => {
+  assert.throws(
+    () =>
+      buildReleasePlan('1.2.3', {
+        getHeadCommit: () => 'abc123',
+        getLocalTagCommit: () => null,
+        getRemoteTagCommit: () => 'def456',
+      }),
+    /Remote tag already points to def456, but main is at abc123/
   );
 });
