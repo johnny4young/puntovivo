@@ -104,3 +104,15 @@ test('uploadReleaseAssets fails when gh upload fails', () => {
     /Failed to upload release asset \/tmp\/app\.exe: upload rejected/
   );
 });
+
+test('uploadReleaseAssets surfaces gh spawn failures', () => {
+  assert.throws(
+    () =>
+      uploadReleaseAssets('v1.2.3', ['/tmp/app.exe'], {
+        spawn() {
+          return { status: null, error: new Error('spawn gh EACCES') };
+        },
+      }),
+    /Failed to upload release asset \/tmp\/app\.exe: spawn gh EACCES/
+  );
+});
