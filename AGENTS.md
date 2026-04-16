@@ -61,10 +61,10 @@ The Fastify server runs **in-process** inside the Electron main process — it i
 
 These skills must be run before committing any changes in the listed areas. Treat their findings as mandatory, not suggestions.
 
-| Area | Skill |
-|------|-------|
-| Any React or TypeScript in `apps/web` | `typescript-react-reviewer` |
-| Any Node.js / backend in `packages/server` or `apps/desktop/src/main` | `node` |
+| Area                                                                  | Skill                       |
+| --------------------------------------------------------------------- | --------------------------- |
+| Any React or TypeScript in `apps/web`                                 | `typescript-react-reviewer` |
+| Any Node.js / backend in `packages/server` or `apps/desktop/src/main` | `node`                      |
 
 Run both in parallel when a change touches both frontend and backend.
 
@@ -76,9 +76,9 @@ Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but th
 
 - `.github/workflows/release.yml` backend job: Has been rewritten for Node.js but may still have edge cases. Verify before modifying.
 
-## Desktop artifact uploads
+## Release workflow
 
-CI only uploads desktop build artifacts on pushes to `main`. PRs and branch pushes skip desktop artifact upload — this is intentional, not a CI bug.
+Automatic CI only validates test, lint, and build flows. Desktop/web artifacts and GitHub releases are created exclusively through the manual `release.yml` workflow.
 
 ## Git conventions
 

@@ -22,6 +22,7 @@
     "start": "npm run start --workspace=@puntovivo/desktop",
     "make": "npm run make --workspace=@puntovivo/desktop",
     "publish": "npm run publish --workspace=@puntovivo/desktop",
+    "test:release-script": "node --test scripts/prepare-release-tag.test.mjs",
     "clean": "rm -rf node_modules apps/*/node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
