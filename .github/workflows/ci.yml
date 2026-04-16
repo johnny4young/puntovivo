@@ -30,8 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run release helper tests
-        run: npm run test:release-script
+      - name: Run release automation validation
+        run: npm run ci:release
 
   # ============================================================================
   # Web Application Tests & Build
@@ -53,17 +53,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npm run typecheck --workspace=@puntovivo/web
-
-      - name: Lint
-        run: npm run lint --workspace=@puntovivo/web
-
-      - name: Run tests
-        run: npm run test --workspace=@puntovivo/web -- --run
-
-      - name: Build
-        run: npm run build --workspace=@puntovivo/web
+      - name: Run web validation
+        run: npm run ci:web
 
   # ============================================================================
   # Desktop Workspace Validation
@@ -85,17 +76,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build server package
-        run: npm run build --workspace=@puntovivo/server
-
-      - name: Build web workspace
-        run: npm run build --workspace=@puntovivo/web
-
-      - name: Type check
-        run: npm run typecheck --workspace=@puntovivo/desktop
-
-      - name: Lint
-        run: npm run lint --workspace=@puntovivo/desktop
+      - name: Run desktop validation
+        run: npm run ci:desktop
 
   # ============================================================================
   # Backend Server Tests & Build (Node.js)
@@ -117,11 +99,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npm run typecheck --workspace=@puntovivo/server
-
-      - name: Lint
-        run: npm run lint --workspace=@puntovivo/server
-
-      - name: Run tests
-        run: npm run test --workspace=@puntovivo/server
+      - name: Run backend validation
+        run: npm run ci:server
