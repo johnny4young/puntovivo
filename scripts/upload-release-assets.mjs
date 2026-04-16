@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { stderr } from 'node:process';
+import { formatGhFailure } from './github-cli-utils.mjs';
 
 const RELEASE_ASSET_EXTENSIONS = new Set(['.AppImage', '.deb', '.dmg', '.exe', '.rpm', '.zip']);
 
@@ -16,11 +17,27 @@ export function collectReleaseAssetPaths(inputPaths, allowedExtensions = RELEASE
   const pendingPaths = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
 
   /**
+   * @param {string} assetPath
+   */
+  function getPathStats(assetPath) {
+    try {
+      return statSync(assetPath);
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        throw new Error(`Release asset path does not exist: ${assetPath}`);
+      }
+
+      const message = error instanceof Error ? error.message : 'Unknown file inspection error.';
+      throw new Error(`Failed to inspect release asset path ${assetPath}: ${message}`);
+    }
+  }
+
+  /**
    * @param {string} currentPath
    */
   function collect(currentPath) {
     const absolutePath = resolve(currentPath);
-    const pathStats = statSync(absolutePath);
+    const pathStats = getPathStats(absolutePath);
 
     if (pathStats.isFile()) {
       for (const extension of allowedExtensions) {
@@ -83,11 +100,12 @@ export function uploadReleaseAssets(tag, assetPaths, dependencies = {}) {
 
   for (const assetPath of assetPaths) {
     const result = spawn('gh', ['release', 'upload', tag, assetPath, '--clobber'], {
-      stdio: 'inherit',
+      encoding: 'utf8',
+      stdio: ['inherit', 'inherit', 'pipe'],
     });
 
     if (result.status !== 0) {
-      throw new Error(`Failed to upload release asset: ${assetPath}`);
+      throw new Error(formatGhFailure(`Failed to upload release asset ${assetPath}`, result));
     }
   }
 

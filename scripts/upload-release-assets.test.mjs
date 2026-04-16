@@ -49,6 +49,15 @@ test('collectReleaseAssetPaths supports direct file inputs for prebuilt archives
   }
 });
 
+test('collectReleaseAssetPaths fails with a clear message when an input path is missing', () => {
+  const missingPath = join(tmpdir(), 'puntovivo-missing-release-asset.zip');
+
+  assert.throws(
+    () => collectReleaseAssetPaths(missingPath),
+    /Release asset path does not exist: .*puntovivo-missing-release-asset\.zip/
+  );
+});
+
 test('uploadReleaseAssets shells out once per asset with gh release upload --clobber', () => {
   /** @type {Array<{command: string; args: string[]}>} */
   const calls = [];
@@ -89,9 +98,9 @@ test('uploadReleaseAssets fails when gh upload fails', () => {
     () =>
       uploadReleaseAssets('v1.2.3', ['/tmp/app.exe'], {
         spawn() {
-          return { status: 1 };
+          return { status: 1, stderr: 'upload rejected' };
         },
       }),
-    /Failed to upload release asset: \/tmp\/app\.exe/
+    /Failed to upload release asset \/tmp\/app\.exe: upload rejected/
   );
 });
