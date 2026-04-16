@@ -92,6 +92,18 @@ test('ensureGitHubRelease fails when gh view errors for a non-404 reason', () =>
   );
 });
 
+test('ensureGitHubRelease surfaces gh spawn failures while inspecting', () => {
+  assert.throws(
+    () =>
+      ensureGitHubRelease('v1.2.3', 'Release v1.2.3', false, {
+        spawn() {
+          return { status: null, error: new Error('spawn gh ENOENT') };
+        },
+      }),
+    /Failed to inspect GitHub release v1.2.3: spawn gh ENOENT/
+  );
+});
+
 test('publishGitHubRelease publishes a draft release', () => {
   const calls = [];
 
@@ -136,6 +148,21 @@ test('publishGitHubRelease reuses an already published release', () => {
   assert.deepEqual(result, { action: 'reuse' });
 });
 
+test('publishGitHubRelease fails when gh view returns invalid json', () => {
+  assert.throws(
+    () =>
+      publishGitHubRelease('v1.2.3', {
+        spawn() {
+          return {
+            status: 0,
+            stdout: 'not-json',
+          };
+        },
+      }),
+    /GitHub release v1.2.3 returned invalid metadata:[\s\S]*Unexpected token/
+  );
+});
+
 test('publishGitHubRelease fails when the release does not exist', () => {
   assert.throws(
     () =>
@@ -157,6 +184,18 @@ test('publishGitHubRelease fails when gh view errors for a non-404 reason', () =
         },
       }),
     /Failed to inspect GitHub release v1.2.3: network timeout/
+  );
+});
+
+test('publishGitHubRelease surfaces gh spawn failures while inspecting', () => {
+  assert.throws(
+    () =>
+      publishGitHubRelease('v1.2.3', {
+        spawn() {
+          return { status: null, error: new Error('spawn gh EPERM') };
+        },
+      }),
+    /Failed to inspect GitHub release v1.2.3: spawn gh EPERM/
   );
 });
 

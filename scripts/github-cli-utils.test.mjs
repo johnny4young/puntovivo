@@ -45,6 +45,24 @@ test('getGhOutputText ignores fields that are empty after trimming', () => {
   assert.equal(getGhOutputText({ stdout: '   ', stderr: 'error detail' }), 'error detail');
 });
 
+test('getGhOutputText returns the error message when only the error field is set', () => {
+  assert.equal(
+    getGhOutputText({ stdout: null, stderr: null, error: new Error('spawn gh ENOENT') }),
+    'spawn gh ENOENT'
+  );
+});
+
+test('getGhOutputText combines stderr and error message when both are present', () => {
+  assert.equal(
+    getGhOutputText({ stdout: null, stderr: 'pipe broken', error: new Error('spawn gh EPERM') }),
+    'pipe broken\nspawn gh EPERM'
+  );
+});
+
+test('getGhOutputText handles a null error field gracefully', () => {
+  assert.equal(getGhOutputText({ stdout: null, stderr: null, error: null }), '');
+});
+
 // ── formatGhFailure ──────────────────────────────────────────────────────────
 
 test('formatGhFailure returns context with a trailing period when output is empty', () => {
@@ -126,6 +144,13 @@ test('isMissingReleaseLookup returns false when output is empty', () => {
 test('isMissingReleaseLookup does not match partial 404 substrings', () => {
   assert.equal(
     isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'error code 4040' }),
+    false
+  );
+});
+
+test('isMissingReleaseLookup returns false for spawn failures where gh itself could not start', () => {
+  assert.equal(
+    isMissingReleaseLookup({ status: null, stdout: null, stderr: null, error: new Error('spawn gh ENOENT') }),
     false
   );
 });

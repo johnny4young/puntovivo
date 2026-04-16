@@ -4,6 +4,24 @@ import { formatGhFailure, isMissingReleaseLookup } from './github-cli-utils.mjs'
 
 /**
  * @param {string} tag
+ * @param {{ stdout?: string | Buffer | null; stderr?: string | Buffer | null }} viewResult
+ */
+function parseReleaseView(tag, viewResult) {
+  try {
+    return JSON.parse(String(viewResult.stdout));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown JSON parse error.';
+    throw new Error(
+      formatGhFailure(`GitHub release ${tag} returned invalid metadata`, {
+        stdout: viewResult.stdout,
+        stderr: message,
+      })
+    );
+  }
+}
+
+/**
+ * @param {string} tag
  * @param {string} releaseName
  * @param {boolean} prerelease
  * @param {{
@@ -73,7 +91,7 @@ export function publishGitHubRelease(tag, dependencies = {}) {
     throw new Error(formatGhFailure(`Failed to inspect GitHub release ${tag}`, viewResult));
   }
 
-  const parsedResult = JSON.parse(String(viewResult.stdout));
+  const parsedResult = parseReleaseView(tag, viewResult);
   if (parsedResult.isDraft === false) {
     return { action: 'reuse' };
   }
