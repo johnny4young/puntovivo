@@ -35,11 +35,19 @@ If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`
 
 Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebuild`, use `41.1.0` instead of older examples.
 
-If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime too:
+If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
 
 ```
 node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 ```
+
+### Why two compiled binaries are needed
+
+Electron 41 uses MODULE_VERSION 145 (its own embedded Node.js runtime). Standalone Node.js 24.x uses MODULE_VERSION 137. These are different runtimes — there is no public Node.js release with MODULE_VERSION 145, and you cannot make the system Node.js match Electron's internal version.
+
+The `scripts/ensure-native-runtime.mjs` script handles this by caching both compiled versions of `better-sqlite3` under `node_modules/.cache/puntovivo/native-binaries/` and swapping between them automatically at startup. This cache can become stale if workspace symlinks break (e.g. after a fresh `npm install` with no rebuild). When that happens, re-run the rebuild commands above.
+
+**Long-term fix to track:** Migrate `better-sqlite3` to a build that uses N-API. N-API is ABI-stable across Node.js and Electron versions, meaning a single compiled binary would work everywhere without the dual-binary swap. However, `better-sqlite3` v12 does not use N-API in its critical bindings — this depends on an upstream change in that library.
 
 ## Architecture landmine: embedded backend
 
@@ -49,9 +57,20 @@ The Fastify server runs **in-process** inside the Electron main process — it i
 
 `/api/trpc` is the canonical application API. `/api/health` remains as a compatibility health endpoint and `/api/realtime/*` remains for SSE. Do not reintroduce new REST route docs or code paths for auth, collections, or sync.
 
-## Required review skill for React/TypeScript work
+## Required review skills — mandatory before finalizing changes
 
-For any React or TypeScript implementation, refactor, or review in `apps/web`, you **must** use the `typescript-react-reviewer` skill before finalizing changes. Treat its checks on derived state, effect abuse, type safety, and maintainability as mandatory, not optional.
+These skills must be run before committing any changes in the listed areas. Treat their findings as mandatory, not suggestions.
+
+| Area | Skill |
+|------|-------|
+| Any React or TypeScript in `apps/web` | `typescript-react-reviewer` |
+| Any Node.js / backend in `packages/server` or `apps/desktop/src/main` | `node` |
+
+Run both in parallel when a change touches both frontend and backend.
+
+## Node.js version constraint
+
+Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but the root constraint takes precedence. Use Node 22+.
 
 ## Stale files — do not rely on
 
@@ -61,6 +80,13 @@ For any React or TypeScript implementation, refactor, or review in `apps/web`, y
 
 CI only uploads desktop build artifacts on pushes to `main`. PRs and branch pushes skip desktop artifact upload — this is intentional, not a CI bug.
 
-## Node.js version constraint
+## Git conventions
 
-Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but the root constraint takes precedence. Use Node 22+.
+Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chore:`). Scope with the module name: `feat(products):`, `fix(auth):`, etc.
+
+## Adding new features — checklist
+
+1. Schema change → update both `packages/server/src/db/schema.ts` (Drizzle) AND the raw DDL in `packages/server/src/db/index.ts`.
+2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire in router, update frontend type in `apps/web/src/types/index.ts`.
+3. New frontend page → add route in `apps/web/src/App.tsx`, add sidebar entry in the layout component.
+4. Run `typescript-react-reviewer` on frontend changes and `node` skill on backend changes before committing.

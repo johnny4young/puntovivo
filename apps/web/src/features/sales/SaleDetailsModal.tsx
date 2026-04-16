@@ -31,6 +31,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
+        utils.cashSessions.report.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.sales.getById.invalidate({ id: saleId ?? '' }),
@@ -60,6 +61,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       await Promise.all([
         utils.cashSessions.getActive.invalidate(),
         utils.cashSessions.movements.invalidate(),
+        utils.cashSessions.report.invalidate(),
         utils.sales.list.invalidate(),
         utils.sales.summary.invalidate(),
         utils.sales.getById.invalidate({ id: saleId ?? '' }),

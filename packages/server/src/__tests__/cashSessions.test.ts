@@ -501,4 +501,162 @@ describe('Cash sessions tRPC Router', () => {
 
     expect(movements).toEqual([]);
   });
+
+  it('builds a cash management report with active sessions and discrepancy summary for admins', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const activeCashierId = nanoid();
+    const closedCashierId = nanoid();
+
+    await db.insert(users).values([
+      {
+        id: activeCashierId,
+        tenantId,
+        email: 'cash-report-active@example.com',
+        name: 'Cash Report Active',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: closedCashierId,
+        tenantId,
+        email: 'cash-report-closed@example.com',
+        name: 'Cash Report Closed',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const activeCaller = appRouter.createCaller(
+      createTestContext({
+        id: activeCashierId,
+        email: 'cash-report-active@example.com',
+        role: 'cashier',
+      })
+    );
+    const closedCaller = appRouter.createCaller(
+      createTestContext({
+        id: closedCashierId,
+        email: 'cash-report-closed@example.com',
+        role: 'cashier',
+      })
+    );
+    const adminCaller = appRouter.createCaller(createTestContext());
+    const baselineReport = await adminCaller.cashSessions.report({ limit: 20 });
+
+    await activeCaller.cashSessions.open({
+      registerName: 'North register',
+      openingFloat: 60,
+      denominations: [{ value: 20, count: 3 }],
+    });
+
+    await closedCaller.cashSessions.open({
+      registerName: 'South register',
+      openingFloat: 80,
+      denominations: [{ value: 20, count: 4 }],
+    });
+
+    await closedCaller.cashSessions.close({
+      actualCount: 75,
+      denominations: [{ value: 20, count: 3 }, { value: 10, count: 1 }, { value: 5, count: 1 }],
+    });
+
+    const report = await adminCaller.cashSessions.report({ limit: 20 });
+
+    expect(report.summary).toEqual({
+      activeSessionCount: baselineReport.summary.activeSessionCount + 1,
+      activeRegisterCount: baselineReport.summary.activeRegisterCount + 1,
+      recentClosureCount: baselineReport.summary.recentClosureCount + 1,
+      reviewCount: baselineReport.summary.reviewCount + 1,
+      netOverShort: baselineReport.summary.netOverShort - 5,
+      largestDiscrepancy: Math.max(baselineReport.summary.largestDiscrepancy, 5),
+    });
+    expect(report.activeSessions).toContainEqual(
+      expect.objectContaining({
+        registerName: 'North register',
+        cashierName: 'Cash Report Active',
+        status: 'open',
+      })
+    );
+    expect(report.recentClosures).toContainEqual(
+      expect.objectContaining({
+        registerName: 'South register',
+        cashierName: 'Cash Report Closed',
+        status: 'closed',
+        overShort: -5,
+      })
+    );
+  });
+
+  it('limits cash management report visibility to the current cashier when not privileged', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const ownerId = nanoid();
+    const viewerId = nanoid();
+
+    await db.insert(users).values([
+      {
+        id: ownerId,
+        tenantId,
+        email: 'cash-report-owner@example.com',
+        name: 'Cash Report Owner',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: viewerId,
+        tenantId,
+        email: 'cash-report-viewer@example.com',
+        name: 'Cash Report Viewer',
+        passwordHash: 'hash',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const ownerCaller = appRouter.createCaller(
+      createTestContext({
+        id: ownerId,
+        email: 'cash-report-owner@example.com',
+        role: 'cashier',
+      })
+    );
+    const viewerCaller = appRouter.createCaller(
+      createTestContext({
+        id: viewerId,
+        email: 'cash-report-viewer@example.com',
+        role: 'cashier',
+      })
+    );
+
+    await ownerCaller.cashSessions.open({
+      registerName: 'Owner report register',
+      openingFloat: 50,
+      denominations: [{ value: 10, count: 5 }],
+    });
+
+    const report = await viewerCaller.cashSessions.report({ limit: 5 });
+
+    expect(report.summary).toEqual({
+      activeSessionCount: 0,
+      activeRegisterCount: 0,
+      recentClosureCount: 0,
+      reviewCount: 0,
+      netOverShort: 0,
+      largestDiscrepancy: 0,
+    });
+    expect(report.activeSessions).toEqual([]);
+    expect(report.recentClosures).toEqual([]);
+  });
 });

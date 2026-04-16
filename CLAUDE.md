@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Operational guidance for Claude Code sessions. Covers non-discoverable constraints, required workflows, and project conventions.
+Operational guidance for Claude Code sessions. Only non-discoverable constraints are listed here — do not add stack summaries or things readable from code/config.
 
 ## Commands
 
@@ -33,7 +33,7 @@ Or use the workspace shortcut: `npm run rebuild --workspace=@puntovivo/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
-Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebuild`, use `41.1.0`.
+Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebuild`, use `41.1.0` instead of older examples.
 
 If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
 

@@ -16,11 +16,72 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
   cashSessionMovementsInput,
+  cashSessionReportInput,
   closeCashSessionInput,
   getActiveCashSessionInput,
   openCashSessionInput,
   recordCashMovementInput,
 } from '../schemas/cashSessions.js';
+
+const CASH_SESSION_REVIEW_EPSILON = 0.009;
+
+const cashSessionRecordSelection = {
+  id: cashSessions.id,
+  tenantId: cashSessions.tenantId,
+  siteId: cashSessions.siteId,
+  siteName: sites.name,
+  cashierId: cashSessions.cashierId,
+  cashierName: users.name,
+  registerName: cashSessions.registerName,
+  openingFloat: cashSessions.openingFloat,
+  openingCountDenominations: cashSessions.openingCountDenominations,
+  expectedBalance: cashSessions.expectedBalance,
+  actualCount: cashSessions.actualCount,
+  actualCountDenominations: cashSessions.actualCountDenominations,
+  overShort: cashSessions.overShort,
+  status: cashSessions.status,
+  openedAt: cashSessions.openedAt,
+  closedAt: cashSessions.closedAt,
+  createdAt: cashSessions.createdAt,
+  updatedAt: cashSessions.updatedAt,
+} as const;
+
+function isPrivilegedCashSessionRole(role: string | undefined) {
+  return role === 'admin' || role === 'manager';
+}
+
+function roundCurrencyAmount(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getCashSessionDiscrepancy(value: number | null | undefined) {
+  return Math.abs(value ?? 0);
+}
+
+function buildCashSessionReportSummary(
+  activeSessions: Array<{ registerName: string }>,
+  recentClosures: Array<{ overShort: number | null }>
+) {
+  const reviewSessions = recentClosures.filter(
+    session => getCashSessionDiscrepancy(session.overShort) > CASH_SESSION_REVIEW_EPSILON
+  );
+
+  return {
+    activeSessionCount: activeSessions.length,
+    activeRegisterCount: new Set(activeSessions.map(session => session.registerName)).size,
+    recentClosureCount: recentClosures.length,
+    reviewCount: reviewSessions.length,
+    netOverShort: roundCurrencyAmount(
+      recentClosures.reduce((sum, session) => sum + (session.overShort ?? 0), 0)
+    ),
+    largestDiscrepancy: roundCurrencyAmount(
+      reviewSessions.reduce(
+        (max, session) => Math.max(max, getCashSessionDiscrepancy(session.overShort)),
+        0
+      )
+    ),
+  };
+}
 
 async function getCashSessionRecord(
   db: DatabaseInstance,
@@ -28,26 +89,7 @@ async function getCashSessionRecord(
   id: string
 ) {
   return db
-    .select({
-      id: cashSessions.id,
-      tenantId: cashSessions.tenantId,
-      siteId: cashSessions.siteId,
-      siteName: sites.name,
-      cashierId: cashSessions.cashierId,
-      cashierName: users.name,
-      registerName: cashSessions.registerName,
-      openingFloat: cashSessions.openingFloat,
-      openingCountDenominations: cashSessions.openingCountDenominations,
-      expectedBalance: cashSessions.expectedBalance,
-      actualCount: cashSessions.actualCount,
-      actualCountDenominations: cashSessions.actualCountDenominations,
-      overShort: cashSessions.overShort,
-      status: cashSessions.status,
-      openedAt: cashSessions.openedAt,
-      closedAt: cashSessions.closedAt,
-      createdAt: cashSessions.createdAt,
-      updatedAt: cashSessions.updatedAt,
-    })
+    .select(cashSessionRecordSelection)
     .from(cashSessions)
     .innerJoin(sites, eq(cashSessions.siteId, sites.id))
     .innerJoin(users, eq(cashSessions.cashierId, users.id))
@@ -138,6 +180,48 @@ export const cashSessionsRouter = router({
       .where(eq(cashSessions.tenantId, ctx.tenantId))
       .orderBy(desc(cashSessions.openedAt))
       .limit(20);
+  }),
+
+  report: tenantProcedure.input(cashSessionReportInput).query(async ({ ctx, input }) => {
+    if (!ctx.user || !ctx.siteId) {
+      return {
+        summary: buildCashSessionReportSummary([], []),
+        activeSessions: [],
+        recentClosures: [],
+      };
+    }
+
+    const reportConditions = [
+      eq(cashSessions.tenantId, ctx.tenantId),
+      eq(cashSessions.siteId, ctx.siteId),
+    ];
+
+    if (!isPrivilegedCashSessionRole(ctx.user.role)) {
+      reportConditions.push(eq(cashSessions.cashierId, ctx.user.id));
+    }
+
+    const activeSessions = await ctx.db
+      .select(cashSessionRecordSelection)
+      .from(cashSessions)
+      .innerJoin(sites, eq(cashSessions.siteId, sites.id))
+      .innerJoin(users, eq(cashSessions.cashierId, users.id))
+      .where(and(...reportConditions, eq(cashSessions.status, 'open')))
+      .orderBy(desc(cashSessions.openedAt));
+
+    const recentClosures = await ctx.db
+      .select(cashSessionRecordSelection)
+      .from(cashSessions)
+      .innerJoin(sites, eq(cashSessions.siteId, sites.id))
+      .innerJoin(users, eq(cashSessions.cashierId, users.id))
+      .where(and(...reportConditions, eq(cashSessions.status, 'closed')))
+      .orderBy(desc(cashSessions.closedAt), desc(cashSessions.updatedAt))
+      .limit(input?.limit ?? 6);
+
+    return {
+      summary: buildCashSessionReportSummary(activeSessions, recentClosures),
+      activeSessions,
+      recentClosures,
+    };
   }),
 
   open: tenantProcedure.input(openCashSessionInput).mutation(async ({ ctx, input }) => {

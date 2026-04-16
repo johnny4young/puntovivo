@@ -102,6 +102,7 @@ Source:
 - `open` — opens a session after validating the opening float matches the denomination count
 - `close` — closes the session in blind mode (expected balance stays hidden until count submission) and writes `actualCount`, `overShort`, and `closedAt`
 - `movements` — paginated timeline of cash movements for a session (cashier sees own; admin/manager sees any session in the active site)
+- `report` — active-site cash management report with active sessions, recent closures, and over/short summary (cashier sees own sessions only; admin/manager see site-wide data)
 - `recordMovement` — manual paid-in / paid-out / skim / replenishment entries with an audit note
 
 Automatic movements:
