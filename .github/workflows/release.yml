@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Git tag to create and release (for example v1.2.3)'
+        description: 'Release version or tag to create and publish (for example 1.2.3 or v1.2.3)'
         required: true
         type: string
 
@@ -22,6 +22,13 @@ jobs:
   create-tag:
     name: Create Tag
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      tag: ${{ steps.prepare.outputs.tag }}
+      release_name: ${{ steps.prepare.outputs.release_name }}
+      prerelease: ${{ steps.prepare.outputs.prerelease }}
+      target_commit: ${{ steps.prepare.outputs.target_commit }}
+      action: ${{ steps.prepare.outputs.action }}
 
     steps:
       - name: Checkout repository
@@ -30,27 +37,36 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Prepare release tag
+        id: prepare
+        run: node ./scripts/prepare-release-tag.mjs "${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+
       - name: Configure Git author
+        if: steps.prepare.outputs.action != 'reuse'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Ensure tag does not already exist
+      - name: Create local tag
+        if: steps.prepare.outputs.action == 'create'
         run: |
-          if git rev-parse --verify --quiet "refs/tags/${{ inputs.tag }}" >/dev/null; then
-            echo "Tag ${{ inputs.tag }} already exists locally."
-            exit 1
-          fi
+          git tag -a "${{ steps.prepare.outputs.tag }}" -m "${{ steps.prepare.outputs.release_name }}"
 
-          if git ls-remote --exit-code --tags origin "refs/tags/${{ inputs.tag }}" >/dev/null 2>&1; then
-            echo "Tag ${{ inputs.tag }} already exists on origin."
-            exit 1
-          fi
-
-      - name: Create and push tag
+      - name: Push tag to origin
+        if: steps.prepare.outputs.action == 'create' || steps.prepare.outputs.action == 'push'
         run: |
-          git tag -a "${{ inputs.tag }}" -m "Release ${{ inputs.tag }}"
-          git push origin "refs/tags/${{ inputs.tag }}"
+          git push origin "refs/tags/${{ steps.prepare.outputs.tag }}"
+
+      - name: Release summary
+        run: |
+          echo "Release tag: ${{ steps.prepare.outputs.tag }}"
+          echo "Target commit: ${{ steps.prepare.outputs.target_commit }}"
+          echo "Tag action: ${{ steps.prepare.outputs.action }}"
 
   # ============================================================================
   # Create Release
@@ -62,6 +78,12 @@ jobs:
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ needs.create-tag.outputs.version }}
+      tag: ${{ needs.create-tag.outputs.tag }}
+      release_name: ${{ needs.create-tag.outputs.release_name }}
+      prerelease: ${{ needs.create-tag.outputs.prerelease }}
+      target_commit: ${{ needs.create-tag.outputs.target_commit }}
+      action: ${{ needs.create-tag.outputs.action }}
 
     steps:
       - name: Create Release
@@ -70,10 +92,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ inputs.tag }}
-          release_name: Release ${{ inputs.tag }}
+          tag_name: ${{ needs.create-tag.outputs.tag }}
+          release_name: ${{ needs.create-tag.outputs.release_name }}
           draft: true
-          prerelease: ${{ contains(inputs.tag, 'beta') || contains(inputs.tag, 'alpha') }}
+          prerelease: ${{ needs.create-tag.outputs.prerelease == 'true' }}
 
   # ============================================================================
   # Build & Upload Web
@@ -87,7 +109,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -106,7 +128,7 @@ jobs:
       - name: Create web archive
         run: |
           cd apps/web/dist
-          zip -r ../../../puntovivo-web-${{ inputs.tag }}.zip .
+          zip -r ../../../puntovivo-web-${{ needs.create-release.outputs.tag }}.zip .
 
       - name: Upload web release
         uses: actions/upload-release-asset@v1
@@ -114,8 +136,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./puntovivo-web-${{ inputs.tag }}.zip
-          asset_name: puntovivo-web-${{ inputs.tag }}.zip
+          asset_path: ./puntovivo-web-${{ needs.create-release.outputs.tag }}.zip
+          asset_name: puntovivo-web-${{ needs.create-release.outputs.tag }}.zip
           asset_content_type: application/zip
 
   # ============================================================================
@@ -140,7 +162,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ needs.create-release.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -172,7 +194,7 @@ jobs:
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: desktop-${{ matrix.platform }}-${{ inputs.tag }}
+          name: desktop-${{ matrix.platform }}-${{ needs.create-release.outputs.tag }}
           path: apps/desktop/out/make/**/*
           retention-days: 30
 

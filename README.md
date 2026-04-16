@@ -28,19 +28,19 @@
 
 ## Tech Stack
 
-| Layer       | Technology               | Purpose                      |
-| ----------- | ------------------------ | ---------------------------- |
-| Desktop     | Electron 41 + Forge      | Native desktop app           |
-| Frontend    | React 19 + TypeScript    | UI Framework                 |
-| Styling     | Tailwind CSS v4 + CVA    | Utility-first CSS + Variants |
-| Data Tables | TanStack Table           | Feature-rich tables          |
-| State       | TanStack Query + Zustand | Server & client state        |
-| Backend     | Fastify + tRPC (embedded) | App API server (in-process) |
-| ORM         | Drizzle ORM              | Type-safe database access    |
-| Database    | SQLite (better-sqlite3)  | Embedded database            |
-| Real-time   | Server-Sent Events (SSE) | Live updates                 |
-| Build       | Electron Forge + Vite    | Build & packaging            |
-| Updates     | update-electron-app      | Auto-updates from GitHub     |
+| Layer       | Technology                | Purpose                      |
+| ----------- | ------------------------- | ---------------------------- |
+| Desktop     | Electron 41 + Forge       | Native desktop app           |
+| Frontend    | React 19 + TypeScript     | UI Framework                 |
+| Styling     | Tailwind CSS v4 + CVA     | Utility-first CSS + Variants |
+| Data Tables | TanStack Table            | Feature-rich tables          |
+| State       | TanStack Query + Zustand  | Server & client state        |
+| Backend     | Fastify + tRPC (embedded) | App API server (in-process)  |
+| ORM         | Drizzle ORM               | Type-safe database access    |
+| Database    | SQLite (better-sqlite3)   | Embedded database            |
+| Real-time   | Server-Sent Events (SSE)  | Live updates                 |
+| Build       | Electron Forge + Vite     | Build & packaging            |
+| Updates     | update-electron-app       | Auto-updates from GitHub     |
 
 ### Styling Stack
 
@@ -85,8 +85,7 @@ puntovivo/
 │   └── migration/              # Data migration tools
 ├── .github/workflows/
 │   ├── ci.yml                 # CI: test, lint, and build validation on main / PRs
-│   ├── build.yml              # Desktop workspace validation on main / PRs
-│   └── release.yml            # Manual release workflow that creates the tag and publishes artifacts
+│   └── release.yml            # Manual release workflow that normalizes the version, creates the tag, and publishes artifacts
 ├── package.json                # Root workspace config
 └── docs/                       # Documentation
 ```
@@ -228,9 +227,11 @@ AUTO_UPDATE=false npm run start
 
 ### Creating a Release
 
-1. Tag the commit: `git tag v1.0.0`
-2. Push the tag: `git push origin v1.0.0`
-3. GitHub Actions will automatically build and create a release
+1. Open GitHub Actions and run the manual `Release` workflow.
+2. Enter a version such as `1.0.0` or `v1.0.0`.
+3. The workflow normalizes the input to a git tag, creates or reuses the tag on `main`, and publishes the release artifacts.
+4. If the workflow is re-run and the tag already points to the current `main` commit, the release safely reuses that tag instead of failing.
+5. The normalization and rerun logic is covered by automated CI via `npm run test:release-script`.
 
 ## Documentation
 
