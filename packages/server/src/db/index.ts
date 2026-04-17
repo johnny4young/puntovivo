@@ -800,6 +800,24 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_initial_inventory_site ON initial_inventory (site_id);
     CREATE INDEX IF NOT EXISTS idx_initial_inventory_created_by ON initial_inventory (created_by);
 
+    -- Inventory Balances (Phase 2 DB-101)
+    CREATE TABLE IF NOT EXISTS inventory_balances (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      on_hand REAL NOT NULL DEFAULT 0,
+      reserved REAL NOT NULL DEFAULT 0,
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_inventory_balances_tenant ON inventory_balances (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_balances_site ON inventory_balances (site_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_balances_product ON inventory_balances (product_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_balances_scope ON inventory_balances (tenant_id, site_id, product_id);
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

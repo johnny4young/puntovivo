@@ -38,7 +38,13 @@ import {
   adjustStockInput,
   productStockInput,
   recordEntryInput,
+  listBalancesBySiteInput,
 } from '../schemas/inventory.js';
+import {
+  ensureInventoryBalancesForSite,
+  listInventoryBalancesBySite,
+  summarizeInventoryBalances,
+} from '../../services/inventory-balances.js';
 
 async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
   const product = await db
@@ -52,6 +58,20 @@ async function getProductForInventory(db: Context['db'], tenantId: string, produ
   }
 
   return product;
+}
+
+async function ensureTenantSite(db: Context['db'], tenantId: string, siteId: string) {
+  const site = await db
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
+    .get();
+
+  if (!site) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+  }
+
+  return site;
 }
 
 async function getProductUnitAssignment(
@@ -603,6 +623,29 @@ export const inventoryRouter = router({
 
     return { product: updatedProduct!, movementId };
   }),
+
+  /**
+   * List on-hand balances attributed to a specific site (Phase 2 DB-101).
+   *
+   * Seeds the site on first access — primary site mirrors current
+   * `products.stock`, non-primary sites start at zero. Once transfers land the
+   * balances stop being a projection and become the source of truth.
+   */
+  listBalancesBySite: managerOrAdminProcedure
+    .input(listBalancesBySiteInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+
+      // Seed exactly once — both read helpers below are pure selects.
+      ensureInventoryBalancesForSite(ctx.db, ctx.tenantId, input.siteId);
+
+      const [items, summary] = await Promise.all([
+        listInventoryBalancesBySite(ctx.db, ctx.tenantId, input.siteId),
+        summarizeInventoryBalances(ctx.db, ctx.tenantId, input.siteId),
+      ]);
+
+      return { items, summary, siteId: input.siteId };
+    }),
 
   /**
    * Get current stock level for a product

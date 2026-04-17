@@ -71,6 +71,10 @@ export const productStockInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
 });
 
+export const listBalancesBySiteInput = z.object({
+  siteId: z.string().min(1, 'Site ID is required'),
+});
+
 export type ListMovementsInput = z.infer<typeof listMovementsInput>;
 export type ListStockInput = z.infer<typeof listStockInput>;
 export type ListEntriesInput = z.infer<typeof listEntriesInput>;

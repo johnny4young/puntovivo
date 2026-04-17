@@ -116,6 +116,25 @@ Every movement updates `cash_sessions.expected_balance` inside the same transact
 
 `registerAssignments` bootstraps standardized denomination templates from `denomination_templates` for the active site, backfills missing register templates from historical sessions, and lets the POS preload the opening dialog with the register's standard float breakdown.
 
+## Inventory Router — Per-Site Balances
+
+`inventory.listBalancesBySite` is the Phase 2 step 0 slice of site-owned
+inventory (DB-101 / API-101). It returns on-hand / reserved / available per
+product for a specific site plus a summary (totals + low-stock count).
+
+Until transfer writes land, the `inventory_balances` table is a projection of
+tenant-wide `products.stock`:
+
+- The earliest-created active site per tenant is the **primary site** and
+  receives current `products.stock` on first read.
+- Every other active site seeds at `on_hand = 0`.
+- New products added after the initial seed create zero-rows on the next read.
+
+Seeding reads and inserts run inside a single better-sqlite3 transaction so the
+"which site is primary" check is consistent with the inserts. The unique index
+`(tenant_id, site_id, product_id)` combined with `ON CONFLICT DO NOTHING`
+makes repeated reads idempotent.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

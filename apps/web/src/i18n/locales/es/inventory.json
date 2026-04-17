@@ -5,7 +5,8 @@
     "tabs": {
       "movements": "Movimientos",
       "stockQuery": "Consulta de stock",
-      "initialInventory": "Inventario inicial"
+      "initialInventory": "Inventario inicial",
+      "balances": "Por sede"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
     "stockNote": "El stock sigue siendo a nivel de tenant por ahora. Las entradas de inventario inicial y físico capturan la unidad contada y la normalizan en el modelo de stock compartido, evitando el error de acumulación del sistema anterior."
@@ -59,6 +60,27 @@
     "error": "No se pudieron cargar las entradas de inventario",
     "search": "Buscar entradas por producto...",
     "exportTitle": "Entradas de inventario inicial"
+  },
+  "balances": {
+    "siteSelector": "Sede",
+    "loading": "Cargando balances por sede…",
+    "loadingSites": "Cargando sedes…",
+    "error": "No se pudieron cargar los balances por sede",
+    "search": "Buscar balances por producto…",
+    "noSites": "Aún no hay sedes activas. Crea una para hacer seguimiento de stock por sede.",
+    "projectionNote": "Fase 2 paso 0: la sede principal refleja el stock actual del producto; las demás inician en cero. Las transferencias harán que estos valores diverjan.",
+    "columns": {
+      "product": "Producto",
+      "sku": "SKU",
+      "onHand": "Existencias",
+      "reserved": "Reservado",
+      "available": "Disponible"
+    },
+    "summary": {
+      "onHand": "Total en existencias",
+      "available": "Total disponible",
+      "lowStock": "Productos con stock bajo"
+    }
   },
   "table": {
     "initialInventory": "Inventario inicial",

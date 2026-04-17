@@ -382,6 +382,35 @@ export interface CashSessionDenomination {
   count: number;
 }
 
+export interface InventoryBalanceListItem {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+  minStock: number;
+  isLowStock: boolean;
+  updatedAt: string;
+}
+
+export interface InventoryBalancesSummary {
+  totalOnHand: number;
+  totalReserved: number;
+  totalAvailable: number;
+  lowStockCount: number;
+  productsTracked: number;
+}
+
+export interface InventoryBalancesBySiteResult {
+  siteId: string;
+  items: InventoryBalanceListItem[];
+  summary: InventoryBalancesSummary;
+}
+
 export interface RegisterAssignment {
   id: string;
   tenantId: string;
