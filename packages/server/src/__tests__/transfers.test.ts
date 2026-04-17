@@ -584,4 +584,181 @@ describe('Transfers tRPC Router', () => {
       expect(entry?.notes).toBe('Initial batch shipment\n[VOID] Duplicate entry');
     });
   });
+
+  // ─── Phase 2 API-102 step 3 — deferred receive lifecycle ─────────────────
+
+  describe('receive / in_transit lifecycle', () => {
+    it('defers destination credit and later receives to complete the transfer', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const cable = await createProduct({
+        name: 'Receive Cable',
+        sku: 'TR-RX-CABLE',
+        barcode: 'TR-30001',
+        stock: 10,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: cable.id, quantity: 3 }],
+        defer: true,
+        notes: 'Shipping to branch',
+      });
+
+      expect(created.status).toBe('in_transit');
+
+      // Origin debited immediately.
+      const primaryAfterCreate = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterCreate.items.find(item => item.productId === cable.id)?.onHand
+      ).toBe(7);
+
+      // Destination NOT credited until receive.
+      const secondaryAfterCreate = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(
+        secondaryAfterCreate.items.find(item => item.productId === cable.id)?.onHand ?? 0
+      ).toBe(0);
+
+      const received = await caller.transfers.receive({ transferId: created.id });
+      expect(received.status).toBe('completed');
+      expect(received.receivedItems).toEqual([{ productId: cable.id, quantity: 3 }]);
+
+      const secondaryAfterReceive = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(
+        secondaryAfterReceive.items.find(item => item.productId === cable.id)?.onHand
+      ).toBe(3);
+
+      const list = await caller.transfers.list();
+      const entry = list.items.find(item => item.id === created.id);
+      expect(entry?.status).toBe('completed');
+      expect(entry?.receivedAt).toBeTruthy();
+      expect(entry?.receivedBy).toBeTruthy();
+    });
+
+    it('rejects receive on a transfer that is already completed', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const bolt = await createProduct({
+        name: 'Receive Bolt',
+        sku: 'TR-RX-BOLT',
+        barcode: 'TR-30002',
+        stock: 5,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: bolt.id, quantity: 1 }],
+      });
+      expect(created.status).toBe('completed');
+
+      try {
+        await caller.transfers.receive({ transferId: created.id });
+        throw new Error('Expected receive to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_NOT_IN_TRANSIT');
+      }
+    });
+
+    it('rejects receive on a non-existent transfer', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      try {
+        await caller.transfers.receive({ transferId: 'does-not-exist' });
+        throw new Error('Expected receive to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_NOT_FOUND');
+      }
+    });
+
+    it('void on an in_transit transfer credits origin back without touching destination', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const widget = await createProduct({
+        name: 'In Transit Widget',
+        sku: 'TR-IT-WIDGET',
+        barcode: 'TR-30003',
+        stock: 20,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: widget.id, quantity: 8 }],
+        defer: true,
+      });
+
+      // Primary went from 20 → 12 at create.
+      const primaryAfterCreate = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterCreate.items.find(item => item.productId === widget.id)?.onHand
+      ).toBe(12);
+
+      await caller.transfers.void({
+        transferId: created.id,
+        reason: 'Shipment cancelled',
+      });
+
+      // Origin restored.
+      const primaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
+      ).toBe(20);
+
+      // Destination never had a row (no credit yet), remains zero.
+      const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(
+        secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand ?? 0
+      ).toBe(0);
+
+      const list = await caller.transfers.list();
+      expect(list.items.find(item => item.id === created.id)?.status).toBe('void');
+    });
+
+    it('keeps products.stock in lockstep with Σ(balances) across deferred create → receive', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const { products } = await import('../db/schema.js');
+      const screw = await createProduct({
+        name: 'Receive Lockstep Screw',
+        sku: 'TR-RX-SCREW',
+        barcode: 'TR-30004',
+        stock: 15,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: screw.id, quantity: 4 }],
+        defer: true,
+      });
+
+      // In-transit: primary 11, secondary 0 → Σ = 11, products.stock = 11.
+      const inTransitStock = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, screw.id))
+        .get();
+      expect(inTransitStock?.stock).toBe(11);
+
+      // Receive: primary still 11, secondary 4 → Σ = 15, products.stock = 15.
+      await caller.transfers.receive({ transferId: created.id });
+
+      const finalStock = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, screw.id))
+        .get();
+      expect(finalStock?.stock).toBe(15);
+    });
+  });
 });

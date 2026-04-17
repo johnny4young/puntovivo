@@ -153,20 +153,34 @@ makes repeated reads idempotent.
 5. Writes a `transfer_orders` row (status `completed`) plus one
    `transfer_order_items` row per product.
 
-Step 1 collapses `create` + `ship` + `receive` into a single mutation.
-Step 2 adds `transfers.void`:
+Step 1 collapses `create` + `ship` + `receive` into a single mutation when
+`defer` is false (the default). Step 2 adds `transfers.void`:
 
 - Reads the transfer row (with tenant guard) and rejects with
   `TRANSFER_NOT_FOUND` / `TRANSFER_ALREADY_VOID` when appropriate.
 - **Pre-validates destination stock for every line before mutating any row**
   so a missing balance produces `TRANSFER_VOID_INSUFFICIENT_STOCK` without
-  corrupting partial state.
-- Decrements destination and re-credits origin (seeding the origin row if it
-  was removed in the meantime).
-- Flips `transfer_orders.status` from `completed` to `void` and appends
-  `[VOID] <reason>` to the notes.
+  corrupting partial state (only runs for `completed` transfers — an
+  `in_transit` transfer never credited the destination, so there is nothing
+  to reverse on that side).
+- Decrements destination (when the transfer was `completed`) and re-credits
+  origin (seeding the origin row if it was removed in the meantime).
+- Flips `transfer_orders.status` to `void` and appends `[VOID] <reason>` to
+  the notes.
 
-The full `draft` → `in_transit` → `received` lifecycle is still deferred.
+Step 3 adds deferred receive:
+
+- `transfers.create({ defer: true })` persists the transfer as `in_transit`.
+  Origin is debited immediately (the stock has physically left the source
+  shelf) but the destination is NOT credited.
+- `transfers.receive({ transferId })` flips the transfer to `completed`,
+  credits the destination, and stamps `receivedAt` / `receivedBy`. Rejects
+  with `TRANSFER_NOT_IN_TRANSIT` when the transfer is in any other status.
+- Every balance-mutating path calls `syncProductStockFromBalances` so the
+  step-4 invariant (`products.stock == Σ(balances)`) holds through the
+  entire in-transit window.
+
+An explicit `draft` state without any balance movement remains deferred.
 
 `transfers.list` returns a reverse-chronological page of recent transfer
 history with origin/destination site names and item aggregates.

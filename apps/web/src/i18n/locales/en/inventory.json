@@ -9,7 +9,7 @@
       "balances": "By Site"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
-    "stockNote": "The stock totals shown on this screen remain tenant-wide for now. New adjustments and counted entries update the active site's balance, while the shared aggregate still appears here until per-site reconciliation is completed."
+    "stockNote": "The totals on this screen still show the tenant aggregate, but they now stay synchronized with the sum of site balances. Adjustments, entries, and transfers update both surfaces in lockstep."
   },
   "stats": {
     "totalUnits": "Total Units",
@@ -68,7 +68,7 @@
     "error": "Unable to load site balances",
     "search": "Search balances by product…",
     "noSites": "No active sites yet. Create one to start tracking per-site stock.",
-    "projectionNote": "Phase 2 step 1: balances are now authoritative — the primary site is seeded from current product stock and diverges as transfers are recorded.",
+    "projectionNote": "Phase 2 steps 3-4: site balances are authoritative. Transfers can remain in transit, and aggregate product stock stays synchronized with the sum of site balances.",
     "transferButton": "Transfer stock",
     "transferRequiresTwoSites": "At least two active sites are required to transfer stock.",
     "columns": {
@@ -86,13 +86,16 @@
   },
   "transferHistory": {
     "title": "Transfer history",
-    "description": "Recent stock transfers between sites. Voiding a transfer reverses the balance movement.",
+    "description": "Recent stock transfers between sites. You can receive in-transit shipments or void movements to reverse balances.",
     "loading": "Loading transfer history…",
     "error": "Unable to load transfer history",
     "search": "Search transfers by origin site…",
     "voidAction": "Void",
     "voidSuccess": "Transfer voided",
     "voidError": "Unable to void transfer",
+    "receiveAction": "Receive",
+    "receiveSuccess": "Transfer received",
+    "receiveError": "Unable to receive transfer",
     "confirmVoidTitle": "Void transfer?",
     "confirmVoidMessage": "This will move {{quantity}} units back from {{to}} to {{from}}. Balances will update immediately.",
     "confirmVoidGeneric": "This will reverse the transfer and restore the original balances.",
@@ -109,6 +112,7 @@
     },
     "status": {
       "completed": "Completed",
+      "in_transit": "In transit",
       "void": "Voided"
     }
   },
@@ -122,6 +126,8 @@
     "quantity": "Quantity",
     "notes": "Notes",
     "notesPlaceholder": "Optional transfer note (e.g., branch replenishment)",
+    "deferLabel": "Ship now, receive later",
+    "deferHelp": "Origin is debited immediately. Destination is credited when the shipment arrives and you click Receive.",
     "onHand": "{{amount}} on hand",
     "available": "Available at origin: {{amount}}",
     "cancel": "Cancel",

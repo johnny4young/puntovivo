@@ -818,7 +818,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_inventory_balances_product ON inventory_balances (product_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_balances_scope ON inventory_balances (tenant_id, site_id, product_id);
 
-    -- Transfer Orders (Phase 2 DB-102 — immediate step)
+    -- Transfer Orders (Phase 2 DB-102 — step 1 + step 3 deferred receive)
     CREATE TABLE IF NOT EXISTS transfer_orders (
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL REFERENCES tenants(id),
@@ -827,6 +827,8 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       status TEXT NOT NULL DEFAULT 'completed',
       notes TEXT,
       created_by TEXT NOT NULL REFERENCES users(id),
+      received_at TEXT,
+      received_by TEXT REFERENCES users(id),
       sync_status TEXT DEFAULT 'pending',
       sync_version INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -836,6 +838,9 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_transfer_orders_from_site ON transfer_orders (from_site_id);
     CREATE INDEX IF NOT EXISTS idx_transfer_orders_to_site ON transfer_orders (to_site_id);
     CREATE INDEX IF NOT EXISTS idx_transfer_orders_status ON transfer_orders (status);
+    -- Note: idx_transfer_orders_received_by is created by the
+    -- createIndexIfColumnsExist call below, AFTER ensureColumn has added the
+    -- received_by column to pre-existing deployments.
 
     CREATE TABLE IF NOT EXISTS transfer_order_items (
       id TEXT PRIMARY KEY,
@@ -950,6 +955,15 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
   ensureColumn(client, 'companies', 'logo_id', 'logo_id TEXT REFERENCES logos(id)');
   ensureColumn(client, 'users', 'session_version', 'session_version INTEGER NOT NULL DEFAULT 1');
+  // Phase 2 API-102 step 3: deferred receive columns on transfer_orders.
+  ensureColumn(client, 'transfer_orders', 'received_at', 'received_at TEXT');
+  ensureColumn(client, 'transfer_orders', 'received_by', 'received_by TEXT REFERENCES users(id)');
+  createIndexIfColumnsExist(
+    client,
+    'transfer_orders',
+    ['received_by'],
+    'CREATE INDEX IF NOT EXISTS idx_transfer_orders_received_by ON transfer_orders (received_by)'
+  );
   createIndexIfColumnsExist(client, 'products', ['provider_id'], 'CREATE INDEX IF NOT EXISTS idx_products_provider ON products (provider_id)');
   createIndexIfColumnsExist(client, 'products', ['vat_rate_id'], 'CREATE INDEX IF NOT EXISTS idx_products_vat_rate ON products (vat_rate_id)');
   createIndexIfColumnsExist(client, 'purchases', ['order_id'], 'CREATE INDEX IF NOT EXISTS idx_purchases_order ON purchases (order_id)');

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Undo2 } from 'lucide-react';
+import { PackageCheck, Undo2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -10,7 +10,13 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
-import type { TransferHistoryEntry } from '@/types';
+import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
+
+const statusBadgeClasses: Record<TransferHistoryStatus, string> = {
+  completed: 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700',
+  in_transit: 'inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800',
+  void: 'inline-flex items-center rounded-full bg-secondary-100 px-2 py-0.5 text-xs text-secondary-700',
+};
 
 /**
  * Phase 2 API-102 — transfer history table with a void action.
@@ -31,18 +37,35 @@ export function InventoryTransferHistory() {
     staleTime: 30_000,
   });
 
+  async function invalidateAfterMutation(): Promise<void> {
+    await Promise.all([
+      utils.transfers.list.invalidate(),
+      utils.inventory.listBalancesBySite.invalidate(),
+    ]);
+  }
+
   const voidMutation = trpc.transfers.void.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.transfers.list.invalidate(),
-        utils.inventory.listBalancesBySite.invalidate(),
-      ]);
+      await invalidateAfterMutation();
       setConfirmingVoidId(null);
       toast.success({ title: t('transferHistory.voidSuccess') });
     },
     onError: error => {
       toast.error({
         title: t('transferHistory.voidError'),
+        description: translateServerError(error, t, t('errors:server.unknown')),
+      });
+    },
+  });
+
+  const receiveMutation = trpc.transfers.receive.useMutation({
+    onSuccess: async () => {
+      await invalidateAfterMutation();
+      toast.success({ title: t('transferHistory.receiveSuccess') });
+    },
+    onError: error => {
+      toast.error({
+        title: t('transferHistory.receiveError'),
         description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
@@ -66,6 +89,13 @@ export function InventoryTransferHistory() {
     setConfirmingVoidId(null);
     voidMutation.reset();
   }, [voidMutation]);
+
+  const handleReceive = useCallback(
+    (id: string) => {
+      receiveMutation.mutate({ transferId: id });
+    },
+    [receiveMutation]
+  );
 
   const columns = useMemo<ColumnDef<TransferHistoryEntry>[]>(
     () => [
@@ -96,13 +126,7 @@ export function InventoryTransferHistory() {
         accessorKey: 'status',
         header: () => t('transferHistory.columns.status'),
         cell: ({ row }) => (
-          <span
-            className={
-              row.original.status === 'void'
-                ? 'inline-flex items-center rounded-full bg-secondary-100 px-2 py-0.5 text-xs text-secondary-700'
-                : 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700'
-            }
-          >
+          <span className={statusBadgeClasses[row.original.status]}>
             {t(`transferHistory.status.${row.original.status}`)}
           </span>
         ),
@@ -112,22 +136,38 @@ export function InventoryTransferHistory() {
         header: () => t('transferHistory.columns.actions'),
         cell: ({ row }) => {
           const isVoid = row.original.status === 'void';
+          const isInTransit = row.original.status === 'in_transit';
+          const anyMutationPending = voidMutation.isPending || receiveMutation.isPending;
           return (
-            <button
-              type="button"
-              className="btn-secondary inline-flex items-center gap-1 py-1 text-sm"
-              disabled={isVoid || voidMutation.isPending}
-              onClick={() => handleRequestVoid(row.original.id)}
-              aria-label={t('transferHistory.voidAction')}
-            >
-              <Undo2 className="h-4 w-4" />
-              {t('transferHistory.voidAction')}
-            </button>
+            <div className="flex items-center gap-2">
+              {isInTransit && (
+                <button
+                  type="button"
+                  className="btn-primary inline-flex items-center gap-1 py-1 text-sm"
+                  disabled={anyMutationPending}
+                  onClick={() => handleReceive(row.original.id)}
+                  aria-label={t('transferHistory.receiveAction')}
+                >
+                  <PackageCheck className="h-4 w-4" />
+                  {t('transferHistory.receiveAction')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-secondary inline-flex items-center gap-1 py-1 text-sm"
+                disabled={isVoid || anyMutationPending}
+                onClick={() => handleRequestVoid(row.original.id)}
+                aria-label={t('transferHistory.voidAction')}
+              >
+                <Undo2 className="h-4 w-4" />
+                {t('transferHistory.voidAction')}
+              </button>
+            </div>
           );
         },
       },
     ],
-    [t, voidMutation.isPending, handleRequestVoid]
+    [t, voidMutation.isPending, receiveMutation.isPending, handleRequestVoid, handleReceive]
   );
 
   const items = historyQuery.data?.items ?? [];

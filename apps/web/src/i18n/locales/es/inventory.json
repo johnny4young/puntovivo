@@ -9,7 +9,7 @@
       "balances": "Por sede"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
-    "stockNote": "El stock visible en esta pantalla sigue siendo agregado a nivel de tenant por ahora. Los nuevos ajustes y entradas contadas impactan el balance de la sede activa, mientras el total compartido sigue mostrándose aquí hasta que la reconciliación por sede quede completa."
+    "stockNote": "Los totales de esta pantalla siguen mostrando el agregado del tenant, pero ahora permanecen sincronizados con la suma de los balances por sede. Los ajustes, entradas y transferencias actualizan ambos lados en lockstep."
   },
   "stats": {
     "totalUnits": "Total de unidades",
@@ -68,7 +68,7 @@
     "error": "No se pudieron cargar los balances por sede",
     "search": "Buscar balances por producto…",
     "noSites": "Aún no hay sedes activas. Crea una para hacer seguimiento de stock por sede.",
-    "projectionNote": "Fase 2 paso 1: los balances ahora son la fuente de verdad — la sede principal se siembra con el stock actual del producto y diverge según las transferencias registradas.",
+    "projectionNote": "Fase 2 pasos 3-4: los balances por sede son la fuente de verdad. Las transferencias pueden quedar en tránsito y el stock agregado del producto se mantiene sincronizado con la suma de sedes.",
     "transferButton": "Transferir stock",
     "transferRequiresTwoSites": "Se requieren al menos dos sedes activas para transferir stock.",
     "columns": {
@@ -86,13 +86,16 @@
   },
   "transferHistory": {
     "title": "Historial de transferencias",
-    "description": "Transferencias de stock recientes entre sedes. Anular una transferencia revierte el movimiento de balances.",
+    "description": "Transferencias recientes entre sedes. Puedes recibir envíos en tránsito o anular movimientos para revertir balances.",
     "loading": "Cargando historial de transferencias…",
     "error": "No se pudo cargar el historial de transferencias",
     "search": "Buscar transferencias por sede origen…",
     "voidAction": "Anular",
     "voidSuccess": "Transferencia anulada",
     "voidError": "No se pudo anular la transferencia",
+    "receiveAction": "Recibir",
+    "receiveSuccess": "Transferencia recibida",
+    "receiveError": "No se pudo recibir la transferencia",
     "confirmVoidTitle": "¿Anular transferencia?",
     "confirmVoidMessage": "Esto devolverá {{quantity}} unidades desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
     "confirmVoidGeneric": "Esto revertirá la transferencia y restaurará los balances originales.",
@@ -109,6 +112,7 @@
     },
     "status": {
       "completed": "Completada",
+      "in_transit": "En tránsito",
       "void": "Anulada"
     }
   },
@@ -122,6 +126,8 @@
     "quantity": "Cantidad",
     "notes": "Notas",
     "notesPlaceholder": "Nota opcional (p. ej., reposición de sucursal)",
+    "deferLabel": "Enviar ahora, recibir después",
+    "deferHelp": "La sede origen se debita de inmediato. La sede destino se acredita cuando llega el envío y haces clic en Recibir.",
     "onHand": "{{amount}} en existencias",
     "available": "Disponible en origen: {{amount}}",
     "cancel": "Cancelar",

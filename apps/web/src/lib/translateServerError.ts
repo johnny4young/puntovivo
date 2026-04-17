@@ -42,6 +42,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'TRANSFER_NOT_FOUND',
   'TRANSFER_ALREADY_VOID',
   'TRANSFER_VOID_INSUFFICIENT_STOCK',
+  'TRANSFER_NOT_IN_TRANSIT',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

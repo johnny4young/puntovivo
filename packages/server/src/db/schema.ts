@@ -1846,13 +1846,15 @@ export const inventoryBalancesRelations = relations(inventoryBalances, ({ one })
 // TRANSFER ORDERS (Phase 2 DB-102 — immediate step, no ship/receive lifecycle)
 // ============================================================================
 
-export const transferOrderStatusEnum = ['completed', 'void'] as const;
+export const transferOrderStatusEnum = ['completed', 'in_transit', 'void'] as const;
 
 /**
  * A transfer order captures a cross-site stock movement. Phase 2 step 1
- * persists only the immediate `completed` transfer (create + ship + receive
- * collapsed into one atomic step); a future step adds the full
- * draft/in_transit/received lifecycle columns.
+ * shipped the immediate `completed` transfer (create + ship + receive
+ * collapsed into one atomic step). Step 3 adds the `in_transit` state for
+ * deferred-receive transfers — origin is debited on create, destination is
+ * credited later via `transfers.receive`. A future step may add an explicit
+ * `draft` state if transfers need to be staged without touching balances.
  */
 export const transferOrders = sqliteTable(
   'transfer_orders',
@@ -1872,6 +1874,10 @@ export const transferOrders = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
+    // Phase 2 API-102 step 3: receipt metadata for the in_transit → completed
+    // transition. Null on immediate transfers that skip the deferred window.
+    receivedAt: text('received_at'),
+    receivedBy: text('received_by').references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(new Date().toISOString()),
@@ -1882,6 +1888,7 @@ export const transferOrders = sqliteTable(
     index('idx_transfer_orders_from_site').on(table.fromSiteId),
     index('idx_transfer_orders_to_site').on(table.toSiteId),
     index('idx_transfer_orders_status').on(table.status),
+    index('idx_transfer_orders_received_by').on(table.receivedBy),
   ]
 );
 

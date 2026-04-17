@@ -411,7 +411,7 @@ export interface InventoryBalancesBySiteResult {
   summary: InventoryBalancesSummary;
 }
 
-export type TransferHistoryStatus = 'completed' | 'void';
+export type TransferHistoryStatus = 'completed' | 'in_transit' | 'void';
 
 export interface TransferHistoryEntry {
   id: string;
@@ -423,6 +423,8 @@ export interface TransferHistoryEntry {
   notes: string | null;
   createdBy: string;
   createdAt: string;
+  receivedAt: string | null;
+  receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
 }

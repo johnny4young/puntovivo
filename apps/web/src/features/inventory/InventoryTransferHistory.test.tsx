@@ -28,8 +28,17 @@ const voidMutationState = {
   error: null as Error | null,
 };
 
+const receiveMutationState = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(async () => undefined),
+  reset: vi.fn(),
+  isPending: false,
+  error: null as Error | null,
+};
+
 // Captured per test so assertions can drive the onSuccess / onError paths.
 let capturedMutationOpts: MutationOptions | null = null;
+let capturedReceiveOpts: MutationOptions | null = null;
 
 const listInvalidate = vi.fn(async () => undefined);
 const balancesInvalidate = vi.fn(async () => undefined);
@@ -50,6 +59,12 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: (opts: MutationOptions) => {
           capturedMutationOpts = opts;
           return voidMutationState;
+        },
+      },
+      receive: {
+        useMutation: (opts: MutationOptions) => {
+          capturedReceiveOpts = opts;
+          return receiveMutationState;
         },
       },
     },
@@ -75,6 +90,8 @@ const completedEntry: TransferHistoryEntry = {
   notes: null,
   createdBy: 'user-1',
   createdAt: new Date('2026-04-15T12:00:00Z').toISOString(),
+  receivedAt: null,
+  receivedBy: null,
   itemCount: 1,
   totalQuantity: 4,
 };
@@ -85,6 +102,13 @@ const voidedEntry: TransferHistoryEntry = {
   status: 'void',
   totalQuantity: 2,
   notes: 'Original note\n[VOID] Duplicate entry',
+};
+
+const inTransitEntry: TransferHistoryEntry = {
+  ...completedEntry,
+  id: 'transfer-3',
+  status: 'in_transit',
+  totalQuantity: 3,
 };
 
 function setListResult(items: TransferHistoryEntry[] = [completedEntry, voidedEntry]): void {
@@ -206,5 +230,46 @@ describe('InventoryTransferHistory', () => {
     render(<InventoryTransferHistory />);
 
     expect(screen.getByText('Unable to load transfer history')).toBeInTheDocument();
+  });
+
+  it('renders the In transit badge and Receive button only on in_transit rows', () => {
+    setListResult([completedEntry, voidedEntry, inTransitEntry]);
+
+    render(<InventoryTransferHistory />);
+
+    expect(screen.getByText('In transit')).toBeInTheDocument();
+    const receiveButtons = screen.getAllByRole('button', { name: 'Receive' });
+    expect(receiveButtons).toHaveLength(1);
+    expect(receiveButtons[0]).not.toBeDisabled();
+  });
+
+  it('invokes the receive mutation when the Receive button is clicked', async () => {
+    setListResult([inTransitEntry]);
+    receiveMutationState.mutate.mockClear();
+
+    render(<InventoryTransferHistory />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Receive' }));
+
+    expect(receiveMutationState.mutate).toHaveBeenCalledWith({
+      transferId: inTransitEntry.id,
+    });
+  });
+
+  it('runs the receive onSuccess path: invalidates and toasts', async () => {
+    setListResult([inTransitEntry]);
+    listInvalidate.mockClear();
+    balancesInvalidate.mockClear();
+    toastSuccess.mockClear();
+
+    render(<InventoryTransferHistory />);
+
+    expect(capturedReceiveOpts?.onSuccess).toBeInstanceOf(Function);
+    await capturedReceiveOpts?.onSuccess?.();
+
+    expect(listInvalidate).toHaveBeenCalled();
+    expect(balancesInvalidate).toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalled();
   });
 });
