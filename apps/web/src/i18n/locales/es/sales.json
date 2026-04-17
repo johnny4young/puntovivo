@@ -259,6 +259,12 @@
     "notes": "Notas",
     "noSku": "Sin SKU",
     "unit": "Unidad",
+    "paymentsHeading": "Pagos",
+    "paymentsSplit": "Cobrado con {{count}} medios de pago",
+    "paymentsMethod": "Medio",
+    "paymentsReference": "Referencia",
+    "paymentsAmount": "Monto",
+    "paymentsNoReference": "—",
     "actions": {
       "printing": "Imprimiendo..."
     },

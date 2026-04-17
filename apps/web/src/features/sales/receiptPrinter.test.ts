@@ -59,4 +59,55 @@ describe('receiptPrinter', () => {
     expect(autoPrintHtml).toContain('window.print()');
     expect(regularHtml).not.toContain('window.print()');
   });
+
+  it('skips the Tenders section for a single-tender sale', () => {
+    const html = buildSaleReceiptHtml({
+      ...sale,
+      payments: [
+        {
+          id: 'pay_1',
+          method: 'cash',
+          amount: 114,
+          reference: null,
+          createdAt: sale.createdAt,
+        },
+      ],
+    });
+
+    // The `.tender-*` classes are unconditionally defined inside the static
+    // <style> block, so assert on the actual section markup instead — that's
+    // what gates whether tender rows render at all.
+    expect(html).not.toContain('<section class="tenders">');
+    expect(html).not.toContain('>Method<');
+  });
+
+  it('prints one row per tender and escapes references for a split sale', () => {
+    const html = buildSaleReceiptHtml({
+      ...sale,
+      payments: [
+        {
+          id: 'pay_1',
+          method: 'cash',
+          amount: 50,
+          // Contains HTML-like characters on purpose — escapeHtml must fire.
+          reference: 'Petty <cash>',
+          createdAt: sale.createdAt,
+        },
+        {
+          id: 'pay_2',
+          method: 'card',
+          amount: 64,
+          reference: null,
+          createdAt: sale.createdAt,
+        },
+      ],
+    });
+
+    expect(html).toContain('Tenders');
+    expect(html).toContain('$50.00');
+    expect(html).toContain('$64.00');
+    expect(html).toContain('Petty &lt;cash&gt;');
+    // Null-reference row must still show something — the dash placeholder.
+    expect(html).toContain('&mdash;');
+  });
 });

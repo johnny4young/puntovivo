@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SalePaymentValues } from '@/features/sales/SalePaymentModal';
-import { getCheckoutPaymentState, getRequestedPaymentStatus } from './checkoutPayment';
+import type { SalePayment } from '@/types';
+import {
+  getCheckoutPaymentState,
+  getRequestedPaymentStatus,
+  hasSplitPayments,
+} from './checkoutPayment';
 
 function buildPaymentValues(
   overrides?: Partial<SalePaymentValues>
@@ -50,6 +55,39 @@ describe('checkoutPayment', () => {
         { method: 'cash', amount: 40 },
         { method: 'card', amount: 60, reference: 'AUTH-42' },
       ],
+    });
+  });
+
+  describe('hasSplitPayments', () => {
+    function buildPayment(overrides?: Partial<SalePayment>): SalePayment {
+      return {
+        id: 'pay_1',
+        method: 'cash',
+        amount: 10,
+        reference: null,
+        createdAt: '2026-04-17T00:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('returns false when payments is missing or empty', () => {
+      expect(hasSplitPayments({ payments: undefined })).toBe(false);
+      expect(hasSplitPayments({ payments: [] })).toBe(false);
+    });
+
+    it('returns false for a single-tender sale (the Payment tile already covers it)', () => {
+      expect(hasSplitPayments({ payments: [buildPayment()] })).toBe(false);
+    });
+
+    it('returns true when two or more tenders are present', () => {
+      expect(
+        hasSplitPayments({
+          payments: [
+            buildPayment({ method: 'cash', amount: 4 }),
+            buildPayment({ id: 'pay_2', method: 'card', amount: 6 }),
+          ],
+        })
+      ).toBe(true);
     });
   });
 

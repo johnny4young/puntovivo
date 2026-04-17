@@ -457,6 +457,8 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | SALES-19 | BOTH | cashier | Charge split payment sale | Sale completes only when tender amounts sum to the total |
 | ✅ | SALES-20 | BOTH | cashier | Open split payment mode | Credit is not offered as a split tender; credit sales remain on the single-tender pending flow |
 | ✅ | SALES-21 | BOTH | cashier | Split payment cash-session accounting | Only the cash-method tender portion hits the expected balance; card/transfer/other tenders do not |
+| ✅ | SALES-22 | BOTH | cashier | View split payment sale details | Details modal renders a Payments section with one row per tender (method, reference, amount); single-tender sales hide the section |
+| ✅ | SALES-23 | BOTH | cashier | Print receipt for split payment sale | Receipt includes a Tenders section listing each method and amount; a blank reference renders as an em-dash; single-tender receipts skip the section |
 
 ---
 

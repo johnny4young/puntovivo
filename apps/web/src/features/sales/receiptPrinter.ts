@@ -1,5 +1,11 @@
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import type { PaymentStatus, PaymentMethod, SaleItem, SaleStatus } from '@/types';
+import type {
+  PaymentStatus,
+  PaymentMethod,
+  SaleItem,
+  SalePayment,
+  SaleStatus,
+} from '@/types';
 
 type ReceiptSale = {
   saleNumber: string;
@@ -14,6 +20,9 @@ type ReceiptSale = {
   notes?: string | null;
   createdAt: string;
   items?: SaleItem[];
+  // Phase 2 Tier-2 step 5 follow-on — include the tender breakdown on the
+  // printed receipt when the sale was settled as a split payment.
+  payments?: SalePayment[];
 };
 
 type ReceiptHtmlOptions = {
@@ -43,6 +52,55 @@ function getItemDescription(item: SaleItem): string {
   const productLabel = item.productName ?? item.productSku ?? item.productId;
   const unitLabel = item.unitAbbreviation ?? item.unitName ?? item.unitId ?? 'unit';
   return `${productLabel} (${unitLabel})`;
+}
+
+function buildSplitPaymentSection(payments: SalePayment[] | undefined): string {
+  // Only render a tender breakdown when the sale was actually split. A single
+  // payment row is already fully described by the existing "Payment" meta
+  // line — printing a one-row table would be noise.
+  //
+  // NOTE: the receipt HTML is intentionally English-only for now (mirroring
+  // "Customer", "Subtotal", "VAT", "Totals", "Notes", "Items", etc. elsewhere
+  // in this file). When the receipt path gets localized, translate these
+  // hardcoded strings (Tenders / Method / Reference / Amount) alongside
+  // everything else — the TSX side already uses `details.payments*` keys
+  // from `sales.json`.
+  if (!payments || payments.length <= 1) {
+    return '';
+  }
+
+  const rows = payments
+    .map(payment => {
+      const method = escapeHtml(payment.method);
+      const amount = escapeHtml(formatCurrency(payment.amount));
+      const reference = escapeHtml(payment.reference?.trim() ?? '');
+      return `
+        <tr>
+          <td class="tender-method">${method}</td>
+          <td class="tender-reference">${reference || '&mdash;'}</td>
+          <td class="tender-amount">${amount}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <section class="tenders">
+      <span class="section-label">Tenders</span>
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Reference</th>
+            <th class="tender-amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </section>
+  `;
 }
 
 function buildReceiptRows(items: SaleItem[]): string {
@@ -200,6 +258,26 @@ export function buildSaleReceiptHtml(
             font-weight: 700;
           }
 
+          .tenders {
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+          }
+
+          .tender-method {
+            text-transform: capitalize;
+          }
+
+          .tender-amount {
+            text-align: right;
+            white-space: nowrap;
+          }
+
+          .tender-reference {
+            color: #475569;
+            font-size: 11px;
+          }
+
           .footer {
             text-align: center;
             color: #475569;
@@ -280,6 +358,8 @@ export function buildSaleReceiptHtml(
               </div>
             </div>
           </section>
+
+          ${buildSplitPaymentSection(sale.payments)}
 
           ${notesSection}
 

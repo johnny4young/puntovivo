@@ -259,6 +259,12 @@
     "notes": "Notes",
     "noSku": "No SKU",
     "unit": "Unit",
+    "paymentsHeading": "Payments",
+    "paymentsSplit": "Settled with {{count}} tenders",
+    "paymentsMethod": "Method",
+    "paymentsReference": "Reference",
+    "paymentsAmount": "Amount",
+    "paymentsNoReference": "—",
     "actions": {
       "printing": "Printing..."
     },
