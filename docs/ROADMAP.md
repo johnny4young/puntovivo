@@ -58,7 +58,7 @@ This is the recommended implementation sequence. Each item links to its detailed
 | # | Item | Why | Phase |
 | --- | --- | --- | --- |
 | 4 | Site-owned inventory + transfers | Stock must belong to a site, not the tenant. Transfer workflows need in-transit state. | Phase 2 |
-| 5 | Split payments / multi-tender | Basic expectation: pay partially with cash and card. | Phase 5 |
+| 5 | Split payments / multi-tender | Basic expectation: pay partially with cash and card. Foundation **shipped** (`sale_payments` table, split-aware `sales.create`, split-tender UI, cash-method-only cash-session accounting). Credit-mix is deferred to Phase 5 alongside on-account sales and abonos. | Phase 5 |
 | 6 | Quotations / estimates | B2B, ferreterías, service businesses all need pre-sale conversion. | Phase 5 |
 | 7 | Credit sales (ventas a crédito) | Deeply embedded LatAm practice — installments, abonos, contractor accounts. | Phase 5 Ext |
 | 8 | Audit trail for sensitive actions | Required for operational trust — void, refund, price override, user change. | Phase 8 |

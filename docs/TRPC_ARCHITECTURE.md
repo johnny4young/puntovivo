@@ -264,6 +264,49 @@ mutation `inventory.reconcileBalances`, which walks every product in the
 tenant and re-runs the recompute inside a single transaction. Use it after
 migrations or data imports; regular operation never needs it.
 
+## Split Payments (Phase 2 Tier-2 step 5)
+
+`sales.create` now accepts an optional `payments` array to record a
+single sale settled with multiple tenders (e.g. partial cash + partial card).
+The persistence model:
+
+- A new `sale_payments` table holds one row per tender (method, amount,
+  optional reference). The table is tenant-scoped, cascades on sale delete,
+  and participates in the same sync fields (`syncStatus`, `syncVersion`) as
+  the rest of the sales surface.
+- `sales.create` normalizes both input modes into a single write loop via
+  `resolveSalePayments`:
+  - Multi-tender: validates `Σ(amount) ≈ total` within a cent of tolerance
+    (`PAYMENT_SUM_EPSILON = 0.005`) and throws
+    `SALE_PAYMENTS_SUM_MISMATCH` on violation.
+  - Legacy single-tender: synthesizes one row capped at the sale total
+    (cash overage is change, not a persisted tender).
+- Split sales are always persisted as `paid`. `getPaymentStatus` is
+  short-circuited when `isSplit: true` — this guard precedes the credit
+  check so the invariant survives any future expansion of
+  `splitPaymentMethodEnum`.
+- The legacy `sales.paymentMethod` column is echoed with the **dominant**
+  tender (largest amount, ties broken in favor of the first-supplied entry)
+  so older screens and reports keep rendering sensibly without having to
+  join `sale_payments`.
+- Cash-session accounting derives from the sum of **cash-method** tenders
+  only when split; the transfer/card/other portions do not hit the cash
+  session's expected balance.
+- `splitPaymentMethodEnum` excludes `credit` by construction. Credit sales
+  stay on the legacy single-tender path until Phase 5 adds on-account
+  balances and abonos.
+
+Frontend: `SalePaymentModal` offers a "Split payment across tenders"
+affordance that seeds one row and lets the cashier add/remove tenders. The
+Confirm button is gated by `Σ(tenders) ≈ total` and
+`tendersAreAllPositive`. Amount inputs use `setValueAs` (not
+`valueAsNumber: true`) to return 0 on cleared fields — the documented
+react-hook-form workaround for the `useFieldArray` + `NaN` edge case.
+`getCheckoutPaymentState` owns the single "is this a split?" decision: it
+derives the legacy triplet (`paymentMethod`/`paymentStatus`/
+`amountReceived`) plus a normalized `payments` array (or `undefined` on
+the legacy path) for `SalesPage` to forward verbatim.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

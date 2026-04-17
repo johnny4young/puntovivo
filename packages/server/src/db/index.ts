@@ -754,6 +754,22 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_sale_returns_created_by ON sale_returns (created_by);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_sale_returns_sale_unique ON sale_returns (sale_id);
 
+    -- Sale Payments (Phase 2 Tier-2 step 5 — split tenders / multi-payment)
+    CREATE TABLE IF NOT EXISTS sale_payments (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      sale_id TEXT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+      method TEXT NOT NULL,
+      amount REAL NOT NULL,
+      reference TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sale_payments_tenant ON sale_payments (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments (sale_id);
+    CREATE INDEX IF NOT EXISTS idx_sale_payments_method ON sale_payments (method);
+
     -- Inventory Movements
     CREATE TABLE IF NOT EXISTS inventory_movements (
       id TEXT PRIMARY KEY,
