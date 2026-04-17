@@ -1425,6 +1425,7 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   }),
   items: many(saleItems),
   returns: many(saleReturns),
+  payments: many(salePayments),
 }));
 
 // ============================================================================
@@ -1615,6 +1616,56 @@ export const saleItemsRelations = relations(saleItems, ({ one }) => ({
   unit: one(units, {
     fields: [saleItems.unitId],
     references: [units.id],
+  }),
+}));
+
+// ============================================================================
+// SALE PAYMENTS (Phase 2 Tier-2 step 5 — multi-tender / split payments)
+// ============================================================================
+
+/**
+ * A sale payment records one tender applied to a sale. A single-tender sale
+ * has exactly one row here (legacy flow is normalized into the table on
+ * `sales.create`). Split-payment sales have multiple rows whose `amount` sums
+ * to the sale's `total`. The `method` enum is the same as `sales.paymentMethod`
+ * so classic reports keep working against either surface.
+ */
+export const salePayments = sqliteTable(
+  'sale_payments',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleId: text('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    method: text('method', { enum: paymentMethodEnum }).notNull(),
+    amount: real('amount').notNull(),
+    /**
+     * Optional free-form reference (e.g. card authorization code, transfer
+     * receipt number). Not a FK — it's purely descriptive audit context.
+     */
+    reference: text('reference'),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_sale_payments_tenant').on(table.tenantId),
+    index('idx_sale_payments_sale').on(table.saleId),
+    index('idx_sale_payments_method').on(table.method),
+  ]
+);
+
+export const salePaymentsRelations = relations(salePayments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [salePayments.tenantId],
+    references: [tenants.id],
+  }),
+  sale: one(sales, {
+    fields: [salePayments.saleId],
+    references: [sales.id],
   }),
 }));
 
@@ -2090,6 +2141,9 @@ export type NewSale = typeof sales.$inferInsert;
 
 export type SaleItem = typeof saleItems.$inferSelect;
 export type NewSaleItem = typeof saleItems.$inferInsert;
+
+export type SalePayment = typeof salePayments.$inferSelect;
+export type NewSalePayment = typeof salePayments.$inferInsert;
 
 export type SaleReturn = typeof saleReturns.$inferSelect;
 export type NewSaleReturn = typeof saleReturns.$inferInsert;

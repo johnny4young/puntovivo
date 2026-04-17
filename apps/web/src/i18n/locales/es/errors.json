@@ -30,6 +30,7 @@
     "SALE_QUANTITY_NOT_ALIGNED": "Este producto debe venderse en incrementos del paso fraccional configurado.",
     "SALE_FRACTION_POLICY_MISSING": "Este producto no tiene configurada su política de fracciones.",
     "SALE_QUANTITY_INVALID": "La cantidad debe ser mayor que cero.",
+    "SALE_PAYMENTS_SUM_MISMATCH": "Los pagos divididos deben sumar el total de la venta.",
     "TRANSFER_SITES_IDENTICAL": "La sede origen y destino deben ser distintas.",
     "TRANSFER_SITE_NOT_FOUND": "La sede seleccionada para la transferencia no existe o está inactiva.",
     "TRANSFER_PRODUCT_NOT_FOUND": "El producto seleccionado no existe o está inactivo.",

@@ -454,6 +454,9 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ⬜ | SALES-16 | BOTH | cashier | Search sales history | Filter works |
 | ⬜ | SALES-17 | BOTH | cashier | Keyboard shortcuts | Shortcuts trigger expected actions |
 | ✅ | SALES-18 | BOTH | cashier | Mobile or tablet sales layout | Checkout remains usable |
+| ✅ | SALES-19 | BOTH | cashier | Charge split payment sale | Sale completes only when tender amounts sum to the total |
+| ✅ | SALES-20 | BOTH | cashier | Open split payment mode | Credit is not offered as a split tender; credit sales remain on the single-tender pending flow |
+| ✅ | SALES-21 | BOTH | cashier | Split payment cash-session accounting | Only the cash-method tender portion hits the expected balance; card/transfer/other tenders do not |
 
 ---
 

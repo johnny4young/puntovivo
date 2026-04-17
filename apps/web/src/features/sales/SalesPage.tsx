@@ -31,6 +31,7 @@ import {
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getCheckoutPaymentState } from '@/features/sales/checkoutPayment';
 import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
@@ -44,27 +45,10 @@ import type {
   CashSessionReport,
   Category,
   Customer,
-  PaymentStatus,
   Provider,
   RegisterAssignment,
   Sale,
 } from '@/types';
-
-function getRequestedPaymentStatus(values: SalePaymentValues, total: number): PaymentStatus {
-  if (values.paymentMethod === 'credit') {
-    return 'pending';
-  }
-
-  if (values.amountReceived >= total) {
-    return 'paid';
-  }
-
-  if (values.amountReceived > 0) {
-    return 'partial';
-  }
-
-  return 'pending';
-}
 
 export function SalesPage() {
   const { t } = useTranslation(['sales', 'errors']);
@@ -397,6 +381,7 @@ export function SalesPage() {
 
   const handleCheckout = async (values: SalePaymentValues) => {
     try {
+      const payment = getCheckoutPaymentState(values, draftSummary.total);
       await createMutation.mutateAsync({
         customerId: values.customerId || undefined,
         items: cartItems.map(item => ({
@@ -407,12 +392,16 @@ export function SalesPage() {
           discount: item.discount,
           taxRate: item.taxRate,
         })),
-        paymentMethod: values.paymentMethod,
-        paymentStatus: getRequestedPaymentStatus(values, draftSummary.total),
+        paymentMethod: payment.paymentMethod,
+        paymentStatus: payment.paymentStatus,
         status: 'completed',
-        amountReceived: values.paymentMethod === 'credit' ? 0 : values.amountReceived,
+        amountReceived: payment.amountReceived,
         discountAmount: 0,
         notes: values.notes || undefined,
+        // Phase 2 Tier-2 step 5 — split-tender list, or undefined on the
+        // legacy single-tender path. Shape is owned by `getCheckoutPaymentState`
+        // so the "is-this-a-split?" decision lives in exactly one place.
+        payments: payment.payments,
       });
     } catch (error) {
       setSaleError(getServerErrorMessage(error));

@@ -48,6 +48,8 @@ export const SERVER_ERROR_CODES = {
   SALE_FRACTION_POLICY_MISSING: 'SALE_FRACTION_POLICY_MISSING',
   /** Sale path: quantity is zero / negative / non-finite. */
   SALE_QUANTITY_INVALID: 'SALE_QUANTITY_INVALID',
+  /** Split-payment input: Σ(payments.amount) does not match the sale total. */
+  SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
 
   // --- inventory transfers domain (Phase 2 DB-102 / API-102) ---
   TRANSFER_SITES_IDENTICAL: 'TRANSFER_SITES_IDENTICAL',

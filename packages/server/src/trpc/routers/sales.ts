@@ -27,6 +27,7 @@ import {
   inventoryBalances,
   inventoryMovements,
   products,
+  salePayments,
   saleItems,
   saleReturns,
   sales,
@@ -36,6 +37,7 @@ import {
   unitXProduct,
   units,
 } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
   createSaleInput,
@@ -95,12 +97,23 @@ function getPaymentStatus({
   paymentMethod,
   requestedStatus,
   total,
+  isSplit,
 }: {
   amountReceived: number | undefined;
   paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
   requestedStatus: 'pending' | 'paid' | 'partial' | 'refunded';
   total: number;
+  isSplit?: boolean;
 }) {
+  // Split payments are validated up-front to sum exactly to the total, so by
+  // definition the sale is fully paid the moment we reach here. This check
+  // must precede the credit guard: credit is excluded from
+  // `splitPaymentMethodEnum` today, but if a split ever mixes credit
+  // (on-account tender in Phase 5) the split invariant still applies.
+  if (isSplit) {
+    return 'paid' as const;
+  }
+
   if (paymentMethod === 'credit') {
     return requestedStatus;
   }
@@ -172,6 +185,69 @@ function getPersistedCashContribution(sale: {
   }
 
   return sale.total;
+}
+
+const PAYMENT_SUM_EPSILON = 0.005;
+
+interface ResolvedSalePayment {
+  method: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  amount: number;
+  reference: string | null;
+}
+
+/**
+ * Normalizes the two create-sale input modes into a single list of payment
+ * rows the persistence layer can write verbatim:
+ *
+ * - Multi-tender: caller supplied `input.payments`. Validate that the sum
+ *   matches the sale total within a cent of tolerance.
+ * - Legacy single-tender: derive one row from `paymentMethod`, cap its
+ *   amount at the total (cash tenders may receive > total — the overage is
+ *   change, not a persisted tender).
+ *
+ * Returns the normalized list plus the dominant `paymentMethod` to echo
+ * onto `sales.paymentMethod`. For split payments the dominant tender is the
+ * one with the largest amount, breaking ties with the first-supplied entry.
+ */
+function resolveSalePayments(args: {
+  payments: ResolvedSalePayment[] | undefined;
+  legacyMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  amountReceived: number | undefined;
+  total: number;
+}): { rows: ResolvedSalePayment[]; dominantMethod: ResolvedSalePayment['method'] } {
+  if (args.payments && args.payments.length > 0) {
+    const sum = args.payments.reduce((acc, payment) => acc + payment.amount, 0);
+    if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_PAYMENTS_SUM_MISMATCH',
+        message: 'Sum of payments must equal the sale total',
+        details: { sum, total: args.total },
+      });
+    }
+
+    const dominant = args.payments.reduce((best, payment) =>
+      payment.amount > best.amount ? payment : best
+    );
+    return { rows: args.payments, dominantMethod: dominant.method };
+  }
+
+  // Legacy single-tender path: one payment row whose amount equals the sale
+  // total (cash overage is change, not a tender).
+  const legacyAmount = Math.min(
+    args.amountReceived ?? args.total,
+    args.total
+  );
+  return {
+    rows: [
+      {
+        method: args.legacyMethod,
+        amount: legacyAmount,
+        reference: null,
+      },
+    ],
+    dominantMethod: args.legacyMethod,
+  };
 }
 
 function insertCashMovement(args: {
@@ -487,7 +563,21 @@ async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string
     .where(eq(saleItems.saleId, saleId))
     .all();
 
-  return { ...sale, items };
+  // Phase 2 Tier-2 step 5 — every sale has at least one payment row now.
+  const payments = await db
+    .select({
+      id: salePayments.id,
+      method: salePayments.method,
+      amount: salePayments.amount,
+      reference: salePayments.reference,
+      createdAt: salePayments.createdAt,
+    })
+    .from(salePayments)
+    .where(eq(salePayments.saleId, saleId))
+    .orderBy(salePayments.createdAt)
+    .all();
+
+  return { ...sale, items, payments };
 }
 
 export const salesRouter = router({
@@ -654,27 +744,52 @@ export const salesRouter = router({
         message: 'Discount amount cannot exceed the sale total',
       });
     }
+    // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
+    const resolvedPayments = resolveSalePayments({
+      payments: input.payments?.map(payment => ({
+        method: payment.method,
+        amount: payment.amount,
+        reference: payment.reference ?? null,
+      })),
+      legacyMethod: input.paymentMethod,
+      amountReceived: input.amountReceived,
+      total,
+    });
+    const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
+
     const paymentStatus = getPaymentStatus({
       amountReceived: input.amountReceived,
-      paymentMethod: input.paymentMethod,
+      paymentMethod: resolvedPayments.dominantMethod,
       requestedStatus: input.paymentStatus,
       total,
+      isSplit: isSplitPayment,
     });
     const change =
       input.amountReceived !== undefined && input.amountReceived > total
         ? input.amountReceived - total
         : 0;
+    // Cash collected is the sum of cash-method tenders when split, or the
+    // legacy amountReceived-minus-change when single-tender.
     const cashCollectedAmount =
       input.status === 'completed'
-        ? getCashCollectedAmount({
-            paymentMethod: input.paymentMethod,
-            amountReceived: input.amountReceived,
-            total,
-            change,
-          })
+        ? isSplitPayment
+          ? resolvedPayments.rows
+              .filter(payment => payment.method === 'cash')
+              .reduce((acc, payment) => acc + payment.amount, 0)
+          : getCashCollectedAmount({
+              paymentMethod: input.paymentMethod,
+              amountReceived: input.amountReceived,
+              total,
+              change,
+            })
         : 0;
 
-    if (input.amountReceived !== undefined && paymentStatus === 'paid' && input.amountReceived < total) {
+    if (
+      !isSplitPayment &&
+      input.amountReceived !== undefined &&
+      paymentStatus === 'paid' &&
+      input.amountReceived < total
+    ) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Amount received cannot be less than the sale total for a paid sale',
@@ -704,7 +819,9 @@ export const salesRouter = router({
           taxAmount,
           discountAmount: input.discountAmount ?? 0,
           total,
-          paymentMethod: input.paymentMethod,
+          // Echo the dominant tender onto the legacy `paymentMethod` column so
+          // older screens that read it directly keep rendering sensibly.
+          paymentMethod: resolvedPayments.dominantMethod,
           paymentStatus,
           status: input.status,
           cashSessionId: activeCashSession.id,
@@ -716,6 +833,23 @@ export const salesRouter = router({
           updatedAt: now,
         })
         .run();
+
+      // Phase 2 Tier-2 step 5 — persist one row per tender.
+      for (const payment of resolvedPayments.rows) {
+        tx.insert(salePayments)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            saleId,
+            method: payment.method,
+            amount: payment.amount,
+            reference: payment.reference,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+      }
 
       for (const row of resolvedItems.rows) {
         tx.insert(saleItems)

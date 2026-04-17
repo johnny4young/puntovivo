@@ -326,6 +326,7 @@ export interface Sale {
   customerName?: string | null;
   customer?: Customer;
   items?: SaleItem[];
+  payments?: SalePayment[];
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
@@ -363,6 +364,14 @@ export interface SaleItem {
   taxAmount: number;
   costAtSale?: number;
   total: number;
+}
+
+export interface SalePayment {
+  id: string;
+  method: PaymentMethod;
+  amount: number;
+  reference?: string | null;
+  createdAt: string;
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';

@@ -10,6 +10,7 @@ import {
   customers,
   inventoryMovements,
   products,
+  salePayments,
   saleItems,
   saleReturns,
   sales,
@@ -1442,6 +1443,277 @@ describe('Sales tRPC Router', () => {
         .createCaller(createTestContext())
         .inventory.listBalancesBySite({ siteId: secondarySiteId });
       expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(0);
+    });
+  });
+
+  // ─── Phase 2 Tier-2 step 5 — split payments / multi-tender ───────────────
+
+  describe('split payments', () => {
+    async function createPaymentTestProduct(overrides: {
+      name: string;
+      sku: string;
+      barcode: string;
+      price: number;
+      stock: number;
+    }) {
+      const db = getDatabase();
+      const productId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: overrides.name,
+        sku: overrides.sku,
+        barcode: overrides.barcode,
+        price: overrides.price,
+        price2: overrides.price,
+        price3: overrides.price,
+        cost: overrides.price * 0.5,
+        initialCost: overrides.price * 0.5,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: overrides.stock,
+        minStock: 0,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: overrides.price,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return productId;
+    }
+
+    it('legacy single-tender input still persists one payment row', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Legacy',
+        sku: 'PAY-LEGACY',
+        barcode: 'PAY-10001',
+        price: 10,
+        stock: 10,
+      });
+
+      const result = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 25,
+        discountAmount: 0,
+      });
+
+      const db = getDatabase();
+      const payments = await db
+        .select()
+        .from(salePayments)
+        .where(eq(salePayments.saleId, result.id))
+        .all();
+
+      expect(payments).toHaveLength(1);
+      expect(payments[0]?.method).toBe('cash');
+      expect(payments[0]?.amount).toBe(20); // capped at total, 5 of change
+      expect(result.change).toBeCloseTo(5);
+    });
+
+    it('split cash + card sums to the sale total and persists both rows', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Split',
+        sku: 'PAY-SPLIT',
+        barcode: 'PAY-10002',
+        price: 30,
+        stock: 5,
+      });
+
+      const result = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+        payments: [
+          { method: 'cash', amount: 10 },
+          { method: 'card', amount: 20, reference: 'AUTH-12345' },
+        ],
+      });
+
+      const db = getDatabase();
+      const rows = await db
+        .select()
+        .from(salePayments)
+        .where(eq(salePayments.saleId, result.id))
+        .all();
+
+      expect(rows).toHaveLength(2);
+      expect(rows.find(row => row.method === 'cash')?.amount).toBe(10);
+      expect(rows.find(row => row.method === 'card')?.amount).toBe(20);
+      expect(rows.find(row => row.method === 'card')?.reference).toBe('AUTH-12345');
+      expect(result.paymentStatus).toBe('paid');
+      // Dominant tender (card=20 > cash=10) propagates to the legacy column.
+      expect(result.paymentMethod).toBe('card');
+    });
+
+    it('rejects credit inside split payments until on-account sales exist', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Credit Split',
+        sku: 'PAY-CREDIT-SPLIT',
+        barcode: 'PAY-10004',
+        price: 30,
+        stock: 5,
+      });
+
+      await expect(
+        caller.sales.create({
+          items: [
+            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 },
+          ],
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          status: 'completed',
+          discountAmount: 0,
+          payments: [
+            { method: 'cash', amount: 10 },
+            { method: 'credit', amount: 20 },
+          ],
+        })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: 'BAD_REQUEST',
+      });
+    });
+
+    it('rejects a split payment whose amounts do not sum to the total', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Mismatch',
+        sku: 'PAY-MISMATCH',
+        barcode: 'PAY-10003',
+        price: 40,
+        stock: 5,
+      });
+
+      await expect(
+        caller.sales.create({
+          items: [
+            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 40, discount: 0 },
+          ],
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          status: 'completed',
+          discountAmount: 0,
+          payments: [
+            { method: 'cash', amount: 20 },
+            { method: 'card', amount: 19 }, // Σ=39, total=40
+          ],
+        })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: 'BAD_REQUEST',
+      });
+
+      // No sale should have been persisted at all for this product (the
+      // create transaction should have rolled back cleanly).
+      const db = getDatabase();
+      const productRows = await db
+        .select()
+        .from(saleItems)
+        .where(eq(saleItems.productId, productId))
+        .all();
+      expect(productRows).toHaveLength(0);
+    });
+
+    it('drives cash-movement from the sum of cash-method tenders only', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const productId = await createPaymentTestProduct({
+        name: 'Payment Cash Component',
+        sku: 'PAY-CASH',
+        barcode: 'PAY-10006',
+        price: 50,
+        stock: 5,
+      });
+
+      const sessionBefore = await db
+        .select({ expected: cashSessions.expectedBalance })
+        .from(cashSessions)
+        .where(eq(cashSessions.id, activeCashSessionId))
+        .get();
+
+      await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 50, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+        payments: [
+          { method: 'cash', amount: 15 },
+          { method: 'transfer', amount: 35 },
+        ],
+      });
+
+      const sessionAfter = await db
+        .select({ expected: cashSessions.expectedBalance })
+        .from(cashSessions)
+        .where(eq(cashSessions.id, activeCashSessionId))
+        .get();
+
+      // Cash session balance should rise by exactly the cash tender (15),
+      // not the full total (50) or the transfer piece.
+      expect(sessionAfter?.expected).toBeCloseTo((sessionBefore?.expected ?? 0) + 15);
+    });
+
+    it('sales.getById returns the payments array for split and legacy sales', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createPaymentTestProduct({
+        name: 'Payment GetById',
+        sku: 'PAY-GETBYID',
+        barcode: 'PAY-10005',
+        price: 60,
+        stock: 5,
+      });
+
+      const created = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 60, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+        payments: [
+          { method: 'cash', amount: 20 },
+          { method: 'card', amount: 40, reference: 'REF-9' },
+        ],
+      });
+
+      const detail = await caller.sales.getById({ id: created.id });
+      expect(detail.payments).toHaveLength(2);
+      expect(
+        detail.payments.map(p => ({ method: p.method, amount: p.amount, reference: p.reference }))
+      ).toEqual(
+        expect.arrayContaining([
+          { method: 'cash', amount: 20, reference: null },
+          { method: 'card', amount: 40, reference: 'REF-9' },
+        ])
+      );
     });
   });
 });
