@@ -1,9 +1,11 @@
+import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  inventoryBalances,
   inventoryMovements,
   orderItems,
   orders,
@@ -63,6 +65,42 @@ function createTestContext(
     },
     tenantId,
     siteId,
+  };
+}
+
+function createTestContextForSite(
+  overrideSiteId: string,
+  role: 'admin' | 'manager' | 'cashier' = 'admin'
+): Context {
+  const db = getDatabase();
+  const mockReq = {
+    server: server.app,
+    headers: {
+      'x-site-id': overrideSiteId,
+    },
+    user: {
+      userId,
+      email: `${role}@localhost`,
+      role,
+      tenantId,
+    },
+    jwtVerify: async () => {},
+  } as unknown as Context['req'];
+
+  const mockRes = {} as unknown as Context['res'];
+
+  return {
+    req: mockReq,
+    res: mockRes,
+    db,
+    user: {
+      id: userId,
+      email: `${role}@localhost`,
+      role,
+      tenantId,
+    },
+    tenantId,
+    siteId: overrideSiteId,
   };
 }
 
@@ -210,6 +248,9 @@ describe('Purchases tRPC Router', () => {
     expect(updatedProduct?.cost).toBeCloseTo(6);
     expect(updatedProduct?.initialCost).toBeCloseTo(6);
 
+    const balances = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(13);
+
     const storedItems = await db
       .select()
       .from(purchaseItems)
@@ -330,6 +371,9 @@ describe('Purchases tRPC Router', () => {
       .get();
     expect(movement?.quantity).toBe(0.75);
     expect(movement?.newStock).toBeCloseTo(2.25);
+
+    const balances = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balances.items.find(item => item.productId === productId)?.onHand).toBeCloseTo(2.25);
   });
 
   it('creates partial receipts from an order and marks the order as received when completed', async () => {
@@ -450,6 +494,9 @@ describe('Purchases tRPC Router', () => {
     const updatedProduct = await db.select().from(products).where(eq(products.id, productId)).get();
     expect(updatedProduct?.stock).toBe(8);
 
+    const balancesAfterFirstReceipt = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balancesAfterFirstReceipt.items.find(item => item.productId === productId)?.onHand).toBe(8);
+
     const updatedOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
     expect(updatedOrder?.status).toBe('partial_received');
 
@@ -472,6 +519,11 @@ describe('Purchases tRPC Router', () => {
     const finalProduct = await db.select().from(products).where(eq(products.id, productId)).get();
     expect(finalProduct?.stock).toBe(13);
 
+    const balancesAfterSecondReceipt = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balancesAfterSecondReceipt.items.find(item => item.productId === productId)?.onHand).toBe(
+      13
+    );
+
     const finalOrder = await db.select().from(orders).where(eq(orders.id, orderId)).get();
     expect(finalOrder?.status).toBe('received');
 
@@ -481,6 +533,219 @@ describe('Purchases tRPC Router', () => {
       .where(eq(purchases.orderId, orderId))
       .all();
     expect(linkedPurchases).toHaveLength(2);
+  });
+
+  it('credits the current site balance when a purchase falls back to another site sequential', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const secondarySiteId = nanoid();
+    const now = new Date().toISOString();
+    const mainSite = await db
+      .select()
+      .from(sites)
+      .where(eq(sites.id, siteId))
+      .get();
+
+    if (!mainSite) {
+      throw new Error('Expected seeded main site');
+    }
+
+    await db.insert(sites).values({
+      id: secondarySiteId,
+      tenantId,
+      companyId: mainSite.companyId,
+      name: 'Secondary Purchasing Site',
+      address: null,
+      phone: null,
+      isActive: true,
+      createdAt: new Date(Date.now() + 60_000).toISOString(),
+      updatedAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Fallback Sequential Vendor',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Secondary Site Purchase Product',
+      sku: 'PUR-SITE-001',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 2,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+    const result = await secondaryCaller.purchases.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 3, costPerUnit: 6 }],
+    });
+
+    expect(result.siteId).toBe(secondarySiteId);
+
+    const primaryBalances = await appRouter
+      .createCaller(createTestContext())
+      .inventory.listBalancesBySite({ siteId });
+    expect(primaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(2);
+
+    const secondaryBalances = await appRouter
+      .createCaller(createTestContext())
+      .inventory.listBalancesBySite({ siteId: secondarySiteId });
+    expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(3);
+  });
+
+  it('receives ordered stock into the order site even when the purchase sequential falls back elsewhere', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const orderId = nanoid();
+    const orderItemId = nanoid();
+    const secondarySiteId = nanoid();
+    const now = new Date().toISOString();
+    const mainSite = await db
+      .select()
+      .from(sites)
+      .where(eq(sites.id, siteId))
+      .get();
+
+    if (!mainSite) {
+      throw new Error('Expected seeded main site');
+    }
+
+    await db.insert(sites).values({
+      id: secondarySiteId,
+      tenantId,
+      companyId: mainSite.companyId,
+      name: 'Order Receipt Site',
+      address: null,
+      phone: null,
+      isActive: true,
+      createdAt: new Date(Date.now() + 120_000).toISOString(),
+      updatedAt: new Date(Date.now() + 120_000).toISOString(),
+    });
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Order Receipt Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Receipt Site Product',
+      sku: 'PUR-SITE-ORD-001',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      stock: 1,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(orders).values({
+      id: orderId,
+      tenantId,
+      orderNumber: 'PED-900777',
+      providerId,
+      siteId: secondarySiteId,
+      status: 'submitted',
+      subtotal: 12,
+      total: 12,
+      notes: 'Secondary site receipt',
+      createdBy: userId,
+      syncStatus: 'pending',
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(orderItems).values({
+      id: orderItemId,
+      orderId,
+      productId,
+      quantity: 2,
+      unitId: baseUnitId,
+      unitEquivalence: 1,
+      costPerUnit: 6,
+      baseUnitCost: 6,
+      total: 12,
+    });
+
+    const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId, 'manager'));
+    const receipt = await secondaryCaller.purchases.createFromOrder({
+      orderId,
+      items: [{ orderItemId, quantity: 2 }],
+    });
+
+    expect(receipt.siteId).toBe(secondarySiteId);
+
+    const primaryBalances = await appRouter
+      .createCaller(createTestContext())
+      .inventory.listBalancesBySite({ siteId });
+    expect(primaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(1);
+
+    const secondaryBalances = await appRouter
+      .createCaller(createTestContext())
+      .inventory.listBalancesBySite({ siteId: secondarySiteId });
+    expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(2);
   });
 
   it('rejects purchases with an invalid product-unit assignment', async () => {
@@ -647,6 +912,9 @@ describe('Purchases tRPC Router', () => {
 
     const product = await db.select().from(products).where(eq(products.id, productId)).get();
     expect(product?.stock).toBe(11);
+
+    const balances = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(11);
 
     const returnHeader = await db
       .select()
@@ -815,6 +1083,91 @@ describe('Purchases tRPC Router', () => {
     ).rejects.toThrow(/already been fully returned|fully returned/);
   });
 
+  it('rejects returning a purchase when the purchase site no longer has enough stock', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Site Locked Return Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Site Locked Return Product',
+      sku: 'PUR-SITE-RET-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 3,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 3,
+      stock: 1,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('manager'));
+    const created = await caller.purchases.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 5 }],
+    });
+
+    const [lineItem] = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, created.id))
+      .all();
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .run();
+
+    await expect(
+      caller.purchases.returnPurchase({
+        id: created.id,
+        items: [{ purchaseItemId: lineItem!.id, quantity: 1 }],
+      })
+    ).rejects.toMatchObject<Partial<TRPCError>>({
+      code: 'BAD_REQUEST',
+      message: expect.stringMatching(/purchase site only has 0 units available/i),
+    });
+  });
+
   it('allows managers and rejects cashiers on purchase routes', async () => {
     const managerCaller = appRouter.createCaller(createTestContext('manager'));
     const cashierCaller = appRouter.createCaller(createTestContext('cashier'));
@@ -902,6 +1255,9 @@ describe('Purchases tRPC Router', () => {
 
     const product = await db.select().from(products).where(eq(products.id, productId)).get();
     expect(product?.stock).toBe(10);
+
+    const balances = await caller.inventory.listBalancesBySite({ siteId });
+    expect(balances.items.find(item => item.productId === productId)?.onHand).toBe(10);
 
     const reversalMovement = await db
       .select()
@@ -993,6 +1349,84 @@ describe('Purchases tRPC Router', () => {
         id: created.id,
       })
     ).rejects.toThrow(/only has 1 units in stock/);
+  });
+
+  it('rejects voiding a purchase when the purchase site no longer has enough stock', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Site Locked Void Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Site Locked Void Product',
+      sku: 'PUR-SITE-VOID-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 3,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 3,
+      stock: 1,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 5 }],
+    });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .run();
+
+    await expect(
+      caller.purchases.void({
+        id: created.id,
+      })
+    ).rejects.toMatchObject<Partial<TRPCError>>({
+      code: 'BAD_REQUEST',
+      message: expect.stringMatching(/purchase site only has 0 units in stock/i),
+    });
   });
 
   it('allows only admins to void a purchase', async () => {

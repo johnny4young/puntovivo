@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  inventoryBalances,
   inventoryMovements,
   orderItems,
   orders,
@@ -21,6 +22,11 @@ import {
   users,
 } from '../../db/schema.js';
 import type { Context } from '../context.js';
+import {
+  applyInventoryBalanceDelta,
+  ensureInventoryBalancesForSite,
+  ensurePrimaryInventoryBalanceSnapshot,
+} from '../../services/inventory-balances.js';
 import {
   createPurchaseInput,
   createPurchaseFromOrderInput,
@@ -64,6 +70,11 @@ type PurchaseSequentialContext = {
   siteName: string;
 };
 
+type PurchaseSiteContext = {
+  id: string;
+  name: string;
+};
+
 type ResolvedOrderReceiptItem = ResolvedPurchaseItem & {
   sourceOrderItemId: string;
 };
@@ -95,6 +106,66 @@ function getNormalizedPurchaseQuantity(quantity: number, equivalence: number) {
   }
 
   return normalizedQuantity;
+}
+
+async function getPurchaseSiteContext(
+  db: Context['db'],
+  tenantId: string,
+  preferredSiteId: string | null,
+  fallbackSiteId: string
+): Promise<PurchaseSiteContext> {
+  const resolvedSiteId = preferredSiteId ?? fallbackSiteId;
+  const site = await db
+    .select({
+      id: sites.id,
+      name: sites.name,
+      isActive: sites.isActive,
+    })
+    .from(sites)
+    .where(and(eq(sites.tenantId, tenantId), eq(sites.id, resolvedSiteId)))
+    .get();
+
+  if (!site || site.isActive === false) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Selected purchase site was not found or is inactive',
+    });
+  }
+
+  return {
+    id: site.id,
+    name: site.name,
+  };
+}
+
+async function getInventoryBalanceStateForSite(
+  db: Context['db'],
+  tenantId: string,
+  siteId: string,
+  productIds: string[]
+) {
+  if (productIds.length === 0) {
+    return new Map<string, number>();
+  }
+
+  ensureInventoryBalancesForSite(db, tenantId, siteId);
+
+  const balances = await db
+    .select({
+      productId: inventoryBalances.productId,
+      onHand: inventoryBalances.onHand,
+    })
+    .from(inventoryBalances)
+    .where(
+      and(
+        eq(inventoryBalances.tenantId, tenantId),
+        eq(inventoryBalances.siteId, siteId),
+        inArray(inventoryBalances.productId, productIds)
+      )
+    )
+    .all();
+
+  return new Map(balances.map(balance => [balance.productId, balance.onHand]));
 }
 
 async function getPurchaseSequentialContext(
@@ -779,12 +850,25 @@ export const purchasesRouter = router({
     const now = new Date().toISOString();
     const purchaseId = nanoid();
     const sequentialContext = await getPurchaseSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
+    const purchaseSite = await getPurchaseSiteContext(
+      ctx.db,
+      ctx.tenantId,
+      ctx.siteId,
+      sequentialContext.siteId
+    );
     const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
     const subtotal = resolvedItems.subtotal;
     const total = subtotal;
     const nextSequentialValue = sequentialContext.currentValue + 1;
     const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
     const productStockState = new Map(resolvedItems.productStocks);
+    const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+    const siteBalanceState = await getInventoryBalanceStateForSite(
+      ctx.db,
+      ctx.tenantId,
+      purchaseSite.id,
+      productIds
+    );
 
     ctx.db.transaction(tx => {
       tx.update(sequentials)
@@ -802,7 +886,7 @@ export const purchasesRouter = router({
           purchaseNumber,
           providerId: input.providerId,
           orderId: null,
-          siteId: sequentialContext.siteId,
+          siteId: purchaseSite.id,
           status: 'completed',
           subtotal,
           total,
@@ -832,7 +916,17 @@ export const purchasesRouter = router({
 
         const previousStock = productStockState.get(row.productId) ?? 0;
         const newStock = previousStock + row.normalizedQuantity;
+        const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
+        const newSiteBalance = previousSiteBalance + row.normalizedQuantity;
         productStockState.set(row.productId, newStock);
+        siteBalanceState.set(row.productId, newSiteBalance);
+
+        ensurePrimaryInventoryBalanceSnapshot(tx, {
+          tenantId: ctx.tenantId,
+          productId: row.productId,
+          onHandSnapshot: previousStock,
+          now,
+        });
 
         tx.update(products)
           .set({
@@ -846,6 +940,15 @@ export const purchasesRouter = router({
           .where(eq(products.id, row.productId))
           .run();
 
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: purchaseSite.id,
+          productId: row.productId,
+          delta: row.normalizedQuantity,
+          initialOnHandIfMissing: previousSiteBalance,
+          now,
+        });
+
         tx.insert(inventoryMovements)
           .values({
             id: nanoid(),
@@ -856,7 +959,7 @@ export const purchasesRouter = router({
             previousStock,
             newStock,
             reference: purchaseId,
-            notes: `Purchase ${purchaseNumber} · ${sequentialContext.siteName}`,
+            notes: `Purchase ${purchaseNumber} · ${purchaseSite.name}`,
             createdBy: ctx.user!.id,
             syncStatus: 'pending',
             syncVersion: 1,
@@ -877,7 +980,7 @@ export const purchasesRouter = router({
             purchaseNumber,
             providerId: input.providerId,
             total,
-            siteId: sequentialContext.siteId,
+            siteId: purchaseSite.id,
           },
           localVersion: 1,
           attempts: 0,
@@ -946,6 +1049,13 @@ export const purchasesRouter = router({
       const nextSequentialValue = sequentialContext.currentValue + 1;
       const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
       const productStockState = new Map(resolvedItems.productStockState);
+      const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+      const siteBalanceState = await getInventoryBalanceStateForSite(
+        ctx.db,
+        ctx.tenantId,
+        orderRecord.siteId,
+        productIds
+      );
       const nextOrderSyncVersion = (orderRecord.syncVersion ?? 0) + 1;
       const nextOrderStatus =
         resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
@@ -968,7 +1078,7 @@ export const purchasesRouter = router({
             purchaseNumber,
             providerId: orderRecord.providerId,
             orderId: input.orderId,
-            siteId: sequentialContext.siteId,
+            siteId: orderRecord.siteId,
             status: 'completed',
             subtotal,
             total,
@@ -999,7 +1109,17 @@ export const purchasesRouter = router({
 
           const previousStock = productStockState.get(row.productId) ?? 0;
           const newStock = previousStock + row.normalizedQuantity;
+          const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
+          const newSiteBalance = previousSiteBalance + row.normalizedQuantity;
           productStockState.set(row.productId, newStock);
+          siteBalanceState.set(row.productId, newSiteBalance);
+
+          ensurePrimaryInventoryBalanceSnapshot(tx, {
+            tenantId: ctx.tenantId,
+            productId: row.productId,
+            onHandSnapshot: previousStock,
+            now,
+          });
 
           tx.update(products)
             .set({
@@ -1012,6 +1132,15 @@ export const purchasesRouter = router({
             })
             .where(eq(products.id, row.productId))
             .run();
+
+          applyInventoryBalanceDelta(tx, {
+            tenantId: ctx.tenantId,
+            siteId: orderRecord.siteId,
+            productId: row.productId,
+            delta: row.normalizedQuantity,
+            initialOnHandIfMissing: previousSiteBalance,
+            now,
+          });
 
           tx.insert(inventoryMovements)
             .values({
@@ -1055,7 +1184,7 @@ export const purchasesRouter = router({
               providerId: orderRecord.providerId,
               orderId: input.orderId,
               total,
-              siteId: sequentialContext.siteId,
+              siteId: orderRecord.siteId,
             },
             localVersion: 1,
             attempts: 0,
@@ -1138,6 +1267,12 @@ export const purchasesRouter = router({
         .all();
 
       const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+      const siteBalanceState = await getInventoryBalanceStateForSite(
+        ctx.db,
+        ctx.tenantId,
+        existing.siteId,
+        productIds
+      );
       const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
       const now = new Date().toISOString();
       const purchaseReturnId = nanoid();
@@ -1179,12 +1314,22 @@ export const purchasesRouter = router({
             });
           }
 
+          const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;
+          if (currentSiteBalance < item.normalizedQuantity) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot return purchase items because the purchase site only has ${currentSiteBalance} units available`,
+            });
+          }
+
           const previousStock = product.stock;
           const newStock = previousStock - item.normalizedQuantity;
+          const newSiteBalance = currentSiteBalance - item.normalizedQuantity;
           productStockState.set(item.productId, {
             ...product,
             stock: newStock,
           });
+          siteBalanceState.set(item.productId, newSiteBalance);
 
           tx.insert(purchaseReturnItems)
             .values({
@@ -1210,6 +1355,15 @@ export const purchasesRouter = router({
             })
             .where(eq(products.id, item.productId))
             .run();
+
+          applyInventoryBalanceDelta(tx, {
+            tenantId: ctx.tenantId,
+            siteId: existing.siteId,
+            productId: item.productId,
+            delta: -item.normalizedQuantity,
+            initialOnHandIfMissing: currentSiteBalance,
+            now,
+          });
 
           tx.insert(inventoryMovements)
             .values({
@@ -1356,6 +1510,12 @@ export const purchasesRouter = router({
       .all();
 
     const productStockState = new Map(currentProducts.map(product => [product.id, product]));
+    const siteBalanceState = await getInventoryBalanceStateForSite(
+      ctx.db,
+      ctx.tenantId,
+      existing.siteId,
+      productIds
+    );
     const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
     const now = new Date().toISOString();
 
@@ -1378,12 +1538,22 @@ export const purchasesRouter = router({
           });
         }
 
+        const currentSiteBalance = siteBalanceState.get(item.productId) ?? 0;
+        if (currentSiteBalance < normalizedQuantity) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Cannot void purchase because the purchase site only has ${currentSiteBalance} units in stock`,
+          });
+        }
+
         const previousStock = product.stock;
         const newStock = previousStock - normalizedQuantity;
+        const newSiteBalance = currentSiteBalance - normalizedQuantity;
         productStockState.set(item.productId, {
           ...product,
           stock: newStock,
         });
+        siteBalanceState.set(item.productId, newSiteBalance);
 
         tx.update(products)
           .set({
@@ -1394,6 +1564,15 @@ export const purchasesRouter = router({
           })
           .where(eq(products.id, item.productId))
           .run();
+
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: existing.siteId,
+          productId: item.productId,
+          delta: -normalizedQuantity,
+          initialOnHandIfMissing: currentSiteBalance,
+          now,
+        });
 
         tx.insert(inventoryMovements)
           .values({

@@ -42,6 +42,7 @@ export function OrderDetailsModal({
         utils.purchases.list.invalidate(),
         utils.purchases.getById.invalidate({ id: purchase.id }),
         utils.inventory.listMovements.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
         utils.inventory.listStock.invalidate(),
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),

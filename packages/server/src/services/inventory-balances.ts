@@ -243,6 +243,60 @@ export function applyInventoryBalanceDelta(
 }
 
 /**
+ * Ensures the primary site's row exists for `productId` with the supplied
+ * pre-delta aggregate snapshot. This prevents a later first read from seeding
+ * the primary site from an already-mutated `products.stock` value after stock
+ * was received directly into a non-primary site.
+ */
+export function ensurePrimaryInventoryBalanceSnapshot(
+  tx: DatabaseInstance,
+  args: {
+    tenantId: string;
+    productId: string;
+    onHandSnapshot: number;
+    now?: string;
+  }
+): string | null {
+  const primarySite = tx
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.tenantId, args.tenantId), eq(sites.isActive, true)))
+    .orderBy(asc(sites.createdAt), asc(sites.id))
+    .limit(1)
+    .get();
+
+  if (!primarySite) {
+    return null;
+  }
+
+  const now = args.now ?? getTimestamp();
+
+  tx.insert(inventoryBalances)
+    .values({
+      id: nanoid(),
+      tenantId: args.tenantId,
+      siteId: primarySite.id,
+      productId: args.productId,
+      onHand: args.onHandSnapshot,
+      reserved: 0,
+      syncStatus: 'pending',
+      syncVersion: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing({
+      target: [
+        inventoryBalances.tenantId,
+        inventoryBalances.siteId,
+        inventoryBalances.productId,
+      ],
+    })
+    .run();
+
+  return primarySite.id;
+}
+
+/**
  * Lists all balances for a site, joined to product metadata.
  *
  * Does NOT seed — call `ensureInventoryBalancesForSite` first so this stays a

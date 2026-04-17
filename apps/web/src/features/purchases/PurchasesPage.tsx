@@ -52,6 +52,7 @@ export function PurchasesPage() {
       await Promise.all([
         utils.purchases.list.invalidate(),
         utils.inventory.listMovements.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
         utils.inventory.listStock.invalidate(),
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),

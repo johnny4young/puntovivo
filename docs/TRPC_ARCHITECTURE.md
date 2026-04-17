@@ -195,9 +195,21 @@ snapshot — required when the same transaction also mutates `products.stock`,
 because the default fallback would read the post-mutation value and produce
 a double-count.
 
-Purchases and orders are not yet wired in. Until they are, purchase receipts
-still only touch `products.stock`, so balances drift on receiving. This is
-the next API-103 step.
+The next API-103 step wires purchases/order receiving into the same model:
+
+- `purchases.create` credits the operator's current site balance. If the
+  purchase sequential falls back to another site's numbering config, the
+  document number may come from that fallback sequential, but the stock lands
+  in the operator's actual site.
+- `purchases.createFromOrder` credits the order's site balance, not the
+  fallback purchase-sequential site.
+- `purchases.returnPurchase` and `purchases.void` debit the original purchase
+  site and reject when that site no longer has enough stock, even if
+  tenant-wide `products.stock` is still sufficient elsewhere.
+
+The web mutations that create, receive, return, or void purchases now also
+invalidate `inventory.listBalancesBySite`, so the Inventory → By Site tab
+stays fresh without a hard reload.
 
 ## Current Exceptions and Boundaries
 
