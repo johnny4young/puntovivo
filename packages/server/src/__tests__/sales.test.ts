@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -59,6 +60,39 @@ function createTestContext(): Context {
     },
     tenantId,
     siteId,
+  };
+}
+
+function createTestContextForSite(overrideSiteId: string): Context {
+  const db = getDatabase();
+  const mockReq = {
+    server: server.app,
+    headers: {
+      'x-site-id': overrideSiteId,
+    },
+    user: {
+      userId,
+      email: 'admin@localhost',
+      role: 'admin',
+      tenantId,
+    },
+    jwtVerify: async () => {},
+  } as unknown as Context['req'];
+
+  const mockRes = {} as unknown as Context['res'];
+
+  return {
+    req: mockReq,
+    res: mockRes,
+    db,
+    user: {
+      id: userId,
+      email: 'admin@localhost',
+      role: 'admin',
+      tenantId,
+    },
+    tenantId,
+    siteId: overrideSiteId,
   };
 }
 
@@ -1108,5 +1142,306 @@ describe('Sales tRPC Router', () => {
     const storedItems = await db.select().from(saleItems).where(eq(saleItems.saleId, result.id)).all();
     expect(storedItems).toHaveLength(1);
     expect(storedItems[0]?.discount).toBeCloseTo(10);
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Phase 2 API-103 — sales drive `inventory_balances`
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('inventory_balances integration (Phase 2 API-103)', () => {
+    async function createBalanceTrackedProduct(overrides: {
+      name: string;
+      sku: string;
+      barcode: string;
+      stock: number;
+    }) {
+      const db = getDatabase();
+      const productId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: overrides.name,
+        sku: overrides.sku,
+        barcode: overrides.barcode,
+        price: 10,
+        price2: 10,
+        price3: 10,
+        cost: 5,
+        initialCost: 5,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        stock: overrides.stock,
+        minStock: 0,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 10,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return productId;
+    }
+
+    it('decrements the active site balance when a sale completes', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createBalanceTrackedProduct({
+        name: 'Balance Sale Cable',
+        sku: 'BAL-SALE-CABLE',
+        barcode: 'BAL-SALE-10001',
+        stock: 20,
+      });
+
+      const before = await caller.inventory.listBalancesBySite({ siteId });
+      expect(before.items.find(item => item.productId === productId)?.onHand).toBe(20);
+
+      await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 3, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 30,
+        discountAmount: 0,
+      });
+
+      const after = await caller.inventory.listBalancesBySite({ siteId });
+      expect(after.items.find(item => item.productId === productId)?.onHand).toBe(17);
+    });
+
+    it('credits the site balance back when a sale is refunded', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createBalanceTrackedProduct({
+        name: 'Balance Refund Bolt',
+        sku: 'BAL-REFUND-BOLT',
+        barcode: 'BAL-SALE-10002',
+        stock: 10,
+      });
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 4, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 40,
+        discountAmount: 0,
+      });
+
+      const afterSale = await caller.inventory.listBalancesBySite({ siteId });
+      expect(afterSale.items.find(item => item.productId === productId)?.onHand).toBe(6);
+
+      await caller.sales.returnSale({ id: sale.id, reason: 'customer return' });
+
+      const afterRefund = await caller.inventory.listBalancesBySite({ siteId });
+      expect(afterRefund.items.find(item => item.productId === productId)?.onHand).toBe(10);
+    });
+
+    it('credits the site balance back when a sale is voided', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createBalanceTrackedProduct({
+        name: 'Balance Void Widget',
+        sku: 'BAL-VOID-WIDGET',
+        barcode: 'BAL-SALE-10003',
+        stock: 8,
+      });
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 2, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 20,
+        discountAmount: 0,
+      });
+
+      const afterSale = await caller.inventory.listBalancesBySite({ siteId });
+      expect(afterSale.items.find(item => item.productId === productId)?.onHand).toBe(6);
+
+      await caller.sales.void({ id: sale.id, reason: 'wrong customer' });
+
+      const afterVoid = await caller.inventory.listBalancesBySite({ siteId });
+      expect(afterVoid.items.find(item => item.productId === productId)?.onHand).toBe(8);
+    });
+
+    it('keeps balance write symmetric with legacy `products.stock` updates', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const productId = await createBalanceTrackedProduct({
+        name: 'Balance Parity Part',
+        sku: 'BAL-PARITY-PART',
+        barcode: 'BAL-SALE-10004',
+        stock: 15,
+      });
+
+      await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 6, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 60,
+        discountAmount: 0,
+      });
+
+      const db = getDatabase();
+      const product = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, productId))
+        .get();
+      expect(product?.stock).toBe(9);
+
+      const result = await caller.inventory.listBalancesBySite({ siteId });
+      const balance = result.items.find(item => item.productId === productId);
+      expect(balance?.onHand).toBe(9);
+    });
+
+    it('debits the cash session site even when the sale sequential falls back to another site', async () => {
+      const primaryCaller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const secondarySiteId = nanoid();
+      const mainSite = await db
+        .select()
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .get();
+
+      if (!mainSite) {
+        throw new Error('Expected seeded main site');
+      }
+
+      await db.insert(sites).values({
+        id: secondarySiteId,
+        tenantId,
+        companyId: mainSite.companyId,
+        name: 'Fallback Sequential Site',
+        address: null,
+        phone: null,
+        isActive: true,
+        createdAt: new Date(Date.now() + 60_000).toISOString(),
+        updatedAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+
+      const productId = await createBalanceTrackedProduct({
+        name: 'Balance Fallback Site Part',
+        sku: 'BAL-FALLBACK-SITE',
+        barcode: 'BAL-SALE-10005',
+        stock: 5,
+      });
+
+      await primaryCaller.transfers.create({
+        fromSiteId: siteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId, quantity: 2 }],
+      });
+
+      const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+      await secondaryCaller.cashSessions.open({
+        registerName: 'Branch register',
+        openingFloat: 100,
+        denominations: [{ value: 100, count: 1 }],
+      });
+
+      await secondaryCaller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 10,
+        discountAmount: 0,
+      });
+
+      const primaryBalances = await primaryCaller.inventory.listBalancesBySite({ siteId });
+      expect(primaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(3);
+
+      const secondaryBalances = await primaryCaller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(1);
+    });
+
+    it('rejects a sale when the active site has no balance for the product even if tenant stock exists', async () => {
+      const db = getDatabase();
+      const secondarySiteId = nanoid();
+      const mainSite = await db
+        .select()
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .get();
+
+      if (!mainSite) {
+        throw new Error('Expected seeded main site');
+      }
+
+      await db.insert(sites).values({
+        id: secondarySiteId,
+        tenantId,
+        companyId: mainSite.companyId,
+        name: 'No Balance Sale Site',
+        address: null,
+        phone: null,
+        isActive: true,
+        createdAt: new Date(Date.now() + 120_000).toISOString(),
+        updatedAt: new Date(Date.now() + 120_000).toISOString(),
+      });
+
+      const productId = await createBalanceTrackedProduct({
+        name: 'No Site Balance Part',
+        sku: 'BAL-NO-SITE-STOCK',
+        barcode: 'BAL-SALE-10006',
+        stock: 7,
+      });
+
+      const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+      await secondaryCaller.cashSessions.open({
+        registerName: 'No balance register',
+        openingFloat: 50,
+        denominations: [{ value: 50, count: 1 }],
+      });
+
+      await expect(
+        secondaryCaller.sales.create({
+          items: [
+            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
+          ],
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          status: 'completed',
+          amountReceived: 10,
+          discountAmount: 0,
+        })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: 'CONFLICT',
+      });
+
+      const primaryBalances = await appRouter
+        .createCaller(createTestContext())
+        .inventory.listBalancesBySite({ siteId });
+      expect(primaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(7);
+
+      const secondaryBalances = await appRouter
+        .createCaller(createTestContext())
+        .inventory.listBalancesBySite({ siteId: secondarySiteId });
+      expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(0);
+    });
   });
 });

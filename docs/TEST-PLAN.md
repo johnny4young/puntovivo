@@ -400,6 +400,12 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-18 | BOTH | manager | Attempt to void after destination stock was consumed | Rejected with "destination site does not have enough stock" message; balances untouched |
 | ✅ | INV-19 | BOTH | manager | Attempt to void a transfer that is already voided | Rejected with "already voided" message; no second mutation runs |
 | ⬜ | INV-20 | BOTH | manager | Void action requires confirmation modal | Button opens the modal; cancel aborts without mutation |
+| ✅ | INV-21 | BOTH | cashier | Complete a sale | Site balance for the cashier's active site decrements by the sold quantity (visible in By Site tab) |
+| ✅ | INV-22 | BOTH | manager | Refund a completed sale | Original site's balance increments back by the same quantity |
+| ✅ | INV-23 | BOTH | admin | Void a completed sale | Original site's balance increments back (not the voiding admin's active site) |
+| ✅ | INV-24 | BOTH | manager | Sale site balance stays in lockstep with products.stock after a completed sale | Both values decrement by the same amount |
+| ✅ | INV-25 | BOTH | manager | Complete a sale on a site that falls back to another site's sequential | The sold quantity decrements the cash-session site balance, not the fallback sequential's site |
+| ✅ | INV-26 | BOTH | cashier | Attempt a sale on a secondary site that never received the product | Rejected with insufficient stock for the active site; tenant-wide stock remains unchanged |
 
 ---
 

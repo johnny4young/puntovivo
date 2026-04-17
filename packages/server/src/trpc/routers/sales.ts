@@ -24,6 +24,7 @@ import {
   cashMovements,
   cashSessions,
   customers,
+  inventoryBalances,
   inventoryMovements,
   products,
   saleItems,
@@ -48,6 +49,10 @@ import type { CreateSaleInput } from '../schemas/sales.js';
 import { requireActiveCashSession } from '../../services/cash-session.js';
 import { getCashMovementSignedAmount } from '../../services/cash-session.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
+import {
+  applyInventoryBalanceDelta,
+  ensureInventoryBalancesForSite,
+} from '../../services/inventory-balances.js';
 
 type ResolvedSaleItem = {
   id: string;
@@ -297,9 +302,12 @@ async function validateCustomer(
 async function resolveSaleItems(
   db: Context['db'],
   tenantId: string,
+  siteId: string,
   inputItems: CreateSaleInput['items']
 ) {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
+  ensureInventoryBalancesForSite(db, tenantId, siteId);
+
   const productRows = await db
     .select()
     .from(products)
@@ -324,7 +332,23 @@ async function resolveSaleItems(
   const assignmentMap = new Map(
     unitAssignments.map(assignment => [`${assignment.productId}:${assignment.unitId}`, assignment])
   );
-  const remainingStockByProduct = new Map(productRows.map(product => [product.id, product.stock]));
+  const siteBalanceRows = await db
+    .select({
+      productId: inventoryBalances.productId,
+      onHand: inventoryBalances.onHand,
+    })
+    .from(inventoryBalances)
+    .where(
+      and(
+        eq(inventoryBalances.tenantId, tenantId),
+        eq(inventoryBalances.siteId, siteId),
+        inArray(inventoryBalances.productId, productIds)
+      )
+    )
+    .all();
+  const remainingSiteStockByProduct = new Map(
+    siteBalanceRows.map(balance => [balance.productId, balance.onHand])
+  );
 
   let subtotal = 0;
   let taxAmount = 0;
@@ -357,16 +381,16 @@ async function resolveSaleItems(
     });
 
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, assignment.equivalence);
-    const remainingStock = remainingStockByProduct.get(item.productId) ?? product.stock;
+    const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
 
     if (remainingStock < normalizedQuantity) {
       throw new TRPCError({
         code: 'CONFLICT',
-        message: `Insufficient stock for product "${product.name}". Available: ${remainingStock}, requested: ${normalizedQuantity}`,
+        message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
       });
     }
 
-    remainingStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
+    remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
 
     const grossAmount = item.unitPrice * item.quantity;
     const discountAmount = grossAmount * (item.discount / 100);
@@ -614,7 +638,13 @@ export const salesRouter = router({
     );
 
     const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
-    const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, input.items);
+    const saleSiteId = activeCashSession.siteId;
+    const resolvedItems = await resolveSaleItems(
+      ctx.db,
+      ctx.tenantId,
+      saleSiteId,
+      input.items
+    );
     const subtotal = resolvedItems.subtotal;
     const taxAmount = resolvedItems.taxAmount;
     const total = subtotal + taxAmount - (input.discountAmount ?? 0);
@@ -737,6 +767,20 @@ export const salesRouter = router({
             createdAt: now,
           })
           .run();
+
+        // Phase 2 API-103: debit the cash session's site so per-site balances
+        // reflect where the sale actually happened, even if the sequential
+        // had to fall back to a different site's numbering configuration.
+        // Pass the pre-sale stock snapshot so a missing row is seeded from
+        // the value that existed BEFORE this sale decremented `products.stock`.
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: saleSiteId,
+          productId: row.productId,
+          delta: -row.normalizedQuantity,
+          initialOnHandIfMissing: effectivePreviousStock,
+          now,
+        });
       }
 
       insertCashMovement({
@@ -762,7 +806,7 @@ export const salesRouter = router({
             id: saleId,
             saleNumber,
             total,
-            siteId: sequentialContext.siteId,
+            siteId: saleSiteId,
             cashSessionId: activeCashSession.id,
             paymentStatus,
           },
@@ -915,6 +959,25 @@ export const salesRouter = router({
     const now = new Date().toISOString();
     const refundId = nanoid();
 
+    // Phase 2 API-103: credit back the site that originally sold the stock
+    // (not the refunding cashier's active site). Falls back to `null` for
+    // legacy sales without a cash session — `applyInventoryBalanceDelta`
+    // treats that as a safe no-op.
+    const originalSaleSiteId = existing.cashSessionId
+      ? (
+          await ctx.db
+            .select({ siteId: cashSessions.siteId })
+            .from(cashSessions)
+            .where(
+              and(
+                eq(cashSessions.id, existing.cashSessionId),
+                eq(cashSessions.tenantId, ctx.tenantId)
+              )
+            )
+            .get()
+        )?.siteId ?? null
+      : null;
+
     ctx.db.transaction(tx => {
       for (const item of saleLineItems) {
         const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
@@ -957,6 +1020,15 @@ export const salesRouter = router({
             createdAt: now,
           })
           .run();
+
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: originalSaleSiteId,
+          productId: item.productId,
+          delta: normalizedQuantity,
+          initialOnHandIfMissing: previousStock,
+          now,
+        });
       }
 
       tx.insert(saleReturns)
@@ -1107,7 +1179,11 @@ export const salesRouter = router({
     // ORIGINAL session is still open; once closed, its over/short is finalized.
     const voidTargetSession = existing.cashSessionId
       ? await ctx.db
-          .select({ id: cashSessions.id, status: cashSessions.status })
+          .select({
+            id: cashSessions.id,
+            status: cashSessions.status,
+            siteId: cashSessions.siteId,
+          })
           .from(cashSessions)
           .where(
             and(
@@ -1119,6 +1195,10 @@ export const salesRouter = router({
       : null;
     const voidReversibleSessionId =
       voidTargetSession && voidTargetSession.status === 'open' ? voidTargetSession.id : null;
+    // Phase 2 API-103: credit the site that originally sold the stock. The
+    // reversal happens regardless of whether the cash session is still open —
+    // voided stock always goes back on the shelf.
+    const originalSaleSiteId = voidTargetSession?.siteId ?? null;
 
     const productStockState = new Map(currentProducts.map(product => [product.id, product.stock]));
     const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
@@ -1165,6 +1245,15 @@ export const salesRouter = router({
             createdAt: now,
           })
           .run();
+
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: originalSaleSiteId,
+          productId: item.productId,
+          delta: normalizedQuantity,
+          initialOnHandIfMissing: previousStock,
+          now,
+        });
       }
 
       tx.update(sales)
