@@ -65,6 +65,8 @@ export const SERVER_ERROR_CODES = {
    * e.g. because a later sale already consumed the transferred stock.
    */
   TRANSFER_VOID_INSUFFICIENT_STOCK: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
+  /** `transfers.receive` called on a transfer whose status is not `in_transit`. */
+  TRANSFER_NOT_IN_TRANSIT: 'TRANSFER_NOT_IN_TRANSIT',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

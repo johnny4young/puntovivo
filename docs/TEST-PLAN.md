@@ -422,6 +422,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-40 | BOTH | manager | Adjust stock at non-primary site and inspect products.stock | `products.stock` equals Σ(site balances) after the adjustment (primary snapshot + non-primary delta) |
 | ✅ | INV-41 | BOTH | admin | Manually introduce drift and run `inventory.reconcileBalances` | `products.stock` is healed to Σ(site balances); reconciliation covers every product in the tenant |
 | ✅ | INV-42 | BOTH | admin | Reconcile a product that has no balance rows | `products.stock` is reset to 0 |
+| ✅ | INV-43 | BOTH | manager | Create a deferred transfer via the modal's "Ship now, receive later" checkbox | Transfer appears in history with `In transit` badge and a Receive button; origin balance decremented, destination unchanged |
+| ✅ | INV-44 | BOTH | manager | Click Receive on an in_transit transfer | Destination balance increments; status flips to Completed; Receive button disappears |
+| ✅ | INV-45 | BOTH | manager | Void an in_transit transfer | Origin re-credited; destination untouched; status flips to Voided |
+| ✅ | INV-46 | BOTH | manager | Attempt to receive a transfer that is already completed | Rejected with "only transfers currently in transit can be received"; balances unchanged |
 
 ---
 

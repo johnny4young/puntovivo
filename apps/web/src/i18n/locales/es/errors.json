@@ -39,6 +39,7 @@
     "TRANSFER_NOT_FOUND": "No se pudo encontrar la transferencia.",
     "TRANSFER_ALREADY_VOID": "Esta transferencia ya fue anulada.",
     "TRANSFER_VOID_INSUFFICIENT_STOCK": "No se puede anular — la sede destino ya no tiene stock suficiente para revertir esta transferencia.",
+    "TRANSFER_NOT_IN_TRANSIT": "Solo las transferencias en tránsito pueden ser recibidas.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

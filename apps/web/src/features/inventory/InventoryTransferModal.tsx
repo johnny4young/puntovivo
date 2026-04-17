@@ -10,6 +10,7 @@ export interface InventoryTransferFormValues {
   productId: string;
   quantity: number;
   notes: string;
+  defer: boolean;
 }
 
 interface InventoryTransferModalProps {
@@ -58,6 +59,7 @@ export function InventoryTransferModal({
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
+  const [defer, setDefer] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const productOptions = useMemo(
@@ -110,6 +112,7 @@ export function InventoryTransferModal({
       productId,
       quantity: parsedQuantity,
       notes: notes.trim(),
+      defer,
     });
   }
 
@@ -238,6 +241,23 @@ export function InventoryTransferModal({
             onChange={event => setNotes(event.target.value)}
             placeholder={t('transferModal.notesPlaceholder')}
           />
+        </label>
+
+        <label className="flex items-start gap-2 text-sm text-secondary-700">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded border-secondary-300"
+            checked={defer}
+            onChange={event => setDefer(event.target.checked)}
+          />
+          <span>
+            <span className="font-medium text-secondary-900">
+              {t('transferModal.deferLabel')}
+            </span>
+            <span className="block text-xs text-secondary-500">
+              {t('transferModal.deferHelp')}
+            </span>
+          </span>
         </label>
 
         {activeError && (

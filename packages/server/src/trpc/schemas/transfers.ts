@@ -23,6 +23,11 @@ export const createTransferInput = z
     toSiteId: z.string().min(1, 'Destination site is required'),
     items: z.array(transferItemInput).min(1, 'A transfer must include at least one product'),
     notes: z.string().trim().max(500).optional(),
+    /**
+     * When true, the transfer persists as `in_transit`. Origin is debited on
+     * create; destination is credited later via `transfers.receive`.
+     */
+    defer: z.boolean().optional(),
   })
   .refine(value => value.fromSiteId !== value.toSiteId, {
     path: ['toSiteId'],
@@ -40,6 +45,11 @@ export const voidTransferInput = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
+export const receiveTransferInput = z.object({
+  transferId: z.string().min(1, 'Transfer ID is required'),
+});
+
 export type CreateTransferInput = z.infer<typeof createTransferInput>;
 export type TransferItemInput = z.infer<typeof transferItemInput>;
 export type VoidTransferInput = z.infer<typeof voidTransferInput>;
+export type ReceiveTransferInput = z.infer<typeof receiveTransferInput>;

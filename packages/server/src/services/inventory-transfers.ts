@@ -10,7 +10,10 @@ import {
   type TransferOrderStatus,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
-import { getPrimarySiteId } from './inventory-balances.js';
+import {
+  getPrimarySiteId,
+  syncProductStockFromBalances,
+} from './inventory-balances.js';
 
 /**
  * Phase 2 DB-102 / API-102 step 1 — immediate inventory transfers.
@@ -36,6 +39,13 @@ export interface CreateTransferArgs {
   items: readonly TransferItemInput[];
   notes?: string | null;
   createdBy: string;
+  /**
+   * When true, the transfer is persisted with status `in_transit`: origin
+   * is debited but destination is NOT credited yet. Call `receiveInventoryTransfer`
+   * later to flip the transfer to `completed` and credit the destination.
+   * Defaults to false (immediate completion — legacy step-1 behaviour).
+   */
+  defer?: boolean;
 }
 
 export interface CreatedTransfer {
@@ -182,13 +192,16 @@ export function createInventoryTransfer(
       }
     }
 
+    const deferred = args.defer === true;
+    const createdStatus: TransferOrderStatus = deferred ? 'in_transit' : 'completed';
+
     tx.insert(transferOrders)
       .values({
         id: transferId,
         tenantId: args.tenantId,
         fromSiteId: args.fromSiteId,
         toSiteId: args.toSiteId,
-        status: 'completed',
+        status: createdStatus,
         notes: args.notes ?? null,
         createdBy: args.createdBy,
         syncStatus: 'pending',
@@ -248,6 +261,9 @@ export function createInventoryTransfer(
         });
       }
 
+      // Origin is always debited on create — whether the transfer completes
+      // immediately or ships deferred, the stock has physically left the
+      // source shelf.
       tx.update(inventoryBalances)
         .set({
           onHand: fromBalance.onHand - quantity,
@@ -263,32 +279,45 @@ export function createInventoryTransfer(
         )
         .run();
 
-      const existingToBalance = tx
-        .select({ onHand: inventoryBalances.onHand })
-        .from(inventoryBalances)
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, args.toSiteId),
-            eq(inventoryBalances.productId, productId)
+      // Destination is credited only on immediate transfers. Deferred
+      // transfers credit the destination later via `receiveInventoryTransfer`.
+      if (!deferred) {
+        const existingToBalance = tx
+          .select({ onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, args.toSiteId),
+              eq(inventoryBalances.productId, productId)
+            )
           )
-        )
-        .get();
+          .get();
 
-      tx.update(inventoryBalances)
-        .set({
-          onHand: (existingToBalance?.onHand ?? 0) + quantity,
-          syncStatus: 'pending',
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, args.toSiteId),
-            eq(inventoryBalances.productId, productId)
+        tx.update(inventoryBalances)
+          .set({
+            onHand: (existingToBalance?.onHand ?? 0) + quantity,
+            syncStatus: 'pending',
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, args.toSiteId),
+              eq(inventoryBalances.productId, productId)
+            )
           )
-        )
-        .run();
+          .run();
+      }
+
+      // Recompute products.stock for both sides of the transfer so the
+      // tenant-wide cache stays in lockstep with Σ(balances), matching the
+      // step-4 invariant established for all other mutation paths.
+      syncProductStockFromBalances(tx, {
+        tenantId: args.tenantId,
+        productId,
+        now,
+      });
 
       const itemId = nanoid();
       tx.insert(transferOrderItems)
@@ -310,18 +339,18 @@ export function createInventoryTransfer(
       });
     }
 
-    return persistedItems;
+    return { items: persistedItems, status: createdStatus };
   });
 
   return {
     id: transferId,
-    status: 'completed',
+    status: result.status,
     fromSiteId: args.fromSiteId,
     toSiteId: args.toSiteId,
     notes: args.notes ?? null,
     createdAt: now,
     createdBy: args.createdBy,
-    items: result,
+    items: result.items,
   };
 }
 
@@ -422,66 +451,74 @@ export function voidInventoryTransfer(
         .map(product => [product.id, product.stock])
     );
 
-    // Pre-validate destination stock for every item so we fail atomically
-    // before mutating any row. Capture the validated `onHand` so the mutation
-    // loop below does not have to re-read (and cannot silently coerce a
-    // missing row into a negative balance).
-    const validatedDestinationOnHand = new Map<string, number>();
-    for (const item of items) {
-      const destinationBalance = tx
-        .select({ onHand: inventoryBalances.onHand })
-        .from(inventoryBalances)
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, transfer.toSiteId),
-            eq(inventoryBalances.productId, item.productId)
-          )
-        )
-        .get();
+    const wasInTransit = transfer.status === 'in_transit';
 
-      const available = destinationBalance?.onHand ?? 0;
-      if (!destinationBalance || available < item.quantity) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
-          message: 'Destination site does not have enough stock to reverse the transfer',
-          details: {
-            transferId: args.transferId,
-            productId: item.productId,
-            destinationSiteId: transfer.toSiteId,
-            available,
-            required: item.quantity,
-          },
-        });
+    // Pre-validate destination stock only when the destination was previously
+    // credited (i.e. status was `completed`). Deferred transfers that are
+    // still `in_transit` never touched the destination, so there is nothing
+    // to reverse on that side.
+    const validatedDestinationOnHand = new Map<string, number>();
+    if (!wasInTransit) {
+      for (const item of items) {
+        const destinationBalance = tx
+          .select({ onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, transfer.toSiteId),
+              eq(inventoryBalances.productId, item.productId)
+            )
+          )
+          .get();
+
+        const available = destinationBalance?.onHand ?? 0;
+        if (!destinationBalance || available < item.quantity) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
+            message: 'Destination site does not have enough stock to reverse the transfer',
+            details: {
+              transferId: args.transferId,
+              productId: item.productId,
+              destinationSiteId: transfer.toSiteId,
+              available,
+              required: item.quantity,
+            },
+          });
+        }
+        validatedDestinationOnHand.set(item.productId, available);
       }
-      validatedDestinationOnHand.set(item.productId, available);
     }
 
     const reversedItems: VoidedTransfer['reversedItems'] = [];
 
     for (const item of items) {
-      // Decrement destination using the pre-validated value — a single read
-      // per item keeps the math consistent and avoids a reachable path to a
-      // negative balance if the row was somehow removed between loops.
-      const destinationOnHand = validatedDestinationOnHand.get(item.productId)!;
+      if (!wasInTransit) {
+        // Decrement destination using the pre-validated value — a single read
+        // per item keeps the math consistent and avoids a reachable path to a
+        // negative balance if the row was somehow removed between loops.
+        const destinationOnHand = validatedDestinationOnHand.get(item.productId)!;
 
-      tx.update(inventoryBalances)
-        .set({
-          onHand: destinationOnHand - item.quantity,
-          syncStatus: 'pending',
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, transfer.toSiteId),
-            eq(inventoryBalances.productId, item.productId)
+        tx.update(inventoryBalances)
+          .set({
+            onHand: destinationOnHand - item.quantity,
+            syncStatus: 'pending',
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, transfer.toSiteId),
+              eq(inventoryBalances.productId, item.productId)
+            )
           )
-        )
-        .run();
+          .run();
+      }
 
-      // Credit origin — ensure the row exists first.
+      // Credit origin — ensure the row exists first. Applies for BOTH
+      // completed and in_transit voids, since origin was always debited on
+      // create.
       seedMissingBalanceRow({
         tx,
         tenantId: args.tenantId,
@@ -520,6 +557,14 @@ export function voidInventoryTransfer(
           )
         )
         .run();
+
+      // Keep products.stock in lockstep with Σ(balances) after the reversal
+      // (same invariant enforced by every other balance mutation).
+      syncProductStockFromBalances(tx, {
+        tenantId: args.tenantId,
+        productId: item.productId,
+        now,
+      });
 
       reversedItems.push({ productId: item.productId, quantity: item.quantity });
     }
@@ -560,6 +605,180 @@ export function voidInventoryTransfer(
   });
 }
 
+export interface ReceiveTransferArgs {
+  tenantId: string;
+  transferId: string;
+  receivedBy: string;
+}
+
+export interface ReceivedTransfer {
+  id: string;
+  status: TransferOrderStatus;
+  fromSiteId: string;
+  toSiteId: string;
+  receivedAt: string;
+  receivedBy: string;
+  receivedItems: Array<{ productId: string; quantity: number }>;
+}
+
+/**
+ * Completes a deferred (in_transit) transfer by crediting the destination
+ * site and flipping the transfer status to `completed`. Called when the
+ * shipment physically arrives at the destination.
+ *
+ * Rejects with `TRANSFER_NOT_FOUND` if the id doesn't exist for the tenant
+ * and `TRANSFER_NOT_IN_TRANSIT` if the transfer is in any state other than
+ * `in_transit` (completed transfers were already credited; voided transfers
+ * have been reversed).
+ */
+export function receiveInventoryTransfer(
+  db: DatabaseInstance,
+  args: ReceiveTransferArgs
+): ReceivedTransfer {
+  const now = getTimestamp();
+
+  return db.transaction(tx => {
+    const transfer = tx
+      .select({
+        id: transferOrders.id,
+        status: transferOrders.status,
+        fromSiteId: transferOrders.fromSiteId,
+        toSiteId: transferOrders.toSiteId,
+      })
+      .from(transferOrders)
+      .where(
+        and(
+          eq(transferOrders.id, args.transferId),
+          eq(transferOrders.tenantId, args.tenantId)
+        )
+      )
+      .get();
+
+    if (!transfer) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'TRANSFER_NOT_FOUND',
+        message: 'Transfer not found',
+        details: { transferId: args.transferId },
+      });
+    }
+
+    if (transfer.status !== 'in_transit') {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TRANSFER_NOT_IN_TRANSIT',
+        message: 'Only transfers currently in transit can be received',
+        details: { transferId: args.transferId, status: transfer.status },
+      });
+    }
+
+    const items = tx
+      .select({
+        productId: transferOrderItems.productId,
+        quantity: transferOrderItems.quantity,
+      })
+      .from(transferOrderItems)
+      .where(eq(transferOrderItems.transferOrderId, args.transferId))
+      .all();
+
+    const primarySiteId = getPrimarySiteId(tx, args.tenantId);
+    const productStockById = new Map(
+      tx
+        .select({ id: products.id, stock: products.stock })
+        .from(products)
+        .where(
+          and(
+            eq(products.tenantId, args.tenantId),
+            inArray(
+              products.id,
+              items.map(item => item.productId)
+            )
+          )
+        )
+        .all()
+        .map(product => [product.id, product.stock])
+    );
+
+    const receivedItems: ReceivedTransfer['receivedItems'] = [];
+
+    for (const item of items) {
+      // Credit destination — seed the row if missing, then increment.
+      seedMissingBalanceRow({
+        tx,
+        tenantId: args.tenantId,
+        siteId: transfer.toSiteId,
+        productId: item.productId,
+        initialOnHand:
+          transfer.toSiteId === primarySiteId
+            ? (productStockById.get(item.productId) ?? 0)
+            : 0,
+        now,
+      });
+
+      const destinationBalance = tx
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.toSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .get();
+
+      tx.update(inventoryBalances)
+        .set({
+          onHand: (destinationBalance?.onHand ?? 0) + item.quantity,
+          syncStatus: 'pending',
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.toSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .run();
+
+      syncProductStockFromBalances(tx, {
+        tenantId: args.tenantId,
+        productId: item.productId,
+        now,
+      });
+
+      receivedItems.push({ productId: item.productId, quantity: item.quantity });
+    }
+
+    tx.update(transferOrders)
+      .set({
+        status: 'completed',
+        receivedAt: now,
+        receivedBy: args.receivedBy,
+        syncStatus: 'pending',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(transferOrders.id, args.transferId),
+          eq(transferOrders.tenantId, args.tenantId)
+        )
+      )
+      .run();
+
+    return {
+      id: args.transferId,
+      status: 'completed' as TransferOrderStatus,
+      fromSiteId: transfer.fromSiteId,
+      toSiteId: transfer.toSiteId,
+      receivedAt: now,
+      receivedBy: args.receivedBy,
+      receivedItems,
+    };
+  });
+}
+
 export interface TransferHistoryEntry {
   id: string;
   status: TransferOrderStatus;
@@ -570,6 +789,8 @@ export interface TransferHistoryEntry {
   notes: string | null;
   createdBy: string;
   createdAt: string;
+  receivedAt: string | null;
+  receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
 }
@@ -595,6 +816,8 @@ export async function listRecentTransfers(
       notes: transferOrders.notes,
       createdBy: transferOrders.createdBy,
       createdAt: transferOrders.createdAt,
+      receivedAt: transferOrders.receivedAt,
+      receivedBy: transferOrders.receivedBy,
     })
     .from(transferOrders)
     .where(eq(transferOrders.tenantId, tenantId))

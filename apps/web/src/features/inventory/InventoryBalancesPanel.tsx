@@ -117,6 +117,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         toSiteId: values.toSiteId,
         items: [{ productId: values.productId, quantity: values.quantity }],
         notes: values.notes || undefined,
+        defer: values.defer,
       });
     },
     [createTransferMutation]

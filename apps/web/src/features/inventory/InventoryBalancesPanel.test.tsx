@@ -61,6 +61,15 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
+      receive: {
+        useMutation: (_opts: unknown) => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn(async () => undefined),
+          reset: vi.fn(),
+          isPending: false,
+          error: null,
+        }),
+      },
     },
   },
 }));
