@@ -56,6 +56,9 @@ export const adjustStockInput = z.object({
   // Phase 1 DB-050: adjustments accept fractional stock targets.
   newStock: z.number().min(0, 'Stock must be non-negative'),
   notes: z.string().optional(),
+  // Phase 2 API-103 step 3: optional target site. When omitted, the router
+  // falls back to `ctx.siteId` and finally the tenant primary site.
+  siteId: z.string().min(1, 'Site ID is required').optional(),
 });
 
 export const recordEntryInput = z.object({

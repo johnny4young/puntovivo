@@ -9,7 +9,7 @@
       "balances": "By Site"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
-    "stockNote": "Stock remains tenant-wide for now. Initial and physical inventory entries capture the counted unit and normalize it into the shared stock model, which avoids the legacy accumulation bug from the WinForms version."
+    "stockNote": "The stock totals shown on this screen remain tenant-wide for now. New adjustments and counted entries update the active site's balance, while the shared aggregate still appears here until per-site reconciliation is completed."
   },
   "stats": {
     "totalUnits": "Total Units",
@@ -159,8 +159,10 @@
   "newAdjustment": "New Adjustment",
   "dialogs": {
     "selectProductEntry": "Select Product for Initial Inventory",
+    "selectProductEntryForSite": "Select Product for Initial Inventory · {{site}}",
     "recordEntry": "Record Entry",
     "selectProductAdjust": "Select Product for Adjustment",
+    "selectProductAdjustForSite": "Select Product for Adjustment · {{site}}",
     "adjustProduct": "Adjust Product"
   },
   "toast": {
@@ -179,6 +181,7 @@
     "currentStock": "Current stock",
     "movement": "Movement",
     "lowStockThreshold": "Low stock threshold",
+    "siteScope": "This adjustment updates the active site balance: {{site}}.",
     "notesPlaceholder": "Reason for the adjustment",
     "stockMin": "Stock must be zero or greater"
   },
@@ -195,6 +198,7 @@
     "modeInitial": "{{label}} (accumulate)",
     "modePhysical": "{{label}} (replace)",
     "equivalence": "Equivalence",
+    "siteScope": "This entry updates the active site balance: {{site}}.",
     "quantityMin": "Quantity must be greater than zero",
     "costMin": "Cost must be zero or greater",
     "notesPlaceholder": "Optional reason or count reference"

@@ -18,6 +18,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import {
   InventoryAdjustmentModal,
   type InventoryAdjustmentFormValues,
@@ -344,17 +345,22 @@ function mapSearchSelectionToAdjustmentProduct(
 
 function getSearchDialogCopy(
   mode: SearchMode | null,
-  t: TFunction
+  t: TFunction,
+  currentSiteName?: string | null
 ): { title: string; confirmLabel: string } {
   if (mode === 'entry') {
     return {
-      title: t('dialogs.selectProductEntry'),
+      title: currentSiteName
+        ? t('dialogs.selectProductEntryForSite', { site: currentSiteName })
+        : t('dialogs.selectProductEntry'),
       confirmLabel: t('dialogs.recordEntry'),
     };
   }
 
   return {
-    title: t('dialogs.selectProductAdjust'),
+    title: currentSiteName
+      ? t('dialogs.selectProductAdjustForSite', { site: currentSiteName })
+      : t('dialogs.selectProductAdjust'),
     confirmLabel: t('dialogs.adjustProduct'),
   };
 }
@@ -646,6 +652,7 @@ function InventoryDataPanel({
 export function InventoryPage() {
   const { t } = useTranslation('inventory');
   const { user } = useAuth();
+  const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageInventory(user?.role);
@@ -686,6 +693,7 @@ export function InventoryPage() {
       await Promise.all([
         utils.inventory.listMovements.invalidate(),
         utils.inventory.listStock.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
       ]);
       setIsAdjustmentModalOpen(false);
@@ -706,6 +714,7 @@ export function InventoryPage() {
         utils.inventory.listEntries.invalidate(),
         utils.inventory.listMovements.invalidate(),
         utils.inventory.listStock.invalidate(),
+        utils.inventory.listBalancesBySite.invalidate(),
         utils.products.list.invalidate(),
       ]);
       setEntrySelection(null);
@@ -778,7 +787,7 @@ export function InventoryPage() {
     setEntrySelection(null);
   };
 
-  const searchDialogCopy = getSearchDialogCopy(searchMode, t);
+  const searchDialogCopy = getSearchDialogCopy(searchMode, t, currentSite?.name);
 
   return (
     <div className="space-y-6">
@@ -897,6 +906,7 @@ export function InventoryPage() {
         key={`${selectedProduct?.id ?? 'inventory-adjustment'}-${adjustmentModalKey}`}
         isOpen={isAdjustmentModalOpen}
         product={selectedProduct}
+        siteName={currentSite?.name}
         isSaving={adjustStockMutation.isPending}
         error={adjustStockMutation.error?.message ?? null}
         onClose={() => {
@@ -910,13 +920,16 @@ export function InventoryPage() {
         key={`${entrySelection?.product.id ?? 'inventory-entry'}-${entryModalKey}`}
         isOpen={!!entrySelection}
         selection={entrySelection}
+        siteName={currentSite?.name}
         isSaving={recordEntryMutation.isPending}
         error={recordEntryMutation.error?.message ?? null}
         onClose={() => setEntrySelection(null)}
         onSubmit={handleEntrySubmit}
       />
 
-      <div className="surface-panel-muted text-sm text-secondary-600">{t('page.stockNote')}</div>
+      <div className="surface-panel-muted text-sm text-secondary-600">
+        {t('page.stockNote')}
+      </div>
     </div>
   );
 }

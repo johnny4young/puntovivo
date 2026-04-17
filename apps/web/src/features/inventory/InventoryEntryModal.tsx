@@ -13,6 +13,7 @@ export interface InventoryEntryFormValues {
 interface InventoryEntryModalProps {
   isOpen: boolean;
   selection: ProductSearchSelection | null;
+  siteName?: string | null;
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
@@ -31,6 +32,7 @@ function mapSelectionToForm(selection: ProductSearchSelection | null): Inventory
 export function InventoryEntryModal({
   isOpen,
   selection,
+  siteName,
   isSaving,
   error,
   onClose,
@@ -162,6 +164,11 @@ export function InventoryEntryModal({
                 <span className="text-secondary-500">{t('table.normalized')}</span>
                 <span className="font-medium text-secondary-900">{normalizedQuantity || 0}</span>
               </div>
+              {siteName && (
+                <p className="mt-3 text-xs leading-5 text-secondary-500">
+                  {t('entry.siteScope', { site: siteName })}
+                </p>
+              )}
             </div>
 
             <div>
