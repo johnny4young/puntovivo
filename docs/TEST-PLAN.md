@@ -429,6 +429,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-47 | BOTH | manager | Click Details on a transfer history row | Modal opens showing line items (product + SKU + quantity), created timestamp, and received timestamp (or "Pending receipt") |
 | ✅ | INV-48 | BOTH | manager | Open Details on a voided in-transit transfer | Modal renders with the Voided badge and the [VOID] note appended |
 | ✅ | INV-49 | BOTH | manager | Request Details for a transfer that no longer exists | Modal shows translated "Transfer not found" error; no crash |
+| ✅ | INV-50 | BOTH | manager | Receive an in_transit transfer with quantities matching shipped | Legacy payload shape on the wire; every `received_quantity` persisted equal to shipped; no Discrepancy badge in history |
+| ✅ | INV-51 | BOTH | manager | Receive an in_transit transfer, lower one line's received qty, add a discrepancy note | Destination credited only the received amount; `Σ(balances)` reflects shrinkage; history row and detail drawer show Discrepancy badge + note |
+| ✅ | INV-52 | BOTH | manager | Attempt to receive with a received qty greater than shipped | Confirm button disabled with inline error; server rejects with `TRANSFER_RECEIVED_EXCEEDS_SHIPPED` if bypassed; transfer stays `in_transit` |
+| ✅ | INV-53 | BOTH | manager | Void a partial-receipt transfer | Destination debited by received qty, origin credited by shipped qty; tenant stock restored to pre-transfer state |
 
 ---
 

@@ -845,6 +845,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       created_by TEXT NOT NULL REFERENCES users(id),
       received_at TEXT,
       received_by TEXT REFERENCES users(id),
+      discrepancy_notes TEXT,
       sync_status TEXT DEFAULT 'pending',
       sync_version INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -863,6 +864,7 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       transfer_order_id TEXT NOT NULL REFERENCES transfer_orders(id) ON DELETE CASCADE,
       product_id TEXT NOT NULL REFERENCES products(id),
       quantity REAL NOT NULL,
+      received_quantity REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_transfer_order_items_order ON transfer_order_items (transfer_order_id);
@@ -974,6 +976,10 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   // Phase 2 API-102 step 3: deferred receive columns on transfer_orders.
   ensureColumn(client, 'transfer_orders', 'received_at', 'received_at TEXT');
   ensureColumn(client, 'transfer_orders', 'received_by', 'received_by TEXT REFERENCES users(id)');
+  // Phase 2 UI-103: per-line received quantities and aggregate discrepancy
+  // note captured at receive time.
+  ensureColumn(client, 'transfer_order_items', 'received_quantity', 'received_quantity REAL');
+  ensureColumn(client, 'transfer_orders', 'discrepancy_notes', 'discrepancy_notes TEXT');
   createIndexIfColumnsExist(
     client,
     'transfer_orders',

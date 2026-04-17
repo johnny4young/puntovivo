@@ -44,6 +44,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'TRANSFER_ALREADY_VOID',
   'TRANSFER_VOID_INSUFFICIENT_STOCK',
   'TRANSFER_NOT_IN_TRANSIT',
+  // Phase 2 UI-103: variance reporting on `transfers.receive`.
+  'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
+  'TRANSFER_RECEIVE_LINE_MISMATCH',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

@@ -41,6 +41,8 @@
     "TRANSFER_ALREADY_VOID": "Esta transferencia ya fue anulada.",
     "TRANSFER_VOID_INSUFFICIENT_STOCK": "No se puede anular — la sede destino ya no tiene stock suficiente para revertir esta transferencia.",
     "TRANSFER_NOT_IN_TRANSIT": "Solo las transferencias en tránsito pueden ser recibidas.",
+    "TRANSFER_RECEIVED_EXCEEDS_SHIPPED": "La cantidad recibida no puede ser mayor que la cantidad enviada.",
+    "TRANSFER_RECEIVE_LINE_MISMATCH": "La información de recepción no coincide con las líneas de la transferencia.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

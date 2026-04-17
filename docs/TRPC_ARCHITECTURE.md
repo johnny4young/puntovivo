@@ -182,6 +182,32 @@ Step 3 adds deferred receive:
 
 An explicit `draft` state without any balance movement remains deferred.
 
+UI-103 extends `transfers.receive` with a per-line variance contract:
+
+- `receiveTransferInput` widens to `{ transferId, lines?: [{ itemId,
+  receivedQuantity }], discrepancyNotes? }`. When `lines` is omitted or
+  empty, every line is credited at the shipped quantity (legacy one-click
+  behaviour). When supplied, each entry addresses a `transfer_order_items.id`
+  and must satisfy `0 <= receivedQuantity <= shipped`.
+- `received > shipped` raises `TRANSFER_RECEIVED_EXCEEDS_SHIPPED` — accepting
+  would create stock from nothing. Unknown or duplicated `itemId`s raise
+  `TRANSFER_RECEIVE_LINE_MISMATCH`.
+- The service writes the per-line amount to `transfer_order_items.received_quantity`
+  (previously null for in-flight rows), credits the destination with exactly
+  that amount, and stamps `transfer_orders.discrepancy_notes` with the
+  trimmed receiver note (null when empty). The origin was already debited by
+  the **shipped** quantity at create time, so any `shipped - received` delta
+  drops out of `Σ(balances)` as intentional shrinkage — `products.stock`
+  auto-follows via `syncProductStockFromBalances`.
+- `transfers.void` reads `receivedQuantity ?? quantity` for the destination
+  debit: legacy rows and unchanged receipts reverse exactly as before, while
+  partial-receipt voids debit destination by the received amount and credit
+  origin by the shipped amount (net: tenant stock restored to the pre-transfer
+  state).
+- `transfers.list` and `transfers.getById` surface `hasDiscrepancy` plus
+  `discrepancyNotes`; `getById` also exposes `receivedQuantity` per line for
+  the detail drawer's Received/Variance columns.
+
 `transfers.list` returns a reverse-chronological page of recent transfer
 history with origin/destination site names and item aggregates.
 `transfers.getById` returns the full detail of a single transfer — including

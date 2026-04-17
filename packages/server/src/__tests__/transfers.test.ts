@@ -849,4 +849,314 @@ describe('Transfers tRPC Router', () => {
       }
     });
   });
+
+  // ─── Phase 2 UI-103 — per-line received quantities + discrepancy notes ──
+
+  describe('receive variance', () => {
+    it('treats a receive call with no lines as accepting shipped quantities', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const cable = await createProduct({
+        name: 'Variance Legacy Cable',
+        sku: 'TR-VAR-LEGACY',
+        barcode: 'TR-50001',
+        stock: 10,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: cable.id, quantity: 4 }],
+        defer: true,
+      });
+
+      const received = await caller.transfers.receive({ transferId: created.id });
+      expect(received.status).toBe('completed');
+      expect(received.hasDiscrepancy).toBe(false);
+      expect(received.discrepancyNotes).toBeNull();
+      expect(received.receivedItems).toEqual([{ productId: cable.id, quantity: 4 }]);
+
+      // Every line must carry received_quantity = shipped, not null.
+      const persisted = await db
+        .select({
+          quantity: transferOrderItems.quantity,
+          receivedQuantity: transferOrderItems.receivedQuantity,
+        })
+        .from(transferOrderItems)
+        .where(eq(transferOrderItems.transferOrderId, created.id))
+        .all();
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0]?.quantity).toBe(4);
+      expect(persisted[0]?.receivedQuantity).toBe(4);
+
+      const list = await caller.transfers.list();
+      expect(list.items.find(entry => entry.id === created.id)?.hasDiscrepancy).toBe(false);
+    });
+
+    it('treats an empty lines array the same as omitting it', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const bolt = await createProduct({
+        name: 'Variance Empty Bolt',
+        sku: 'TR-VAR-EMPTY',
+        barcode: 'TR-50002',
+        stock: 6,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: bolt.id, quantity: 2 }],
+        defer: true,
+      });
+
+      const received = await caller.transfers.receive({
+        transferId: created.id,
+        lines: [],
+      });
+      expect(received.hasDiscrepancy).toBe(false);
+      expect(received.receivedItems).toEqual([{ productId: bolt.id, quantity: 2 }]);
+    });
+
+    it('ignores discrepancy notes when all received quantities match shipped', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const washer = await createProduct({
+        name: 'Variance Note Washer',
+        sku: 'TR-VAR-NOTE',
+        barcode: 'TR-500021',
+        stock: 4,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: washer.id, quantity: 2 }],
+        defer: true,
+      });
+
+      const received = await caller.transfers.receive({
+        transferId: created.id,
+        discrepancyNotes: 'typed by mistake before restoring the shipped quantity',
+      });
+      expect(received.hasDiscrepancy).toBe(false);
+      expect(received.discrepancyNotes).toBeNull();
+
+      const detail = await caller.transfers.getById({ id: created.id });
+      expect(detail.hasDiscrepancy).toBe(false);
+      expect(detail.discrepancyNotes).toBeNull();
+    });
+
+    it('records a shortage: destination credited only the received quantity, shrinkage reflected in Σ(balances)', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const { products } = await import('../db/schema.js');
+      const widget = await createProduct({
+        name: 'Variance Shortage Widget',
+        sku: 'TR-VAR-SHORT',
+        barcode: 'TR-50003',
+        stock: 10,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: widget.id, quantity: 10 }],
+        defer: true,
+      });
+
+      const detail = await caller.transfers.getById({ id: created.id });
+      const lineId = detail.items[0]!.id;
+
+      const received = await caller.transfers.receive({
+        transferId: created.id,
+        lines: [{ itemId: lineId, receivedQuantity: 7 }],
+        discrepancyNotes: '3 units missing on arrival',
+      });
+
+      expect(received.hasDiscrepancy).toBe(true);
+      expect(received.discrepancyNotes).toBe('3 units missing on arrival');
+      expect(received.receivedItems).toEqual([{ productId: widget.id, quantity: 7 }]);
+
+      // Origin stays at 0 (was debited 10), destination credited 7.
+      const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(primary.items.find(item => item.productId === widget.id)?.onHand).toBe(0);
+
+      const secondary = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(secondary.items.find(item => item.productId === widget.id)?.onHand).toBe(7);
+
+      // products.stock matches Σ(balances) = 7 → the 3-unit shrinkage shows up
+      // in the tenant-wide cache, matching the invariant enforced elsewhere.
+      const stockRow = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, widget.id))
+        .get();
+      expect(stockRow?.stock).toBe(7);
+
+      const listEntry = (await caller.transfers.list()).items.find(
+        entry => entry.id === created.id
+      );
+      expect(listEntry?.hasDiscrepancy).toBe(true);
+      expect(listEntry?.discrepancyNotes).toBe('3 units missing on arrival');
+
+      const detailAfter = await caller.transfers.getById({ id: created.id });
+      expect(detailAfter.hasDiscrepancy).toBe(true);
+      expect(detailAfter.discrepancyNotes).toBe('3 units missing on arrival');
+      expect(detailAfter.items[0]?.receivedQuantity).toBe(7);
+    });
+
+    it('rejects received quantities greater than the shipped quantity', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const screw = await createProduct({
+        name: 'Variance Overflow Screw',
+        sku: 'TR-VAR-OVER',
+        barcode: 'TR-50004',
+        stock: 5,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: screw.id, quantity: 2 }],
+        defer: true,
+      });
+      const detail = await caller.transfers.getById({ id: created.id });
+      const lineId = detail.items[0]!.id;
+
+      try {
+        await caller.transfers.receive({
+          transferId: created.id,
+          lines: [{ itemId: lineId, receivedQuantity: 5 }],
+        });
+        throw new Error('Expected receive to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_RECEIVED_EXCEEDS_SHIPPED');
+      }
+
+      // Transfer must stay in transit with no destination credit.
+      const refreshed = await caller.transfers.getById({ id: created.id });
+      expect(refreshed.status).toBe('in_transit');
+      expect(refreshed.items[0]?.receivedQuantity).toBeNull();
+      const secondary = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(secondary.items.find(item => item.productId === screw.id)?.onHand ?? 0).toBe(0);
+    });
+
+    it('rejects receive payloads that reference an unknown line id', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const hinge = await createProduct({
+        name: 'Variance Unknown Hinge',
+        sku: 'TR-VAR-UNKNOWN',
+        barcode: 'TR-50005',
+        stock: 3,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: hinge.id, quantity: 1 }],
+        defer: true,
+      });
+
+      try {
+        await caller.transfers.receive({
+          transferId: created.id,
+          lines: [{ itemId: 'line-that-does-not-exist', receivedQuantity: 1 }],
+        });
+        throw new Error('Expected receive to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_RECEIVE_LINE_MISMATCH');
+      }
+    });
+
+    it('rejects receive payloads with duplicate line ids', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const nut = await createProduct({
+        name: 'Variance Duplicate Nut',
+        sku: 'TR-VAR-DUP',
+        barcode: 'TR-50006',
+        stock: 3,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: nut.id, quantity: 2 }],
+        defer: true,
+      });
+      const detail = await caller.transfers.getById({ id: created.id });
+      const lineId = detail.items[0]!.id;
+
+      try {
+        await caller.transfers.receive({
+          transferId: created.id,
+          lines: [
+            { itemId: lineId, receivedQuantity: 1 },
+            { itemId: lineId, receivedQuantity: 1 },
+          ],
+        });
+        throw new Error('Expected receive to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_RECEIVE_LINE_MISMATCH');
+      }
+    });
+
+    it('void after a partial receipt debits destination by received, credits origin by shipped', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const { products } = await import('../db/schema.js');
+      const pipe = await createProduct({
+        name: 'Variance Partial Pipe',
+        sku: 'TR-VAR-PART',
+        barcode: 'TR-50007',
+        stock: 10,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: pipe.id, quantity: 10 }],
+        defer: true,
+      });
+      const detail = await caller.transfers.getById({ id: created.id });
+      const lineId = detail.items[0]!.id;
+
+      await caller.transfers.receive({
+        transferId: created.id,
+        lines: [{ itemId: lineId, receivedQuantity: 6 }],
+      });
+
+      // Confirm pre-void state: origin 0, destination 6, products.stock 6.
+      const primaryAfter = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(primaryAfter.items.find(item => item.productId === pipe.id)?.onHand).toBe(0);
+      const secondaryAfter = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(secondaryAfter.items.find(item => item.productId === pipe.id)?.onHand).toBe(6);
+
+      await caller.transfers.void({ transferId: created.id, reason: 'Mistake' });
+
+      // After void: destination debited the received 6 (not shipped 10),
+      // origin credited the shipped 10. Net tenant stock returns to 10.
+      const primaryVoid = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(primaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(10);
+      const secondaryVoid = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(secondaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(0);
+
+      const stockRow = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, pipe.id))
+        .get();
+      expect(stockRow?.stock).toBe(10);
+    });
+  });
 });

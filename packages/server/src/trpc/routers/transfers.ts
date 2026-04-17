@@ -77,6 +77,8 @@ export const transfersRouter = router({
         tenantId: ctx.tenantId,
         transferId: input.transferId,
         receivedBy: ctx.user!.id,
+        lines: input.lines,
+        discrepancyNotes: input.discrepancyNotes ?? null,
       });
     }),
 

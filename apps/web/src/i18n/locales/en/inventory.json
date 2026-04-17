@@ -96,6 +96,8 @@
     "receiveAction": "Receive",
     "receiveSuccess": "Transfer received",
     "receiveError": "Unable to receive transfer",
+    "discrepancyBadge": "Discrepancy",
+    "discrepancyBadgeTooltip": "Received quantities diverge from shipped",
     "detailsAction": "Details",
     "confirmVoidTitle": "Void transfer?",
     "confirmVoidMessage": "This will move {{quantity}} units back from {{to}} to {{from}}. Balances will update immediately.",
@@ -127,10 +129,44 @@
     "notReceived": "Pending receipt",
     "notes": "Notes",
     "lineItems": "Line items",
+    "discrepancyNotesLabel": "Discrepancy notes",
     "columns": {
       "product": "Product",
       "sku": "SKU",
-      "quantity": "Quantity"
+      "quantity": "Shipped",
+      "received": "Received",
+      "variance": "Variance"
+    },
+    "variancePending": "—"
+  },
+  "transferReceive": {
+    "title": "Receive transfer",
+    "description": "Record the actual received quantities. Each line defaults to the shipped amount — lower any line if units are missing.",
+    "loading": "Loading transfer…",
+    "error": "Unable to load the transfer",
+    "confirm": "Confirm receipt",
+    "submitting": "Receiving…",
+    "cancel": "Cancel",
+    "discrepancyLabel": "Discrepancy notes",
+    "discrepancyHelp": "Recorded alongside the receipt when any line has a variance.",
+    "discrepancyPlaceholder": "Optional — explain the cause (e.g., box arrived damaged, 3 units missing).",
+    "summary": {
+      "shortage": "Shortage of {{amount}} units detected across {{count}} lines.",
+      "match": "Received quantities match what was shipped."
+    },
+    "columns": {
+      "product": "Product",
+      "sku": "SKU",
+      "shipped": "Shipped",
+      "received": "Received",
+      "variance": "Variance"
+    },
+    "receivedAriaLabel": "Received quantity for {{product}}",
+    "varianceShort": "−{{amount}}",
+    "varianceMatch": "0",
+    "errors": {
+      "negative": "Received quantity cannot be negative.",
+      "exceedsShipped": "Received quantity cannot be greater than the shipped quantity."
     }
   },
   "transferModal": {

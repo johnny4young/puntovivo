@@ -428,10 +428,19 @@ export function voidInventoryTransfer(
       .select({
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
+        receivedQuantity: transferOrderItems.receivedQuantity,
       })
       .from(transferOrderItems)
       .where(eq(transferOrderItems.transferOrderId, args.transferId))
       .all();
+
+    // The destination debit on void matches whatever was credited at receive
+    // time. Legacy rows (pre-UI-103) have receivedQuantity = null → coalesce
+    // to the shipped quantity to preserve existing void semantics.
+    const itemsWithReversal = items.map(item => ({
+      ...item,
+      destinationDebit: item.receivedQuantity ?? item.quantity,
+    }));
 
     const primarySiteId = getPrimarySiteId(tx, args.tenantId);
     const productStockById = new Map(
@@ -459,7 +468,15 @@ export function voidInventoryTransfer(
     // to reverse on that side.
     const validatedDestinationOnHand = new Map<string, number>();
     if (!wasInTransit) {
-      for (const item of items) {
+      for (const item of itemsWithReversal) {
+        if (item.destinationDebit <= 0) {
+          // A received=0 line never touched the destination, so there is
+          // nothing to validate or debit. Still reachable for fully-lost
+          // shipments where the receiver recorded a zero on every line.
+          validatedDestinationOnHand.set(item.productId, 0);
+          continue;
+        }
+
         const destinationBalance = tx
           .select({ onHand: inventoryBalances.onHand })
           .from(inventoryBalances)
@@ -473,7 +490,7 @@ export function voidInventoryTransfer(
           .get();
 
         const available = destinationBalance?.onHand ?? 0;
-        if (!destinationBalance || available < item.quantity) {
+        if (!destinationBalance || available < item.destinationDebit) {
           throwServerError({
             trpcCode: 'BAD_REQUEST',
             errorCode: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
@@ -483,7 +500,7 @@ export function voidInventoryTransfer(
               productId: item.productId,
               destinationSiteId: transfer.toSiteId,
               available,
-              required: item.quantity,
+              required: item.destinationDebit,
             },
           });
         }
@@ -493,8 +510,8 @@ export function voidInventoryTransfer(
 
     const reversedItems: VoidedTransfer['reversedItems'] = [];
 
-    for (const item of items) {
-      if (!wasInTransit) {
+    for (const item of itemsWithReversal) {
+      if (!wasInTransit && item.destinationDebit > 0) {
         // Decrement destination using the pre-validated value — a single read
         // per item keeps the math consistent and avoids a reachable path to a
         // negative balance if the row was somehow removed between loops.
@@ -502,7 +519,7 @@ export function voidInventoryTransfer(
 
         tx.update(inventoryBalances)
           .set({
-            onHand: destinationOnHand - item.quantity,
+            onHand: destinationOnHand - item.destinationDebit,
             syncStatus: 'pending',
             updatedAt: now,
           })
@@ -605,10 +622,25 @@ export function voidInventoryTransfer(
   });
 }
 
+export interface ReceiveTransferLine {
+  /** `transfer_order_items.id` of the line being received. */
+  itemId: string;
+  receivedQuantity: number;
+}
+
 export interface ReceiveTransferArgs {
   tenantId: string;
   transferId: string;
   receivedBy: string;
+  /**
+   * Phase 2 UI-103. Optional per-line received quantities keyed by
+   * `transfer_order_items.id`. When omitted or empty, every line is credited
+   * at its shipped quantity (legacy one-click receive behaviour). When
+   * supplied, unknown ids or `received > shipped` are rejected.
+   */
+  lines?: readonly ReceiveTransferLine[];
+  /** Optional receiver-side note captured when variance is present. */
+  discrepancyNotes?: string | null;
 }
 
 export interface ReceivedTransfer {
@@ -618,7 +650,15 @@ export interface ReceivedTransfer {
   toSiteId: string;
   receivedAt: string;
   receivedBy: string;
+  /**
+   * `quantity` here is the received quantity — the amount credited to the
+   * destination. Callers that need the shipped quantity should read it from
+   * `transfers.getById`.
+   */
   receivedItems: Array<{ productId: string; quantity: number }>;
+  /** True when any line's received quantity diverged from the shipped one. */
+  hasDiscrepancy: boolean;
+  discrepancyNotes: string | null;
 }
 
 /**
@@ -631,11 +671,72 @@ export interface ReceivedTransfer {
  * `in_transit` (completed transfers were already credited; voided transfers
  * have been reversed).
  */
+function resolveReceivedQuantitiesByItemId(
+  items: ReadonlyArray<{ id: string; quantity: number }>,
+  lines: readonly ReceiveTransferLine[] | undefined
+): Map<string, number> {
+  if (!lines || lines.length === 0) {
+    return new Map(items.map(item => [item.id, item.quantity]));
+  }
+
+  const shippedById = new Map(items.map(item => [item.id, item.quantity]));
+  const resolved = new Map<string, number>();
+
+  for (const line of lines) {
+    const shipped = shippedById.get(line.itemId);
+    if (shipped === undefined) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TRANSFER_RECEIVE_LINE_MISMATCH',
+        message: 'Receive payload references a line that does not belong to this transfer',
+        details: { itemId: line.itemId },
+      });
+    }
+    if (resolved.has(line.itemId)) {
+      // Duplicate ids would otherwise silently collapse — reject so the UI
+      // can't accidentally double-credit a line.
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TRANSFER_RECEIVE_LINE_MISMATCH',
+        message: 'Receive payload contains duplicate line entries',
+        details: { itemId: line.itemId },
+      });
+    }
+    if (line.receivedQuantity > shipped) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
+        message: 'Received quantity cannot exceed the shipped quantity',
+        details: {
+          itemId: line.itemId,
+          shipped,
+          received: line.receivedQuantity,
+        },
+      });
+    }
+    resolved.set(line.itemId, line.receivedQuantity);
+  }
+
+  // Any line not addressed by the caller defaults to the shipped quantity.
+  for (const item of items) {
+    if (!resolved.has(item.id)) {
+      resolved.set(item.id, item.quantity);
+    }
+  }
+
+  return resolved;
+}
+
 export function receiveInventoryTransfer(
   db: DatabaseInstance,
   args: ReceiveTransferArgs
 ): ReceivedTransfer {
   const now = getTimestamp();
+  const trimmedDiscrepancyNotes = args.discrepancyNotes?.trim();
+  const normalizedDiscrepancyNotes =
+    trimmedDiscrepancyNotes && trimmedDiscrepancyNotes.length > 0
+      ? trimmedDiscrepancyNotes
+      : null;
 
   return db.transaction(tx => {
     const transfer = tx
@@ -674,12 +775,15 @@ export function receiveInventoryTransfer(
 
     const items = tx
       .select({
+        id: transferOrderItems.id,
         productId: transferOrderItems.productId,
         quantity: transferOrderItems.quantity,
       })
       .from(transferOrderItems)
       .where(eq(transferOrderItems.transferOrderId, args.transferId))
       .all();
+
+    const receivedByItemId = resolveReceivedQuantitiesByItemId(items, args.lines);
 
     const primarySiteId = getPrimarySiteId(tx, args.tenantId);
     const productStockById = new Map(
@@ -700,9 +804,17 @@ export function receiveInventoryTransfer(
     );
 
     const receivedItems: ReceivedTransfer['receivedItems'] = [];
+    let hasDiscrepancy = false;
 
     for (const item of items) {
-      // Credit destination — seed the row if missing, then increment.
+      const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
+      if (receivedQuantity !== item.quantity) {
+        hasDiscrepancy = true;
+      }
+
+      // Seed the destination row even when received is zero so the drawer
+      // stays consistent (every line gets a row) and subsequent voids can
+      // safely read it.
       seedMissingBalanceRow({
         tx,
         tenantId: args.tenantId,
@@ -715,47 +827,63 @@ export function receiveInventoryTransfer(
         now,
       });
 
-      const destinationBalance = tx
-        .select({ onHand: inventoryBalances.onHand })
-        .from(inventoryBalances)
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, transfer.toSiteId),
-            eq(inventoryBalances.productId, item.productId)
+      if (receivedQuantity > 0) {
+        const destinationBalance = tx
+          .select({ onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, transfer.toSiteId),
+              eq(inventoryBalances.productId, item.productId)
+            )
           )
-        )
-        .get();
+          .get();
 
-      tx.update(inventoryBalances)
-        .set({
-          onHand: (destinationBalance?.onHand ?? 0) + item.quantity,
-          syncStatus: 'pending',
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, args.tenantId),
-            eq(inventoryBalances.siteId, transfer.toSiteId),
-            eq(inventoryBalances.productId, item.productId)
+        tx.update(inventoryBalances)
+          .set({
+            onHand: (destinationBalance?.onHand ?? 0) + receivedQuantity,
+            syncStatus: 'pending',
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, transfer.toSiteId),
+              eq(inventoryBalances.productId, item.productId)
+            )
           )
-        )
+          .run();
+      }
+
+      tx.update(transferOrderItems)
+        .set({ receivedQuantity })
+        .where(eq(transferOrderItems.id, item.id))
         .run();
 
+      // Products.stock drifts by (shipped - received) because origin was
+      // debited the full shipped quantity at create time but destination only
+      // gets credited the received quantity. Recompute from Σ(balances) to
+      // keep the cache honest (intentional shrinkage).
       syncProductStockFromBalances(tx, {
         tenantId: args.tenantId,
         productId: item.productId,
         now,
       });
 
-      receivedItems.push({ productId: item.productId, quantity: item.quantity });
+      receivedItems.push({ productId: item.productId, quantity: receivedQuantity });
     }
+
+    const persistedDiscrepancyNotes = hasDiscrepancy
+      ? normalizedDiscrepancyNotes
+      : null;
 
     tx.update(transferOrders)
       .set({
         status: 'completed',
         receivedAt: now,
         receivedBy: args.receivedBy,
+        discrepancyNotes: persistedDiscrepancyNotes,
         syncStatus: 'pending',
         updatedAt: now,
       })
@@ -775,6 +903,8 @@ export function receiveInventoryTransfer(
       receivedAt: now,
       receivedBy: args.receivedBy,
       receivedItems,
+      hasDiscrepancy,
+      discrepancyNotes: persistedDiscrepancyNotes,
     };
   });
 }
@@ -793,6 +923,13 @@ export interface TransferHistoryEntry {
   receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
+  /**
+   * Phase 2 UI-103. True when any line's received quantity diverges from the
+   * shipped quantity. Null-safe against legacy rows (received_quantity is
+   * null until the line is actually received).
+   */
+  hasDiscrepancy: boolean;
+  discrepancyNotes: string | null;
 }
 
 /**
@@ -818,6 +955,7 @@ export async function listRecentTransfers(
       createdAt: transferOrders.createdAt,
       receivedAt: transferOrders.receivedAt,
       receivedBy: transferOrders.receivedBy,
+      discrepancyNotes: transferOrders.discrepancyNotes,
     })
     .from(transferOrders)
     .where(eq(transferOrders.tenantId, tenantId))
@@ -843,10 +981,20 @@ export async function listRecentTransfers(
   const enriched = await Promise.all(
     rows.map(async row => {
       const items = await db
-        .select({ quantity: transferOrderItems.quantity })
+        .select({
+          quantity: transferOrderItems.quantity,
+          receivedQuantity: transferOrderItems.receivedQuantity,
+        })
         .from(transferOrderItems)
         .where(eq(transferOrderItems.transferOrderId, row.id))
         .all();
+
+      // Discrepancy is only meaningful once the transfer has been received.
+      // Lines still in transit carry receivedQuantity = null and must not
+      // trigger the badge.
+      const hasDiscrepancy = items.some(
+        item => item.receivedQuantity !== null && item.receivedQuantity !== item.quantity
+      );
 
       return {
         ...row,
@@ -854,6 +1002,7 @@ export async function listRecentTransfers(
         toSiteName: sitesMap.get(row.toSiteId) ?? '',
         itemCount: items.length,
         totalQuantity: items.reduce((total, item) => total + item.quantity, 0),
+        hasDiscrepancy,
       };
     })
   );
@@ -867,6 +1016,8 @@ export interface TransferDetailLine {
   productName: string;
   productSku: string;
   quantity: number;
+  /** Phase 2 UI-103. Null until the transfer is received. */
+  receivedQuantity: number | null;
 }
 
 export interface TransferDetail {
@@ -883,6 +1034,9 @@ export interface TransferDetail {
   receivedBy: string | null;
   updatedAt: string;
   items: TransferDetailLine[];
+  /** Phase 2 UI-103. */
+  hasDiscrepancy: boolean;
+  discrepancyNotes: string | null;
 }
 
 /**
@@ -909,6 +1063,7 @@ export async function getInventoryTransferById(
       createdAt: transferOrders.createdAt,
       receivedAt: transferOrders.receivedAt,
       receivedBy: transferOrders.receivedBy,
+      discrepancyNotes: transferOrders.discrepancyNotes,
       updatedAt: transferOrders.updatedAt,
     })
     .from(transferOrders)
@@ -929,6 +1084,7 @@ export async function getInventoryTransferById(
       id: transferOrderItems.id,
       productId: transferOrderItems.productId,
       quantity: transferOrderItems.quantity,
+      receivedQuantity: transferOrderItems.receivedQuantity,
       productName: products.name,
       productSku: products.sku,
     })
@@ -936,6 +1092,10 @@ export async function getInventoryTransferById(
     .innerJoin(products, eq(transferOrderItems.productId, products.id))
     .where(eq(transferOrderItems.transferOrderId, transfer.id))
     .all();
+
+  const hasDiscrepancy = items.some(
+    item => item.receivedQuantity !== null && item.receivedQuantity !== item.quantity
+  );
 
   // Resolve site names with a single two-row lookup instead of two separate
   // selects, since most transfers have exactly 2 participating sites.
@@ -956,5 +1116,6 @@ export async function getInventoryTransferById(
     fromSiteName: siteNameById.get(transfer.fromSiteId) ?? '',
     toSiteName: siteNameById.get(transfer.toSiteId) ?? '',
     items,
+    hasDiscrepancy,
   };
 }

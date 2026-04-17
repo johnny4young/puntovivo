@@ -69,6 +69,19 @@ export const SERVER_ERROR_CODES = {
   TRANSFER_VOID_INSUFFICIENT_STOCK: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
   /** `transfers.receive` called on a transfer whose status is not `in_transit`. */
   TRANSFER_NOT_IN_TRANSIT: 'TRANSFER_NOT_IN_TRANSIT',
+  /**
+   * Phase 2 UI-103: a `transfers.receive` line reports a received quantity
+   * greater than the shipped quantity. Accepting would create stock from
+   * nothing — operators should complete the receive at the shipped qty and
+   * post a separate stock adjustment if they genuinely received more.
+   */
+  TRANSFER_RECEIVED_EXCEEDS_SHIPPED: 'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
+  /**
+   * Phase 2 UI-103: a `transfers.receive` line payload references an item id
+   * that does not belong to the target transfer (or is duplicated across
+   * entries).
+   */
+  TRANSFER_RECEIVE_LINE_MISMATCH: 'TRANSFER_RECEIVE_LINE_MISMATCH',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

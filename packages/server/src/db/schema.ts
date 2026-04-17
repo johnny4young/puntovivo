@@ -1929,6 +1929,9 @@ export const transferOrders = sqliteTable(
     // transition. Null on immediate transfers that skip the deferred window.
     receivedAt: text('received_at'),
     receivedBy: text('received_by').references(() => users.id),
+    // Phase 2 UI-103: optional note captured by the receiver when they record
+    // a variance between shipped and received quantities.
+    discrepancyNotes: text('discrepancy_notes'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(new Date().toISOString()),
@@ -1954,6 +1957,10 @@ export const transferOrderItems = sqliteTable(
       .notNull()
       .references(() => products.id),
     quantity: real('quantity').notNull(),
+    // Phase 2 UI-103: what the destination actually received. Null for legacy
+    // receipts and for lines still in transit; populated on every line at
+    // receive time, defaulting to `quantity` when the receiver did not edit.
+    receivedQuantity: real('received_quantity'),
     createdAt: text('created_at').notNull().default(new Date().toISOString()),
   },
   table => [

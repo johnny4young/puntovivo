@@ -436,6 +436,8 @@ export interface TransferHistoryEntry {
   receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
+  hasDiscrepancy: boolean;
+  discrepancyNotes: string | null;
 }
 
 export interface TransferDetailLine {
@@ -444,6 +446,7 @@ export interface TransferDetailLine {
   productName: string;
   productSku: string;
   quantity: number;
+  receivedQuantity: number | null;
 }
 
 export interface TransferDetail {
@@ -460,6 +463,8 @@ export interface TransferDetail {
   receivedBy: string | null;
   updatedAt: string;
   items: TransferDetailLine[];
+  hasDiscrepancy: boolean;
+  discrepancyNotes: string | null;
 }
 
 export interface RegisterAssignment {

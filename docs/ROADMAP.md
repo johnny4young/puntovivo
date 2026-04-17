@@ -241,7 +241,7 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 **UI tickets**:
 - `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
 - `UI-102` Transfer Orders module — **Step 4 shipped** (Transfer stock button + modal with "Ship now, receive later" checkbox + transfer history table with Details/Receive/Void actions + confirmation modal + read-only detail drawer showing line items and lifecycle timestamps, all in the By Site tab; dedicated Transfer Orders page deferred).
-- `UI-103` Transfer receive modal with discrepancy reporting
+- `UI-103` Transfer receive modal with discrepancy reporting — **Done**: receiving an in_transit transfer opens a modal that lists every line with an editable received-quantity input (defaulting to shipped), displays per-line variance badges, and reveals an optional discrepancy-notes textarea when any line diverges. The server credits the destination with the received quantity only (so the `shipped - received` delta shows up as shrinkage via the existing products.stock-in-lockstep invariant) and persists the per-line `received_quantity` + aggregate `discrepancy_notes` on the transfer. The history row renders a Discrepancy badge when present; voids debit the destination by `received_quantity` (coalescing to shipped for legacy rows) so partial-receipt reversals are symmetric. `received > shipped` is rejected up front (`TRANSFER_RECEIVED_EXCEEDS_SHIPPED`) — operators who genuinely received more should take the shipped quantity and post a separate `inventory.adjustStock`.
 
 **Test tickets**:
 - `TEST-101` Sales decrement active site only
