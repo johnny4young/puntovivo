@@ -96,6 +96,8 @@
     "receiveAction": "Recibir",
     "receiveSuccess": "Transferencia recibida",
     "receiveError": "No se pudo recibir la transferencia",
+    "discrepancyBadge": "Discrepancia",
+    "discrepancyBadgeTooltip": "Las cantidades recibidas difieren de las enviadas",
     "detailsAction": "Detalles",
     "confirmVoidTitle": "¿Anular transferencia?",
     "confirmVoidMessage": "Esto devolverá {{quantity}} unidades desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
@@ -127,10 +129,44 @@
     "notReceived": "Pendiente de recibir",
     "notes": "Notas",
     "lineItems": "Líneas",
+    "discrepancyNotesLabel": "Notas de discrepancia",
     "columns": {
       "product": "Producto",
       "sku": "SKU",
-      "quantity": "Cantidad"
+      "quantity": "Enviado",
+      "received": "Recibido",
+      "variance": "Diferencia"
+    },
+    "variancePending": "—"
+  },
+  "transferReceive": {
+    "title": "Recibir transferencia",
+    "description": "Registra las cantidades recibidas reales. Cada línea viene con la cantidad enviada — reduce la línea si faltaron unidades.",
+    "loading": "Cargando transferencia…",
+    "error": "No se pudo cargar la transferencia",
+    "confirm": "Confirmar recepción",
+    "submitting": "Recibiendo…",
+    "cancel": "Cancelar",
+    "discrepancyLabel": "Notas de discrepancia",
+    "discrepancyHelp": "Se guarda junto con la recepción cuando alguna línea tiene diferencia.",
+    "discrepancyPlaceholder": "Opcional — explica la causa (p. ej., la caja llegó dañada, faltan 3 unidades).",
+    "summary": {
+      "shortage": "Faltante de {{amount}} unidades en {{count}} líneas.",
+      "match": "Las cantidades recibidas coinciden con las enviadas."
+    },
+    "columns": {
+      "product": "Producto",
+      "sku": "SKU",
+      "shipped": "Enviado",
+      "received": "Recibido",
+      "variance": "Diferencia"
+    },
+    "receivedAriaLabel": "Cantidad recibida de {{product}}",
+    "varianceShort": "−{{amount}}",
+    "varianceMatch": "0",
+    "errors": {
+      "negative": "La cantidad recibida no puede ser negativa.",
+      "exceedsShipped": "La cantidad recibida no puede ser mayor que la enviada."
     }
   },
   "transferModal": {

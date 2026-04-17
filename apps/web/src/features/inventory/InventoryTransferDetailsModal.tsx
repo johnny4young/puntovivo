@@ -111,6 +111,17 @@ export function InventoryTransferDetailsModal({
             </div>
           )}
 
+          {detailQuery.data.discrepancyNotes && (
+            <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3">
+              <p className="mb-1 text-xs uppercase tracking-wide text-warning-800">
+                {t('transferDetails.discrepancyNotesLabel')}
+              </p>
+              <p className="whitespace-pre-line text-sm text-warning-900">
+                {detailQuery.data.discrepancyNotes}
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="mb-2 text-xs uppercase tracking-wide text-secondary-500">
               {t('transferDetails.lineItems')}
@@ -128,20 +139,49 @@ export function InventoryTransferDetailsModal({
                     <th className="px-3 py-2 text-right">
                       {t('transferDetails.columns.quantity')}
                     </th>
+                    <th className="px-3 py-2 text-right">
+                      {t('transferDetails.columns.received')}
+                    </th>
+                    <th className="px-3 py-2 text-right">
+                      {t('transferDetails.columns.variance')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-secondary-100">
-                  {detailQuery.data.items.map(item => (
-                    <tr key={item.id}>
-                      <td className="px-3 py-2 text-secondary-900">{item.productName}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-secondary-600">
-                        {item.productSku}
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium text-secondary-900">
-                        {item.quantity.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
+                  {detailQuery.data.items.map(item => {
+                    const received = item.receivedQuantity;
+                    const variance =
+                      received === null ? null : received - item.quantity;
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-3 py-2 text-secondary-900">{item.productName}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-secondary-600">
+                          {item.productSku}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-secondary-900">
+                          {item.quantity.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right text-secondary-900">
+                          {received === null
+                            ? t('transferDetails.variancePending')
+                            : received.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {variance === null ? (
+                            <span className="text-xs text-secondary-500">
+                              {t('transferDetails.variancePending')}
+                            </span>
+                          ) : variance === 0 ? (
+                            <span className="text-xs text-secondary-500">0</span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-800">
+                              {variance.toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

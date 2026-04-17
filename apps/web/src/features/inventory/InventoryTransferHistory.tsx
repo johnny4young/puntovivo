@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Eye, PackageCheck, Undo2 } from 'lucide-react';
+import { AlertTriangle, Eye, PackageCheck, Undo2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -12,6 +12,10 @@ import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
 import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
 import { InventoryTransferDetailsModal } from './InventoryTransferDetailsModal';
+import {
+  InventoryTransferReceiveModal,
+  type TransferReceiveSubmitPayload,
+} from './InventoryTransferReceiveModal';
 
 const statusBadgeClasses: Record<TransferHistoryStatus, string> = {
   completed: 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700',
@@ -33,6 +37,8 @@ export function InventoryTransferHistory() {
 
   const [confirmingVoidId, setConfirmingVoidId] = useState<string | null>(null);
   const [detailsTransferId, setDetailsTransferId] = useState<string | null>(null);
+  const [receivingTransferId, setReceivingTransferId] = useState<string | null>(null);
+  const [receiveSubmitError, setReceiveSubmitError] = useState<string | null>(null);
 
   const historyQuery = trpc.transfers.list.useQuery(undefined, {
     // Keep the list fresh while the user interacts with transfers elsewhere.
@@ -42,6 +48,7 @@ export function InventoryTransferHistory() {
   async function invalidateAfterMutation(): Promise<void> {
     await Promise.all([
       utils.transfers.list.invalidate(),
+      utils.transfers.getById.invalidate(),
       utils.inventory.listBalancesBySite.invalidate(),
     ]);
   }
@@ -63,12 +70,18 @@ export function InventoryTransferHistory() {
   const receiveMutation = trpc.transfers.receive.useMutation({
     onSuccess: async () => {
       await invalidateAfterMutation();
+      setReceivingTransferId(null);
+      setReceiveSubmitError(null);
       toast.success({ title: t('transferHistory.receiveSuccess') });
     },
     onError: error => {
+      const description = translateServerError(error, t, t('errors:server.unknown'));
+      // Surface the error inside the modal (so the user can correct a
+      // variance entry) and also toast it for non-modal contexts.
+      setReceiveSubmitError(description);
       toast.error({
         title: t('transferHistory.receiveError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
+        description,
       });
     },
   });
@@ -92,11 +105,35 @@ export function InventoryTransferHistory() {
     voidMutation.reset();
   }, [voidMutation]);
 
-  const handleReceive = useCallback(
-    (id: string) => {
-      receiveMutation.mutate({ transferId: id });
+  const handleOpenReceive = useCallback((id: string) => {
+    setReceiveSubmitError(null);
+    setReceivingTransferId(id);
+  }, []);
+
+  const handleCloseReceive = useCallback(() => {
+    if (receiveMutation.isPending) {
+      return;
+    }
+    setReceivingTransferId(null);
+    setReceiveSubmitError(null);
+    receiveMutation.reset();
+  }, [receiveMutation]);
+
+  const handleSubmitReceive = useCallback(
+    (payload: TransferReceiveSubmitPayload) => {
+      if (!receivingTransferId) {
+        return;
+      }
+      setReceiveSubmitError(null);
+      receiveMutation.mutate({
+        transferId: receivingTransferId,
+        ...(payload.lines ? { lines: payload.lines } : {}),
+        ...(payload.discrepancyNotes
+          ? { discrepancyNotes: payload.discrepancyNotes }
+          : {}),
+      });
     },
-    [receiveMutation]
+    [receiveMutation, receivingTransferId]
   );
 
   const handleOpenDetails = useCallback((id: string) => {
@@ -136,9 +173,20 @@ export function InventoryTransferHistory() {
         accessorKey: 'status',
         header: () => t('transferHistory.columns.status'),
         cell: ({ row }) => (
-          <span className={statusBadgeClasses[row.original.status]}>
-            {t(`transferHistory.status.${row.original.status}`)}
-          </span>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className={statusBadgeClasses[row.original.status]}>
+              {t(`transferHistory.status.${row.original.status}`)}
+            </span>
+            {row.original.hasDiscrepancy && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800"
+                title={t('transferHistory.discrepancyBadgeTooltip')}
+              >
+                <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                {t('transferHistory.discrepancyBadge')}
+              </span>
+            )}
+          </div>
         ),
       },
       {
@@ -164,7 +212,7 @@ export function InventoryTransferHistory() {
                   type="button"
                   className="btn-primary inline-flex items-center gap-1 py-1 text-sm"
                   disabled={anyMutationPending}
-                  onClick={() => handleReceive(row.original.id)}
+                  onClick={() => handleOpenReceive(row.original.id)}
                   aria-label={t('transferHistory.receiveAction')}
                 >
                   <PackageCheck className="h-4 w-4" />
@@ -191,7 +239,7 @@ export function InventoryTransferHistory() {
       voidMutation.isPending,
       receiveMutation.isPending,
       handleRequestVoid,
-      handleReceive,
+      handleOpenReceive,
       handleOpenDetails,
     ]
   );
@@ -269,6 +317,16 @@ export function InventoryTransferHistory() {
         isOpen={detailsTransferId !== null}
         transferId={detailsTransferId}
         onClose={handleCloseDetails}
+      />
+
+      <InventoryTransferReceiveModal
+        key={receivingTransferId ?? 'closed'}
+        isOpen={receivingTransferId !== null}
+        transferId={receivingTransferId}
+        isSaving={receiveMutation.isPending}
+        submitError={receiveSubmitError}
+        onClose={handleCloseReceive}
+        onSubmit={handleSubmitReceive}
       />
     </>
   );

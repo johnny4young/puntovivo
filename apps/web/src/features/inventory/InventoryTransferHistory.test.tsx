@@ -42,6 +42,7 @@ let capturedReceiveOpts: MutationOptions | null = null;
 const getByIdInvocations: Array<{ id: string; enabled: boolean }> = [];
 
 const listInvalidate = vi.fn(async () => undefined);
+const detailInvalidate = vi.fn(async () => undefined);
 const balancesInvalidate = vi.fn(async () => undefined);
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
@@ -49,7 +50,10 @@ const toastError = vi.fn();
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      transfers: { list: { invalidate: listInvalidate } },
+      transfers: {
+        list: { invalidate: listInvalidate },
+        getById: { invalidate: detailInvalidate },
+      },
       inventory: { listBalancesBySite: { invalidate: balancesInvalidate } },
     }),
     transfers: {
@@ -106,6 +110,8 @@ const completedEntry: TransferHistoryEntry = {
   receivedBy: null,
   itemCount: 1,
   totalQuantity: 4,
+  hasDiscrepancy: false,
+  discrepancyNotes: null,
 };
 
 const voidedEntry: TransferHistoryEntry = {
@@ -121,6 +127,14 @@ const inTransitEntry: TransferHistoryEntry = {
   id: 'transfer-3',
   status: 'in_transit',
   totalQuantity: 3,
+};
+
+const discrepancyEntry: TransferHistoryEntry = {
+  ...completedEntry,
+  id: 'transfer-4',
+  status: 'completed',
+  hasDiscrepancy: true,
+  discrepancyNotes: '2 units missing',
 };
 
 function setListResult(items: TransferHistoryEntry[] = [completedEntry, voidedEntry]): void {
@@ -191,6 +205,7 @@ describe('InventoryTransferHistory', () => {
   it('runs the onSuccess path: invalidates caches and toasts', async () => {
     setListResult([completedEntry]);
     listInvalidate.mockClear();
+    detailInvalidate.mockClear();
     balancesInvalidate.mockClear();
     toastSuccess.mockClear();
 
@@ -202,6 +217,7 @@ describe('InventoryTransferHistory', () => {
     await capturedMutationOpts?.onSuccess?.();
 
     expect(listInvalidate).toHaveBeenCalled();
+    expect(detailInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalledWith(
       expect.objectContaining({ title: expect.any(String) })
@@ -255,7 +271,7 @@ describe('InventoryTransferHistory', () => {
     expect(receiveButtons[0]).not.toBeDisabled();
   });
 
-  it('invokes the receive mutation when the Receive button is clicked', async () => {
+  it('opens the receive modal when the Receive button is clicked — does not mutate yet', async () => {
     setListResult([inTransitEntry]);
     receiveMutationState.mutate.mockClear();
 
@@ -264,14 +280,25 @@ describe('InventoryTransferHistory', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Receive' }));
 
-    expect(receiveMutationState.mutate).toHaveBeenCalledWith({
-      transferId: inTransitEntry.id,
-    });
+    // The modal is mounted — its title is in the DOM.
+    expect(await screen.findByText('Receive transfer')).toBeInTheDocument();
+    // Clicking Receive must NOT immediately mutate; the user still has to
+    // confirm quantities inside the modal.
+    expect(receiveMutationState.mutate).not.toHaveBeenCalled();
+  });
+
+  it('renders the discrepancy badge on transfers with variance', () => {
+    setListResult([discrepancyEntry]);
+
+    render(<InventoryTransferHistory />);
+
+    expect(screen.getByText('Discrepancy')).toBeInTheDocument();
   });
 
   it('runs the receive onSuccess path: invalidates and toasts', async () => {
     setListResult([inTransitEntry]);
     listInvalidate.mockClear();
+    detailInvalidate.mockClear();
     balancesInvalidate.mockClear();
     toastSuccess.mockClear();
 
@@ -281,6 +308,7 @@ describe('InventoryTransferHistory', () => {
     await capturedReceiveOpts?.onSuccess?.();
 
     expect(listInvalidate).toHaveBeenCalled();
+    expect(detailInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalled();
   });

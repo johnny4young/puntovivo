@@ -41,6 +41,8 @@
     "TRANSFER_ALREADY_VOID": "This transfer has already been voided.",
     "TRANSFER_VOID_INSUFFICIENT_STOCK": "Cannot void — the destination site no longer has enough stock to reverse this transfer.",
     "TRANSFER_NOT_IN_TRANSIT": "Only transfers currently in transit can be received.",
+    "TRANSFER_RECEIVED_EXCEEDS_SHIPPED": "A received quantity cannot be greater than the shipped quantity.",
+    "TRANSFER_RECEIVE_LINE_MISMATCH": "The receive payload does not match the transfer's line items.",
     "unknown": "Something went wrong. Please try again."
   }
 }
