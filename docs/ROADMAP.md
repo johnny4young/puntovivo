@@ -229,18 +229,18 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 
 **DB tickets**:
 - `DB-101` Create `inventory_balances` by product/site/location — **Step 0 shipped** at the (tenant, site, product) grain; location column deferred.
-- `DB-102` Create `transfer_orders` and `transfer_order_items`
+- `DB-102` Create `transfer_orders` and `transfer_order_items` — **Step 1 shipped** (immediate completion only — lifecycle states deferred).
 - `DB-103` Create `transfer_shipments` and `transfer_receipts`
-- `DB-104` Migrate tenant-wide stock to default site-owned balances — **Step 0 shipped** as a lazy per-read seed onto the earliest-created active site.
+- `DB-104` Migrate tenant-wide stock to default site-owned balances — **Step 1 shipped** as a seed-only insert onto the earliest-created active site (balances are now authoritative).
 
 **tRPC tickets**:
 - `API-101` `inventory.listBalancesBySite` — **Done** (read-only).
-- `API-102` `transfers.create`, `.ship`, `.receive`, `.void`
+- `API-102` `transfers.create`, `.ship`, `.receive`, `.void` — **Step 1 shipped**: `transfers.create` (immediate) + `transfers.list`. Lifecycle methods (`.ship`, `.receive`, `.void`) deferred.
 - `API-103` Update sales/purchases/orders to read/write site balances
 
 **UI tickets**:
 - `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
-- `UI-102` Transfer Orders module
+- `UI-102` Transfer Orders module — **Step 1 shipped** (Transfer stock button + modal in By Site tab; dedicated Transfer Orders page deferred).
 - `UI-103` Transfer receive modal with discrepancy reporting
 
 **Test tickets**:

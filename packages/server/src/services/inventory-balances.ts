@@ -42,21 +42,19 @@ function getTimestamp(): string {
 
 /**
  * Ensures every active product in the tenant has a balance row on `siteId`.
- * - Primary site (earliest-created active site) receives `products.stock` as
- *   its `on_hand`.
- * - Non-primary sites always receive 0 when first seeded (transfers move
- *   stock in later).
  *
- * Idempotent:
- * - Primary site upserts `on_hand` so it keeps mirroring `products.stock`
- *   until transfer-aware writes land.
- * - Non-primary sites only insert missing zero rows against the unique
- *   (tenant_id, site_id, product_id) index.
+ * Seed-only semantics (Phase 2 step 1): rows are only created when missing.
+ * - Primary site (earliest-created active site) receives `products.stock` as
+ *   its initial `on_hand`.
+ * - Non-primary sites always receive 0 as their initial `on_hand`.
+ *
+ * **Not an upsert.** Once a balance row exists, it is owned by the
+ * transfer-aware write paths (`transfers.create`, future `sales`/`purchases`
+ * integrations). Re-seeding on every read would clobber those writes.
  *
  * Reads and writes run inside the same better-sqlite3 transaction so the
  * "which site is primary" and "which products exist" decisions are consistent
- * with the inserts. The caller must await this before running read helpers so
- * the two reads do not independently race through the seeding path.
+ * with the inserts.
  */
 export function ensureInventoryBalancesForSite(
   db: DatabaseInstance,
@@ -86,37 +84,19 @@ export function ensureInventoryBalancesForSite(
     }
 
     for (const product of tenantProducts) {
-      const insertQuery = tx.insert(inventoryBalances).values({
-        id: nanoid(),
-        tenantId,
-        siteId,
-        productId: product.id,
-        onHand: isPrimarySite ? product.stock : 0,
-        reserved: 0,
-        syncStatus: 'pending',
-        syncVersion: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      if (isPrimarySite) {
-        insertQuery
-          .onConflictDoUpdate({
-            target: [
-              inventoryBalances.tenantId,
-              inventoryBalances.siteId,
-              inventoryBalances.productId,
-            ],
-            set: {
-              onHand: product.stock,
-              updatedAt: now,
-            },
-          })
-          .run();
-        continue;
-      }
-
-      insertQuery
+      tx.insert(inventoryBalances)
+        .values({
+          id: nanoid(),
+          tenantId,
+          siteId,
+          productId: product.id,
+          onHand: isPrimarySite ? product.stock : 0,
+          reserved: 0,
+          syncStatus: 'pending',
+          syncVersion: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
         .onConflictDoNothing({
           target: [
             inventoryBalances.tenantId,

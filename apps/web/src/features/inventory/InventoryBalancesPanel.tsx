@@ -1,12 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeftRight } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
+import { useToast } from '@/components/feedback/ToastProvider';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
 import type { InventoryBalanceListItem } from '@/types';
+import {
+  InventoryTransferModal,
+  type InventoryTransferFormValues,
+} from './InventoryTransferModal';
 
 export interface InventoryBalancesPanelSite {
   id: string;
@@ -50,12 +56,18 @@ function buildBalanceColumns(
 }
 
 /**
- * Phase 2 DB-101 / API-101 — read-only panel showing on-hand balances per
- * site. Until transfer writes land this mirrors the tenant-wide product stock
- * seeded onto the primary site; other sites start at zero.
+ * Phase 2 "By Site" panel — per-site inventory balances plus the immediate
+ * transfer mutation (DB-101 / API-101 read + DB-102 / API-102 write).
+ *
+ * Balances are seeded lazily from `products.stock` onto the primary site on
+ * first read. Once rows exist they are authoritative — `transfers.create` is
+ * the only write path wired up so far; future sale/purchase integrations
+ * will mutate balances too.
  */
 export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalancesPanelProps) {
-  const { t } = useTranslation('inventory');
+  const { t } = useTranslation(['inventory', 'errors']);
+  const toast = useToast();
+  const utils = trpc.useUtils();
   const activeSites = useMemo(
     () => sites.filter(site => site.isActive !== false),
     [sites]
@@ -63,6 +75,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
   const [selectedSiteId, setSelectedSiteId] = useState<string>(
     () => activeSites[0]?.id ?? ''
   );
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   // If `sites` changes and the current selection is no longer valid, fall back.
   const effectiveSiteId = useMemo(() => {
@@ -77,7 +90,36 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     { enabled: effectiveSiteId.length > 0 }
   );
 
+  const createTransferMutation = trpc.transfers.create.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.inventory.listBalancesBySite.invalidate(),
+        utils.transfers.list.invalidate(),
+      ]);
+      setIsTransferOpen(false);
+      toast.success({ title: t('transferModal.success') });
+    },
+  });
+
   const columns = useMemo(() => buildBalanceColumns(t), [t]);
+  const canTransfer = activeSites.length >= 2;
+
+  const handleCloseTransferModal = useCallback(() => {
+    setIsTransferOpen(false);
+    createTransferMutation.reset();
+  }, [createTransferMutation]);
+
+  const handleSubmitTransfer = useCallback(
+    async (values: InventoryTransferFormValues) => {
+      await createTransferMutation.mutateAsync({
+        fromSiteId: values.fromSiteId,
+        toSiteId: values.toSiteId,
+        items: [{ productId: values.productId, quantity: values.quantity }],
+        notes: values.notes || undefined,
+      });
+    },
+    [createTransferMutation]
+  );
 
   if (sitesLoading) {
     return (
@@ -106,8 +148,8 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
 
   return (
     <div className="space-y-4">
-      <div className="card p-4">
-        <label className="block md:max-w-sm">
+      <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <label className="block md:max-w-sm md:flex-1">
           <span className="label">{t('balances.siteSelector')}</span>
           <select
             className="input mt-1"
@@ -121,6 +163,17 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
             ))}
           </select>
         </label>
+
+        <button
+          type="button"
+          className="btn-primary flex items-center gap-2"
+          disabled={!canTransfer}
+          title={canTransfer ? undefined : t('balances.transferRequiresTwoSites')}
+          onClick={() => setIsTransferOpen(true)}
+        >
+          <ArrowLeftRight className="h-4 w-4" />
+          {t('balances.transferButton')}
+        </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -151,7 +204,11 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         {balancesQuery.error && (
           <TableErrorState
             title={t('balances.error')}
-            message={getErrorMessage(balancesQuery.error, t('balances.error'))}
+            message={translateServerError(
+              balancesQuery.error,
+              t,
+              t('balances.error')
+            )}
             onRetry={() => {
               void balancesQuery.refetch();
             }}
@@ -171,6 +228,28 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       <p className="surface-panel-muted text-sm text-secondary-600">
         {t('balances.projectionNote')}
       </p>
+
+      <InventoryTransferModal
+        // Remount on open/close so form state resets without a useEffect
+        // that would fire twice under StrictMode.
+        key={isTransferOpen ? 'open' : 'closed'}
+        isOpen={isTransferOpen}
+        sites={activeSites}
+        sourceBalances={items}
+        initialFromSiteId={effectiveSiteId}
+        isSaving={createTransferMutation.isPending}
+        error={
+          createTransferMutation.error
+            ? translateServerError(
+                createTransferMutation.error,
+                t,
+                t('errors:server.unknown')
+              )
+            : null
+        }
+        onClose={handleCloseTransferModal}
+        onSubmit={handleSubmitTransfer}
+      />
     </div>
   );
 }

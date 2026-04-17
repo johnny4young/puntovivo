@@ -30,6 +30,12 @@
     "SALE_QUANTITY_NOT_ALIGNED": "This product must be sold in increments of its configured fraction step.",
     "SALE_FRACTION_POLICY_MISSING": "This product is missing its fraction policy configuration.",
     "SALE_QUANTITY_INVALID": "The quantity must be greater than zero.",
+    "TRANSFER_SITES_IDENTICAL": "Origin and destination sites must be different.",
+    "TRANSFER_SITE_NOT_FOUND": "The selected transfer site could not be found or is inactive.",
+    "TRANSFER_PRODUCT_NOT_FOUND": "The selected product could not be found or is inactive.",
+    "TRANSFER_QUANTITY_INVALID": "Transfer quantity must be greater than zero.",
+    "TRANSFER_ITEMS_REQUIRED": "Add at least one product before recording a transfer.",
+    "TRANSFER_INSUFFICIENT_STOCK": "The origin site does not have enough stock for this transfer.",
     "unknown": "Something went wrong. Please try again."
   }
 }

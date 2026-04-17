@@ -593,12 +593,17 @@ describe('Inventory tRPC Router', () => {
       expect(rows.length).toBe(first.items.length);
     });
 
-    it('re-synchronizes the primary site when product stock changes after the first seed', async () => {
+    // Phase 2 step 1 made `inventory_balances` authoritative. Once a row is
+    // seeded, later `products.stock` adjustments do NOT clobber it — direct
+    // balance writes (transfers, future balance-aware adjustStock) are the
+    // only source of truth. This test pins that contract so a regression to
+    // "mirror mode" would fail loudly.
+    it('does not clobber a seeded balance when products.stock changes later', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Resync Pipe',
-          sku: 'BAL-RESYNC',
+          name: 'Balances Seed-Only Pipe',
+          sku: 'BAL-SEEDONLY',
           barcode: '90004',
           stock: 4,
         })
@@ -610,11 +615,11 @@ describe('Inventory tRPC Router', () => {
       await caller.inventory.adjustStock({
         productId: created.id,
         newStock: 9.5,
-        notes: 'Primary-site stock correction',
+        notes: 'Legacy products.stock correction',
       });
 
       const refreshed = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
-      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(9.5);
+      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(4);
     });
 
     it('marks low stock when on-hand is less than or equal to min stock', async () => {

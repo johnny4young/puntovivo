@@ -68,7 +68,9 @@
     "error": "No se pudieron cargar los balances por sede",
     "search": "Buscar balances por producto…",
     "noSites": "Aún no hay sedes activas. Crea una para hacer seguimiento de stock por sede.",
-    "projectionNote": "Fase 2 paso 0: la sede principal refleja el stock actual del producto; las demás inician en cero. Las transferencias harán que estos valores diverjan.",
+    "projectionNote": "Fase 2 paso 1: los balances ahora son la fuente de verdad — la sede principal se siembra con el stock actual del producto y diverge según las transferencias registradas.",
+    "transferButton": "Transferir stock",
+    "transferRequiresTwoSites": "Se requieren al menos dos sedes activas para transferir stock.",
     "columns": {
       "product": "Producto",
       "sku": "SKU",
@@ -80,6 +82,31 @@
       "onHand": "Total en existencias",
       "available": "Total disponible",
       "lowStock": "Productos con stock bajo"
+    }
+  },
+  "transferModal": {
+    "title": "Transferir stock entre sedes",
+    "fromSite": "Sede origen",
+    "toSite": "Sede destino",
+    "product": "Producto",
+    "productPlaceholder": "Selecciona un producto…",
+    "noStockAtSource": "La sede origen no tiene productos con existencias disponibles.",
+    "quantity": "Cantidad",
+    "notes": "Notas",
+    "notesPlaceholder": "Nota opcional (p. ej., reposición de sucursal)",
+    "onHand": "{{amount}} en existencias",
+    "available": "Disponible en origen: {{amount}}",
+    "cancel": "Cancelar",
+    "submit": "Transferir",
+    "submitting": "Transfiriendo…",
+    "success": "Transferencia registrada",
+    "error": "No se pudo registrar la transferencia",
+    "errors": {
+      "sitesRequired": "Selecciona la sede origen y la sede destino.",
+      "sitesIdentical": "La sede origen y destino deben ser distintas.",
+      "productRequired": "Selecciona el producto a transferir.",
+      "quantityInvalid": "La cantidad debe ser mayor que cero.",
+      "quantityExceedsOnHand": "La cantidad supera las existencias en la sede origen ({{available}})."
     }
   },
   "table": {

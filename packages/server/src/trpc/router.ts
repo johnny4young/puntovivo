@@ -33,6 +33,7 @@ import { inventoryRouter } from './routers/inventory.js';
 import { locationsRouter } from './routers/locations.js';
 import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync.js';
+import { transfersRouter } from './routers/transfers.js';
 
 export const appRouter = router({
   health: router({
@@ -71,6 +72,7 @@ export const appRouter = router({
   locations: locationsRouter,
   sites: sitesRouter,
   sync: syncRouter,
+  transfers: transfersRouter,
   users: usersRouter,
 });
 

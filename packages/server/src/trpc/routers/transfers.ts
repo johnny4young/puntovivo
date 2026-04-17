@@ -1,0 +1,39 @@
+/**
+ * Transfers tRPC Router (Phase 2 DB-102 / API-102 step 1).
+ *
+ * Procedures:
+ * - `transfers.create`  (manager+) — immediate transfer between two sites
+ * - `transfers.list`    (manager+) — recent transfer history
+ *
+ * @module trpc/routers/transfers
+ */
+
+import { router } from '../init.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  createInventoryTransfer,
+  listRecentTransfers,
+} from '../../services/inventory-transfers.js';
+import { createTransferInput, listTransfersInput } from '../schemas/transfers.js';
+
+export const transfersRouter = router({
+  create: managerOrAdminProcedure
+    .input(createTransferInput)
+    .mutation(async ({ ctx, input }) => {
+      return createInventoryTransfer(ctx.db, {
+        tenantId: ctx.tenantId,
+        fromSiteId: input.fromSiteId,
+        toSiteId: input.toSiteId,
+        items: input.items,
+        notes: input.notes ?? null,
+        createdBy: ctx.user!.id,
+      });
+    }),
+
+  list: managerOrAdminProcedure.input(listTransfersInput).query(async ({ ctx, input }) => {
+    const items = await listRecentTransfers(ctx.db, ctx.tenantId, {
+      limit: input?.limit,
+    });
+    return { items };
+  }),
+});
