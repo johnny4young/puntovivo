@@ -89,6 +89,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   cashSessions: many(cashSessions),
   cashMovements: many(cashMovements),
   inventoryMovements: many(inventoryMovements),
+  inventoryBalances: many(inventoryBalances),
   initialInventoryEntries: many(initialInventory),
   denominationTemplates: many(denominationTemplates),
 }));
@@ -254,6 +255,7 @@ export const sitesRelations = relations(sites, ({ one, many }) => ({
   cashSessions: many(cashSessions),
   denominationTemplates: many(denominationTemplates),
   initialInventoryEntries: many(initialInventory),
+  inventoryBalances: many(inventoryBalances),
 }));
 
 // ============================================================================
@@ -723,6 +725,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   unitAssignments: many(unitXProduct),
   providerAssignments: many(productXProvider),
   inventoryMovements: many(inventoryMovements),
+  inventoryBalances: many(inventoryBalances),
   initialInventoryEntries: many(initialInventory),
 }));
 
@@ -1782,6 +1785,64 @@ export const initialInventoryRelations = relations(initialInventory, ({ one }) =
 }));
 
 // ============================================================================
+// INVENTORY BALANCES (Phase 2 DB-101)
+// ============================================================================
+
+/**
+ * An inventory balance is the on-hand stock attributed to a specific site for a
+ * product. Phase 2 step 0 introduces the projection at the (site, product)
+ * grain; a future step will add location-level granularity and reserved/in-
+ * transit columns for transfers. Until then the balance mirrors
+ * `products.stock` seeded onto a default site during bootstrap.
+ */
+export const inventoryBalances = sqliteTable(
+  'inventory_balances',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    onHand: real('on_hand').notNull().default(0),
+    reserved: real('reserved').notNull().default(0),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_inventory_balances_tenant').on(table.tenantId),
+    index('idx_inventory_balances_site').on(table.siteId),
+    index('idx_inventory_balances_product').on(table.productId),
+    uniqueIndex('idx_inventory_balances_scope').on(
+      table.tenantId,
+      table.siteId,
+      table.productId
+    ),
+  ]
+);
+
+export const inventoryBalancesRelations = relations(inventoryBalances, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [inventoryBalances.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [inventoryBalances.siteId],
+    references: [sites.id],
+  }),
+  product: one(products, {
+    fields: [inventoryBalances.productId],
+    references: [products.id],
+  }),
+}));
+
+// ============================================================================
 // SYNC QUEUE (Local operations waiting to be synced)
 // ============================================================================
 
@@ -1938,6 +1999,9 @@ export type NewInventoryMovement = typeof inventoryMovements.$inferInsert;
 
 export type InitialInventory = typeof initialInventory.$inferSelect;
 export type NewInitialInventory = typeof initialInventory.$inferInsert;
+
+export type InventoryBalance = typeof inventoryBalances.$inferSelect;
+export type NewInventoryBalance = typeof inventoryBalances.$inferInsert;
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;

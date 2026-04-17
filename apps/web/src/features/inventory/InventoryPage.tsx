@@ -27,6 +27,7 @@ import {
   InventoryEntryModal,
   type InventoryEntryFormValues,
 } from '@/features/inventory/InventoryEntryModal';
+import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import {
   inventoryEntryExportColumns,
   inventoryMovementExportColumns,
@@ -43,7 +44,7 @@ import type {
   UserRole,
 } from '@/types';
 
-type InventoryView = 'movements' | 'stock' | 'entries';
+type InventoryView = 'movements' | 'stock' | 'entries' | 'balances';
 type SearchMode = 'adjustment' | 'entry';
 
 const movementIcons = {
@@ -66,6 +67,7 @@ const viewKeys: Record<InventoryView, string> = {
   movements: 'page.tabs.movements',
   stock: 'page.tabs.stockQuery',
   entries: 'page.tabs.initialInventory',
+  balances: 'page.tabs.balances',
 };
 
 function canManageInventory(role: UserRole | undefined): boolean {
@@ -660,6 +662,10 @@ export function InventoryPage() {
   const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
 
   const categoriesQuery = trpc.categories.tree.useQuery();
+  const sitesQuery = trpc.sites.list.useQuery(undefined, {
+    // Only hit the network when the balances tab is actually opened.
+    enabled: activeView === 'balances',
+  });
   const movementsQuery = trpc.inventory.listMovements.useQuery({
     page: 1,
     perPage: 50,
@@ -833,6 +839,14 @@ export function InventoryPage() {
         </div>
       )}
 
+      {activeView === 'balances' && (
+        <InventoryBalancesPanel
+          sites={sitesQuery.data?.items ?? []}
+          sitesLoading={sitesQuery.isLoading}
+        />
+      )}
+
+      {activeView !== 'balances' && (
       <InventoryDataPanel
         activeView={activeView}
         movementsLoading={movementsQuery.isLoading}
@@ -856,6 +870,7 @@ export function InventoryPage() {
         canManage={canManage}
         onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
       />
+      )}
 
       <ProductSearchDialog
         isOpen={isSearchOpen}

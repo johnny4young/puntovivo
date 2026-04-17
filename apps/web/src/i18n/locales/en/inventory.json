@@ -5,7 +5,8 @@
     "tabs": {
       "movements": "Movements",
       "stockQuery": "Stock Query",
-      "initialInventory": "Initial Inventory"
+      "initialInventory": "Initial Inventory",
+      "balances": "By Site"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
     "stockNote": "Stock remains tenant-wide for now. Initial and physical inventory entries capture the counted unit and normalize it into the shared stock model, which avoids the legacy accumulation bug from the WinForms version."
@@ -59,6 +60,27 @@
     "error": "Unable to load inventory entries",
     "search": "Search entries by product...",
     "exportTitle": "Initial Inventory Entries"
+  },
+  "balances": {
+    "siteSelector": "Site",
+    "loading": "Loading site balances…",
+    "loadingSites": "Loading sites…",
+    "error": "Unable to load site balances",
+    "search": "Search balances by product…",
+    "noSites": "No active sites yet. Create one to start tracking per-site stock.",
+    "projectionNote": "Phase 2 step 0: the primary site mirrors current product stock; other sites start at zero. Transfers will make these values diverge.",
+    "columns": {
+      "product": "Product",
+      "sku": "SKU",
+      "onHand": "On Hand",
+      "reserved": "Reserved",
+      "available": "Available"
+    },
+    "summary": {
+      "onHand": "Total on hand",
+      "available": "Total available",
+      "lowStock": "Low-stock products"
+    }
   },
   "table": {
     "initialInventory": "Initial inventory",

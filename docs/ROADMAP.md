@@ -228,18 +228,18 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 **Goal**: Make stock physically believable across sites and warehouses.
 
 **DB tickets**:
-- `DB-101` Create `inventory_balances` by product/site/location
+- `DB-101` Create `inventory_balances` by product/site/location — **Step 0 shipped** at the (tenant, site, product) grain; location column deferred.
 - `DB-102` Create `transfer_orders` and `transfer_order_items`
 - `DB-103` Create `transfer_shipments` and `transfer_receipts`
-- `DB-104` Migrate tenant-wide stock to default site-owned balances
+- `DB-104` Migrate tenant-wide stock to default site-owned balances — **Step 0 shipped** as a lazy per-read seed onto the earliest-created active site.
 
 **tRPC tickets**:
-- `API-101` `inventory.listBalancesBySite`
+- `API-101` `inventory.listBalancesBySite` — **Done** (read-only).
 - `API-102` `transfers.create`, `.ship`, `.receive`, `.void`
 - `API-103` Update sales/purchases/orders to read/write site balances
 
 **UI tickets**:
-- `UI-101` Inventory page: site/location balance tabs
+- `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
 - `UI-102` Transfer Orders module
 - `UI-103` Transfer receive modal with discrepancy reporting
 

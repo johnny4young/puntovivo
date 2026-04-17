@@ -390,6 +390,9 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ⬜ | INV-08 | BOTH | manager | Physical count replace mode | Final stock correct |
 | ⬜ | INV-09 | BOTH | manager | Physical count accumulate mode | Final stock correct |
 | ⬜ | INV-10 | BOTH | manager | Export inventory | Export action starts successfully |
+| ✅ | INV-11 | BOTH | manager | Open "By site" tab in Inventory with a fresh tenant | Primary site rows mirror current product stock; secondary sites start at zero |
+| ✅ | INV-12 | BOTH | manager | Switch site in balances panel and re-read | No duplicate balance rows created; summary totals recompute for the selected site |
+| ⬜ | INV-13 | BOTH | manager | Add a new product after balances were first loaded | Next balances read shows the product with `onHand=0` on non-primary sites |
 
 ---
 
