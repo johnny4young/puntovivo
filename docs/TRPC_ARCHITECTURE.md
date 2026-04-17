@@ -232,11 +232,20 @@ The helper `getPrimarySiteId(tx, tenantId)` is the shared primary-site
 resolver used by every balance-aware service (balances, transfers,
 adjustments). It lives in `services/inventory-balances.ts`.
 
-**Open Phase 2 Step-4 concern**: `products.stock` is no longer guaranteed to
-equal Σ(site balances) once per-site adjustments land. Do not rely on
-`products.stock` as the authoritative total in new code; read
-`inventory.listBalancesBySite` or aggregate the balances table instead. Step 4
-will either rebuild `products.stock` as a derived cache or reconcile on read.
+### Phase 2 API-103 step 4 — `products.stock` derived cache
+
+Step 4 closes the drift window. `applyInventoryBalanceDelta` now ends with a
+call to `syncProductStockFromBalances(tx, { tenantId, productId })` that
+recomputes `products.stock` as Σ(`inventory_balances.on_hand`) across all
+sites for the product. The invariant is now:
+
+> `products.stock` == Σ(`inventory_balances.on_hand`) per product, always, at
+> commit boundaries.
+
+Historical drift from pre-step-2 data is healed with the new admin
+mutation `inventory.reconcileBalances`, which walks every product in the
+tenant and re-runs the recompute inside a single transaction. Use it after
+migrations or data imports; regular operation never needs it.
 
 ## Current Exceptions and Boundaries
 
