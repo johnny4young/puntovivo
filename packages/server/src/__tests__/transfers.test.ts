@@ -6,6 +6,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   categories,
+  inventoryBalances,
   providers,
   sites,
   transferOrderItems,
@@ -382,5 +383,205 @@ describe('Transfers tRPC Router', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.productId).toBe(gizmo.id);
     expect(rows[0]?.quantity).toBe(2);
+  });
+
+  // ─── void ─────────────────────────────────────────────────────────────────
+
+  describe('void', () => {
+    it('reverses balances and flips status to void (happy path)', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const widget = await createProduct({
+        name: 'Void Widget',
+        sku: 'TR-VOID-WIDGET',
+        barcode: 'TR-20001',
+        stock: 15,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: widget.id, quantity: 6 }],
+      });
+
+      const primaryAfterTransfer = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterTransfer.items.find(item => item.productId === widget.id)?.onHand
+      ).toBe(9);
+
+      const voided = await caller.transfers.void({
+        transferId: created.id,
+        reason: 'Entered by mistake',
+      });
+
+      expect(voided.status).toBe('void');
+      expect(voided.reversedItems).toEqual([{ productId: widget.id, quantity: 6 }]);
+
+      const primaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
+      ).toBe(15);
+
+      const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(
+        secondaryAfterVoid.items.find(item => item.productId === widget.id)?.onHand
+      ).toBe(0);
+
+      const list = await caller.transfers.list();
+      const entry = list.items.find(item => item.id === created.id);
+      expect(entry?.status).toBe('void');
+      expect(entry?.notes).toContain('[VOID] Entered by mistake');
+    });
+
+    it('rejects voiding a transfer that has already been voided', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const sprocket = await createProduct({
+        name: 'Void Sprocket',
+        sku: 'TR-VOID-SPROCKET',
+        barcode: 'TR-20002',
+        stock: 5,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: sprocket.id, quantity: 2 }],
+      });
+      await caller.transfers.void({ transferId: created.id });
+
+      try {
+        await caller.transfers.void({ transferId: created.id });
+        throw new Error('Expected second void to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_ALREADY_VOID');
+      }
+    });
+
+    it('rejects voiding a non-existent transfer', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      try {
+        await caller.transfers.void({ transferId: 'does-not-exist' });
+        throw new Error('Expected void to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_NOT_FOUND');
+      }
+    });
+
+    it('rejects void when destination no longer has enough stock to reverse', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const bearing = await createProduct({
+        name: 'Void Bearing',
+        sku: 'TR-VOID-BEARING',
+        barcode: 'TR-20003',
+        stock: 10,
+      });
+
+      // Move 4 units from primary → secondary.
+      const transfer = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: bearing.id, quantity: 4 }],
+      });
+
+      // Simulate a later outbound move by transferring 3 of those 4 away from
+      // the destination. The secondary now only has 1 unit, so voiding the
+      // original transfer of 4 cannot be satisfied.
+      await caller.transfers.create({
+        fromSiteId: secondarySiteId,
+        toSiteId: primarySiteId,
+        items: [{ productId: bearing.id, quantity: 3 }],
+      });
+
+      try {
+        await caller.transfers.void({ transferId: transfer.id });
+        throw new Error('Expected void to fail');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_VOID_INSUFFICIENT_STOCK');
+      }
+
+      // Balances must be untouched by the failed void.
+      const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(primary.items.find(item => item.productId === bearing.id)?.onHand).toBe(9);
+      const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+      expect(secondary.items.find(item => item.productId === bearing.id)?.onHand).toBe(1);
+
+      // Status remains `completed`.
+      const list = await caller.transfers.list();
+      expect(list.items.find(item => item.id === transfer.id)?.status).toBe('completed');
+    });
+
+    it('re-seeds a missing primary-site origin row before reversing the transfer', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const reel = await createProduct({
+        name: 'Void Missing Origin Reel',
+        sku: 'TR-VOID-RESEED',
+        barcode: 'TR-20005',
+        stock: 12,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: reel.id, quantity: 5 }],
+      });
+
+      const db = getDatabase();
+      await db
+        .delete(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, primarySiteId),
+            eq(inventoryBalances.productId, reel.id)
+          )
+        );
+
+      await caller.transfers.void({ transferId: created.id });
+
+      const primaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: primarySiteId,
+      });
+      expect(
+        primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand
+      ).toBe(17);
+
+      const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(
+        secondaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand
+      ).toBe(0);
+    });
+
+    it('preserves existing notes when voiding and appends the void reason', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const part = await createProduct({
+        name: 'Void Note Part',
+        sku: 'TR-VOID-NOTES',
+        barcode: 'TR-20004',
+        stock: 5,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: part.id, quantity: 1 }],
+        notes: 'Initial batch shipment',
+      });
+
+      await caller.transfers.void({
+        transferId: created.id,
+        reason: 'Duplicate entry',
+      });
+
+      const list = await caller.transfers.list();
+      const entry = list.items.find(item => item.id === created.id);
+      expect(entry?.notes).toBe('Initial batch shipment\n[VOID] Duplicate entry');
+    });
   });
 });

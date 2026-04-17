@@ -35,5 +35,11 @@ export const listTransfersInput = z
   })
   .optional();
 
+export const voidTransferInput = z.object({
+  transferId: z.string().min(1, 'Transfer ID is required'),
+  reason: z.string().trim().max(500).optional(),
+});
+
 export type CreateTransferInput = z.infer<typeof createTransferInput>;
 export type TransferItemInput = z.infer<typeof transferItemInput>;
+export type VoidTransferInput = z.infer<typeof voidTransferInput>;

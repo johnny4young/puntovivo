@@ -84,6 +84,34 @@
       "lowStock": "Productos con stock bajo"
     }
   },
+  "transferHistory": {
+    "title": "Historial de transferencias",
+    "description": "Transferencias de stock recientes entre sedes. Anular una transferencia revierte el movimiento de balances.",
+    "loading": "Cargando historial de transferencias…",
+    "error": "No se pudo cargar el historial de transferencias",
+    "search": "Buscar transferencias por sede origen…",
+    "voidAction": "Anular",
+    "voidSuccess": "Transferencia anulada",
+    "voidError": "No se pudo anular la transferencia",
+    "confirmVoidTitle": "¿Anular transferencia?",
+    "confirmVoidMessage": "Esto devolverá {{quantity}} unidades desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
+    "confirmVoidGeneric": "Esto revertirá la transferencia y restaurará los balances originales.",
+    "confirmVoidConfirm": "Anular transferencia",
+    "confirmVoidCancel": "Cancelar",
+    "columns": {
+      "date": "Fecha",
+      "from": "Desde",
+      "to": "Hacia",
+      "items": "Ítems",
+      "totalQty": "Cantidad total",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "completed": "Completada",
+      "void": "Anulada"
+    }
+  },
   "transferModal": {
     "title": "Transferir stock entre sedes",
     "fromSite": "Sede origen",

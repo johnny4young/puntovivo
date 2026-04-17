@@ -84,6 +84,34 @@
       "lowStock": "Low-stock products"
     }
   },
+  "transferHistory": {
+    "title": "Transfer history",
+    "description": "Recent stock transfers between sites. Voiding a transfer reverses the balance movement.",
+    "loading": "Loading transfer history…",
+    "error": "Unable to load transfer history",
+    "search": "Search transfers by origin site…",
+    "voidAction": "Void",
+    "voidSuccess": "Transfer voided",
+    "voidError": "Unable to void transfer",
+    "confirmVoidTitle": "Void transfer?",
+    "confirmVoidMessage": "This will move {{quantity}} units back from {{to}} to {{from}}. Balances will update immediately.",
+    "confirmVoidGeneric": "This will reverse the transfer and restore the original balances.",
+    "confirmVoidConfirm": "Void transfer",
+    "confirmVoidCancel": "Cancel",
+    "columns": {
+      "date": "Date",
+      "from": "From",
+      "to": "To",
+      "items": "Items",
+      "totalQty": "Total qty",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "completed": "Completed",
+      "void": "Voided"
+    }
+  },
   "transferModal": {
     "title": "Transfer stock between sites",
     "fromSite": "From site",

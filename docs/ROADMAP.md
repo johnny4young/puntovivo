@@ -235,12 +235,12 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 
 **tRPC tickets**:
 - `API-101` `inventory.listBalancesBySite` — **Done** (read-only).
-- `API-102` `transfers.create`, `.ship`, `.receive`, `.void` — **Step 1 shipped**: `transfers.create` (immediate) + `transfers.list`. Lifecycle methods (`.ship`, `.receive`, `.void`) deferred.
+- `API-102` `transfers.create`, `.ship`, `.receive`, `.void` — **Step 2 shipped**: `transfers.create` (immediate), `transfers.list`, and `transfers.void` (atomic reversal with destination-stock pre-check). Lifecycle methods (`.ship`, `.receive`) deferred.
 - `API-103` Update sales/purchases/orders to read/write site balances
 
 **UI tickets**:
 - `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
-- `UI-102` Transfer Orders module — **Step 1 shipped** (Transfer stock button + modal in By Site tab; dedicated Transfer Orders page deferred).
+- `UI-102` Transfer Orders module — **Step 2 shipped** (Transfer stock button + modal + transfer history table with Void action + confirmation modal in By Site tab; dedicated Transfer Orders page deferred).
 - `UI-103` Transfer receive modal with discrepancy reporting
 
 **Test tickets**:
