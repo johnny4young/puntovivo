@@ -240,7 +240,7 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 
 **UI tickets**:
 - `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
-- `UI-102` Transfer Orders module — **Step 3 shipped** (Transfer stock button + modal with "Ship now, receive later" checkbox + transfer history table with Void/Receive actions + confirmation modal in By Site tab; dedicated Transfer Orders page deferred).
+- `UI-102` Transfer Orders module — **Step 4 shipped** (Transfer stock button + modal with "Ship now, receive later" checkbox + transfer history table with Details/Receive/Void actions + confirmation modal + read-only detail drawer showing line items and lifecycle timestamps, all in the By Site tab; dedicated Transfer Orders page deferred).
 - `UI-103` Transfer receive modal with discrepancy reporting
 
 **Test tickets**:

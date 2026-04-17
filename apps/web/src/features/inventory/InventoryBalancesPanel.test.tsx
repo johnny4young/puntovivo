@@ -70,6 +70,14 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
+      getById: {
+        useQuery: (_input: { id: string }, _opts: unknown) => ({
+          data: undefined,
+          isLoading: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
     },
   },
 }));

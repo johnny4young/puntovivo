@@ -860,3 +860,101 @@ export async function listRecentTransfers(
 
   return enriched;
 }
+
+export interface TransferDetailLine {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  quantity: number;
+}
+
+export interface TransferDetail {
+  id: string;
+  status: TransferOrderStatus;
+  fromSiteId: string;
+  fromSiteName: string;
+  toSiteId: string;
+  toSiteName: string;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  receivedAt: string | null;
+  receivedBy: string | null;
+  updatedAt: string;
+  items: TransferDetailLine[];
+}
+
+/**
+ * Fetches a single transfer order with every line item joined to product
+ * metadata, intended for the detail drawer on the inventory history table.
+ *
+ * Returns `null` when the transfer does not exist for the given tenant —
+ * callers (typically a tRPC `getById` procedure) translate that to the
+ * familiar `TRANSFER_NOT_FOUND` error surface.
+ */
+export async function getInventoryTransferById(
+  db: DatabaseInstance,
+  tenantId: string,
+  transferId: string
+): Promise<TransferDetail | null> {
+  const transfer = await db
+    .select({
+      id: transferOrders.id,
+      status: transferOrders.status,
+      fromSiteId: transferOrders.fromSiteId,
+      toSiteId: transferOrders.toSiteId,
+      notes: transferOrders.notes,
+      createdBy: transferOrders.createdBy,
+      createdAt: transferOrders.createdAt,
+      receivedAt: transferOrders.receivedAt,
+      receivedBy: transferOrders.receivedBy,
+      updatedAt: transferOrders.updatedAt,
+    })
+    .from(transferOrders)
+    .where(
+      and(
+        eq(transferOrders.id, transferId),
+        eq(transferOrders.tenantId, tenantId)
+      )
+    )
+    .get();
+
+  if (!transfer) {
+    return null;
+  }
+
+  const items = await db
+    .select({
+      id: transferOrderItems.id,
+      productId: transferOrderItems.productId,
+      quantity: transferOrderItems.quantity,
+      productName: products.name,
+      productSku: products.sku,
+    })
+    .from(transferOrderItems)
+    .innerJoin(products, eq(transferOrderItems.productId, products.id))
+    .where(eq(transferOrderItems.transferOrderId, transfer.id))
+    .all();
+
+  // Resolve site names with a single two-row lookup instead of two separate
+  // selects, since most transfers have exactly 2 participating sites.
+  const siteRows = await db
+    .select({ id: sites.id, name: sites.name })
+    .from(sites)
+    .where(
+      and(
+        eq(sites.tenantId, tenantId),
+        inArray(sites.id, [transfer.fromSiteId, transfer.toSiteId])
+      )
+    )
+    .all();
+  const siteNameById = new Map(siteRows.map(site => [site.id, site.name]));
+
+  return {
+    ...transfer,
+    fromSiteName: siteNameById.get(transfer.fromSiteId) ?? '',
+    toSiteName: siteNameById.get(transfer.toSiteId) ?? '',
+    items,
+  };
+}
