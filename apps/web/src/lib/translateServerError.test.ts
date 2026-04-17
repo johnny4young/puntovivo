@@ -35,6 +35,11 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode({ data: { errorCode: 'NOT_A_REAL_CODE' } })).toBeNull();
   });
 
+  it('recognizes transfer-domain server error codes', () => {
+    const error = { data: { errorCode: 'TRANSFER_INSUFFICIENT_STOCK' } };
+    expect(extractServerErrorCode(error)).toBe('TRANSFER_INSUFFICIENT_STOCK');
+  });
+
   it('returns null when there is no errorCode field anywhere', () => {
     expect(extractServerErrorCode({ data: {} })).toBeNull();
     expect(extractServerErrorCode(new Error('boom'))).toBeNull();
@@ -56,6 +61,18 @@ describe('translateServerError', () => {
       fallback
     );
     expect(result).toBe('Correo o contraseña incorrectos.');
+  });
+
+  it('translates transfer-domain error codes from the errors namespace', () => {
+    const t = makeFakeT({
+      'errors:server.TRANSFER_INSUFFICIENT_STOCK': 'La sede origen no tiene stock suficiente.',
+    });
+    const result = translateServerError(
+      { data: { errorCode: 'TRANSFER_INSUFFICIENT_STOCK' }, message: 'Insufficient stock at origin site for transfer' },
+      t,
+      fallback
+    );
+    expect(result).toBe('La sede origen no tiene stock suficiente.');
   });
 
   it('falls back to the server English message when the code is unknown', () => {

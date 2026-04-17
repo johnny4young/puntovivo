@@ -818,6 +818,35 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_inventory_balances_product ON inventory_balances (product_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_balances_scope ON inventory_balances (tenant_id, site_id, product_id);
 
+    -- Transfer Orders (Phase 2 DB-102 — immediate step)
+    CREATE TABLE IF NOT EXISTS transfer_orders (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      from_site_id TEXT NOT NULL REFERENCES sites(id),
+      to_site_id TEXT NOT NULL REFERENCES sites(id),
+      status TEXT NOT NULL DEFAULT 'completed',
+      notes TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_transfer_orders_tenant ON transfer_orders (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_transfer_orders_from_site ON transfer_orders (from_site_id);
+    CREATE INDEX IF NOT EXISTS idx_transfer_orders_to_site ON transfer_orders (to_site_id);
+    CREATE INDEX IF NOT EXISTS idx_transfer_orders_status ON transfer_orders (status);
+
+    CREATE TABLE IF NOT EXISTS transfer_order_items (
+      id TEXT PRIMARY KEY,
+      transfer_order_id TEXT NOT NULL REFERENCES transfer_orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_transfer_order_items_order ON transfer_order_items (transfer_order_id);
+    CREATE INDEX IF NOT EXISTS idx_transfer_order_items_product ON transfer_order_items (product_id);
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

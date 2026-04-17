@@ -1790,10 +1790,10 @@ export const initialInventoryRelations = relations(initialInventory, ({ one }) =
 
 /**
  * An inventory balance is the on-hand stock attributed to a specific site for a
- * product. Phase 2 step 0 introduces the projection at the (site, product)
- * grain; a future step will add location-level granularity and reserved/in-
- * transit columns for transfers. Until then the balance mirrors
- * `products.stock` seeded onto a default site during bootstrap.
+ * product. Phase 2 step 0 introduced the (site, product) grain; step 1 made
+ * the row authoritative — `transfers.create` is the first write path that
+ * mutates it. A future step will add location-level granularity and an
+ * in-transit / reserved column for the full transfer lifecycle.
  */
 export const inventoryBalances = sqliteTable(
   'inventory_balances',
@@ -1838,6 +1838,99 @@ export const inventoryBalancesRelations = relations(inventoryBalances, ({ one })
   }),
   product: one(products, {
     fields: [inventoryBalances.productId],
+    references: [products.id],
+  }),
+}));
+
+// ============================================================================
+// TRANSFER ORDERS (Phase 2 DB-102 — immediate step, no ship/receive lifecycle)
+// ============================================================================
+
+export const transferOrderStatusEnum = ['completed', 'void'] as const;
+
+/**
+ * A transfer order captures a cross-site stock movement. Phase 2 step 1
+ * persists only the immediate `completed` transfer (create + ship + receive
+ * collapsed into one atomic step); a future step adds the full
+ * draft/in_transit/received lifecycle columns.
+ */
+export const transferOrders = sqliteTable(
+  'transfer_orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    fromSiteId: text('from_site_id')
+      .notNull()
+      .references(() => sites.id),
+    toSiteId: text('to_site_id')
+      .notNull()
+      .references(() => sites.id),
+    status: text('status', { enum: transferOrderStatusEnum }).notNull().default('completed'),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_transfer_orders_tenant').on(table.tenantId),
+    index('idx_transfer_orders_from_site').on(table.fromSiteId),
+    index('idx_transfer_orders_to_site').on(table.toSiteId),
+    index('idx_transfer_orders_status').on(table.status),
+  ]
+);
+
+export const transferOrderItems = sqliteTable(
+  'transfer_order_items',
+  {
+    id: text('id').primaryKey(),
+    transferOrderId: text('transfer_order_id')
+      .notNull()
+      .references(() => transferOrders.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: real('quantity').notNull(),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_transfer_order_items_order').on(table.transferOrderId),
+    index('idx_transfer_order_items_product').on(table.productId),
+  ]
+);
+
+export const transferOrdersRelations = relations(transferOrders, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [transferOrders.tenantId],
+    references: [tenants.id],
+  }),
+  fromSite: one(sites, {
+    fields: [transferOrders.fromSiteId],
+    references: [sites.id],
+  }),
+  toSite: one(sites, {
+    fields: [transferOrders.toSiteId],
+    references: [sites.id],
+  }),
+  createdByUser: one(users, {
+    fields: [transferOrders.createdBy],
+    references: [users.id],
+  }),
+  items: many(transferOrderItems),
+}));
+
+export const transferOrderItemsRelations = relations(transferOrderItems, ({ one }) => ({
+  order: one(transferOrders, {
+    fields: [transferOrderItems.transferOrderId],
+    references: [transferOrders.id],
+  }),
+  product: one(products, {
+    fields: [transferOrderItems.productId],
     references: [products.id],
   }),
 }));
@@ -2002,6 +2095,11 @@ export type NewInitialInventory = typeof initialInventory.$inferInsert;
 
 export type InventoryBalance = typeof inventoryBalances.$inferSelect;
 export type NewInventoryBalance = typeof inventoryBalances.$inferInsert;
+
+export type TransferOrder = typeof transferOrders.$inferSelect;
+export type NewTransferOrder = typeof transferOrders.$inferInsert;
+export type TransferOrderItem = typeof transferOrderItems.$inferInsert;
+export type TransferOrderStatus = (typeof transferOrderStatusEnum)[number];
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;

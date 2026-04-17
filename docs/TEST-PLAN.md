@@ -393,6 +393,9 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-11 | BOTH | manager | Open "By site" tab in Inventory with a fresh tenant | Primary site rows mirror current product stock; secondary sites start at zero |
 | ✅ | INV-12 | BOTH | manager | Switch site in balances panel and re-read | No duplicate balance rows created; summary totals recompute for the selected site |
 | ⬜ | INV-13 | BOTH | manager | Add a new product after balances were first loaded | Next balances read shows the product with `onHand=0` on non-primary sites |
+| ✅ | INV-14 | BOTH | manager | Transfer stock from primary to secondary site | Origin balance decreases, destination balance increases by the same quantity; `transfer_orders` row persisted |
+| ✅ | INV-15 | BOTH | manager | Attempt transfer with quantity exceeding origin on-hand | Mutation rejected; balances unchanged |
+| ⬜ | INV-16 | BOTH | manager | Transfer button with only one active site | Button is disabled with an explanatory tooltip |
 
 ---
 

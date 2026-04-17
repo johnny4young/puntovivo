@@ -81,6 +81,7 @@ Current root router modules:
 - `locations`
 - `sites`
 - `sync`
+- `transfers`
 - `users`
 
 Source:
@@ -118,22 +119,46 @@ Every movement updates `cash_sessions.expected_balance` inside the same transact
 
 ## Inventory Router — Per-Site Balances
 
-`inventory.listBalancesBySite` is the Phase 2 step 0 slice of site-owned
-inventory (DB-101 / API-101). It returns on-hand / reserved / available per
-product for a specific site plus a summary (totals + low-stock count).
+`inventory.listBalancesBySite` is the Phase 2 site-owned inventory read
+(DB-101 / API-101). It returns on-hand / reserved / available per product for
+a specific site plus a summary (totals + low-stock count).
 
-Until transfer writes land, the `inventory_balances` table is a projection of
-tenant-wide `products.stock`:
+The `inventory_balances` table is **authoritative** from Phase 2 step 1
+onward. `ensureInventoryBalancesForSite` is a seed-only helper:
 
 - The earliest-created active site per tenant is the **primary site** and
-  receives current `products.stock` on first read.
+  receives current `products.stock` as its initial `on_hand`.
 - Every other active site seeds at `on_hand = 0`.
 - New products added after the initial seed create zero-rows on the next read.
+- **Existing balance rows are never re-synced** — writes (transfers, future
+  sale/purchase integrations) are the only source of truth.
 
 Seeding reads and inserts run inside a single better-sqlite3 transaction so the
 "which site is primary" check is consistent with the inserts. The unique index
 `(tenant_id, site_id, product_id)` combined with `ON CONFLICT DO NOTHING`
 makes repeated reads idempotent.
+
+## Transfers Router
+
+`transfers.create` is the first Phase 2 write path that mutates
+`inventory_balances` (DB-102 / API-102 step 1). It atomically:
+
+1. Validates origin and destination sites belong to the tenant and are active.
+2. Collapses duplicate product lines by summing quantities.
+3. Lazily seeds missing origin/destination balance rows using the same
+   primary-site migration rules as `inventory.listBalancesBySite`, then reads
+   each origin balance and rejects with `TRANSFER_INSUFFICIENT_STOCK` if
+   `on_hand < qty`.
+4. Decrements origin and increments destination for every line.
+5. Writes a `transfer_orders` row (status `completed`) plus one
+   `transfer_order_items` row per product.
+
+Step 1 collapses `create` + `ship` + `receive` into a single mutation; the
+lifecycle states (`draft` → `in_transit` → `received`) plus `transfers.void`
+are deferred to a later step.
+
+`transfers.list` returns a reverse-chronological page of recent transfer
+history with origin/destination site names and item aggregates.
 
 ## Current Exceptions and Boundaries
 

@@ -30,6 +30,12 @@
     "SALE_QUANTITY_NOT_ALIGNED": "Este producto debe venderse en incrementos del paso fraccional configurado.",
     "SALE_FRACTION_POLICY_MISSING": "Este producto no tiene configurada su política de fracciones.",
     "SALE_QUANTITY_INVALID": "La cantidad debe ser mayor que cero.",
+    "TRANSFER_SITES_IDENTICAL": "La sede origen y destino deben ser distintas.",
+    "TRANSFER_SITE_NOT_FOUND": "La sede seleccionada para la transferencia no existe o está inactiva.",
+    "TRANSFER_PRODUCT_NOT_FOUND": "El producto seleccionado no existe o está inactivo.",
+    "TRANSFER_QUANTITY_INVALID": "La cantidad a transferir debe ser mayor que cero.",
+    "TRANSFER_ITEMS_REQUIRED": "Agrega al menos un producto antes de registrar una transferencia.",
+    "TRANSFER_INSUFFICIENT_STOCK": "La sede origen no tiene stock suficiente para esta transferencia.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

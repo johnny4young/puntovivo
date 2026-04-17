@@ -19,8 +19,19 @@ type BalancesQueryResult = {
 let balancesQueryResult: BalancesQueryResult;
 const balancesQuerySpy = vi.fn();
 
+const transferMutationState = {
+  mutateAsync: vi.fn(async () => undefined),
+  reset: vi.fn(),
+  isPending: false,
+  error: null as Error | null,
+};
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      inventory: { listBalancesBySite: { invalidate: vi.fn(async () => undefined) } },
+      transfers: { list: { invalidate: vi.fn(async () => undefined) } },
+    }),
     inventory: {
       listBalancesBySite: {
         useQuery: (input: { siteId: string }) => {
@@ -29,7 +40,21 @@ vi.mock('@/lib/trpc', () => ({
         },
       },
     },
+    transfers: {
+      create: {
+        useMutation: (_opts: unknown) => transferMutationState,
+      },
+    },
   },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
 }));
 
 const primarySite: InventoryBalancesPanelSite = {
@@ -132,5 +157,48 @@ describe('InventoryBalancesPanel', () => {
 
     const lastCall = balancesQuerySpy.mock.calls.at(-1)?.[0];
     expect(lastCall).toEqual({ siteId: secondarySite.id });
+  });
+
+  it('disables the Transfer stock button until two active sites exist', () => {
+    setBalancesResult();
+
+    const { rerender } = render(
+      <InventoryBalancesPanel sites={[primarySite]} sitesLoading={false} />
+    );
+
+    const singleSiteButton = screen.getByRole('button', { name: /Transfer stock/i });
+    expect(singleSiteButton).toBeDisabled();
+
+    rerender(
+      <InventoryBalancesPanel
+        sites={[primarySite, secondarySite]}
+        sitesLoading={false}
+      />
+    );
+
+    const twoSiteButton = screen.getByRole('button', { name: /Transfer stock/i });
+    expect(twoSiteButton).not.toBeDisabled();
+  });
+
+  it('opens the transfer modal and blocks submission when required fields are missing', async () => {
+    setBalancesResult();
+    transferMutationState.mutateAsync.mockClear();
+
+    render(
+      <InventoryBalancesPanel
+        sites={[primarySite, secondarySite]}
+        sitesLoading={false}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Transfer stock/i }));
+
+    const submitButton = await screen.findByRole('button', { name: 'Transfer' });
+    expect(submitButton).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'From site' })).toBeDisabled();
+
+    expect(screen.getByText('Transfer stock between sites')).toBeInTheDocument();
+    expect(transferMutationState.mutateAsync).not.toHaveBeenCalled();
   });
 });
