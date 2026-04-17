@@ -406,6 +406,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-24 | BOTH | manager | Sale site balance stays in lockstep with products.stock after a completed sale | Both values decrement by the same amount |
 | ✅ | INV-25 | BOTH | manager | Complete a sale on a site that falls back to another site's sequential | The sold quantity decrements the cash-session site balance, not the fallback sequential's site |
 | ✅ | INV-26 | BOTH | cashier | Attempt a sale on a secondary site that never received the product | Rejected with insufficient stock for the active site; tenant-wide stock remains unchanged |
+| ✅ | INV-27 | BOTH | manager | Register a purchase on a site that falls back to another site's purchase sequential | The purchase balance credits the operator's current site, not the fallback sequential's site |
+| ✅ | INV-28 | BOTH | manager | Receive a purchase order on a site that falls back to another site's purchase sequential | The receipt credits the order's site balance, not the fallback sequential's site |
+| ✅ | INV-29 | BOTH | manager | Return a purchase after that site's stock was consumed elsewhere | Rejected with a purchase-site stock error; no balance reversal is posted |
+| ✅ | INV-30 | BOTH | admin | Void a purchase after that site's stock was consumed elsewhere | Rejected with a purchase-site stock error; no balance reversal is posted |
 
 ---
 

@@ -236,7 +236,7 @@ Each phase includes DB, tRPC, UI, and Test tickets.
 **tRPC tickets**:
 - `API-101` `inventory.listBalancesBySite` — **Done** (read-only).
 - `API-102` `transfers.create`, `.ship`, `.receive`, `.void` — **Step 2 shipped**: `transfers.create` (immediate), `transfers.list`, and `transfers.void` (atomic reversal with destination-stock pre-check). Lifecycle methods (`.ship`, `.receive`) deferred.
-- `API-103` Update sales/purchases/orders to read/write site balances — **Step 1 shipped** (sales): `sales.create` debits, `sales.returnSale`/`sales.void` credit back the ORIGINAL sale's site (via cash session). Purchases/orders integration deferred.
+- `API-103` Update sales/purchases/orders to read/write site balances — **Step 2 shipped**: sales + purchases/order receiving now write through to `inventory_balances`. `sales.create` debits the cash-session site; `sales.returnSale`/`sales.void` credit the ORIGINAL sale site; `purchases.create` credits the operator site; `purchases.createFromOrder` credits the order site; `purchases.returnPurchase`/`purchases.void` debit the original purchase site. Direct purchase-order lifecycle work beyond receiving remains deferred.
 
 **UI tickets**:
 - `UI-101` Inventory page: site/location balance tabs — **Done** (By Site tab in Inventory).
