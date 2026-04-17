@@ -307,6 +307,20 @@ derives the legacy triplet (`paymentMethod`/`paymentStatus`/
 `amountReceived`) plus a normalized `payments` array (or `undefined` on
 the legacy path) for `SalesPage` to forward verbatim.
 
+Read-side surfaces: `sales.getById` includes the ordered `payments` array
+on every sale record (single-tender sales have one row; split sales have
+N≥2). `SaleDetailsContent` renders a "Payments" section with a method /
+reference / amount table only when `hasSplitPayments(sale)` (i.e.
+`payments.length > 1`) — single-row sales stay on the existing Payment
+tile to avoid one-row noise. The receipt HTML (`receiptPrinter.ts`,
+shared by the web print-window path and the Electron print bridge) adds
+a `<section class="tenders">` with the same three columns under the
+Totals section when the sale is split; blank references render as an
+em-dash. The receipt text is intentionally English-only today (matching
+the rest of the file); when the receipt path gets localized, the TSX
+`details.payments*` keys in `sales.json` are the canonical translations
+to reuse.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

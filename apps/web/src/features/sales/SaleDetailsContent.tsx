@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { hasSplitPayments } from '@/features/sales/checkoutPayment';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
 
@@ -99,6 +100,45 @@ export function SaleDetailsContent({
           </table>
         </div>
       </div>
+
+      {hasSplitPayments(sale) && sale.payments && (
+        <div className="overflow-hidden rounded-[22px] border border-line/80 bg-surface">
+          <div className="flex items-center justify-between border-b border-line/70 bg-surface-2/86 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">
+              {t('details.paymentsHeading')}
+            </p>
+            <p className="text-xs text-secondary-500">
+              {t('details.paymentsSplit', { count: sale.payments.length })}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-line/70">
+              <thead className="bg-surface-2/86">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
+                  <th className="px-4 py-3">{t('details.paymentsMethod')}</th>
+                  <th className="px-4 py-3">{t('details.paymentsReference')}</th>
+                  <th className="px-4 py-3 text-right">{t('details.paymentsAmount')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/70 bg-surface">
+                {sale.payments.map(payment => (
+                  <tr key={payment.id}>
+                    <td className="px-4 py-3 text-sm font-medium text-secondary-900">
+                      {t(`payment.${payment.method}`)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-secondary-700">
+                      {payment.reference?.trim() || t('details.paymentsNoReference')}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-secondary-900">
+                      {formatCurrency(payment.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="surface-panel">

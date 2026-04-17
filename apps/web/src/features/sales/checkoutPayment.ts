@@ -2,7 +2,18 @@ import type {
   SalePaymentTenderValue,
   SalePaymentValues,
 } from '@/features/sales/SalePaymentModal';
-import type { PaymentMethod, PaymentStatus } from '@/types';
+import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
+
+/**
+ * A sale is considered multi-tender (and therefore worth rendering a tender
+ * breakdown for) when it has two or more persisted payment rows. Single-row
+ * sales — whether they came from the legacy path or were typed as a single
+ * tender in split mode — are already fully described by the legacy
+ * `paymentMethod` column and don't need the extra panel.
+ */
+export function hasSplitPayments(sale: Pick<Sale, 'payments'>): boolean {
+  return (sale.payments?.length ?? 0) > 1;
+}
 
 /**
  * Shape of a single forwarded tender sent to `sales.create`. Mirrors
