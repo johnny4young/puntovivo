@@ -429,6 +429,30 @@ export interface TransferHistoryEntry {
   totalQuantity: number;
 }
 
+export interface TransferDetailLine {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  quantity: number;
+}
+
+export interface TransferDetail {
+  id: string;
+  status: TransferHistoryStatus;
+  fromSiteId: string;
+  fromSiteName: string;
+  toSiteId: string;
+  toSiteName: string;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  receivedAt: string | null;
+  receivedBy: string | null;
+  updatedAt: string;
+  items: TransferDetailLine[];
+}
+
 export interface RegisterAssignment {
   id: string;
   tenantId: string;

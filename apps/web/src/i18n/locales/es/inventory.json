@@ -96,6 +96,7 @@
     "receiveAction": "Recibir",
     "receiveSuccess": "Transferencia recibida",
     "receiveError": "No se pudo recibir la transferencia",
+    "detailsAction": "Detalles",
     "confirmVoidTitle": "¿Anular transferencia?",
     "confirmVoidMessage": "Esto devolverá {{quantity}} unidades desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
     "confirmVoidGeneric": "Esto revertirá la transferencia y restaurará los balances originales.",
@@ -114,6 +115,22 @@
       "completed": "Completada",
       "in_transit": "En tránsito",
       "void": "Anulada"
+    }
+  },
+  "transferDetails": {
+    "title": "Detalle de la transferencia",
+    "close": "Cerrar",
+    "loading": "Cargando detalle de la transferencia…",
+    "error": "No se pudo cargar el detalle de la transferencia",
+    "createdAt": "Creada",
+    "receivedAt": "Recibida",
+    "notReceived": "Pendiente de recibir",
+    "notes": "Notas",
+    "lineItems": "Líneas",
+    "columns": {
+      "product": "Producto",
+      "sku": "SKU",
+      "quantity": "Cantidad"
     }
   },
   "transferModal": {

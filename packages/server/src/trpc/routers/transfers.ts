@@ -4,26 +4,31 @@
  * Procedures:
  * - `transfers.create`  (manager+) — immediate or deferred transfer between two sites
  * - `transfers.list`    (manager+) — recent transfer history
+ * - `transfers.getById` (manager+) — single transfer + line items for the detail drawer
  * - `transfers.receive` (manager+) — complete an in_transit transfer at destination
  * - `transfers.void`    (manager+) — reverse a completed or in_transit transfer
  *
  * @module trpc/routers/transfers
  */
 
+import { TRPCError } from '@trpc/server';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   createInventoryTransfer,
+  getInventoryTransferById,
   listRecentTransfers,
   receiveInventoryTransfer,
   voidInventoryTransfer,
 } from '../../services/inventory-transfers.js';
 import {
   createTransferInput,
+  getTransferInput,
   listTransfersInput,
   receiveTransferInput,
   voidTransferInput,
 } from '../schemas/transfers.js';
+import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 
 export const transfersRouter = router({
   create: managerOrAdminProcedure
@@ -46,6 +51,24 @@ export const transfersRouter = router({
     });
     return { items };
   }),
+
+  getById: managerOrAdminProcedure
+    .input(getTransferInput)
+    .query(async ({ ctx, input }) => {
+      const detail = await getInventoryTransferById(ctx.db, ctx.tenantId, input.id);
+      if (!detail) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Transfer not found',
+          cause: new ServerErrorWithCode(
+            'TRANSFER_NOT_FOUND',
+            'Transfer not found',
+            { transferId: input.id }
+          ),
+        });
+      }
+      return detail;
+    }),
 
   receive: managerOrAdminProcedure
     .input(receiveTransferInput)

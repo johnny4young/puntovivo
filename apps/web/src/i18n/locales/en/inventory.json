@@ -96,6 +96,7 @@
     "receiveAction": "Receive",
     "receiveSuccess": "Transfer received",
     "receiveError": "Unable to receive transfer",
+    "detailsAction": "Details",
     "confirmVoidTitle": "Void transfer?",
     "confirmVoidMessage": "This will move {{quantity}} units back from {{to}} to {{from}}. Balances will update immediately.",
     "confirmVoidGeneric": "This will reverse the transfer and restore the original balances.",
@@ -114,6 +115,22 @@
       "completed": "Completed",
       "in_transit": "In transit",
       "void": "Voided"
+    }
+  },
+  "transferDetails": {
+    "title": "Transfer details",
+    "close": "Close",
+    "loading": "Loading transfer details…",
+    "error": "Unable to load transfer details",
+    "createdAt": "Created at",
+    "receivedAt": "Received at",
+    "notReceived": "Pending receipt",
+    "notes": "Notes",
+    "lineItems": "Line items",
+    "columns": {
+      "product": "Product",
+      "sku": "SKU",
+      "quantity": "Quantity"
     }
   },
   "transferModal": {

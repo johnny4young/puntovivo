@@ -761,4 +761,92 @@ describe('Transfers tRPC Router', () => {
       expect(finalStock?.stock).toBe(15);
     });
   });
+
+  // ─── Phase 2 — transfers.getById (detail drawer) ─────────────────────────
+
+  describe('getById', () => {
+    it('returns the transfer with joined product names and site names', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const cable = await createProduct({
+        name: 'Detail Cable',
+        sku: 'TR-DET-CABLE',
+        barcode: 'TR-40001',
+        stock: 10,
+      });
+      const bolt = await createProduct({
+        name: 'Detail Bolt',
+        sku: 'TR-DET-BOLT',
+        barcode: 'TR-40002',
+        stock: 20,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [
+          { productId: cable.id, quantity: 2 },
+          { productId: bolt.id, quantity: 5 },
+        ],
+        notes: 'Branch restock',
+      });
+
+      const detail = await caller.transfers.getById({ id: created.id });
+
+      expect(detail.id).toBe(created.id);
+      expect(detail.status).toBe('completed');
+      expect(detail.fromSiteId).toBe(primarySiteId);
+      expect(detail.toSiteId).toBe(secondarySiteId);
+      expect(detail.fromSiteName).toBeTruthy();
+      expect(detail.toSiteName).toBeTruthy();
+      expect(detail.notes).toBe('Branch restock');
+      expect(detail.items).toHaveLength(2);
+
+      const cableLine = detail.items.find(item => item.productId === cable.id);
+      const boltLine = detail.items.find(item => item.productId === bolt.id);
+      expect(cableLine?.productName).toBe('Detail Cable');
+      expect(cableLine?.productSku).toBe('TR-DET-CABLE');
+      expect(cableLine?.quantity).toBe(2);
+      expect(boltLine?.productName).toBe('Detail Bolt');
+      expect(boltLine?.quantity).toBe(5);
+    });
+
+    it('surfaces receivedAt / receivedBy after a deferred receive', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const widget = await createProduct({
+        name: 'Detail Widget',
+        sku: 'TR-DET-WIDGET',
+        barcode: 'TR-40003',
+        stock: 8,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: widget.id, quantity: 3 }],
+        defer: true,
+      });
+
+      const inTransitDetail = await caller.transfers.getById({ id: created.id });
+      expect(inTransitDetail.status).toBe('in_transit');
+      expect(inTransitDetail.receivedAt).toBeNull();
+      expect(inTransitDetail.receivedBy).toBeNull();
+
+      await caller.transfers.receive({ transferId: created.id });
+
+      const completedDetail = await caller.transfers.getById({ id: created.id });
+      expect(completedDetail.status).toBe('completed');
+      expect(completedDetail.receivedAt).toBeTruthy();
+      expect(completedDetail.receivedBy).toBe(userId);
+    });
+
+    it('rejects a transfer ID that does not exist for the tenant', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      try {
+        await caller.transfers.getById({ id: 'does-not-exist' });
+        throw new Error('Expected getById to throw');
+      } catch (error) {
+        expectErrorCode(error, 'TRANSFER_NOT_FOUND');
+      }
+    });
+  });
 });

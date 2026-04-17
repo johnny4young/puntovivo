@@ -184,6 +184,9 @@ An explicit `draft` state without any balance movement remains deferred.
 
 `transfers.list` returns a reverse-chronological page of recent transfer
 history with origin/destination site names and item aggregates.
+`transfers.getById` returns the full detail of a single transfer — including
+joined product names/SKUs per line item — for the read-only detail drawer in
+the By Site tab.
 
 ## Sales ↔ Inventory Balances (Phase 2 API-103)
 

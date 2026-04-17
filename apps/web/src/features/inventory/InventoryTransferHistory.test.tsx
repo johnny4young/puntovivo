@@ -39,6 +39,7 @@ const receiveMutationState = {
 // Captured per test so assertions can drive the onSuccess / onError paths.
 let capturedMutationOpts: MutationOptions | null = null;
 let capturedReceiveOpts: MutationOptions | null = null;
+const getByIdInvocations: Array<{ id: string; enabled: boolean }> = [];
 
 const listInvalidate = vi.fn(async () => undefined);
 const balancesInvalidate = vi.fn(async () => undefined);
@@ -65,6 +66,17 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: (opts: MutationOptions) => {
           capturedReceiveOpts = opts;
           return receiveMutationState;
+        },
+      },
+      getById: {
+        useQuery: (input: { id: string }, opts?: { enabled?: boolean }) => {
+          getByIdInvocations.push({ id: input.id, enabled: opts?.enabled ?? true });
+          return {
+            data: undefined,
+            isLoading: false,
+            error: null,
+            refetch: vi.fn(),
+          };
         },
       },
     },
@@ -271,5 +283,51 @@ describe('InventoryTransferHistory', () => {
     expect(listInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalled();
+  });
+
+  it('renders a Details button on every row regardless of status', () => {
+    setListResult([completedEntry, voidedEntry, inTransitEntry]);
+
+    render(<InventoryTransferHistory />);
+
+    const detailButtons = screen.getAllByRole('button', { name: 'Details' });
+    expect(detailButtons).toHaveLength(3);
+    for (const btn of detailButtons) {
+      expect(btn).not.toBeDisabled();
+    }
+  });
+
+  it('opens the details modal when a Details button is clicked', async () => {
+    setListResult([completedEntry]);
+
+    render(<InventoryTransferHistory />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(await screen.findByText('Transfer details')).toBeInTheDocument();
+  });
+
+  it('gates the getById query by open state: disabled until Details is clicked, enabled afterwards', async () => {
+    setListResult([completedEntry]);
+    getByIdInvocations.length = 0;
+
+    render(<InventoryTransferHistory />);
+
+    // Modal is closed on first render, so every getById invocation must be
+    // `enabled: false` — the network call never fires.
+    expect(getByIdInvocations.length).toBeGreaterThan(0);
+    expect(getByIdInvocations.every(invocation => invocation.enabled === false)).toBe(
+      true
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Details' }));
+
+    const enabledInvocation = getByIdInvocations.find(
+      invocation => invocation.enabled === true
+    );
+    expect(enabledInvocation).toBeDefined();
+    expect(enabledInvocation?.id).toBe(completedEntry.id);
   });
 });

@@ -426,6 +426,9 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-44 | BOTH | manager | Click Receive on an in_transit transfer | Destination balance increments; status flips to Completed; Receive button disappears |
 | ✅ | INV-45 | BOTH | manager | Void an in_transit transfer | Origin re-credited; destination untouched; status flips to Voided |
 | ✅ | INV-46 | BOTH | manager | Attempt to receive a transfer that is already completed | Rejected with "only transfers currently in transit can be received"; balances unchanged |
+| ✅ | INV-47 | BOTH | manager | Click Details on a transfer history row | Modal opens showing line items (product + SKU + quantity), created timestamp, and received timestamp (or "Pending receipt") |
+| ✅ | INV-48 | BOTH | manager | Open Details on a voided in-transit transfer | Modal renders with the Voided badge and the [VOID] note appended |
+| ✅ | INV-49 | BOTH | manager | Request Details for a transfer that no longer exists | Modal shows translated "Transfer not found" error; no crash |
 
 ---
 

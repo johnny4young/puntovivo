@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ColumnDef } from '@tanstack/react-table';
-import { PackageCheck, Undo2 } from 'lucide-react';
+import { Eye, PackageCheck, Undo2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -11,6 +11,7 @@ import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
 import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
+import { InventoryTransferDetailsModal } from './InventoryTransferDetailsModal';
 
 const statusBadgeClasses: Record<TransferHistoryStatus, string> = {
   completed: 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-xs text-success-700',
@@ -31,6 +32,7 @@ export function InventoryTransferHistory() {
   const utils = trpc.useUtils();
 
   const [confirmingVoidId, setConfirmingVoidId] = useState<string | null>(null);
+  const [detailsTransferId, setDetailsTransferId] = useState<string | null>(null);
 
   const historyQuery = trpc.transfers.list.useQuery(undefined, {
     // Keep the list fresh while the user interacts with transfers elsewhere.
@@ -97,6 +99,14 @@ export function InventoryTransferHistory() {
     [receiveMutation]
   );
 
+  const handleOpenDetails = useCallback((id: string) => {
+    setDetailsTransferId(id);
+  }, []);
+
+  const handleCloseDetails = useCallback(() => {
+    setDetailsTransferId(null);
+  }, []);
+
   const columns = useMemo<ColumnDef<TransferHistoryEntry>[]>(
     () => [
       {
@@ -140,6 +150,15 @@ export function InventoryTransferHistory() {
           const anyMutationPending = voidMutation.isPending || receiveMutation.isPending;
           return (
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-ghost inline-flex items-center gap-1 py-1 text-sm"
+                onClick={() => handleOpenDetails(row.original.id)}
+                aria-label={t('transferHistory.detailsAction')}
+              >
+                <Eye className="h-4 w-4" />
+                {t('transferHistory.detailsAction')}
+              </button>
               {isInTransit && (
                 <button
                   type="button"
@@ -167,7 +186,14 @@ export function InventoryTransferHistory() {
         },
       },
     ],
-    [t, voidMutation.isPending, receiveMutation.isPending, handleRequestVoid, handleReceive]
+    [
+      t,
+      voidMutation.isPending,
+      receiveMutation.isPending,
+      handleRequestVoid,
+      handleReceive,
+      handleOpenDetails,
+    ]
   );
 
   const items = historyQuery.data?.items ?? [];
@@ -237,6 +263,12 @@ export function InventoryTransferHistory() {
         loading={voidMutation.isPending}
         onConfirm={handleConfirmVoid}
         onClose={handleCancelVoid}
+      />
+
+      <InventoryTransferDetailsModal
+        isOpen={detailsTransferId !== null}
+        transferId={detailsTransferId}
+        onClose={handleCloseDetails}
       />
     </>
   );
