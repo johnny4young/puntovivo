@@ -56,6 +56,15 @@ export const SERVER_ERROR_CODES = {
   TRANSFER_QUANTITY_INVALID: 'TRANSFER_QUANTITY_INVALID',
   TRANSFER_ITEMS_REQUIRED: 'TRANSFER_ITEMS_REQUIRED',
   TRANSFER_INSUFFICIENT_STOCK: 'TRANSFER_INSUFFICIENT_STOCK',
+  /** Void target: transfer id does not exist for the current tenant. */
+  TRANSFER_NOT_FOUND: 'TRANSFER_NOT_FOUND',
+  /** Void target is already in the `void` status — double-void is rejected. */
+  TRANSFER_ALREADY_VOID: 'TRANSFER_ALREADY_VOID',
+  /**
+   * Void reversal would drive the destination site's on-hand below zero,
+   * e.g. because a later sale already consumed the transferred stock.
+   */
+  TRANSFER_VOID_INSUFFICIENT_STOCK: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

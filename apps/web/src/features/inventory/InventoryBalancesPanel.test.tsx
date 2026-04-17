@@ -44,6 +44,23 @@ vi.mock('@/lib/trpc', () => ({
       create: {
         useMutation: (_opts: unknown) => transferMutationState,
       },
+      list: {
+        useQuery: () => ({
+          data: { items: [] },
+          isLoading: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+      void: {
+        useMutation: (_opts: unknown) => ({
+          mutate: vi.fn(),
+          mutateAsync: vi.fn(async () => undefined),
+          reset: vi.fn(),
+          isPending: false,
+          error: null,
+        }),
+      },
     },
   },
 }));

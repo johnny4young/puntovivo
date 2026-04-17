@@ -396,6 +396,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-14 | BOTH | manager | Transfer stock from primary to secondary site | Origin balance decreases, destination balance increases by the same quantity; `transfer_orders` row persisted |
 | ✅ | INV-15 | BOTH | manager | Attempt transfer with quantity exceeding origin on-hand | Mutation rejected; balances unchanged |
 | ⬜ | INV-16 | BOTH | manager | Transfer button with only one active site | Button is disabled with an explanatory tooltip |
+| ✅ | INV-17 | BOTH | manager | Void a completed transfer | Destination balance decrements, origin balance re-increments; status flips to Voided; notes carry `[VOID] …` |
+| ✅ | INV-18 | BOTH | manager | Attempt to void after destination stock was consumed | Rejected with "destination site does not have enough stock" message; balances untouched |
+| ✅ | INV-19 | BOTH | manager | Attempt to void a transfer that is already voided | Rejected with "already voided" message; no second mutation runs |
+| ⬜ | INV-20 | BOTH | manager | Void action requires confirmation modal | Button opens the modal; cancel aborts without mutation |
 
 ---
 

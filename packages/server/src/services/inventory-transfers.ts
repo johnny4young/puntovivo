@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import {
@@ -120,6 +120,18 @@ function seedMissingBalanceRow(args: {
     .run();
 }
 
+function getPrimarySiteId(tx: DatabaseInstance, tenantId: string): string | null {
+  const primarySite = tx
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .orderBy(asc(sites.createdAt), asc(sites.id))
+    .limit(1)
+    .get();
+
+  return primarySite?.id ?? null;
+}
+
 export function createInventoryTransfer(
   db: DatabaseInstance,
   args: CreateTransferArgs
@@ -129,14 +141,7 @@ export function createInventoryTransfer(
   const transferId = nanoid();
 
   const result = db.transaction(tx => {
-    const primarySite = tx
-      .select({ id: sites.id })
-      .from(sites)
-      .where(and(eq(sites.tenantId, args.tenantId), eq(sites.isActive, true)))
-      .orderBy(asc(sites.createdAt), asc(sites.id))
-      .limit(1)
-      .get();
-    const primarySiteId = primarySite?.id ?? null;
+    const primarySiteId = getPrimarySiteId(tx, args.tenantId);
 
     // Validate both sites belong to the tenant and are active.
     const tenantSites = tx
@@ -329,6 +334,241 @@ export function createInventoryTransfer(
     createdBy: args.createdBy,
     items: result,
   };
+}
+
+export interface VoidTransferArgs {
+  tenantId: string;
+  transferId: string;
+  reason?: string | null;
+  voidedBy: string;
+}
+
+export interface VoidedTransfer {
+  id: string;
+  status: TransferOrderStatus;
+  fromSiteId: string;
+  toSiteId: string;
+  voidedAt: string;
+  voidedBy: string;
+  reversedItems: Array<{ productId: string; quantity: number }>;
+}
+
+/**
+ * Voids a completed transfer by reversing every line item:
+ *   - Destination `on_hand` is decremented by the item quantity.
+ *   - Origin `on_hand` is incremented by the same quantity.
+ * The transfer row's `status` becomes `void`.
+ *
+ * Rejects with `TRANSFER_ALREADY_VOID` if the transfer is already voided, and
+ * with `TRANSFER_VOID_INSUFFICIENT_STOCK` if a later write (sale, outbound
+ * transfer) already consumed the destination's balance — the operator must
+ * bring stock back first before the void can be applied.
+ */
+export function voidInventoryTransfer(
+  db: DatabaseInstance,
+  args: VoidTransferArgs
+): VoidedTransfer {
+  const now = getTimestamp();
+
+  return db.transaction(tx => {
+    const transfer = tx
+      .select({
+        id: transferOrders.id,
+        status: transferOrders.status,
+        fromSiteId: transferOrders.fromSiteId,
+        toSiteId: transferOrders.toSiteId,
+        notes: transferOrders.notes,
+      })
+      .from(transferOrders)
+      .where(
+        and(
+          eq(transferOrders.id, args.transferId),
+          eq(transferOrders.tenantId, args.tenantId)
+        )
+      )
+      .get();
+
+    if (!transfer) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'TRANSFER_NOT_FOUND',
+        message: 'Transfer not found',
+        details: { transferId: args.transferId },
+      });
+    }
+
+    if (transfer.status === 'void') {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TRANSFER_ALREADY_VOID',
+        message: 'Transfer is already void',
+        details: { transferId: args.transferId },
+      });
+    }
+
+    const items = tx
+      .select({
+        productId: transferOrderItems.productId,
+        quantity: transferOrderItems.quantity,
+      })
+      .from(transferOrderItems)
+      .where(eq(transferOrderItems.transferOrderId, args.transferId))
+      .all();
+
+    const primarySiteId = getPrimarySiteId(tx, args.tenantId);
+    const productStockById = new Map(
+      tx
+        .select({ id: products.id, stock: products.stock })
+        .from(products)
+        .where(
+          and(
+            eq(products.tenantId, args.tenantId),
+            inArray(
+              products.id,
+              items.map(item => item.productId)
+            )
+          )
+        )
+        .all()
+        .map(product => [product.id, product.stock])
+    );
+
+    // Pre-validate destination stock for every item so we fail atomically
+    // before mutating any row. Capture the validated `onHand` so the mutation
+    // loop below does not have to re-read (and cannot silently coerce a
+    // missing row into a negative balance).
+    const validatedDestinationOnHand = new Map<string, number>();
+    for (const item of items) {
+      const destinationBalance = tx
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.toSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .get();
+
+      const available = destinationBalance?.onHand ?? 0;
+      if (!destinationBalance || available < item.quantity) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TRANSFER_VOID_INSUFFICIENT_STOCK',
+          message: 'Destination site does not have enough stock to reverse the transfer',
+          details: {
+            transferId: args.transferId,
+            productId: item.productId,
+            destinationSiteId: transfer.toSiteId,
+            available,
+            required: item.quantity,
+          },
+        });
+      }
+      validatedDestinationOnHand.set(item.productId, available);
+    }
+
+    const reversedItems: VoidedTransfer['reversedItems'] = [];
+
+    for (const item of items) {
+      // Decrement destination using the pre-validated value — a single read
+      // per item keeps the math consistent and avoids a reachable path to a
+      // negative balance if the row was somehow removed between loops.
+      const destinationOnHand = validatedDestinationOnHand.get(item.productId)!;
+
+      tx.update(inventoryBalances)
+        .set({
+          onHand: destinationOnHand - item.quantity,
+          syncStatus: 'pending',
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.toSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .run();
+
+      // Credit origin — ensure the row exists first.
+      seedMissingBalanceRow({
+        tx,
+        tenantId: args.tenantId,
+        siteId: transfer.fromSiteId,
+        productId: item.productId,
+        initialOnHand:
+          transfer.fromSiteId === primarySiteId
+            ? (productStockById.get(item.productId) ?? 0)
+            : 0,
+        now,
+      });
+
+      const originBalance = tx
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.fromSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .get();
+
+      tx.update(inventoryBalances)
+        .set({
+          onHand: (originBalance?.onHand ?? 0) + item.quantity,
+          syncStatus: 'pending',
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, args.tenantId),
+            eq(inventoryBalances.siteId, transfer.fromSiteId),
+            eq(inventoryBalances.productId, item.productId)
+          )
+        )
+        .run();
+
+      reversedItems.push({ productId: item.productId, quantity: item.quantity });
+    }
+
+    // Flip the transfer row to `void`. Preserve existing notes and append
+    // a void reason when provided.
+    const voidReason = args.reason?.trim();
+    const mergedNotes = voidReason
+      ? transfer.notes
+        ? `${transfer.notes}\n[VOID] ${voidReason}`
+        : `[VOID] ${voidReason}`
+      : transfer.notes;
+
+    tx.update(transferOrders)
+      .set({
+        status: 'void',
+        notes: mergedNotes,
+        syncStatus: 'pending',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(transferOrders.id, args.transferId),
+          eq(transferOrders.tenantId, args.tenantId)
+        )
+      )
+      .run();
+
+    return {
+      id: args.transferId,
+      status: 'void' as TransferOrderStatus,
+      fromSiteId: transfer.fromSiteId,
+      toSiteId: transfer.toSiteId,
+      voidedAt: now,
+      voidedBy: args.voidedBy,
+      reversedItems,
+    };
+  });
 }
 
 export interface TransferHistoryEntry {

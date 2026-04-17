@@ -36,6 +36,9 @@
     "TRANSFER_QUANTITY_INVALID": "La cantidad a transferir debe ser mayor que cero.",
     "TRANSFER_ITEMS_REQUIRED": "Agrega al menos un producto antes de registrar una transferencia.",
     "TRANSFER_INSUFFICIENT_STOCK": "La sede origen no tiene stock suficiente para esta transferencia.",
+    "TRANSFER_NOT_FOUND": "No se pudo encontrar la transferencia.",
+    "TRANSFER_ALREADY_VOID": "Esta transferencia ya fue anulada.",
+    "TRANSFER_VOID_INSUFFICIENT_STOCK": "No se puede anular — la sede destino ya no tiene stock suficiente para revertir esta transferencia.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

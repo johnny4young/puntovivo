@@ -13,6 +13,7 @@ import {
   InventoryTransferModal,
   type InventoryTransferFormValues,
 } from './InventoryTransferModal';
+import { InventoryTransferHistory } from './InventoryTransferHistory';
 
 export interface InventoryBalancesPanelSite {
   id: string;
@@ -228,6 +229,8 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
       <p className="surface-panel-muted text-sm text-secondary-600">
         {t('balances.projectionNote')}
       </p>
+
+      <InventoryTransferHistory />
 
       <InventoryTransferModal
         // Remount on open/close so form state resets without a useEffect

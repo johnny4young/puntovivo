@@ -411,6 +411,22 @@ export interface InventoryBalancesBySiteResult {
   summary: InventoryBalancesSummary;
 }
 
+export type TransferHistoryStatus = 'completed' | 'void';
+
+export interface TransferHistoryEntry {
+  id: string;
+  status: TransferHistoryStatus;
+  fromSiteId: string;
+  fromSiteName: string;
+  toSiteId: string;
+  toSiteName: string;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  itemCount: number;
+  totalQuantity: number;
+}
+
 export interface RegisterAssignment {
   id: string;
   tenantId: string;
