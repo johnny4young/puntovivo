@@ -171,6 +171,34 @@ The full `draft` → `in_transit` → `received` lifecycle is still deferred.
 `transfers.list` returns a reverse-chronological page of recent transfer
 history with origin/destination site names and item aggregates.
 
+## Sales ↔ Inventory Balances (Phase 2 API-103)
+
+As of Phase 2 step 3, the sales flow writes through to `inventory_balances`
+alongside the legacy `products.stock` update:
+
+- `sales.create` debits the cashier's active cash-session site
+  (`cashSessions.siteId`) by the normalized sold quantity. This avoids
+  mis-posting stock when the sale sequential falls back to another site's
+  numbering configuration.
+- `sales.create` now validates availability against that same site's
+  `inventory_balances.on_hand`, not tenant-wide `products.stock`, so a
+  secondary site cannot sell stock it never received.
+- `sales.returnSale` and `sales.void` credit back the **original** sale's
+  site, resolved via `cashSessions.siteId` — not `ctx.siteId`, because the
+  refund/void may be performed at a different register.
+- Legacy sales without a cash session silently no-op (the helper is a
+  no-op when `siteId` is null), preserving backwards compatibility.
+
+The helper `applyInventoryBalanceDelta` takes an optional
+`initialOnHandIfMissing` to seed a missing row from the caller's pre-delta
+snapshot — required when the same transaction also mutates `products.stock`,
+because the default fallback would read the post-mutation value and produce
+a double-count.
+
+Purchases and orders are not yet wired in. Until they are, purchase receipts
+still only touch `products.stock`, so balances drift on receiving. This is
+the next API-103 step.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks
