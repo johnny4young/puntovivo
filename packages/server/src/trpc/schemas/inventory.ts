@@ -78,6 +78,11 @@ export const listBalancesBySiteInput = z.object({
   siteId: z.string().min(1, 'Site ID is required'),
 });
 
+// Phase 2 API-103 step 4: admin reconciliation has no input. The explicit
+// empty object is declared here so every tRPC procedure has a schema anchor
+// in this file, matching project convention (see CLAUDE.md checklist).
+export const reconcileBalancesInput = z.void().optional();
+
 export type ListMovementsInput = z.infer<typeof listMovementsInput>;
 export type ListStockInput = z.infer<typeof listStockInput>;
 export type ListEntriesInput = z.infer<typeof listEntriesInput>;

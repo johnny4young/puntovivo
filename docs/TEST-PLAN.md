@@ -418,6 +418,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-36 | BOTH | manager | Record initial inventory entry with ctx.siteId | Site balance credits by normalizedQuantity |
 | ✅ | INV-37 | BOTH | manager | Record physical inventory count | Site balance resets to absolute normalizedQuantity |
 | ✅ | INV-38 | BOTH | manager | Attempt recordEntry with quantity 0 | Rejected by Zod validation layer |
+| ✅ | INV-39 | BOTH | manager | Adjust stock at primary site and inspect products.stock | `products.stock` equals Σ(site balances) after the adjustment |
+| ✅ | INV-40 | BOTH | manager | Adjust stock at non-primary site and inspect products.stock | `products.stock` equals Σ(site balances) after the adjustment (primary snapshot + non-primary delta) |
+| ✅ | INV-41 | BOTH | admin | Manually introduce drift and run `inventory.reconcileBalances` | `products.stock` is healed to Σ(site balances); reconciliation covers every product in the tenant |
+| ✅ | INV-42 | BOTH | admin | Reconcile a product that has no balance rows | `products.stock` is reset to 0 |
 
 ---
 

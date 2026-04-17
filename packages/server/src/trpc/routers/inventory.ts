@@ -17,7 +17,7 @@ import { TRPCError } from '@trpc/server';
 import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   categories,
   initialInventory,
@@ -46,6 +46,7 @@ import {
   ensurePrimaryInventoryBalanceSnapshot,
   getPrimarySiteId,
   listInventoryBalancesBySite,
+  reconcileProductStockFromBalances,
   summarizeInventoryBalances,
 } from '../../services/inventory-balances.js';
 
@@ -638,6 +639,21 @@ export const inventoryRouter = router({
         });
       }
 
+      // Update the legacy tenant-wide `products.stock` cache FIRST so
+      // `applyInventoryBalanceDelta` (which trails every delta write with
+      // `syncProductStockFromBalances`) runs last and ratifies the value
+      // as Σ(site balances) — overwriting any historical drift the caller
+      // unknowingly carried in.
+      tx.update(products)
+        .set({
+          stock: input.newStock,
+          syncStatus: 'pending',
+          syncVersion: (product.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(eq(products.id, input.productId))
+        .run();
+
       // Seed value respects the migration rule: primary site seeds from
       // `products.stock`, non-primary sites seed from 0. Only pass an
       // explicit snapshot for the primary so non-primary first-time writes
@@ -668,16 +684,6 @@ export const inventoryRouter = router({
           syncVersion: 1,
           createdAt: now,
         })
-        .run();
-
-      tx.update(products)
-        .set({
-          stock: input.newStock,
-          syncStatus: 'pending',
-          syncVersion: (product.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(eq(products.id, input.productId))
         .run();
 
       tx.insert(syncQueue)
@@ -753,5 +759,19 @@ export const inventoryRouter = router({
       minStock: product.minStock,
       isLowStock: product.stock <= product.minStock,
     };
+  }),
+
+  /**
+   * Phase 2 API-103 step 4 — Admin reconciliation.
+   *
+   * Recomputes `products.stock` as Σ(`inventory_balances.on_hand`) for every
+   * product in the tenant. Use after data migrations or historical imports
+   * where `products.stock` has drifted from the per-site totals. Normal
+   * mutation paths already keep the cache in lockstep, so this is a manual
+   * heal-up tool, not a routine cron.
+   */
+  reconcileBalances: adminProcedure.mutation(async ({ ctx }) => {
+    const result = reconcileProductStockFromBalances(ctx.db, ctx.tenantId);
+    return { ...result, reconciledAt: new Date().toISOString() };
   }),
 });

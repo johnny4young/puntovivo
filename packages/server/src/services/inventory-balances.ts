@@ -245,7 +245,97 @@ export function applyInventoryBalanceDelta(
     )
     .run();
 
+  // Phase 2 API-103 step 4: keep `products.stock` as a derived cache equal
+  // to the sum of all site balances for this product. Callers that also
+  // write `products.stock` directly in the same transaction see their value
+  // ratified (or corrected) by this write, eliminating drift under per-site
+  // adjustments.
+  syncProductStockFromBalances(tx, {
+    tenantId: args.tenantId,
+    productId: args.productId,
+    now,
+  });
+
   return nextOnHand;
+}
+
+/**
+ * Recomputes `products.stock` as Σ(`inventory_balances.on_hand`) across all
+ * sites for the given product, then persists the result. Idempotent and safe
+ * to call repeatedly inside a transaction.
+ *
+ * Used internally by `applyInventoryBalanceDelta` after every balance
+ * mutation so the legacy tenant-wide `products.stock` field never diverges
+ * from the per-site balance table. External callers rarely need this — reach
+ * for `reconcileProductStockFromBalances` instead when healing historical
+ * drift for many products at once.
+ */
+export function syncProductStockFromBalances(
+  tx: DatabaseInstance,
+  args: { tenantId: string; productId: string; now?: string }
+): number {
+  const aggregate = tx
+    .select({
+      total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+    })
+    .from(inventoryBalances)
+    .where(
+      and(
+        eq(inventoryBalances.tenantId, args.tenantId),
+        eq(inventoryBalances.productId, args.productId)
+      )
+    )
+    .get();
+  const nextStock = aggregate?.total ?? 0;
+  const now = args.now ?? getTimestamp();
+
+  tx.update(products)
+    .set({
+      stock: nextStock,
+      syncStatus: 'pending',
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(products.tenantId, args.tenantId),
+        eq(products.id, args.productId)
+      )
+    )
+    .run();
+
+  return nextStock;
+}
+
+/**
+ * Heals historical drift by recomputing `products.stock` for every product
+ * in the tenant as Σ(inventory_balances.on_hand). Intended as an
+ * admin-triggered reconciliation after migrations or data imports; inside
+ * normal mutation paths, `applyInventoryBalanceDelta` already keeps the
+ * cache in lockstep.
+ */
+export function reconcileProductStockFromBalances(
+  db: DatabaseInstance,
+  tenantId: string
+): { productsUpdated: number } {
+  const now = getTimestamp();
+
+  return db.transaction(tx => {
+    const tenantProducts = tx
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .all();
+
+    for (const product of tenantProducts) {
+      syncProductStockFromBalances(tx, {
+        tenantId,
+        productId: product.id,
+        now,
+      });
+    }
+
+    return { productsUpdated: tenantProducts.length };
+  });
 }
 
 /**

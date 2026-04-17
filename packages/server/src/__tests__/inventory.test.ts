@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -8,6 +8,7 @@ import {
   categories,
   companies,
   inventoryBalances,
+  products,
   providers,
   sites,
   tenants,
@@ -879,5 +880,208 @@ describe('Inventory tRPC Router', () => {
         message: 'Site not found',
       });
     });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Phase 2 API-103 step 4 — products.stock is a derived cache of Σ(balances)
+  // Nested inside `listBalancesBySite` so we reuse its primary/secondary site
+  // fixtures without re-bootstrapping them here.
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe('products.stock lockstep with inventory_balances (step 4)', () => {
+    it('keeps products.stock equal to Σ(site balances) after an adjustStock at the primary site', async () => {
+      const caller = appRouter.createCaller(createTestContext(primarySiteId));
+      const db = getDatabase();
+
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Stock Lockstep Primary',
+          sku: 'BAL-LOCK-PRIM',
+          barcode: '91001',
+          stock: 10,
+        })
+      );
+
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 17,
+        notes: 'Primary site cycle count',
+      });
+
+      const product = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, created.id))
+        .get();
+      const balancesSum = await db
+        .select({
+          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+        })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, created.id))
+        .get();
+
+      expect(product?.stock).toBe(17);
+      expect(balancesSum?.total).toBe(17);
+    });
+
+    it('keeps products.stock in lockstep when an adjustment targets a non-primary site', async () => {
+      const caller = appRouter.createCaller(createTestContext(primarySiteId));
+      const db = getDatabase();
+
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Stock Lockstep Secondary',
+          sku: 'BAL-LOCK-SEC',
+          barcode: '91002',
+          stock: 12,
+        })
+      );
+
+      // Primary balance seeds at 12 on first read.
+      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      // Adjust at the secondary site: primary snapshot fills with 12, then
+      // the delta (5 - 12 = -7) lands on secondary. Σ(balances) = 12 + (-7) = 5.
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 5,
+        siteId: secondarySiteId,
+        notes: 'Secondary count correction',
+      });
+
+      const product = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, created.id))
+        .get();
+      const balancesSum = await db
+        .select({
+          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+        })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, created.id))
+        .get();
+
+      expect(product?.stock).toBe(5);
+      expect(balancesSum?.total).toBe(5);
+    });
+
+    it('reconcileBalances heals historical drift across every product', async () => {
+      const caller = appRouter.createCaller(createTestContext(primarySiteId));
+      const db = getDatabase();
+
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Reconcile Drift',
+          sku: 'BAL-RECON',
+          barcode: '91003',
+          stock: 30,
+        })
+      );
+
+      // Seed primary balance at 30.
+      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      // Simulate historical drift by writing products.stock out-of-band to a
+      // wrong value, without touching any balance row.
+      await db
+        .update(products)
+        .set({ stock: 999 })
+        .where(eq(products.id, created.id))
+        .run();
+
+      const result = await caller.inventory.reconcileBalances();
+      expect(result.productsUpdated).toBeGreaterThan(0);
+
+      const healedProduct = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, created.id))
+        .get();
+      expect(healedProduct?.stock).toBe(30);
+    });
+
+    // Regression for the delta-helper ordering bug: if `tx.update(products)`
+    // runs AFTER `applyInventoryBalanceDelta`, any pre-existing drift is
+    // re-introduced because the caller's explicit `input.newStock` overwrites
+    // the Σ-based value `syncProductStockFromBalances` just wrote. This test
+    // pins the correct order by starting with deliberate drift and asserting
+    // `adjustStock` ends with `products.stock == Σ(balances)`.
+    it('adjustStock heals pre-existing products.stock drift as part of the mutation', async () => {
+      const caller = appRouter.createCaller(createTestContext(primarySiteId));
+      const db = getDatabase();
+
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Adjust Heals Drift',
+          sku: 'BAL-ADJ-DRIFT',
+          barcode: '91005',
+          stock: 10,
+        })
+      );
+
+      // Seed the primary balance to 10.
+      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      // Deliberately introduce drift by writing products.stock out-of-band.
+      await db
+        .update(products)
+        .set({ stock: 999 })
+        .where(eq(products.id, created.id))
+        .run();
+
+      // Adjust to a new target. The caller writes products.stock = 15 first;
+      // applyInventoryBalanceDelta then writes Σ(balances). After the mutation
+      // products.stock must equal Σ(balances), regardless of drift.
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 15,
+      });
+
+      const product = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, created.id))
+        .get();
+      const balancesSum = await db
+        .select({
+          total: sql<number>`coalesce(sum(${inventoryBalances.onHand}), 0)`,
+        })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, created.id))
+        .get();
+
+      expect(product?.stock).toBe(balancesSum?.total);
+    });
+
+    it('reconcileBalances sets products.stock to 0 for a product with no balance rows', async () => {
+      const caller = appRouter.createCaller(createTestContext(primarySiteId));
+      const db = getDatabase();
+
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Reconcile Empty',
+          sku: 'BAL-RECON-EMPTY',
+          barcode: '91004',
+          stock: 42,
+        })
+      );
+
+      // Drop all balance rows for this product to simulate a product that
+      // never got seeded (legacy data import).
+      await db
+        .delete(inventoryBalances)
+        .where(eq(inventoryBalances.productId, created.id))
+        .run();
+
+      await caller.inventory.reconcileBalances();
+
+      const healed = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, created.id))
+        .get();
+      expect(healed?.stock).toBe(0);
+    });
+  });
   });
 });
