@@ -41,6 +41,28 @@ function getTimestamp(): string {
 }
 
 /**
+ * Resolves the tenant's primary site — the earliest-created active site.
+ *
+ * Used as the migration anchor for balance seeding and as the fallback site
+ * for admin-level mutations that don't carry an explicit site context.
+ * Returns `null` when the tenant has no active sites (legacy path).
+ */
+export function getPrimarySiteId(
+  tx: DatabaseInstance,
+  tenantId: string
+): string | null {
+  const primarySite = tx
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .orderBy(asc(sites.createdAt), asc(sites.id))
+    .limit(1)
+    .get();
+
+  return primarySite?.id ?? null;
+}
+
+/**
  * Ensures every active product in the tenant has a balance row on `siteId`.
  *
  * Seed-only semantics (Phase 2 step 1): rows are only created when missing.
@@ -64,14 +86,8 @@ export function ensureInventoryBalancesForSite(
   const now = getTimestamp();
 
   db.transaction(tx => {
-    const primarySite = tx
-      .select({ id: sites.id })
-      .from(sites)
-      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
-      .orderBy(asc(sites.createdAt), asc(sites.id))
-      .limit(1)
-      .get();
-    const isPrimarySite = primarySite?.id === siteId;
+    const primarySiteId = getPrimarySiteId(tx, tenantId);
+    const isPrimarySite = primarySiteId === siteId;
 
     const tenantProducts = tx
       .select({ id: products.id, stock: products.stock })
@@ -167,25 +183,15 @@ export function applyInventoryBalanceDelta(
   let seedOnHand: number;
   if (args.initialOnHandIfMissing !== undefined) {
     seedOnHand = args.initialOnHandIfMissing;
-  } else {
-    const primarySite = tx
-      .select({ id: sites.id })
-      .from(sites)
-      .where(and(eq(sites.tenantId, args.tenantId), eq(sites.isActive, true)))
-      .orderBy(asc(sites.createdAt), asc(sites.id))
-      .limit(1)
+  } else if (getPrimarySiteId(tx, args.tenantId) === args.siteId) {
+    const productStock = tx
+      .select({ stock: products.stock })
+      .from(products)
+      .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
       .get();
-
-    if (primarySite?.id === args.siteId) {
-      const productStock = tx
-        .select({ stock: products.stock })
-        .from(products)
-        .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
-        .get();
-      seedOnHand = productStock?.stock ?? 0;
-    } else {
-      seedOnHand = 0;
-    }
+    seedOnHand = productStock?.stock ?? 0;
+  } else {
+    seedOnHand = 0;
   }
 
   tx.insert(inventoryBalances)
@@ -257,15 +263,8 @@ export function ensurePrimaryInventoryBalanceSnapshot(
     now?: string;
   }
 ): string | null {
-  const primarySite = tx
-    .select({ id: sites.id })
-    .from(sites)
-    .where(and(eq(sites.tenantId, args.tenantId), eq(sites.isActive, true)))
-    .orderBy(asc(sites.createdAt), asc(sites.id))
-    .limit(1)
-    .get();
-
-  if (!primarySite) {
+  const primarySiteId = getPrimarySiteId(tx, args.tenantId);
+  if (!primarySiteId) {
     return null;
   }
 
@@ -275,7 +274,7 @@ export function ensurePrimaryInventoryBalanceSnapshot(
     .values({
       id: nanoid(),
       tenantId: args.tenantId,
-      siteId: primarySite.id,
+      siteId: primarySiteId,
       productId: args.productId,
       onHand: args.onHandSnapshot,
       reserved: 0,
@@ -293,7 +292,7 @@ export function ensurePrimaryInventoryBalanceSnapshot(
     })
     .run();
 
-  return primarySite.id;
+  return primarySiteId;
 }
 
 /**

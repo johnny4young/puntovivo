@@ -41,7 +41,10 @@ import {
   listBalancesBySiteInput,
 } from '../schemas/inventory.js';
 import {
+  applyInventoryBalanceDelta,
   ensureInventoryBalancesForSite,
+  ensurePrimaryInventoryBalanceSnapshot,
+  getPrimarySiteId,
   listInventoryBalancesBySite,
   summarizeInventoryBalances,
 } from '../../services/inventory-balances.js';
@@ -411,6 +414,25 @@ export const inventoryRouter = router({
         .where(eq(products.id, input.productId))
         .run();
 
+      // Phase 2 API-103 step 3: apply the same stockDelta to the operator
+      // site's balance. `ctx.siteId` is the entry's site (the handler also
+      // persists it on `initial_inventory.siteId`); falsy values no-op.
+      // Seed value respects the migration rule: primary seeds from
+      // products.stock, non-primary sites seed from 0. Skip the primary
+      // lookup entirely when there is no site context — the helper no-ops.
+      if (ctx.siteId) {
+        const primarySiteIdForEntry = getPrimarySiteId(tx, ctx.tenantId);
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          productId: input.productId,
+          delta: stockDelta,
+          initialOnHandIfMissing:
+            ctx.siteId === primarySiteIdForEntry ? product.stock : 0,
+          now,
+        });
+      }
+
       tx.insert(syncQueue)
         .values({
           id: nanoid(),
@@ -568,10 +590,68 @@ export const inventoryRouter = router({
 
     const now = new Date().toISOString();
     const movementId = nanoid();
-    const quantity = Math.abs(input.newStock - product.stock);
+    const delta = input.newStock - product.stock;
+    const quantity = Math.abs(delta);
+
+    // Validate the explicit siteId (if provided) belongs to the tenant and is
+    // active. We do this outside the transaction because the check is a pure
+    // read and `throwServerError` would just roll back an untouched tx.
+    if (input.siteId) {
+      const targetSite = await ctx.db
+        .select({ id: sites.id, isActive: sites.isActive })
+        .from(sites)
+        .where(and(eq(sites.id, input.siteId), eq(sites.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!targetSite || targetSite.isActive === false) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Selected adjustment site was not found or is inactive',
+        });
+      }
+    }
 
     // better-sqlite3 requires a synchronous transaction callback
     ctx.db.transaction(tx => {
+      // Phase 2 API-103 step 3: resolve the site to apply the balance delta
+      // to. Priority: explicit input > cashier/operator site > primary site.
+      // If the tenant has zero active sites, `resolvedSiteId` is null and the
+      // balance write silently no-ops (legacy path). `primarySiteId` is also
+      // reused below for the migration-rule seed decision.
+      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+      const resolvedSiteId = input.siteId ?? ctx.siteId ?? primarySiteId;
+
+      // When adjusting a non-primary site, first snapshot the primary site
+      // with the PRE-adjustment aggregate so a later read still shows the
+      // prior tenant stock at the primary.
+      if (
+        resolvedSiteId &&
+        primarySiteId &&
+        resolvedSiteId !== primarySiteId &&
+        delta !== 0
+      ) {
+        ensurePrimaryInventoryBalanceSnapshot(tx, {
+          tenantId: ctx.tenantId,
+          productId: input.productId,
+          onHandSnapshot: product.stock,
+          now,
+        });
+      }
+
+      // Seed value respects the migration rule: primary site seeds from
+      // `products.stock`, non-primary sites seed from 0. Only pass an
+      // explicit snapshot for the primary so non-primary first-time writes
+      // reflect the true "site started with zero" semantics.
+      applyInventoryBalanceDelta(tx, {
+        tenantId: ctx.tenantId,
+        siteId: resolvedSiteId,
+        productId: input.productId,
+        delta,
+        initialOnHandIfMissing:
+          resolvedSiteId && resolvedSiteId === primarySiteId ? product.stock : 0,
+        now,
+      });
+
       tx.insert(inventoryMovements)
         .values({
           id: movementId,

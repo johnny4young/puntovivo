@@ -19,6 +19,7 @@ export interface InventoryAdjustmentFormValues {
 interface InventoryAdjustmentModalProps {
   isOpen: boolean;
   product: InventoryAdjustmentProduct | null;
+  siteName?: string | null;
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
@@ -35,6 +36,7 @@ function mapProductToForm(product: InventoryAdjustmentProduct | null): Inventory
 export function InventoryAdjustmentModal({
   isOpen,
   product,
+  siteName,
   isSaving,
   error,
   onClose,
@@ -129,6 +131,11 @@ export function InventoryAdjustmentModal({
                 <span className="text-secondary-500">{t('adjustment.lowStockThreshold')}</span>
                 <span className="font-medium text-secondary-900">{product.minStock}</span>
               </div>
+              {siteName && (
+                <p className="mt-3 text-xs leading-5 text-secondary-500">
+                  {t('adjustment.siteScope', { site: siteName })}
+                </p>
+              )}
             </div>
 
             <div>

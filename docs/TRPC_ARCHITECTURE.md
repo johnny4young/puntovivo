@@ -211,6 +211,33 @@ The web mutations that create, receive, return, or void purchases now also
 invalidate `inventory.listBalancesBySite`, so the Inventory → By Site tab
 stays fresh without a hard reload.
 
+### Admin inventory tools (API-103 step 3)
+
+`inventory.adjustStock` and `inventory.recordEntry` are the last
+stock-mutation paths wired into `inventory_balances`:
+
+- `inventory.adjustStock` accepts an optional `siteId` input and resolves the
+  target site via `input.siteId ?? ctx.siteId ?? getPrimarySiteId()`. The
+  per-site delta is `input.newStock - product.stock`. When the resolved site
+  is non-primary, `ensurePrimaryInventoryBalanceSnapshot` first seeds the
+  primary's row with the pre-adjustment aggregate so a later first read of
+  the primary still reflects the prior tenant stock. The helper short-circuits
+  when the delta is zero.
+- `inventory.recordEntry` uses `ctx.siteId` (the same value it already
+  persists on `initial_inventory.siteId`). `mode: 'initial'` credits the site
+  by `normalizedQuantity`; `mode: 'physical'` sets the site to the counted
+  absolute via `delta = newStock - product.stock`.
+
+The helper `getPrimarySiteId(tx, tenantId)` is the shared primary-site
+resolver used by every balance-aware service (balances, transfers,
+adjustments). It lives in `services/inventory-balances.ts`.
+
+**Open Phase 2 Step-4 concern**: `products.stock` is no longer guaranteed to
+equal Σ(site balances) once per-site adjustments land. Do not rely on
+`products.stock` as the authoritative total in new code; read
+`inventory.listBalancesBySite` or aggregate the balances table instead. Step 4
+will either rebuild `products.stock` as a derived cache or reconcile on read.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

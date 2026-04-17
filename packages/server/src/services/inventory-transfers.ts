@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import {
@@ -10,6 +10,7 @@ import {
   type TransferOrderStatus,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { getPrimarySiteId } from './inventory-balances.js';
 
 /**
  * Phase 2 DB-102 / API-102 step 1 — immediate inventory transfers.
@@ -118,18 +119,6 @@ function seedMissingBalanceRow(args: {
       ],
     })
     .run();
-}
-
-function getPrimarySiteId(tx: DatabaseInstance, tenantId: string): string | null {
-  const primarySite = tx
-    .select({ id: sites.id })
-    .from(sites)
-    .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
-    .orderBy(asc(sites.createdAt), asc(sites.id))
-    .limit(1)
-    .get();
-
-  return primarySite?.id ?? null;
 }
 
 export function createInventoryTransfer(

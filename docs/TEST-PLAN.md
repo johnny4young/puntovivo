@@ -410,6 +410,14 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | INV-28 | BOTH | manager | Receive a purchase order on a site that falls back to another site's purchase sequential | The receipt credits the order's site balance, not the fallback sequential's site |
 | ✅ | INV-29 | BOTH | manager | Return a purchase after that site's stock was consumed elsewhere | Rejected with a purchase-site stock error; no balance reversal is posted |
 | ✅ | INV-30 | BOTH | admin | Void a purchase after that site's stock was consumed elsewhere | Rejected with a purchase-site stock error; no balance reversal is posted |
+| ✅ | INV-31 | BOTH | manager | Adjust stock upward with ctx.siteId set | Primary-site balance credits to match new target value |
+| ✅ | INV-32 | BOTH | manager | Adjust stock downward | Primary-site balance debits to new target value |
+| ✅ | INV-33 | BOTH | manager | Adjust stock at a non-primary site via explicit siteId input | Non-primary balance reflects delta; primary row is snapshot with pre-adjustment aggregate |
+| ✅ | INV-34 | BOTH | manager | Adjust stock with no ctx.siteId nor input.siteId | Falls back to primary site; primary balance reflects new value |
+| ✅ | INV-35 | BOTH | manager | Adjust stock where newStock equals current stock | Delta 0 short-circuits; balance row untouched (updatedAt unchanged) |
+| ✅ | INV-36 | BOTH | manager | Record initial inventory entry with ctx.siteId | Site balance credits by normalizedQuantity |
+| ✅ | INV-37 | BOTH | manager | Record physical inventory count | Site balance resets to absolute normalizedQuantity |
+| ✅ | INV-38 | BOTH | manager | Attempt recordEntry with quantity 0 | Rejected by Zod validation layer |
 
 ---
 

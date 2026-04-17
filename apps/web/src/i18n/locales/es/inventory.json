@@ -9,7 +9,7 @@
       "balances": "Por sede"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
-    "stockNote": "El stock sigue siendo a nivel de tenant por ahora. Las entradas de inventario inicial y físico capturan la unidad contada y la normalizan en el modelo de stock compartido, evitando el error de acumulación del sistema anterior."
+    "stockNote": "El stock visible en esta pantalla sigue siendo agregado a nivel de tenant por ahora. Los nuevos ajustes y entradas contadas impactan el balance de la sede activa, mientras el total compartido sigue mostrándose aquí hasta que la reconciliación por sede quede completa."
   },
   "stats": {
     "totalUnits": "Total de unidades",
@@ -159,8 +159,10 @@
   "newAdjustment": "Nuevo ajuste",
   "dialogs": {
     "selectProductEntry": "Seleccionar producto para inventario inicial",
+    "selectProductEntryForSite": "Seleccionar producto para inventario inicial · {{site}}",
     "recordEntry": "Registrar entrada",
     "selectProductAdjust": "Seleccionar producto para ajuste",
+    "selectProductAdjustForSite": "Seleccionar producto para ajuste · {{site}}",
     "adjustProduct": "Ajustar producto"
   },
   "toast": {
@@ -179,6 +181,7 @@
     "currentStock": "Stock actual",
     "movement": "Movimiento",
     "lowStockThreshold": "Umbral de stock bajo",
+    "siteScope": "Este ajuste impactará el balance de la sede activa: {{site}}.",
     "notesPlaceholder": "Razón del ajuste",
     "stockMin": "El stock debe ser cero o mayor"
   },
@@ -195,6 +198,7 @@
     "modeInitial": "{{label}} (acumular)",
     "modePhysical": "{{label}} (reemplazar)",
     "equivalence": "Equivalencia",
+    "siteScope": "Esta entrada impactará el balance de la sede activa: {{site}}.",
     "quantityMin": "La cantidad debe ser mayor que cero",
     "costMin": "El costo debe ser cero o mayor",
     "notesPlaceholder": "Razón opcional o referencia de conteo"

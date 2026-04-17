@@ -27,11 +27,11 @@ let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 
-function createTestContext(): Context {
+function createTestContext(overrideSiteId: string | null = null): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers: overrideSiteId ? { 'x-site-id': overrideSiteId } : {},
     user: {
       userId,
       email: 'admin@localhost',
@@ -52,7 +52,7 @@ function createTestContext(): Context {
       tenantId,
     },
     tenantId,
-    siteId: null,
+    siteId: overrideSiteId,
   };
 }
 
@@ -593,18 +593,15 @@ describe('Inventory tRPC Router', () => {
       expect(rows.length).toBe(first.items.length);
     });
 
-    // Phase 2 step 1 made `inventory_balances` authoritative. Once a row is
-    // seeded, later `products.stock` adjustments do NOT clobber it — direct
-    // balance writes (transfers, future balance-aware adjustStock) are the
-    // only source of truth. This test pins that contract so a regression to
-    // "mirror mode" would fail loudly.
-    it('does not clobber a seeded balance when products.stock changes later', async () => {
+    // Phase 2 API-103 step 3 made `adjustStock` balance-aware. The delta
+    // (`input.newStock - product.stock`) is applied to the resolved site.
+    it('adjustStock credits the primary site balance when newStock > product.stock', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const created = await caller.products.create(
         buildProductInput({
-          name: 'Balances Seed-Only Pipe',
-          sku: 'BAL-SEEDONLY',
-          barcode: '90004',
+          name: 'Balances Adjust Credit',
+          sku: 'BAL-ADJ-CREDIT',
+          barcode: '90010',
           stock: 4,
         })
       );
@@ -615,11 +612,184 @@ describe('Inventory tRPC Router', () => {
       await caller.inventory.adjustStock({
         productId: created.id,
         newStock: 9.5,
-        notes: 'Legacy products.stock correction',
+        notes: 'Counted extra inventory at primary',
       });
 
       const refreshed = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(9.5);
+    });
+
+    it('adjustStock debits the primary site balance when newStock < product.stock', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Adjust Debit',
+          sku: 'BAL-ADJ-DEBIT',
+          barcode: '90011',
+          stock: 10,
+        })
+      );
+
+      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 3,
+        notes: 'Counted fewer items',
+      });
+
+      const refreshed = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(3);
+    });
+
+    it('adjustStock with explicit non-primary siteId applies there and snapshots the primary with the pre-adjust aggregate', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Adjust Non-Primary',
+          sku: 'BAL-ADJ-NONPRIM',
+          barcode: '90012',
+          stock: 20,
+        })
+      );
+
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 15,
+        siteId: secondarySiteId,
+        notes: 'Physical count at secondary',
+      });
+
+      // Primary captures the pre-adjustment aggregate (20), not 15.
+      const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(primary.items.find(item => item.productId === created.id)?.onHand).toBe(20);
+
+      // Secondary reflects the adjustment delta (-5) applied to its pre-state
+      // (0 for non-primary seed) => -5.
+      const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+      expect(secondary.items.find(item => item.productId === created.id)?.onHand).toBe(-5);
+    });
+
+    it('adjustStock with delta 0 short-circuits and does not touch the balance row', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Adjust NoOp',
+          sku: 'BAL-ADJ-NOOP',
+          barcode: '90013',
+          stock: 5,
+        })
+      );
+
+      const before = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      const beforeRow = before.items.find(item => item.productId === created.id);
+      expect(beforeRow?.onHand).toBe(5);
+
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 5,
+        notes: 'No-op re-confirmation',
+      });
+
+      const after = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      const afterRow = after.items.find(item => item.productId === created.id);
+      expect(afterRow?.onHand).toBe(5);
+      expect(afterRow?.updatedAt).toBe(beforeRow?.updatedAt);
+    });
+
+    it('adjustStock with a zero target debits by the full pre-stock amount', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const created = await caller.products.create(
+        buildProductInput({
+          name: 'Balances Adjust Zero',
+          sku: 'BAL-ADJ-ZERO',
+          barcode: '90014',
+          stock: 7,
+        })
+      );
+
+      await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      await caller.inventory.adjustStock({
+        productId: created.id,
+        newStock: 0,
+        notes: 'Clear stock after shrinkage investigation',
+      });
+
+      const refreshed = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(0);
+    });
+
+    it('recordEntry mode initial credits the site balance by normalizedQuantity', async () => {
+      const siteCaller = appRouter.createCaller(createTestContext(primarySiteId));
+      const created = await siteCaller.products.create(
+        buildProductInput({
+          name: 'Balances Entry Initial',
+          sku: 'BAL-ENTRY-INIT',
+          barcode: '90015',
+          stock: 2,
+        })
+      );
+
+      await siteCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      await siteCaller.inventory.recordEntry({
+        productId: created.id,
+        unitId: baseUnitId,
+        mode: 'initial',
+        quantity: 3,
+        cost: 5,
+      });
+
+      const refreshed = await siteCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(5);
+    });
+
+    it('recordEntry mode physical sets the site balance to the counted absolute value', async () => {
+      const siteCaller = appRouter.createCaller(createTestContext(primarySiteId));
+      const created = await siteCaller.products.create(
+        buildProductInput({
+          name: 'Balances Entry Physical',
+          sku: 'BAL-ENTRY-PHYS',
+          barcode: '90016',
+          stock: 8,
+        })
+      );
+
+      await siteCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
+
+      await siteCaller.inventory.recordEntry({
+        productId: created.id,
+        unitId: baseUnitId,
+        mode: 'physical',
+        quantity: 4,
+        cost: 5,
+      });
+
+      const refreshed = await siteCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
       expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(4);
+    });
+
+    it('recordEntry rejects quantities <= 0 at the zod validation layer', async () => {
+      const siteCaller = appRouter.createCaller(createTestContext(primarySiteId));
+      const created = await siteCaller.products.create(
+        buildProductInput({
+          name: 'Balances Entry Zero Quantity',
+          sku: 'BAL-ENTRY-ZERO',
+          barcode: '90017',
+          stock: 1,
+        })
+      );
+
+      await expect(
+        siteCaller.inventory.recordEntry({
+          productId: created.id,
+          unitId: baseUnitId,
+          mode: 'physical',
+          quantity: 0,
+          cost: 5,
+        })
+      ).rejects.toThrow();
     });
 
     it('marks low stock when on-hand is less than or equal to min stock', async () => {
