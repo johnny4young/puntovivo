@@ -15,6 +15,7 @@
     "inventory": "Inventory",
     "orders": "Orders",
     "purchases": "Purchases",
+    "quotations": "Quotations",
     "customers": "Customers",
     "products": "Products",
     "providers": "Providers",

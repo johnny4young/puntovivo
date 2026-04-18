@@ -82,6 +82,23 @@ export const SERVER_ERROR_CODES = {
    * entries).
    */
   TRANSFER_RECEIVE_LINE_MISMATCH: 'TRANSFER_RECEIVE_LINE_MISMATCH',
+
+  // --- quotations domain (Phase 5 / Tier-2 #6) ---
+  QUOTATION_NOT_FOUND: 'QUOTATION_NOT_FOUND',
+  QUOTATION_ITEMS_REQUIRED: 'QUOTATION_ITEMS_REQUIRED',
+  QUOTATION_PRODUCT_NOT_FOUND: 'QUOTATION_PRODUCT_NOT_FOUND',
+  QUOTATION_CUSTOMER_NOT_FOUND: 'QUOTATION_CUSTOMER_NOT_FOUND',
+  QUOTATION_SITE_NOT_FOUND: 'QUOTATION_SITE_NOT_FOUND',
+  QUOTATION_QUANTITY_INVALID: 'QUOTATION_QUANTITY_INVALID',
+  /**
+   * Status transition is not allowed (e.g. moving from `converted` back to
+   * `draft`). Source/target status are reported in the error details.
+   */
+  QUOTATION_INVALID_STATUS_TRANSITION: 'QUOTATION_INVALID_STATUS_TRANSITION',
+  /** Only quotations in `draft` may be deleted; everything else is archived. */
+  QUOTATION_DELETE_NOT_DRAFT: 'QUOTATION_DELETE_NOT_DRAFT',
+  /** No active sequential is configured for the tenant's quotation numbering. */
+  QUOTATION_SEQUENTIAL_MISSING: 'QUOTATION_SEQUENTIAL_MISSING',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

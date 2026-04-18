@@ -68,6 +68,9 @@ const OrdersPage = lazyPage(async () => ({
 const PurchasesPage = lazyPage(async () => ({
   default: (await import('@/features/purchases/PurchasesPage')).PurchasesPage,
 }));
+const QuotationsPage = lazyPage(async () => ({
+  default: (await import('@/features/quotations/QuotationsPage')).QuotationsPage,
+}));
 const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,
 }));
@@ -260,6 +263,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={managerOrAdminRoles}>
                   <PurchasesPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="quotations"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                  <QuotationsPage />
                 </ShellRoute>
               }
             />

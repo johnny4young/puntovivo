@@ -1,0 +1,122 @@
+{
+  "page": {
+    "kicker": "Pre-sale documents",
+    "title": "Quotations",
+    "description": "Track pre-sale quotes for customers — draft, send, and follow up before turning a quote into a sale.",
+    "newAction": "New quotation"
+  },
+  "history": {
+    "title": "Recent quotations",
+    "description": "The most recent quotations across the tenant. Use the actions to send, accept, reject, expire, or delete a draft.",
+    "loading": "Loading quotations…",
+    "error": "Unable to load quotations",
+    "empty": "No quotations yet. Click New quotation to create the first one.",
+    "search": "Search by customer name…",
+    "columns": {
+      "number": "Number",
+      "customer": "Customer",
+      "site": "Site",
+      "items": "Items",
+      "total": "Total",
+      "validUntil": "Valid until",
+      "status": "Status",
+      "createdAt": "Created at",
+      "actions": "Actions"
+    },
+    "validUntilNever": "—",
+    "customerNone": "Walk-in",
+    "actions": {
+      "view": "Details",
+      "sent": "Send",
+      "accepted": "Accept",
+      "rejected": "Reject",
+      "expired": "Expire",
+      "delete": "Delete"
+    }
+  },
+  "status": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "expired": "Expired",
+    "converted": "Converted"
+  },
+  "details": {
+    "title": "Quotation details",
+    "close": "Close",
+    "loading": "Loading quotation…",
+    "error": "Unable to load quotation",
+    "createdAt": "Created at",
+    "createdBy": "Created by",
+    "validUntil": "Valid until",
+    "statusChangedAt": "Status changed",
+    "lineItems": "Line items",
+    "notes": "Notes",
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "discount": "Discount",
+      "total": "Total"
+    },
+    "columns": {
+      "product": "Product",
+      "sku": "SKU",
+      "quantity": "Qty",
+      "unitPrice": "Unit price",
+      "discount": "Discount",
+      "tax": "Tax",
+      "total": "Line total"
+    }
+  },
+  "create": {
+    "title": "New quotation",
+    "description": "Add at least one line item, optionally pick a customer and a validity date.",
+    "customerLabel": "Customer",
+    "customerPlaceholder": "Walk-in (no customer)",
+    "validUntilLabel": "Valid until",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Optional internal note",
+    "linesTitle": "Line items",
+    "addLine": "Add product",
+    "removeLine": "Remove line",
+    "linePlaceholder": "Pick a product to start adding lines.",
+    "columns": {
+      "product": "Product",
+      "quantity": "Qty",
+      "unitPrice": "Unit price",
+      "discount": "Discount %",
+      "taxRate": "Tax %",
+      "total": "Total"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "discount": "Discount",
+      "total": "Total"
+    },
+    "submit": "Save quotation",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "errors": {
+      "noLines": "Add at least one product to the quotation.",
+      "lineQuantity": "Each line quantity must be greater than zero.",
+      "lineUnitPrice": "Each line unit price cannot be negative.",
+      "lineDiscount": "Discount must be between 0 and 100."
+    }
+  },
+  "toast": {
+    "createSuccess": "Quotation saved",
+    "createError": "Unable to save quotation",
+    "statusSuccess": "Quotation status updated",
+    "statusError": "Unable to update status",
+    "deleteSuccess": "Quotation deleted",
+    "deleteError": "Unable to delete quotation"
+  },
+  "confirmDelete": {
+    "title": "Delete quotation?",
+    "message": "Quotation {{number}} will be permanently removed. This action cannot be undone.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  }
+}

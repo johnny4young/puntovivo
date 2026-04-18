@@ -1,0 +1,122 @@
+{
+  "page": {
+    "kicker": "Documentos pre-venta",
+    "title": "Cotizaciones",
+    "description": "Gestiona cotizaciones para clientes — borrador, envío y seguimiento antes de convertir una cotización en venta.",
+    "newAction": "Nueva cotización"
+  },
+  "history": {
+    "title": "Cotizaciones recientes",
+    "description": "Las cotizaciones más recientes del tenant. Usa las acciones para enviar, aceptar, rechazar, expirar o eliminar borradores.",
+    "loading": "Cargando cotizaciones…",
+    "error": "No se pudieron cargar las cotizaciones",
+    "empty": "Aún no hay cotizaciones. Pulsa Nueva cotización para crear la primera.",
+    "search": "Buscar por nombre del cliente…",
+    "columns": {
+      "number": "Número",
+      "customer": "Cliente",
+      "site": "Sede",
+      "items": "Ítems",
+      "total": "Total",
+      "validUntil": "Válida hasta",
+      "status": "Estado",
+      "createdAt": "Creada",
+      "actions": "Acciones"
+    },
+    "validUntilNever": "—",
+    "customerNone": "Mostrador",
+    "actions": {
+      "view": "Detalles",
+      "sent": "Enviar",
+      "accepted": "Aceptar",
+      "rejected": "Rechazar",
+      "expired": "Expirar",
+      "delete": "Eliminar"
+    }
+  },
+  "status": {
+    "draft": "Borrador",
+    "sent": "Enviada",
+    "accepted": "Aceptada",
+    "rejected": "Rechazada",
+    "expired": "Expirada",
+    "converted": "Convertida"
+  },
+  "details": {
+    "title": "Detalle de la cotización",
+    "close": "Cerrar",
+    "loading": "Cargando cotización…",
+    "error": "No se pudo cargar la cotización",
+    "createdAt": "Creada",
+    "createdBy": "Creada por",
+    "validUntil": "Válida hasta",
+    "statusChangedAt": "Estado cambiado",
+    "lineItems": "Líneas",
+    "notes": "Notas",
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Impuestos",
+      "discount": "Descuento",
+      "total": "Total"
+    },
+    "columns": {
+      "product": "Producto",
+      "sku": "SKU",
+      "quantity": "Cant.",
+      "unitPrice": "Precio unitario",
+      "discount": "Descuento",
+      "tax": "Impuesto",
+      "total": "Total línea"
+    }
+  },
+  "create": {
+    "title": "Nueva cotización",
+    "description": "Agrega al menos una línea, opcionalmente elige un cliente y una fecha de validez.",
+    "customerLabel": "Cliente",
+    "customerPlaceholder": "Mostrador (sin cliente)",
+    "validUntilLabel": "Válida hasta",
+    "notesLabel": "Notas",
+    "notesPlaceholder": "Nota interna opcional",
+    "linesTitle": "Líneas",
+    "addLine": "Agregar producto",
+    "removeLine": "Quitar línea",
+    "linePlaceholder": "Selecciona un producto para empezar a agregar líneas.",
+    "columns": {
+      "product": "Producto",
+      "quantity": "Cant.",
+      "unitPrice": "Precio unitario",
+      "discount": "Desc. %",
+      "taxRate": "Impuesto %",
+      "total": "Total"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Impuestos",
+      "discount": "Descuento",
+      "total": "Total"
+    },
+    "submit": "Guardar cotización",
+    "submitting": "Guardando…",
+    "cancel": "Cancelar",
+    "errors": {
+      "noLines": "Agrega al menos un producto a la cotización.",
+      "lineQuantity": "La cantidad de cada línea debe ser mayor que cero.",
+      "lineUnitPrice": "El precio unitario de cada línea no puede ser negativo.",
+      "lineDiscount": "El descuento debe estar entre 0 y 100."
+    }
+  },
+  "toast": {
+    "createSuccess": "Cotización guardada",
+    "createError": "No se pudo guardar la cotización",
+    "statusSuccess": "Estado de la cotización actualizado",
+    "statusError": "No se pudo actualizar el estado",
+    "deleteSuccess": "Cotización eliminada",
+    "deleteError": "No se pudo eliminar la cotización"
+  },
+  "confirmDelete": {
+    "title": "¿Eliminar cotización?",
+    "message": "La cotización {{number}} se eliminará de forma permanente. Esta acción no se puede deshacer.",
+    "confirm": "Eliminar",
+    "cancel": "Cancelar"
+  }
+}

@@ -31,7 +31,16 @@ export const cashMovementTypeEnum = [
   'replenishment',
 ] as const;
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
-export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order'] as const;
+export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order', 'quotation'] as const;
+export const quotationStatusEnum = [
+  'draft',
+  'sent',
+  'accepted',
+  'rejected',
+  'expired',
+  'converted',
+] as const;
+export type QuotationStatus = (typeof quotationStatusEnum)[number];
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 
 export interface CashSessionDenomination {
@@ -2001,6 +2010,117 @@ export const transferOrderItemsRelations = relations(transferOrderItems, ({ one 
 }));
 
 // ============================================================================
+// QUOTATIONS (Phase 5 / Tier-2 #6 — pre-sale documents)
+// ============================================================================
+
+/**
+ * A quotation is a non-binding pre-sale document captured for a customer.
+ * It carries a list of line items, totals, a validity window, and a status
+ * that drives the quote-to-sale workflow. Inventory is NOT decremented when
+ * a quotation is created — only when it is converted into a sale (deferred
+ * to a later slice).
+ */
+export const quotations = sqliteTable(
+  'quotations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    quotationNumber: text('quotation_number').notNull(),
+    customerId: text('customer_id').references(() => customers.id),
+    status: text('status', { enum: quotationStatusEnum }).notNull().default('draft'),
+    subtotal: real('subtotal').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    discountAmount: real('discount_amount').notNull().default(0),
+    total: real('total').notNull().default(0),
+    /** ISO timestamp at which the quotation expires. Optional. */
+    validUntil: text('valid_until'),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    /** Timestamp + actor of the most recent status transition. */
+    statusChangedAt: text('status_changed_at'),
+    statusChangedBy: text('status_changed_by').references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_quotations_tenant').on(table.tenantId),
+    index('idx_quotations_site').on(table.siteId),
+    index('idx_quotations_customer').on(table.customerId),
+    index('idx_quotations_status').on(table.status),
+    index('idx_quotations_created_by').on(table.createdBy),
+    uniqueIndex('idx_quotations_tenant_number').on(table.tenantId, table.quotationNumber),
+  ]
+);
+
+export const quotationItems = sqliteTable(
+  'quotation_items',
+  {
+    id: text('id').primaryKey(),
+    quotationId: text('quotation_id')
+      .notNull()
+      .references(() => quotations.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: real('quantity').notNull().default(1),
+    unitPrice: real('unit_price').notNull().default(0),
+    discount: real('discount').notNull().default(0),
+    taxRate: real('tax_rate').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    total: real('total').notNull().default(0),
+    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+  },
+  table => [
+    index('idx_quotation_items_quotation').on(table.quotationId),
+    index('idx_quotation_items_product').on(table.productId),
+  ]
+);
+
+export const quotationsRelations = relations(quotations, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [quotations.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [quotations.siteId],
+    references: [sites.id],
+  }),
+  customer: one(customers, {
+    fields: [quotations.customerId],
+    references: [customers.id],
+  }),
+  createdByUser: one(users, {
+    fields: [quotations.createdBy],
+    references: [users.id],
+  }),
+  statusChangedByUser: one(users, {
+    fields: [quotations.statusChangedBy],
+    references: [users.id],
+  }),
+  items: many(quotationItems),
+}));
+
+export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationItems.quotationId],
+    references: [quotations.id],
+  }),
+  product: one(products, {
+    fields: [quotationItems.productId],
+    references: [products.id],
+  }),
+}));
+
+// ============================================================================
 // SYNC QUEUE (Local operations waiting to be synced)
 // ============================================================================
 
@@ -2168,6 +2288,11 @@ export type TransferOrder = typeof transferOrders.$inferSelect;
 export type NewTransferOrder = typeof transferOrders.$inferInsert;
 export type TransferOrderItem = typeof transferOrderItems.$inferInsert;
 export type TransferOrderStatus = (typeof transferOrderStatusEnum)[number];
+
+export type Quotation = typeof quotations.$inferSelect;
+export type NewQuotation = typeof quotations.$inferInsert;
+export type QuotationItem = typeof quotationItems.$inferSelect;
+export type NewQuotationItem = typeof quotationItems.$inferInsert;
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;

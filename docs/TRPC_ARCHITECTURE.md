@@ -347,6 +347,52 @@ the rest of the file); when the receipt path gets localized, the TSX
 `details.payments*` keys in `sales.json` are the canonical translations
 to reuse.
 
+## Quotations Router (Phase 5 / Tier-2 #6 step 1)
+
+`quotations.create` persists a non-binding pre-sale document. Inventory is
+NOT touched at create time — `inventory_balances` and `products.stock` only
+move once a quotation is converted into a sale (deferred to a later slice).
+
+Per-line totals follow the same gross-priced model as `sales`: the `unitPrice`
+input is treated as the customer-facing amount per unit, the per-line discount
+is applied first, and the line tax is then extracted from the post-discount
+total using the per-line `taxRate` (with the product VAT as the fallback when
+zero). Header totals are the column-wise sums and the cache row stores
+`subtotal` (tax-exclusive base) + `taxAmount` + `discountAmount` + `total`
+(gross). Document numbers come from the `sequentials` table under document
+type `quotation`; the seed and `seed.ts` ensure a `COT-` prefixed sequential
+exists for every site (idempotent on every server boot).
+
+Status transitions are enforced server-side via `ALLOWED_TRANSITIONS`:
+
+```
+draft     → sent | rejected | expired
+sent      → accepted | rejected | expired
+accepted  → expired
+rejected  → (terminal)
+expired   → (terminal)
+converted → (reserved for the future quote-to-sale slice — unreachable today)
+```
+
+`quotations.updateStatus` rejects any transition outside this map with
+`QUOTATION_INVALID_STATUS_TRANSITION` and stamps `statusChangedAt`/`statusChangedBy`.
+`quotations.delete` is restricted to drafts (`QUOTATION_DELETE_NOT_DRAFT`); the
+items table cascades on delete via the FK `ON DELETE CASCADE` constraint.
+
+Every write-path procedure (`updateStatus`, `delete`) scopes BOTH the
+validation `SELECT` and the subsequent write to `(id, tenantId)` so a caller
+holding a known quotation id from a different tenant hits `QUOTATION_NOT_FOUND`
+instead of being able to mutate it. The same guard extends to the sequential
+resolver (`sequentials.tenantId` + `sites.tenantId` both filtered) so even the
+fallback number-assignment path cannot cross tenant boundaries. Cross-tenant
+regression tests cover both `updateStatus` and `delete`.
+
+`quotations.list` returns reverse-chronological entries with item counts and
+joined customer/site names, supports optional `status` and `customerId`
+filters, and is bounded by a `limit ≤ 200` (default 50). `quotations.getById`
+returns the full header + per-line detail and resolves both the creator and
+the latest status-change actor user names for the drawer's audit panel.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

@@ -43,6 +43,15 @@
     "TRANSFER_NOT_IN_TRANSIT": "Only transfers currently in transit can be received.",
     "TRANSFER_RECEIVED_EXCEEDS_SHIPPED": "A received quantity cannot be greater than the shipped quantity.",
     "TRANSFER_RECEIVE_LINE_MISMATCH": "The receive payload does not match the transfer's line items.",
+    "QUOTATION_NOT_FOUND": "The quotation could not be found.",
+    "QUOTATION_ITEMS_REQUIRED": "Add at least one product before saving the quotation.",
+    "QUOTATION_PRODUCT_NOT_FOUND": "A selected product could not be found or is inactive.",
+    "QUOTATION_CUSTOMER_NOT_FOUND": "The selected customer could not be found or is inactive.",
+    "QUOTATION_SITE_NOT_FOUND": "The selected site could not be found or is inactive.",
+    "QUOTATION_QUANTITY_INVALID": "Quotation line quantity must be greater than zero.",
+    "QUOTATION_INVALID_STATUS_TRANSITION": "This status change is not allowed for the current quotation state.",
+    "QUOTATION_DELETE_NOT_DRAFT": "Only draft quotations can be deleted.",
+    "QUOTATION_SEQUENTIAL_MISSING": "No active quotation sequential is configured for this tenant.",
     "unknown": "Something went wrong. Please try again."
   }
 }
