@@ -25,10 +25,10 @@ export const QUOTATION_STATUS_BADGE_CLASSES: Record<QuotationStatus, string> = {
 
 /**
  * Statuses an operator can transition to from each current status. Mirrors
- * the server-side ALLOWED_TRANSITIONS contract — keep them in sync.
- *
- * `converted` is reserved for the future quote-to-sale slice, so it never
- * appears as an action target here.
+ * the server-side ALLOWED_TRANSITIONS contract — keep them in sync. An
+ * `accepted` quote closes either by expiring or by being marked as
+ * `converted` (the operator has completed the corresponding sale through
+ * the regular POS); both are terminal.
  */
 const TRANSITIONS_FROM_STATUS: Record<
   QuotationStatus,
@@ -36,7 +36,7 @@ const TRANSITIONS_FROM_STATUS: Record<
 > = {
   draft: ['sent', 'rejected', 'expired'],
   sent: ['accepted', 'rejected', 'expired'],
-  accepted: ['expired'],
+  accepted: ['expired', 'converted'],
   rejected: [],
   expired: [],
   converted: [],

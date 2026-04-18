@@ -537,6 +537,10 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | QUOT-14 | BOTH | manager | Open Details on a quotation | Drawer renders header, totals, line items, status timeline (creator + status-change actor) |
 | ✅ | QUOT-15 | BOTH | manager | Verify inventory unchanged after creating a quotation | `products.stock` and `inventory_balances.on_hand` are identical before and after |
 | ✅ | QUOT-16 | BOTH | manager | Filter list by status (server-side `status` query param) | Only matching rows returned |
+| ✅ | QUOT-17 | BOTH | manager | Click Print in the Details drawer | Printable HTML opens in a Blob-URL popup (web) or prints via the Electron bridge; header, meta, line items, totals, and validity all render |
+| ✅ | QUOT-18 | BOTH | manager | Click Export → CSV / Excel / PDF above the history table | File downloads with ten columns: Number, Created At, Customer, Site, Items, Subtotal, VAT, Total, Valid Until, Status |
+| ✅ | QUOT-19 | BOTH | manager | On an accepted quote, click Mark as converted | Status flips to Converted (terminal); Expire action disappears; only Details remains |
+| ✅ | QUOT-20 | BOTH | manager | Attempt `draft → converted` transition via API | Server rejects with `QUOTATION_INVALID_STATUS_TRANSITION` — only `accepted` can convert |
 
 ---
 

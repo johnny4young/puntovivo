@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Printer } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { QUOTATION_STATUS_BADGE_CLASSES } from './quotationStatus';
+import { QuotationPrintError, printQuotationReceipt } from './quotationPrinter';
 
 interface QuotationDetailsModalProps {
   isOpen: boolean;
@@ -22,11 +26,36 @@ export function QuotationDetailsModal({
   onClose,
 }: QuotationDetailsModalProps) {
   const { t } = useTranslation(['quotations', 'errors']);
+  const toast = useToast();
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const detailQuery = trpc.quotations.getById.useQuery(
     { id: quotationId ?? '' },
     { enabled: isOpen && !!quotationId }
   );
+
+  async function handlePrint() {
+    if (!detailQuery.data || isPrinting) {
+      return;
+    }
+    setIsPrinting(true);
+    try {
+      await printQuotationReceipt(detailQuery.data);
+    } catch (error) {
+      const description =
+        error instanceof QuotationPrintError
+          ? t(`details.printErrors.${error.code}`)
+          : t('details.printErrors.unknown');
+      toast.error({
+        title: t('details.printError'),
+        description,
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  }
+
+  const canPrint = !!detailQuery.data && !detailQuery.isLoading;
 
   return (
     <Modal
@@ -35,7 +64,16 @@ export function QuotationDetailsModal({
       title={t('details.title')}
       size="xl"
       footer={
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className="btn-secondary inline-flex items-center gap-2"
+            onClick={handlePrint}
+            disabled={!canPrint || isPrinting}
+          >
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            {isPrinting ? t('details.printPending') : t('details.print')}
+          </button>
           <button type="button" className="btn-secondary" onClick={onClose}>
             {t('details.close')}
           </button>

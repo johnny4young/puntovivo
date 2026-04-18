@@ -62,11 +62,23 @@ function formatValue<T>(value: unknown, column: ExportColumn<T>, row: T): string
 }
 
 /**
- * Generate a filename with optional timestamp
+ * Generate a filename with optional timestamp.
+ *
+ * The sanitizer replaces every non-alphanumeric character in `baseName`
+ * (so callers can pass user-facing strings like "sales history") but never
+ * touches the trailing `.${extension}` — that is the single source of truth
+ * for the extension and must survive unchanged so the browser honors the
+ * suggested download name.
  */
-function generateFilename(baseName: string, extension: string, includeTimestamp = true): string {
+export function generateFilename(
+  baseName: string,
+  extension: string,
+  includeTimestamp = true
+): string {
   const sanitizedName = baseName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   if (includeTimestamp) {
+    // ISO string has `:` and `.`; swap both for `-` so the filename has
+    // exactly one dot — the one before the extension.
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     return `${sanitizedName}_${timestamp}.${extension}`;
   }
@@ -74,17 +86,30 @@ function generateFilename(baseName: string, extension: string, includeTimestamp 
 }
 
 /**
- * Trigger file download in the browser
+ * Trigger file download in the browser.
+ *
+ * Revoking the object URL is deferred to the next tick — revoking it
+ * synchronously right after `link.click()` races against the browser's own
+ * download pipeline on Firefox / Safari / Electron. When the race is lost
+ * the browser falls back to the blob URL fragment as the suggested
+ * filename, which has no extension at all ("Unknown", "download", or the
+ * UUID portion of the blob URL). The tiny async gap fixes that without
+ * leaking memory — the URL is revoked as soon as the browser has handed
+ * the download over to the OS.
  */
 function downloadFile(content: Blob, filename: string): void {
   const url = URL.createObjectURL(content);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  // `rel="noopener"` keeps the transient anchor from leaking our window
+  // reference on the off-chance some popup-blocker rewrites the click into
+  // a real navigation.
+  link.rel = 'noopener';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /**
@@ -137,10 +162,16 @@ export async function exportToExcel<T extends object>(
 ): Promise<void> {
   const { title, includeTimestamp = true } = options;
 
-  // Use the browser entry directly so Vite can split exceljs internals instead of
-  // pulling the package's prebundled minified browser build as one oversized chunk.
-  const excelModule = await import('exceljs/lib/exceljs.bare.js');
-  const ExcelJS = ('default' in excelModule ? excelModule.default : excelModule) as typeof import('exceljs');
+  // Use the prebundled browser bundle that already strips the CSV writer
+  // and its `@fast-csv/format` dependency. The source-level
+  // `exceljs/lib/exceljs.bare.js` entry transitively imports
+  // `CsvFormatterStream`, which extends Node's `Transform` stream — that
+  // class is undefined in the browser and crashes the entire export at
+  // import time (symptom: file downloaded without an extension because the
+  // anchor click never fired). `exceljs/dist/exceljs.bare.min.js` is the
+  // official pre-built browser-only bundle with CSV + streams removed.
+  // The module shape is declared in `types/exceljs-browser.d.ts`.
+  const { default: ExcelJS } = await import('exceljs/dist/exceljs.bare.min.js');
 
   // Create a new workbook and worksheet
   const workbook = new ExcelJS.Workbook();
@@ -233,9 +264,23 @@ export async function exportToPDF<T extends object>(
 ): Promise<void> {
   const { title, includeTimestamp = true } = options;
 
-  // Dynamically import jspdf and jspdf-autotable
+  // Dynamically import jspdf and jspdf-autotable. As of jspdf-autotable v5
+  // the plugin no longer patches the jsPDF prototype; it exports a named
+  // function that takes the doc as its first argument. We keep both the
+  // module default and the plugin function in scope below.
   const { default: jsPDF } = await import('jspdf');
-  await import('jspdf-autotable');
+  const autoTableModule = await import('jspdf-autotable');
+  const autoTableExports = autoTableModule as unknown as {
+    autoTable?: unknown;
+    default?: unknown;
+  };
+  const autoTable =
+    typeof autoTableExports.autoTable === 'function'
+      ? autoTableExports.autoTable
+      : autoTableExports.default;
+  if (typeof autoTable !== 'function') {
+    throw new Error('jspdf-autotable v5+ is required; no callable export found');
+  }
 
   // Create PDF document
   const doc = new jsPDF({
@@ -269,8 +314,12 @@ export async function exportToPDF<T extends object>(
     })
   );
 
-  // Add table using autotable
-  (doc as typeof jsPDF.prototype & { autoTable: (options: unknown) => void }).autoTable({
+  // v5+ API: call `autoTable(doc, options)` rather than `doc.autoTable(options)`.
+  const autoTableFn = autoTable as (
+    doc: InstanceType<typeof jsPDF>,
+    options: Record<string, unknown>
+  ) => void;
+  autoTableFn(doc, {
     head: [headers],
     body: tableData,
     startY,

@@ -11,6 +11,7 @@
     "loading": "Loading quotations…",
     "error": "Unable to load quotations",
     "empty": "No quotations yet. Click New quotation to create the first one.",
+    "exportTitle": "Export quotations",
     "search": "Search by customer name…",
     "columns": {
       "number": "Number",
@@ -31,6 +32,7 @@
       "accepted": "Accept",
       "rejected": "Reject",
       "expired": "Expire",
+      "converted": "Mark as converted",
       "delete": "Delete"
     }
   },
@@ -45,6 +47,14 @@
   "details": {
     "title": "Quotation details",
     "close": "Close",
+    "print": "Print",
+    "printPending": "Printing…",
+    "printError": "Unable to print the quotation",
+    "printErrors": {
+      "popupBlocked": "Allow pop-ups for Puntovivo and try again.",
+      "desktopBridgeFailed": "The desktop printer could not process the quotation.",
+      "unknown": "The quotation could not be printed right now."
+    },
     "loading": "Loading quotation…",
     "error": "Unable to load quotation",
     "createdAt": "Created at",
