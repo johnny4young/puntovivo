@@ -71,6 +71,7 @@ const DEFAULT_SEQUENTIALS = [
   { documentType: 'sale' as const, prefix: 'VTA-', currentValue: 0 },
   { documentType: 'purchase' as const, prefix: 'COM-', currentValue: 0 },
   { documentType: 'order' as const, prefix: 'PED-', currentValue: 0 },
+  { documentType: 'quotation' as const, prefix: 'COT-', currentValue: 0 },
 ] as const;
 
 const DEFAULT_IDENTIFICATION_TYPES = [

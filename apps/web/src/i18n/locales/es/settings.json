@@ -594,7 +594,8 @@
     "docTypes": {
       "sale": "Venta",
       "purchase": "Compra",
-      "order": "Pedido"
+      "order": "Pedido",
+      "quotation": "Cotización"
     },
     "validation": {
       "currentValueMin": "El valor actual debe ser cero o mayor"

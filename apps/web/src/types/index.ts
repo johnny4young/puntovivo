@@ -75,7 +75,7 @@ export interface Sequential {
   id: string;
   tenantId: string;
   siteId: string;
-  documentType: 'sale' | 'purchase' | 'order';
+  documentType: 'sale' | 'purchase' | 'order' | 'quotation';
   prefix: string;
   currentValue: number;
   createdAt: string;
@@ -465,6 +465,78 @@ export interface TransferDetail {
   items: TransferDetailLine[];
   hasDiscrepancy: boolean;
   discrepancyNotes: string | null;
+}
+
+// ============================================================================
+// QUOTATIONS (Phase 5 / Tier-2 #6)
+// ============================================================================
+
+export type QuotationStatus =
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'rejected'
+  | 'expired'
+  | 'converted';
+
+/** Statuses an operator can transition to via the UI today. */
+export type QuotationTransitionStatus = Extract<
+  QuotationStatus,
+  'sent' | 'accepted' | 'rejected' | 'expired'
+>;
+
+export interface QuotationListEntry {
+  id: string;
+  quotationNumber: string;
+  status: QuotationStatus;
+  customerId: string | null;
+  customerName: string | null;
+  siteId: string;
+  siteName: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  itemCount: number;
+  validUntil: string | null;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface QuotationDetailLine {
+  id: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+}
+
+export interface QuotationDetail {
+  id: string;
+  quotationNumber: string;
+  status: QuotationStatus;
+  customerId: string | null;
+  customerName: string | null;
+  siteId: string;
+  siteName: string;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  validUntil: string | null;
+  notes: string | null;
+  createdAt: string;
+  createdBy: string;
+  createdByName: string | null;
+  statusChangedAt: string | null;
+  statusChangedBy: string | null;
+  statusChangedByName: string | null;
+  updatedAt: string;
+  items: QuotationDetailLine[];
 }
 
 export interface RegisterAssignment {

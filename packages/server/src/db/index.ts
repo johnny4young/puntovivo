@@ -870,6 +870,50 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_transfer_order_items_order ON transfer_order_items (transfer_order_id);
     CREATE INDEX IF NOT EXISTS idx_transfer_order_items_product ON transfer_order_items (product_id);
 
+    -- Quotations (Phase 5 / Tier-2 #6 — pre-sale documents)
+    CREATE TABLE IF NOT EXISTS quotations (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      quotation_number TEXT NOT NULL,
+      customer_id TEXT REFERENCES customers(id),
+      status TEXT NOT NULL DEFAULT 'draft',
+      subtotal REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      discount_amount REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      valid_until TEXT,
+      notes TEXT,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      status_changed_at TEXT,
+      status_changed_by TEXT REFERENCES users(id),
+      sync_status TEXT DEFAULT 'pending',
+      sync_version INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_quotations_tenant ON quotations (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_quotations_site ON quotations (site_id);
+    CREATE INDEX IF NOT EXISTS idx_quotations_customer ON quotations (customer_id);
+    CREATE INDEX IF NOT EXISTS idx_quotations_status ON quotations (status);
+    CREATE INDEX IF NOT EXISTS idx_quotations_created_by ON quotations (created_by);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_quotations_tenant_number ON quotations (tenant_id, quotation_number);
+
+    CREATE TABLE IF NOT EXISTS quotation_items (
+      id TEXT PRIMARY KEY,
+      quotation_id TEXT NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL DEFAULT 1,
+      unit_price REAL NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      tax_rate REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON quotation_items (quotation_id);
+    CREATE INDEX IF NOT EXISTS idx_quotation_items_product ON quotation_items (product_id);
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

@@ -43,6 +43,15 @@
     "TRANSFER_NOT_IN_TRANSIT": "Solo las transferencias en tránsito pueden ser recibidas.",
     "TRANSFER_RECEIVED_EXCEEDS_SHIPPED": "La cantidad recibida no puede ser mayor que la cantidad enviada.",
     "TRANSFER_RECEIVE_LINE_MISMATCH": "La información de recepción no coincide con las líneas de la transferencia.",
+    "QUOTATION_NOT_FOUND": "No se pudo encontrar la cotización.",
+    "QUOTATION_ITEMS_REQUIRED": "Agrega al menos un producto antes de guardar la cotización.",
+    "QUOTATION_PRODUCT_NOT_FOUND": "Un producto seleccionado no existe o está inactivo.",
+    "QUOTATION_CUSTOMER_NOT_FOUND": "El cliente seleccionado no existe o está inactivo.",
+    "QUOTATION_SITE_NOT_FOUND": "La sede seleccionada no existe o está inactiva.",
+    "QUOTATION_QUANTITY_INVALID": "La cantidad de la línea debe ser mayor que cero.",
+    "QUOTATION_INVALID_STATUS_TRANSITION": "Este cambio de estado no está permitido para la cotización en su estado actual.",
+    "QUOTATION_DELETE_NOT_DRAFT": "Solo las cotizaciones en borrador pueden eliminarse.",
+    "QUOTATION_SEQUENTIAL_MISSING": "No hay un consecutivo de cotizaciones configurado para este tenant.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

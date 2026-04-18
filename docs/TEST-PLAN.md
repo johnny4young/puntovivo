@@ -517,6 +517,29 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 ---
 
+## QUOTATIONS
+
+| Status | ID | Runner | Role | Flow | Expected validation |
+|---|---|---|---|---|---|
+| ✅ | QUOT-01 | BOTH | manager | Open the Quotations page | Page loads with header, empty state, and New quotation button |
+| ✅ | QUOT-02 | BOTH | manager | Create a draft quotation with one product line | Modal closes; row appears in history with status Draft and the next sequential number (COT-XXXXXX) |
+| ✅ | QUOT-03 | BOTH | manager | Create a quotation with no customer (walk-in) | Customer column reads "Walk-in" placeholder |
+| ✅ | QUOT-04 | BOTH | manager | Create a quotation with a per-line discount | Line total reflects discount, header subtotal/discount/total match the per-line math |
+| ✅ | QUOT-05 | BOTH | manager | Create a quotation with a per-line tax rate | Header tax = sum(line tax extracted from gross), totals add up |
+| ✅ | QUOT-06 | BOTH | manager | Create a quotation with a product whose VAT comes from `vatRateId` | Per-line tax rate omitted falls back to the product's VAT |
+| ✅ | QUOT-07 | BOTH | manager | Set a Valid until date | Stored as ISO datetime; renders the date in the history table |
+| ✅ | QUOT-08 | BOTH | manager | Send a draft quotation | Status flips to Sent; Delete action disappears; Accept/Reject/Expire actions appear |
+| ✅ | QUOT-09 | BOTH | manager | Accept a sent quotation | Status flips to Accepted; only Expire action remains |
+| ✅ | QUOT-10 | BOTH | manager | Reject a draft quotation | Status flips to Rejected; row enters terminal state with no transition actions |
+| ✅ | QUOT-11 | BOTH | manager | Try to transition rejected → accepted via API | Server rejects with `QUOTATION_INVALID_STATUS_TRANSITION` |
+| ✅ | QUOT-12 | BOTH | manager | Delete a draft | Confirmation modal opens; on confirm row is removed and items cascade-deleted |
+| ✅ | QUOT-13 | BOTH | manager | Try to delete a non-draft | Action button is hidden; direct API call rejects with `QUOTATION_DELETE_NOT_DRAFT` |
+| ✅ | QUOT-14 | BOTH | manager | Open Details on a quotation | Drawer renders header, totals, line items, status timeline (creator + status-change actor) |
+| ✅ | QUOT-15 | BOTH | manager | Verify inventory unchanged after creating a quotation | `products.stock` and `inventory_balances.on_hand` are identical before and after |
+| ✅ | QUOT-16 | BOTH | manager | Filter list by status (server-side `status` query param) | Only matching rows returned |
+
+---
+
 ## DESKTOP / WORKSTATION
 
 | Status | ID | Runner | Role | Flow | Expected validation |

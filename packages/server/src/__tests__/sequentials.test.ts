@@ -72,6 +72,14 @@ describe('Sequentials tRPC Router', () => {
 
     const initial = await caller.sequentials.list({ siteId });
     expect(initial.items.some(item => item.documentType === 'sale')).toBe(true);
+    expect(initial.items.some(item => item.documentType === 'quotation')).toBe(true);
+
+    const quotationOnly = await caller.sequentials.list({
+      siteId,
+      documentType: 'quotation',
+    });
+    expect(quotationOnly.items).toHaveLength(1);
+    expect(quotationOnly.items[0]?.prefix).toBe('COT-');
 
     const updated = await caller.sequentials.upsert({
       siteId,
@@ -82,6 +90,15 @@ describe('Sequentials tRPC Router', () => {
 
     expect(updated.prefix).toBe('FAC-');
     expect(updated.currentValue).toBe(25);
+
+    const updatedQuotation = await caller.sequentials.upsert({
+      siteId,
+      documentType: 'quotation',
+      prefix: 'COT-',
+      currentValue: 12,
+    });
+    expect(updatedQuotation.documentType).toBe('quotation');
+    expect(updatedQuotation.currentValue).toBe(12);
 
     await getDatabase()
       .delete(sequentials)

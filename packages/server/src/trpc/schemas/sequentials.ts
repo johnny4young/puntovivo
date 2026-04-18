@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const documentTypeEnum = z.enum(['sale', 'purchase', 'order']);
+const documentTypeEnum = z.enum(['sale', 'purchase', 'order', 'quotation']);
 
 export const listSequentialsInput = z
   .object({

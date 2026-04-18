@@ -67,6 +67,7 @@ function SequentialFormModal({
     sale: t('sequentials.docTypes.sale'),
     purchase: t('sequentials.docTypes.purchase'),
     order: t('sequentials.docTypes.order'),
+    quotation: t('sequentials.docTypes.quotation'),
   };
   const form = useForm<SequentialFormValues>({
     defaultValues: mapSequentialToForm(sequential),
@@ -185,6 +186,7 @@ export function SequentialsPage() {
     sale: t('sequentials.docTypes.sale'),
     purchase: t('sequentials.docTypes.purchase'),
     order: t('sequentials.docTypes.order'),
+    quotation: t('sequentials.docTypes.quotation'),
   };
   const utils = trpc.useUtils();
   const sitesQuery = trpc.sites.list.useQuery();

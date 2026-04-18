@@ -594,7 +594,8 @@
     "docTypes": {
       "sale": "Sale",
       "purchase": "Purchase",
-      "order": "Order"
+      "order": "Order",
+      "quotation": "Quotation"
     },
     "validation": {
       "currentValueMin": "Current value must be zero or greater"
