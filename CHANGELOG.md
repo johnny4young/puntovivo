@@ -17,6 +17,10 @@ All notable changes to Puntovivo are documented here. Follows [Keep a Changelog]
 ### Docs
 - Updated `TEST-PLAN.md` with 2026-04-12 execution snapshot; SALES-14 and SALES-15 marked passed after Playwright web validation
 - Consolidated work plan into `docs/ROADMAP.md`; removed `IMPLEMENTATION_STATUS.md`, `OPEN_BACKLOG.md`, and `MIGRATION_PLAN.md` (strategic `PLAN.md` retained as reference)
+- Codebase-alignment audit: corrected obsolete claims in `ROADMAP.md` §3 (schema `stock`/`quantity` are already `real`; removed the blocker note), annotated every open risk with its ticket ID, and added a new `ROADMAP.md` §3b "Engineering Quality Backlog" (`ENG-001` … `ENG-014`) covering E2E coverage, versioned Drizzle migrations, CI coverage thresholds, Electron sandbox, desktop CI matrix, structured logging, audit-trail expansion, auth hardening, dependency audit gate, repository-interface extraction, oversized-component decomposition, unused `zustand`, `CLAUDE.md`/`AGENTS.md` drift, and split-payment credit mix
+- Fixed absolute-path links in `docs/TRPC_IMPLEMENTATION_PLAN.md` (`/Users/johnny4young/...` → `./`)
+- Corrected duplicate `## 18` section numbering in `docs/PLAN.md` (Sources renumbered to `## 19`)
+- Replaced the placeholder "Required review skills" table in `CLAUDE.md` and `AGENTS.md` with the real per-workspace CI scripts (`ci:web`, `ci:server`, `ci:desktop`), since the named review skills don't exist in this repo
 
 ---
 
