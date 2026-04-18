@@ -2879,7 +2879,7 @@ These docs should exist after the first implementation phases:
 - `docs/VERTICAL_PRODUCT_METADATA_SCHEMA.md` — JSON metadata column schemas per vertical
 - `docs/I18N_GUIDE.md` — i18n conventions, namespace mapping, key naming rules, and how to add a new language
 
-## 18. Sources
+## 19. Sources
 
 ### Competitive product references
 

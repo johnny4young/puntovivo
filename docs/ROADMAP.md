@@ -99,32 +99,69 @@ This is the recommended implementation sequence. Each item links to its detailed
 
 ### Platform Foundation
 
-- **`stock` and `quantity` are `integer` in schema** — must migrate to `real` across all tables. This is the #1 technical blocker for ferreterías and supermarkets.
-- **Fiscal rules are Colombia-hardcoded** — IVA rates, INC, propina (Ley 1935/2018), DIAN endpoints, fiscal regime codes are constants. Must become profile-driven before non-CO deployment.
-- **No module activation system** — prerequisite for multi-vertical support.
-- **Credit sales (ventas a crédito) missing** — no installment schedules, no abono posting, no configurable credit settings per tenant/company/site.
+- **Fiscal rules are Colombia-hardcoded** — IVA rates, INC, propina (Ley 1935/2018), DIAN endpoints, fiscal regime codes are constants. Must become profile-driven before non-CO deployment. (Phase 11 Ext)
+- **No module activation system** — prerequisite for multi-vertical support. (Phase 0)
+- **Credit sales (ventas a crédito) missing** — no installment schedules, no abono posting, no configurable credit settings per tenant/company/site. (Phase 5 Ext)
+- **Schema is bootstrapped via `CREATE TABLE IF NOT EXISTS` in `packages/server/src/db/index.ts`** and hand-mirrored in `packages/server/src/db/schema.ts`. There are **no versioned Drizzle migrations** under `packages/server/src/db/migrations/` — `drizzle-kit generate/migrate` is wired in `package.json` but unused. Any non-additive schema change (rename, type change, drop column) cannot be applied to existing installs safely today. (Ticket `DB-002` / `ENG-002`)
 
 ### Sync and Offline
 
-- No formal hybrid data topology contract for local SQLite + remote authority.
-- Persistence is tightly coupled to SQLite-specific Drizzle and `better-sqlite3`.
-- Remote replication story is underspecified.
-- Sync observability is shallow — needs richer audit/log surfaces.
+- No formal hybrid data topology contract for local SQLite + remote authority. (Phase 10)
+- Persistence is tightly coupled to SQLite-specific Drizzle and `better-sqlite3`. Repository interfaces are not yet extracted from router procedures. (Ticket `API-001` / `ENG-010`)
+- Remote replication story is underspecified. (Phase 10)
+- Sync observability is shallow — `console.log` only, no structured logging or request tracing. (Ticket `ENG-006`)
 
 ### Security
 
-- Electron window still runs with `sandbox: false`.
-- Sensitive admin actions lack full audit trail.
+- Main `BrowserWindow` in `apps/desktop/src/main/index.ts:1380` still runs with `sandbox: false`. Preload-API surface must be audited before enabling the sandbox. (Ticket `ENG-004`)
+- `writeAuditLog` is wired into `transfers.void`, `quotations.delete`, and `quotations.updateStatus` only. `sales.void`, `sales.refund`, `purchases.void`, `users.disable`, role changes, and manual price overrides are **not** recorded. (Ticket `ENG-007`)
+- Rate limiting is configured globally at the Fastify layer but not per-procedure; brute-force protection on `auth.login` is not explicit. (Ticket `ENG-008`)
 
 ### Testing
 
-- Desktop features lean heavily on unit/type checks and manual verification.
-- Little true E2E coverage across renderer + embedded backend + Electron bridge.
+- Desktop features lean heavily on unit/type checks and manual verification. `apps/desktop` has **0 automated tests** today.
+- There is **no E2E suite** across renderer + embedded backend + Electron bridge (Playwright/Spectron). (Ticket `ENG-001`)
+- Coverage thresholds exist in `vitest.config.ts` (70%) but are **not enforced in CI** — `npm run test` runs without `--coverage` and without a gating threshold. (Ticket `ENG-003`)
+
+### Build / CI
+
+- CI runs on `ubuntu-latest` only. Desktop packaging for `.dmg` (macOS) and `.exe` (Windows) is exercised exclusively via the manual `release.yml` workflow, so regressions can reach a release tag undetected. (Ticket `ENG-005`)
+- No dependency audit (`npm audit` / Dependabot alerts) gate is wired into CI. (Ticket `ENG-009`)
+
+### Frontend Health
+
+- Several feature components exceed 900 lines (`ProductFormModal.tsx`, `InventoryPage.tsx`, `SalesPage.tsx`) and mix data-fetch, state, and presentation. Candidates for extraction of subcomponents + custom hooks. (Ticket `ENG-011`)
+- `zustand` is declared in `apps/web/package.json` but has **zero imports** in `apps/web/src/`. Either remove the dependency or adopt it for the few remaining Context-based stores. (Ticket `ENG-012`)
 
 ### Performance and UX
 
 - Responsive/mobile refinement is weaker in admin/maintenance screens.
 - Not every screen uses the same feedback quality level yet.
+
+---
+
+## 3b. Engineering Quality Backlog — Cross-Cutting
+
+These tickets don't belong to any single vertical or commercial phase. They protect the app's long-term maintainability and scalability, and should be sequenced against Tier 1–3 work rather than deferred to "someday". Each ticket is actionable in isolation and has a clear acceptance test.
+
+| ID | Title | Scope | Acceptance | Priority |
+| --- | --- | --- | --- | --- |
+| `ENG-001` | E2E test harness | Add Playwright against the web app + embedded backend in headless Electron. Cover: login → open cash session → create sale (split tender) → refund → close session. | `npm run test:e2e` green in CI on Linux; screenshots on failure uploaded as CI artifact. | **High** |
+| `ENG-002` | Versioned Drizzle migrations | Generate baseline migration from current schema. Replace `runSchemaSync()` raw DDL bootstrap with `migrate()` on startup. Retain `IF NOT EXISTS` only as a one-time adoption shim for existing installs. | Adding a column requires only editing `schema.ts` + `drizzle-kit generate`; re-running against an existing DB is a no-op. | **High** |
+| `ENG-003` | CI coverage threshold | Run `vitest --coverage --run` in `ci:web` and `ci:server`. Fail the job below the thresholds declared in `vitest.config.ts`. Upload LCOV. | PR lowering coverage below threshold fails CI. | **High** |
+| `ENG-004` | Electron main window sandbox | Audit every `ipcMain` handler and preload export; remove Node-only APIs from the renderer path. Flip `sandbox: true` on the main `BrowserWindow`. | App boots with `sandbox: true`; all renderer→main calls still pass; add regression test that asserts `webPreferences.sandbox === true`. | **High** |
+| `ENG-005` | Desktop CI build matrix | Extend `ci.yml` to run `npm run ci:desktop` on `ubuntu-latest`, `macos-latest`, `windows-latest`. Packaging step may stay in `release.yml`, but typecheck + lint + unit tests must run on all three. | CI badge reflects all three OS; a PR that breaks a Windows-only path fails CI. | **Medium** |
+| `ENG-006` | Structured logging | Replace `console.log`/`console.error` calls in `packages/server` and `apps/desktop/src/main` with a `pino` logger, namespaced per module (`sales`, `sync`, `cash-session`, …). Redact PII (emails, passwords, tokens). | Logs are single-line JSON in production; `logger.child({ module: 'sync' })` works; no raw `console.*` remains outside tests. | **Medium** |
+| `ENG-007` | Audit trail expansion | Call `writeAuditLog` from: `sales.void`, `sales.refund`, `purchases.void`, `users.create/disable/changeRole`, manual price overrides in `sales.create`, and any change to `company_credit_settings`. Each entry records `before`/`after` JSON where applicable. | Unit test per site asserts an `audit_logs` row is written with the correct `action` + `resource_type`. | **High** |
+| `ENG-008` | Auth hardening | Rate-limit `auth.login` specifically (per IP and per username). Lock-out escalation after N failed attempts. Document the policy in `docs/SECURITY.md`. | Load test: 50 bad logins from one IP returns `429` before the 60-second window completes. | **Medium** |
+| `ENG-009` | Dependency audit gate | Add `npm audit --production --audit-level=high` to `ci:web`, `ci:server`, and `ci:desktop`. Add a Dependabot config in `.github/`. | A new transitive dependency with a known `high` CVE fails CI. | **Medium** |
+| `ENG-010` | Repository interfaces (Phase 10 prep) | Extract persistence from routers into per-domain repository interfaces (`SalesRepository`, `InventoryRepository`, …) implemented today by a Drizzle-SQLite adapter. Keeps routers dialect-neutral. | All router procedures touch the DB exclusively through an interface; no router imports `better-sqlite3`. | **Medium** |
+| `ENG-011` | Break up oversized components | Split `ProductFormModal.tsx` (960 l), `InventoryPage.tsx` (935 l), `SalesPage.tsx` (581 l), `QuotationCreateModal.tsx` (567 l), and `sales.ts`/`purchases.ts` server routers (1.4–1.6 k l) into focused subcomponents + custom hooks + per-sub-feature service files. No file over ~400 lines without justification. | Touched files drop below 400 l; behavior parity covered by existing + new unit tests. | **Medium** |
+| `ENG-012` | Remove or adopt `zustand` | Zustand is declared in `apps/web/package.json` but has zero imports. Either delete the dependency or migrate the two Context providers (`AuthProvider`, `TenantProvider`) that would benefit from it. | Either `zustand` is gone from `package.json`, or both providers are refactored to a Zustand store with tests. | **Low** |
+| `ENG-013` | Consolidate `CLAUDE.md` / `AGENTS.md` | The two files are byte-for-byte duplicates in spirit but evolve separately. Keep `CLAUDE.md` as canonical and make `AGENTS.md` a one-line pointer, or vice versa, to remove drift. | A single source of truth remains for operational guidance; CI fails if the two files diverge. | **Low** |
+| `ENG-014` | Split payments — credit mix | Current `sale_payments` covers cash + card + transfer split tender. Extend to mix on-account installments with immediate tender (needed for layaway / "abono a crédito"). | `sales.create` accepts `credit` + `cash` in the same payload; the sale becomes partial-credit and the `credit_sales` ledger is created only for the credit portion. | **Medium** |
+
+Sequencing recommendation: `ENG-002`, `ENG-003`, `ENG-007` **must** land before pilot deployment (they cover data safety, regression safety, and operational trust). `ENG-001` and `ENG-004` should land before the first externally-signed installer. The rest can interleave with Tier 2/3 commercial phases.
 
 ---
 
