@@ -348,13 +348,16 @@ export function createQuotation(
 }
 
 /**
- * Allowed status transitions. `draft` is the entry state; `converted` is
- * reserved for the future quote-to-sale slice (unreachable from this router).
+ * Allowed status transitions. `draft` is the entry state. `accepted` can
+ * close into either `expired` (time passed without becoming a sale) or
+ * `converted` (operator linked the quote to a completed sale through the
+ * regular POS flow — this is a terminal status with no deeper side effects;
+ * inventory is mutated by the sale itself, not by the quote).
  */
 const ALLOWED_TRANSITIONS: Record<QuotationStatus, readonly QuotationStatus[]> = {
   draft: ['sent', 'rejected', 'expired'],
   sent: ['accepted', 'rejected', 'expired'],
-  accepted: ['expired'],
+  accepted: ['expired', 'converted'],
   rejected: [],
   expired: [],
   converted: [],
@@ -363,7 +366,13 @@ const ALLOWED_TRANSITIONS: Record<QuotationStatus, readonly QuotationStatus[]> =
 export interface UpdateQuotationStatusArgs {
   tenantId: string;
   quotationId: string;
-  nextStatus: Exclude<QuotationStatus, 'draft' | 'converted'>;
+  /**
+   * `draft` is the entry state and cannot be set via the status API (only
+   * `create` produces drafts). Every other status — including `converted` —
+   * may be requested, and the ALLOWED_TRANSITIONS map validates against the
+   * current status.
+   */
+  nextStatus: Exclude<QuotationStatus, 'draft'>;
   actorId: string;
 }
 

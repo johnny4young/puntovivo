@@ -4,6 +4,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Eye, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
+import { TableExportActions } from '@/components/tables/TableExportActions';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -19,6 +20,7 @@ import {
   canDeleteQuotation,
   getAvailableTransitions,
 } from './quotationStatus';
+import { quotationHistoryExportColumns } from './quotationHistoryExport';
 
 interface QuotationsHistoryTableProps {
   onOpenDetails: (quotationId: string) => void;
@@ -29,6 +31,7 @@ const TRANSITION_BUTTON_CLASSES: Record<QuotationTransitionStatus, string> = {
   accepted: 'btn-success',
   rejected: 'btn-danger',
   expired: 'btn-secondary',
+  converted: 'btn-primary',
 };
 
 /**
@@ -254,13 +257,21 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
             </p>
           )}
           {!listQuery.isLoading && !listQuery.error && items.length > 0 && (
-            <DataTable
-              columns={columns}
-              data={items}
-              searchKey="customerName"
-              searchPlaceholder={t('history.search')}
-              pageSize={10}
-            />
+            <div className="space-y-4">
+              <TableExportActions
+                data={items}
+                columns={quotationHistoryExportColumns}
+                filename="quotations-history"
+                title={t('history.exportTitle')}
+              />
+              <DataTable
+                columns={columns}
+                data={items}
+                searchKey="customerName"
+                searchPlaceholder={t('history.search')}
+                pageSize={10}
+              />
+            </div>
           )}
         </div>
       </div>

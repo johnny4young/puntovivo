@@ -482,7 +482,7 @@ export type QuotationStatus =
 /** Statuses an operator can transition to via the UI today. */
 export type QuotationTransitionStatus = Extract<
   QuotationStatus,
-  'sent' | 'accepted' | 'rejected' | 'expired'
+  'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
 >;
 
 export interface QuotationListEntry {

@@ -11,6 +11,7 @@
     "loading": "Cargando cotizaciones…",
     "error": "No se pudieron cargar las cotizaciones",
     "empty": "Aún no hay cotizaciones. Pulsa Nueva cotización para crear la primera.",
+    "exportTitle": "Exportar cotizaciones",
     "search": "Buscar por nombre del cliente…",
     "columns": {
       "number": "Número",
@@ -31,6 +32,7 @@
       "accepted": "Aceptar",
       "rejected": "Rechazar",
       "expired": "Expirar",
+      "converted": "Marcar como convertida",
       "delete": "Eliminar"
     }
   },
@@ -45,6 +47,14 @@
   "details": {
     "title": "Detalle de la cotización",
     "close": "Cerrar",
+    "print": "Imprimir",
+    "printPending": "Imprimiendo…",
+    "printError": "No se pudo imprimir la cotización",
+    "printErrors": {
+      "popupBlocked": "Permite ventanas emergentes para Puntovivo e inténtalo de nuevo.",
+      "desktopBridgeFailed": "La impresora de escritorio no pudo procesar la cotización.",
+      "unknown": "No se pudo imprimir la cotización en este momento."
+    },
     "loading": "Cargando cotización…",
     "error": "No se pudo cargar la cotización",
     "createdAt": "Creada",

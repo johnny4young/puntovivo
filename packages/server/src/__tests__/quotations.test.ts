@@ -458,6 +458,38 @@ describe('Quotations tRPC Router', () => {
       }
     });
 
+    it('allows accepted → converted as a terminal close', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const draft = await createDraft();
+      await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
+      await caller.quotations.updateStatus({ id: draft.id, status: 'accepted' });
+
+      const converted = await caller.quotations.updateStatus({
+        id: draft.id,
+        status: 'converted',
+      });
+      expect(converted.status).toBe('converted');
+
+      // Terminal: no further transitions allowed.
+      try {
+        await caller.quotations.updateStatus({ id: draft.id, status: 'expired' });
+        throw new Error('Expected updateStatus to fail');
+      } catch (error) {
+        expectErrorCode(error, 'QUOTATION_INVALID_STATUS_TRANSITION');
+      }
+    });
+
+    it('rejects draft → converted (only accepted can convert)', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const draft = await createDraft();
+      try {
+        await caller.quotations.updateStatus({ id: draft.id, status: 'converted' });
+        throw new Error('Expected updateStatus to fail');
+      } catch (error) {
+        expectErrorCode(error, 'QUOTATION_INVALID_STATUS_TRANSITION');
+      }
+    });
+
     it('rejects updating status on an unknown quotation', async () => {
       const caller = appRouter.createCaller(createTestContext());
       try {

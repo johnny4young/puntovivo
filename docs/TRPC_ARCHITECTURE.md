@@ -368,10 +368,12 @@ Status transitions are enforced server-side via `ALLOWED_TRANSITIONS`:
 ```
 draft     → sent | rejected | expired
 sent      → accepted | rejected | expired
-accepted  → expired
+accepted  → expired | converted
 rejected  → (terminal)
 expired   → (terminal)
-converted → (reserved for the future quote-to-sale slice — unreachable today)
+converted → (terminal — operator marked the quote as closed after the sale
+             was completed through the regular POS; no inventory side
+             effects, the sale itself is the authoritative record)
 ```
 
 `quotations.updateStatus` rejects any transition outside this map with
