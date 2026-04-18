@@ -485,6 +485,31 @@ export type QuotationTransitionStatus = Extract<
   'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
 >;
 
+// ============================================================================
+// AUDIT LOGS (Phase 8 / Tier-2 #8)
+// ============================================================================
+
+export type AuditLogAction =
+  | 'transfer.void'
+  | 'quotation.delete'
+  | 'quotation.convert';
+
+export type AuditLogResourceType = 'transfer_order' | 'quotation';
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string;
+  actorName: string | null;
+  actorEmail: string | null;
+  action: AuditLogAction;
+  resourceType: AuditLogResourceType;
+  resourceId: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface QuotationListEntry {
   id: string;
   quotationNumber: string;

@@ -1,0 +1,47 @@
+{
+  "page": {
+    "kicker": "Confianza operacional",
+    "title": "Registro de auditoría",
+    "description": "Cada acción sensible (anulación, eliminación, conversión) se registra aquí — de forma atómica junto con la operación que la generó."
+  },
+  "history": {
+    "title": "Eventos recientes",
+    "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
+    "loading": "Cargando eventos de auditoría…",
+    "error": "No se pudieron cargar los eventos de auditoría",
+    "empty": "Aún no hay eventos. Acciones sensibles como anulación de transferencias, eliminación de cotizaciones y conversión de cotizaciones aparecerán aquí.",
+    "search": "Buscar por id del recurso…",
+    "exportTitle": "Exportar registro de auditoría",
+    "columns": {
+      "createdAt": "Cuándo",
+      "actor": "Usuario",
+      "action": "Acción",
+      "resource": "Recurso",
+      "resourceId": "Id del recurso",
+      "summary": "Resumen",
+      "metadata": "Metadatos"
+    }
+  },
+  "filters": {
+    "action": "Acción",
+    "resourceType": "Tipo de recurso",
+    "actor": "Usuario",
+    "createdAfter": "Desde",
+    "createdBefore": "Hasta",
+    "all": "Todos"
+  },
+  "actions": {
+    "transfer.void": "Transferencia anulada",
+    "quotation.delete": "Cotización eliminada",
+    "quotation.convert": "Cotización convertida"
+  },
+  "resourceTypes": {
+    "transfer_order": "Orden de transferencia",
+    "quotation": "Cotización"
+  },
+  "summary": {
+    "voidReason": "Motivo: {{reason}}",
+    "statusTransition": "{{from}} → {{to}}",
+    "deletedSnapshot": "Eliminada {{label}}"
+  }
+}

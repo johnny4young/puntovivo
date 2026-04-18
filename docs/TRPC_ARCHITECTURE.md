@@ -395,6 +395,42 @@ filters, and is bounded by a `limit ≤ 200` (default 50). `quotations.getById`
 returns the full header + per-line detail and resolves both the creator and
 the latest status-change actor user names for the drawer's audit panel.
 
+## Audit Logs Router (Phase 8 / Tier-2 #8)
+
+Every sensitive operation (void, delete, convert) persists one row in
+`audit_logs` via a transactional `writeAuditLog` helper in
+`services/audit-logs.ts`. The writer MUST be called inside the caller's
+transaction so the audit and the audited action share an atomic boundary —
+if the operation rolls back, so does its audit row. A regression test in
+`__tests__/audit-logs.test.ts` pins this invariant (delete-non-draft
+rolls back, no orphan audit row survives).
+
+Wire-ups in this slice:
+
+```
+transfers.void          → action "transfer.void"      resourceType "transfer_order"
+quotations.delete       → action "quotation.delete"   resourceType "quotation"
+quotations.updateStatus → action "quotation.convert"  resourceType "quotation"
+(only when nextStatus === "converted"; intermediate draft→sent→accepted
+transitions are NOT audited — the viewer cares about outcomes, not workflow)
+```
+
+The row carries a `before` / `after` JSON snapshot plus free-form
+`metadata` (e.g. the void reason). New auditable operations can be added
+by calling `writeAuditLog` from those services — there is no schema
+migration and no enum to extend at the DB layer; the TypeScript literal
+unions in `db/schema.ts` (`auditLogActionEnum`, `auditLogResourceTypeEnum`)
+are the single source of truth for allowed values.
+
+`auditLogs.list` is the read surface, gated behind `adminProcedure`.
+Supports filters (action, resourceType, resourceId, actorId, createdAfter,
+createdBefore) and is bounded by `limit ≤ 500` (default 100). The `users`
+join is tenant-guarded (`AND users.tenantId = $tenantId`) so a hypothetical
+cross-tenant actorId cannot leak the sibling tenant's actor name or email
+through the viewer — a regression test pins this behaviour by manually
+inserting a foreign-actor audit row and asserting the join collapses
+`actorName` / `actorEmail` to null.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks
