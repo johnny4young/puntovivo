@@ -43,6 +43,28 @@ export const quotationStatusEnum = [
 export type QuotationStatus = (typeof quotationStatusEnum)[number];
 export const initialInventoryModeEnum = ['initial', 'physical'] as const;
 
+/**
+ * Phase 8 / Tier-2 #8 — audit trail for sensitive operations.
+ *
+ * The list is intentionally open-ended: the full set of `action` / `resource_type`
+ * values is enforced in the service layer (`services/audit-logs.ts`), not at
+ * the DB enum level, so new auditable operations can be added without a
+ * migration. The string is stored as plain text and new values simply round
+ * trip.
+ */
+export const auditLogActionEnum = [
+  'transfer.void',
+  'quotation.delete',
+  'quotation.convert',
+] as const;
+export type AuditLogAction = (typeof auditLogActionEnum)[number];
+
+export const auditLogResourceTypeEnum = [
+  'transfer_order',
+  'quotation',
+] as const;
+export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
+
 export interface CashSessionDenomination {
   value: number;
   count: number;
@@ -2121,6 +2143,59 @@ export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
 }));
 
 // ============================================================================
+// AUDIT LOGS (Phase 8 / Tier-2 #8 — sensitive-action traceability)
+// ============================================================================
+
+/**
+ * A single immutable row per auditable operation. `before` / `after` capture
+ * a relevant JSON snapshot of the affected resource so the viewer can render
+ * a diff without re-joining upstream tables (those rows may have been
+ * deleted — e.g. deleted quotations).
+ *
+ * `metadata` is a free-form bag for per-action details that don't fit the
+ * before/after model (e.g. a void reason string, a discrepancy note).
+ */
+export const auditLogs = sqliteTable(
+  'audit_logs',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => users.id),
+    action: text('action').notNull(),
+    resourceType: text('resource_type').notNull(),
+    resourceId: text('resource_id').notNull(),
+    before: text('before', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    after: text('after', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_audit_logs_tenant').on(table.tenantId),
+    index('idx_audit_logs_actor').on(table.actorId),
+    index('idx_audit_logs_action').on(table.action),
+    index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),
+    index('idx_audit_logs_created_at').on(table.createdAt),
+  ]
+);
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [auditLogs.tenantId],
+    references: [tenants.id],
+  }),
+  actor: one(users, {
+    fields: [auditLogs.actorId],
+    references: [users.id],
+  }),
+}));
+
+// ============================================================================
 // SYNC QUEUE (Local operations waiting to be synced)
 // ============================================================================
 
@@ -2293,6 +2368,9 @@ export type Quotation = typeof quotations.$inferSelect;
 export type NewQuotation = typeof quotations.$inferInsert;
 export type QuotationItem = typeof quotationItems.$inferSelect;
 export type NewQuotationItem = typeof quotationItems.$inferInsert;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;

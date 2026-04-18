@@ -35,6 +35,7 @@ import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync.js';
 import { transfersRouter } from './routers/transfers.js';
 import { quotationsRouter } from './routers/quotations.js';
+import { auditLogsRouter } from './routers/auditLogs.js';
 
 export const appRouter = router({
   health: router({
@@ -75,6 +76,7 @@ export const appRouter = router({
   sync: syncRouter,
   transfers: transfersRouter,
   quotations: quotationsRouter,
+  auditLogs: auditLogsRouter,
   users: usersRouter,
 });
 

@@ -28,7 +28,8 @@
     "customerCatalogs": "Catálogos de clientes",
     "units": "Unidades",
     "vatRates": "Tarifas IVA",
-    "users": "Usuarios"
+    "users": "Usuarios",
+    "auditLogs": "Auditoría"
   },
   "actions": {
     "collapseRail": "Contraer menú",

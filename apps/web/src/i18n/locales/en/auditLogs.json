@@ -1,0 +1,47 @@
+{
+  "page": {
+    "kicker": "Operational trust",
+    "title": "Audit log",
+    "description": "Every sensitive action (void, delete, conversion) is recorded here — atomically with the operation that produced it."
+  },
+  "history": {
+    "title": "Recent audit events",
+    "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
+    "loading": "Loading audit events…",
+    "error": "Unable to load audit events",
+    "empty": "No audit events yet. Sensitive actions like transfer voids, quotation deletes, and quote conversions show up here.",
+    "search": "Search by resource id…",
+    "exportTitle": "Export audit log",
+    "columns": {
+      "createdAt": "When",
+      "actor": "Actor",
+      "action": "Action",
+      "resource": "Resource",
+      "resourceId": "Resource id",
+      "summary": "Summary",
+      "metadata": "Metadata"
+    }
+  },
+  "filters": {
+    "action": "Action",
+    "resourceType": "Resource type",
+    "actor": "Actor",
+    "createdAfter": "From",
+    "createdBefore": "To",
+    "all": "All"
+  },
+  "actions": {
+    "transfer.void": "Transfer voided",
+    "quotation.delete": "Quotation deleted",
+    "quotation.convert": "Quotation converted"
+  },
+  "resourceTypes": {
+    "transfer_order": "Transfer order",
+    "quotation": "Quotation"
+  },
+  "summary": {
+    "voidReason": "Reason: {{reason}}",
+    "statusTransition": "{{from}} → {{to}}",
+    "deletedSnapshot": "Deleted {{label}}"
+  }
+}

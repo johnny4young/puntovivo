@@ -14,6 +14,7 @@ import {
   getPrimarySiteId,
   syncProductStockFromBalances,
 } from './inventory-balances.js';
+import { writeAuditLog } from './audit-logs.js';
 
 /**
  * Phase 2 DB-102 / API-102 step 1 — immediate inventory transfers.
@@ -609,6 +610,28 @@ export function voidInventoryTransfer(
         )
       )
       .run();
+
+    // Phase 8 / Tier-2 #8 — audit this sensitive operation. Inside the same
+    // transaction so either both the void and the audit row land, or neither.
+    writeAuditLog({
+      tx,
+      tenantId: args.tenantId,
+      actorId: args.voidedBy,
+      action: 'transfer.void',
+      resourceType: 'transfer_order',
+      resourceId: args.transferId,
+      before: {
+        status: transfer.status,
+        fromSiteId: transfer.fromSiteId,
+        toSiteId: transfer.toSiteId,
+        notes: transfer.notes,
+      },
+      after: {
+        status: 'void',
+        notes: mergedNotes,
+      },
+      metadata: voidReason ? { reason: voidReason } : null,
+    });
 
     return {
       id: args.transferId,

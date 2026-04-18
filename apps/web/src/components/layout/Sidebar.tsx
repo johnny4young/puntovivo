@@ -15,6 +15,7 @@ import {
   Package,
   Package2,
   Ruler,
+  ShieldCheck,
   ShoppingBasket,
   ShoppingCart,
   Store,
@@ -87,6 +88,7 @@ const navigationSections = [
       { nameKey: 'items.units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.vatRates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.auditLogs', href: '/audit-logs', icon: ShieldCheck, allowedRoles: adminOnlyRoles },
     ],
   },
 ] satisfies readonly NavigationSection[];

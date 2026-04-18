@@ -22,6 +22,7 @@ import {
   type QuotationStatus,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { writeAuditLog } from './audit-logs.js';
 
 export interface QuotationItemInput {
   productId: string;
@@ -429,6 +430,23 @@ export function updateQuotationStatus(
       )
       .run();
 
+    // Phase 8 / Tier-2 #8 — audit the terminal-close transitions that
+    // carry business impact. Intermediate transitions (draft → sent, sent
+    // → accepted) are not audited because they represent normal workflow
+    // progress; a reviewer looking at the log wants to see *outcomes*.
+    if (args.nextStatus === 'converted') {
+      writeAuditLog({
+        tx,
+        tenantId: args.tenantId,
+        actorId: args.actorId,
+        action: 'quotation.convert',
+        resourceType: 'quotation',
+        resourceId: args.quotationId,
+        before: { status: current.status },
+        after: { status: args.nextStatus },
+      });
+    }
+
     return {
       id: args.quotationId,
       status: args.nextStatus as QuotationStatus,
@@ -440,6 +458,11 @@ export function updateQuotationStatus(
 export interface DeleteQuotationArgs {
   tenantId: string;
   quotationId: string;
+  /**
+   * The user requesting the delete; recorded against the audit row. The
+   * current caller in the tRPC layer passes the authenticated user id.
+   */
+  actorId: string;
 }
 
 export function deleteQuotation(
@@ -447,8 +470,17 @@ export function deleteQuotation(
   args: DeleteQuotationArgs
 ): { id: string } {
   return db.transaction(tx => {
+    // Load the snapshot we want to persist in the audit trail BEFORE deleting
+    // — the row (and its cascade children) is gone after the DELETE.
     const current = tx
-      .select({ id: quotations.id, status: quotations.status })
+      .select({
+        id: quotations.id,
+        quotationNumber: quotations.quotationNumber,
+        status: quotations.status,
+        customerId: quotations.customerId,
+        siteId: quotations.siteId,
+        total: quotations.total,
+      })
       .from(quotations)
       .where(
         and(
@@ -489,6 +521,26 @@ export function deleteQuotation(
         )
       )
       .run();
+
+    // Phase 8 / Tier-2 #8 — record the deletion with the pre-delete snapshot
+    // as `before` so the audit trail can reconstruct what was removed.
+    // `after` is null by design (the row no longer exists).
+    writeAuditLog({
+      tx,
+      tenantId: args.tenantId,
+      actorId: args.actorId,
+      action: 'quotation.delete',
+      resourceType: 'quotation',
+      resourceId: args.quotationId,
+      before: {
+        quotationNumber: current.quotationNumber,
+        status: current.status,
+        customerId: current.customerId,
+        siteId: current.siteId,
+        total: current.total,
+      },
+      after: null,
+    });
 
     return { id: args.quotationId };
   });

@@ -544,6 +544,23 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 ---
 
+## AUDIT TRAIL (Phase 8 / Tier-2 #8)
+
+| Status | ID | Runner | Role | Flow | Expected validation |
+|---|---|---|---|---|---|
+| ✅ | AUDIT-01 | BOTH | admin | Open /audit-logs with no events | Empty state renders with explanatory copy |
+| ✅ | AUDIT-02 | BOTH | admin | Void a completed transfer, reload /audit-logs | A `transfer.void` row appears with actor name+email, resource id, and reason in summary |
+| ✅ | AUDIT-03 | BOTH | admin | Delete a draft quotation | A `quotation.delete` row appears with quotation number in summary (snapshot preserved via `before`) |
+| ✅ | AUDIT-04 | BOTH | admin | Walk a quote draft→sent→accepted→converted | Only ONE audit row lands — the `quotation.convert` terminal transition; intermediate transitions are not audited |
+| ✅ | AUDIT-05 | BOTH | admin | Filter by action=`transfer.void` on a page with mixed events | Only transfer voids show; empty state renders when filter has no matches |
+| ✅ | AUDIT-06 | BOTH | admin | Filter by resource type=`quotation` | Only quotation events show |
+| ✅ | AUDIT-07 | BOTH | admin | Use the From/To date range | Events outside the range are excluded; local-time start/end-of-day anchored |
+| ✅ | AUDIT-08 | BOTH | admin | Click Export → CSV / Excel / PDF | File downloads with Timestamp, Actor, Action, Resource type, Resource id, Metadata |
+| ✅ | AUDIT-09 | BOTH | manager | Try to hit /audit-logs as non-admin | Route guarded by `adminOnlyRoles` — redirect; direct tRPC call returns FORBIDDEN |
+| ✅ | AUDIT-10 | BOTH | admin | Attempt a sensitive action that rolls back (e.g. delete a non-draft quotation) | No audit row is persisted — the audit write is inside the same transaction as the action |
+
+---
+
 ## DESKTOP / WORKSTATION
 
 | Status | ID | Runner | Role | Flow | Expected validation |

@@ -914,6 +914,25 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation ON quotation_items (quotation_id);
     CREATE INDEX IF NOT EXISTS idx_quotation_items_product ON quotation_items (product_id);
 
+    -- Audit Logs (Phase 8 / Tier-2 #8 — sensitive-action traceability)
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      actor_id TEXT NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      before TEXT,
+      after TEXT,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs (actor_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs (resource_type, resource_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

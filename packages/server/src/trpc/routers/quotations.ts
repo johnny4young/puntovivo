@@ -107,6 +107,7 @@ export const quotationsRouter = router({
       return deleteQuotation(ctx.db, {
         tenantId: ctx.tenantId,
         quotationId: input.id,
+        actorId: ctx.user!.id,
       });
     }),
 });
