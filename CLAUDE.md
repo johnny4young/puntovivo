@@ -57,16 +57,19 @@ The Fastify server runs **in-process** inside the Electron main process — it i
 
 `/api/trpc` is the canonical application API. `/api/health` remains as a compatibility health endpoint and `/api/realtime/*` remains for SSE. Do not reintroduce new REST route docs or code paths for auth, collections, or sync.
 
-## Required review skills — mandatory before finalizing changes
+## Required checks before finalizing changes
 
-These skills must be run before committing any changes in the listed areas. Treat their findings as mandatory, not suggestions.
+Before committing, every change must pass the per-workspace CI script that corresponds to the area touched. These are the same commands CI runs, so local failures will fail CI:
 
-| Area                                                                  | Skill                       |
-| --------------------------------------------------------------------- | --------------------------- |
-| Any React or TypeScript in `apps/web`                                 | `typescript-react-reviewer` |
-| Any Node.js / backend in `packages/server` or `apps/desktop/src/main` | `node`                      |
+| Area                                                                  | Command                                             |
+| --------------------------------------------------------------------- | --------------------------------------------------- |
+| Any React or TypeScript in `apps/web`                                 | `npm run ci:web`                                    |
+| Any Node.js / backend in `packages/server`                            | `npm run ci:server`                                 |
+| Any Electron main-process code in `apps/desktop/src/main`             | `npm run ci:desktop`                                |
 
-Run both in parallel when a change touches both frontend and backend.
+Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
+
+If the `review` skill is available in the session, run it on the diff before finalizing a large change — it surfaces duplication, unused deps, and violations of the patterns in this file.
 
 ## Node.js version constraint
 
@@ -86,7 +89,7 @@ Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chor
 
 ## Adding new features — checklist
 
-1. Schema change → update both `packages/server/src/db/schema.ts` (Drizzle) AND the raw DDL in `packages/server/src/db/index.ts`.
-2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire in router, update frontend type in `apps/web/src/types/index.ts`.
-3. New frontend page → add route in `apps/web/src/App.tsx`, add sidebar entry in the layout component.
-4. Run `typescript-react-reviewer` on frontend changes and `node` skill on backend changes before committing.
+1. Schema change → update both `packages/server/src/db/schema.ts` (Drizzle) AND the raw DDL in `packages/server/src/db/index.ts`. These two are hand-synchronized today; see ROADMAP ticket `DB-002` for the migration to versioned Drizzle migrations.
+2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire it in the router, and add a unit/integration test in `packages/server/src/__tests__/`. Frontend types are inferred end-to-end via the `AppRouter` export — only add entries to `apps/web/src/types/index.ts` for domain models that don't flow through tRPC.
+3. New frontend page → add a lazy route in `apps/web/src/App.tsx`, add a sidebar entry in `apps/web/src/components/layout/Sidebar.tsx`, and wire any role gating through `ProtectedRoute`. All user-visible strings must live in `apps/web/src/i18n/locales/*` (an ESLint rule blocks hardcoded strings in `title`, `placeholder`, and `aria-label`).
+4. Run `npm run ci:web` and/or `npm run ci:server` (see "Required checks" above) before committing.
