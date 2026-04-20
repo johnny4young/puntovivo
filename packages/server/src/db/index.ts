@@ -7,12 +7,23 @@
  * @module db/index
  */
 
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema.js';
 import { seedDefaultData } from './seed.js';
+
+// ENG-002 — versioned Drizzle migrations live next to this module. Resolved
+// at module load so the path is valid whether we run tests, dev, or the
+// bundled Electron main process (each preserves directory layout).
+const MIGRATIONS_FOLDER = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  'migrations'
+);
 
 export type DatabaseInstance = BetterSQLite3Database<typeof schema>;
 
@@ -63,8 +74,38 @@ export async function initDatabase(
   // Create Drizzle instance
   db = drizzle(sqlite, { schema });
 
-  // Run schema creation (creates tables if they don't exist)
+  // ENG-002 — versioned migrations first, raw-DDL fallback second.
   if (runMigrations) {
+    // Shim for pre-ENG-002 installs: when the DB already has tables (e.g.
+    // `tenants`) but no `__drizzle_migrations` row, seed the baseline entry
+    // so `drizzleMigrate` treats it as already applied and skips the DDL
+    // that would collide with the existing objects.
+    ensureMigrationBaseline(sqlite);
+
+    // Apply every migration whose `folderMillis` is greater than the
+    // latest row in `__drizzle_migrations`. On a fresh DB this runs the
+    // baseline (plus any follow-ups); on an adopted DB the shim above
+    // pinned the baseline so this is a no-op.
+    //
+    // The folder-existence guard handles packaged Electron builds where
+    // the raw `.sql` files have not been shipped into the asar bundle
+    // yet (follow-up packaging work). In that scenario the migrator is
+    // skipped and `runSchemaSync()` below takes over — the app boots
+    // instead of crashing at startup.
+    if (existsSync(resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json'))) {
+      drizzleMigrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+    } else if (verbose) {
+      console.warn(
+        `[Database] Migrations folder missing at ${MIGRATIONS_FOLDER}; ` +
+          'falling back to runSchemaSync(). Ship the migrations folder ' +
+          'alongside the server bundle to enable versioned migrations.'
+      );
+    }
+
+    // Legacy bootstrap retained as belt-and-suspenders for one release
+    // cycle — it is idempotent thanks to `IF NOT EXISTS`, so running it
+    // after `drizzleMigrate` is a no-op on both fresh and adopted DBs.
+    // Follow-up ticket will retire this once the shim has made one round.
     await runSchemaSync(db);
   }
 
@@ -99,6 +140,97 @@ export function closeDatabase(): void {
     sqlite = null;
     db = null;
   }
+}
+
+interface DrizzleJournalEntry {
+  idx: number;
+  version: string;
+  when: number;
+  tag: string;
+  breakpoints: boolean;
+}
+
+interface DrizzleJournal {
+  version: string;
+  dialect: string;
+  entries: DrizzleJournalEntry[];
+}
+
+/**
+ * ENG-002 — adoption shim for DBs that were bootstrapped via the legacy
+ * `runSchemaSync()` before versioned migrations existed.
+ *
+ * If the DB already carries application data (probed via `tenants`) but
+ * has no `__drizzle_migrations` row, this function seeds the baseline
+ * migration entry with the exact (hash, created_at) tuple that
+ * drizzle-orm's migrator would have written itself. That way the first
+ * real `drizzleMigrate()` call finds the row already pinned, short-
+ * circuits the baseline, and proceeds only to truly pending future
+ * migrations.
+ *
+ * No-op on fresh DBs (let migrate() run the baseline SQL) and on
+ * already-adopted DBs (row exists).
+ *
+ * Caveat: intentionally scoped to the baseline entry (`idx === 0`).
+ * Follow-up migrations are always applied by drizzle-orm itself.
+ */
+function ensureMigrationBaseline(sqlite: Database.Database): void {
+  const journalPath = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
+  if (!existsSync(journalPath)) {
+    // No migrations folder yet. Defer to drizzleMigrate which will throw
+    // a loud, actionable error pointing at the missing metadata.
+    return;
+  }
+
+  const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as DrizzleJournal;
+  const baselineEntry = journal.entries.find(entry => entry.idx === 0);
+  if (!baselineEntry) {
+    return;
+  }
+
+  // Probe: this DB has pre-existing application tables iff sqlite_master
+  // lists anything beyond internals (`sqlite_*`) and drizzle's own tracking
+  // table. A fresh sqlite file returns no rows at all; a legacy install
+  // may have any subset of the schema (some tests seed only a couple of
+  // tables to exercise migration fast-paths — `tenants` is not guaranteed).
+  const preExistingUserTable = sqlite
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' " +
+        "AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' LIMIT 1"
+    )
+    .get();
+  if (!preExistingUserTable) {
+    return;
+  }
+
+  // Pre-create the tracking table so we can seed the baseline row. The
+  // drizzle-orm migrator CREATE IF NOT EXISTS below will find it and
+  // reuse it.
+  sqlite
+    .prepare(
+      'CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)'
+    )
+    .run();
+
+  const existingRow = sqlite
+    .prepare('SELECT id FROM __drizzle_migrations LIMIT 1')
+    .get();
+  if (existingRow) {
+    // Either this DB already adopted the shim, or drizzleMigrate already
+    // ran on a fresh boot. Either way, hands off.
+    return;
+  }
+
+  // Compute the baseline hash exactly like drizzle-orm's
+  // `readMigrationFiles` does: sha256 of the raw `.sql` contents, no
+  // normalisation.
+  const sqlPath = resolve(MIGRATIONS_FOLDER, `${baselineEntry.tag}.sql`);
+  const sqlContents = readFileSync(sqlPath, 'utf8');
+  const baselineHash = createHash('sha256').update(sqlContents).digest('hex');
+
+  sqlite
+    .prepare('INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)')
+    .run(baselineHash, baselineEntry.when);
 }
 
 /**

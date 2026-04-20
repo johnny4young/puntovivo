@@ -15,7 +15,7 @@
     "native:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "native:rebuild:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
     "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
-    "build": "tsc",
+    "build": "tsc && node ./scripts/copy-migrations.mjs",
     "typecheck": "tsc --noEmit",
     "dev": "npm run native:ensure:node && tsx watch src/standalone.ts",
     "start": "npm run native:ensure:node && node dist/standalone.js",
