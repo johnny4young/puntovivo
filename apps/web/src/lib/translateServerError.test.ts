@@ -31,6 +31,11 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('AUTH_TENANT_DISABLED');
   });
 
+  it('recognizes the auth rate-limit server error code', () => {
+    const error = { data: { errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' } };
+    expect(extractServerErrorCode(error)).toBe('AUTH_RATE_LIMIT_EXCEEDED');
+  });
+
   it('returns null when the code is unknown / unrecognized', () => {
     expect(extractServerErrorCode({ data: { errorCode: 'NOT_A_REAL_CODE' } })).toBeNull();
   });
@@ -99,6 +104,21 @@ describe('translateServerError', () => {
     };
     expect(translateServerError(error, t, fallback)).toBe(
       'Tu cuenta ha sido deshabilitada.'
+    );
+  });
+
+  it('translates the new auth rate-limit code instead of showing the raw server message', () => {
+    const t = makeFakeT({
+      'errors:server.AUTH_RATE_LIMIT_EXCEEDED':
+        'Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.',
+    });
+    const error = {
+      data: { errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' },
+      message: 'Too many login attempts. Try again in 60 seconds.',
+    };
+
+    expect(translateServerError(error, t, fallback)).toBe(
+      'Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.'
     );
   });
 
