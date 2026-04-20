@@ -38,6 +38,14 @@ export interface ServerOptions {
   verbose?: boolean;
   /** CORS origins (default: ['http://localhost:3000', 'http://localhost:5173']) */
   corsOrigins?: string[];
+  /**
+   * Override the folder that holds the generated Drizzle SQL migrations.
+   * Defaults to the `migrations/` directory next to the compiled server
+   * module. Packaged Electron builds pass `process.resourcesPath/migrations`
+   * because the `.sql` files ship alongside the bundle via Forge
+   * `extraResource`, not inside the Vite output.
+   */
+  migrationsFolder?: string;
 }
 
 export interface PuntovivoServer {
@@ -69,6 +77,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
     ],
+    migrationsFolder,
   } = options;
 
   // Initialize database
@@ -77,6 +86,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     runMigrations: true,
     seedData: true,
     verbose,
+    migrationsFolder,
   });
 
   // Create Fastify instance
