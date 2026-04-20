@@ -56,6 +56,10 @@ class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
+  // `scrollMargin` was added to the DOM IntersectionObserver interface in
+  // the TS 6 lib update (see tsconfig `lib` pulling the new DOM types).
+  // The value is unused by the mock, it just has to satisfy the contract.
+  readonly scrollMargin: string = '';
 
   constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
 

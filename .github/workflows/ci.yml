@@ -56,6 +56,19 @@ jobs:
       - name: Run web validation
         run: npm run ci:web
 
+      # ENG-003 — ci:web now runs vitest with --coverage and the
+      # thresholds declared in apps/web/vitest.config.ts. A regression
+      # below those floors fails this job. LCOV is uploaded as an
+      # artifact so downstream tooling (Codecov, local inspection) can
+      # consume it without re-running the suite.
+      - name: Upload web LCOV coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-web
+          path: apps/web/coverage/lcov.info
+          if-no-files-found: warn
+
   # ============================================================================
   # Desktop Workspace Validation
   # ============================================================================
@@ -101,3 +114,14 @@ jobs:
 
       - name: Run backend validation
         run: npm run ci:server
+
+      # ENG-003 — ci:server now runs vitest with --coverage and the
+      # thresholds declared in packages/server/vitest.config.ts. LCOV
+      # is uploaded as an artifact for downstream coverage tooling.
+      - name: Upload backend LCOV coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-server
+          path: packages/server/coverage/lcov.info
+          if-no-files-found: warn

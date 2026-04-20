@@ -531,6 +531,31 @@ Retirement of `runSchemaSync()` is tracked as ENG-002 step 3 — now that
 every supported boot path honors `drizzleMigrate()`, the legacy bootstrap
 can be removed after one more release cycle of overlap.
 
+## CI coverage gate (ENG-003)
+
+Both workspaces declare v8 coverage thresholds that fail CI when
+violated, and both invoke `vitest run --coverage` via the
+`test:coverage` script used by `ci:web` and `ci:server`:
+
+- `packages/server/vitest.config.ts` — 80% statements / 80% lines /
+  77% functions / 63% branches. Excludes generated migration SQL,
+  build scripts, the standalone CLI entry, and config files.
+- `apps/web/vitest.config.ts` — 65% statements / 65% lines /
+  68% functions / 60% branches. These replace a previously declared
+  (but never enforced) 70% floor that the suite had drifted below.
+  Raising the web floor back to 70% is tracked as ENG-003b.
+
+The `lcov` reporter is wired into both configs and
+`.github/workflows/ci.yml` uploads `coverage/lcov.info` as an artifact
+on both the `web` and `backend` jobs (regardless of test outcome, so a
+failing run still surfaces a coverage snapshot). HTML and text-summary
+reports remain for local developer ergonomics.
+
+To reproduce locally: `npm run test:coverage --workspace=@puntovivo/web`
+or `npm run test:coverage --workspace=@puntovivo/server`. Lowering a
+threshold without raising coverage is a breaking change — every
+threshold edit must come with a ROADMAP note explaining why.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

@@ -21,6 +21,7 @@
     "start": "npm run native:ensure:node && node dist/standalone.js",
     "test": "npm run native:ensure:node && vitest run",
     "test:watch": "npm run native:ensure:node && vitest",
+    "test:coverage": "npm run native:ensure:node && vitest run --coverage",
     "lint": "eslint src --ext .ts",
     "format": "prettier --check \"src/**/*.ts\"",
     "format:fix": "prettier --write \"src/**/*.ts\"",
@@ -45,6 +46,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
+    "@vitest/coverage-v8": "^4.1.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.2.1",
     "prettier": "^3.8.3",
