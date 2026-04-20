@@ -450,6 +450,64 @@ through the viewer — a regression test pins this behaviour by manually
 inserting a foreign-actor audit row and asserting the join collapses
 `actorName` / `actorEmail` to null.
 
+## Schema migrations (ENG-002)
+
+The database schema is defined in Drizzle (`packages/server/src/db/schema.ts`)
+and mirrored in a legacy `runSchemaSync()` raw-DDL bootstrap for historical
+reasons. As of ENG-002 step 1, **versioned Drizzle migrations are the
+canonical path** for every new schema change:
+
+1. Edit `schema.ts` (add a column, widen a type, etc.).
+2. From `packages/server`, run `npm run db:generate`. This calls
+   `drizzle-kit generate`, diffs the schema against `meta/_snapshot.json`,
+   and emits a new SQL file under `src/db/migrations/` with a matching
+   journal entry.
+3. Inspect and commit the generated `.sql` file + updated `meta/` files.
+4. On the next server boot, `initDatabase()` runs the migrator before any
+   router work. Fresh installs apply every migration top-to-bottom;
+   existing installs only apply what they have not already seen.
+
+Adoption shim: installs that predate ENG-002 still carry the schema from
+`runSchemaSync()` and have no `__drizzle_migrations` table. On first boot
+against this codebase, `ensureMigrationBaseline()` detects a populated
+DB (any user-defined table other than `__drizzle_migrations`) and pre-
+seeds the baseline row with the exact `(hash, created_at)` Drizzle would
+write. That short-circuits the migrator's baseline re-run so it does not
+collide with the existing tables.
+
+`runSchemaSync()` is retained for one more release cycle as a belt-and-
+suspenders no-op: its `CREATE TABLE IF NOT EXISTS` blocks are idempotent,
+so running it after the migrator costs nothing on an already-migrated DB.
+A follow-up ticket removes it once every deployed install has exercised
+the shim.
+
+Timestamp defaults: the schema keeps timestamp columns on a dynamic SQL
+default (`datetime('now')`) so the generated baseline does not freeze the
+wall-clock time of `drizzle-kit generate`. Drizzle inserts still attach an
+ISO timestamp in application code via `$defaultFn(() => new Date().toISOString())`,
+which preserves the existing runtime shape while keeping migration output
+stable.
+
+Build/runtime note: `packages/server` now copies `src/db/migrations/**/*`
+into `dist/db/migrations` during `npm run build`. The embedded Electron
+backend imports the compiled server package, so the migrator must resolve
+real SQL and `meta/_journal.json` files from `dist/`, not only from `src/`.
+
+PostgreSQL parity: the migrator today runs SQLite-only SQL. Adopting
+PostgreSQL requires either parallel dialect-specific migration folders or
+the repository-interface abstraction tracked under ENG-010.
+
+Electron packaging gap (ENG-002 follow-up): the current Vite main config
+bundles `@puntovivo/server` into `.vite/build/*.cjs` at package time, but
+the raw `.sql` migration files are NOT included in the packaged asar.
+`initDatabase()` therefore guards `drizzleMigrate()` with an `existsSync`
+check on `meta/_journal.json`; if the folder is missing it logs a
+warning and falls back to `runSchemaSync()` so the app still boots.
+Wiring migrations into the Electron bundle (as an `extraResource` in
+`forge.config.ts` plus an explicit `migrationsFolder` override passed to
+`initDatabase()` from `apps/desktop/src/main/index.ts`) is tracked as
+ENG-002 step 2 and must land before `runSchemaSync()` can be retired.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks

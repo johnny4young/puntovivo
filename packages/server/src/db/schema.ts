@@ -8,7 +8,7 @@
  */
 
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS (as string literals for SQLite)
@@ -91,6 +91,9 @@ export interface CashSessionDenomination {
   count: number;
 }
 
+const nowIso = () => new Date().toISOString();
+const sqliteNow = sql`(datetime('now'))`;
+
 // ============================================================================
 // TENANTS
 // ============================================================================
@@ -104,8 +107,8 @@ export const tenants = sqliteTable(
     slug: text('slug').notNull().unique(),
     settings: text('settings', { mode: 'json' }).$type<Record<string, unknown>>().default({}),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [uniqueIndex('idx_tenants_slug').on(table.slug)]
 );
@@ -164,8 +167,8 @@ export const users = sqliteTable(
     sessionVersion: integer('session_version').notNull().default(1),
     role: text('role', { enum: userRoleEnum }).notNull().default('cashier'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_users_tenant').on(table.tenantId),
@@ -204,8 +207,8 @@ export const logos = sqliteTable(
     name: text('name').notNull(),
     imageUrl: text('image_url').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_logos_tenant').on(table.tenantId),
@@ -240,8 +243,8 @@ export const companies = sqliteTable(
     email: text('email'),
     logoId: text('logo_id').references(() => logos.id),
     logoUrl: text('logo_url'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_companies_tenant').on(table.tenantId),
@@ -281,8 +284,8 @@ export const sites = sqliteTable(
     address: text('address'),
     phone: text('phone'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sites_tenant').on(table.tenantId),
@@ -325,8 +328,8 @@ export const countries = sqliteTable(
     code: text('code').notNull(),
     name: text('name').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_countries_tenant').on(table.tenantId),
@@ -359,8 +362,8 @@ export const departments = sqliteTable(
     code: text('code').notNull(),
     name: text('name').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_departments_tenant').on(table.tenantId),
@@ -399,8 +402,8 @@ export const cities = sqliteTable(
     code: text('code').notNull(),
     name: text('name').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_cities_tenant').on(table.tenantId),
@@ -442,8 +445,8 @@ export const providers = sqliteTable(
     cityId: text('city_id'),
     contactName: text('contact_name'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_providers_tenant').on(table.tenantId),
@@ -482,8 +485,8 @@ export const units = sqliteTable(
     name: text('name').notNull(),
     abbreviation: text('abbreviation').notNull(),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_units_tenant').on(table.tenantId),
@@ -517,8 +520,8 @@ export const vatRates = sqliteTable(
     name: text('name').notNull(),
     rate: real('rate').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_vat_rates_tenant').on(table.tenantId),
@@ -552,8 +555,8 @@ export const sequentials = sqliteTable(
     documentType: text('document_type', { enum: sequentialDocumentTypeEnum }).notNull(),
     prefix: text('prefix').notNull().default(''),
     currentValue: integer('current_value').notNull().default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sequentials_tenant').on(table.tenantId),
@@ -588,8 +591,8 @@ export const categories = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     parentId: text('parent_id'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_categories_tenant').on(table.tenantId),
@@ -628,8 +631,8 @@ export const locations = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_locations_tenant').on(table.tenantId),
@@ -663,8 +666,8 @@ export const locationXSite = sqliteTable(
     siteId: text('site_id')
       .notNull()
       .references(() => sites.id, { onDelete: 'cascade' }),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_location_x_site_tenant').on(table.tenantId),
@@ -736,8 +739,8 @@ export const products = sqliteTable(
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_products_tenant').on(table.tenantId),
@@ -798,8 +801,8 @@ export const unitXProduct = sqliteTable(
     equivalence: real('equivalence').notNull().default(1),
     price: real('price').notNull().default(0),
     isBase: integer('is_base', { mode: 'boolean' }).default(false),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_unit_x_product_product').on(table.productId),
@@ -833,8 +836,8 @@ export const productXProvider = sqliteTable(
     providerId: text('provider_id')
       .notNull()
       .references(() => providers.id, { onDelete: 'cascade' }),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_product_x_provider_product').on(table.productId),
@@ -871,8 +874,8 @@ export const categoryXProvider = sqliteTable(
     providerId: text('provider_id')
       .notNull()
       .references(() => providers.id, { onDelete: 'cascade' }),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_category_x_provider_tenant').on(table.tenantId),
@@ -913,8 +916,8 @@ export const identificationTypes = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_identification_types_tenant').on(table.tenantId),
@@ -942,8 +945,8 @@ export const personTypes = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_person_types_tenant').on(table.tenantId),
@@ -971,8 +974,8 @@ export const regimeTypes = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_regime_types_tenant').on(table.tenantId),
@@ -1000,8 +1003,8 @@ export const clientTypes = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_client_types_tenant').on(table.tenantId),
@@ -1029,8 +1032,8 @@ export const commercialActivities = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_commercial_activities_tenant').on(table.tenantId),
@@ -1077,8 +1080,8 @@ export const customers = sqliteTable(
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_customers_tenant').on(table.tenantId),
@@ -1123,8 +1126,8 @@ export const purchases = sqliteTable(
       .references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_purchases_tenant').on(table.tenantId),
@@ -1234,8 +1237,8 @@ export const purchaseReturns = sqliteTable(
       .references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_purchase_returns_tenant').on(table.tenantId),
@@ -1340,8 +1343,8 @@ export const orders = sqliteTable(
       .references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_orders_tenant').on(table.tenantId),
@@ -1446,8 +1449,8 @@ export const sales = sqliteTable(
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sales_tenant').on(table.tenantId),
@@ -1509,10 +1512,10 @@ export const cashSessions = sqliteTable(
       .$type<CashSessionDenomination[] | null>(),
     overShort: real('over_short'),
     status: text('status', { enum: cashSessionStatusEnum }).notNull().default('open'),
-    openedAt: text('opened_at').notNull().default(new Date().toISOString()),
+    openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedAt: text('closed_at'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_cash_sessions_tenant').on(table.tenantId),
@@ -1560,8 +1563,8 @@ export const denominationTemplates = sqliteTable(
       .notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_denomination_templates_tenant').on(table.tenantId),
@@ -1600,7 +1603,7 @@ export const cashMovements = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_cash_movements_tenant').on(table.tenantId),
@@ -1701,7 +1704,7 @@ export const salePayments = sqliteTable(
     reference: text('reference'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sale_payments_tenant').on(table.tenantId),
@@ -1743,8 +1746,8 @@ export const saleReturns = sqliteTable(
       .references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sale_returns_tenant').on(table.tenantId),
@@ -1797,7 +1800,7 @@ export const inventoryMovements = sqliteTable(
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_inventory_tenant').on(table.tenantId),
@@ -1853,7 +1856,7 @@ export const initialInventory = sqliteTable(
       .references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_initial_inventory_tenant').on(table.tenantId),
@@ -1915,8 +1918,8 @@ export const inventoryBalances = sqliteTable(
     reserved: real('reserved').notNull().default(0),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_inventory_balances_tenant').on(table.tenantId),
@@ -1986,8 +1989,8 @@ export const transferOrders = sqliteTable(
     discrepancyNotes: text('discrepancy_notes'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_transfer_orders_tenant').on(table.tenantId),
@@ -2013,7 +2016,7 @@ export const transferOrderItems = sqliteTable(
     // receipts and for lines still in transit; populated on every line at
     // receive time, defaulting to `quantity` when the receiver did not edit.
     receivedQuantity: real('received_quantity'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_transfer_order_items_order').on(table.transferOrderId),
@@ -2091,8 +2094,8 @@ export const quotations = sqliteTable(
     statusChangedBy: text('status_changed_by').references(() => users.id),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_quotations_tenant').on(table.tenantId),
@@ -2120,7 +2123,7 @@ export const quotationItems = sqliteTable(
     taxRate: real('tax_rate').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
     total: real('total').notNull().default(0),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_quotation_items_quotation').on(table.quotationId),
@@ -2234,7 +2237,7 @@ export const syncQueue = sqliteTable(
     localVersion: integer('local_version').notNull().default(1),
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sync_queue_tenant').on(table.tenantId),
@@ -2262,7 +2265,7 @@ export const syncConflicts = sqliteTable(
       .default('pending'),
     resolution: text('resolution', { enum: ['local_wins', 'remote_wins', 'merged'] as const }),
     resolvedAt: text('resolved_at'),
-    createdAt: text('created_at').notNull().default(new Date().toISOString()),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_sync_conflicts_tenant').on(table.tenantId),
@@ -2277,7 +2280,7 @@ export const syncConflicts = sqliteTable(
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value', { mode: 'json' }).$type<unknown>(),
-  updatedAt: text('updated_at').notNull().default(new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
 });
 
 // ============================================================================
