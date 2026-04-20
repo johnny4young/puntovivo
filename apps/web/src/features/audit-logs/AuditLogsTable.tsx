@@ -288,5 +288,106 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  // ENG-007 second wave — purchase voids, admin user lifecycle, price
+  // overrides. Each branch renders a compact, searchable summary the
+  // auditor can scan without expanding the raw JSON payload.
+  if (entry.action === 'purchase.void') {
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string'
+        ? entry.metadata.reason
+        : null;
+    const purchaseNumber =
+      entry.before && typeof entry.before.purchaseNumber === 'string'
+        ? entry.before.purchaseNumber
+        : entry.resourceId;
+    return reason ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.purchaseVoid', { purchaseNumber, reason })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.purchaseVoidNoReason', { purchaseNumber })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'user.create') {
+    const email =
+      entry.after && typeof entry.after.email === 'string'
+        ? entry.after.email
+        : null;
+    const role =
+      entry.after && typeof entry.after.role === 'string'
+        ? entry.after.role
+        : null;
+    if (email === null || role === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.userCreate', { email, role })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'user.update') {
+    // Only role/isActive changes land here — name/email edits don't write
+    // an audit row. Render the transition that actually occurred.
+    const beforeRole =
+      entry.before && typeof entry.before.role === 'string'
+        ? entry.before.role
+        : null;
+    const afterRole =
+      entry.after && typeof entry.after.role === 'string'
+        ? entry.after.role
+        : null;
+    const beforeActive =
+      entry.before && typeof entry.before.isActive === 'boolean'
+        ? entry.before.isActive
+        : null;
+    const afterActive =
+      entry.after && typeof entry.after.isActive === 'boolean'
+        ? entry.after.isActive
+        : null;
+    const roleChange =
+      beforeRole !== null && afterRole !== null
+        ? t('summary.userRoleChange', { from: beforeRole, to: afterRole })
+        : null;
+    const activeChange =
+      beforeActive !== null && afterActive !== null
+        ? afterActive
+          ? t('summary.userReactivate')
+          : t('summary.userDeactivate')
+        : null;
+    const parts = [roleChange, activeChange].filter(
+      (part): part is string => part !== null
+    );
+    if (parts.length === 0) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">{parts.join(' · ')}</span>
+    );
+  }
+
+  if (entry.action === 'sale.price_override') {
+    const count =
+      entry.after && typeof entry.after.overrideCount === 'number'
+        ? entry.after.overrideCount
+        : null;
+    const saleNumber =
+      entry.after && typeof entry.after.saleNumber === 'string'
+        ? entry.after.saleNumber
+        : entry.resourceId;
+    if (count === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.priceOverride', { saleNumber, count })}
+      </span>
+    );
+  }
+
   return <span className="text-sm text-secondary-500">—</span>;
 }

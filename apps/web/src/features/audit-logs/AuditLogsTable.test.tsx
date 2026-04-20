@@ -284,6 +284,228 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
+  // ─── ENG-007 second wave — purchase, user, price-override summaries ────
+
+  it('renders purchase.void as purchaseNumber + reason when metadata.reason is a string', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'purchase.void',
+            resourceType: 'purchase',
+            resourceId: 'purchase-88',
+            before: { status: 'completed', purchaseNumber: 'COM-000088', total: 400 },
+            after: { status: 'voided' },
+            metadata: { reason: 'Wrong supplier' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('COM-000088 — Wrong supplier')).toBeInTheDocument();
+    expect(screen.getByText('Purchase voided')).toBeInTheDocument();
+  });
+
+  it('renders user.create with email and role', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.create',
+            resourceType: 'user',
+            resourceId: 'user-9',
+            before: null,
+            after: {
+              email: 'newcashier@example.com',
+              name: 'New Cashier',
+              role: 'cashier',
+              isActive: true,
+            },
+            metadata: null,
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(
+      screen.getByText('newcashier@example.com (cashier)')
+    ).toBeInTheDocument();
+    expect(screen.getByText('User created')).toBeInTheDocument();
+  });
+
+  it('renders user.update role change as a from/to transition', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.update',
+            resourceType: 'user',
+            resourceId: 'user-10',
+            before: { role: 'cashier' },
+            after: { role: 'manager' },
+            metadata: { email: 'promoted@example.com', roleChanged: true },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('Role cashier → manager')).toBeInTheDocument();
+  });
+
+  it('renders user.update deactivation with the deactivation badge', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.update',
+            resourceType: 'user',
+            resourceId: 'user-11',
+            before: { isActive: true },
+            after: { isActive: false },
+            metadata: { email: 'disabled@example.com', activeChanged: true },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('Deactivated')).toBeInTheDocument();
+  });
+
+  it('renders user.update combined role + deactivation with both facets', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.update',
+            resourceType: 'user',
+            resourceId: 'user-12',
+            before: { role: 'manager', isActive: true },
+            after: { role: 'cashier', isActive: false },
+            metadata: {
+              email: 'demoted@example.com',
+              roleChanged: true,
+              activeChanged: true,
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    // Both facets separated by a middle dot — keeps the summary scannable.
+    expect(
+      screen.getByText('Role manager → cashier · Deactivated')
+    ).toBeInTheDocument();
+  });
+
+  it('renders sale.price_override with the overridden line count', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.price_override',
+            resourceType: 'sale',
+            resourceId: 'sale-67',
+            before: null,
+            after: { saleNumber: 'POS-000067', overrideCount: 2 },
+            metadata: {
+              overrides: [
+                {
+                  saleItemId: 'i-1',
+                  productId: 'p-1',
+                  productName: 'Widget',
+                  referenceUnitPrice: 100,
+                  unitPrice: 80,
+                  quantity: 1,
+                },
+                {
+                  saleItemId: 'i-2',
+                  productId: 'p-2',
+                  productName: 'Gadget',
+                  referenceUnitPrice: 50,
+                  unitPrice: 40,
+                  quantity: 2,
+                },
+              ],
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(
+      screen.getByText('POS-000067 — 2 lines overridden')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Sale price override')).toBeInTheDocument();
+  });
+
+  it('renders sale.price_override with singular copy for a single overridden line', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.price_override',
+            resourceType: 'sale',
+            resourceId: 'sale-68',
+            before: null,
+            after: { saleNumber: 'POS-000068', overrideCount: 1 },
+            metadata: {
+              overrides: [
+                {
+                  saleItemId: 'i-3',
+                  productId: 'p-3',
+                  productName: 'Cable',
+                  referenceUnitPrice: 25,
+                  unitPrice: 20,
+                  quantity: 1,
+                },
+              ],
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(
+      screen.getByText('POS-000068 — 1 line overridden')
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to — for user.update rows with neither role nor isActive transitions', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'user.update',
+            resourceType: 'user',
+            resourceId: 'user-13',
+            // Corrupted audit row with no role/isActive change captured.
+            before: {},
+            after: {},
+            metadata: {},
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {
     render(
       <AuditLogsTable

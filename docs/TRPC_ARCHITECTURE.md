@@ -420,6 +420,18 @@ inventory.adjustStock   → action "inventory.adjust_stock"  resourceType "produ
 (skipped when delta === 0; the movement/sync rows above the audit call
 still land unconditionally — pre-existing behaviour, documented inline
 for the next cleanup pass)
+purchases.void          → action "purchase.void"           resourceType "purchase"
+users.create            → action "user.create"             resourceType "user"
+(password hash is NEVER included in before/after; only email, name, role,
+isActive land on the audit row)
+users.update            → action "user.update"             resourceType "user"
+(emits only when role or isActive changes; name/email-only edits do not
+pollute the audit timeline; the before/after snapshots carry only the
+fields that actually transitioned)
+sales.create            → action "sale.price_override"     resourceType "sale"
+(one audit row per sale summarizing every line whose unitPrice deviated
+from unit_x_product.price beyond a cent of tolerance; skipped entirely
+when no override happened)
 ```
 
 The row carries a `before` / `after` JSON snapshot plus free-form

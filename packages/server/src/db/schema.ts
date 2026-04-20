@@ -64,6 +64,13 @@ export const auditLogActionEnum = [
   'sale.return',
   'cash_session.close',
   'inventory.adjust_stock',
+  // ENG-007 second wave — purchase voids, admin user lifecycle, manual
+  // price overrides at checkout. Same free-form-text rule applies: no
+  // migration is needed to add audit actions here.
+  'purchase.void',
+  'user.create',
+  'user.update',
+  'sale.price_override',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -73,6 +80,9 @@ export const auditLogResourceTypeEnum = [
   'sale',
   'cash_session',
   'product',
+  // ENG-007 second wave resources.
+  'purchase',
+  'user',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

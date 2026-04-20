@@ -671,6 +671,231 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     });
   });
 
+  // ─── ENG-007 second wave — purchase voids, admin user lifecycle, price overrides ──
+
+  describe('purchase voids, user lifecycle, price overrides (ENG-007 second wave)', () => {
+    async function openCashSessionForTest(registerName: string) {
+      const caller = appRouter.createCaller(createTestContext());
+      return caller.cashSessions.open({
+        registerName,
+        openingFloat: 100,
+        denominations: [{ value: 100, count: 1 }],
+      });
+    }
+
+    async function closeActiveSession() {
+      const caller = appRouter.createCaller(createTestContext());
+      return caller.cashSessions.close({
+        actualCount: 100,
+        denominations: [{ value: 100, count: 1 }],
+      });
+    }
+
+    it('writes a purchase.void audit row carrying purchaseNumber, total and reason', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct(`AUD-PV-${nanoid(6)}`);
+
+      const purchase = await caller.purchases.create({
+        providerId,
+        items: [
+          {
+            productId: product.id,
+            unitId: baseUnitId,
+            quantity: 5,
+            costPerUnit: 4,
+          },
+        ],
+      });
+
+      await caller.purchases.void({ id: purchase.id, reason: 'Wrong supplier' });
+
+      const audit = await getLatestAuditRow({
+        resourceType: 'purchase',
+        resourceId: purchase.id,
+      });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('purchase.void');
+      expect(audit?.before).toMatchObject({
+        status: 'completed',
+        purchaseNumber: expect.stringMatching(/^COM-\d{6}$/),
+      });
+      expect(audit?.after).toMatchObject({ status: 'voided' });
+      expect(audit?.metadata).toMatchObject({
+        reason: 'Wrong supplier',
+        siteId: primarySiteId,
+      });
+    });
+
+    it('writes a user.create audit row with email/role/isActive in the after snapshot but no password hash', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const email = `aud-uc-${nanoid(4)}@example.com`;
+
+      const created = await caller.users.create({
+        email,
+        name: 'Audit Cashier',
+        password: 'Temp-Password-1',
+        role: 'cashier',
+        isActive: true,
+      });
+
+      const audit = await getLatestAuditRow({
+        resourceType: 'user',
+        resourceId: created.id,
+      });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('user.create');
+      expect(audit?.before).toBeNull();
+      expect(audit?.after).toMatchObject({
+        email,
+        name: 'Audit Cashier',
+        role: 'cashier',
+        isActive: true,
+      });
+      // Critical: the password hash must NEVER be persisted in the audit
+      // trail. If it were, the audit log would become a credential dump.
+      const afterJson = JSON.stringify(audit?.after ?? {});
+      expect(afterJson).not.toContain('passwordHash');
+      expect(afterJson).not.toContain('Temp-Password-1');
+    });
+
+    it('writes a user.update audit row only when role or isActive change', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const created = await caller.users.create({
+        email: `aud-uu-${nanoid(4)}@example.com`,
+        name: 'Audit Manager',
+        password: 'Temp-Password-1',
+        role: 'cashier',
+        isActive: true,
+      });
+
+      // Name-only edit must NOT write an audit row — bookkeeping isn't
+      // security-sensitive.
+      await caller.users.update({ id: created.id, name: 'Audit Manager Renamed' });
+      const rowsAfterNameEdit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'user'),
+            eq(auditLogs.resourceId, created.id),
+            eq(auditLogs.action, 'user.update')
+          )
+        )
+        .all();
+      expect(rowsAfterNameEdit).toHaveLength(0);
+
+      // Role escalation MUST write an audit row with the role transition.
+      await caller.users.update({ id: created.id, role: 'manager' });
+      // Disable MUST write a separate audit row (rows may share the same
+      // ISO-millisecond createdAt, so we explicitly find each by its
+      // before/after shape rather than relying on DESC-order tie-breaking).
+      await caller.users.update({ id: created.id, isActive: false });
+
+      const allUpdateRows = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'user'),
+            eq(auditLogs.resourceId, created.id),
+            eq(auditLogs.action, 'user.update')
+          )
+        )
+        .all();
+      expect(allUpdateRows).toHaveLength(2);
+
+      const roleAudit = allUpdateRows.find(row => {
+        const before = row.before as Record<string, unknown> | null;
+        return before !== null && typeof before.role === 'string';
+      });
+      expect(roleAudit?.before).toMatchObject({ role: 'cashier' });
+      expect(roleAudit?.after).toMatchObject({ role: 'manager' });
+
+      const disableAudit = allUpdateRows.find(row => {
+        const before = row.before as Record<string, unknown> | null;
+        return before !== null && typeof before.isActive === 'boolean';
+      });
+      expect(disableAudit?.before).toMatchObject({ isActive: true });
+      expect(disableAudit?.after).toMatchObject({ isActive: false });
+    });
+
+    it('writes a single sale.price_override row summarizing every line that deviated from the catalog', async () => {
+      await openCashSessionForTest(`AUD-PO-REG-${nanoid(4)}`);
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct(`AUD-PO-${nanoid(6)}`);
+
+      // Catalog price is 100 (set by createProduct). Cashier enters 80 —
+      // a 20-unit markdown, which counts as a manual override.
+      const sale = await caller.sales.create({
+        items: [
+          { productId: product.id, unitId: baseUnitId, quantity: 1, unitPrice: 80, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 80,
+        discountAmount: 0,
+      });
+
+      const audit = await getLatestAuditRow({
+        resourceType: 'sale',
+        resourceId: sale.id,
+      });
+      expect(audit?.action).toBe('sale.price_override');
+      expect(audit?.after).toMatchObject({ overrideCount: 1 });
+
+      const overrides = (audit?.metadata as Record<string, unknown> | null)
+        ?.overrides;
+      expect(Array.isArray(overrides)).toBe(true);
+      expect(overrides).toHaveLength(1);
+      expect((overrides as Array<Record<string, unknown>>)[0]).toMatchObject({
+        productId: product.id,
+        referenceUnitPrice: 100,
+        unitPrice: 80,
+        quantity: 1,
+      });
+
+      await closeActiveSession();
+    });
+
+    it('does NOT write a sale.price_override row when every line matches the catalog price', async () => {
+      await openCashSessionForTest(`AUD-PO-NOOP-REG-${nanoid(4)}`);
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const product = await createProduct(`AUD-PO-NOOP-${nanoid(6)}`);
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId: product.id, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      });
+
+      const rows = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'sale'),
+            eq(auditLogs.resourceId, sale.id),
+            eq(auditLogs.action, 'sale.price_override')
+          )
+        )
+        .all();
+      expect(rows).toHaveLength(0);
+
+      await closeActiveSession();
+    });
+  });
+
   it('does NOT persist an audit row when the sensitive action rolls back', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const db = getDatabase();

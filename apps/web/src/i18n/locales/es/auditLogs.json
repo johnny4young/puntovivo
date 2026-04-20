@@ -2,14 +2,14 @@
   "page": {
     "kicker": "Confianza operacional",
     "title": "Registro de auditoría",
-    "description": "Cada acción sensible — anulación o reembolso de venta, cierre de caja, ajuste de stock, anulación de transferencia, eliminación o conversión de cotización — se registra aquí, de forma atómica junto con la operación que la generó."
+    "description": "Cada acción sensible — anulación o reembolso de venta, precios manuales en venta, anulación de compra, cierre de caja, ajuste de stock, anulación de transferencia, cambios del ciclo de vida de usuarios y eliminación o conversión de cotización — se registra aquí, de forma atómica junto con la operación que la generó."
   },
   "history": {
     "title": "Eventos recientes",
     "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
     "loading": "Cargando eventos de auditoría…",
     "error": "No se pudieron cargar los eventos de auditoría",
-    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, cierres de caja, ajustes de stock, anulaciones de transferencias y cambios en cotizaciones aparecerán aquí.",
+    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, anulaciones de compra, cierres de caja, ajustes de stock, anulaciones de transferencias, cambios del ciclo de vida de usuarios y cambios en cotizaciones aparecerán aquí.",
     "search": "Buscar por id del recurso…",
     "exportTitle": "Exportar registro de auditoría",
     "columns": {
@@ -37,14 +37,20 @@
     "sale.void": "Venta anulada",
     "sale.return": "Venta reembolsada",
     "cash_session.close": "Caja cerrada",
-    "inventory.adjust_stock": "Stock ajustado"
+    "inventory.adjust_stock": "Stock ajustado",
+    "purchase.void": "Compra anulada",
+    "user.create": "Usuario creado",
+    "user.update": "Usuario actualizado",
+    "sale.price_override": "Precio manual en venta"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
     "quotation": "Cotización",
     "sale": "Venta",
     "cash_session": "Caja",
-    "product": "Producto"
+    "product": "Producto",
+    "purchase": "Compra",
+    "user": "Usuario"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
@@ -55,6 +61,14 @@
     "saleRefund": "Reembolso de {{amount}}",
     "saleRefundReason": "Reembolso de {{amount}} — {{reason}}",
     "cashSessionClose": "Descuadre: {{overShort}}",
-    "stockAdjust": "{{before}} → {{after}} ({{delta}})"
+    "stockAdjust": "{{before}} → {{after}} ({{delta}})",
+    "purchaseVoid": "{{purchaseNumber}} — {{reason}}",
+    "purchaseVoidNoReason": "{{purchaseNumber}}",
+    "userCreate": "{{email}} ({{role}})",
+    "userRoleChange": "Rol {{from}} → {{to}}",
+    "userDeactivate": "Desactivado",
+    "userReactivate": "Reactivado",
+    "priceOverride_one": "{{saleNumber}} — {{count}} línea con precio manual",
+    "priceOverride_other": "{{saleNumber}} — {{count}} líneas con precio manual"
   }
 }

@@ -2,14 +2,14 @@
   "page": {
     "kicker": "Operational trust",
     "title": "Audit log",
-    "description": "Every sensitive action — sale void or refund, cash session close, stock adjustment, transfer void, quotation delete or conversion — is recorded here, atomically with the operation that produced it."
+    "description": "Every sensitive action — sale voids, refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, and quotation delete or conversion — is recorded here, atomically with the operation that produced it."
   },
   "history": {
     "title": "Recent audit events",
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
     "loading": "Loading audit events…",
     "error": "Unable to load audit events",
-    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, cash session closes, stock adjustments, transfer voids, and quotation changes show up here.",
+    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, and quotation changes show up here.",
     "search": "Search by resource id…",
     "exportTitle": "Export audit log",
     "columns": {
@@ -37,14 +37,20 @@
     "sale.void": "Sale voided",
     "sale.return": "Sale refunded",
     "cash_session.close": "Cash session closed",
-    "inventory.adjust_stock": "Stock adjusted"
+    "inventory.adjust_stock": "Stock adjusted",
+    "purchase.void": "Purchase voided",
+    "user.create": "User created",
+    "user.update": "User updated",
+    "sale.price_override": "Sale price override"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
     "quotation": "Quotation",
     "sale": "Sale",
     "cash_session": "Cash session",
-    "product": "Product"
+    "product": "Product",
+    "purchase": "Purchase",
+    "user": "User"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
@@ -55,6 +61,14 @@
     "saleRefund": "Refunded {{amount}}",
     "saleRefundReason": "Refunded {{amount}} — {{reason}}",
     "cashSessionClose": "Over/short: {{overShort}}",
-    "stockAdjust": "{{before}} → {{after}} ({{delta}})"
+    "stockAdjust": "{{before}} → {{after}} ({{delta}})",
+    "purchaseVoid": "{{purchaseNumber}} — {{reason}}",
+    "purchaseVoidNoReason": "{{purchaseNumber}}",
+    "userCreate": "{{email}} ({{role}})",
+    "userRoleChange": "Role {{from}} → {{to}}",
+    "userDeactivate": "Deactivated",
+    "userReactivate": "Reactivated",
+    "priceOverride_one": "{{saleNumber}} — {{count}} line overridden",
+    "priceOverride_other": "{{saleNumber}} — {{count}} lines overridden"
   }
 }

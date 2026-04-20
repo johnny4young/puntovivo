@@ -12,6 +12,7 @@ import {
   resetUserPasswordInput,
   updateUserInput,
 } from '../schemas/users.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 
 export const usersRouter = router({
   list: adminProcedure.input(listUsersInput).query(async ({ ctx, input }) => {
@@ -71,30 +72,66 @@ export const usersRouter = router({
 
     const now = new Date().toISOString();
     const id = nanoid();
+    // Must hash BEFORE the sync transaction — better-sqlite3 transactions
+    // are synchronous and cannot await argon2.
     const passwordHash = await argon2.hash(input.password);
+    const actorId = ctx.user!.id;
 
-    await ctx.db.insert(users).values({
-      id,
-      tenantId: ctx.tenantId,
-      email: input.email,
-      name: input.name,
-      passwordHash,
-      role: input.role,
-      isActive: input.isActive,
-      createdAt: now,
-      updatedAt: now,
-    });
+    // ENG-007 — user lifecycle writes plus their audit row share a single
+    // atomic boundary, same pattern as cashSessions.close.
+    ctx.db.transaction(tx => {
+      tx.insert(users)
+        .values({
+          id,
+          tenantId: ctx.tenantId,
+          email: input.email,
+          name: input.name,
+          passwordHash,
+          role: input.role,
+          isActive: input.isActive,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
-      entityType: 'users',
-      entityId: id,
-      operation: 'create',
-      data: { id, email: input.email, name: input.name, role: input.role, isActive: input.isActive },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
+      tx.insert(syncQueue)
+        .values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          entityType: 'users',
+          entityId: id,
+          operation: 'create',
+          data: {
+            id,
+            email: input.email,
+            name: input.name,
+            role: input.role,
+            isActive: input.isActive,
+          },
+          localVersion: 1,
+          attempts: 0,
+          createdAt: now,
+        })
+        .run();
+
+      // New-account snapshot — PII stays in `after` only because `before`
+      // is null for a create. Password hash is intentionally never recorded.
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId,
+        action: 'user.create',
+        resourceType: 'user',
+        resourceId: id,
+        before: null,
+        after: {
+          email: input.email,
+          name: input.name,
+          role: input.role,
+          isActive: input.isActive,
+        },
+        metadata: null,
+      });
     });
 
     return (
@@ -150,19 +187,61 @@ export const usersRouter = router({
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.role !== undefined) updateData.role = updates.role;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+    const actorId = ctx.user!.id;
 
-    await ctx.db.update(users).set(updateData).where(eq(users.id, id));
+    // ENG-007 — only audit genuinely sensitive changes. Name/email edits
+    // are bookkeeping; role escalation and disable/enable are security
+    // events. Detecting change against the `existing` snapshot keeps the
+    // audit timeline free of noise when an admin reopens the form and
+    // saves without touching role/isActive.
+    const roleChanged =
+      updates.role !== undefined && updates.role !== existing.role;
+    const activeChanged =
+      updates.isActive !== undefined && updates.isActive !== existing.isActive;
+    const shouldAudit = roleChanged || activeChanged;
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
-      entityType: 'users',
-      entityId: id,
-      operation: 'update',
-      data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
+    ctx.db.transaction(tx => {
+      tx.update(users).set(updateData).where(eq(users.id, id)).run();
+
+      tx.insert(syncQueue)
+        .values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          entityType: 'users',
+          entityId: id,
+          operation: 'update',
+          data: { id, ...updateData },
+          localVersion: 1,
+          attempts: 0,
+          createdAt: now,
+        })
+        .run();
+
+      if (shouldAudit) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId,
+          action: 'user.update',
+          resourceType: 'user',
+          resourceId: id,
+          // Snapshot ONLY the fields that actually changed so auditors
+          // don't see spurious email/name noise next to a role escalation.
+          before: {
+            ...(roleChanged ? { role: existing.role } : {}),
+            ...(activeChanged ? { isActive: existing.isActive } : {}),
+          },
+          after: {
+            ...(roleChanged ? { role: updates.role } : {}),
+            ...(activeChanged ? { isActive: updates.isActive } : {}),
+          },
+          metadata: {
+            email: existing.email,
+            ...(roleChanged ? { roleChanged: true } : {}),
+            ...(activeChanged ? { activeChanged: true } : {}),
+          },
+        });
+      }
     });
 
     return (
