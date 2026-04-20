@@ -52,12 +52,98 @@ Key references:
 - raw Node access is not exposed to the renderer
 - DB bridge uses allowlisted tables/fields and tenant-aware sync helpers
 
+## auth.login rate limiting (ENG-008)
+
+The `auth.login` tRPC procedure (`packages/server/src/trpc/routers/auth.ts`) is
+gated by two independent in-memory TTL buckets declared in
+`packages/server/src/security/loginRateLimit.ts`.
+
+| Bucket   | Key                  | Cap | Window      | Purpose |
+| -------- | -------------------- | --- | ----------- | ------- |
+| IP       | client `request.ip`  | 10  | 60 seconds  | Stops brute-force from a single origin. |
+| Username | normalized email     | 5   | 15 minutes  | Stops distributed credential-stuffing that rotates IPs against one account. |
+
+Every failed attempt — wrong password, unknown user, disabled user, disabled
+tenant — increments BOTH buckets. Counting attempts for unknown users is
+deliberate: it prevents username-enumeration via brute-force timing.
+
+Reset rules:
+
+- A successful login clears the username bucket for that email only.
+- The IP bucket is never reset on success; it decays via its 60-second TTL.
+  A single legitimate login must not amnesty an active stuffing source.
+- Email keys are normalized (`email.trim().toLowerCase()`) before lookup,
+  so different casings of the same address share one bucket.
+
+When either cap is exceeded, the procedure responds with:
+
+- tRPC code `TOO_MANY_REQUESTS` (HTTP 429).
+- Stable `errorCode: 'AUTH_RATE_LIMIT_EXCEEDED'` on the error `cause`.
+- `details: { kind, key, max, secondsUntilReset }` so the frontend can
+  render an accurate retry-after.
+
+### Attack coverage
+
+- **Single-IP brute-force against one account** — blocked by the username
+  bucket at attempt 6 and by the IP bucket at attempt 11 (whichever lands
+  first).
+- **Credential stuffing from one IP across many accounts** — blocked by the
+  IP bucket at attempt 11.
+- **Distributed credential stuffing against one account** — blocked by the
+  username bucket at attempt 6, regardless of origin IP.
+- **Distributed credential stuffing across many accounts** — partially
+  mitigated: each (IP, account) pair can still make up to 5 attempts
+  before the username bucket for that account fires across all IPs. An
+  acceptable residual for the embedded POS; see "Future hardening" below
+  for the multi-tenant path.
+
+### Persistence and restart behavior
+
+Bucket state lives in two `Map<string, {count, firstAt}>` instances at the
+module level. A server restart wipes the counters and every attempt starts
+fresh. For the embedded Electron build this is acceptable (a restart is
+rare and observable; the DB stays intact so actual account state is
+unchanged). `ENG-008b` tracks DB-backed persistence for the multi-tenant
+cloud deployment.
+
+### Operations
+
+Policy knobs are exported constants — changing any requires updating the
+unit tests in `packages/server/src/__tests__/loginRateLimit.test.ts` and a
+note in the ROADMAP explaining the trade-off:
+
+```ts
+export const LOGIN_RATE_LIMIT_IP_MAX = 10;
+export const LOGIN_RATE_LIMIT_IP_WINDOW_MS = 60_000;
+export const LOGIN_RATE_LIMIT_USERNAME_MAX = 5;
+export const LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS = 15 * 60_000;
+```
+
+No structured log is emitted when a bucket trips today. `ENG-006` will add
+`security.login.rate-limit.hit` events once the `pino` logger lands; the
+thrown error already carries `details.kind` / `details.key` for the
+logger wrapper to read.
+
+### Non-goals in this slice
+
+- The 60-second `@fastify/rate-limit` global cap at 100/min stays as-is —
+  it protects the rest of the tRPC surface but intentionally does not
+  interact with the login-specific buckets.
+- The 429 error message is English-only in the server response. Frontend
+  localization keys on the `AUTH_RATE_LIMIT_EXCEEDED` error code via
+  `apps/web/src/lib/translateServerError.ts`; see
+  `apps/web/src/i18n/locales/**/errors.json` for the translation entries.
+
+### Future hardening (tracked follow-ups)
+
+- `ENG-008b` — persistent DB-backed tracking so server restarts do not
+  amnesty attackers.
+- Per-account exponential backoff (double the window for repeated locks).
+- CAPTCHA challenge after N consecutive locks.
+- IP allowlist / denylist for deployments that know their customer subnets.
+- Optional multi-factor on the login procedure.
+
 ## Current Open Risks
-
-### Electron sandbox
-
-The hidden print window uses `sandbox: true`, but the main BrowserWindow still uses `sandbox: false`.
-That remains a meaningful hardening gap.
 
 ### Auditability
 
@@ -78,7 +164,7 @@ Desktop packaging and export/reporting dependencies should continue to be review
 
 Short-term:
 
-1. enable sandbox for the main BrowserWindow if the remaining preload/renderer assumptions allow it
+1. ~~enable sandbox for the main BrowserWindow if the remaining preload/renderer assumptions allow it~~ — **shipped as ENG-004**. The main window now runs under `sandbox: true`; the invariant is pinned by a `node --test` regression in `apps/desktop/src/main/__tests__/window-config.test.ts`.
 2. add auditable records for sensitive admin workflows
 
 Medium-term:

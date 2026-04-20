@@ -18,6 +18,13 @@ export const SERVER_ERROR_CODES = {
   AUTH_USER_NOT_FOUND: 'AUTH_USER_NOT_FOUND',
   AUTH_CURRENT_PASSWORD_INCORRECT: 'AUTH_CURRENT_PASSWORD_INCORRECT',
   AUTH_PASSWORD_POLICY: 'AUTH_PASSWORD_POLICY',
+  /**
+   * ENG-008 — the `auth.login` procedure refused the attempt because the
+   * per-IP or per-username rate-limit bucket is saturated. `details` carries
+   * `{ kind: 'ip' | 'username', key, max, secondsUntilReset }` so the
+   * frontend can render a precise retry-after message.
+   */
+  AUTH_RATE_LIMIT_EXCEEDED: 'AUTH_RATE_LIMIT_EXCEEDED',
 
   // --- cash sessions domain (Phase 1 DB-051 / API-051 / API-055) ---
   CASH_SESSION_REQUIRED: 'CASH_SESSION_REQUIRED',

@@ -9,6 +9,7 @@
     "AUTH_INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
     "AUTH_USER_DISABLED": "Tu cuenta ha sido deshabilitada. Por favor contacta al administrador.",
     "AUTH_TENANT_DISABLED": "Tu organización ha sido deshabilitada. Por favor contacta a soporte.",
+    "AUTH_RATE_LIMIT_EXCEEDED": "Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.",
     "AUTH_REFRESH_INVALID": "Tu sesión expiró. Por favor inicia sesión de nuevo.",
     "AUTH_USER_NOT_FOUND": "No se encontró tu cuenta de usuario.",
     "AUTH_CURRENT_PASSWORD_INCORRECT": "Tu contraseña actual es incorrecta.",

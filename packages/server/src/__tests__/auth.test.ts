@@ -6,7 +6,7 @@
  * @module __tests__/auth.test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -17,6 +17,11 @@ import { eq } from 'drizzle-orm';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import {
+  LOGIN_RATE_LIMIT_IP_MAX,
+  LOGIN_RATE_LIMIT_USERNAME_MAX,
+  __resetForTests as resetLoginRateLimit,
+} from '../security/loginRateLimit.js';
 
 let server: PuntovivoServer;
 let testTenantId: string;
@@ -83,6 +88,11 @@ function createTestContext(userPayload?: {
   const mockReq = {
     server: server.app,
     headers: {},
+    // ENG-008 — the login rate-limit service reads `ctx.req.ip`; the
+    // Fastify request provides this in production via the connection
+    // remote address. Pin a stable value so every createCaller-driven
+    // test shares one IP bucket.
+    ip: '127.0.0.1',
     user: userPayload
       ? {
           userId: userPayload.id,
@@ -155,6 +165,13 @@ describe('Auth tRPC Router', () => {
     if (server) {
       await server.close();
     }
+  });
+
+  // ENG-008 — the login rate-limit service keeps module-level bucket state
+  // across invocations. Reset it between every test so failed-login paths
+  // exercised by one case do not saturate the bucket for the next.
+  beforeEach(() => {
+    resetLoginRateLimit();
   });
 
   describe('auth.login', () => {
@@ -599,6 +616,144 @@ describe('Auth tRPC Router', () => {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, testUserId));
+    });
+  });
+
+  /**
+   * ENG-008 acceptance — `auth.login` enforces both a per-IP cap
+   * (LOGIN_RATE_LIMIT_IP_MAX attempts per 60s) and a per-username cap
+   * (LOGIN_RATE_LIMIT_USERNAME_MAX failures per 15 minutes).
+   *
+   * These tests drive the procedure directly through the tRPC caller
+   * rather than via HTTP inject because (a) they measure bucket
+   * semantics and (b) createCaller already uses the mocked
+   * `createTestContext`, which pins `ctx.req.ip = '127.0.0.1'`. Both
+   * buckets therefore key off the same identity and saturate
+   * deterministically.
+   */
+  describe('auth.login rate limiting (ENG-008)', () => {
+    async function attemptLogin(email: string, password: string) {
+      const caller = appRouter.createCaller(createTestContext());
+      return caller.auth.login({ email, password });
+    }
+
+    async function expectCode(
+      promise: Promise<unknown>,
+      trpcCode: string,
+      errorCode: string
+    ) {
+      try {
+        await promise;
+        expect.unreachable(`Expected ${trpcCode} / ${errorCode}, nothing thrown`);
+      } catch (err) {
+        expect(err).toBeInstanceOf(TRPCError);
+        const trpcErr = err as TRPCError;
+        expect(trpcErr.code).toBe(trpcCode);
+        const cause = trpcErr.cause;
+        expect(cause).toBeInstanceOf(ServerErrorWithCode);
+        expect((cause as ServerErrorWithCode).errorCode).toBe(errorCode);
+      }
+    }
+
+    it('ROADMAP acceptance: 50 bad-password attempts from one IP return TOO_MANY_REQUESTS inside 60s', async () => {
+      const startMs = Date.now();
+
+      // Attempts 1..USERNAME_MAX hit the existing invalid-credentials surface.
+      for (let i = 0; i < LOGIN_RATE_LIMIT_USERNAME_MAX; i += 1) {
+        await expectCode(
+          attemptLogin('trpctest@example.com', 'wrongpassword'),
+          'UNAUTHORIZED',
+          'AUTH_INVALID_CREDENTIALS'
+        );
+      }
+
+      // Attempts USERNAME_MAX+1 through 50 must bounce with TOO_MANY_REQUESTS
+      // (the username bucket saturates first; the IP bucket is still below
+      // its own cap but the outcome is the same 429 from the operator's
+      // perspective, which is what the ROADMAP gate requires).
+      const remaining = 50 - LOGIN_RATE_LIMIT_USERNAME_MAX;
+      for (let i = 0; i < remaining; i += 1) {
+        await expectCode(
+          attemptLogin('trpctest@example.com', 'wrongpassword'),
+          'TOO_MANY_REQUESTS',
+          'AUTH_RATE_LIMIT_EXCEEDED'
+        );
+      }
+
+      // Wall-clock must be well inside the IP window (60s). argon2 verifies
+      // only run on the first USERNAME_MAX attempts; the rest short-circuit
+      // at the bucket check so total runtime is dominated by the argon2
+      // verifications, which finish in well under 30s.
+      const elapsedMs = Date.now() - startMs;
+      expect(elapsedMs).toBeLessThan(30_000);
+    });
+
+    it('IP cap trips after LOGIN_RATE_LIMIT_IP_MAX attempts against different usernames (credential stuffing)', async () => {
+      // Rotating usernames would otherwise bypass the per-username bucket.
+      // The IP bucket still saturates at IP_MAX attempts from the same source.
+      expect(LOGIN_RATE_LIMIT_IP_MAX).toBeGreaterThan(LOGIN_RATE_LIMIT_USERNAME_MAX);
+
+      for (let i = 0; i < LOGIN_RATE_LIMIT_IP_MAX; i += 1) {
+        await expectCode(
+          attemptLogin(`stuffing-${i}@test.com`, 'anything'),
+          'UNAUTHORIZED',
+          'AUTH_INVALID_CREDENTIALS'
+        );
+      }
+
+      // Attempt IP_MAX+1 against yet another unused email still trips the
+      // IP cap — the rejection does not depend on the target user existing.
+      await expectCode(
+        attemptLogin('stuffing-overflow@test.com', 'anything'),
+        'TOO_MANY_REQUESTS',
+        'AUTH_RATE_LIMIT_EXCEEDED'
+      );
+    });
+
+    it('username cap trips at the 6th bad-password attempt against a single user', async () => {
+      expect(LOGIN_RATE_LIMIT_USERNAME_MAX).toBeLessThan(LOGIN_RATE_LIMIT_IP_MAX);
+
+      for (let i = 0; i < LOGIN_RATE_LIMIT_USERNAME_MAX; i += 1) {
+        await expectCode(
+          attemptLogin('trpctest@example.com', 'wrongpassword'),
+          'UNAUTHORIZED',
+          'AUTH_INVALID_CREDENTIALS'
+        );
+      }
+
+      // IP bucket still has headroom (USERNAME_MAX < IP_MAX), so the
+      // rejection here is owed to the username bucket specifically.
+      await expectCode(
+        attemptLogin('trpctest@example.com', 'wrongpassword'),
+        'TOO_MANY_REQUESTS',
+        'AUTH_RATE_LIMIT_EXCEEDED'
+      );
+    });
+
+    it('successful login resets the username bucket; the IP bucket is untouched', async () => {
+      for (let i = 0; i < LOGIN_RATE_LIMIT_USERNAME_MAX - 1; i += 1) {
+        await expectCode(
+          attemptLogin('trpctest@example.com', 'wrongpassword'),
+          'UNAUTHORIZED',
+          'AUTH_INVALID_CREDENTIALS'
+        );
+      }
+
+      // A correct-credentials attempt must succeed and clear the username bucket.
+      const caller = appRouter.createCaller(createTestContext());
+      const result = await caller.auth.login({
+        email: 'trpctest@example.com',
+        password: 'TestPassword123!',
+      });
+      expect(result.token).toBeTypeOf('string');
+
+      // A new wrong-password attempt right after must not be username-locked;
+      // the invalid-credentials surface returns as before.
+      await expectCode(
+        attemptLogin('trpctest@example.com', 'wrongpassword'),
+        'UNAUTHORIZED',
+        'AUTH_INVALID_CREDENTIALS'
+      );
     });
   });
 });

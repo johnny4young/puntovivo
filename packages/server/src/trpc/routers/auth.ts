@@ -29,6 +29,12 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from '../../security/authTokens.js';
+import {
+  checkIp as checkLoginIp,
+  checkUsername as checkLoginUsername,
+  registerFailure as registerLoginFailure,
+  registerSuccess as registerLoginSuccess,
+} from '../../security/loginRateLimit.js';
 
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
@@ -60,19 +66,37 @@ function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: s
 
 export const authRouter = router({
   /**
-   * Login with email and password
+   * Login with email and password.
    *
-   * NOTE: Rate limiting is handled at the Fastify level via @fastify/rate-limit
-   * on the /api/trpc route. Per-procedure rate limiting requires access to the
-   * raw Fastify request, which we do via ctx.req in middleware if needed later.
+   * ENG-008 — dual rate-limit gate runs BEFORE the credential check:
+   *
+   * - per-IP bucket: 10 attempts per 60s from a single origin. Stops
+   *   local brute-force.
+   * - per-username bucket: 5 failed attempts per 15 minutes against one
+   *   email, counted even when the user does not exist (prevents
+   *   enumeration via timing + 404-style responses). Stops credential
+   *   stuffing that rotates IPs to target one account.
+   *
+   * Both buckets increment on every unauthorized branch. A successful
+   * login resets the username bucket; the IP bucket decays via TTL so a
+   * single legitimate login does not amnesty an active attack source.
+   *
+   * The global @fastify/rate-limit plugin at `/api/trpc/*` (100/min)
+   * stays as a backstop for the rest of the tRPC surface.
    */
   login: publicProcedure.input(loginInput).mutation(async ({ ctx, input }) => {
     const { email, password } = input;
+    const ip = ctx.req.ip;
+
+    // ENG-008 gate — refuse before any DB work when the buckets are saturated.
+    checkLoginIp(ip);
+    checkLoginUsername(email);
 
     // Find user by email
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
     if (!user) {
+      registerLoginFailure(ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
@@ -82,6 +106,7 @@ export const authRouter = router({
 
     // Check if user is active
     if (!user.isActive) {
+      registerLoginFailure(ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_USER_DISABLED',
@@ -92,6 +117,7 @@ export const authRouter = router({
     // Verify password
     const isValidPassword = await argon2.verify(user.passwordHash, password);
     if (!isValidPassword) {
+      registerLoginFailure(ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
@@ -103,12 +129,16 @@ export const authRouter = router({
     const tenant = await ctx.db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get();
 
     if (!tenant || !tenant.isActive) {
+      registerLoginFailure(ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_TENANT_DISABLED',
         message: 'Your organization has been disabled. Please contact support.',
       });
     }
+
+    // ENG-008 — clear the username bucket after every field cleared.
+    registerLoginSuccess(email);
 
     const token = signAccessToken(ctx.req.server, user);
     const refreshToken = signRefreshToken(ctx.req.server, user);
