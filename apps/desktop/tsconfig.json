@@ -13,7 +13,6 @@
     "sourceMap": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/renderer/*"],
       "@puntovivo/server": ["../../packages/server/dist"]
