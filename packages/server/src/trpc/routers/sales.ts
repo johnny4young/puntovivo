@@ -50,6 +50,7 @@ import {
 import type { CreateSaleInput } from '../schemas/sales.js';
 import { requireActiveCashSession } from '../../services/cash-session.js';
 import { getCashMovementSignedAmount } from '../../services/cash-session.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 import {
   applyInventoryBalanceDelta,
@@ -1239,6 +1240,36 @@ export const salesRouter = router({
         createdBy: ctx.user!.id,
         createdAt: now,
       });
+
+      // Phase 8 / Tier-2 #8 — refunds are a sensitive operation: stock is
+      // restored, payment is reversed, and (depending on cash session status)
+      // the drawer balance moves. Audit row is in-transaction so it is
+      // either persisted with the refund or rolls back with it.
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'sale.return',
+        resourceType: 'sale',
+        resourceId: input.id,
+        before: {
+          paymentStatus: existing.paymentStatus,
+          status: existing.status,
+          total: existing.total,
+          saleNumber: existing.saleNumber,
+        },
+        after: {
+          paymentStatus: 'refunded',
+          refundId,
+          refundAmount: existing.total,
+        },
+        metadata: {
+          ...(input.reason ? { reason: input.reason } : {}),
+          // The cash-session id matters for over/short reconciliation when
+          // the original sale's session has already been closed.
+          refundCashSessionId: activeCashSession.id,
+        },
+      });
     });
 
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
@@ -1428,6 +1459,32 @@ export const salesRouter = router({
           createdAt: now,
         });
       }
+
+      // Phase 8 / Tier-2 #8 — record the sensitive action in the same
+      // transaction as the void so an audit row exists iff the void landed.
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'sale.void',
+        resourceType: 'sale',
+        resourceId: input.id,
+        before: {
+          status: existing.status,
+          paymentStatus: existing.paymentStatus,
+          total: existing.total,
+          saleNumber: existing.saleNumber,
+        },
+        after: {
+          status: 'voided',
+        },
+        metadata: {
+          ...(input.reason ? { reason: input.reason } : {}),
+          ...(voidReversibleSessionId
+            ? { reversedCashSessionId: voidReversibleSessionId }
+            : {}),
+        },
+      });
     });
 
     const updated = await ctx.db.select().from(sales).where(eq(sales.id, input.id)).get();

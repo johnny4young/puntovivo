@@ -408,11 +408,18 @@ rolls back, no orphan audit row survives).
 Wire-ups in this slice:
 
 ```
-transfers.void          → action "transfer.void"      resourceType "transfer_order"
-quotations.delete       → action "quotation.delete"   resourceType "quotation"
-quotations.updateStatus → action "quotation.convert"  resourceType "quotation"
+transfers.void          → action "transfer.void"           resourceType "transfer_order"
+quotations.delete       → action "quotation.delete"        resourceType "quotation"
+quotations.updateStatus → action "quotation.convert"       resourceType "quotation"
 (only when nextStatus === "converted"; intermediate draft→sent→accepted
 transitions are NOT audited — the viewer cares about outcomes, not workflow)
+sales.void              → action "sale.void"               resourceType "sale"
+sales.returnSale        → action "sale.return"             resourceType "sale"
+cashSessions.close      → action "cash_session.close"      resourceType "cash_session"
+inventory.adjustStock   → action "inventory.adjust_stock"  resourceType "product"
+(skipped when delta === 0; the movement/sync rows above the audit call
+still land unconditionally — pre-existing behaviour, documented inline
+for the next cleanup pass)
 ```
 
 The row carries a `before` / `after` JSON snapshot plus free-form

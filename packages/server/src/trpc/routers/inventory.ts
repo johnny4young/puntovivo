@@ -49,6 +49,7 @@ import {
   reconcileProductStockFromBalances,
   summarizeInventoryBalances,
 } from '../../services/inventory-balances.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 
 async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
   const product = await db
@@ -699,6 +700,39 @@ export const inventoryRouter = router({
           createdAt: now,
         })
         .run();
+
+      // Phase 8 / Tier-2 #8 — only audit when the adjustment actually
+      // changed stock. A no-op call (newStock === current) shouldn't
+      // pollute the audit timeline. Captures the delta + resolved site so
+      // a reviewer can reconstruct the operator's intent without joining
+      // back to inventory_movements.
+      //
+      // Scope note: the `tx.update(products) / tx.insert(inventoryMovements) /
+      // tx.insert(syncQueue)` writes ABOVE still land unconditionally when
+      // delta === 0 (writing a zero-quantity movement row). That pre-existing
+      // shape is intentionally left unchanged by this audit commit; the
+      // audit row being suppressed is a narrower, safer contract. A future
+      // step can short-circuit the whole mutation if we want "no-op means
+      // no rows written anywhere".
+      if (delta !== 0) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'inventory.adjust_stock',
+          resourceType: 'product',
+          resourceId: input.productId,
+          before: { stock: product.stock },
+          after: { stock: input.newStock },
+          metadata: {
+            delta,
+            // resolvedSiteId is null when the tenant has zero active sites.
+            ...(resolvedSiteId ? { siteId: resolvedSiteId } : {}),
+            ...(input.notes ? { notes: input.notes } : {}),
+            movementId,
+          },
+        });
+      }
     });
 
     const updatedProduct = await ctx.db

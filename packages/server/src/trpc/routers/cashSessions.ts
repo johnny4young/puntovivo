@@ -24,6 +24,7 @@ import {
   openCashSessionInput,
   recordCashMovementInput,
 } from '../schemas/cashSessions.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 
 const CASH_SESSION_REVIEW_EPSILON = 0.009;
 
@@ -396,18 +397,50 @@ export const cashSessionsRouter = router({
     const actualCount = getClosingCountTotal(input.actualCount, input.denominations);
     const overShort = getCashSessionOverShort(activeSession.expectedBalance, actualCount);
     const closedAt = new Date().toISOString();
+    const closedBy = ctx.user.id;
 
-    await ctx.db
-      .update(cashSessions)
-      .set({
-        actualCount,
-        actualCountDenominations: input.denominations,
-        overShort,
-        status: 'closed',
-        closedAt,
-        updatedAt: closedAt,
-      })
-      .where(eq(cashSessions.id, activeSession.id));
+    // Phase 8 / Tier-2 #8 — wrap the close write + audit-log insert in one
+    // transaction so an over/short row never exists without a paired audit
+    // entry (and vice versa).
+    ctx.db.transaction(tx => {
+      tx.update(cashSessions)
+        .set({
+          actualCount,
+          actualCountDenominations: input.denominations,
+          overShort,
+          status: 'closed',
+          closedAt,
+          updatedAt: closedAt,
+        })
+        .where(eq(cashSessions.id, activeSession.id))
+        .run();
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: closedBy,
+        action: 'cash_session.close',
+        resourceType: 'cash_session',
+        resourceId: activeSession.id,
+        before: {
+          status: activeSession.status,
+          expectedBalance: activeSession.expectedBalance,
+          openingFloat: activeSession.openingFloat,
+        },
+        after: {
+          status: 'closed',
+          actualCount,
+          overShort,
+          closedAt,
+        },
+        metadata: {
+          // Material for trend reporting + flagging anomalous shifts.
+          // |overShort| > 0 means the cashier's count diverged from expected.
+          siteId: activeSession.siteId,
+          registerName: activeSession.registerName,
+        },
+      });
+    });
 
     const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
 

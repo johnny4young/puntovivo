@@ -4,13 +4,24 @@ import { trpc } from '@/lib/trpc';
 import type { AuditLogAction, AuditLogResourceType } from '@/types';
 import { AuditLogsTable } from './AuditLogsTable';
 
+// Order matches the operational frequency cashiers think in: stock and
+// register events first, then sale-level reversals, then back-office
+// quotations / transfers. Translations are keyed by the action literal so
+// adding an entry here only needs the matching i18n key.
 const ACTION_OPTIONS: readonly AuditLogAction[] = [
+  'cash_session.close',
+  'inventory.adjust_stock',
+  'sale.void',
+  'sale.return',
   'transfer.void',
   'quotation.delete',
   'quotation.convert',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
+  'sale',
+  'cash_session',
+  'product',
   'transfer_order',
   'quotation',
 ];
