@@ -497,16 +497,39 @@ PostgreSQL parity: the migrator today runs SQLite-only SQL. Adopting
 PostgreSQL requires either parallel dialect-specific migration folders or
 the repository-interface abstraction tracked under ENG-010.
 
-Electron packaging gap (ENG-002 follow-up): the current Vite main config
-bundles `@puntovivo/server` into `.vite/build/*.cjs` at package time, but
-the raw `.sql` migration files are NOT included in the packaged asar.
-`initDatabase()` therefore guards `drizzleMigrate()` with an `existsSync`
-check on `meta/_journal.json`; if the folder is missing it logs a
-warning and falls back to `runSchemaSync()` so the app still boots.
-Wiring migrations into the Electron bundle (as an `extraResource` in
-`forge.config.ts` plus an explicit `migrationsFolder` override passed to
-`initDatabase()` from `apps/desktop/src/main/index.ts`) is tracked as
-ENG-002 step 2 and must land before `runSchemaSync()` can be retired.
+Electron packaging (ENG-002 step 2): Vite bundles `@puntovivo/server`
+into `.vite/build/*.cjs` at package time and does not hoist `.sql`
+assets alongside the bundle. The migrations pipeline therefore lives
+outside the Vite module graph:
+
+1. `packages/server/scripts/copy-migrations.mjs` copies
+   `src/db/migrations/` into `dist/db/migrations/` during
+   `npm run build --workspace=@puntovivo/server`. Desktop `package` and
+   `make` run `prepare:server` first so the copied folder is always fresh
+   before Forge resolves `extraResource`.
+2. `apps/desktop/forge.config.ts` lists
+   `../../packages/server/dist/db/migrations` in
+   `packagerConfig.extraResource`, so Forge copies the folder verbatim
+   into `process.resourcesPath/migrations/` of the packaged app.
+3. `apps/desktop/src/main/index.ts` computes
+   `MIGRATIONS_PATH = app.isPackaged ? join(process.resourcesPath, 'migrations') : undefined`
+   and forwards it through `createServer({ migrationsFolder })`, which
+   the server surface (`DatabaseOptions` / `ServerOptions`) funnels
+   into `initDatabase()`.
+4. Dev and the standalone server pass `migrationsFolder: undefined` and
+   fall back to the module-local default computed from
+   `import.meta.url`, matching the existing `packages/server/dist/db`
+   layout.
+
+The `existsSync(meta/_journal.json)` guard in `initDatabase()` is
+retained as a belt-and-suspenders safety net for tests and hand-crafted
+deployments that intentionally boot with no migrations folder (the app
+still boots via the idempotent `runSchemaSync()` fallback). It is no
+longer the production code path.
+
+Retirement of `runSchemaSync()` is tracked as ENG-002 step 3 — now that
+every supported boot path honors `drizzleMigrate()`, the legacy bootstrap
+can be removed after one more release cycle of overlap.
 
 ## Current Exceptions and Boundaries
 

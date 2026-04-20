@@ -16,6 +16,12 @@ const config: ForgeConfig = {
     extraResource: [
       // Include the built web app for production
       '../web/dist',
+      // ENG-002 step 2 — ship the generated Drizzle migrations alongside
+      // the bundle so the embedded server can run drizzleMigrate() in
+      // packaged builds. `prepare:server` copies src/db/migrations into
+      // packages/server/dist/db/migrations before Forge runs. Forge
+      // copies this folder verbatim into process.resourcesPath/migrations.
+      '../../packages/server/dist/db/migrations',
     ],
   },
   rebuildConfig: {

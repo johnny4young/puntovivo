@@ -39,6 +39,15 @@ export interface DatabaseOptions {
   seedData?: boolean;
   /** Enable verbose logging (default: false) */
   verbose?: boolean;
+  /**
+   * Override the folder that holds the generated Drizzle SQL files +
+   * `meta/_journal.json`. Defaults to the `migrations/` directory adjacent
+   * to this compiled module (valid for dev, tests, and the standalone
+   * server). Packaged Electron builds must pass an explicit path because
+   * Vite bundles the server into a single `.cjs` and the `.sql` assets
+   * ship separately via Forge `extraResource`.
+   */
+  migrationsFolder?: string;
 }
 
 /**
@@ -50,7 +59,14 @@ export async function initDatabase(
   optionsOrPath: DatabaseOptions | string
 ): Promise<DatabaseInstance> {
   const options = typeof optionsOrPath === 'string' ? { dbPath: optionsOrPath } : optionsOrPath;
-  const { dbPath, runMigrations = true, seedData = true, verbose = false } = options;
+  const {
+    dbPath,
+    runMigrations = true,
+    seedData = true,
+    verbose = false,
+    migrationsFolder,
+  } = options;
+  const effectiveMigrationsFolder = migrationsFolder ?? MIGRATIONS_FOLDER;
 
   // Ensure directory exists (skip for in-memory databases)
   if (dbPath !== ':memory:') {
@@ -80,23 +96,25 @@ export async function initDatabase(
     // `tenants`) but no `__drizzle_migrations` row, seed the baseline entry
     // so `drizzleMigrate` treats it as already applied and skips the DDL
     // that would collide with the existing objects.
-    ensureMigrationBaseline(sqlite);
+    ensureMigrationBaseline(sqlite, effectiveMigrationsFolder);
 
     // Apply every migration whose `folderMillis` is greater than the
     // latest row in `__drizzle_migrations`. On a fresh DB this runs the
     // baseline (plus any follow-ups); on an adopted DB the shim above
     // pinned the baseline so this is a no-op.
     //
-    // The folder-existence guard handles packaged Electron builds where
-    // the raw `.sql` files have not been shipped into the asar bundle
-    // yet (follow-up packaging work). In that scenario the migrator is
-    // skipped and `runSchemaSync()` below takes over — the app boots
-    // instead of crashing at startup.
-    if (existsSync(resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json'))) {
-      drizzleMigrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+    // The folder-existence guard is a belt-and-suspenders safety net:
+    // packaged Electron builds now ship the migrations via forge
+    // `extraResource` and the desktop main passes `migrationsFolder`
+    // explicitly, so the real path is always the one we honor in
+    // production. The guard still protects hand-crafted deployments and
+    // tests that intentionally boot with no migrations folder — in that
+    // case `runSchemaSync()` below takes over and the app still boots.
+    if (existsSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'))) {
+      drizzleMigrate(db, { migrationsFolder: effectiveMigrationsFolder });
     } else if (verbose) {
       console.warn(
-        `[Database] Migrations folder missing at ${MIGRATIONS_FOLDER}; ` +
+        `[Database] Migrations folder missing at ${effectiveMigrationsFolder}; ` +
           'falling back to runSchemaSync(). Ship the migrations folder ' +
           'alongside the server bundle to enable versioned migrations.'
       );
@@ -174,8 +192,11 @@ interface DrizzleJournal {
  * Caveat: intentionally scoped to the baseline entry (`idx === 0`).
  * Follow-up migrations are always applied by drizzle-orm itself.
  */
-function ensureMigrationBaseline(sqlite: Database.Database): void {
-  const journalPath = resolve(MIGRATIONS_FOLDER, 'meta', '_journal.json');
+function ensureMigrationBaseline(
+  sqlite: Database.Database,
+  migrationsFolder: string
+): void {
+  const journalPath = resolve(migrationsFolder, 'meta', '_journal.json');
   if (!existsSync(journalPath)) {
     // No migrations folder yet. Defer to drizzleMigrate which will throw
     // a loud, actionable error pointing at the missing metadata.
@@ -224,7 +245,7 @@ function ensureMigrationBaseline(sqlite: Database.Database): void {
   // Compute the baseline hash exactly like drizzle-orm's
   // `readMigrationFiles` does: sha256 of the raw `.sql` contents, no
   // normalisation.
-  const sqlPath = resolve(MIGRATIONS_FOLDER, `${baselineEntry.tag}.sql`);
+  const sqlPath = resolve(migrationsFolder, `${baselineEntry.tag}.sql`);
   const sqlContents = readFileSync(sqlPath, 'utf8');
   const baselineHash = createHash('sha256').update(sqlContents).digest('hex');
 

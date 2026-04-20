@@ -59,6 +59,16 @@ const SERVER_PORT = 8090;
 const DB_PATH = join(app.getPath('userData'), 'data', 'local.db');
 const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 
+// ENG-002 step 2 — in packaged builds, the generated Drizzle migrations
+// ship via forge.config.ts `extraResource` into process.resourcesPath.
+// In dev the server workspace's own `dist/db/migrations/` layout is
+// intact, so the default (undefined → server-side MIGRATIONS_FOLDER
+// fallback inside initDatabase()) resolves correctly without an
+// override. Passing `undefined` is a no-op at the server layer.
+const MIGRATIONS_PATH = app.isPackaged
+  ? join(process.resourcesPath, 'migrations')
+  : undefined;
+
 interface DesktopDatabaseActionResult {
   success: boolean;
   cancelled: boolean;
@@ -268,6 +278,7 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
     port: SERVER_PORT,
     host: '127.0.0.1',
     verbose: isDev,
+    migrationsFolder: MIGRATIONS_PATH,
   });
 
   await nextServer.listen();

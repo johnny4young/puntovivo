@@ -17,7 +17,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
@@ -168,6 +168,46 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       .prepare('SELECT id, name FROM tenants WHERE id = ?')
       .get('legacy-tenant') as { id: string; name: string } | undefined;
     expect(preservedTenant?.name).toBe('Legacy Tenant');
+  });
+
+  it('honors an explicit migrationsFolder override (packaged-Electron contract)', async () => {
+    // Simulate the packaged-Electron layout: Forge copies
+    // `packages/server/dist/db/migrations` into `process.resourcesPath`.
+    // In production the desktop main passes that path as `migrationsFolder`
+    // and the server side uses it instead of the module-local default.
+    // Mirror that arrangement here by cloning the source migrations folder
+    // into a temp directory and booting through the override.
+    const stagingDir = mkdtempSync(
+      join(tmpdir(), 'puntovivo-migrations-override-')
+    );
+    createdPaths.push(stagingDir);
+    cpSync(MIGRATIONS_FOLDER, stagingDir, { recursive: true });
+
+    await initDatabase({
+      dbPath: ':memory:',
+      seedData: false,
+      migrationsFolder: stagingDir,
+    });
+
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as {
+      $client: Database.Database;
+    };
+    const rows = listMigrationRows(liveDb.$client);
+    const baseline = readBaseline();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.hash).toBe(baseline.hash);
+    expect(Number(rows[0]?.created_at)).toBe(baseline.when);
+
+    // Spot-check: the schema really landed via the override path — not
+    // via the silent `runSchemaSync()` fallback that would still leave
+    // `__drizzle_migrations` empty if the override had been ignored.
+    const db = getDatabase();
+    const seededTenants = await db.select().from(tenants).all();
+    expect(Array.isArray(seededTenants)).toBe(true);
+    const seededUsers = await db.select().from(users).all();
+    expect(Array.isArray(seededUsers)).toBe(true);
   });
 
   it('is idempotent across restarts: re-running initDatabase on the same file is a no-op', async () => {
