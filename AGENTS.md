@@ -55,6 +55,10 @@ The `scripts/ensure-native-runtime.mjs` script handles this by caching both comp
 
 The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@puntovivo/server` directly. Do not assume a separate server process exists.
 
+## Renderer sandbox (ENG-004)
+
+The main `BrowserWindow` runs with `sandbox: true`. Renderer code cannot `require('fs')`, spawn processes, or access Node globals. Every capability flows through `contextBridge` → `ipcRenderer.invoke` → `ipcMain.handle`. The invariant lives in `apps/desktop/src/main/window-config.ts`, which also builds the exact `webPreferences` object consumed by `BrowserWindow`, and is pinned by a `node --test` regression in `apps/desktop/src/main/__tests__/window-config.test.ts` that runs on every `ci:desktop`. When you add a new preload API, make it a one-line `ipcRenderer.invoke` wrapper and route it to an `ipcMain.handle` channel in `main/index.ts` — direct Node access from the preload will break at startup under sandbox.
+
 ## tRPC is the primary transport
 
 `/api/trpc` is the canonical application API. `/api/health` remains as a compatibility health endpoint and `/api/realtime/*` remains for SSE. Do not reintroduce new REST route docs or code paths for auth, collections, or sync.
