@@ -443,6 +443,234 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
     });
   });
 
+  // ─── Phase 8 step 3 — audit sensitive sale + cash + inventory actions ─────
+
+  describe('sensitive sale, cash and inventory actions', () => {
+    /**
+     * Each of the four new audited surfaces (sale.void, sale.return,
+     * cash_session.close, inventory.adjust_stock) needs to (a) persist exactly
+     * one audit row keyed at the correct (resourceType, resourceId), (b)
+     * carry an actor, before/after snapshot, and meaningful metadata, and
+     * (c) NOT write a row on no-op paths (the inventory short-circuit).
+     */
+
+    async function openCashSessionForTest(registerName: string) {
+      const caller = appRouter.createCaller(createTestContext());
+      return caller.cashSessions.open({
+        registerName,
+        openingFloat: 100,
+        denominations: [{ value: 100, count: 1 }],
+      });
+    }
+
+    async function closeActiveSession() {
+      const caller = appRouter.createCaller(createTestContext());
+      // Close at the exact opening float so the over/short stays at 0 — the
+      // value itself isn't relevant to the audit, only that it's recorded.
+      return caller.cashSessions.close({
+        actualCount: 100,
+        denominations: [{ value: 100, count: 1 }],
+      });
+    }
+
+    it('writes a sale.void audit row with before/after snapshot and reason metadata', async () => {
+      const session = await openCashSessionForTest(`AUD-VOID-REG-${nanoid(4)}`);
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct(`AUD-SV-${nanoid(6)}`);
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId: product.id, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      });
+
+      await caller.sales.void({ id: sale.id, reason: 'Cashier mistake' });
+
+      const audit = await getLatestAuditRow({ resourceType: 'sale', resourceId: sale.id });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('sale.void');
+      expect(audit?.actorId).toBe(userId);
+      expect(audit?.before).toMatchObject({ status: 'completed', total: 100 });
+      expect(audit?.after).toMatchObject({ status: 'voided' });
+      expect(audit?.metadata).toMatchObject({
+        reason: 'Cashier mistake',
+        reversedCashSessionId: session.id,
+      });
+
+      await closeActiveSession();
+    });
+
+    it('writes a sale.return audit row including the refund id and refunded amount', async () => {
+      await openCashSessionForTest(`AUD-RET-REG-${nanoid(4)}`);
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct(`AUD-SR-${nanoid(6)}`);
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId: product.id, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      });
+
+      await caller.sales.returnSale({ id: sale.id, reason: 'Customer changed mind' });
+
+      const audit = await getLatestAuditRow({ resourceType: 'sale', resourceId: sale.id });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('sale.return');
+      expect(audit?.before).toMatchObject({ paymentStatus: 'paid', total: 100 });
+      expect(audit?.after).toMatchObject({
+        paymentStatus: 'refunded',
+        refundAmount: 100,
+      });
+      expect(audit?.metadata).toMatchObject({ reason: 'Customer changed mind' });
+      // refundId must be present on `after` so an auditor can join back to
+      // the sale_returns row without parsing free-form text.
+      const after = audit?.after as Record<string, unknown> | null;
+      expect(typeof after?.refundId).toBe('string');
+
+      await closeActiveSession();
+    });
+
+    it('writes an inventory.adjust_stock audit row with delta + resolved siteId', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct(`AUD-AS-${nanoid(6)}`);
+
+      await caller.inventory.adjustStock({
+        productId: product.id,
+        newStock: 13,
+        notes: 'Spot count correction',
+      });
+
+      const audit = await getLatestAuditRow({ resourceType: 'product', resourceId: product.id });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('inventory.adjust_stock');
+      expect(audit?.before).toMatchObject({ stock: 20 });
+      expect(audit?.after).toMatchObject({ stock: 13 });
+      expect(audit?.metadata).toMatchObject({
+        delta: -7,
+        notes: 'Spot count correction',
+      });
+      // metadata.siteId should resolve to the operator's primary site context.
+      expect((audit?.metadata as Record<string, unknown> | null)?.siteId).toBe(primarySiteId);
+    });
+
+    it('does NOT audit a no-op stock adjustment (delta === 0)', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const product = await createProduct(`AUD-AS-NOOP-${nanoid(6)}`);
+
+      // Set newStock equal to the existing stock — the helper short-circuits
+      // its delta math AND the audit write.
+      await caller.inventory.adjustStock({
+        productId: product.id,
+        newStock: 20,
+      });
+
+      const rows = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'product'),
+            eq(auditLogs.resourceId, product.id)
+          )
+        )
+        .all();
+      expect(rows).toHaveLength(0);
+    });
+
+    it('does NOT persist a sale.void audit row when the void rolls back', async () => {
+      await openCashSessionForTest(`AUD-ROLL-REG-${nanoid(4)}`);
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const product = await createProduct(`AUD-ROLL-${nanoid(6)}`);
+
+      const sale = await caller.sales.create({
+        items: [
+          { productId: product.id, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      });
+
+      // First void lands, writing one audit row.
+      await caller.sales.void({ id: sale.id, reason: 'First attempt' });
+
+      // Second void rejects — the tRPC router throws before the transaction
+      // even starts (status is already 'voided'), so no new audit row
+      // should be written.
+      try {
+        await caller.sales.void({ id: sale.id, reason: 'Double-void' });
+        throw new Error('Expected second void to be rejected');
+      } catch {
+        // expected
+      }
+
+      const auditRows = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'sale'),
+            eq(auditLogs.resourceId, sale.id),
+            eq(auditLogs.action, 'sale.void')
+          )
+        )
+        .all();
+      // Exactly one row — the first successful void. The rejected second
+      // attempt must NOT leave a stray audit entry.
+      expect(auditRows).toHaveLength(1);
+      expect((auditRows[0]?.metadata as Record<string, unknown> | null)?.reason).toBe(
+        'First attempt'
+      );
+
+      await closeActiveSession();
+    });
+
+    it('writes a cash_session.close audit row with the over/short delta', async () => {
+      const opened = await openCashSessionForTest(`AUD-CLOSE-REG-${nanoid(4)}`);
+
+      // Close with an actual count of 90 against an opening float of 100 —
+      // a $10 short should appear in `after.overShort` so the auditor can
+      // surface anomalous shifts without re-deriving the math.
+      const caller = appRouter.createCaller(createTestContext());
+      await caller.cashSessions.close({
+        actualCount: 90,
+        denominations: [{ value: 50, count: 1 }, { value: 20, count: 2 }],
+      });
+
+      const audit = await getLatestAuditRow({
+        resourceType: 'cash_session',
+        resourceId: opened.id,
+      });
+      expect(audit).toBeTruthy();
+      expect(audit?.action).toBe('cash_session.close');
+      expect(audit?.before).toMatchObject({ status: 'open' });
+      expect(audit?.after).toMatchObject({
+        status: 'closed',
+        actualCount: 90,
+        overShort: -10,
+      });
+      expect(audit?.metadata).toMatchObject({
+        siteId: primarySiteId,
+      });
+    });
+  });
+
   it('does NOT persist an audit row when the sensitive action rolls back', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const db = getDatabase();

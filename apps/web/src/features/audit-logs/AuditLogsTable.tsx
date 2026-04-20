@@ -6,7 +6,7 @@ import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { AuditLogEntry } from '@/types';
 import { getAuditLogsExportColumns } from './auditLogsExport';
 
@@ -189,6 +189,101 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     return (
       <span className="text-sm text-secondary-700">
         {t('summary.deletedSnapshot', { label: number })}
+      </span>
+    );
+  }
+
+  // Phase 8 / Tier-2 #8 — sensitive sale + cash + inventory branches.
+  if (entry.action === 'sale.void') {
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string'
+        ? entry.metadata.reason
+        : null;
+    const saleNumber =
+      entry.before && typeof entry.before.saleNumber === 'string'
+        ? entry.before.saleNumber
+        : entry.resourceId;
+    return reason ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleVoid', { saleNumber, reason })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleVoidNoReason', { saleNumber })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'sale.return') {
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string'
+        ? entry.metadata.reason
+        : null;
+    const refundAmount =
+      entry.after && typeof entry.after.refundAmount === 'number'
+        ? entry.after.refundAmount
+        : null;
+    if (refundAmount === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return reason ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleRefundReason', {
+          amount: formatCurrency(refundAmount),
+          reason,
+        })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleRefund', { amount: formatCurrency(refundAmount) })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'cash_session.close') {
+    const overShort =
+      entry.after && typeof entry.after.overShort === 'number'
+        ? entry.after.overShort
+        : null;
+    if (overShort === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    // The signed amount communicates over/short at a glance — positive is
+    // over (drawer count exceeded expected), negative is short.
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.cashSessionClose', {
+          overShort: formatCurrency(overShort),
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'inventory.adjust_stock') {
+    const delta =
+      entry.metadata && typeof entry.metadata.delta === 'number'
+        ? entry.metadata.delta
+        : null;
+    const beforeStock =
+      entry.before && typeof entry.before.stock === 'number'
+        ? entry.before.stock
+        : null;
+    const afterStock =
+      entry.after && typeof entry.after.stock === 'number'
+        ? entry.after.stock
+        : null;
+    if (delta === null || beforeStock === null || afterStock === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    // Show the absolute transition + the signed delta — auditors looking at
+    // shrinkage need both the new value and the magnitude of the change.
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.stockAdjust', {
+          before: beforeStock,
+          after: afterStock,
+          delta: delta > 0 ? `+${delta}` : String(delta),
+        })}
       </span>
     );
   }

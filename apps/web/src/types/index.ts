@@ -489,12 +489,26 @@ export type QuotationTransitionStatus = Extract<
 // AUDIT LOGS (Phase 8 / Tier-2 #8)
 // ============================================================================
 
+// Mirror of `auditLogActionEnum` in packages/server/src/db/schema.ts. The
+// canonical source of truth is the server enum; this duplication exists only
+// because the audit-logs page declares <option> arrays and React needs the
+// literal union at compile time. Update both when adding a new audited
+// action so the picker shows the new entry.
 export type AuditLogAction =
   | 'transfer.void'
   | 'quotation.delete'
-  | 'quotation.convert';
+  | 'quotation.convert'
+  | 'sale.void'
+  | 'sale.return'
+  | 'cash_session.close'
+  | 'inventory.adjust_stock';
 
-export type AuditLogResourceType = 'transfer_order' | 'quotation';
+export type AuditLogResourceType =
+  | 'transfer_order'
+  | 'quotation'
+  | 'sale'
+  | 'cash_session'
+  | 'product';
 
 export interface AuditLogEntry {
   id: string;

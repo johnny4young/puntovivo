@@ -56,12 +56,23 @@ export const auditLogActionEnum = [
   'transfer.void',
   'quotation.delete',
   'quotation.convert',
+  // Phase 8 / Tier-2 #8 — sensitive sale, cash, and inventory actions.
+  // The DB column is free-form text (no enum constraint at the SQL layer)
+  // so adding entries here NEVER requires a migration; only the TS-level
+  // narrowing is widened.
+  'sale.void',
+  'sale.return',
+  'cash_session.close',
+  'inventory.adjust_stock',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
   'transfer_order',
   'quotation',
+  'sale',
+  'cash_session',
+  'product',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

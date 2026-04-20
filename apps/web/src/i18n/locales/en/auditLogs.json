@@ -2,14 +2,14 @@
   "page": {
     "kicker": "Operational trust",
     "title": "Audit log",
-    "description": "Every sensitive action (void, delete, conversion) is recorded here — atomically with the operation that produced it."
+    "description": "Every sensitive action — sale void or refund, cash session close, stock adjustment, transfer void, quotation delete or conversion — is recorded here, atomically with the operation that produced it."
   },
   "history": {
     "title": "Recent audit events",
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
     "loading": "Loading audit events…",
     "error": "Unable to load audit events",
-    "empty": "No audit events yet. Sensitive actions like transfer voids, quotation deletes, and quote conversions show up here.",
+    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, cash session closes, stock adjustments, transfer voids, and quotation changes show up here.",
     "search": "Search by resource id…",
     "exportTitle": "Export audit log",
     "columns": {
@@ -33,15 +33,28 @@
   "actions": {
     "transfer.void": "Transfer voided",
     "quotation.delete": "Quotation deleted",
-    "quotation.convert": "Quotation converted"
+    "quotation.convert": "Quotation converted",
+    "sale.void": "Sale voided",
+    "sale.return": "Sale refunded",
+    "cash_session.close": "Cash session closed",
+    "inventory.adjust_stock": "Stock adjusted"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
-    "quotation": "Quotation"
+    "quotation": "Quotation",
+    "sale": "Sale",
+    "cash_session": "Cash session",
+    "product": "Product"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
     "statusTransition": "{{from}} → {{to}}",
-    "deletedSnapshot": "Deleted {{label}}"
+    "deletedSnapshot": "Deleted {{label}}",
+    "saleVoid": "{{saleNumber}} — {{reason}}",
+    "saleVoidNoReason": "{{saleNumber}}",
+    "saleRefund": "Refunded {{amount}}",
+    "saleRefundReason": "Refunded {{amount}} — {{reason}}",
+    "cashSessionClose": "Over/short: {{overShort}}",
+    "stockAdjust": "{{before}} → {{after}} ({{delta}})"
   }
 }

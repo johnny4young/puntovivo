@@ -146,6 +146,144 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Deleted q-xyz')).toBeInTheDocument();
   });
 
+  // ─── Phase 8 step 3 — new sensitive-action summaries ────────────────────
+
+  it('renders sale.void as saleNumber + reason when metadata.reason is a string', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.void',
+            resourceType: 'sale',
+            resourceId: 'sale-42',
+            before: { status: 'completed', saleNumber: 'POS-000042', total: 200 },
+            after: { status: 'voided' },
+            metadata: { reason: 'Customer mind change' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(
+      screen.getByText('POS-000042 — Customer mind change')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Sale voided')).toBeInTheDocument();
+  });
+
+  it('renders sale.void as just the saleNumber when no reason was supplied', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.void',
+            resourceType: 'sale',
+            resourceId: 'sale-43',
+            before: { status: 'completed', saleNumber: 'POS-000043', total: 200 },
+            after: { status: 'voided' },
+            metadata: {},
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('POS-000043')).toBeInTheDocument();
+  });
+
+  it('renders sale.return with the refunded amount and optional reason', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.return',
+            resourceType: 'sale',
+            resourceId: 'sale-44',
+            before: { paymentStatus: 'paid', total: 150 },
+            after: { paymentStatus: 'refunded', refundAmount: 150, refundId: 'rf-1' },
+            metadata: { reason: 'Damaged goods' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    // formatCurrency renders $150.00 in the en locale.
+    expect(
+      screen.getByText('Refunded $150.00 — Damaged goods')
+    ).toBeInTheDocument();
+  });
+
+  it('renders cash_session.close showing the signed over/short delta', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'cash_session.close',
+            resourceType: 'cash_session',
+            resourceId: 'cs-9',
+            before: { status: 'open' },
+            after: { status: 'closed', overShort: -12.5, actualCount: 100 },
+            metadata: { siteId: 'site-1' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText(/Over\/short: -\$12\.50/)).toBeInTheDocument();
+    expect(screen.getByText('Cash session closed')).toBeInTheDocument();
+  });
+
+  it('renders inventory.adjust_stock with the transition and signed delta', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'inventory.adjust_stock',
+            resourceType: 'product',
+            resourceId: 'prod-7',
+            before: { stock: 20 },
+            after: { stock: 13 },
+            metadata: { delta: -7, siteId: 'site-1' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    // The signed delta renders with a leading sign so shrinkage is obvious.
+    expect(screen.getByText('20 → 13 (-7)')).toBeInTheDocument();
+    expect(screen.getByText('Stock adjusted')).toBeInTheDocument();
+  });
+
+  it('falls back to — for actions whose audit payload is missing expected fields', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'inventory.adjust_stock',
+            resourceType: 'product',
+            resourceId: 'prod-8',
+            // Corrupted / partially-migrated row — no delta, no stock values.
+            before: {},
+            after: {},
+            metadata: null,
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {
     render(
       <AuditLogsTable

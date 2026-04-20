@@ -558,6 +558,12 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | AUDIT-08 | BOTH | admin | Click Export → CSV / Excel / PDF | File downloads with Timestamp, Actor, Action, Resource type, Resource id, Metadata |
 | ✅ | AUDIT-09 | BOTH | manager | Try to hit /audit-logs as non-admin | Route guarded by `adminOnlyRoles` — redirect; direct tRPC call returns FORBIDDEN |
 | ✅ | AUDIT-10 | BOTH | admin | Attempt a sensitive action that rolls back (e.g. delete a non-draft quotation) | No audit row is persisted — the audit write is inside the same transaction as the action |
+| ✅ | AUDIT-11 | BOTH | admin | Void a completed sale, reload /audit-logs | A `sale.void` row appears; summary shows the sale number and optional reason; metadata carries the reversed cash-session id when the original session is still open |
+| ✅ | AUDIT-12 | BOTH | admin | Refund a sale, reload /audit-logs | A `sale.return` row appears; summary shows `Refunded $X.XX`; `after` payload carries `refundId` so it joins back to `sale_returns` |
+| ✅ | AUDIT-13 | BOTH | admin | Close a cash session, reload /audit-logs | A `cash_session.close` row appears; summary shows the signed over/short amount |
+| ✅ | AUDIT-14 | BOTH | admin | Adjust a product's stock, reload /audit-logs | An `inventory.adjust_stock` row appears; summary shows `{before} → {after} ({±delta})`; metadata includes resolved siteId and movementId |
+| ✅ | AUDIT-15 | BOTH | admin | Submit an adjust-stock call with newStock === current stock | No audit row is written (no-op short-circuit); movement/sync rows still land — pre-existing behaviour, intentional for this slice |
+| ✅ | AUDIT-16 | BOTH | admin | Try to void an already-voided sale | Second attempt rejects; exactly one audit row exists for the original successful void — rollback invariant holds on the new surfaces too |
 
 ---
 

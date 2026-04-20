@@ -1,6 +1,8 @@
 # AGENTS.md
 
-Operational guidance for AI agents. Only non-discoverable constraints are listed here — do not add stack summaries or things readable from code/config.
+Operational guidance for AI agents working on this repo (Claude Code, Codex, Copilot, etc.). Only non-discoverable constraints are listed here — do not add stack summaries or things readable from code/config.
+
+`CLAUDE.md` is a symlink to this file, so both tools see the same source of truth. Edit `AGENTS.md` directly.
 
 ## Commands
 
@@ -69,6 +71,8 @@ Before committing, every change must pass the per-workspace CI script that corre
 
 Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
 
+If the `review` skill is available in the session, run it on the diff before finalizing a large change — it surfaces duplication, unused deps, and violations of the patterns in this file.
+
 ## Node.js version constraint
 
 Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but the root constraint takes precedence. Use Node 22+.
@@ -80,6 +84,10 @@ Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but th
 ## Release workflow
 
 Automatic CI only validates test, lint, and build flows. Desktop/web artifacts and GitHub releases are created exclusively through the manual `release.yml` workflow.
+
+## Web UI validation order
+
+For Web UI validation, prefer the cheapest and fastest path in this order: Playwright MCP snapshot/navigation, then embedded browser validation, and only use `computer-use`/Safari when MCP browser flows are blocked or the check truly needs native visual interaction.
 
 ## Git conventions
 
