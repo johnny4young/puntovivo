@@ -30,6 +30,7 @@ import {
   restartToApplyAppUpdate,
 } from './auto-updater';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
+import { buildMainWindowWebPreferences } from './window-config.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -1386,12 +1387,10 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: t('app.windowTitle'),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.cjs'),
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    // ENG-004 — security-critical webPreferences are assembled in
+    // window-config.ts so the exact BrowserWindow contract can be pinned
+    // by a Node regression test without booting Electron.
+    webPreferences: buildMainWindowWebPreferences(join(__dirname, '../preload/index.cjs')),
   });
 
   mainWindow.on('ready-to-show', () => {

@@ -556,6 +556,43 @@ or `npm run test:coverage --workspace=@puntovivo/server`. Lowering a
 threshold without raising coverage is a breaking change — every
 threshold edit must come with a ROADMAP note explaining why.
 
+## Main window sandbox (ENG-004)
+
+The main `BrowserWindow` in `apps/desktop/src/main/index.ts` runs with
+`sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.
+A compromised webview cannot reach the host filesystem, spawn
+processes, or escape into Node. Every renderer capability flows through
+this chain:
+
+1. Renderer calls one of the four namespaces exposed on `window` by
+   the preload (`electronAPI`, `dbAPI`, `syncAPI`, `desktopBridgeAPI`),
+   each a thin `contextBridge.exposeInMainWorld` wrapper defined in
+   `apps/desktop/src/preload/index.ts`.
+2. Each exposed method is a one-liner that invokes an allowlisted
+   IPC channel: `ipcRenderer.invoke('channel-name', ...args)`. No
+   direct Node imports in the preload — doing so would break at
+   startup under sandbox.
+3. The main process routes the channel via `ipcMain.handle(...)` in
+   `main/index.ts`. All 33 channels live there and are the only
+   privileged code path.
+
+The security-critical `webPreferences` flags live in
+`apps/desktop/src/main/window-config.ts` as a single constant
+(`MAIN_WINDOW_WEB_PREFERENCES`), and
+`buildMainWindowWebPreferences(preloadPath)` constructs the exact
+`BrowserWindow` shape consumed by `main/index.ts`. That composition is
+pinned by a `node --test` regression in
+`apps/desktop/src/main/__tests__/window-config.test.ts`, which is
+gated by `ci:desktop` on every PR. Weakening any of the three fields
+fails CI with a clear `ERR_ASSERTION`.
+
+Adding a new renderer-side capability follows the same pattern every
+time: define an `ipcMain.handle` channel in `main/index.ts`, expose a
+wrapper in `preload/index.ts` via `contextBridge`, call it from the
+renderer. Do NOT try to `require('fs')` from the preload — sandbox
+forbids it and the build will surface the error at runtime, not at
+typecheck.
+
 ## Current Exceptions and Boundaries
 
 - `/api/health` remains for compatibility and smoke checks
