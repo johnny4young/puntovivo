@@ -89,6 +89,26 @@ Automatic CI only validates test, lint, and build flows. Desktop/web artifacts a
 
 For Web UI validation, prefer the cheapest and fastest path in this order: Playwright MCP snapshot/navigation, then embedded browser validation, and only use `computer-use`/Safari when MCP browser flows are blocked or the check truly needs native visual interaction.
 
+## UI changes require a live smoke (MANDATORY)
+
+**Any change that touches user-facing UI must be validated in a running web (and/or Electron) target before the task is considered done.** Component tests and unit tests are necessary but not sufficient — they cannot catch Vite dev-server JSON cache staleness, route mounting regressions, tRPC client-side cache invalidation gaps, i18n bootstrap order issues in the bundled app, or round-trip failures between mutations and their read-side surfaces.
+
+The smoke check obligation applies to any of these, however small:
+
+- New React components, props, or layouts.
+- New i18n keys consumed by a component (keys only exercised by tests are NOT validated).
+- New or changed tRPC read/write paths that a page depends on.
+- Changes to routing, navigation, or permission gating.
+- Changes to visible copy, icons, order of listed items, or filter/option sets.
+
+Minimum acceptable proof:
+
+1. Boot the relevant target (`npm run dev:web` + `npm run dev:server`, or the Electron dev entry).
+2. Drive the affected screen through Playwright MCP (`browser_navigate`, `browser_click`, `browser_evaluate`). Assert the concrete user-visible strings and/or round-trip behavior — do not stop at screenshots.
+3. For changes that cross the Electron main/renderer boundary, ALSO validate the Electron target (the embedded Fastify server is in-process; the renderer is a chromium webview). If Electron validation is infeasible (e.g. requires a native-signed build), declare it explicitly in the task report and flag the gap.
+
+If the smoke is genuinely impossible in the current session (dev server refuses to start, MCP blocked, etc.), stop and tell the user before declaring the task done. Do not let vitest coverage stand in for a live smoke.
+
 ## Git conventions
 
 Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chore:`). Scope with the module name: `feat(products):`, `fix(auth):`, etc.

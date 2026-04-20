@@ -564,6 +564,11 @@ Execution matrix for manual validation and later automation with Playwright Web 
 | ✅ | AUDIT-14 | BOTH | admin | Adjust a product's stock, reload /audit-logs | An `inventory.adjust_stock` row appears; summary shows `{before} → {after} ({±delta})`; metadata includes resolved siteId and movementId |
 | ✅ | AUDIT-15 | BOTH | admin | Submit an adjust-stock call with newStock === current stock | No audit row is written (no-op short-circuit); movement/sync rows still land — pre-existing behaviour, intentional for this slice |
 | ✅ | AUDIT-16 | BOTH | admin | Try to void an already-voided sale | Second attempt rejects; exactly one audit row exists for the original successful void — rollback invariant holds on the new surfaces too |
+| ✅ | AUDIT-17 | BOTH | admin | Void a completed purchase | A `purchase.void` row appears; summary shows purchase number plus reason; metadata carries the destination siteId |
+| ✅ | AUDIT-18 | BOTH | admin | Create a new user | A `user.create` row appears; summary shows email and role; the password hash is absent from the audit payload |
+| ✅ | AUDIT-19 | BOTH | admin | Rename an existing user (no role / isActive change) | No audit row is written — name/email edits are bookkeeping, not a security event |
+| ✅ | AUDIT-20 | BOTH | admin | Promote a user's role and then disable them | Two `user.update` rows appear; each carries only the field that actually transitioned in its before/after snapshot |
+| ✅ | AUDIT-21 | BOTH | cashier | Sell a product at a price that differs from the catalog | One `sale.price_override` row appears per sale, summarizing all overridden lines; selling at the catalog price writes no audit row |
 
 ---
 

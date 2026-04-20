@@ -13,7 +13,11 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.adjust_stock',
   'sale.void',
   'sale.return',
+  'sale.price_override',
+  'purchase.void',
   'transfer.void',
+  'user.create',
+  'user.update',
   'quotation.delete',
   'quotation.convert',
 ];
@@ -22,7 +26,9 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'sale',
   'cash_session',
   'product',
+  'purchase',
   'transfer_order',
+  'user',
   'quotation',
 ];
 

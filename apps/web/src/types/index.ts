@@ -501,14 +501,21 @@ export type AuditLogAction =
   | 'sale.void'
   | 'sale.return'
   | 'cash_session.close'
-  | 'inventory.adjust_stock';
+  | 'inventory.adjust_stock'
+  // ENG-007 second wave — admin-surface events.
+  | 'purchase.void'
+  | 'user.create'
+  | 'user.update'
+  | 'sale.price_override';
 
 export type AuditLogResourceType =
   | 'transfer_order'
   | 'quotation'
   | 'sale'
   | 'cash_session'
-  | 'product';
+  | 'product'
+  | 'purchase'
+  | 'user';
 
 export interface AuditLogEntry {
   id: string;

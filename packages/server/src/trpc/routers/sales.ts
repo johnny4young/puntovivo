@@ -62,6 +62,12 @@ type ResolvedSaleItem = {
   productId: string;
   quantity: number;
   unitPrice: number;
+  // ENG-007 — the `unit_x_product.price` at the moment this line was resolved,
+  // used by `sales.create` to detect manual price overrides and write a
+  // single `sale.price_override` audit row when a cashier deviates from the
+  // catalog.
+  referenceUnitPrice: number;
+  productName: string;
   unitId: string;
   unitEquivalence: number;
   discount: number;
@@ -397,6 +403,10 @@ async function resolveSaleItems(
       productId: unitXProduct.productId,
       unitId: unitXProduct.unitId,
       equivalence: unitXProduct.equivalence,
+      // ENG-007 — read the per-unit catalog price so `sales.create` can
+      // detect manual price overrides (cashier entered a price that differs
+      // from the unit's catalog value).
+      price: unitXProduct.price,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
       isActive: units.isActive,
@@ -484,6 +494,8 @@ async function resolveSaleItems(
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      referenceUnitPrice: assignment.price,
+      productName: product.name,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: item.discount,
@@ -950,6 +962,45 @@ export const salesRouter = router({
           createdAt: now,
         })
         .run();
+
+      // ENG-007 — detect manual price overrides. A line qualifies as an
+      // override when `unitPrice` deviates from the per-unit catalog price
+      // (`unit_x_product.price`) at the moment of sale, beyond a cent of
+      // tolerance. One audit row summarizes every overridden line on the
+      // sale so the timeline stays flat even when a cashier discounts many
+      // items in the same ticket.
+      const PRICE_OVERRIDE_EPSILON = 0.005;
+      const overrides = resolvedItems.rows
+        .filter(
+          row =>
+            Math.abs(row.unitPrice - row.referenceUnitPrice) >=
+            PRICE_OVERRIDE_EPSILON
+        )
+        .map(row => ({
+          saleItemId: row.id,
+          productId: row.productId,
+          productName: row.productName,
+          referenceUnitPrice: row.referenceUnitPrice,
+          unitPrice: row.unitPrice,
+          quantity: row.quantity,
+        }));
+
+      if (overrides.length > 0) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sale.price_override',
+          resourceType: 'sale',
+          resourceId: saleId,
+          before: null,
+          after: {
+            saleNumber,
+            overrideCount: overrides.length,
+          },
+          metadata: { overrides },
+        });
+      }
     });
 
     const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);

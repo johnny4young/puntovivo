@@ -36,6 +36,7 @@ import {
   voidPurchaseInput,
 } from '../schemas/purchases.js';
 import type { CreatePurchaseInput } from '../schemas/purchases.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 
 type ResolvedPurchaseItem = {
   id: string;
@@ -1617,6 +1618,29 @@ export const purchasesRouter = router({
           createdAt: now,
         })
         .run();
+
+      // ENG-007 — voiding a purchase reverses destination stock at the
+      // receiving site and pushes the purchase row into `voided`. Audit row
+      // is written inside the same transaction as the reversal so either
+      // both land or neither does.
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'purchase.void',
+        resourceType: 'purchase',
+        resourceId: input.id,
+        before: {
+          status: existing.status,
+          total: existing.total,
+          purchaseNumber: existing.purchaseNumber,
+        },
+        after: { status: 'voided' },
+        metadata: {
+          ...(input.reason ? { reason: input.reason } : {}),
+          siteId: existing.siteId,
+        },
+      });
     });
 
     return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
