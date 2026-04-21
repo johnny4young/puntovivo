@@ -197,7 +197,7 @@ The app is no longer missing "basic POS." The biggest gaps are now:
 - **Fiscal**: Basic Colombian compliance
 - **Pricing**: Free base, paid from COP 49,900/month
 
-**Key insight for Colombia market**: Siigo and Alegra own the compliance story. Puntovivo must implement DIAN electronic POS document (documento equivalente POS electrónico) and eventually full electronic invoicing to be competitive in Colombia.
+**Key insight for Colombia market**: Siigo and Alegra own the compliance story. Puntovivo must support DIAN electronic POS document (documento equivalente POS electrónico) and eventually full electronic invoicing to be competitive in Colombia. **Implementation approach (decided April 2026)**: integrate with a DIAN-authorized Proveedor Tecnológico (Facture, HKA, or Gosocket) via REST rather than implementing the full XAdES + SOAP + habilitación stack in-process. See §Phase 11 below and [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md).
 
 ### 2.4 Competitive Feature Summary Matrix
 
@@ -2116,6 +2116,40 @@ Goal:
 
 This section is based on deep research of current DIAN regulations (Resolución 000165/2023, Resolución 000008/2024, Resolución 000202/2025).
 
+##### Architectural decision (April 2026): integrate via an authorized Proveedor Tecnológico
+
+After the April 2026 MVP-Colombia audit (see [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) and the plan file `implement-the-next-step-mutable-muffin.md`), the decision for the first production implementation is:
+
+**Puntovivo will integrate with a DIAN-authorized Proveedor Tecnológico (PT) via HTTPS REST, instead of implementing the full DIAN signing + SOAP + habilitación stack in-process.**
+
+Rationale:
+
+- Building XAdES-EPES signing, UBL 2.1 generation, SOAP WS-Security client, test set certification, and handling ongoing DIAN protocol changes takes ~3-4 months of senior fiscal-domain engineering time and has a permanent regulatory-maintenance tail (~1-2 spec updates per year).
+- Integrating an authorized PT takes ~3-5 weeks, and the PT absorbs protocol changes, owns the DIAN SLA relationship, manages the habilitación lifecycle, handles certificate rotation, and provides a tested contingency path.
+- The DIAN does not differentiate the two paths for the taxpayer — a document emitted through a PT has the same legal validity as one emitted directly by the taxpayer's own software.
+
+Candidate PTs (all DIAN-authorized, REST-documented): **Facture S.A.S.** and **The Factory HKA Colombia** are the primary candidates for a CO PYME; **Gosocket** is the fallback if multi-country LatAm coverage becomes relevant sooner (see [LATAM-EXPANSION.md](./LATAM-EXPANSION.md)); **Alegra**, **Siigo**, **Carvajal** are available but heavier.
+
+What stays in-process at Puntovivo:
+
+- The domain document shape (`fiscal_documents` row with source reference, status, CUFE/CUDE, storage ref)
+- The adapter interface (`FiscalAdapter`) with a first `FactureAdapter` (or `HkaAdapter`) implementation
+- The business policy: what gets issued (DEE vs factura vs credit note), when contingency triggers, how retries back off
+- The contingency queue (offline-first, sync on reconnect)
+- XML archival ≥5 years (Art. 632 E.T.)
+
+What is delegated to the PT:
+
+- XAdES-EPES signing of UBL 2.1 XML
+- SOAP WS-Security transmission to DIAN habilitación/producción endpoints
+- Initial habilitación (software registered once under the PT's umbrella, each tenant's resolution linked)
+- Day-to-day retry on DIAN unavailability (PT has its own contingency layer on top of Puntovivo's)
+- Protocol upgrades when DIAN publishes new Anexos Técnicos
+
+**This decision does not remove** the detailed technical reference below — the tickets on signing (`API-1004`), SOAP client (`API-1005`), and habilitación wizard (`UI-1004`) stay in the plan **as a future option** if Puntovivo ever decides to become its own facturador electrónico directo. For the MVP they are deferred; the effective first-pass tickets are listed under "Integration ticket set (Proveedor Tecnológico path)" below.
+
+The remainder of this section documents what DIAN requires, so that Puntovivo can validate that the chosen PT produces compliant output and so that the domain layer speaks the same vocabulary.
+
 **Mandatory electronic documents for Colombia POS**:
 
 1. **Documento Equivalente POS Electrónico (DEE)**: Replaced traditional paper POS receipts. Mandatory since May-July 2024 (depending on taxpayer category). Must be XML UBL 2.1, digitally signed, transmitted to DIAN for validation, and carry a CUDE (Código Único de Documento Equivalente).
@@ -2215,6 +2249,48 @@ Test tickets:
 - `TEST-1007` Webhook signing and retry tests
 - `TEST-1008` Multi-currency conversion accuracy
 - `TEST-1009` API key authentication and rate limiting
+
+##### Integration ticket set (Proveedor Tecnológico path — P0 for MVP Colombia)
+
+Per the architectural decision above, the first-pass implementation replaces several of the tickets above with PT-integration equivalents. The superseded tickets stay in the plan as "Direct DIAN option" for possible future activation.
+
+**Effective MVP tickets** (replace/augment the equivalent `API-1001..1007` and `UI-1001..1004` entries):
+
+- `API-PT-1001` Define `FiscalAdapter` TypeScript interface (`issue`, `void`, `reissue`, `fetchStatus`, capability flags). This supersedes the generic contract in `API-1001` by making adapter boundaries explicit to a PT REST layer. [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) §Module shape is the source of truth for the exact signature.
+- `API-PT-1002` Implement `FactureAdapter` (or `HkaAdapter`, whichever the business chooses first): HTTP client with auth, credential rotation, request/response logging, error-code mapping from provider vocabulary to Puntovivo's `ServerErrorWithCode` set.
+- `API-PT-1003` `fiscal-documents` service: orchestrates the lifecycle `pending → sent → accepted|rejected|contingency`, writes to `fiscal_documents`, ensures one document per source (sale, return, void), persists the provider's returned CUFE/CUDE.
+- `API-PT-1004` CUFE/CUDE verification (not calculation): the PT returns the CUFE; Puntovivo re-hashes the canonical fields against the returned value as a sanity gate, so a PT bug does not silently ship a bad CUFE. Uses the SHA-384 primitive from `API-1003` but as a check, not the authoritative generator.
+- `API-PT-1005` Contingency queue: local-first queue in `fiscal_documents.status = 'contingency'`; retry daemon with backoff; triggers on PT 5xx, network unreachable, or PT-provided contingency signal.
+- `API-PT-1006` Numbering resolution registration: store the DIAN-authorized resolution (prefix, range, expiry, technical key) in `fiscal_numbering_resolutions` and link it to the PT account; the PT consumes the consecutive on each issue.
+- `API-PT-1007` XML archival: after the PT accepts a document, download the canonical XML, store it on disk (and in S3-compatible storage once [STACK-EVOLUTION.md](./STACK-EVOLUTION.md) Phase β lands), keep the reference in `fiscal_documents.xml_storage_ref`.
+- `UI-PT-1001` Habilitación wizard — for the PT path this is a credentials wizard, not a DIAN test-set submitter: collect PT API key + environment (sandbox/prod) + associate the tenant's DIAN resolution.
+- `UI-PT-1002` Contingency indicator in POS header + queue page showing pending fiscal documents and retry status.
+- `UI-PT-1003` Reissue / credit-note modal pointing at original CUFE.
+- `TEST-PT-1001` Adapter round-trip against PT sandbox: issue a DEE, verify CUFE returned, archive the XML, confirm status transitions.
+- `TEST-PT-1002` CUFE verification catches a tampered response (fault-injection test that mutates the XML body).
+- `TEST-PT-1003` Contingency: simulate PT 5xx, assert queue, assert retry on recovery.
+- `TEST-PT-1004` Cross-tenant isolation: tenant A's fiscal documents never visible to tenant B (same invariant as other multi-tenant guards).
+
+**Deferred to "Direct DIAN option"** (only activate if Puntovivo becomes its own facturador directo):
+
+- `API-1004` XAdES-EPES digital signature service — handled by PT
+- `API-1005` DIAN SOAP web service client — handled by PT
+- `UI-1004` DIAN habilitación testing wizard (send test documents directly to DIAN) — replaced by `UI-PT-1001`
+- `TEST-1002` UBL 2.1 XML generation validates against DIAN XSD — becomes a PT responsibility; Puntovivo only validates the PT's REST payload shape
+- `TEST-1003` XAdES-EPES signature validity — PT responsibility
+
+The mandatory-fields list (§"Key mandatory fields for DEE/POS electrónico" above) still applies: Puntovivo must provide every required field to the PT, and Puntovivo's UI must surface them (company legal name, NIT, buyer identification per Resolución 000202/2025 three-data-point limit, itemized lines with IVA+INC breakdown, etc.). The PT does not invent these — it just formats, signs, transmits, and returns the outcome.
+
+##### Pre-implementation checklist
+
+Before starting MVP fiscal implementation (Iter 3 of the April 2026 plan):
+
+1. Select a PT from the candidate list and sign the contract (business action, not engineering).
+2. Obtain sandbox credentials + sandbox DIAN habilitación under the PT account.
+3. Validate that the chosen PT exposes all the primitives needed: issue DEE, issue FEV, issue credit note, issue debit note, fetch status, contingency support.
+4. Confirm PT supports the specific Anexos Técnicos versions Puntovivo targets (1.9 for FEV, 1.0 for DEE).
+5. Agree on error-code mapping: PT's native error codes → Puntovivo's `ServerErrorWithCode` set.
+6. Plan for PT-outage drills: what does Puntovivo do when the PT itself is down, not just DIAN?
 
 #### Phase 11 Extension: Country-Parametrizable Fiscal Rules
 
