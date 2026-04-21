@@ -119,10 +119,10 @@ export const LOGIN_RATE_LIMIT_USERNAME_MAX = 5;
 export const LOGIN_RATE_LIMIT_USERNAME_WINDOW_MS = 15 * 60_000;
 ```
 
-No structured log is emitted when a bucket trips today. `ENG-006` will add
-`security.login.rate-limit.hit` events once the `pino` logger lands; the
-thrown error already carries `details.kind` / `details.key` for the
-logger wrapper to read.
+There is still no dedicated `security.login.rate-limit.hit` event today.
+`ENG-006` landed the shared pino logger, so a future wrapper can emit a
+specialized rate-limit record without more plumbing; the thrown error
+already carries `details.kind` / `details.key` for that follow-up hook.
 
 ### Non-goals in this slice
 
@@ -178,6 +178,54 @@ week when GitHub publishes a new advisory. `electron` and
 `@electron-forge/*` are excluded from the grouped PRs and must be
 bumped manually — each Electron version change requires a packaged
 smoke test, which lives outside the Dependabot automation surface.
+
+## Structured logging + PII redaction (ENG-006)
+
+`packages/server/src/logging/logger.ts` is the single entry point for
+diagnostics across the server workspace AND the Electron main
+process. `createModuleLogger(name)` returns a pino child tagged with
+`module: <name>`, and pino's `redact` config censors PII at write
+time (before any serialization), so every call site is automatically
+safe:
+
+| Redacted field           | Reason |
+| ------------------------ | ------ |
+| `password`               | plaintext secret |
+| `passwordHash`           | argon2 output; reveals hash parameters |
+| `token`                  | JWT access token |
+| `refreshToken`           | rotated refresh token |
+| `jwtSecret`              | server-side signing secret |
+| `email`                  | PII / GDPR |
+| `authorization`          | bearer-token HTTP header |
+| `cookie`                 | session cookie (refresh, CSRF) |
+| `headers.authorization`  | nested in request logs |
+| `headers.cookie`         | nested in request logs |
+| `*.password`             | one-level-deep credential fields |
+| `*.passwordHash`         | one-level-deep hash fields |
+| `*.token`                | one-level-deep token fields |
+| `*.refreshToken`         | one-level-deep refresh fields |
+| `*.email`                | one-level-deep email fields |
+
+Every match is replaced with `[Redacted]` before pino emits the JSON
+line. Changing this list is a security-relevant edit and must come
+with a ROADMAP note.
+
+Enforcement: `packages/server/eslint.config.js` + the `src/main/**`
+override in `apps/desktop/eslint.config.js` both declare
+`'no-console': 'error'`. A regression that introduces a raw
+`console.log` / `console.error` fails `ci:server` or `ci:desktop` at
+the lint step. Test files under `__tests__/` keep the existing
+console spies allowed.
+
+The only sanctioned plaintext-credential output path is the
+`printCredentialsBanner` helper in `packages/server/src/db/seed.ts`,
+which writes directly to `process.stdout` (bypassing the pino stream)
+on first install so the operator can retrieve the generated admin
+password once. A downstream log shipper will never see that line
+because it is not part of the structured stream.
+
+See `docs/TRPC_ARCHITECTURE.md` for the logger's module naming
+convention, env-var controls, and the `| pino-pretty` dev ergonomics.
 
 ### Tamper-check history (ENG-009 acceptance)
 

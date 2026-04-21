@@ -27,5 +27,16 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-require-imports': 'off',
     },
+  },
+  {
+    // ENG-006 — the Electron main process imports the pino logger via
+    // @puntovivo/server (createModuleLogger). Every diagnostic must flow
+    // through it so operators get structured JSON and PII redaction.
+    // Scoped to src/main/** only; the preload (sandboxed) and renderer-
+    // bundled code are not touched by ENG-006.
+    files: ['src/main/**/*.ts'],
+    rules: {
+      'no-console': 'error',
+    },
   }
 );

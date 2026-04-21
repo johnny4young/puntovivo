@@ -17,11 +17,22 @@
  * @module standalone
  */
 
-import { createServer } from './index.js';
+import { createServer, createModuleLogger } from './index.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const log = createModuleLogger('standalone');
+
+/**
+ * Operator-facing banner text. Kept on `process.stdout.write` instead of
+ * the pino stream on purpose — it is one-shot CLI UX, not structured
+ * telemetry, so turning it into NDJSON would destroy readability at the
+ * command line and does not help any log aggregator downstream.
+ */
+function banner(line: string = ''): void {
+  process.stdout.write(`${line}\n`);
+}
 
 async function main(): Promise<void> {
   const port = parseInt(process.env.PORT || '8090', 10);
@@ -31,10 +42,10 @@ async function main(): Promise<void> {
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
   process.env.PUNTOVIVO_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
-  console.log('==========================================');
-  console.log('  Puntovivo Server - Standalone Mode');
-  console.log('==========================================');
-  console.log();
+  banner('==========================================');
+  banner('  Puntovivo Server - Standalone Mode');
+  banner('==========================================');
+  banner();
 
   try {
     const server = await createServer({
@@ -45,11 +56,12 @@ async function main(): Promise<void> {
       verbose,
     });
 
-    // Handle graceful shutdown
+    // Handle graceful shutdown. Signals are operational events, so they
+    // flow through the structured log stream.
     const shutdown = async (signal: string) => {
-      console.log(`\n[Server] Received ${signal}, shutting down...`);
+      log.info({ signal }, 'shutdown requested');
       await server.close();
-      console.log('[Server] Goodbye!');
+      log.info('shutdown complete');
       process.exit(0);
     };
 
@@ -59,28 +71,28 @@ async function main(): Promise<void> {
     // Start server
     const address = await server.listen();
 
-    console.log();
-    console.log(`[Server] ✓ Server started at ${address}`);
-    console.log(`[Server] ✓ Database: ${dbPath}`);
-    console.log();
-    console.log('  API Surfaces:');
-    console.log(`  - tRPC:        ${address}/api/trpc`);
-    console.log(`  - Health:      ${address}/api/health (compatibility endpoint)`);
-    console.log(`  - Realtime:    ${address}/api/realtime/subscribe`);
-    console.log();
-    console.log('  Default admin account:');
-    console.log('  - Email: admin@localhost');
-    console.log(
+    banner();
+    banner(`[Server] ✓ Server started at ${address}`);
+    banner(`[Server] ✓ Database: ${dbPath}`);
+    banner();
+    banner('  API Surfaces:');
+    banner(`  - tRPC:        ${address}/api/trpc`);
+    banner(`  - Health:      ${address}/api/health (compatibility endpoint)`);
+    banner(`  - Realtime:    ${address}/api/realtime/subscribe`);
+    banner();
+    banner('  Default admin account:');
+    banner('  - Email: admin@localhost');
+    banner(
       process.env.NODE_ENV === 'production'
         ? '  - Password: (generated on first run, shown once in seed output)'
         : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
     );
-    console.log('  - See docs/LOGIN_GUIDE.md for details');
-    console.log();
-    console.log('  Press Ctrl+C to stop');
-    console.log('==========================================');
+    banner('  - See docs/LOGIN_GUIDE.md for details');
+    banner();
+    banner('  Press Ctrl+C to stop');
+    banner('==========================================');
   } catch (err) {
-    console.error('[Server] Failed to start:', err);
+    log.fatal({ err }, 'server failed to start');
     process.exit(1);
   }
 }

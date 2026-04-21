@@ -13,6 +13,30 @@ import { nanoid } from 'nanoid';
 import { randomBytes } from 'crypto';
 import * as argon2 from 'argon2';
 import type { DatabaseInstance } from './index.js';
+import { createModuleLogger } from '../logging/logger.js';
+
+const seedLog = createModuleLogger('seed');
+
+/**
+ * Operator-facing banner for the first-run admin credentials. Kept on
+ * `process.stdout.write` (NOT routed through pino) on purpose:
+ *
+ * 1. The plaintext password must be visible to the operator on first
+ *    install so they can log in and rotate it. If it flowed through
+ *    the structured stream, the redact policy would mask it to
+ *    `[Redacted]` and the operator would have to query the DB to find
+ *    the value — worse UX, not better security.
+ * 2. Keeping the banner on stdout but outside the log stream means any
+ *    log aggregator or JSON-ingesting tool skips it cleanly; the
+ *    plaintext never leaks to shared observability infrastructure.
+ *
+ * Treat this helper as the ONLY sanctioned path to print a plaintext
+ * credential from server code. All other credential fields get
+ * structured-logged and redacted by pino automatically.
+ */
+function printCredentialsBanner(line: string): void {
+  process.stdout.write(`${line}\n`);
+}
 import {
   clientTypes,
   commercialActivities,
@@ -418,27 +442,31 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
     return;
   }
 
-  console.log('[Database] Default data seeded successfully');
+  seedLog.info('default data seeded successfully');
 
   if (seededAdminPassword) {
-    console.log('[Database] ═══════════════════════════════════════════════════════════');
-    console.log(
+    // Every line below goes to stdout directly. See the comment on
+    // `printCredentialsBanner` above — the plaintext password must be
+    // readable by the operator on first install, and pino's redact
+    // would mask it if we routed through the module logger.
+    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(
       seededAdminPassword.isFixed
         ? '[Database] Development admin credentials are ready'
         : '[Database] ⚠️  IMPORTANT: Save these admin credentials securely!'
     );
-    console.log('[Database] ═══════════════════════════════════════════════════════════');
-    console.log(`[Database] Email:    ${DEFAULT_ADMIN.email}`);
-    console.log(`[Database] Password: ${seededAdminPassword.value}`);
-    console.log('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner(`[Database] Email:    ${DEFAULT_ADMIN.email}`);
+    printCredentialsBanner(`[Database] Password: ${seededAdminPassword.value}`);
+    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
     if (seededAdminPassword.isFixed) {
-      console.log(
+      printCredentialsBanner(
         `[Database] Non-production mode uses a fixed password. Override it with ${DEVELOPMENT_ADMIN_PASSWORD_ENV}.`
       );
     } else {
-      console.log('[Database] ⚠️  This password will NOT be shown again!');
-      console.log('[Database] ⚠️  Please change it immediately after first login.');
+      printCredentialsBanner('[Database] ⚠️  This password will NOT be shown again!');
+      printCredentialsBanner('[Database] ⚠️  Please change it immediately after first login.');
     }
-    console.log('[Database] ═══════════════════════════════════════════════════════════');
+    printCredentialsBanner('[Database] ═══════════════════════════════════════════════════════════');
   }
 }

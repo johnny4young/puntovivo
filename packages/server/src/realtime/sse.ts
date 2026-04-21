@@ -18,6 +18,9 @@
 
 import { FastifyReply, FastifyPluginCallback, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import { createModuleLogger } from '../logging/logger.js';
+
+const sseLog = createModuleLogger('sse');
 
 /**
  * SSE Client connection
@@ -52,7 +55,7 @@ export class SseManager {
    */
   addClient(client: SseClient): void {
     this.clients.set(client.id, client);
-    console.log(`[SSE] Client connected: ${client.id} (${this.clients.size} total)`);
+    sseLog.debug({ clientId: client.id, totalClients: this.clients.size }, 'client connected');
   }
 
   /**
@@ -60,7 +63,7 @@ export class SseManager {
    */
   removeClient(clientId: string): void {
     this.clients.delete(clientId);
-    console.log(`[SSE] Client disconnected: ${clientId} (${this.clients.size} total)`);
+    sseLog.debug({ clientId, totalClients: this.clients.size }, 'client disconnected');
   }
 
   /**
@@ -121,7 +124,7 @@ export class SseManager {
     }
 
     if (sentCount > 0) {
-      console.log(`[SSE] Broadcast ${eventName} to ${sentCount} clients`);
+      sseLog.debug({ eventName, sentCount }, 'broadcast delivered');
     }
   }
 

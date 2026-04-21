@@ -1,6 +1,9 @@
 import { app, autoUpdater, type Event } from 'electron';
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
+import { createModuleLogger } from '@puntovivo/server';
 import { t } from './i18n';
+
+const log = createModuleLogger('auto-updater');
 
 const AUTO_UPDATE_ENABLED = process.env.AUTO_UPDATE !== 'false';
 const UPDATE_INTERVAL = process.env.AUTO_UPDATE_INTERVAL || '1 hour';
@@ -214,19 +217,23 @@ export function initAutoUpdater(): AutoUpdateStatus {
       },
       updateInterval: UPDATE_INTERVAL,
       notifyUser: false,
+      // update-electron-app expects a subset of a console-like interface
+      // (log, warn, error, info). pino's child logger satisfies each of
+      // those signatures, so the module logger threads directly into the
+      // library's internal diagnostics and everything flows through the
+      // shared NDJSON stream with module="auto-updater".
       logger: {
-        log: (...args: unknown[]) => console.log('[Auto-Update]', ...args),
-        warn: (...args: unknown[]) => console.warn('[Auto-Update]', ...args),
-        error: (...args: unknown[]) => console.error('[Auto-Update]', ...args),
-        info: (...args: unknown[]) => console.info('[Auto-Update]', ...args),
+        log: (...args: unknown[]) => log.info({ args }, 'auto-update log'),
+        warn: (...args: unknown[]) => log.warn({ args }, 'auto-update warn'),
+        error: (...args: unknown[]) => log.error({ args }, 'auto-update error'),
+        info: (...args: unknown[]) => log.info({ args }, 'auto-update info'),
       },
     });
 
-    console.log('Auto-updater initialized successfully');
-    console.log(`Update interval: ${UPDATE_INTERVAL}`);
+    log.info({ updateInterval: UPDATE_INTERVAL }, 'auto-updater initialized');
   } catch (error) {
     const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
-    console.error('Failed to initialize auto-updater:', error);
+    log.error({ err: error }, 'failed to initialize auto-updater');
 
     return updateStatus({
       isAvailable: true,

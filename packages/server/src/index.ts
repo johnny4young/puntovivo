@@ -14,6 +14,7 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
+import { createModuleLogger, rootLogger } from './logging/logger.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import {
@@ -89,15 +90,15 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     migrationsFolder,
   });
 
-  // Create Fastify instance
+  // ENG-006 — Fastify adopts the shared pino rootLogger so HTTP request
+  // logs and application logs share one NDJSON stream with the same
+  // redact config. Kept behind the existing `verbose` toggle so
+  // production stays silent (matching the pre-ENG-006 posture) while
+  // dev/test runs get structured HTTP logs that automatically mask
+  // credentials. App-level logging via createModuleLogger is always on
+  // regardless of this flag.
   const app = Fastify({
-    logger: verbose
-      ? {
-          level: 'info',
-          // Skip pino-pretty in bundled/electron environment (causes module resolution issues)
-          // Use basic logging instead
-        }
-      : false,
+    logger: verbose ? rootLogger : false,
     // tRPC batch URLs encode comma-separated procedure names as a single route param.
     // The default limit (100) is too short for multi-procedure batches on this router.
     // Use routerOptions per Fastify v5 API (top-level maxParamLength is deprecated).
@@ -162,15 +163,14 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   app.decorate('db', db);
 
   // Register tRPC
+  const trpcLog = createModuleLogger('trpc');
   await app.register(fastifyTRPCPlugin, {
     prefix: '/api/trpc',
     trpcOptions: {
       router: appRouter,
       createContext,
       onError({ path, error }: { path?: string; error: unknown }) {
-        if (verbose) {
-          console.error(`[tRPC] Error in ${path ?? 'unknown'}:`, error);
-        }
+        trpcLog.error({ path: path ?? 'unknown', err: error }, 'tRPC procedure error');
       },
     },
   });
@@ -190,15 +190,14 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   let serverUrl = `http://${host}:${port}`;
 
+  const serverLog = createModuleLogger('server');
   return {
     app,
     db,
     listen: async () => {
       const address = await app.listen({ port, host });
       serverUrl = address;
-      if (verbose) {
-        console.log(`[Server] Listening at ${address}`);
-      }
+      serverLog.info({ address }, 'server listening');
       return address;
     },
     close: async () => {
@@ -229,3 +228,11 @@ export * from './db/schema.js';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
 export type { AppRouter } from './trpc/router.js';
+// ENG-006 — the Electron main imports createModuleLogger via this
+// barrel so app-level logs from both the embedded server and the
+// desktop shell flow through the same pino instance.
+export {
+  createModuleLogger,
+  rootLogger,
+  type PuntovivoLogger,
+} from './logging/logger.js';
