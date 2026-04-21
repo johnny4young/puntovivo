@@ -75,6 +75,8 @@ Before committing, every change must pass the per-workspace CI script that corre
 
 Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
 
+**Cross-platform desktop (ENG-005)**: `ci.yml` runs the `desktop` job on `ubuntu-latest`, `macos-latest`, and `windows-latest` with `fail-fast: false`. A change that works on your local macOS but breaks on Windows — a POSIX-only shell pipe in a script, a path assumption with literal `/`, a missing prebuilt native binary — fails the matrix before the release workflow signs it. Keep scripts invoked from `ci:*` portable (Node-based, `path.join`, explicit `process.platform === 'win32'` where needed). Packaging (`electron-forge make`) is still Linux-only in `release.yml` because the signing flow requires signing material the public runners do not carry.
+
 If the `review` skill is available in the session, run it on the diff before finalizing a large change — it surfaces duplication, unused deps, and violations of the patterns in this file.
 
 ## Node.js version constraint
