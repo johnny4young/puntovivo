@@ -14,8 +14,11 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { createModuleLogger } from '../logging/logger.js';
 import * as schema from './schema.js';
 import { seedDefaultData } from './seed.js';
+
+const dbLog = createModuleLogger('db');
 
 // ENG-002 — versioned Drizzle migrations live next to this module. Resolved
 // at module load so the path is valid whether we run tests, dev, or the
@@ -76,9 +79,14 @@ export async function initDatabase(
     }
   }
 
-  // Create SQLite connection
+  // Create SQLite connection. `better-sqlite3`'s verbose hook emits one
+  // entry per SQL statement — route it through the db module logger at
+  // trace level so it shows up only when the operator explicitly opts in
+  // via PUNTOVIVO_LOG_LEVEL=trace AND the server is booted with
+  // verbose=true. In production (verbose=false) no hook is wired and
+  // sqlite stays quiet.
   sqlite = new Database(dbPath, {
-    verbose: verbose ? console.log : undefined,
+    verbose: verbose ? (statement: unknown) => dbLog.trace({ statement }, 'sqlite') : undefined,
   });
 
   // Enable WAL mode for better concurrent access (skip for in-memory)
@@ -112,11 +120,10 @@ export async function initDatabase(
     // case `runSchemaSync()` below takes over and the app still boots.
     if (existsSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'))) {
       drizzleMigrate(db, { migrationsFolder: effectiveMigrationsFolder });
-    } else if (verbose) {
-      console.warn(
-        `[Database] Migrations folder missing at ${effectiveMigrationsFolder}; ` +
-          'falling back to runSchemaSync(). Ship the migrations folder ' +
-          'alongside the server bundle to enable versioned migrations.'
+    } else {
+      dbLog.warn(
+        { migrationsFolder: effectiveMigrationsFolder },
+        'migrations folder missing; falling back to runSchemaSync(). ship the migrations folder alongside the server bundle to enable versioned migrations.'
       );
     }
 
@@ -132,9 +139,7 @@ export async function initDatabase(
     await seedDefaultData(db);
   }
 
-  if (verbose) {
-    console.log(`[Database] Initialized at: ${dbPath}`);
-  }
+  dbLog.info({ dbPath }, 'database initialized');
 
   return db;
 }

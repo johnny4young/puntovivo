@@ -22,6 +22,12 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
       'prefer-const': 'warn',
+      // ENG-006 — every diagnostic must flow through the pino logger
+      // (`createModuleLogger(...)`). Tests keep using console via the
+      // existing `__tests__` / `*.test.ts` ignore at the top of this
+      // file. No allow list — even console.warn and console.error need
+      // a logger instead.
+      'no-console': 'error',
     },
   }
 );

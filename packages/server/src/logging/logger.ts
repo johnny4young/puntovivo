@@ -1,0 +1,93 @@
+/**
+ * ENG-006 — single pino logger for the whole server workspace.
+ *
+ * `rootLogger` is the shared pino instance; Fastify adopts it at
+ * `createServer()` so HTTP request logs and application logs share one
+ * NDJSON stream. `createModuleLogger('<name>')` returns a child that
+ * stamps a stable `module` field on every record so operators can
+ * `grep '"module":"sync"'` (or feed the stream into any JSON-aware
+ * observability tool).
+ *
+ * Redaction policy — every field listed in `REDACT_PATHS` is replaced
+ * with `[Redacted]` before pino ever writes it, so seed-time credential
+ * dumps, request `authorization` headers, and refresh cookies cannot
+ * leak even when an operator debug-logs the whole object. See
+ * `docs/SECURITY.md` for the full policy.
+ *
+ * Level is driven by `PUNTOVIVO_LOG_LEVEL` (trace|debug|info|warn|
+ * error|fatal). In the absence of that env var: `info` when
+ * `NODE_ENV === 'production'`, otherwise `debug`.
+ *
+ * No `transport:` option — pino-pretty's worker-thread transport
+ * cannot be resolved under Electron's CJS Vite bundle (the old
+ * `logger: false` in `index.ts` was a workaround for exactly this).
+ * The root logger writes plain NDJSON to stdout; developers who want
+ * pretty output pipe it manually: `npm run dev:server | pino-pretty`.
+ */
+
+import pino from 'pino';
+
+export type PuntovivoLogger = pino.Logger;
+
+/**
+ * Field paths that get censored to `[Redacted]` on every log record.
+ *
+ * Keep the list tight — over-redacting makes debugging harder, and
+ * every addition is a policy change. Reuses the shape documented in
+ * `docs/SECURITY.md` so the redaction contract stays in one place.
+ */
+const REDACT_PATHS: readonly string[] = [
+  'password',
+  'passwordHash',
+  'token',
+  'refreshToken',
+  'jwtSecret',
+  'email',
+  'authorization',
+  'cookie',
+  'headers.authorization',
+  'headers.cookie',
+  '*.password',
+  '*.passwordHash',
+  '*.token',
+  '*.refreshToken',
+  '*.email',
+];
+
+function resolveLevel(): string {
+  const explicit = process.env.PUNTOVIVO_LOG_LEVEL;
+  if (explicit) return explicit;
+  return process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+}
+
+/**
+ * The shared pino instance. Callers should almost always reach for
+ * `createModuleLogger(...)` instead of using this directly, so every
+ * record carries a `module` field.
+ */
+export const rootLogger: PuntovivoLogger = pino({
+  level: resolveLevel(),
+  redact: {
+    paths: [...REDACT_PATHS],
+    censor: '[Redacted]',
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
+
+/**
+ * Return a pino child logger tagged with `{ module }`. Every server
+ * module (`auth`, `db`, `sync`, `sales`, `cash-session`, `security`,
+ * etc.) should create its own child on module load and reuse it.
+ *
+ * @example
+ *   const log = createModuleLogger('sync');
+ *   log.info({ triggeredBy: 'user' }, 'sync cycle started');
+ */
+export function createModuleLogger(module: string): PuntovivoLogger {
+  return rootLogger.child({ module });
+}
+
+/**
+ * Exposed for tests. Production code must not mutate the redact list.
+ */
+export const __REDACT_PATHS_FOR_TESTS: readonly string[] = REDACT_PATHS;

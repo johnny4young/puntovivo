@@ -556,6 +556,66 @@ or `npm run test:coverage --workspace=@puntovivo/server`. Lowering a
 threshold without raising coverage is a breaking change — every
 threshold edit must come with a ROADMAP note explaining why.
 
+## Structured logging (ENG-006)
+
+Every diagnostic in `packages/server/` and `apps/desktop/src/main/`
+flows through one pino instance declared in
+`packages/server/src/logging/logger.ts`. The factory
+`createModuleLogger(name)` returns a child tagged with
+`module: <name>`; callers grab one at module load and reuse it:
+
+```ts
+import { createModuleLogger } from '@puntovivo/server';
+const log = createModuleLogger('sync');
+log.info({ triggeredBy: 'user' }, 'sync cycle started');
+```
+
+Fastify adopts the same root logger (when `verbose: true` on
+`createServer`), so HTTP request logs and application logs land in one
+NDJSON stream with the same redact config.
+
+**Level** is driven by the `PUNTOVIVO_LOG_LEVEL` env var
+(`trace|debug|info|warn|error|fatal`). Default: `info` in
+`NODE_ENV=production`, `debug` otherwise.
+
+**Redaction** (enforced at pino level — see `docs/SECURITY.md` for the
+full policy): `password`, `passwordHash`, `token`, `refreshToken`,
+`jwtSecret`, `email`, `authorization`, `cookie`, plus the nested
+`headers.authorization` / `headers.cookie` and one-level wildcards
+`*.password`, `*.token`, etc. Matching fields are replaced with
+`[Redacted]` before pino ever writes the record.
+
+**No transport is configured** on purpose: pino-pretty uses worker
+threads that Vite's Electron CJS bundle cannot resolve. The root
+logger writes NDJSON to stdout synchronously. Developers who want
+pretty output pipe the stream manually:
+
+```
+npm run dev:server | pino-pretty
+```
+
+**No raw `console.*` outside tests**: `packages/server/eslint.config.js`
+and the `src/main/**` block in `apps/desktop/eslint.config.js` both
+declare `'no-console': 'error'`. Test files under `__tests__/` keep
+the existing console ignores so vitest spies (e.g. the
+`AppErrorBoundary.test.tsx` error-boundary test) still work.
+
+**Module naming convention**: lowercase kebab-case tied to the domain
+(`auth`, `db`, `seed`, `trpc`, `server`, `sse`, `standalone`,
+`electron-main`, `renderer`, `auto-updater`, `backup`, `print`, and the
+ENG-008 `security.login.rate-limit` namespace that lands next).
+
+**Banner output exception**: two call sites keep plaintext on
+`process.stdout.write` instead of pino — the standalone CLI startup
+banner (`packages/server/src/standalone.ts`) and the first-run admin
+credentials in `packages/server/src/db/seed.ts`. Both are one-shot
+operator UX; routing them through pino would either mangle readability
+with JSON framing or (for the credentials) redact the plaintext that
+operators need to log in on a fresh install. The credentials banner is
+the ONLY sanctioned path to emit a plaintext secret from server code
+and it lives outside the aggregated log stream so downstream log
+shippers cannot leak it.
+
 ## Main window sandbox (ENG-004)
 
 The main `BrowserWindow` in `apps/desktop/src/main/index.ts` runs with

@@ -16,11 +16,37 @@ import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
   createServer,
+  createModuleLogger,
   type PuntovivoServer,
   appSettings,
   syncConflicts,
   syncQueue,
 } from '@puntovivo/server';
+
+// ENG-006 — three child loggers for the Electron main. `electron-main`
+// covers the embedded Fastify lifecycle, window loading, and the
+// renderer-console forwarding hook. `backup` and `print` split out
+// two frequent-error surfaces so operators can filter the stream by
+// module=backup or module=print without additional tagging.
+const mainLog = createModuleLogger('electron-main');
+const rendererLog = createModuleLogger('renderer');
+const backupLog = createModuleLogger('backup');
+const printLog = createModuleLogger('print');
+
+// Renderer console levels map to pino levels via this table. Electron
+// reports the level as a narrow union of strings (`debug` | `info` |
+// `warning` | `error`) on the console-message event; we route each to
+// the matching pino method so the severity bubbles through to any
+// downstream log consumer unchanged.
+const RENDERER_LEVEL_MAP = {
+  debug: 'debug',
+  info: 'info',
+  warning: 'warn',
+  error: 'error',
+} as const satisfies Record<
+  import('electron').WebContentsConsoleMessageEventParams['level'],
+  'debug' | 'info' | 'warn' | 'error'
+>;
 import { and, eq, sql } from 'drizzle-orm';
 import {
   checkForAppUpdates,
@@ -44,7 +70,7 @@ const isDev = !app.isPackaged;
 const shouldOpenDevTools = process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 
-console.log(`[Electron] isPackaged: ${app.isPackaged}, isDev: ${isDev}`);
+mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
 
 let mainWindow: BrowserWindow | null = null;
 let server: PuntovivoServer | null = null;
@@ -271,8 +297,7 @@ async function removeSqliteSidecars(dbPath: string): Promise<void> {
 }
 
 async function startEmbeddedServer(): Promise<PuntovivoServer> {
-  console.log(`[Server] Starting embedded server...`);
-  console.log(`[Server] Database path: ${DB_PATH}`);
+  mainLog.info({ dbPath: DB_PATH }, 'starting embedded server');
 
   const nextServer = await createServer({
     dbPath: DB_PATH,
@@ -283,7 +308,7 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
   });
 
   await nextServer.listen();
-  console.log(`[Server] ✓ Server started at ${nextServer.getUrl()}`);
+  mainLog.info({ url: nextServer.getUrl() }, 'embedded server started');
 
   return nextServer;
 }
@@ -293,10 +318,10 @@ async function stopEmbeddedServer(): Promise<void> {
     return;
   }
 
-  console.log('[Server] Shutting down...');
+  mainLog.info('shutting down embedded server');
   await server.close();
   server = null;
-  console.log('[Server] ✓ Server stopped');
+  mainLog.info('embedded server stopped');
 }
 
 async function runWithServerRestart<T>(
@@ -1424,7 +1449,7 @@ function createWindow(): void {
   // Load the renderer based on mode
   if (isDev) {
     // Development mode: load from web dev server
-    console.log(`[Dev Mode] Loading from dev server: ${WEB_DEV_SERVER_URL}`);
+    mainLog.info({ source: WEB_DEV_SERVER_URL }, 'loading renderer from dev server');
     mainWindow.loadURL(WEB_DEV_SERVER_URL);
     if (shouldOpenDevTools) {
       mainWindow.webContents.openDevTools();
@@ -1432,25 +1457,19 @@ function createWindow(): void {
   } else {
     // Production mode: load from packaged web app
     const webAppPath = join(process.resourcesPath, 'dist', 'index.html');
-    console.log(`[Production Mode] Loading from: ${webAppPath}`);
+    mainLog.info({ source: webAppPath }, 'loading renderer from packaged bundle');
     mainWindow.loadFile(webAppPath);
   }
 
-  // Forward renderer console logs to terminal in development
+  // Forward renderer console logs to the structured stream in development
+  // so renderer-side errors surface next to main-process logs under one
+  // module=renderer filter.
   if (isDev) {
     mainWindow.webContents.on('console-message', details => {
-      const levelMap: Record<
-        import('electron').WebContentsConsoleMessageEventParams['level'],
-        string
-      > = {
-        debug: 'DEBUG',
-        info: 'INFO',
-        warning: 'WARN',
-        error: 'ERROR',
-      };
-
-      console.log(
-        `[Renderer ${levelMap[details.level] ?? 'INFO'}] ${details.message} (${details.sourceId}:${details.lineNumber})`
+      const method = RENDERER_LEVEL_MAP[details.level] ?? 'info';
+      rendererLog[method](
+        { sourceId: details.sourceId, lineNumber: details.lineNumber },
+        details.message
       );
     });
   }
@@ -1492,7 +1511,7 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.createFailed');
-    console.error('[Backup] Failed to create backup:', error);
+    backupLog.error({ err: error }, 'failed to create backup');
     return {
       success: false,
       cancelled: false,
@@ -1543,7 +1562,7 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.restoreFailed');
-    console.error('[Backup] Failed to restore backup:', error);
+    backupLog.error({ err: error }, 'failed to restore backup');
     return {
       success: false,
       cancelled: false,
@@ -1569,7 +1588,7 @@ app.whenReady().then(async () => {
     applyThemePreference(await getThemePreference());
     currentTraySettings = await getTraySettings();
   } catch (err) {
-    console.error('[Server] Failed to start:', err);
+    mainLog.fatal({ err }, 'embedded server failed to start');
   }
 
   createWindow();
@@ -1700,7 +1719,7 @@ ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
-    console.error('[Print] Receipt printing failed:', error);
+    printLog.error({ err: error }, 'receipt printing failed');
     return {
       success: false,
       error: message,
