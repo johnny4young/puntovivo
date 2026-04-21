@@ -108,39 +108,19 @@ Current role model:
 
 ### Root router surface
 
-The current root router assembles:
+The current root router assembles 31 routers:
 
-- `health`
-- `auth`
-- `companies`
-- `countries`
-- `identificationTypes`
-- `personTypes`
-- `regimeTypes`
-- `clientTypes`
-- `commercialActivities`
-- `dashboard`
-- `departments`
-- `cities`
-- `logos`
-- `providers`
-- `sequentials`
-- `units`
-- `vatRates`
-- `categories`
-- `products`
-- `orders`
-- `customers`
-- `purchases`
-- `sales`
-- `inventory`
-- `locations`
-- `sites`
-- `sync`
-- `users`
+- Core: `health`, `auth`, `users`
+- Tenant master data: `companies`, `sites`, `sequentials`, `locations`, `logos`
+- Geography: `countries`, `departments`, `cities`
+- Customer classification: `identificationTypes`, `personTypes`, `regimeTypes`, `clientTypes`, `commercialActivities`, `customers`
+- Catalog: `categories`, `units`, `vatRates`, `products`, `providers`
+- Procurement: `orders`, `purchases`
+- Sales: `sales`, `cashSessions`, `quotations`
+- Inventory: `inventory`, `transfers`
+- Operations: `dashboard`, `sync`, `auditLogs`
 
-Source:
-[router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
+Source: [packages/server/src/trpc/router.ts](../packages/server/src/trpc/router.ts)
 
 ### Business modules already implemented
 
@@ -201,8 +181,7 @@ Current top-level routes:
 - `/inventory`
 - `/users`
 
-Source:
-[App.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/App.tsx)
+Source: [apps/web/src/App.tsx](../apps/web/src/App.tsx)
 
 The route modules are now lazy-loaded with Suspense fallbacks so the renderer does not eagerly ship every business screen in the initial bundle.
 
@@ -218,13 +197,11 @@ Normal flow:
 6. TanStack Query remains the source of truth for server state.
 7. UI invalidates affected queries after mutations.
 
-Direct client config:
-[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
+Direct client config: [apps/web/src/lib/trpc.ts](../apps/web/src/lib/trpc.ts)
 
 ## Desktop Architecture
 
-For a detailed explanation of desktop lifecycle, IPC, and watch-state usage, see:
-[DESKTOP_RUNTIME_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/DESKTOP_RUNTIME_GUIDE.md)
+For a detailed explanation of desktop lifecycle, IPC, and watch-state usage, see [DESKTOP_RUNTIME_GUIDE.md](./DESKTOP_RUNTIME_GUIDE.md).
 
 ### Main-process responsibilities
 
@@ -249,8 +226,7 @@ The preload script exposes:
 - `window.sync`
 - `window.api` as a compatibility aggregate
 
-Source:
-[index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
+Source: [apps/desktop/src/preload/index.ts](../apps/desktop/src/preload/index.ts)
 
 ## Persistence and Sync Model
 
@@ -310,7 +286,7 @@ The strongest forward path is:
 
 The active roadmap for this work lives in:
 
-- [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
+- [ROADMAP.md](./ROADMAP.md)
 
 ## Design Constraints That Matter
 
@@ -377,9 +353,9 @@ changing sales, inventory, or audit code.
 ## Where To Look Next
 
 - Project status and roadmap:
-  [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
+  [ROADMAP.md](./ROADMAP.md)
 - tRPC transport details:
-  [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
+  [TRPC_ARCHITECTURE.md](./TRPC_ARCHITECTURE.md)
 - Fiscal integration (DIAN): [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)
 - Hardware peripherals: [HARDWARE-POS.md](./HARDWARE-POS.md)
 - Module activation contract: [MODULE-ACTIVATION.md](./MODULE-ACTIVATION.md)
