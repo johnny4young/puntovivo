@@ -51,6 +51,37 @@ Execution matrix for manual validation and later automation with Playwright Web 
 - Shutdown:
   - `npm run dev:stop`
 
+## Automated Web Smoke
+
+- Command:
+  - `npm run test:e2e:web`
+- Runtime:
+  - starts or reuses the standalone backend on `127.0.0.1:8090`
+  - starts or reuses the Vite web app on `http://localhost:3000`
+  - installs the repo-local Playwright Chromium binary into `.playwright-browsers/` when it is missing
+- Baseline prepared automatically before tests:
+  - dedicated E2E users:
+    - `e2e.admin@local.test`
+    - `e2e.manager@local.test`
+    - `e2e.cashier@local.test`
+    - `e2e.viewer@local.test`
+  - password for every E2E user:
+    - `PuntovivoE2E!123`
+  - ensures at least 2 active sites by creating `E2E Branch Site` only when the tenant has fewer than 2 active sites
+- Current automated coverage:
+  - admin navigation across every real sidebar module in web
+  - manager / cashier / viewer route gating
+  - spanish shell localization
+  - tablet-width responsive shell smoke
+  - transaction-level business flows with DB-backed assertions:
+    - cashier completes a sale and cannot refund / void it
+    - manager refunds a completed sale and stock is restored in both aggregate and by-site inventory, plus a `sale.return` audit row is confirmed
+    - admin voids a completed sale and stock is restored in both aggregate and by-site inventory, plus a `sale.void` audit row is confirmed
+    - manager adjusts stock and the aggregate stock, by-site balance, and `inventory.adjust_stock` audit row stay synchronized
+- Isolation rule:
+  - smoke tests remain read-only after the baseline setup
+  - business-flow tests create their own unique users, products, and open cash sessions per run so they can execute in parallel without depending on execution order
+
 ## Execution Snapshot - 2026-04-12
 
 - Fully validated:
@@ -662,3 +693,132 @@ Execution matrix for manual validation and later automation with Playwright Web 
 - Printing hardware verification
 - Auto-update install and restart behavior
 - OS tray behavior across actual minimize and close patterns
+
+---
+
+## Planned Coverage — Future Modules (April 2026 plan)
+
+The following test IDs are **pre-reserved** for modules in design (see
+[ROADMAP.md](./ROADMAP.md) §0 and the design stubs). Each ID becomes a
+concrete test case when the corresponding feature ships. This block
+exists so feature PRs can check off the cases already named.
+
+### Fiscal Compliance (DIAN) — FISCAL-01 through FISCAL-15
+
+Covers Phase 11 ([FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)).
+
+- FISCAL-01 Certificate upload and activation round-trip
+- FISCAL-02 Numbering resolution registration + expiry warning
+- FISCAL-03 Issue DEE for a completed sale → CUFE stored, XML archived
+- FISCAL-04 CUFE SHA-384 matches DIAN canonical vectors
+- FISCAL-05 UBL 2.1 XML passes DIAN XSD validation
+- FISCAL-06 Issue Factura Electrónica (FEV) for a B2B sale with NIT
+- FISCAL-07 Issue Nota Crédito electronic on sale refund, referencing original CUFE
+- FISCAL-08 Reissue fails with clear error when resolution range exhausted
+- FISCAL-09 Contingency mode: network down → queue → re-send on reconnect
+- FISCAL-10 Adapter swap (Facture ↔ HKA) produces equivalent CUFE
+- FISCAL-11 Resolution expiry alert shows in dashboard 30/15/7 days before
+- FISCAL-12 Cross-tenant: fiscal documents of tenant A never visible to B
+- FISCAL-13 Print representation includes CUFE, QR, and all DIAN mandatory fields
+- FISCAL-14 XML retention: ≥5-year file exists and is retrievable
+- FISCAL-15 Audit trail: every issue / reissue / void recorded in `audit_logs`
+
+### POS Hardware — HW-01 through HW-10
+
+Covers Phase 12 ([HARDWARE-POS.md](./HARDWARE-POS.md)).
+
+- HW-01 ESC/POS driver: print a sale receipt to 58mm and 80mm paper
+- HW-02 ESC/POS driver: paper cut after print
+- HW-03 Cash drawer opens when ESC/POS driver issues the drawer-kick
+- HW-04 System driver fallback prints when ESC/POS not configured
+- HW-05 Barcode scanner: valid EAN-13 scan adds product to cart
+- HW-06 Barcode scanner: invalid EAN-13 checksum rejected with message
+- HW-07 Barcode scanner: price-embedded code (prefix 20-29) parses weight and price
+- HW-08 Payment terminal adapter (Bold mock): charge → success → authCode persisted
+- HW-09 Payment terminal adapter: decline handled, sale stays unpaid
+- HW-10 Peripheral config page: test buttons report status per device
+
+### Product Composition — COMP-01 through COMP-12
+
+Covers Phase 6a ([PRODUCT-COMPOSITION.md](./PRODUCT-COMPOSITION.md)).
+
+- COMP-01 Simple product unchanged by migration (backwards-compatible)
+- COMP-02 Composite product: selling 1 unit decrements each ingredient
+- COMP-03 Composite with optional ingredient: out-of-stock optional doesn't block sale
+- COMP-04 Composite stock derived correctly as `min(floor(stock_i / qty_i))`
+- COMP-05 Void reverses all ingredient movements in lockstep
+- COMP-06 Recipe cycle detected at save time → rejected
+- COMP-07 Recipe depth > 3 rejected
+- COMP-08 Modifier `price_delta` reflected in sale line total and totals block
+- COMP-09 Recipe edit after sale does not alter past inventory movements
+- COMP-10 Cross-tenant: tenant A cannot reference tenant B's ingredient
+- COMP-11 Cost recomputes on recipe save; report shows margin
+- COMP-12 UI "test explosion" simulates and shows impact before save
+
+### Restaurant Lifecycle / KDS — KDS-01 through KDS-15
+
+Covers Phase 6b ([RESTAURANT-LIFECYCLE.md](./RESTAURANT-LIFECYCLE.md)).
+
+- KDS-01 Open table session with covers, waiter recorded
+- KDS-02 Fire order: items with `requires_preparation` → one ticket per station
+- KDS-03 Fire order: non-preparation items skip tickets and stay served
+- KDS-04 KDS page shows queued tickets sorted by `queued_at`
+- KDS-05 Advance ticket: `queued → preparing → ready → served`
+- KDS-06 SSE delivers state change to waiter POS within 500ms
+- KDS-07 Station token auth gates KDS page; invalid token → 403
+- KDS-08 Cannot close table session while tickets still queued/preparing
+- KDS-09 Split check: session splits into N sales, totals match original
+- KDS-10 Void sale item after `ready` requires elevated role + reason
+- KDS-11 Kitchen printer auto-fires when ticket enters `queued`
+- KDS-12 Printer failure does not block KDS; ticket remains queued on KDS
+- KDS-13 Course ordering (priority) renders in kitchen in correct sequence
+- KDS-14 Cross-tenant: station of tenant A never shows tickets of tenant B
+- KDS-15 Closing session after all tickets served preserves totals invariant
+
+### UI Surfaces — UI-SURF-01 through UI-SURF-08
+
+Covers Phase 6c ([UI-SURFACES.md](./UI-SURFACES.md)).
+
+- UI-SURF-01 POS Desktop unchanged on pointer:fine + hover-capable
+- UI-SURF-02 POS Touch layout active under pointer:coarse media query
+- UI-SURF-03 POS Touch tile size ≥44px; on-screen keypad triggers on numeric fields
+- UI-SURF-04 Customer display window opens on second monitor (Electron)
+- UI-SURF-05 Customer display reflects cart updates < 200ms
+- UI-SURF-06 KDS on LAN: Raspberry Pi Chromium kiosk loads via 0.0.0.0:8090
+- UI-SURF-07 Mobile waiter layout renders portrait on 10" tablet viewport
+- UI-SURF-08 Bundle splitting: KDS-only browser never downloads POS desktop chunk
+
+### Receipt Templates — TEMPL-01 through TEMPL-08
+
+Covers the "small task" of the April 2026 plan ([RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md)).
+
+- TEMPL-01 Create template with every atomic block → saves and round-trips
+- TEMPL-02 Preview renders mock sale data live within 100ms of edit
+- TEMPL-03 Zod rejects unknown variable (outside `company|sale|item|fiscal|tender` namespaces)
+- TEMPL-04 Zod rejects template with > 50 blocks
+- TEMPL-05 Security: `<script>` and `javascript:` inside a text block appear escaped in output
+- TEMPL-06 Test-print delivers rendered HTML to configured printer
+- TEMPL-07 Set as default: new sales use the selected template
+- TEMPL-08 Duplicate template preserves layout and creates independent row
+
+### Park-and-Resume Sales (M2 improvement) — PARK-01 through PARK-06
+
+- PARK-01 Suspend active cart → slot it into suspended list with timestamp and summary
+- PARK-02 Resume restores items, discounts, customer, and notes exactly
+- PARK-03 Two cashiers cannot resume the same suspended sale (lock)
+- PARK-04 Suspend fires an audit entry only when configured (optional)
+- PARK-05 Ctrl+P suspends; Ctrl+R opens the resume panel; shortcuts ignored in input focus
+- PARK-06 Close cash session with outstanding suspended sales → prompt to resolve
+
+### Audit Trail Extensions — AUDIT-22 through AUDIT-30
+
+- AUDIT-22 `sale.void` recorded with actor + metadata.reason
+- AUDIT-23 `sale.returnSale` (refund) recorded with items returned
+- AUDIT-24 `cashSessions.close` recorded with over/short amount
+- AUDIT-25 `inventory.adjustStock` (non-zero delta) recorded with reason
+- AUDIT-26 `price.override` recorded when cashier overrides a line price
+- AUDIT-27 `purchases.void` recorded
+- AUDIT-28 `user.disable` recorded
+- AUDIT-29 `fiscal.reissue` recorded
+- AUDIT-30 Cross-tenant: actor from tenant B never leaks into tenant A's audit
+  list (regression test for the reviewer-found JOIN fix of April 2026)

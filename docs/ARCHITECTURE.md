@@ -1,7 +1,20 @@
 # Puntovivo Architecture
 
-> Updated: April 11, 2026
+> Updated: April 21, 2026
 > Audience: developers and technical operators
+
+## System Diagram
+
+![Puntovivo architecture](./architecture.svg)
+
+Source: [architecture.mmd](./architecture.mmd). Re-render with:
+
+```sh
+npx -y @mermaid-js/mermaid-cli mmdc -i docs/architecture.mmd -o docs/architecture.svg -b transparent
+```
+
+Colour code: green = shipped, yellow = planned (Phase 11/12 — fiscal +
+hardware), red = future (Phase 10+).
 
 ## Overview
 
@@ -307,9 +320,67 @@ The active roadmap for this work lives in:
 - SSE remains separate from tRPC by design.
 - Inventory is still tenant-wide, not site-owned. That matters for future transfer design.
 
+## Client Surfaces
+
+The same Electron + Vite bundle serves multiple UI variants as different
+React routes, each tailored to a class of device. No code fork — the
+business logic sits behind the tRPC client and is consumed identically
+by every surface.
+
+| Surface | Route | Typical device | Interaction | Status |
+| --- | --- | --- | --- | --- |
+| POS Desktop | `/sales` (default) | PC + keyboard + mouse | Dense tables, hover, shortcuts | **Shipped** |
+| POS Touch | `/pos/touch` (planned) | All-in-one touch 15" (Elo, HP RP9) | Tiles ≥44px, on-screen keypad | Planned (Phase 6c — UI variants) |
+| KDS (Kitchen Display) | `/kds?station=<id>` (planned) | TV 32-50" in kitchen, Raspberry Pi kiosk | Click/touch to advance ticket state | Planned (Phase 6b — restaurant) |
+| Customer display | `/display/customer` (planned) | Second monitor facing the customer | Read-only live cart | Planned (Phase 6c) |
+| Mobile waiter | `/pos/mobile` (planned) | Android tablet 10" portrait | Finger-scale, portrait layout | Planned (Phase 6c) |
+
+See [UI-SURFACES.md](./UI-SURFACES.md) for deployment and authentication
+details per surface.
+
+## Deployment Topologies
+
+Two deployment shapes are supported today; a third ("hybrid with central
+server") is planned as part of Phase 10 / Stack Evolution (see
+[STACK-EVOLUTION.md](./STACK-EVOLUTION.md)).
+
+| Topology | Runtime | DB | Use case | Status |
+| --- | --- | --- | --- | --- |
+| **Embedded desktop** | Electron main + embedded Fastify | Local SQLite via better-sqlite3 | Single-tenant per install; offline-first | **Shipped — primary** |
+| **Standalone server** | Node `packages/server` alone | Local SQLite or (future) libSQL | Dev, CI, test harness | **Shipped — secondary** |
+| **Hybrid with central server** | Electron desktop + central Postgres/libSQL | Local SQLite + replicated Postgres | Franchises, consolidated BI, public API, mobile companion | **Planned (Phase 10)** |
+
+For the hybrid topology:
+
+- The desktop remains offline-first authoritative for its own tenant data.
+- The central server receives `sync_queue` diffs and materializes
+  cross-site reports and public-API responses.
+- A single codebase (`packages/server`) serves both roles: the Drizzle
+  schema is dialect-neutral in principle; the migration to libSQL + an
+  optional Postgres adapter is the α/β of the stack-evolution plan.
+
+## External Integration Surface
+
+| Integration | Channel | Owner | Phase |
+| --- | --- | --- | --- |
+| DIAN Proveedor Tecnológico (HKA / Facture / Gosocket) | HTTPS REST from main process | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11 — P0 |
+| ESC/POS thermal printer + RJ11 cash drawer | USB / network / serial from main process | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P0 |
+| Barcode scanner | USB HID keydown capture in renderer | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P0 |
+| Payment terminal (Bold, Wompi, Mercado Pago Point) | HTTPS / Bluetooth SDK from main process | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P1 |
+| GitHub Releases auto-updater | HTTPS from main process | Shipped | — |
+| S3-compatible XML retention | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11 |
+
+Every integration goes through an **adapter pattern** (Port/Adapter) so
+the domain layer stays vendor-neutral. New providers plug in without
+changing sales, inventory, or audit code.
+
 ## Where To Look Next
 
 - Project status and roadmap:
   [ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)
 - tRPC transport details:
   [TRPC_ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/TRPC_ARCHITECTURE.md)
+- Fiscal integration (DIAN): [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)
+- Hardware peripherals: [HARDWARE-POS.md](./HARDWARE-POS.md)
+- Module activation contract: [MODULE-ACTIVATION.md](./MODULE-ACTIVATION.md)
+- Stack evolution roadmap: [STACK-EVOLUTION.md](./STACK-EVOLUTION.md)

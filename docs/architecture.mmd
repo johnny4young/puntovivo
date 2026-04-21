@@ -1,0 +1,77 @@
+%% Puntovivo architecture — high-level process and client surface topology
+%% Render: npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg
+%% Source of truth for the system diagram embedded in docs/ARCHITECTURE.md and README.md.
+
+flowchart TB
+  subgraph Electron["Electron 41 Desktop Application (single binary per platform)"]
+    direction TB
+
+    subgraph Main["Main Process (Node 22, V8)"]
+      direction TB
+      F["Fastify 5<br/>in-process :8090"]
+      T["tRPC router<br/>27 domain routers"]
+      DB[("better-sqlite3<br/>ABI 145<br/>data.db")]
+      IPC["IPC handlers<br/>print / backup / sync / updater"]
+      SSE["SSE<br/>/api/realtime/*"]
+      F --> T
+      F --> SSE
+      T --> DB
+    end
+
+    subgraph Renderer["Renderer process (Chromium, sandbox: true)"]
+      direction TB
+      R["React 19 + Vite bundle"]
+      Q["TanStack Query"]
+      C["tRPC client"]
+      R --> Q --> C
+    end
+
+    C -- "HTTP /api/trpc" --> F
+    R -. "contextBridge (window.electron.*)" .-> IPC
+    R -. "EventSource" .-> SSE
+  end
+
+  subgraph Surfaces["Client surfaces (same Electron + React bundle, different routes)"]
+    direction LR
+    POSD["POS Desktop<br/>keyboard + mouse<br/>dense tables"]
+    POST["POS Touch<br/>tiles, >=44px<br/>on-screen keypad"]
+    KDS["KDS TV<br/>kanban tickets<br/>station token"]
+    CUST["Customer Display<br/>second monitor<br/>read-only"]
+    MOB["Mobile Waiter<br/>tablet 10 inch<br/>portrait"]
+  end
+
+  POSD --> Renderer
+  POST --> Renderer
+  KDS --> Renderer
+  CUST --> Renderer
+  MOB --> Renderer
+
+  subgraph Peripherals["Hardware periphery (planned, Phase 12 POS)"]
+    direction LR
+    ESCP["ESC/POS printer<br/>+ cash drawer<br/>via RJ11"]
+    SCAN["Barcode scanner<br/>USB HID keyboard wedge"]
+    DAT["Payment terminal<br/>Bold / Wompi / Mercado Pago"]
+  end
+
+  IPC -. "USB / serial / network" .-> ESCP
+  Renderer -. "keydown capture" .-> SCAN
+  T -. "HTTPS" .-> DAT
+
+  subgraph External["External services (planned, Phase 11 Fiscal)"]
+    direction LR
+    PT["DIAN Proveedor Tecnológico<br/>HKA / Facture / Gosocket"]
+    UPD["GitHub Releases<br/>auto-updater"]
+    S3["S3-compatible storage<br/>(XML retention, future)"]
+  end
+
+  T -. "HTTPS REST" .-> PT
+  IPC -. "HTTPS" .-> UPD
+  IPC -. "HTTPS (future)" .-> S3
+
+  classDef shipped fill:#d4f7d4,stroke:#2e7d32,color:#1b5e20
+  classDef planned fill:#fff3c4,stroke:#f57f17,color:#6b4700
+  classDef future fill:#ffe0e0,stroke:#c62828,color:#7a1313
+
+  class F,T,DB,IPC,SSE,R,Q,C,POSD,UPD shipped
+  class POST,KDS,CUST,MOB,ESCP,SCAN,DAT,PT planned
+  class S3 future
