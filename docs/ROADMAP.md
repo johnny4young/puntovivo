@@ -1,9 +1,37 @@
 # Puntovivo Roadmap
 
-> Updated: April 13, 2026
+> Updated: April 21, 2026
 > Single source of truth for project status, priorities, and actionable work plan.
 > Replaces: `IMPLEMENTATION_STATUS.md`, `OPEN_BACKLOG.md`, `MIGRATION_PLAN.md`
 > Strategic reference: see [PLAN.md](./PLAN.md) for competitive analysis, academic frameworks, and detailed technical designs.
+> Architecture diagram: [architecture.svg](./architecture.svg) (source: [architecture.mmd](./architecture.mmd))
+
+---
+
+## 0. MVP Colombia — Definition of Done
+
+Concrete go/no-go checklist for declaring Puntovivo **ready to be sold to a
+Colombian retail business**. Derived from the April 2026 audit of features,
+DIAN regulation (Resolución 000165/2023), and hardware expectations of
+neighborhood retail.
+
+| # | Capability | Status | Blocking phase |
+| --- | --- | --- | --- |
+| 1 | Multi-tenant POS with cash sessions, sales, returns, voids, split payments, quotations | **Shipped** | Phase 0-5 done |
+| 2 | Site-owned inventory + atomic transfers with discrepancy reporting | **Shipped** | Phase 2 done |
+| 3 | Audit trail on sensitive actions (void, refund, cash close, stock adjust) | **Shipped** | Tier-2 #8 done |
+| 4 | **Electronic invoicing (DEE + Factura Electrónica) via DIAN-authorized PT** | **Not started** | Phase 11 (was deferred, now **P0**) |
+| 5 | **CUFE/CUDE generation + QR on printed receipt + XML ≥5-year retention** | **Not started** | Phase 11 |
+| 6 | **Contingency mode** (offline → queued → sent when online) for fiscal docs | **Not started** | Phase 11 |
+| 7 | **Barcode scanner support** (USB HID keyboard-wedge + EAN-13 checksum) | **Not started** | Phase 12 Hardware |
+| 8 | **ESC/POS thermal printer driver + cash drawer opening via RJ11** | **Not started** | Phase 12 Hardware |
+| 9 | **Payment terminal integration** (manual capture exists; Bold/Wompi adapter needed) | **Partial (manual only)** | Phase 12 Hardware |
+| 10 | **Park-and-resume multiple carts** (suspended sales workspace) | **Partial (backend only)** | M2 improvement |
+
+**Overall MVP Colombia retail readiness: ~71%**. See section "Market
+Segments Coverage" below for the three-ring definition (retail →
+restaurant/pharmacy → services). See [PLAN.md](./PLAN.md) §Colombia for
+the detailed path to close items 4-10.
 
 ---
 
@@ -49,9 +77,11 @@ This is the recommended implementation sequence. Each item links to its detailed
 
 | # | Item | Why | Phase |
 | --- | --- | --- | --- |
-| 1 | **i18n foundation** (es-CO/es/en) | English-only UI blocks LatAm deployment. Every new feature adds more hardcoded strings. | Pre-Phase 1 |
-| 2 | **Integer → real migration** for stock/quantity | Blocks ferreterías (2.5m cable) and supermarkets (0.75kg produce). #1 schema blocker. | Phase 1 |
-| 3 | **Cash management and shift control** | Every competitor has this. No cash session = no accountability = no LatAm retail adoption. | Phase 1 |
+| 1 | **i18n foundation** (es-CO/es/en) | English-only UI blocks LatAm deployment. Every new feature adds more hardcoded strings. | Pre-Phase 1 — **Shipped** |
+| 2 | **Integer → real migration** for stock/quantity | Blocks ferreterías (2.5m cable) and supermarkets (0.75kg produce). #1 schema blocker. | Phase 1 — **Shipped** |
+| 3 | **Cash management and shift control** | Every competitor has this. No cash session = no accountability = no LatAm retail adoption. | Phase 1 — **Shipped** |
+| **3a** | **Colombia DIAN fiscal compliance** (DEE + Factura Electrónica via Proveedor Tecnológico) | **Legal blocker since May/July 2024.** Selling Puntovivo to a CO business without this creates fiscal exposure for the user and brand damage for us. See [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md). | **Phase 11 → now P0** |
+| **3b** | **POS hardware basics** (ESC/POS printer, cash drawer, barcode scanner) | Operational blocker — real stores need a physical receipt with cut, a drawer that opens, and scan-to-add. See [HARDWARE-POS.md](./HARDWARE-POS.md). | **Phase 12 → now P0** |
 
 ### Tier 2: Core Commercial Gaps (competitive table stakes)
 
@@ -93,6 +123,40 @@ This is the recommended implementation sequence. Each item links to its detailed
 | 22 | Employee shifts, commissions, time tracking | Phase 8 |
 | 23 | Transport execution (dispatch, tracking, POD) | Phase 4 |
 
+### Market Segments Coverage — Three Rings
+
+Puntovivo's market strategy is organized into three concentric rings. Each
+ring activates via the **module activation system** (see [MODULE-ACTIVATION.md](./MODULE-ACTIVATION.md))
+so a minimarket does not carry restaurant or pharmacy code at runtime.
+
+**Ring 1 — Generic retail MVP (target: 8-10 weeks)**
+- Neighborhood store, minimarket, papelería, ferretería, boutique with
+  variants, carnicería/fruver with scale integration, panadería, heladería.
+- Prerequisites: Tier-1 items 3a (DIAN fiscal) + 3b (hardware) + product
+  variants + scale.
+- Coverage goal: ~80% of Colombian retail POS market.
+
+**Ring 2 — Restaurant + Pharmacy (target: +8-10 weeks after Ring 1)**
+- Restaurant: composition/BOM + preparation lifecycle (KDS + tables +
+  modifiers) + touch UI + one delivery integration (Rappi). See
+  [RESTAURANT-LIFECYCLE.md](./RESTAURANT-LIFECYCLE.md) and
+  [PRODUCT-COMPOSITION.md](./PRODUCT-COMPOSITION.md).
+- Pharmacy/droguería: batches + expiration (Phase 7) + INVIMA code
+  validation + prescription workflow.
+- Coverage goal: ~35% additional market (gastronomy + pharma chains).
+
+**Ring 3 — Service verticals (target: +12 weeks after Ring 2)**
+- Salons, barbers, spas, vet clinics, workshops: shared appointments
+  module + services-as-products + commissions + client assets.
+- Optional extensions: gyms (subscriptions), laundromats (tickets),
+  motels (rooms).
+
+**Beyond Ring 3**: future verticals (CO + LatAm), LatAm country fiscal
+expansion, cross-cutting platform features (BI, franchises, public API,
+AI). See [FUTURE-VERTICALS.md](./FUTURE-VERTICALS.md),
+[LATAM-EXPANSION.md](./LATAM-EXPANSION.md), and
+[LONG-TERM-VISION.md](./LONG-TERM-VISION.md).
+
 ---
 
 ## 3. Open Technical Risks
@@ -120,7 +184,7 @@ This is the recommended implementation sequence. Each item links to its detailed
 ### Testing
 
 - Desktop features lean heavily on unit/type checks and manual verification. `apps/desktop` has **0 automated tests** today.
-- There is **no E2E suite** across renderer + embedded backend + Electron bridge (Playwright/Spectron). (Ticket `ENG-001`)
+- There is not yet a **cross-surface E2E suite** across renderer + embedded backend + Electron bridge. A web-only Playwright smoke now exists for login, role gating, navigation, i18n, and responsive shell, but Electron and end-to-end POS transaction flows remain uncovered. (Ticket `ENG-001`)
 - Coverage thresholds exist in `vitest.config.ts` (70%) but are **not enforced in CI** — `npm run test` runs without `--coverage` and without a gating threshold. (Ticket `ENG-003`)
 
 ### Build / CI
@@ -146,7 +210,7 @@ These tickets don't belong to any single vertical or commercial phase. They prot
 
 | ID | Title | Scope | Acceptance | Priority |
 | --- | --- | --- | --- | --- |
-| `ENG-001` | E2E test harness | Add Playwright against the web app + embedded backend in headless Electron. Cover: login → open cash session → create sale (split tender) → refund → close session. | `npm run test:e2e` green in CI on Linux; screenshots on failure uploaded as CI artifact. | **High** |
+| `ENG-001` | E2E test harness | Add Playwright against the web app + embedded backend in headless Electron. Cover: login → open cash session → create sale (split tender) → refund → close session. **Step 1 shipped**: `npm run test:e2e:web` now runs a real Playwright web smoke against the standalone backend and Vite app. The suite seeds an idempotent E2E baseline directly in the local SQLite DB (dedicated admin/manager/cashier/viewer users plus a second active site when needed), then validates admin navigation across every sidebar module, role-based route gating, Spanish localization of the main shell, and tablet-width shell behavior. A new transactional business batch now drives real sale creation, refund, void, and inventory adjustment flows through the UI, then asserts the resulting stock, site balances, and audit rows directly against SQLite using per-test isolated users/products/sessions so the suite stays parallel-safe. **Still pending**: Electron runner coverage, cash-session close / purchase / transfer transactional flows, CI integration, and artifact upload. | `npm run test:e2e` green in CI on Linux; screenshots on failure uploaded as CI artifact. | **High** |
 | `ENG-002` | Versioned Drizzle migrations | Generate baseline migration from current schema. Replace `runSchemaSync()` raw DDL bootstrap with `migrate()` on startup. Retain `IF NOT EXISTS` only as a one-time adoption shim for existing installs. **Step 1 shipped**: baseline migration (`src/db/migrations/0000_0000_baseline.sql`) captures the full current schema with dynamic `(datetime('now'))` defaults; `initDatabase()` runs `drizzleMigrate()` at boot guarded by an `existsSync` check on `meta/_journal.json`; `ensureMigrationBaseline()` seeds `__drizzle_migrations` on pre-ENG-002 DBs so the baseline is not re-run against an existing schema. **Step 2 shipped**: `DatabaseOptions` / `ServerOptions` now accept a `migrationsFolder` override; `apps/desktop/forge.config.ts` ships `packages/server/dist/db/migrations` via `extraResource`; `apps/desktop/src/main/index.ts` passes `process.resourcesPath/migrations` when `app.isPackaged`, so packaged Electron builds exercise the real migrator end-to-end instead of the silent `runSchemaSync()` fallback. A new override-path integration test in `migrations.test.ts` locks the contract. `runSchemaSync()` is retained for one release cycle as an idempotent belt-and-suspenders. **Step 3 (follow-up)**: retire `runSchemaSync()` now that every boot path — dev, standalone server, packaged Electron — exercises `drizzleMigrate()` via the shared `migrationsFolder` plumbing. | Adding a column requires only editing `schema.ts` + `drizzle-kit generate`; re-running against an existing DB is a no-op. | **High** |
 | `ENG-003` | CI coverage threshold | Run `vitest --coverage --run` in `ci:web` and `ci:server`. Fail the job below the thresholds declared in `vitest.config.ts`. Upload LCOV. **Shipped**: both workspaces now declare enforceable v8 coverage thresholds (server 80/80/77/63 statements/lines/functions/branches; web 65/65/68/60 — the web floor replaces the previously unenforced 70/70/70/70 declaration, because the suite had drifted below). `ci:web` and `ci:server` invoke the new `test:coverage` variant that passes `--coverage`, making thresholds actually gate. `lcov` reporter is wired into both configs and `.github/workflows/ci.yml` uploads `coverage/lcov.info` as an artifact for both jobs. Follow-up `ENG-003b` tracks raising the web floor back toward 70% via new component/route tests; it is a pure test-writing effort with no CI plumbing left to do. | PR lowering coverage below threshold fails CI. | **High** |
 | `ENG-003b` | Raise web coverage back to 70% | The web floor landed at 65/65/68/60 in ENG-003 to match the actual state of the suite at the time. Write new component + route tests to bring every axis back to 70% (statements/lines/functions/branches) and then raise the thresholds accordingly in `apps/web/vitest.config.ts`. Scope is test-writing only; no CI or config plumbing change. | All four axes ≥ 70% in `apps/web/vitest.config.ts`. | **Medium** |

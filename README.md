@@ -16,6 +16,20 @@
 
 ---
 
+## Status
+
+**Generic retail MVP for Colombia: ~71% complete (April 2026).**
+Missing for a sellable Colombian retail POS: DIAN electronic invoicing
+(P0 legal blocker) and hardware integration (ESC/POS printer + cash
+drawer + barcode scanner). Restaurant vertical (composition + KDS +
+tables) and service verticals (salons, workshops, vets) are designed
+as activatable modules in [docs/MARKET-SEGMENTS.md](./docs/MARKET-SEGMENTS.md).
+
+![Puntovivo architecture](./docs/architecture.svg)
+
+Detailed status and path to GA: [docs/ROADMAP.md §0 "MVP Colombia —
+Definition of Done"](./docs/ROADMAP.md).
+
 ## Features
 
 - 🏢 **Multi-Tenant Architecture** - Complete tenant isolation for business management
@@ -244,6 +258,27 @@ AUTO_UPDATE=false npm run start
 - **[Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md)** - Configure URLs and ports
 - **[Roadmap](./docs/ROADMAP.md)** - Project status, priorities, and actionable work plan
 - **[Strategic Plan](./docs/PLAN.md)** - Competitive analysis, academic frameworks, and technical design decisions
+
+### Colombia MVP readiness
+
+- **[Market Segments](./docs/MARKET-SEGMENTS.md)** - Three-ring strategy (retail, restaurant/pharmacy, services)
+- **[Fiscal Integration (DIAN)](./docs/FISCAL-INTEGRATION.md)** - Electronic invoicing design
+- **[POS Hardware](./docs/HARDWARE-POS.md)** - Printer, cash drawer, scanner, payment terminal
+- **[Module Activation](./docs/MODULE-ACTIVATION.md)** - How verticals plug in without forking
+
+### Vertical modules (planned)
+
+- **[Product Composition (BOM)](./docs/PRODUCT-COMPOSITION.md)** - Recipes, modifiers, combos
+- **[Restaurant Lifecycle](./docs/RESTAURANT-LIFECYCLE.md)** - Tables, KDS, preparation tickets
+- **[UI Surfaces](./docs/UI-SURFACES.md)** - Desktop, touch, KDS TV, customer display, mobile
+- **[Receipt Templates](./docs/RECEIPT-TEMPLATES.md)** - Visual editor for receipt/invoice layouts
+
+### Horizon
+
+- **[Future Verticals](./docs/FUTURE-VERTICALS.md)** - CO + LatAm Ring-4+ verticals
+- **[LatAm Expansion](./docs/LATAM-EXPANSION.md)** - Fiscal adapters per country
+- **[Long-Term Vision](./docs/LONG-TERM-VISION.md)** - BI, franchises, API, mobile, AI
+- **[Stack Evolution](./docs/STACK-EVOLUTION.md)** - Technical evolution plan for Ring 4+
 
 ### Feature Documentation
 
