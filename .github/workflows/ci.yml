@@ -70,11 +70,25 @@ jobs:
           if-no-files-found: warn
 
   # ============================================================================
-  # Desktop Workspace Validation
+  # Desktop Workspace Validation (ENG-005 — multi-OS matrix)
+  # ----------------------------------------------------------------------------
+  # The desktop workspace hosts Electron-specific code (forge config, preload,
+  # main process). Native modules like better-sqlite3 and argon2 compile
+  # differently per platform, so a change that works on Linux can still break
+  # on macOS or Windows. This job runs ci:desktop (typecheck + lint + the
+  # node --test window-config regression) on all three runners so cross-
+  # platform regressions fail CI before they reach release.yml. Packaging
+  # (electron-forge make) still lives in release.yml because it requires
+  # signing material. No fail-fast so one OS's breakage does not mask the
+  # others.
   # ============================================================================
   desktop:
-    name: Desktop Workspace
-    runs-on: ubuntu-latest
+    name: Desktop Workspace (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Checkout repository
