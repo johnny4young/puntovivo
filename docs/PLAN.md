@@ -1320,7 +1320,7 @@ These matrices compare Puntovivo's current repo status against 8 major competito
 - Omnichannel orders, pickup, and ship-from-store workflows
 - Remote sync strategy hardening beyond retry/failure observability
 - Procurement edge cases: supplier credit-note handling, mixed return/void reconciliation, approval-oriented audit surfaces
-- Desktop security hardening (Electron `sandbox: false`)
+- ~~Desktop security hardening (Electron `sandbox: false`)~~ — **shipped as ENG-004**. Main window runs under `sandbox: true`; pinned by `apps/desktop/src/main/__tests__/window-config.test.ts`.
 - Performance cleanup and bundle hygiene
 - Browser IndexedDB vs Electron desktop DB: define long-term ownership boundary for consistent offline behavior
 - Broader integration/E2E coverage

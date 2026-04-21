@@ -53,9 +53,9 @@ The application is past early migration. The core POS surface is live and operat
 
 ### Implemented Surface
 
-**Backend tRPC routers**: auth, companies, countries, identificationTypes, personTypes, regimeTypes, clientTypes, commercialActivities, dashboard, departments, cities, logos, providers, sequentials, units, vatRates, categories, products, orders, customers, purchases, sales, inventory, locations, sites, sync, users
+**Backend tRPC routers** (31 routers): health, auth, companies, countries, identificationTypes, personTypes, regimeTypes, clientTypes, commercialActivities, dashboard, departments, cities, logos, providers, sequentials, units, vatRates, categories, products, orders, customers, purchases, sales, **cashSessions** (Phase 1), inventory, locations, sites, sync, **transfers** (Phase 2), **quotations** (Phase 5), **auditLogs** (Phase 8 / Tier-2 #8), users. For the authoritative list, see [packages/server/src/trpc/router.ts](../packages/server/src/trpc/router.ts).
 
-**Web route modules**: Dashboard, Company, Sites, Sequentials, Locations, Customer Catalogs, Geography, Providers, Categories, Units, VAT Rates, Products, Orders, Purchases, Customers, Sales, Inventory, Users
+**Web route modules**: Dashboard, Company, Sites, Sequentials, Locations, Customer Catalogs, Geography, Providers, Categories, Units, VAT Rates, Products, Orders, Purchases, Customers, Sales, Cash Sessions, Inventory, Transfers, Quotations, Audit Logs, Users
 
 **Desktop features**: embedded backend lifecycle, receipt printing, backup/restore, tray/theme/update settings, sync status and trigger APIs, offline DB bridge
 
@@ -80,8 +80,9 @@ This is the recommended implementation sequence. Each item links to its detailed
 | 1 | **i18n foundation** (es-CO/es/en) | English-only UI blocks LatAm deployment. Every new feature adds more hardcoded strings. | Pre-Phase 1 — **Shipped** |
 | 2 | **Integer → real migration** for stock/quantity | Blocks ferreterías (2.5m cable) and supermarkets (0.75kg produce). #1 schema blocker. | Phase 1 — **Shipped** |
 | 3 | **Cash management and shift control** | Every competitor has this. No cash session = no accountability = no LatAm retail adoption. | Phase 1 — **Shipped** |
-| **3a** | **Colombia DIAN fiscal compliance** (DEE + Factura Electrónica via Proveedor Tecnológico) | **Legal blocker since May/July 2024.** Selling Puntovivo to a CO business without this creates fiscal exposure for the user and brand damage for us. See [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md). | **Phase 11 → now P0** |
+| **3a** | **Colombia DIAN fiscal compliance** (DEE + Factura Electrónica via Proveedor Tecnológico) | **Legal blocker since May/July 2024.** Selling Puntovivo to a CO business without this creates fiscal exposure for the user and brand damage for us. See [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) and [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md) (QR + CUFE on the print representation). | **Phase 11 → now P0** |
 | **3b** | **POS hardware basics** (ESC/POS printer, cash drawer, barcode scanner) | Operational blocker — real stores need a physical receipt with cut, a drawer that opens, and scan-to-add. See [HARDWARE-POS.md](./HARDWARE-POS.md). | **Phase 12 → now P0** |
+| **3c** | **POS touch UI + multi-surface routes** | Retail stores with all-in-one touch terminals and restaurants with KDS / customer display / mobile waiter need variant UI over the same bundle. See [UI-SURFACES.md](./UI-SURFACES.md) and [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md) for the print-layout editor that ships alongside. | **Phase 6c → P1** |
 
 ### Tier 2: Core Commercial Gaps (competitive table stakes)
 
@@ -177,13 +178,13 @@ AI). See [FUTURE-VERTICALS.md](./FUTURE-VERTICALS.md),
 
 ### Security
 
-- Main `BrowserWindow` in `apps/desktop/src/main/index.ts:1380` still runs with `sandbox: false`. Preload-API surface must be audited before enabling the sandbox. (Ticket `ENG-004`)
-- `writeAuditLog` is wired into `transfers.void`, `quotations.delete`, and `quotations.updateStatus` only. `sales.void`, `sales.refund`, `purchases.void`, `users.disable`, role changes, and manual price overrides are **not** recorded. (Ticket `ENG-007`)
-- Rate limiting is configured globally at the Fastify layer but not per-procedure; brute-force protection on `auth.login` is not explicit. (Ticket `ENG-008`)
+- ~~Main `BrowserWindow` still runs with `sandbox: false`~~ — **shipped as ENG-004** (see Tier-6 table below). The main window now runs under `sandbox: true` with `contextIsolation: true` and `nodeIntegration: false`; the invariant is pinned by `apps/desktop/src/main/__tests__/window-config.test.ts` and enforced in `ci:desktop`.
+- ~~`writeAuditLog` wired into only three operations~~ — **substantially shipped as ENG-007**. `writeAuditLog` now fires transactionally from `transfers.void`, `quotations.delete`, `quotations.updateStatus` (convert only), `sales.void`, `sales.returnSale`, `sales.price_override`, `cashSessions.close`, `inventory.adjustStock`, `purchases.void`, `users.create`, and `users.update` (role/isActive changes). Remaining gap: `company_credit_settings` audit, deferred until the credit-sales feature (Phase 5 Ext) lands the table.
+- ~~Rate limiting only global~~ — **shipped as ENG-008**. `auth.login` has dedicated in-memory rate limits (10/IP/60s, 5-failure/username/15min) with `AUTH_RATE_LIMIT_EXCEEDED` error codes and 14 new tests. Follow-up ENG-008b tracks persistent DB-backed counters for multi-instance cloud deployments.
 
 ### Testing
 
-- Desktop features lean heavily on unit/type checks and manual verification. `apps/desktop` has **0 automated tests** today.
+- `apps/desktop` has a single automated test today (`src/main/__tests__/window-config.test.ts` pinning the sandbox invariant from ENG-004). Broader desktop unit coverage is still pending; most verification is manual.
 - There is not yet a **cross-surface E2E suite** across renderer + embedded backend + Electron bridge. A web-only Playwright smoke now exists for login, role gating, navigation, i18n, and responsive shell, but Electron and end-to-end POS transaction flows remain uncovered. (Ticket `ENG-001`)
 - Coverage thresholds exist in `vitest.config.ts` (70%) but are **not enforced in CI** — `npm run test` runs without `--coverage` and without a gating threshold. (Ticket `ENG-003`)
 
