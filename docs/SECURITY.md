@@ -143,6 +143,60 @@ logger wrapper to read.
 - IP allowlist / denylist for deployments that know their customer subnets.
 - Optional multi-factor on the login procedure.
 
+## Dependency audit gate (ENG-009)
+
+Every CI script (`ci:web`, `ci:server`, `ci:desktop`) begins with a shared
+`ci:audit` step defined in the root `package.json`:
+
+```
+"ci:audit": "npm audit --production --audit-level=high"
+```
+
+It runs before typecheck / lint / tests, so a new HIGH or CRITICAL
+CVE in any **production** dependency — across all workspaces, because
+the lockfile is shared — fails CI immediately. Development-time
+dependencies (vitest, eslint, drizzle-kit, electron-forge tooling) are
+intentionally excluded via `--production`; they do not ship to end
+users and their patch cadence is slower.
+
+Threshold knob:
+
+- `high` is the enforced floor. MODERATE and LOW prod vulns are visible
+  via local `npm audit` but do not gate CI — they are bumped through
+  the normal Dependabot cadence described below.
+- Raising the floor to `moderate` is a future hardening step. Adopt
+  when the repo has cleared the current MODERATE backlog (the dev-dep
+  ESBuild / http-proxy-agent advisories attached to drizzle-kit and
+  @electron/node-gyp).
+
+Dependabot (see `.github/dependabot.yml`) opens grouped PRs on a
+monthly cadence for npm deps and a weekly cadence for GitHub Actions.
+Grouping keeps the PR noise manageable by opening a small set of
+shared-lockfile PRs (production, development, and focused groups such
+as `react` / `@tanstack/*`) while still catching CVE fixes within a
+week when GitHub publishes a new advisory. `electron` and
+`@electron-forge/*` are excluded from the grouped PRs and must be
+bumped manually — each Electron version change requires a packaged
+smoke test, which lives outside the Dependabot automation surface.
+
+### Tamper-check history (ENG-009 acceptance)
+
+Before the ticket landed, the three prod vulnerabilities flagged by
+`npm audit --production --audit-level=high` were:
+
+| Package      | Severity | Advisory |
+| ------------ | -------- | -------- |
+| `fast-jwt <=6.2.0`     | critical | GHSA-hm7r-c7qw-ghp6, GHSA-mvf2-f6gm-w987, GHSA-rp9m-7r4c-75qg, GHSA-cjw9-ghj4-fwxf, GHSA-3j8v-cgw4-2g6q |
+| `fastify 5.3.2-5.8.4`  | high     | GHSA-247c-9743-5963 |
+| `dompurify <=3.3.3`    | moderate | GHSA-39q2-94rc-95cp |
+
+All three were cleared by `npm update fastify fast-jwt dompurify`
+(transitive-safe bumps that respect the existing version ranges): the
+lockfile now resolves `fastify@5.8.5`, `fast-jwt@6.2.2`,
+`dompurify@3.4.0`. Reverting the lockfile to the pre-bump state and
+running `npm run ci:audit` produces exit code 1 with the three vulns
+reported — proof the gate fires, not just passes.
+
 ## Current Open Risks
 
 ### Auditability

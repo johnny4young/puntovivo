@@ -1,49 +1,60 @@
+# ENG-009 — Dependabot config. Monthly grouped updates from the shared
+# root lockfile keep the CVE attack surface fresh without overwhelming
+# the reviewer with a PR per patch.
+#
+# The top-level lockfile is shared by every workspace, so `npm` ecosystem
+# entries use one root entry. Grouping still catches workspace-local
+# upgrades because npm resolves everything through the same lockfile.
 version: 2
-updates:
-  # Frontend dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    groups:
-      react:
-        patterns:
-          - "react*"
-          - "@types/react*"
-      tanstack:
-        patterns:
-          - "@tanstack/*"
-      dev-dependencies:
-        dependency-type: "development"
-        patterns:
-          - "eslint*"
-          - "@eslint/*"
-          - "prettier*"
-          - "vitest*"
-          - "@testing-library/*"
-          - "typescript*"
-    labels:
-      - "dependencies"
-      - "npm"
 
-  # Backend dependencies
-  - package-ecosystem: "gomod"
-    directory: "/backend"
+updates:
+  # ---------------------------------------------------------------------
+  # Root monorepo (workspaces: *). Production deps ship to end users;
+  # dev deps stay grouped to keep PR noise low.
+  # ---------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: monthly
+      day: monday
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "go"
+      - dependencies
+      - npm
+    ignore:
+      # Electron bumps frequently break native rebuilds + signed
+      # installer flows. Keep them as manual bumps so each one can be
+      # smoke-tested (packaged build + dev launch) before merge.
+      - dependency-name: electron
+      - dependency-name: '@electron/*'
+      - dependency-name: '@electron-forge/*'
+    groups:
+      production-dependencies:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
+      react:
+        patterns:
+          - react*
+          - '@types/react*'
+      tanstack:
+        patterns:
+          - '@tanstack/*'
 
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  # ---------------------------------------------------------------------
+  # GitHub Actions — pinned actions (actions/checkout, setup-node, etc.)
+  # Security-critical; run weekly so CVE fixes land fast.
+  # ---------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "github-actions"
+      - dependencies
+      - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - '*'

@@ -209,7 +209,7 @@ export async function exportToExcel<T extends object>(
     const dataRow = worksheet.getRow(currentRow);
     columns.forEach((col, index) => {
       const value = getNestedValue(row, col.key);
-      let cellValue: string | number | boolean | Date | null = null;
+      let cellValue: string | number | boolean | Date | null;
 
       if (col.formatter) {
         cellValue = col.formatter(value, row);
