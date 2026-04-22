@@ -121,9 +121,42 @@ cd puntovivo
 # Install dependencies
 npm install
 
-# Optional: Verify your setup
+# Recommended: verify the install actually populated native + runtime artefacts
 ./scripts/check-setup.sh
 ```
+
+> **Heads-up for hardened npm setups.** If your **global** `~/.npmrc`
+> contains `ignore-scripts=true` (a common supply-chain hardening), the
+> canonical `npm install` above still pulls packages but **skips every
+> `postinstall`** — so `node_modules/electron/` never gets the platform
+> runtime, `better-sqlite3` never compiles its native binding, and
+> `argon2` ships without its bindings. The project's own `.npmrc` sets
+> `ignore-scripts=false` to override that, but some npm setups need the
+> override explicit:
+>
+> ```bash
+> npm install --ignore-scripts=false
+> ```
+>
+> `./scripts/check-setup.sh` detects this mismatch and prints a hint.
+> If you later see `Error: Electron failed to install correctly` or
+> `NODE_MODULE_VERSION mismatch`, rerun the command above.
+
+#### Onboarding checklist (first time on this machine)
+
+1. `node -v` → must be ≥ 22.0.0 (the root `package.json` enforces this)
+2. `npm -v` → must be ≥ 10
+3. `npm install` → must complete **without skipping postinstalls** (see
+   the heads-up above if your global npm is hardened)
+4. `./scripts/check-setup.sh` → should show Electron runtime installed
+   ✓ and better-sqlite3 native binding compiled ✓
+5. `npm run dev` → boots the Electron window at the login screen
+
+If step 4 shows any ✗, fix that first — step 5 cannot succeed without
+the native artefacts. `scripts/ensure-electron-binary.mjs` runs as part
+of `npm run dev` to auto-heal a missing Electron runtime, but it cannot
+recover from a missing `better-sqlite3.node` on its own (run
+`npm rebuild better-sqlite3` for that).
 
 ### Development
 

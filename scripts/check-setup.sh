@@ -41,6 +41,50 @@ fi
 
 echo ""
 echo "======================================"
+echo "  Checking Postinstall Artefacts"
+echo "======================================"
+echo ""
+
+# A global ~/.npmrc with `ignore-scripts=true` (a common security-hardened
+# default) skips every package's postinstall — including the ones this
+# repo genuinely needs. The project's own .npmrc sets
+# `ignore-scripts=false` to override, but only `npm install` runs that are
+# started from inside the repo see it. Double-check that the artefacts
+# are on disk so later `npm run dev` doesn't crash at
+# `require('electron')` or with `NODE_MODULE_VERSION mismatch`.
+
+GLOBAL_IGNORE=$(npm config get ignore-scripts --global 2>/dev/null || echo "")
+PROJECT_IGNORE=$(npm config get ignore-scripts 2>/dev/null || echo "")
+if [ "$GLOBAL_IGNORE" = "true" ] && [ "$PROJECT_IGNORE" != "false" ]; then
+    echo "⚠ Your global ~/.npmrc has ignore-scripts=true and this repo's"
+    echo "   .npmrc override is not being picked up."
+    echo "   Re-run: npm install --ignore-scripts=false"
+fi
+
+# Electron runtime binary — populated by node_modules/electron/install.js
+# as a postinstall step. Missing means the download was skipped or failed
+# and `npm run dev` will crash at "Electron failed to install correctly".
+if [ -f "node_modules/electron/path.txt" ]; then
+    echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
+else
+    echo "✗ Electron runtime binary missing."
+    echo "  Auto-repair:   node scripts/ensure-electron-binary.mjs"
+    echo "  Nuclear:       rm -rf node_modules/electron && npm install"
+fi
+
+# better-sqlite3 compiled binding for the host Node ABI. Electron uses
+# its own ABI (145 vs Node 137 today), so this file is the Node-side
+# binding used by tests and standalone server runs; scripts/ensure-native-runtime.mjs
+# handles Electron-side swapping at boot.
+if [ -f "node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
+    echo "✓ better-sqlite3 native binding compiled"
+else
+    echo "✗ better-sqlite3 native binding missing."
+    echo "  Auto-repair:   npm rebuild better-sqlite3"
+fi
+
+echo ""
+echo "======================================"
 echo "  Checking Servers"
 echo "======================================"
 echo ""

@@ -103,6 +103,15 @@ export function Modal({
       // Focus the modal or first focusable element
       const timer = setTimeout(() => {
         if (modalRef.current) {
+          const activeElement = document.activeElement as HTMLElement | null;
+          if (
+            activeElement &&
+            activeElement !== document.body &&
+            modalRef.current.contains(activeElement)
+          ) {
+            return;
+          }
+
           const firstFocusable = modalRef.current.querySelector<HTMLElement>(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
           );

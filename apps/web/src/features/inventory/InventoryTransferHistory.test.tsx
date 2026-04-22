@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
@@ -293,6 +293,33 @@ describe('InventoryTransferHistory', () => {
     render(<InventoryTransferHistory />);
 
     expect(screen.getByText('Discrepancy')).toBeInTheDocument();
+  });
+
+  it('closes the receive modal immediately on success before background invalidations settle', async () => {
+    setListResult([inTransitEntry]);
+    toastSuccess.mockClear();
+    listInvalidate.mockImplementationOnce(async () => {
+      await new Promise(() => {});
+    });
+    detailInvalidate.mockImplementationOnce(async () => {
+      await new Promise(() => {});
+    });
+    balancesInvalidate.mockImplementationOnce(async () => {
+      await new Promise(() => {});
+    });
+
+    render(<InventoryTransferHistory />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Receive' }));
+    expect(await screen.findByText('Receive transfer')).toBeInTheDocument();
+
+    capturedReceiveOpts?.onSuccess?.();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Receive transfer')).not.toBeInTheDocument();
+    });
+    expect(toastSuccess).toHaveBeenCalled();
   });
 
   it('runs the receive onSuccess path: invalidates and toasts', async () => {

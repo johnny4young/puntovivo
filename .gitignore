@@ -61,6 +61,9 @@ backend/server
 
 # Playwright MCP session artifacts (ephemeral tooling output)
 .playwright-mcp/
+.playwright-browsers/
+playwright-report/
+test-results/
 
 # Claude Code per-developer worktrees
 .claude/worktrees/

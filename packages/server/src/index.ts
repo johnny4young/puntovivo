@@ -8,7 +8,7 @@
  */
 
 import { randomBytes } from 'crypto';
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -97,8 +97,25 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // dev/test runs get structured HTTP logs that automatically mask
   // credentials. App-level logging via createModuleLogger is always on
   // regardless of this flag.
+  // Fastify 5.8 split the `logger` option into two:
+  //   - `logger`: accepts booleans and plain-object config only
+  //   - `loggerInstance`: accepts a pre-constructed logger (pino, etc.)
+  // Passing a pino instance to `logger` now throws
+  // `FST_ERR_LOG_INVALID_LOGGER_CONFIG`. Keep `logger: false` as the
+  // disabled-logging signal and use `loggerInstance` for the verbose
+  // path so fastify/lib/logger-factory.js routes through
+  // createPinoLogger({ logger: rootLogger, ... }) as intended.
+  // Cast the pino instance to FastifyBaseLogger so the resulting
+  // FastifyInstance keeps the default logger type — otherwise TS widens
+  // it to `PuntovivoLogger` (our pino subtype carrying `msgPrefix`) and
+  // collides with the `FastifyInstance` surface declared on
+  // `PuntovivoServer`. pino.Logger implements the full FastifyBaseLogger
+  // contract, so the cast is safe at runtime.
+  const fastifyLoggerOption = verbose
+    ? { loggerInstance: rootLogger as unknown as FastifyBaseLogger }
+    : { logger: false as const };
   const app = Fastify({
-    logger: verbose ? rootLogger : false,
+    ...fastifyLoggerOption,
     // tRPC batch URLs encode comma-separated procedure names as a single route param.
     // The default limit (100) is too short for multi-procedure batches on this router.
     // Use routerOptions per Fastify v5 API (top-level maxParamLength is deprecated).

@@ -537,11 +537,11 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⬜ | PURCHASE-01 | BOTH | manager | Create manual purchase | Purchase appears and stock increases |
+| ✅ | PURCHASE-01 | BOTH | manager | Create manual purchase | Purchase appears and stock increases |
 | ✅ | PURCHASE-02 | BOTH | manager | Create purchase from order | Link order to purchase created |
 | ✅ | PURCHASE-03 | BOTH | manager | View purchase details | Details render correctly |
-| ⬜ | PURCHASE-04 | BOTH | admin | Void purchase | Status changes and stock reverses |
-| ⬜ | PURCHASE-05 | BOTH | admin | Partial return purchase | Stock decreases partially |
+| ✅ | PURCHASE-04 | BOTH | admin | Void purchase | Status changes and stock reverses |
+| ✅ | PURCHASE-05 | BOTH | admin | Partial return purchase | Stock decreases partially |
 | ✅ | PURCHASE-06 | BOTH | admin | Full return purchase | Final status correct |
 | ⬜ | PURCHASE-07 | BOTH | manager | Search or filter history | Results correct |
 | ⬜ | PURCHASE-08 | BOTH | manager | Export purchases | Export action starts successfully |
