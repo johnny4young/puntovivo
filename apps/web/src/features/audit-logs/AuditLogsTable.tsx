@@ -76,7 +76,7 @@ export function AuditLogsTable({
         },
       },
       {
-        accessorKey: 'resourceType',
+        accessorKey: 'resourceId',
         header: () => t('history.columns.resource'),
         cell: ({ row }) => {
           const typeKey = `resourceTypes.${row.original.resourceType}`;

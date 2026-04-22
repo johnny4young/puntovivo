@@ -68,11 +68,16 @@ export function InventoryTransferHistory() {
   });
 
   const receiveMutation = trpc.transfers.receive.useMutation({
-    onSuccess: async () => {
-      await invalidateAfterMutation();
+    onSuccess: () => {
+      // Close the modal immediately after the mutation succeeds. Invalidating
+      // three read surfaces (`transfers.list`, `transfers.getById`,
+      // `inventory.listBalancesBySite`) can take noticeable time under local
+      // E2E parallelism, and keeping the modal open until those refetches
+      // settle turns a successful receipt into a flaky timeout.
       setReceivingTransferId(null);
       setReceiveSubmitError(null);
       toast.success({ title: t('transferHistory.receiveSuccess') });
+      void invalidateAfterMutation();
     },
     onError: error => {
       const description = translateServerError(error, t, t('errors:server.unknown'));

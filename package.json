@@ -27,11 +27,13 @@
     "ci:web": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/web && npm run lint --workspace=@puntovivo/web && npm run test:coverage --workspace=@puntovivo/web -- --run && npm run build --workspace=@puntovivo/web",
     "ci:desktop": "npm run ci:audit && npm run build --workspace=@puntovivo/server && npm run build --workspace=@puntovivo/web && npm run typecheck --workspace=@puntovivo/desktop && npm run lint --workspace=@puntovivo/desktop && npm run test --workspace=@puntovivo/desktop",
     "ci:server": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/server && npm run lint --workspace=@puntovivo/server && npm run test:coverage --workspace=@puntovivo/server",
+    "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.web.config.ts",
     "test:release-script": "node --test scripts/prepare-release-tag.test.mjs scripts/upload-release-assets.test.mjs scripts/ensure-github-release.test.mjs scripts/github-cli-utils.test.mjs",
     "clean": "rm -rf node_modules apps/*/node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.10.5",
     "concurrently": "^9.2.1",
     "prettier": "^3.8.3",

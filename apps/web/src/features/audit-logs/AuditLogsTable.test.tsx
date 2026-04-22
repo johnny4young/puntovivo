@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { AuditLogEntry } from '@/types';
@@ -55,6 +56,27 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('tx-123')).toBeInTheDocument();
     // Metadata summary.
     expect(screen.getByText(/Reason: Counted wrong/)).toBeInTheDocument();
+  });
+
+  it('filters rows by resourceId from the toolbar search input', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AuditLogsTable
+        items={[
+          build({ resourceId: 'sale-123', action: 'sale.void', resourceType: 'sale' }),
+          build({ id: 'log-2', resourceId: 'sale-999', action: 'sale.void', resourceType: 'sale' }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    await user.type(screen.getByPlaceholderText('Search by resource id…'), 'sale-123');
+
+    expect(screen.getByText('sale-123')).toBeInTheDocument();
+    expect(screen.queryByText('sale-999')).not.toBeInTheDocument();
   });
 
   it('renders a status-transition summary for quotation.convert events', () => {

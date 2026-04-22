@@ -199,13 +199,21 @@ export function DataTable<TData, TValue>({
           </thead>
           <tbody>
             {visibleRows.length ? (
-              visibleRows.map((row, rowIndex) => (
+              visibleRows.map((row, rowIndex) => {
+                // Surface the domain id on the <tr> when the row data carries
+                // one. This is cheap (read-only attribute, no React tree
+                // change) and unblocks E2E tests that need to pick a specific
+                // row deterministically — especially under parallelism where
+                // position-based selectors (.first()) race against each other.
+                const domainId = (row.original as { id?: unknown } | null | undefined)?.id;
+                return (
                 <tr
                   key={row.id}
                   ref={element => {
                     rowRefs.current[rowIndex] = element;
                   }}
                   data-state={row.getIsSelected() && 'selected'}
+                  data-row-id={typeof domainId === 'string' ? domainId : undefined}
                   tabIndex={rowIndex === resolvedFocusedRowIndex ? 0 : -1}
                   aria-selected={enableRowSelection ? row.getIsSelected() : undefined}
                   className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset"
@@ -224,7 +232,8 @@ export function DataTable<TData, TValue>({
                     </td>
                   ))}
                 </tr>
-              ))
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={columns.length} className="h-28 text-center text-secondary-500">

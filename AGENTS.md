@@ -51,6 +51,40 @@ The `scripts/ensure-native-runtime.mjs` script handles this by caching both comp
 
 **Long-term fix to track:** Migrate `better-sqlite3` to a build that uses N-API. N-API is ABI-stable across Node.js and Electron versions, meaning a single compiled binary would work everywhere without the dual-binary swap. However, `better-sqlite3` v12 does not use N-API in its critical bindings — this depends on an upstream change in that library.
 
+## npm install with `ignore-scripts=true` (silent onboarding failure)
+
+A hardened global `~/.npmrc` containing `ignore-scripts=true` is a common supply-chain defence — but it disables **every** `postinstall`. Puntovivo genuinely needs three of those to run for a usable checkout:
+
+- `node_modules/electron` → downloads the platform runtime (Electron.app / electron.exe / electron binary)
+- `node_modules/better-sqlite3` → compiles the native SQLite binding for the host Node ABI
+- `node_modules/argon2` → compiles its native password-hashing binding
+
+Skipping them leaves `npm install` exiting green while `npm run dev` crashes later with `Error: Electron failed to install correctly` and the server dies with `NODE_MODULE_VERSION mismatch`. The project `.npmrc` now explicitly sets `ignore-scripts=false` + `foreground-scripts=true` to override the global and surface failures at install time, and `./scripts/check-setup.sh` flags the mismatch when it appears. If you see the failure mode, run `npm install --ignore-scripts=false` to recover.
+
+## Electron runtime binary (non-obvious failure mode)
+
+The `electron` npm package downloads its platform runtime (Electron.app on macOS, `electron.exe` on Windows, `electron` on Linux) from GitHub Releases during its `postinstall` hook. On a flaky network or a corrupt `~/Library/Caches/electron` entry the download can fail **silently** — the package stays on disk but `node_modules/electron/dist/` and `node_modules/electron/path.txt` are missing. Every subsequent `npm run dev` dies at:
+
+```
+An unhandled rejection has occurred inside Forge:
+Error: Electron failed to install correctly, please delete node_modules/electron and try installing again
+```
+
+Three defences cover this:
+
+1. Root `.npmrc` sets `foreground-scripts=true`. Any postinstall that exits non-zero now fails the whole `npm install`, surfacing the problem immediately instead of leaving a broken tree behind.
+2. `scripts/ensure-electron-binary.mjs` runs as part of the desktop `preflight:desktop` script before Electron Forge boots. It checks `path.txt` + the executable under `dist/`; if anything is missing it re-runs `node_modules/electron/install.js` once to auto-heal. If the repair itself fails it prints the exact recovery commands and exits non-zero.
+3. The `@puntovivo/desktop` package's `start`, `dev`, `dev:debug`, `dev:debug-brk`, `package`, and `make` scripts all chain through `preflight:desktop`, so every entry point sees the check.
+
+If the auto-heal still loses (genuinely dead cache, offline box, proxy):
+
+```
+rm -rf node_modules/electron
+rm -rf "$HOME/Library/Caches/electron"   # macOS
+rm -rf "$HOME/.cache/electron"           # Linux
+npm install
+```
+
 ## Architecture landmine: embedded backend
 
 The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@puntovivo/server` directly. Do not assume a separate server process exists.
