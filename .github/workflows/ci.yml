@@ -63,7 +63,7 @@ jobs:
       # consume it without re-running the suite.
       - name: Upload web LCOV coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-web
           path: apps/web/coverage/lcov.info
@@ -134,7 +134,7 @@ jobs:
       # is uploaded as an artifact for downstream coverage tooling.
       - name: Upload backend LCOV coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-server
           path: packages/server/coverage/lcov.info
