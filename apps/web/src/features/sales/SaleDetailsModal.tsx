@@ -1,13 +1,26 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Printer } from 'lucide-react';
-import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { Printer, RotateCw } from 'lucide-react';
+import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
 import { printSaleReceipt } from '@/features/sales/receiptPrinter';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
+import { formatDateTime } from '@/lib/utils';
+
+type ReprintReason =
+  | 'paper_out'
+  | 'customer_request'
+  | 'prior_print_error'
+  | 'other';
+const REPRINT_REASONS: ReprintReason[] = [
+  'paper_out',
+  'customer_request',
+  'prior_print_error',
+  'other',
+];
 
 interface SaleDetailsModalProps {
   saleId: string | null;
@@ -16,7 +29,7 @@ interface SaleDetailsModalProps {
 }
 
 export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalProps) {
-  const { t } = useTranslation(['sales', 'common']);
+  const { t } = useTranslation(['sales', 'common', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -26,6 +39,12 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
+  // ENG-019 — reprint controls. Opens a small inline modal so the cashier
+  // can pick a reason (or leave it blank) before the server-side call.
+  const [isReprintModalOpen, setIsReprintModalOpen] = useState(false);
+  const [reprintReason, setReprintReason] = useState<ReprintReason | ''>('');
+  const [reprintReasonDetail, setReprintReasonDetail] = useState('');
+  const [reprintError, setReprintError] = useState<string | null>(null);
   const returnMutation = trpc.sales.returnSale.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -48,10 +67,59 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, t('sales:details.toast.refundErrorFallback'));
+      const message = translateServerError(
+        error,
+        t,
+        t('sales:details.toast.refundErrorFallback')
+      );
       setReturnError(message);
       toast.error({
         title: t('sales:details.toast.refundErrorTitle'),
+        description: message,
+      });
+    },
+  });
+  const reprintMutation = trpc.sales.getForReprint.useMutation({
+    onSuccess: async refreshed => {
+      // Invalidate the modal query so the banner updates with the new
+      // `reprintCount` and `lastReprintedAt`.
+      await utils.sales.getById.invalidate({ id: saleId ?? '' });
+      setIsReprintModalOpen(false);
+      setReprintReason('');
+      setReprintReasonDetail('');
+      setReprintError(null);
+      setIsPrinting(true);
+      setPrintError(null);
+      try {
+        await printSaleReceipt(refreshed);
+        toast.success({ title: t('sales:reprint.toastSuccessTitle') });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : t('sales:details.toast.printErrorFallback');
+        setPrintError(message);
+        toast.error({
+          title: t('sales:reprint.toastErrorTitle'),
+          description: message,
+        });
+      } finally {
+        setIsPrinting(false);
+      }
+    },
+    onError: error => {
+      // Use translateServerError so mapped errorCodes (e.g.
+      // SALE_REPRINT_ACTIVE_SESSION_REQUIRED) surface in the active
+      // locale. Falls back to the server's English message or to the
+      // generic unknown-error string when no code matches.
+      const message = translateServerError(
+        error,
+        t,
+        t('errors:server.unknown')
+      );
+      setReprintError(message);
+      toast.error({
+        title: t('sales:reprint.toastErrorTitle'),
         description: message,
       });
     },
@@ -79,7 +147,11 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       onClose();
     },
     onError: error => {
-      const message = getErrorMessage(error, t('sales:details.toast.voidErrorFallback'));
+      const message = translateServerError(
+        error,
+        t,
+        t('sales:details.toast.voidErrorFallback')
+      );
       setVoidError(message);
       toast.error({
         title: t('sales:details.toast.voidErrorTitle'),
@@ -103,12 +175,23 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     sale.paymentStatus !== 'refunded';
   const canVoidSale =
     user?.role === 'admin' && sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  // ENG-019 — any non-draft sale is reprintable. The server enforces the
+  // cashier-active-session rule; UI surfaces the button for everyone and
+  // shows the translated error on denial.
+  const canReprintSale = !!sale && sale.status !== 'draft';
+  const reprintCount = (sale as { reprintCount?: number } | undefined)?.reprintCount ?? 0;
+  const lastReprintedAt =
+    (sale as { lastReprintedAt?: string | null } | undefined)?.lastReprintedAt ?? null;
   const handleClose = () => {
     setPrintError(null);
     setReturnError(null);
     setVoidError(null);
+    setReprintError(null);
     setIsReturnConfirmOpen(false);
     setIsVoidConfirmOpen(false);
+    setIsReprintModalOpen(false);
+    setReprintReason('');
+    setReprintReasonDetail('');
     onClose();
   };
 
@@ -142,6 +225,25 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       await returnMutation.mutateAsync({ id: saleId });
     } catch {
       // Error state is handled by the mutation callbacks.
+    }
+  };
+
+  const handleReprintConfirm = async () => {
+    if (!saleId) {
+      return;
+    }
+    setReprintError(null);
+    try {
+      await reprintMutation.mutateAsync({
+        saleId,
+        reason: reprintReason || undefined,
+        reasonDetail:
+          reprintReason === 'other' && reprintReasonDetail.trim().length > 0
+            ? reprintReasonDetail.trim()
+            : undefined,
+      });
+    } catch {
+      // Error state handled by mutation callbacks.
     }
   };
 
@@ -200,6 +302,27 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
                 {isPrinting ? t('sales:details.actions.printing') : t('common:toolbar.print')}
               </span>
             </ModalButton>
+            {canReprintSale && (
+              <ModalButton
+                onClick={() => {
+                  setReprintError(null);
+                  setIsReprintModalOpen(true);
+                }}
+                variant="secondary"
+                disabled={
+                  !sale ||
+                  isPrinting ||
+                  returnMutation.isPending ||
+                  voidMutation.isPending ||
+                  reprintMutation.isPending
+                }
+              >
+                <span className="inline-flex items-center gap-2">
+                  <RotateCw className="h-4 w-4" />
+                  {t('sales:reprint.actionShort')}
+                </span>
+              </ModalButton>
+            )}
             <ModalButton onClick={handleClose}>{t('common:actions.close')}</ModalButton>
           </>
         }
@@ -209,6 +332,23 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         )}
         {saleQuery.error && <p className="text-sm text-danger-500">{saleQuery.error.message}</p>}
 
+        {sale && reprintCount > 0 && (
+          <div
+            className="mb-4 rounded-md border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-700"
+            data-testid="reprint-banner"
+          >
+            {lastReprintedAt
+              ? t('sales:reprint.historyBannerWithoutUser', {
+                  count: reprintCount,
+                  when: formatDateTime(lastReprintedAt),
+                })
+              : t('sales:reprint.historyBannerWithoutUser', {
+                  count: reprintCount,
+                  when: '—',
+                })}
+          </div>
+        )}
+
         {sale && (
           <SaleDetailsContent
             sale={sale}
@@ -217,6 +357,91 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             printError={printError}
           />
         )}
+      </Modal>
+
+      <Modal
+        isOpen={isReprintModalOpen}
+        onClose={() => {
+          if (reprintMutation.isPending) return;
+          setIsReprintModalOpen(false);
+        }}
+        title={t('sales:reprint.title')}
+        size="sm"
+        footer={
+          <>
+            <ModalButton
+              onClick={() => {
+                if (reprintMutation.isPending) return;
+                setIsReprintModalOpen(false);
+              }}
+              disabled={reprintMutation.isPending}
+            >
+              {t('sales:reprint.cancel')}
+            </ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={() => {
+                void handleReprintConfirm();
+              }}
+              disabled={reprintMutation.isPending}
+            >
+              {reprintMutation.isPending || isPrinting
+                ? t('sales:reprint.printing')
+                : t('sales:reprint.confirm')}
+            </ModalButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-secondary-600">
+            {t('sales:reprint.description')}
+          </p>
+          <label className="block text-sm">
+            <span className="font-medium text-secondary-800">
+              {t('sales:reprint.reasonLabel')}
+            </span>
+            <select
+              className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
+              value={reprintReason}
+              onChange={event => {
+                const next = event.target.value as ReprintReason | '';
+                setReprintReason(next);
+                if (next !== 'other') {
+                  setReprintReasonDetail('');
+                }
+              }}
+              disabled={reprintMutation.isPending}
+            >
+              <option value="">—</option>
+              {REPRINT_REASONS.map(reason => (
+                <option key={reason} value={reason}>
+                  {t(`sales:reprint.reasonOptions.${reason}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {reprintReason === 'other' && (
+            <label className="block text-sm">
+              <span className="font-medium text-secondary-800">
+                {t('sales:reprint.reasonDetailLabel')}
+              </span>
+              <textarea
+                className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-1 text-sm"
+                rows={2}
+                maxLength={240}
+                value={reprintReasonDetail}
+                onChange={event => setReprintReasonDetail(event.target.value)}
+                placeholder={t('sales:reprint.reasonDetailPlaceholder')}
+                disabled={reprintMutation.isPending}
+              />
+            </label>
+          )}
+          {reprintError && (
+            <p className="text-sm text-danger-600" role="alert">
+              {reprintError}
+            </p>
+          )}
+        </div>
       </Modal>
 
       <ConfirmModal

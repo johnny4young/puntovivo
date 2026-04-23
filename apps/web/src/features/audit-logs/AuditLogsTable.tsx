@@ -389,5 +389,84 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  // ENG-018 — park / resume / discard. Each renders a short
+  // descriptor pulled from the `after` snapshot + metadata so the
+  // auditor sees the label and discard flag at a glance.
+  if (entry.action === 'sale.park') {
+    const saleNumber =
+      (entry.before && typeof entry.before.saleNumber === 'string'
+        ? entry.before.saleNumber
+        : null) ?? entry.resourceId;
+    const label =
+      entry.metadata && typeof entry.metadata.label === 'string'
+        ? entry.metadata.label
+        : null;
+    const discarded =
+      entry.metadata && entry.metadata.discarded === true;
+    if (discarded) {
+      return (
+        <span className="text-sm text-secondary-700">
+          {t('summary.salePark_discarded', { saleNumber })}
+        </span>
+      );
+    }
+    return label ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.salePark_label', { saleNumber, label })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.salePark', { saleNumber })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'sale.resume') {
+    const saleNumber =
+      (entry.before && typeof entry.before.saleNumber === 'string'
+        ? entry.before.saleNumber
+        : null) ?? entry.resourceId;
+    const override =
+      entry.metadata && entry.metadata.override === true;
+    return override ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleResume_override', { saleNumber })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleResume', { saleNumber })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'sale.reprint') {
+    const saleNumber =
+      (entry.before && typeof entry.before.saleNumber === 'string'
+        ? entry.before.saleNumber
+        : null) ?? entry.resourceId;
+    const count =
+      entry.metadata && typeof entry.metadata.count === 'number'
+        ? entry.metadata.count
+        : entry.after && typeof entry.after.reprintCount === 'number'
+          ? entry.after.reprintCount
+          : null;
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string'
+        ? entry.metadata.reason
+        : null;
+    if (count === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return reason ? (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleReprintReason', { saleNumber, count, reason })}
+      </span>
+    ) : (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleReprint', { saleNumber, count })}
+      </span>
+    );
+  }
+
   return <span className="text-sm text-secondary-500">—</span>;
 }

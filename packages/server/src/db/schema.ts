@@ -71,6 +71,16 @@ export const auditLogActionEnum = [
   'user.create',
   'user.update',
   'sale.price_override',
+  // ENG-018 — park-and-resume (multi-cart workspace). `sale.park` is emitted
+  // when a cashier suspends a draft sale; `sale.resume` when the same or
+  // another cashier (manager/admin override) reopens it. Gated at the
+  // service level by the optional `audit_park_sale` tenant setting so
+  // tenants that consider park churn noise can suppress the rows.
+  'sale.park',
+  'sale.resume',
+  // ENG-019 — receipt reprint. One row per reprint invocation, metadata
+  // carries the reason dropdown value + reprint ordinal count.
+  'sale.reprint',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -1462,6 +1472,20 @@ export const sales = sqliteTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
+    // ENG-018 — park-and-resume columns. Populated when a draft sale is
+    // suspended (`sales.suspend`) and cleared when resumed (`sales.resume`)
+    // or discarded (`sales.discardDraft` → `status='cancelled'`).
+    // `suspendedBy` is the cashier who suspended it; resume by a different
+    // actor is only allowed when that actor is manager/admin.
+    suspendedAt: text('suspended_at'),
+    suspendedBy: text('suspended_by').references(() => users.id),
+    suspendedLabel: text('suspended_label'),
+    // ENG-019 — receipt reprint counters. Incremented inside
+    // `sales.getForReprint`; the audit trail lives in `audit_logs` as
+    // one `sale.reprint` row per invocation.
+    reprintCount: integer('reprint_count').notNull().default(0),
+    lastReprintedAt: text('last_reprinted_at'),
+    lastReprintedBy: text('last_reprinted_by').references(() => users.id),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
@@ -1473,6 +1497,8 @@ export const sales = sqliteTable(
     index('idx_sales_customer').on(table.customerId),
     index('idx_sales_cash_session').on(table.cashSessionId),
     index('idx_sales_created_by').on(table.createdBy),
+    // ENG-018 — filter drafts quickly by owning cashier in `listDrafts`.
+    index('idx_sales_suspended_by').on(table.suspendedBy),
     uniqueIndex('idx_sales_tenant_number').on(table.tenantId, table.saleNumber),
   ]
 );

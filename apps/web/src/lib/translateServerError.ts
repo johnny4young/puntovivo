@@ -63,6 +63,36 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'RECEIPT_TEMPLATE_NAME_REQUIRED',
   'RECEIPT_TEMPLATE_LAST_FOR_KIND',
   'RECEIPT_TEMPLATE_NAME_DUPLICATE',
+  // Sales domain — added together with ENG-018 + ENG-019 while sweeping
+  // sales.ts. Every entry here needs a matching translation in
+  // errors.json under `server.<CODE>` in both locales, and the server
+  // throw path must use throwServerError() (not raw new TRPCError) so
+  // the errorCode flows through the tRPC error formatter into
+  // `error.data.errorCode`.
+  'SALE_NOT_FOUND',
+  'SALE_QUANTITY_NONPOSITIVE',
+  'SALE_SEQUENTIAL_MISSING',
+  'SALE_CUSTOMER_INVALID',
+  'SALE_PRODUCT_INVALID',
+  'SALE_UNIT_INVALID',
+  'SALE_INSUFFICIENT_STOCK',
+  'SALE_DISCOUNT_EXCEEDS_TOTAL',
+  'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
+  'SALE_UPDATE_VOIDED_FORBIDDEN',
+  'SALE_VOID_ALREADY_VOIDED',
+  'SALE_VOID_REFUNDED_FORBIDDEN',
+  'SALE_VOID_NOT_COMPLETED',
+  'SALE_WITHOUT_ITEMS',
+  'SALE_RETURN_VOIDED_FORBIDDEN',
+  'SALE_RETURN_NOT_COMPLETED',
+  'SALE_RETURN_ALREADY_REFUNDED',
+  'SALE_RETURN_DUPLICATE',
+  'SALE_REVERSAL_PRODUCT_MISSING',
+  'SALE_DRAFT_REQUIRED',
+  'SALE_NOT_SUSPENDED',
+  'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+  'SALE_REPRINT_DRAFT_FORBIDDEN',
+  'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

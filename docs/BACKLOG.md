@@ -31,7 +31,20 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
-- _(none captured yet — add new items as short bullets with a domain tag and date)_
+- `[i18n][infra]` Migrate raw `throw new TRPCError` calls in every
+  router other than `sales.ts` to `throwServerError` + a stable
+  `errorCode`, so user-facing messages always render in the active
+  locale. Today ~170 raw throws are spread across purchases (35),
+  geography (21), products (13), inventory + categories (9 each),
+  sites + orders (8 each), locations (7), users + customerCatalogs
+  (5 each), providers + customers (4 each), vatRates + units + sync
+  + receiptTemplates (3 each), sequentials + quotations + logos +
+  companies (2 each), transfers (1). The `sales.ts` router was
+  migrated during ENG-018/019 as the canonical example. Batching
+  the rest into one or two tickets is cheaper than drip-migrating —
+  each router needs new codes in `server/src/lib/errorCodes.ts`,
+  the matching entry in `web/src/lib/translateServerError.ts`, and
+  en/es strings in `web/src/i18n/locales/*/errors.json`. — 2026-04-23 (jy)
 
 ## 2. Small bugs / polish
 

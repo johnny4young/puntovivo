@@ -183,19 +183,25 @@ interface DrizzleJournal {
  * ENG-002 — adoption shim for DBs that were bootstrapped via the legacy
  * `runSchemaSync()` before versioned migrations existed.
  *
- * If the DB already carries application data (probed via `tenants`) but
- * has no `__drizzle_migrations` row, this function seeds the baseline
- * migration entry with the exact (hash, created_at) tuple that
- * drizzle-orm's migrator would have written itself. That way the first
- * real `drizzleMigrate()` call finds the row already pinned, short-
- * circuits the baseline, and proceeds only to truly pending future
- * migrations.
+ * If the DB already carries application data (probed via any user
+ * table) but has no `__drizzle_migrations` row, this function seeds
+ * **every** journal entry with the exact (hash, created_at) tuple
+ * that drizzle-orm's migrator would have written itself. That way the
+ * first real `drizzleMigrate()` call finds nothing pending, skips all
+ * DDL that would collide with the existing objects, and the follow-up
+ * `runSchemaSync()` makes up any missing columns via `ensureColumn`.
  *
- * No-op on fresh DBs (let migrate() run the baseline SQL) and on
- * already-adopted DBs (row exists).
+ * No-op on fresh DBs (let migrate() run everything from scratch) and
+ * on already-adopted DBs (tracking row exists).
  *
- * Caveat: intentionally scoped to the baseline entry (`idx === 0`).
- * Follow-up migrations are always applied by drizzle-orm itself.
+ * Rationale for seeding the full journal (ENG-018):
+ * legacy installs have their schema materialised via `runSchemaSync()`,
+ * which mirrors every migration's intent. Running `ALTER TABLE` in a
+ * later migration against an adopted DB is not safe when the raw-DDL
+ * side ships the same columns on CREATE — you can end up ALTERing a
+ * table that was just created with the target shape. Pinning the
+ * whole journal at adoption time avoids the replay and keeps
+ * runSchemaSync as the single authoritative path for legacy installs.
  */
 function ensureMigrationBaseline(
   sqlite: Database.Database,
@@ -209,8 +215,7 @@ function ensureMigrationBaseline(
   }
 
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as DrizzleJournal;
-  const baselineEntry = journal.entries.find(entry => entry.idx === 0);
-  if (!baselineEntry) {
+  if (journal.entries.length === 0) {
     return;
   }
 
@@ -229,9 +234,8 @@ function ensureMigrationBaseline(
     return;
   }
 
-  // Pre-create the tracking table so we can seed the baseline row. The
-  // drizzle-orm migrator CREATE IF NOT EXISTS below will find it and
-  // reuse it.
+  // Pre-create the tracking table so we can seed rows. The drizzle-orm
+  // migrator CREATE IF NOT EXISTS below will find it and reuse it.
   sqlite
     .prepare(
       'CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)'
@@ -247,16 +251,21 @@ function ensureMigrationBaseline(
     return;
   }
 
-  // Compute the baseline hash exactly like drizzle-orm's
-  // `readMigrationFiles` does: sha256 of the raw `.sql` contents, no
-  // normalisation.
-  const sqlPath = resolve(migrationsFolder, `${baselineEntry.tag}.sql`);
-  const sqlContents = readFileSync(sqlPath, 'utf8');
-  const baselineHash = createHash('sha256').update(sqlContents).digest('hex');
+  const orderedEntries = [...journal.entries].sort((a, b) => a.idx - b.idx);
+  const insert = sqlite.prepare(
+    'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)'
+  );
 
-  sqlite
-    .prepare('INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)')
-    .run(baselineHash, baselineEntry.when);
+  // Compute each migration hash exactly like drizzle-orm's
+  // `readMigrationFiles` does: sha256 of the raw `.sql` contents, no
+  // normalisation. Seed them in journal order so the primary-key `id`
+  // column matches the expected migration index.
+  for (const entry of orderedEntries) {
+    const sqlPath = resolve(migrationsFolder, `${entry.tag}.sql`);
+    const sqlContents = readFileSync(sqlPath, 'utf8');
+    const hash = createHash('sha256').update(sqlContents).digest('hex');
+    insert.run(hash, entry.when);
+  }
 }
 
 /**
@@ -866,6 +875,12 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       cash_session_id TEXT REFERENCES cash_sessions(id),
       notes TEXT,
       created_by TEXT NOT NULL REFERENCES users(id),
+      suspended_at TEXT,
+      suspended_by TEXT REFERENCES users(id),
+      suspended_label TEXT,
+      reprint_count INTEGER NOT NULL DEFAULT 0,
+      last_reprinted_at TEXT,
+      last_reprinted_by TEXT REFERENCES users(id),
       sync_status TEXT DEFAULT 'pending',
       sync_version INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -1214,6 +1229,16 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   ensureColumn(client, 'cash_movements', 'created_by', 'created_by TEXT');
   ensureColumn(client, 'cash_movements', 'created_at', "created_at TEXT NOT NULL DEFAULT (datetime('now'))");
   ensureColumn(client, 'sales', 'cash_session_id', 'cash_session_id TEXT');
+  // ENG-018 — park-and-resume columns backfilled for installs created
+  // before the 0002 migration landed.
+  ensureColumn(client, 'sales', 'suspended_at', 'suspended_at TEXT');
+  ensureColumn(client, 'sales', 'suspended_by', 'suspended_by TEXT');
+  ensureColumn(client, 'sales', 'suspended_label', 'suspended_label TEXT');
+  // ENG-019 — reprint bookkeeping. `reprint_count` ships with a 0
+  // default so pre-existing rows render the "not reprinted" banner path.
+  ensureColumn(client, 'sales', 'reprint_count', 'reprint_count INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(client, 'sales', 'last_reprinted_at', 'last_reprinted_at TEXT');
+  ensureColumn(client, 'sales', 'last_reprinted_by', 'last_reprinted_by TEXT');
   ensureColumn(client, 'sale_items', 'unit_id', 'unit_id TEXT');
   ensureColumn(client, 'sale_items', 'unit_equivalence', 'unit_equivalence REAL NOT NULL DEFAULT 1');
   ensureColumn(client, 'sale_items', 'cost_at_sale', 'cost_at_sale REAL NOT NULL DEFAULT 0');
@@ -1248,6 +1273,12 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   createIndexIfColumnsExist(client, 'cash_movements', ['created_by'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_created_by ON cash_movements (created_by)');
   createIndexIfColumnsExist(client, 'cash_movements', ['session_id', 'created_at'], 'CREATE INDEX IF NOT EXISTS idx_cash_movements_session_created ON cash_movements (session_id, created_at)');
   createIndexIfColumnsExist(client, 'sales', ['cash_session_id'], 'CREATE INDEX IF NOT EXISTS idx_sales_cash_session ON sales (cash_session_id)');
+  createIndexIfColumnsExist(
+    client,
+    'sales',
+    ['suspended_by'],
+    'CREATE INDEX IF NOT EXISTS idx_sales_suspended_by ON sales (suspended_by)'
+  );
   client.exec('DROP INDEX IF EXISTS idx_purchases_order_unique');
 }
 

@@ -506,7 +506,12 @@ export type AuditLogAction =
   | 'purchase.void'
   | 'user.create'
   | 'user.update'
-  | 'sale.price_override';
+  | 'sale.price_override'
+  // ENG-018 — park-and-resume (including discard metadata flag).
+  | 'sale.park'
+  | 'sale.resume'
+  // ENG-019 — receipt reprint.
+  | 'sale.reprint';
 
 export type AuditLogResourceType =
   | 'transfer_order'

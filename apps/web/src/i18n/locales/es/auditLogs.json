@@ -41,7 +41,10 @@
     "purchase.void": "Compra anulada",
     "user.create": "Usuario creado",
     "user.update": "Usuario actualizado",
-    "sale.price_override": "Precio manual en venta"
+    "sale.price_override": "Precio manual en venta",
+    "sale.park": "Venta suspendida",
+    "sale.resume": "Venta retomada",
+    "sale.reprint": "Recibo reimpreso"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -69,6 +72,14 @@
     "userDeactivate": "Desactivado",
     "userReactivate": "Reactivado",
     "priceOverride_one": "{{saleNumber}} — {{count}} línea con precio manual",
-    "priceOverride_other": "{{saleNumber}} — {{count}} líneas con precio manual"
+    "priceOverride_other": "{{saleNumber}} — {{count}} líneas con precio manual",
+    "salePark": "{{saleNumber}} suspendida",
+    "salePark_label": "{{saleNumber}} suspendida ({{label}})",
+    "salePark_discarded": "{{saleNumber}} borrador suspendido descartado",
+    "saleResume": "{{saleNumber}} retomada",
+    "saleResume_override": "{{saleNumber}} retomada por supervisor",
+    "saleReprint_one": "{{saleNumber}} — reimpresa {{count}} vez",
+    "saleReprint_other": "{{saleNumber}} — reimpresa {{count}} veces",
+    "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})"
   }
 }

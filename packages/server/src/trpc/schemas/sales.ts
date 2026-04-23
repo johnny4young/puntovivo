@@ -94,6 +94,80 @@ export const returnSaleInput = z.object({
   reason: z.string().optional(),
 });
 
+// ============================================================================
+// ENG-018 — park-and-resume inputs
+// ============================================================================
+
+/**
+ * Input for `sales.suspend`. The caller already owns a draft sale on
+ * screen; this mutation swaps it to `status='draft'` (if not already)
+ * and stamps the suspension columns. `label` is an optional operator
+ * hint ("Table 5", "Customer Juan") so cashiers can recognize drafts
+ * in the resume panel without opening each one.
+ */
+export const suspendSaleInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+  label: z.string().trim().max(80).optional(),
+});
+
+/** Input for `sales.resume`. Returns the full sale record + items + payments. */
+export const resumeSaleInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+});
+
+/**
+ * Input for `sales.listDrafts`. Pagination is optional and defaults to
+ * page 1 × 50 rows so the resume panel renders without flicker while
+ * the network round-trip completes. Filter fields are optional; the
+ * server already scopes by tenant and (for non-manager roles) by
+ * cashier.
+ */
+export const listDraftsInput = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(200).default(50),
+  /** When provided, drafts are scoped to this site. Ignored for cashiers
+   * because they can only ever see drafts from sessions they own. */
+  siteId: z.string().optional(),
+  /** Free-text match against `suspendedLabel` + `saleNumber`. */
+  search: z.string().trim().max(120).optional(),
+});
+
+/**
+ * Input for `sales.discardDraft`. Marks a suspended draft as
+ * `status='cancelled'` without touching stock (drafts never decremented
+ * inventory in the first place).
+ */
+export const discardDraftInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+});
+
+// ============================================================================
+// ENG-019 — receipt reprint input
+// ============================================================================
+
+/**
+ * Input for `sales.getForReprint`. Returns the full sale record so the
+ * receipt renderer can produce an identical print job, and increments
+ * `reprintCount` + stamps `lastReprintedAt`/`lastReprintedBy`. One
+ * `sale.reprint` audit row is emitted per call with the reason in
+ * metadata.
+ */
+export const reprintReasonEnum = z.enum([
+  'paper_out',
+  'customer_request',
+  'prior_print_error',
+  'other',
+]);
+export const getForReprintInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+  reason: reprintReasonEnum.optional(),
+  /** Free-text detail when `reason === 'other'`. */
+  reasonDetail: z.string().trim().max(240).optional(),
+});
+
+export type ReprintReason = z.infer<typeof reprintReasonEnum>;
+export type GetForReprintInput = z.infer<typeof getForReprintInput>;
+
 export type SaleItemInput = z.infer<typeof saleItemInput>;
 export type SalePaymentInput = z.infer<typeof salePaymentInput>;
 export type ListSalesInput = z.infer<typeof listSalesInput>;
@@ -101,3 +175,7 @@ export type CreateSaleInput = z.infer<typeof createSaleInput>;
 export type UpdateSaleInput = z.infer<typeof updateSaleInput>;
 export type VoidSaleInput = z.infer<typeof voidSaleInput>;
 export type ReturnSaleInput = z.infer<typeof returnSaleInput>;
+export type SuspendSaleInput = z.infer<typeof suspendSaleInput>;
+export type ResumeSaleInput = z.infer<typeof resumeSaleInput>;
+export type ListDraftsInput = z.infer<typeof listDraftsInput>;
+export type DiscardDraftInput = z.infer<typeof discardDraftInput>;

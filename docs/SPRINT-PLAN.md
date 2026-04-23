@@ -21,8 +21,9 @@ This table mirrors the authoritative `Status` column in
 | Iter 1 | (doc-only, no ENG) | Shipped | Design stubs + Mermaid architecture + 12 follow-up docs |
 | Iter 2 | (pre-ENG numbering, follow-up in `ENG-016`) | Shipped | Receipt templates — editor + renderer. See [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md). |
 | — | [`ENG-015`](./ROADMAP.md) | Shipped | Dev seed command. See [DEV-SEED.md](./DEV-SEED.md). |
-| Iter 6 | [`ENG-018`](./ROADMAP.md) | Pending | Sales park-and-resume (multi-cart workspace). Spec §3. |
-| Iter 7 | [`ENG-019`](./ROADMAP.md) | Pending | Sales receipt reprint. Spec §4. |
+| Iter 6 | [`ENG-018`](./ROADMAP.md) | Partial | Sales park-and-resume (multi-cart workspace). Server + audit + tests shipped 5d8f720; UI deferred to ENG-018b. Spec §3. |
+| Iter 6b | [`ENG-018b`](./ROADMAP.md) | Pending | ENG-018 UI follow-up (Zustand store, SuspendedSalesPanel, Ctrl+P/Ctrl+R shortcuts, close-session warn). |
+| Iter 7 | [`ENG-019`](./ROADMAP.md) | Shipped | Sales receipt reprint — server 5d8f720 + UI 05eea2d. Spec §4. Follow-up (history row action + Ctrl+Shift+P) deferred into ENG-018b. |
 | Iter 3 Fase A | [`ENG-020`](./ROADMAP.md) | Pending | Fiscal DIAN modeling + MockAdapter. Spec §5. |
 | — | [`ENG-017`](./ROADMAP.md) | Pending | Country / locale / currency configuration. See [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). |
 | Iter 4 | [`ENG-022`](./ROADMAP.md) | Gated | Hardware POS (test lab hardware). Spec §6. |
@@ -34,11 +35,10 @@ This table mirrors the authoritative `Status` column in
 
 Value-per-day priority, skipping gated tickets:
 
-1. **Iter 6 / ENG-018** — sales park-and-resume (~4 days, no blockers, closes a daily-use UX gap)
-2. **Iter 7 / ENG-019** — sales receipt reprint (~3 days, no blockers, closes an operational hardware-failure gap)
-3. **ENG-017** — country/locale/currency configuration (~1 week, blocks Iter 3 Fase A so land it before fiscal work starts)
-4. **Iter 3 Fase A / ENG-020** — fiscal DIAN modeling with MockAdapter (~2 weeks, deep-but-gateless, unblocks Fase B the day the PT contract lands)
-5. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
+1. **Iter 6b / ENG-018b** — sales park-and-resume UI follow-up (~2 days, no blockers, the Ctrl-guard lift also unblocks the Ctrl+Shift+P reprint shortcut and the history row action; all i18n keys already land so the UI mounts without a locale bump)
+2. **ENG-017** — country/locale/currency configuration (~1 week, blocks Iter 3 Fase A so land it before fiscal work starts)
+3. **Iter 3 Fase A / ENG-020** — fiscal DIAN modeling with MockAdapter (~2 weeks, deep-but-gateless, unblocks Fase B the day the PT contract lands)
+4. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
 
 Anything gated (Iter 3 Fase B, Iter 4 without hardware, Iter 5) stops the flow and raises a question to the user — do not speculate a workaround.
 
