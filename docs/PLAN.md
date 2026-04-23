@@ -641,7 +641,7 @@ Each step is a lazy-loaded React component. The active vertical determines which
 | Tax group engine (compound tax) | High | Medium | **P0** |
 | Capability-filtered sidebar navigation | Medium | Low | **P1** |
 | Checkout step pipeline | High | Medium | **P1** |
-| Receipt template registry | Medium | Medium | **P1** |
+| Receipt template registry | Medium | Medium | ✓ **Shipped (Iter 2)** — declarative `ReceiptLayout` + pure HTML/ESC-POS renderer + admin editor with live preview. See [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md). |
 | Module directory structure (server) | High | Medium | **P1** |
 | tRPC router composition per module | High | Medium | **P2** |
 | Dashboard widget registry per module | Medium | Medium | **P2** |
@@ -897,6 +897,8 @@ country_fiscal_profiles
   created_at
   updated_at
 ```
+
+> **Coordination with `ENG-017` / `country_catalog`** ([LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md)): the locale+currency catalog keyed by the same ISO 3166-1 alpha-2 `country_code` ships first. `country_fiscal_profiles` joins to it (shared PK) — the locale catalog owns display metadata (locale tag, currency symbol, date format, decimals, timezone, first-day-of-week, tax-ID types) while `country_fiscal_profiles` owns tax behaviour (IVA/INC rates, DIAN/SRI adapter selection, tip regulation, withholding). Keeping the two tables separate lets the locale work land immediately — fixing the `0,00 US$` UX bug and populating 21 LATAM+USA rows — without waiting for the heavier fiscal-engine parametrization (Phase 11).
 
 **Company-level overrides** (for companies that deviate from country defaults, e.g., a free-zone company):
 
@@ -2803,7 +2805,15 @@ The following dependency chain must be respected across phases — building out 
 
 ## 17. i18n System — Analysis & Design (PV-i18n)
 
-### 17.1 Current State
+### 17.0 Status Update — April 2026
+
+**Phases i18n-1 through i18n-3 are shipped.** `i18next` + `react-i18next` are wired on both web and Electron, 14 feature namespaces (common, auth, nav, dashboard, sales, orders, purchases, inventory, products, customers, quotations, receiptTemplates, auditLogs, settings, errors) ship in both `en` and `es`, and locale selection persists in the settings store. A `locale-parity.test.ts` blocks PRs that introduce a key in one locale without the other.
+
+**What's still missing — tracked as `ENG-017`**: country / currency / locale bundling. `formatCurrency()` defaults to `USD` regardless of tenant, which makes a Colombian tenant render totals as `0,00 US$` instead of `$ 0 COP`. The fix is a dedicated country catalog + currency catalog + per-tenant locale overrides covering LATAM + USA (21 countries, 18 currencies). Full design + country matrix in [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). This must land **before** Iter 3 Fase A fiscal document snapshots so they capture the correct currency code.
+
+The analysis below is kept for historical context — the "Current State" subsection reflects the pre-i18n era.
+
+### 17.1 Current State (pre-i18n, historical)
 
 Puntovivo has **zero i18n infrastructure**. All 126 component files (92 feature + 34 shared) contain hardcoded English strings: ~300+ user-facing labels, ~137 toast notifications, ~187 form fields/placeholders, plus validation messages, status badges, empty states, and modal titles.
 
@@ -2938,13 +2948,26 @@ This avoids the worst outcome: building 10+ more phases of hardcoded English str
 
 ## 18. Immediate Documentation Updates Needed
 
+### 18.1 Already landed (April 2026)
+
+Design docs that ship alongside already-shipped or in-flight features:
+
+- [`docs/RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) — declarative receipt editor + pure renderer (**shipped** as Iter 2)
+- [`docs/DEV-SEED.md`](./DEV-SEED.md) — `npm run seed:dev` runbook, country-aware seed for `demo-co` (**shipped** as `ENG-015`)
+- [`docs/LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md) — country / currency / locale configuration catalog for LATAM + USA, fixes the `0,00 US$` UX bug (**spec ready, implementation tracked as `ENG-017`**)
+- [`docs/FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md) — DIAN via Proveedor Tecnológico, shipped as spec (Iter 3 Fase A ships schema + MockAdapter; Fase B is gated on PT contract)
+- [`docs/HARDWARE-POS.md`](./HARDWARE-POS.md) — ESC/POS printer + cajón + scanner spec (Iter 4, gated on test lab)
+- [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
+
+### 18.2 Still planned
+
 These docs should exist after the first implementation phases:
 
 - `docs/INVENTORY_OWNERSHIP_MODEL.md`
 - `docs/FULFILLMENT_AND_LOGISTICS_MODEL.md`
 - `docs/HYBRID_DATA_TOPOLOGY.md`
 - `docs/CASH_OPERATIONS_RUNBOOK.md`
-- `docs/FISCAL_ARCHITECTURE.md`
+- `docs/FISCAL_ARCHITECTURE.md` (superseded in part by [`docs/FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md))
 - `docs/INTEGRATION_STRATEGY.md`
 - `docs/DOMAIN_GLOSSARY.md`
 - `docs/PROMOTION_ENGINE_DESIGN.md`
@@ -2953,7 +2976,7 @@ These docs should exist after the first implementation phases:
 - `docs/PHARMACY_REGULATORY_GUIDE.md` — INVIMA, controlled substances, RIPS, SISMED, FNE compliance
 - `docs/COLOMBIAN_TAX_ENGINE.md` — IVA, INC, impuesto saludable, retención, rete-IVA, rete-ICA, bolsa plástica
 - `docs/VERTICAL_PRODUCT_METADATA_SCHEMA.md` — JSON metadata column schemas per vertical
-- `docs/I18N_GUIDE.md` — i18n conventions, namespace mapping, key naming rules, and how to add a new language
+- `docs/I18N_GUIDE.md` — i18n conventions, namespace mapping, key naming rules, and how to add a new language (partially covered in §17 + [`LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md))
 
 ## 19. Sources
 

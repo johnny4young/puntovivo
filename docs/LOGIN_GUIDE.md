@@ -96,13 +96,13 @@ Source:
 ```bash
 npm install
 npx electron-rebuild -m apps/desktop
-npm run dev
+npm run dev:desktop
 ```
 
 ### Web + standalone backend
 
 ```bash
-npm run dev:fullstack
+npm run dev:web-stack
 ```
 
 ## Common Problems

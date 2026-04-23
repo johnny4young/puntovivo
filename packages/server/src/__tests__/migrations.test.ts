@@ -34,16 +34,46 @@ const MIGRATIONS_FOLDER = resolve(
   'src/db/migrations'
 );
 
-function readBaseline() {
+interface ExpectedMigration {
+  tag: string;
+  when: number;
+  hash: string;
+}
+
+function readBaseline(): ExpectedMigration {
+  return readExpectedMigrations()[0]!;
+}
+
+/**
+ * Read every migration entry from `meta/_journal.json` so the assertions
+ * scale automatically when new migrations are added (Iter 2 added
+ * `0001_receipt_templates` on top of the original baseline). Each row in
+ * the live `__drizzle_migrations` table must match one journal entry by
+ * order, hash, and timestamp.
+ */
+function readExpectedMigrations(): ExpectedMigration[] {
   const journalPath = resolve(MIGRATIONS_FOLDER, 'meta/_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
     entries: Array<{ idx: number; tag: string; when: number }>;
   };
-  const baseline = journal.entries.find(entry => entry.idx === 0)!;
-  const sqlPath = resolve(MIGRATIONS_FOLDER, `${baseline.tag}.sql`);
-  const sqlContents = readFileSync(sqlPath, 'utf8');
-  const baselineHash = createHash('sha256').update(sqlContents).digest('hex');
-  return { tag: baseline.tag, when: baseline.when, hash: baselineHash };
+  const ordered = [...journal.entries].sort((a, b) => a.idx - b.idx);
+  return ordered.map(entry => {
+    const sqlPath = resolve(MIGRATIONS_FOLDER, `${entry.tag}.sql`);
+    const sqlContents = readFileSync(sqlPath, 'utf8');
+    const hash = createHash('sha256').update(sqlContents).digest('hex');
+    return { tag: entry.tag, when: entry.when, hash };
+  });
+}
+
+function expectMigrationsMatchJournal(rows: DrizzleMigrationRow[]): void {
+  const expected = readExpectedMigrations();
+  expect(rows).toHaveLength(expected.length);
+  for (let i = 0; i < expected.length; i += 1) {
+    expect(rows[i]?.hash, `row ${i} hash`).toBe(expected[i]!.hash);
+    expect(Number(rows[i]?.created_at), `row ${i} created_at`).toBe(
+      expected[i]!.when
+    );
+  }
 }
 
 function listMigrationRows(sqlite: Database.Database): DrizzleMigrationRow[] {
@@ -84,10 +114,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     };
     const rows = listMigrationRows(liveDb.$client);
     const baseline = readBaseline();
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.hash).toBe(baseline.hash);
-    expect(Number(rows[0]?.created_at)).toBe(baseline.when);
+    expectMigrationsMatchJournal(rows);
 
     // Regression pin: timestamp defaults in the generated baseline must be
     // dynamic SQL expressions, not the literal wall-clock time when the
@@ -155,12 +182,13 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       $client: Database.Database;
     };
     const rows = listMigrationRows(liveDb.$client);
-    const baseline = readBaseline();
 
-    // Exactly the baseline row — no double-insert, no rerun.
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.hash).toBe(baseline.hash);
-    expect(Number(rows[0]?.created_at)).toBe(baseline.when);
+    // Exactly the journal entries — no double-insert, no rerun. The shim
+    // adopts pre-ENG-002 installs by seeding the baseline row, and any
+    // migration applied after the baseline (e.g. Iter 2's
+    // `0001_receipt_templates`) must also be present because the
+    // standard migrator runs them on top of the seeded baseline.
+    expectMigrationsMatchJournal(rows);
 
     // The legacy tenant row must still be there — proves the shim did
     // not wipe or re-create the DB.
@@ -194,11 +222,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       $client: Database.Database;
     };
     const rows = listMigrationRows(liveDb.$client);
-    const baseline = readBaseline();
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.hash).toBe(baseline.hash);
-    expect(Number(rows[0]?.created_at)).toBe(baseline.when);
+    expectMigrationsMatchJournal(rows);
 
     // Spot-check: the schema really landed via the override path — not
     // via the silent `runSchemaSync()` fallback that would still leave
@@ -228,6 +252,6 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       $client: Database.Database;
     };
     const rows = listMigrationRows(liveDb.$client);
-    expect(rows).toHaveLength(1);
+    expectMigrationsMatchJournal(rows);
   });
 });

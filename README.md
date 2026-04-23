@@ -150,21 +150,29 @@ npm install
    the heads-up above if your global npm is hardened)
 4. `./scripts/check-setup.sh` → should show Electron runtime installed
    ✓ and better-sqlite3 native binding compiled ✓
-5. `npm run dev` → boots the Electron window at the login screen
+5. `npm run dev:desktop` → boots the Electron window at the login screen
 
 If step 4 shows any ✗, fix that first — step 5 cannot succeed without
 the native artefacts. `scripts/ensure-electron-binary.mjs` runs as part
-of `npm run dev` to auto-heal a missing Electron runtime, but it cannot
+of `npm run dev:desktop` to auto-heal a missing Electron runtime, but it cannot
 recover from a missing `better-sqlite3.node` on its own (run
 `npm rebuild better-sqlite3` for that).
 
 ### Development
 
+Command naming convention:
+
+- `desktop` = Electron UI workflows
+- `web` = browser UI workflows
+- `server` = standalone backend workflows
+
+Use the explicit `desktop` / `web` / `server` variants in docs and day-to-day work.
+
 #### Desktop App (Default)
 
 ```bash
 # Launch web dev server + desktop app
-npm run dev
+npm run dev:desktop
 ```
 
 This starts the full desktop development stack:
@@ -176,19 +184,7 @@ This starts the full desktop development stack:
 If you already have the web dev server running and only want the Electron shell:
 
 ```bash
-npm run dev:desktop-only
-```
-
-#### Web App + Desktop Together
-
-```bash
-# Recommended: Start both web dev server and desktop
-npm run dev:all
-
-# What this does:
-# 1. Starts web dev server on port 3000
-# 2. Waits 3 seconds for server to be ready
-# 3. Starts Electron with embedded backend
+npm run dev:desktop-shell
 ```
 
 #### Web App (Browser-based)
@@ -197,7 +193,7 @@ For web development, you need **both** backend and frontend servers:
 
 ```bash
 # Option A: Run both servers with one command (recommended)
-npm run dev:fullstack
+npm run dev:web-stack
 
 # Option B: Run servers separately in different terminals
 
@@ -244,11 +240,11 @@ The SQLite database is stored at:
 
 ```bash
 # Build for current platform
-npm run make
+npm run make:desktop
 
 # Build for all platforms (from apps/desktop)
 cd apps/desktop
-npm run make
+npm run make:desktop
 ```
 
 ### Output
@@ -269,7 +265,7 @@ Auto-updates can be disabled via environment variable:
 
 ```bash
 # Disable auto-updates
-AUTO_UPDATE=false npm run start
+AUTO_UPDATE=false npm run dev:desktop
 ```
 
 ### Creating a Release
@@ -333,7 +329,7 @@ AUTO_UPDATE=false npm run start
 ### Common Questions
 
 **Q: How do I run web + desktop together?**  
-**A:** Use `npm run dev:all`. See [Development](#development) above.
+**A:** Use `npm run dev:desktop`. See [Development](#development) above.
 
 **Q: How do I change the API URL or port?**  
 **A:** Configure via environment variables. See [Environment Configuration](./docs/ENVIRONMENT_CONFIGURATION.md).
@@ -342,7 +338,7 @@ AUTO_UPDATE=false npm run start
 **A:** Run `npm install` to install dependencies. See [Troubleshooting](./docs/TROUBLESHOOTING.md).
 
 **Q: Desktop app shows blank screen**  
-**A:** Ensure web dev server is running. Use `npm run dev:all`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
+**A:** Ensure web dev server is running. Use `npm run dev:desktop`. See [Troubleshooting](./docs/TROUBLESHOOTING.md#desktop-app-shows-blank-screen).
 
 ## Environment Variables
 
@@ -366,7 +362,7 @@ If you're experiencing login problems, follow these steps:
 
 ```bash
 # Run both servers together (recommended)
-npm run dev:fullstack
+npm run dev:web-stack
 
 # OR run them separately in two terminals:
 # Terminal 1:
@@ -394,9 +390,9 @@ npm run dev:web
 
 1. Run `npm install` first
 2. Rebuild native modules: `npx electron-rebuild -m apps/desktop`
-3. Start the app: `npm run dev`
+3. Start the app: `npm run dev:desktop`
 
-**Check logs**: Look for error messages in the console where you ran `npm run dev`.
+**Check logs**: Look for error messages in the console where you ran `npm run dev:desktop`.
 
 ### Native Module Errors (electron-rebuild)
 

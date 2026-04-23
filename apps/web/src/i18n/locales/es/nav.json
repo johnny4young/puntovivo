@@ -29,6 +29,7 @@
     "units": "Unidades",
     "vatRates": "Tarifas IVA",
     "users": "Usuarios",
+    "receiptTemplates": "Plantillas de recibo",
     "auditLogs": "Auditoría"
   },
   "actions": {

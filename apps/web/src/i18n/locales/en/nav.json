@@ -29,6 +29,7 @@
     "units": "Units",
     "vatRates": "VAT Rates",
     "users": "Users",
+    "receiptTemplates": "Receipt templates",
     "auditLogs": "Audit log"
   },
   "actions": {

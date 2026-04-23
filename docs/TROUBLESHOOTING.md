@@ -31,14 +31,14 @@ The renderer dev server may not be running in development mode.
 ### Fix
 
 ```bash
-npm run dev
+npm run dev:desktop
 ```
 
 Or start manually:
 
 ```bash
 npm run dev:web
-npm run dev:desktop-only
+npm run dev:desktop-shell
 ```
 
 ## 3. Web app cannot reach the backend
@@ -82,8 +82,8 @@ Root scripts are the combined app scripts.
 Desktop-specific debug scripts live in the desktop workspace:
 
 ```bash
-npm run dev:debug --workspace=@puntovivo/desktop
-npm run dev:debug-brk --workspace=@puntovivo/desktop
+npm run dev:desktop:debug --workspace=@puntovivo/desktop
+npm run dev:desktop:debug-brk --workspace=@puntovivo/desktop
 ```
 
 ## 7. Web build fails with chunk warnings

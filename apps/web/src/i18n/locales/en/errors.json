@@ -53,6 +53,10 @@
     "QUOTATION_INVALID_STATUS_TRANSITION": "This status change is not allowed for the current quotation state.",
     "QUOTATION_DELETE_NOT_DRAFT": "Only draft quotations can be deleted.",
     "QUOTATION_SEQUENTIAL_MISSING": "No active quotation sequential is configured for this tenant.",
+    "RECEIPT_TEMPLATE_NOT_FOUND": "The receipt template could not be found.",
+    "RECEIPT_TEMPLATE_NAME_REQUIRED": "A template name is required.",
+    "RECEIPT_TEMPLATE_LAST_FOR_KIND": "You cannot delete or deactivate the only template for this kind. Create or activate a replacement first.",
+    "RECEIPT_TEMPLATE_NAME_DUPLICATE": "A template with this name already exists for this kind.",
     "unknown": "Something went wrong. Please try again."
   }
 }

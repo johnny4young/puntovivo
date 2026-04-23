@@ -504,8 +504,8 @@ outside the Vite module graph:
 
 1. `packages/server/scripts/copy-migrations.mjs` copies
    `src/db/migrations/` into `dist/db/migrations/` during
-   `npm run build --workspace=@puntovivo/server`. Desktop `package` and
-   `make` run `prepare:server` first so the copied folder is always fresh
+   `npm run build --workspace=@puntovivo/server`. Desktop `package:desktop`
+   and `make:desktop` run `prepare:server` first so the copied folder is always fresh
    before Forge resolves `extraResource`.
 2. `apps/desktop/forge.config.ts` lists
    `../../packages/server/dist/db/migrations` in

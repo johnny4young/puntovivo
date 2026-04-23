@@ -9,11 +9,12 @@ Operational guidance for AI agents working on this repo (Claude Code, Codex, Cop
 Run workspace commands from the repo root:
 
 ```
-npm run dev              # Launch full desktop app (main dev entry)
+npm run dev:desktop      # Launch web dev server + Electron desktop
+npm run dev:desktop-shell # Electron only; expects web dev server on port 3000
 npm run dev:web          # Web only on port 3000
+npm run dev:web-stack    # Web app + standalone backend
 npm run dev:server       # Backend only on port 8090
-npm run dev:desktop-only # Electron only; expects web dev server on port 3000
-npm run build            # Build web + create desktop packages
+npm run build:desktop    # Build web + create desktop packages
 ```
 
 Run tests per workspace:
@@ -59,11 +60,11 @@ A hardened global `~/.npmrc` containing `ignore-scripts=true` is a common supply
 - `node_modules/better-sqlite3` → compiles the native SQLite binding for the host Node ABI
 - `node_modules/argon2` → compiles its native password-hashing binding
 
-Skipping them leaves `npm install` exiting green while `npm run dev` crashes later with `Error: Electron failed to install correctly` and the server dies with `NODE_MODULE_VERSION mismatch`. The project `.npmrc` now explicitly sets `ignore-scripts=false` + `foreground-scripts=true` to override the global and surface failures at install time, and `./scripts/check-setup.sh` flags the mismatch when it appears. If you see the failure mode, run `npm install --ignore-scripts=false` to recover.
+Skipping them leaves `npm install` exiting green while `npm run dev:desktop` crashes later with `Error: Electron failed to install correctly` and the server dies with `NODE_MODULE_VERSION mismatch`. The project `.npmrc` now explicitly sets `ignore-scripts=false` + `foreground-scripts=true` to override the global and surface failures at install time, and `./scripts/check-setup.sh` flags the mismatch when it appears. If you see the failure mode, run `npm install --ignore-scripts=false` to recover.
 
 ## Electron runtime binary (non-obvious failure mode)
 
-The `electron` npm package downloads its platform runtime (Electron.app on macOS, `electron.exe` on Windows, `electron` on Linux) from GitHub Releases during its `postinstall` hook. On a flaky network or a corrupt `~/Library/Caches/electron` entry the download can fail **silently** — the package stays on disk but `node_modules/electron/dist/` and `node_modules/electron/path.txt` are missing. Every subsequent `npm run dev` dies at:
+The `electron` npm package downloads its platform runtime (Electron.app on macOS, `electron.exe` on Windows, `electron` on Linux) from GitHub Releases during its `postinstall` hook. On a flaky network or a corrupt `~/Library/Caches/electron` entry the download can fail **silently** — the package stays on disk but `node_modules/electron/dist/` and `node_modules/electron/path.txt` are missing. Every subsequent `npm run dev:desktop` dies at:
 
 ```
 An unhandled rejection has occurred inside Forge:
@@ -74,7 +75,7 @@ Three defences cover this:
 
 1. Root `.npmrc` sets `foreground-scripts=true`. Any postinstall that exits non-zero now fails the whole `npm install`, surfacing the problem immediately instead of leaving a broken tree behind.
 2. `scripts/ensure-electron-binary.mjs` runs as part of the desktop `preflight:desktop` script before Electron Forge boots. It checks `path.txt` + the executable under `dist/`; if anything is missing it re-runs `node_modules/electron/install.js` once to auto-heal. If the repair itself fails it prints the exact recovery commands and exits non-zero.
-3. The `@puntovivo/desktop` package's `start`, `dev`, `dev:debug`, `dev:debug-brk`, `package`, and `make` scripts all chain through `preflight:desktop`, so every entry point sees the check.
+3. The `@puntovivo/desktop` package's `dev:desktop`, `dev:desktop:debug`, `dev:desktop:debug-brk`, `package:desktop`, and `make:desktop` scripts all chain through `preflight:desktop`, so every entry point sees the check.
 
 If the auto-heal still loses (genuinely dead cache, offline box, proxy):
 

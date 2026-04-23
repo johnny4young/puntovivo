@@ -1,0 +1,166 @@
+{
+  "page": {
+    "kicker": "Setup",
+    "title": "Receipt templates",
+    "description": "Design the printed receipts and quotations your business issues. Templates are tenant-wide and apply to every site."
+  },
+  "actions": {
+    "newTemplate": "New template",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "setDefault": "Set as default",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "addBlock": "Add block",
+    "removeBlock": "Remove",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
+  },
+  "list": {
+    "filters": {
+      "kind": "Kind",
+      "all": "All kinds"
+    },
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "paperWidth": "Paper",
+      "default": "Default",
+      "active": "Active",
+      "updated": "Updated"
+    },
+    "emptyState": {
+      "title": "No templates yet",
+      "description": "Create your first template to define how receipts will be printed.",
+      "cta": "Create template"
+    },
+    "defaultBadge": "Default"
+  },
+  "kinds": {
+    "sale": "Sale receipt",
+    "quotation": "Quotation",
+    "fiscal_dee": "Fiscal DEE"
+  },
+  "paperWidths": {
+    "58mm": "58mm",
+    "80mm": "80mm",
+    "letter": "Letter",
+    "a4": "A4"
+  },
+  "editor": {
+    "createTitle": "New receipt template",
+    "editTitle": "Edit receipt template",
+    "fields": {
+      "name": "Template name",
+      "namePlaceholder": "e.g. Sale receipt — 80mm",
+      "kind": "Kind",
+      "paperWidth": "Paper width"
+    },
+    "blocksPanel": {
+      "title": "Blocks",
+      "description": "Drag to reorder. Up to 50 blocks per layout.",
+      "empty": "Add a block to get started."
+    },
+    "previewPanel": {
+      "title": "Live preview",
+      "description": "Rendered with sample data."
+    },
+    "defaults": {
+      "newText": "New text",
+      "saleNumberLabel": "Sale",
+      "quotationNumberLabel": "Quotation",
+      "cashierLabel": "Cashier",
+      "customerLabel": "Customer",
+      "taxIdLabel": "Tax ID",
+      "resolutionLabel": "Resolution",
+      "thankYou": "Thank you for your purchase"
+    },
+    "blockTypes": {
+      "logo": "Logo",
+      "text": "Text",
+      "itemsTable": "Items table",
+      "totalsBlock": "Totals",
+      "tendersTable": "Tenders",
+      "qr": "QR code",
+      "separator": "Separator",
+      "barcode128": "Barcode 128"
+    },
+    "blockFields": {
+      "value": "Value",
+      "valueHelp": "Variables: {{company.*}}, {{sale.*}}, {{item.*}}, {{fiscal.*}}, {{tender.*}}",
+      "align": "Align",
+      "alignLeft": "Left",
+      "alignCenter": "Center",
+      "alignRight": "Right",
+      "style": "Style",
+      "styleNormal": "Normal",
+      "styleTitle": "Title",
+      "styleSubtitle": "Subtitle",
+      "styleMuted": "Muted",
+      "styleMonospace": "Monospace",
+      "bold": "Bold",
+      "maxHeightMm": "Max height (mm)",
+      "sizeMm": "Size (mm)",
+      "heightMm": "Height (mm)",
+      "char": "Character",
+      "showHeader": "Show header",
+      "showChange": "Show change row",
+      "columns": "Columns",
+      "columnsHelp": "Pick the columns to print, in order.",
+      "totalsLines": "Lines",
+      "totalsLinesHelp": "Pick the totals to display.",
+      "source": "Source"
+    },
+    "blockColumns": {
+      "name": "Item",
+      "qty": "Qty",
+      "unitPrice": "Unit price",
+      "taxPercent": "Tax %",
+      "discount": "Discount",
+      "total": "Total"
+    },
+    "totalsLines": {
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "taxTotal": "Tax",
+      "tip": "Tip",
+      "grandTotal": "Total"
+    }
+  },
+  "preview": {
+    "documentTitle": "Receipt preview",
+    "tendersTable": {
+      "method": "Method",
+      "reference": "Reference",
+      "amount": "Amount",
+      "change": "Change"
+    }
+  },
+  "duplicate": {
+    "title": "Duplicate template",
+    "namePrompt": "New template name",
+    "confirm": "Duplicate"
+  },
+  "delete": {
+    "title": "Delete template",
+    "confirmMessage": "This template will be permanently deleted. This action cannot be undone.",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "createSuccess": "Template created",
+    "createError": "Could not create the template",
+    "updateSuccess": "Template updated",
+    "updateError": "Could not save the template",
+    "deleteSuccess": "Template deleted",
+    "deleteError": "Could not delete the template",
+    "setDefaultSuccess": "Template set as default",
+    "setDefaultError": "Could not change the default",
+    "duplicateSuccess": "Template duplicated",
+    "duplicateError": "Could not duplicate the template"
+  },
+  "errors": {
+    "atLeastOneBlock": "Add at least one block to the layout."
+  }
+}
