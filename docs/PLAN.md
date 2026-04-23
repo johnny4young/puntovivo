@@ -1639,6 +1639,23 @@ Recommended target architecture for Puntovivo:
 This roadmap is deliberately technical.
 Each phase includes concrete tracks for DB, tRPC, UI, and tests.
 
+> **Where active work lives**: the Phases below describe *strategic*
+> groupings and their motivation. The **concrete, actionable backlog** —
+> with status, acceptance criteria, sequencing, and shipped summaries —
+> is [`docs/ROADMAP.md §3b`](./ROADMAP.md) (`ENG-NNN` tickets). Per-iter
+> commit-level detail lives in [`docs/SPRINT-PLAN.md`](./SPRINT-PLAN.md).
+> Unpromised ideas live in [`docs/BACKLOG.md`](./BACKLOG.md).
+>
+> When a Phase here matures into concrete work, it becomes one or more
+> `ENG-NNN` rows in ROADMAP. Do not duplicate the ticket's acceptance
+> criteria here — link instead. Example: Phase 11 (Fiscal) currently
+> maps to `ENG-020` (Fase A modeling) and `ENG-021` (Fase B PT
+> integration). Phase 1 (Cash + fractional) is already fully shipped
+> per the ROADMAP §2 Priority Order and the shipped ENG rows.
+>
+> The Phases below therefore read as **why we sequence work this way**,
+> not **what commits to write next**.
+
 ### Phase 0: Architecture Foundation and Multi-Vertical Module System
 
 Goal:
@@ -2120,7 +2137,7 @@ This section is based on deep research of current DIAN regulations (Resolución 
 
 ##### Architectural decision (April 2026): integrate via an authorized Proveedor Tecnológico
 
-After the April 2026 MVP-Colombia audit (see [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) and the plan file `implement-the-next-step-mutable-muffin.md`), the decision for the first production implementation is:
+After the April 2026 MVP-Colombia audit (see [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) and the per-iter execution detail in [SPRINT-PLAN.md §5](./SPRINT-PLAN.md) / [§7](./SPRINT-PLAN.md)), the decision for the first production implementation is:
 
 **Puntovivo will integrate with a DIAN-authorized Proveedor Tecnológico (PT) via HTTPS REST, instead of implementing the full DIAN signing + SOAP + habilitación stack in-process.**
 
@@ -2947,6 +2964,11 @@ i18n sits **between Phase 0 (architecture foundation) and Phase 1 (cash manageme
 This avoids the worst outcome: building 10+ more phases of hardcoded English strings and then doing a massive retroactive extraction.
 
 ## 18. Immediate Documentation Updates Needed
+
+> **Scope of this section**: design-level docs (per-feature specs, runbooks,
+> domain guides). Engineering tickets live in [`docs/ROADMAP.md §3b`](./ROADMAP.md);
+> per-iter execution detail in [`docs/SPRINT-PLAN.md`](./SPRINT-PLAN.md);
+> raw ideas not yet sized in [`docs/BACKLOG.md`](./BACKLOG.md).
 
 ### 18.1 Already landed (April 2026)
 

@@ -156,7 +156,74 @@ Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chor
 
 ## Adding new features — checklist
 
-1. Schema change → update both `packages/server/src/db/schema.ts` (Drizzle) AND the raw DDL in `packages/server/src/db/index.ts`. These two are hand-synchronized today; see ROADMAP ticket `DB-002` for the migration to versioned Drizzle migrations.
+1. Schema change → update both `packages/server/src/db/schema.ts` (Drizzle) AND the raw DDL in `packages/server/src/db/index.ts`. These two are hand-synchronized today; see ROADMAP ticket `DB-002` for the migration to versioned Drizzle migrations. **When Drizzle's SQLite dialect cannot emit what you need** (partial unique indexes with `WHERE`, dialect-specific defaults), hand-append the statement to the generated `0NNN_<name>.sql` with `IF NOT EXISTS` / `IF NOT EXISTS ... WHERE ...` so the migration is idempotent against DBs that previously went through `runSchemaSync()`. Example: `packages/server/src/db/migrations/0001_receipt_templates.sql`.
 2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire it in the router, and add a unit/integration test in `packages/server/src/__tests__/`. Frontend types are inferred end-to-end via the `AppRouter` export — only add entries to `apps/web/src/types/index.ts` for domain models that don't flow through tRPC.
-3. New frontend page → add a lazy route in `apps/web/src/App.tsx`, add a sidebar entry in `apps/web/src/components/layout/Sidebar.tsx`, and wire any role gating through `ProtectedRoute`. All user-visible strings must live in `apps/web/src/i18n/locales/*` (an ESLint rule blocks hardcoded strings in `title`, `placeholder`, and `aria-label`).
+3. New frontend page → add a lazy route in `apps/web/src/App.tsx`, add a sidebar entry in `apps/web/src/components/layout/Sidebar.tsx`, and wire any role gating through `ProtectedRoute`. All user-visible strings must live in `apps/web/src/i18n/locales/*` (an ESLint rule blocks hardcoded strings in `title`, `placeholder`, and `aria-label`). The parity test `apps/web/src/i18n/locale-parity.test.ts` blocks PRs that introduce a key in one locale without the other — add a new namespace by importing it in `apps/web/src/i18n/index.ts`, registering it in the `ns` array, and adding both `en/<ns>.json` and `es/<ns>.json`.
 4. Run `npm run ci:web` and/or `npm run ci:server` (see "Required checks" above) before committing.
+
+## Multi-tenant invariants (non-obvious)
+
+Every query in a tRPC router must scope by `ctx.tenantId`. Tests cover cross-tenant isolation — do not bypass them. Reuse these building blocks instead of writing custom middleware:
+
+- **Role guards** live in `packages/server/src/trpc/middleware/roles.ts`. Use `adminProcedure`, `managerOrAdminProcedure`, or compose a new role set via `createRoleGuard(roles, message)`. Never write a bespoke middleware.
+- **Site-scope guard** `ensureTenantSite(ctx.db, ctx.tenantId, siteId)` in `packages/server/src/trpc/routers/inventory.ts` — call it from any procedure that accepts a `siteId` input so a user cannot operate on a site from a different tenant.
+- **Cash session invariant** — `sales.complete` requires an active cash session for the (tenant, site, cashier) triple. The helper `requireActiveCashSession()` throws `CASH_SESSION_REQUIRED` when absent. Tests and the dev seed open a session before creating historical sales; do the same in any new flow that completes a sale.
+
+## Testing patterns (non-obvious)
+
+Server tests are HTTP-less. They call routers directly via the tRPC caller API and use an in-memory SQLite DB — no network layer, no port allocation:
+
+```ts
+import { appRouter } from '../trpc/router.js';
+import { createServer } from '../index.js';
+
+const server = await createServer({ dbPath: ':memory:', verbose: false });
+const caller = appRouter.createCaller(createTestContext());
+```
+
+Canonical patterns to copy: `packages/server/src/__tests__/audit-logs.test.ts` (multi-tenant + role guards), `packages/server/src/__tests__/receipt-templates.test.ts` (CRUD + partial unique invariants), `packages/server/src/__tests__/seed-dev.test.ts` (large data assertions).
+
+Web component tests use the custom `render()` wrapper in `apps/web/src/test/utils.tsx` which pre-provisions `QueryClient` and `MemoryRouter`.
+
+## Troubleshooting
+
+- **Exit 137 (SIGKILL) when starting `tsx` or running tests**: almost always stale `tsx watch` processes from prior `npm run dev:server` sessions holding the SQLite WAL lock. Run `pkill -f "tsx watch src/standalone.ts"; pkill -f "dev-launcher.mjs server"` and retry. `lsof packages/server/data/local.db` lists the offenders. See [docs/DEV-SEED.md](./docs/DEV-SEED.md) §Troubleshooting.
+- **`UNIQUE constraint failed: ...sale_number`** across multiple sites: sequentials are per-site but `(tenant_id, sale_number)` is tenant-unique. Sites must use different prefixes (e.g. `VTA-N-` vs `VTA-S-`). The dev seed does this automatically.
+
+## Commit conventions (beyond the basics)
+
+On top of the Conventional Commits format above:
+
+- No backticks and no double quotes in the message body (operator convention). Hyphen bullets for body lists.
+- No AI co-authorship trailer (user's global preference in `~/.claude/CLAUDE.md`).
+- One commit per logical unit. Do not mix commits from different iters / tickets.
+
+## Plan hierarchy
+
+Four sources of planning live in this repo; know which one to read for what:
+
+- [`docs/PLAN.md`](./docs/PLAN.md) — **strategic**: competitive analysis, phases, fiscal engine design, LatAm expansion. Read when a ticket touches architecture, fiscal, i18n, LATAM, or multi-vertical decisions; skip for simple features.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — **ticket index**: `ENG-NNN` rows with acceptance criteria and sequencing recommendation in §3b. Each row has an explicit `Status` column that drives pool discovery.
+- [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md) — **tactical**: iteration-level execution detail (per-commit sequencing, draft commit messages, verification matrix). This is what the agent opens next to ROADMAP when executing the next ticket.
+- [`docs/BACKLOG.md`](./docs/BACKLOG.md) — **raw capture**: unsized ideas, small bugs, spikes, parked feature requests. **Do not** pick work from here — this is the buffer before something becomes an `ENG-NNN`. When an item matures (acceptance criteria clear, sized), promote it to ROADMAP and delete the bullet here in the same commit.
+
+**Flow for new work**: operator idea → `BACKLOG.md` (unsized) → matures → promoted to `ROADMAP.md §3b` as `ENG-NNN Status=Pending` → scheduled for sprint → `SPRINT-PLAN.md §N` with commit spec → agent executes → `Status=Shipped` with summary in ROADMAP. Only the last two steps involve an agent; the first two are human-curated.
+
+### Ticket Status convention
+
+The `Status` column in `ROADMAP.md §3b` is the single source of truth for what to work on next. Values:
+
+| Status | Eligible for pool? | Meaning |
+|---|---|---|
+| `Pending` | ✅ yes | Never started; standard workflow. |
+| `Partial` | ✅ yes | Some sub-steps shipped; the Scope cell ends with "Remaining:" listing what's left. Execute the remaining items as the ticket scope. |
+| `Shipped` | ❌ no | Closed; Scope cell ends with "Shipped:" summary. |
+| `Gated` | ❌ no | External dependency (hardware, contract, credentials) blocks start. Do not attempt until the gate clears. |
+| `Deferred` | ❌ no | Operator explicitly postponed. Do not re-prioritize without operator signal. |
+
+**Rules**:
+
+- New ENG tickets are created with `Status: Pending` and a Scope cell that ends with the acceptance criteria. If the ticket needs >5 commits or >1 week of work, split it into `ENG-NNNa`, `ENG-NNNb`, … before handing to an agent.
+- When closing a ticket, append `**Shipped**: <2-3 line summary>` to the end of the Scope cell AND change the Status column to `Shipped` in the same commit. Match the style of rows `ENG-003 / ENG-004 / ENG-008`.
+- When closing a Partial ticket: if sub-steps remain and they're worth doing later, either promote the "Remaining:" list into a fresh `ENG-NNNb` with `Pending` (then mark original `Shipped`), or keep the parent as `Partial` with the updated "Remaining:" list. Do not leave unstated remainders.
+- Agents skipping `Gated` / `Deferred` tickets report the gate back to the operator instead of guessing a workaround.
