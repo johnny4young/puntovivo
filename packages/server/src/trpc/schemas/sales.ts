@@ -133,12 +133,37 @@ export const listDraftsInput = z.object({
 });
 
 /**
- * Input for `sales.discardDraft`. Marks a suspended draft as
- * `status='cancelled'` without touching stock (drafts never decremented
- * inventory in the first place).
+ * Input for `sales.discardDraft`. Marks a draft as `status='cancelled'`
+ * AND reverses the stock debited at draft create-time — the pre-ENG-018c
+ * comment claimed drafts never decremented inventory, but `sales.create`
+ * debits on any status. ENG-018c fix restores the symmetry with
+ * `sales.void`.
  */
 export const discardDraftInput = z.object({
   saleId: z.string().min(1, 'Sale ID is required'),
+});
+
+/**
+ * Input for `sales.completeDraft` (ENG-018c). Transitions an existing
+ * draft to `status='completed'`, inserts payments + cash movement, and
+ * leaves items untouched. The draft must NOT be suspended — if
+ * `suspended_at` is non-null the caller must first `sales.resume` to
+ * clear it. Items are locked at complete-time: if the operator wants
+ * different items they discard the draft and start fresh.
+ */
+export const completeDraftInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+  paymentMethod: paymentMethodEnum.default('cash'),
+  paymentStatus: paymentStatusEnum.default('pending'),
+  notes: z.string().optional(),
+  amountReceived: z.number().min(0).optional(),
+  /**
+   * Optional multi-tender list. When present, Σ(amount) must equal the
+   * draft's existing total (the caller can read it from
+   * `sales.getById`). The server re-validates to avoid trusting stale
+   * client-side computations.
+   */
+  payments: z.array(salePaymentInput).optional(),
 });
 
 // ============================================================================
@@ -179,3 +204,4 @@ export type SuspendSaleInput = z.infer<typeof suspendSaleInput>;
 export type ResumeSaleInput = z.infer<typeof resumeSaleInput>;
 export type ListDraftsInput = z.infer<typeof listDraftsInput>;
 export type DiscardDraftInput = z.infer<typeof discardDraftInput>;
+export type CompleteDraftInput = z.infer<typeof completeDraftInput>;

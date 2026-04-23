@@ -468,5 +468,19 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  // ENG-018c — draft completion. Pulls the sale number from metadata
+  // (the server copies it at write-time so we do not rely on a join).
+  if (entry.action === 'sale.complete') {
+    const saleNumber =
+      entry.metadata && typeof entry.metadata.saleNumber === 'string'
+        ? entry.metadata.saleNumber
+        : entry.resourceId;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleComplete', { saleNumber })}
+      </span>
+    );
+  }
+
   return <span className="text-sm text-secondary-500">—</span>;
 }

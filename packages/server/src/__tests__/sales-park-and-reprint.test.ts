@@ -30,9 +30,12 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   auditLogs,
+  cashMovements,
   cashSessions,
   companies,
+  inventoryMovements,
   products,
+  salePayments,
   sales,
   sites,
   tenants,
@@ -483,7 +486,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       expect(stored?.suspendedAt).toBeNull();
     });
 
-    it('blocks a non-owner cashier', async () => {
+    it('blocks a non-owner cashier (neither creator nor suspender)', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       await appRouter
         .createCaller(createContext(cashier1Id, 'cashier', tenantId, primarySiteId))
@@ -493,8 +496,151 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
       );
       await expect(c2.sales.discardDraft({ saleId })).rejects.toThrowError(
-        /suspended this sale/i
+        /cashier who created or suspended/i
       );
+    });
+
+    it('reverses stock on discard (ENG-018c fix for 77bb686 bug)', async () => {
+      // Dedicated product so stock movement is easy to assert without
+      // interference from other tests running in the same describe block.
+      const db = getDatabase();
+      const reversalProductId = nanoid();
+      const reversalSku = `PARK-REV-${nanoid(6)}`;
+      const timestamp = new Date().toISOString();
+      await db.insert(products).values({
+        id: reversalProductId,
+        tenantId,
+        name: 'Reversal Probe',
+        sku: reversalSku,
+        price: 10,
+        price2: 10,
+        price3: 10,
+        cost: 5,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        initialCost: 5,
+        stock: 50,
+        minStock: 0,
+        isActive: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId: reversalProductId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 10,
+        isBase: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+
+      // Baseline: product stock is 50 after seeding.
+      const seeded = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, reversalProductId))
+        .get();
+      expect(seeded?.stock).toBe(50);
+
+      // Draft creation debits stock by 3 units (ENG-018 baseline model).
+      const draft = await caller.sales.create({
+        items: [
+          {
+            productId: reversalProductId,
+            unitId: baseUnitId,
+            quantity: 3,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      const afterDraft = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, reversalProductId))
+        .get();
+      expect(afterDraft?.stock).toBe(47);
+
+      // Discard the draft: stock must return to the pre-draft baseline.
+      await caller.sales.discardDraft({ saleId: draft.id });
+
+      const afterDiscard = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, reversalProductId))
+        .get();
+      expect(afterDiscard?.stock).toBe(50);
+
+      // An `inventoryMovements` row of type 'return' documents the
+      // reversal so audit tooling can reconcile the timeline.
+      const returnMovement = await db
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.productId, reversalProductId),
+            eq(inventoryMovements.reference, draft.id),
+            eq(inventoryMovements.type, 'return')
+          )
+        )
+        .get();
+      expect(returnMovement?.quantity).toBe(3);
+      expect(returnMovement?.previousStock).toBe(47);
+      expect(returnMovement?.newStock).toBe(50);
+
+      // Sale row itself is cancelled with the reversal count in metadata.
+      const discardedSale = await db
+        .select()
+        .from(sales)
+        .where(eq(sales.id, draft.id))
+        .get();
+      expect(discardedSale?.status).toBe('cancelled');
+      expect(discardedSale?.suspendedAt).toBeNull();
+
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, draft.id),
+            eq(auditLogs.action, 'sale.park')
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(audit?.metadata).toMatchObject({
+        discarded: true,
+        reversedItems: 1,
+      });
+    });
+
+    it('lets the creator discard an orphan draft that was never suspended', async () => {
+      // Regression: pre-ENG-018c lock only accepted suspendedBy, leaving
+      // drafts whose suspend call failed mid-flight permanently stuck.
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const result = await caller.sales.discardDraft({ saleId });
+      expect(result.status).toBe('cancelled');
     });
   });
 
@@ -592,6 +738,204 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
       await expect(
         otherCaller.sales.getForReprint({ saleId })
+      ).rejects.toThrowError(/not found/i);
+    });
+  });
+
+  describe('sales.completeDraft (ENG-018c)', () => {
+    it('flips a non-suspended draft to completed, replaces payments, and binds to the active cash session', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+
+      const db = getDatabase();
+      const beforeCompletion = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, productId))
+        .get();
+      const stockBeforeComplete = beforeCompletion?.stock ?? 0;
+
+      const completed = await caller.sales.completeDraft({
+        saleId: draftId,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 15,
+        notes: 'Completed from draft',
+      });
+
+      expect(completed.status).toBe('completed');
+      expect(completed.paymentStatus).toBe('paid');
+      expect(completed.notes).toBe('Completed from draft');
+
+      // Stock must NOT move on completeDraft — it was already debited at
+      // create-time. Double-debit is the whole bug this split prevents.
+      const afterCompletion = await db
+        .select({ stock: products.stock })
+        .from(products)
+        .where(eq(products.id, productId))
+        .get();
+      expect(afterCompletion?.stock).toBe(stockBeforeComplete);
+
+      // The active cash session gets re-bound so reports aggregate the
+      // income on the session that physically received the cash.
+      const storedSale = await db
+        .select({
+          cashSessionId: sales.cashSessionId,
+          status: sales.status,
+          paymentStatus: sales.paymentStatus,
+        })
+        .from(sales)
+        .where(eq(sales.id, draftId))
+        .get();
+      expect(storedSale?.cashSessionId).toBe(cashier1SessionId);
+      expect(storedSale?.status).toBe('completed');
+
+      // The initial placeholder payment row from `sales.create` must be
+      // replaced by the real tender(s) the operator registered.
+      const payments = await db
+        .select()
+        .from(salePayments)
+        .where(eq(salePayments.saleId, draftId))
+        .all();
+      expect(payments).toHaveLength(1);
+      expect(payments[0]?.method).toBe('cash');
+      // Cash total is sale total (10) for a non-split tender, not the
+      // amount received (15) — the 5 unit difference is change.
+      expect(payments[0]?.amount).toBe(10);
+
+      // And a cash movement lands on the active session so its expected
+      // balance reflects the freshly collected cash.
+      const cashMovement = await db
+        .select()
+        .from(cashMovements)
+        .where(eq(cashMovements.referenceId, draftId))
+        .get();
+      expect(cashMovement).toBeTruthy();
+      expect(cashMovement?.sessionId).toBe(cashier1SessionId);
+      expect(cashMovement?.type).toBe('sale');
+
+      // An audit row captures the draft → completed transition in the
+      // same transaction, matching the void / return / park / discard
+      // pattern. Forensics: knowing who finalized a parked draft and
+      // when is how disputes get resolved.
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, draftId),
+            eq(auditLogs.action, 'sale.complete')
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(audit).toBeTruthy();
+      expect(audit?.actorId).toBe(cashier1Id);
+      expect(audit?.before).toMatchObject({ status: 'draft' });
+      expect(audit?.after).toMatchObject({
+        status: 'completed',
+        cashSessionId: cashier1SessionId,
+      });
+      expect(audit?.metadata).toMatchObject({ completedFromDraft: true });
+    });
+
+    it('rejects completion of a suspended draft (caller must resume first)', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      await caller.sales.suspend({ saleId: draftId, label: 'Mesa X' });
+
+      await expect(
+        caller.sales.completeDraft({
+          saleId: draftId,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        })
+      ).rejects.toThrowError(/resume/i);
+    });
+
+    it('rejects completion when the sale is not a draft', async () => {
+      // Create a completed sale directly and try to complete it again.
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const sale = await caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 10,
+        discountAmount: 0,
+      });
+      await expect(
+        caller.sales.completeDraft({
+          saleId: sale.id,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        })
+      ).rejects.toThrowError(/draft/i);
+    });
+
+    it('blocks a non-creator cashier but allows manager override', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+
+      const cashier2Caller = appRouter.createCaller(
+        createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
+      );
+      await expect(
+        cashier2Caller.sales.completeDraft({
+          saleId: draftId,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        })
+      ).rejects.toThrowError(/cashier who created/i);
+
+      // Manager can complete any draft (the override path).
+      const managerCaller = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
+      // Manager needs an active cash session to receive the sale.
+      await managerCaller.cashSessions.open({
+        registerName: `Mgr register ${nanoid(4)}`,
+        openingFloat: 100,
+        denominations: [{ value: 50, count: 2 }],
+      });
+      const completed = await managerCaller.sales.completeDraft({
+        saleId: draftId,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 10,
+      });
+      expect(completed.status).toBe('completed');
+    });
+
+    it('is cross-tenant isolated', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const otherCaller = appRouter.createCaller(
+        createContext(otherAdminId, 'admin', otherTenantId, null)
+      );
+      await expect(
+        otherCaller.sales.completeDraft({
+          saleId: draftId,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        })
       ).rejects.toThrowError(/not found/i);
     });
   });

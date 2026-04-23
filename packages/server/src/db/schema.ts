@@ -81,6 +81,11 @@ export const auditLogActionEnum = [
   // ENG-019 — receipt reprint. One row per reprint invocation, metadata
   // carries the reason dropdown value + reprint ordinal count.
   'sale.reprint',
+  // ENG-018c — draft completion. Emitted by `sales.completeDraft` when
+  // a draft sale transitions to `status='completed'`. Creates the audit
+  // parity with void/return/park — any state-change on an existing sale
+  // leaves a row in the log.
+  'sale.complete',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 

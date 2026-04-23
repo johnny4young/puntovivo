@@ -511,7 +511,9 @@ export type AuditLogAction =
   | 'sale.park'
   | 'sale.resume'
   // ENG-019 — receipt reprint.
-  | 'sale.reprint';
+  | 'sale.reprint'
+  // ENG-018c — draft completion (state change on an existing draft).
+  | 'sale.complete';
 
 export type AuditLogResourceType =
   | 'transfer_order'
