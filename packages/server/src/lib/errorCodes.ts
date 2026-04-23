@@ -114,6 +114,63 @@ export const SERVER_ERROR_CODES = {
   RECEIPT_TEMPLATE_LAST_FOR_KIND: 'RECEIPT_TEMPLATE_LAST_FOR_KIND',
   /** A duplicate's resolved name collides with an existing one for the same kind. */
   RECEIPT_TEMPLATE_NAME_DUPLICATE: 'RECEIPT_TEMPLATE_NAME_DUPLICATE',
+
+  // --- sales domain ---
+  // Added during ENG-018 + ENG-019 while sweeping sales.ts for raw
+  // TRPCError messages that bypassed the translate-by-errorCode path
+  // and leaked English strings into the localized UI.
+  /** Sale id does not exist in the current tenant. */
+  SALE_NOT_FOUND: 'SALE_NOT_FOUND',
+  /** Post-equivalence normalized quantity is zero / negative / non-finite. */
+  SALE_QUANTITY_NONPOSITIVE: 'SALE_QUANTITY_NONPOSITIVE',
+  /** No active sale sequential is configured for the tenant. */
+  SALE_SEQUENTIAL_MISSING: 'SALE_SEQUENTIAL_MISSING',
+  /** The selected customer was not found or is inactive. */
+  SALE_CUSTOMER_INVALID: 'SALE_CUSTOMER_INVALID',
+  /** A line references a product that is missing or inactive; details.productName. */
+  SALE_PRODUCT_INVALID: 'SALE_PRODUCT_INVALID',
+  /** A line references a unit assignment that is missing or inactive; details.productName. */
+  SALE_UNIT_INVALID: 'SALE_UNIT_INVALID',
+  /** A line requested more than the available on-hand stock; details: productName, available, requested. */
+  SALE_INSUFFICIENT_STOCK: 'SALE_INSUFFICIENT_STOCK',
+  /** Applied discount amount exceeds the computed sale total. */
+  SALE_DISCOUNT_EXCEEDS_TOTAL: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
+  /** Amount received is below the sale total when the payment status is paid. */
+  SALE_AMOUNT_RECEIVED_BELOW_TOTAL: 'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
+  /** Update rejected because the sale is already voided. */
+  SALE_UPDATE_VOIDED_FORBIDDEN: 'SALE_UPDATE_VOIDED_FORBIDDEN',
+  /** Void: the target is already voided. */
+  SALE_VOID_ALREADY_VOIDED: 'SALE_VOID_ALREADY_VOIDED',
+  /** Void: the target is already refunded (refund and void are mutually exclusive). */
+  SALE_VOID_REFUNDED_FORBIDDEN: 'SALE_VOID_REFUNDED_FORBIDDEN',
+  /** Void: only completed sales can be voided. */
+  SALE_VOID_NOT_COMPLETED: 'SALE_VOID_NOT_COMPLETED',
+  /** Void/return: the sale has zero line items. */
+  SALE_WITHOUT_ITEMS: 'SALE_WITHOUT_ITEMS',
+  /** Return: voided sales cannot be refunded. */
+  SALE_RETURN_VOIDED_FORBIDDEN: 'SALE_RETURN_VOIDED_FORBIDDEN',
+  /** Return: only completed sales can be refunded. */
+  SALE_RETURN_NOT_COMPLETED: 'SALE_RETURN_NOT_COMPLETED',
+  /** Return: the sale is already refunded. */
+  SALE_RETURN_ALREADY_REFUNDED: 'SALE_RETURN_ALREADY_REFUNDED',
+  /** Return: a prior refund row already exists (duplicate refund). */
+  SALE_RETURN_DUPLICATE: 'SALE_RETURN_DUPLICATE',
+  /** Reversal transaction references a product row that no longer exists. */
+  SALE_REVERSAL_PRODUCT_MISSING: 'SALE_REVERSAL_PRODUCT_MISSING',
+
+  // --- ENG-018 park-and-resume ---
+  /** Suspend/discard target is not in status='draft'. */
+  SALE_DRAFT_REQUIRED: 'SALE_DRAFT_REQUIRED',
+  /** Resume target has no suspension metadata. */
+  SALE_NOT_SUSPENDED: 'SALE_NOT_SUSPENDED',
+  /** Resume/discard attempted by a non-owner cashier without manager override. */
+  SALE_SUSPEND_OWNERSHIP_REQUIRED: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+
+  // --- ENG-019 receipt reprint ---
+  /** Reprint requested on a draft sale (drafts have no printable receipt). */
+  SALE_REPRINT_DRAFT_FORBIDDEN: 'SALE_REPRINT_DRAFT_FORBIDDEN',
+  /** Cashier reprint: caller has no open cash session or the sale does not belong to it. */
+  SALE_REPRINT_ACTIVE_SESSION_REQUIRED: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

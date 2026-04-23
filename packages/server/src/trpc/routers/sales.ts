@@ -14,7 +14,6 @@
  * @module trpc/routers/sales
  */
 
-import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
@@ -41,9 +40,14 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
   createSaleInput,
+  discardDraftInput,
+  getForReprintInput,
   getSaleInput,
+  listDraftsInput,
   listSalesInput,
+  resumeSaleInput,
   returnSaleInput,
+  suspendSaleInput,
   updateSaleInput,
   voidSaleInput,
 } from '../schemas/sales.js';
@@ -90,8 +94,9 @@ function getNormalizedSaleQuantity(quantity: number, equivalence: number) {
   const normalizedQuantity = quantity * equivalence;
 
   if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_QUANTITY_NONPOSITIVE',
       message: 'The selected quantity must resolve to a positive stock quantity',
     });
   }
@@ -350,8 +355,9 @@ async function getSaleSequentialContext(
     .get();
 
   if (!fallbackSequential) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_SEQUENTIAL_MISSING',
       message: 'No active sale sequential is configured for the current tenant',
     });
   }
@@ -375,8 +381,9 @@ async function validateCustomer(
     .get();
 
   if (!customer || customer.isActive === false) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_CUSTOMER_INVALID',
       message: 'Selected customer was not found or is inactive',
     });
   }
@@ -446,17 +453,21 @@ async function resolveSaleItems(
     const product = productMap.get(item.productId);
 
     if (!product || product.isActive === false) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_PRODUCT_INVALID',
         message: `Product ${item.productId} was not found or is inactive`,
+        details: { productId: item.productId, productName: product?.name ?? item.productId },
       });
     }
 
     const assignment = assignmentMap.get(`${item.productId}:${item.unitId}`);
     if (!assignment || assignment.isActive === false) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_UNIT_INVALID',
         message: `Unit selection is invalid for product "${product.name}"`,
+        details: { productName: product.name, unitId: item.unitId },
       });
     }
 
@@ -471,9 +482,15 @@ async function resolveSaleItems(
     const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
 
     if (remainingStock < normalizedQuantity) {
-      throw new TRPCError({
-        code: 'CONFLICT',
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'SALE_INSUFFICIENT_STOCK',
         message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
+        details: {
+          productName: product.name,
+          available: remainingStock,
+          requested: normalizedQuantity,
+        },
       });
     }
 
@@ -532,6 +549,16 @@ async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string
       status: sales.status,
       notes: sales.notes,
       createdBy: sales.createdBy,
+      // ENG-018 — park-and-resume bookkeeping. Surfacing these on the
+      // read side lets the resume panel and the sale-details modal show
+      // who suspended the draft without a second round trip.
+      suspendedAt: sales.suspendedAt,
+      suspendedBy: sales.suspendedBy,
+      suspendedLabel: sales.suspendedLabel,
+      // ENG-019 — reprint counters drive the "reimpresa N veces" banner.
+      reprintCount: sales.reprintCount,
+      lastReprintedAt: sales.lastReprintedAt,
+      lastReprintedBy: sales.lastReprintedBy,
       syncStatus: sales.syncStatus,
       syncVersion: sales.syncVersion,
       createdAt: sales.createdAt,
@@ -548,7 +575,11 @@ async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string
     .get();
 
   if (!sale) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'SALE_NOT_FOUND',
+      message: 'Sale not found',
+    });
   }
 
   const items = await db
@@ -752,8 +783,9 @@ export const salesRouter = router({
     const taxAmount = resolvedItems.taxAmount;
     const total = subtotal + taxAmount - (input.discountAmount ?? 0);
     if (total < 0) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
         message: 'Discount amount cannot exceed the sale total',
       });
     }
@@ -803,8 +835,9 @@ export const salesRouter = router({
       paymentStatus === 'paid' &&
       input.amountReceived < total
     ) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
         message: 'Amount received cannot be less than the sale total for a paid sale',
       });
     }
@@ -1024,11 +1057,19 @@ export const salesRouter = router({
       .get();
 
     if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
     }
 
     if (existing.status === 'voided') {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot update a voided sale' });
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_UPDATE_VOIDED_FORBIDDEN',
+        message: 'Cannot update a voided sale',
+      });
     }
 
     const now = new Date().toISOString();
@@ -1078,23 +1119,33 @@ export const salesRouter = router({
       .get();
 
     if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
     }
 
     if (existing.status === 'voided') {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Voided sales cannot be refunded' });
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_RETURN_VOIDED_FORBIDDEN',
+        message: 'Voided sales cannot be refunded',
+      });
     }
 
     if (existing.status !== 'completed') {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_RETURN_NOT_COMPLETED',
         message: 'Only completed sales can be refunded',
       });
     }
 
     if (existing.paymentStatus === 'refunded') {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_RETURN_ALREADY_REFUNDED',
         message: 'Sale is already refunded',
       });
     }
@@ -1106,8 +1157,9 @@ export const salesRouter = router({
       .get();
 
     if (existingReturn) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_RETURN_DUPLICATE',
         message: 'Sale already has a recorded refund',
       });
     }
@@ -1124,8 +1176,9 @@ export const salesRouter = router({
       .all();
 
     if (saleLineItems.length === 0) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_WITHOUT_ITEMS',
         message: 'Cannot refund a sale without line items',
       });
     }
@@ -1170,9 +1223,11 @@ export const salesRouter = router({
         const previousStock = productStockState.get(item.productId);
 
         if (previousStock === undefined) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
+          throwServerError({
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'SALE_REVERSAL_PRODUCT_MISSING',
             message: `Product ${item.productId} was not found while refunding the sale`,
+            details: { productId: item.productId, operation: 'refund' },
           });
         }
 
@@ -1342,23 +1397,33 @@ export const salesRouter = router({
       .get();
 
     if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sale not found' });
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
     }
 
     if (existing.status === 'voided') {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sale is already voided' });
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_VOID_ALREADY_VOIDED',
+        message: 'Sale is already voided',
+      });
     }
 
     if (existing.paymentStatus === 'refunded') {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_VOID_REFUNDED_FORBIDDEN',
         message: 'Refunded sales cannot be voided',
       });
     }
 
     if (existing.status !== 'completed') {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_VOID_NOT_COMPLETED',
         message: 'Only completed sales can be voided',
       });
     }
@@ -1375,8 +1440,9 @@ export const salesRouter = router({
       .all();
 
     if (saleLineItems.length === 0) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_WITHOUT_ITEMS',
         message: 'Cannot void a sale without line items',
       });
     }
@@ -1425,9 +1491,11 @@ export const salesRouter = router({
         const previousStock = productStockState.get(item.productId);
 
         if (previousStock === undefined) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
+          throwServerError({
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'SALE_REVERSAL_PRODUCT_MISSING',
             message: `Product ${item.productId} was not found while voiding the sale`,
+            details: { productId: item.productId, operation: 'void' },
           });
         }
 
@@ -1541,4 +1609,450 @@ export const salesRouter = router({
     const updated = await ctx.db.select().from(sales).where(eq(sales.id, input.id)).get();
     return updated!;
   }),
+
+  /**
+   * ENG-018 — Suspend a draft sale so the cashier can start another cart
+   * without losing the in-progress one. Idempotent: re-suspending an
+   * already-suspended sale just refreshes `suspendedAt` and the label.
+   *
+   * Invariants:
+   * - Only draft sales may be suspended. Completed, cancelled, or voided
+   *   sales throw BAD_REQUEST.
+   * - The suspending cashier (`ctx.user.id`) is recorded in
+   *   `suspendedBy`; resumes/discards by anyone else require manager or
+   *   admin role.
+   * - No stock impact: drafts never decrement inventory in the first
+   *   place, so there is nothing to revert.
+   */
+  suspend: tenantProcedure.input(suspendSaleInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(sales)
+      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
+    }
+
+    if (existing.status !== 'draft') {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_DRAFT_REQUIRED',
+        message: 'Only draft sales can be suspended',
+        details: { operation: 'suspend', actualStatus: existing.status },
+      });
+    }
+
+    const now = new Date().toISOString();
+    const label = input.label && input.label.length > 0 ? input.label : null;
+
+    ctx.db.transaction(tx => {
+      tx.update(sales)
+        .set({
+          suspendedAt: now,
+          suspendedBy: ctx.user!.id,
+          suspendedLabel: label,
+          syncStatus: 'pending',
+          syncVersion: (existing.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(eq(sales.id, input.saleId))
+        .run();
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'sale.park',
+        resourceType: 'sale',
+        resourceId: input.saleId,
+        before: {
+          status: existing.status,
+          suspendedAt: existing.suspendedAt,
+          suspendedLabel: existing.suspendedLabel,
+        },
+        after: {
+          status: 'draft',
+          suspendedAt: now,
+          suspendedLabel: label,
+        },
+        metadata: label ? { label } : null,
+      });
+    });
+
+    return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+  }),
+
+  /**
+   * ENG-018 — Resume a suspended draft. Clears the suspension metadata
+   * so the cashier can keep editing the cart, but keeps
+   * `status='draft'` so `sales.create`/`sales.update` flows still apply
+   * as the terminal commit path.
+   *
+   * Lock: a suspended draft can only be resumed by the cashier who
+   * suspended it, UNLESS the caller is a manager or admin (override).
+   * Anything else returns FORBIDDEN.
+   */
+  resume: tenantProcedure.input(resumeSaleInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(sales)
+      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
+    }
+
+    if (existing.status !== 'draft' || !existing.suspendedAt) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_NOT_SUSPENDED',
+        message: 'Sale is not suspended',
+      });
+    }
+
+    const actorRole = ctx.user?.role;
+    const isOwner = existing.suspendedBy === ctx.user!.id;
+    const canOverride = actorRole === 'manager' || actorRole === 'admin';
+
+    if (!isOwner && !canOverride) {
+      throwServerError({
+        trpcCode: 'FORBIDDEN',
+        errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+        message: 'Only the cashier who suspended this sale can resume it',
+        details: { operation: 'resume' },
+      });
+    }
+
+    const now = new Date().toISOString();
+    const previousSuspendedBy = existing.suspendedBy;
+    const previousSuspendedAt = existing.suspendedAt;
+    const previousLabel = existing.suspendedLabel;
+
+    ctx.db.transaction(tx => {
+      tx.update(sales)
+        .set({
+          suspendedAt: null,
+          suspendedBy: null,
+          suspendedLabel: null,
+          syncStatus: 'pending',
+          syncVersion: (existing.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(eq(sales.id, input.saleId))
+        .run();
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'sale.resume',
+        resourceType: 'sale',
+        resourceId: input.saleId,
+        before: {
+          status: 'draft',
+          suspendedAt: previousSuspendedAt,
+          suspendedBy: previousSuspendedBy,
+          suspendedLabel: previousLabel,
+        },
+        after: {
+          status: 'draft',
+          suspendedAt: null,
+          suspendedBy: null,
+          suspendedLabel: null,
+        },
+        metadata: {
+          ...(previousSuspendedBy && previousSuspendedBy !== ctx.user!.id
+            ? { override: true, originalSuspendedBy: previousSuspendedBy }
+            : {}),
+        },
+      });
+    });
+
+    return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+  }),
+
+  /**
+   * ENG-018 — List suspended drafts. Cashiers only see drafts they
+   * themselves suspended; managers and admins see every suspended
+   * draft for the tenant (optionally narrowed by site).
+   *
+   * Returned shape is intentionally flat (no items/payments) so the
+   * resume panel renders fast. The full sale is fetched via
+   * `sales.resume` or `sales.getById` when the operator picks one.
+   */
+  listDrafts: tenantProcedure.input(listDraftsInput).query(async ({ ctx, input }) => {
+    const { page, perPage, siteId: siteFilter, search } = input;
+    const offset = (page - 1) * perPage;
+
+    const conditions = [
+      eq(sales.tenantId, ctx.tenantId),
+      eq(sales.status, 'draft'),
+      sql`${sales.suspendedAt} IS NOT NULL`,
+    ];
+
+    const actorRole = ctx.user?.role;
+    if (actorRole === 'cashier') {
+      // Cashiers never see another operator's draft — not even on the
+      // same site — to keep the surface small and private.
+      conditions.push(eq(sales.suspendedBy, ctx.user!.id));
+    }
+
+    if (siteFilter) {
+      conditions.push(
+        sql`${sales.cashSessionId} IN (SELECT id FROM ${cashSessions} WHERE ${cashSessions.siteId} = ${siteFilter} AND ${cashSessions.tenantId} = ${ctx.tenantId})`
+      );
+    }
+
+    if (search && search.length > 0) {
+      const pattern = `%${search.toLowerCase()}%`;
+      conditions.push(
+        sql`(lower(${sales.saleNumber}) LIKE ${pattern} OR lower(coalesce(${sales.suspendedLabel}, '')) LIKE ${pattern})`
+      );
+    }
+
+    const where = and(...conditions);
+
+    const [items, countResult] = await Promise.all([
+      ctx.db
+        .select({
+          id: sales.id,
+          saleNumber: sales.saleNumber,
+          customerId: sales.customerId,
+          customerName: customers.name,
+          subtotal: sales.subtotal,
+          taxAmount: sales.taxAmount,
+          total: sales.total,
+          notes: sales.notes,
+          suspendedAt: sales.suspendedAt,
+          suspendedBy: sales.suspendedBy,
+          suspendedLabel: sales.suspendedLabel,
+          createdBy: sales.createdBy,
+          cashSessionId: sales.cashSessionId,
+          createdAt: sales.createdAt,
+          updatedAt: sales.updatedAt,
+          itemCount: sql<number>`(SELECT count(*) FROM ${saleItems} WHERE ${saleItems.saleId} = ${sales.id})`,
+        })
+        .from(sales)
+        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .where(where)
+        .orderBy(desc(sales.suspendedAt))
+        .limit(perPage)
+        .offset(offset)
+        .all(),
+      ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(sales)
+        .where(where)
+        .get(),
+    ]);
+
+    const totalItems = countResult?.count ?? 0;
+
+    return {
+      items,
+      page,
+      perPage,
+      totalItems,
+      totalPages: Math.ceil(totalItems / perPage),
+    };
+  }),
+
+  /**
+   * ENG-018 — Discard a suspended draft. Flips `status` to `cancelled`
+   * (not `voided`, which is reserved for completed sales) and clears
+   * the suspension columns. No stock revert, no cash movements.
+   *
+   * Lock: same as `resume` — owner cashier, or manager/admin override.
+   */
+  discardDraft: tenantProcedure.input(discardDraftInput).mutation(async ({ ctx, input }) => {
+    const existing = await ctx.db
+      .select()
+      .from(sales)
+      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+      .get();
+
+    if (!existing) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'SALE_NOT_FOUND',
+        message: 'Sale not found',
+      });
+    }
+
+    if (existing.status !== 'draft') {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_DRAFT_REQUIRED',
+        message: 'Only draft sales can be discarded',
+        details: { operation: 'discard', actualStatus: existing.status },
+      });
+    }
+
+    const actorRole = ctx.user?.role;
+    const isOwner = existing.suspendedBy === ctx.user!.id;
+    const canOverride = actorRole === 'manager' || actorRole === 'admin';
+
+    if (!isOwner && !canOverride) {
+      throwServerError({
+        trpcCode: 'FORBIDDEN',
+        errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+        message: 'Only the cashier who suspended this sale can discard it',
+        details: { operation: 'discard' },
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    ctx.db.transaction(tx => {
+      tx.update(sales)
+        .set({
+          status: 'cancelled',
+          suspendedAt: null,
+          suspendedBy: null,
+          suspendedLabel: null,
+          syncStatus: 'pending',
+          syncVersion: (existing.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(eq(sales.id, input.saleId))
+        .run();
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        action: 'sale.park',
+        resourceType: 'sale',
+        resourceId: input.saleId,
+        before: {
+          status: existing.status,
+          suspendedAt: existing.suspendedAt,
+          suspendedBy: existing.suspendedBy,
+        },
+        after: { status: 'cancelled' },
+        metadata: { discarded: true },
+      });
+    });
+
+    return { id: input.saleId, status: 'cancelled' as const };
+  }),
+
+  /**
+   * ENG-019 — Reprint a sale receipt. Returns the full sale record so
+   * the caller can hand it to the receipt renderer, AND increments
+   * `reprintCount` + stamps `lastReprintedAt` / `lastReprintedBy`.
+   * One `sale.reprint` audit row is emitted per call.
+   *
+   * Permissions:
+   * - Completed and voided sales can be reprinted (voided prints a
+   *   copy with an "ANULADA" watermark on the renderer side).
+   * - Drafts cannot be reprinted — there is no receipt for a draft.
+   * - Cashiers can only reprint sales whose `cashSessionId` matches
+   *   their currently-active session; manager and admin override the
+   *   session check.
+   */
+  getForReprint: tenantProcedure
+    .input(getForReprintInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'SALE_NOT_FOUND',
+          message: 'Sale not found',
+        });
+      }
+
+      if (existing.status === 'draft') {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_REPRINT_DRAFT_FORBIDDEN',
+          message: 'Draft sales have no receipt to reprint',
+        });
+      }
+
+      const actorRole = ctx.user?.role;
+      const canOverride = actorRole === 'manager' || actorRole === 'admin';
+
+      if (!canOverride) {
+        // Cashier path — must have an open session AND the sale must
+        // belong to that session. This prevents a cashier from
+        // reprinting another cashier's closed-shift receipts.
+        const activeSession = await ctx.db
+          .select({ id: cashSessions.id })
+          .from(cashSessions)
+          .where(
+            and(
+              eq(cashSessions.tenantId, ctx.tenantId),
+              eq(cashSessions.cashierId, ctx.user!.id),
+              eq(cashSessions.status, 'open')
+            )
+          )
+          .get();
+
+        if (!activeSession || existing.cashSessionId !== activeSession.id) {
+          throwServerError({
+            trpcCode: 'FORBIDDEN',
+            errorCode: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
+            message:
+              'Cashiers can only reprint sales from their active cash session',
+          });
+        }
+      }
+
+      const now = new Date().toISOString();
+      const nextCount = (existing.reprintCount ?? 0) + 1;
+
+      ctx.db.transaction(tx => {
+        tx.update(sales)
+          .set({
+            reprintCount: nextCount,
+            lastReprintedAt: now,
+            lastReprintedBy: ctx.user!.id,
+            updatedAt: now,
+          })
+          .where(eq(sales.id, input.saleId))
+          .run();
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sale.reprint',
+          resourceType: 'sale',
+          resourceId: input.saleId,
+          before: {
+            reprintCount: existing.reprintCount ?? 0,
+            lastReprintedAt: existing.lastReprintedAt,
+          },
+          after: {
+            reprintCount: nextCount,
+            lastReprintedAt: now,
+          },
+          metadata: {
+            count: nextCount,
+            ...(input.reason ? { reason: input.reason } : {}),
+            ...(input.reasonDetail ? { reasonDetail: input.reasonDetail } : {}),
+          },
+        });
+      });
+
+      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    }),
 });
