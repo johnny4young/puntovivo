@@ -39,6 +39,7 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
+  completeDraftInput,
   createSaleInput,
   discardDraftInput,
   getForReprintInput,
@@ -1870,10 +1871,22 @@ export const salesRouter = router({
 
   /**
    * ENG-018 — Discard a suspended draft. Flips `status` to `cancelled`
-   * (not `voided`, which is reserved for completed sales) and clears
-   * the suspension columns. No stock revert, no cash movements.
+   * (not `voided`, which is reserved for completed sales), clears the
+   * suspension columns, and **reverses the stock** that was debited
+   * when the draft was first created.
    *
-   * Lock: same as `resume` — owner cashier, or manager/admin override.
+   * Drafts debit stock at create-time (see `sales.create` regardless
+   * of status), so discarding a draft must credit the same quantities
+   * back to `products.stock` and `inventory_balances`. Without the
+   * reversal, cancelled drafts would permanently leak inventory —
+   * ENG-018c fix for a latent bug in 77bb686.
+   *
+   * No cash movement reversal needed: drafts never emit one.
+   *
+   * Lock: the cashier who created OR suspended the draft; manager and
+   * admin can override. The `createdBy` path covers orphan drafts
+   * that never got suspended (e.g. a suspend call failed after the
+   * initial `sales.create`).
    */
   discardDraft: tenantProcedure.input(discardDraftInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
@@ -1900,21 +1913,133 @@ export const salesRouter = router({
     }
 
     const actorRole = ctx.user?.role;
-    const isOwner = existing.suspendedBy === ctx.user!.id;
+    const isCreator = existing.createdBy === ctx.user!.id;
+    const isSuspender = existing.suspendedBy === ctx.user!.id;
     const canOverride = actorRole === 'manager' || actorRole === 'admin';
 
-    if (!isOwner && !canOverride) {
+    if (!isCreator && !isSuspender && !canOverride) {
       throwServerError({
         trpcCode: 'FORBIDDEN',
         errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-        message: 'Only the cashier who suspended this sale can discard it',
+        message: 'Only the cashier who created or suspended this draft can discard it',
         details: { operation: 'discard' },
       });
     }
 
+    const saleLineItems = await ctx.db
+      .select({
+        id: saleItems.id,
+        productId: saleItems.productId,
+        quantity: saleItems.quantity,
+        unitEquivalence: saleItems.unitEquivalence,
+      })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, input.saleId))
+      .all();
+
+    // Empty drafts exist (e.g. cashier created a blank draft and then
+    // changed their mind). Discarding one is a no-op on stock, but we
+    // still flip the status + audit.
+    const hasItems = saleLineItems.length > 0;
+
+    // Resolve the original cash session's siteId so the inventory balance
+    // credit lands on the site that was debited. Falls back to null for
+    // drafts with no cash session link, which `applyInventoryBalanceDelta`
+    // treats as a no-op.
+    const originalSaleSiteId = existing.cashSessionId
+      ? (
+          await ctx.db
+            .select({ siteId: cashSessions.siteId })
+            .from(cashSessions)
+            .where(
+              and(
+                eq(cashSessions.id, existing.cashSessionId),
+                eq(cashSessions.tenantId, ctx.tenantId)
+              )
+            )
+            .get()
+        )?.siteId ?? null
+      : null;
+
+    const currentProducts = hasItems
+      ? await ctx.db
+          .select({ id: products.id, stock: products.stock })
+          .from(products)
+          .where(
+            and(
+              eq(products.tenantId, ctx.tenantId),
+              inArray(
+                products.id,
+                [...new Set(saleLineItems.map(item => item.productId))]
+              )
+            )
+          )
+          .all()
+      : [];
+    const productStockState = new Map(
+      currentProducts.map(product => [product.id, product.stock])
+    );
+    const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
     const now = new Date().toISOString();
 
     ctx.db.transaction(tx => {
+      for (const item of saleLineItems) {
+        const normalizedQuantity = getNormalizedSaleQuantity(
+          item.quantity,
+          item.unitEquivalence
+        );
+        const previousStock = productStockState.get(item.productId);
+
+        if (previousStock === undefined) {
+          throwServerError({
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'SALE_REVERSAL_PRODUCT_MISSING',
+            message: `Product ${item.productId} was not found while discarding the draft`,
+            details: { productId: item.productId, operation: 'discard' },
+          });
+        }
+
+        const newStock = previousStock + normalizedQuantity;
+        productStockState.set(item.productId, newStock);
+
+        tx.update(products)
+          .set({
+            stock: newStock,
+            syncStatus: 'pending',
+            syncVersion: sql`${products.syncVersion} + 1`,
+            updatedAt: now,
+          })
+          .where(eq(products.id, item.productId))
+          .run();
+
+        tx.insert(inventoryMovements)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            productId: item.productId,
+            type: 'return',
+            quantity: normalizedQuantity,
+            previousStock,
+            newStock,
+            reference: input.saleId,
+            notes: `Discarded draft ${existing.saleNumber}`,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: originalSaleSiteId,
+          productId: item.productId,
+          delta: normalizedQuantity,
+          initialOnHandIfMissing: previousStock,
+          now,
+        });
+      }
+
       tx.update(sales)
         .set({
           status: 'cancelled',
@@ -1922,10 +2047,24 @@ export const salesRouter = router({
           suspendedBy: null,
           suspendedLabel: null,
           syncStatus: 'pending',
-          syncVersion: (existing.syncVersion ?? 0) + 1,
+          syncVersion: nextSyncVersion,
           updatedAt: now,
         })
         .where(eq(sales.id, input.saleId))
+        .run();
+
+      tx.insert(syncQueue)
+        .values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          entityType: 'sales',
+          entityId: input.saleId,
+          operation: 'update',
+          data: { id: input.saleId, status: 'cancelled', discarded: true },
+          localVersion: nextSyncVersion,
+          attempts: 0,
+          createdAt: now,
+        })
         .run();
 
       writeAuditLog({
@@ -1941,12 +2080,274 @@ export const salesRouter = router({
           suspendedBy: existing.suspendedBy,
         },
         after: { status: 'cancelled' },
-        metadata: { discarded: true },
+        metadata: {
+          discarded: true,
+          reversedItems: saleLineItems.length,
+        },
       });
     });
 
     return { id: input.saleId, status: 'cancelled' as const };
   }),
+
+  /**
+   * ENG-018c — Complete a draft sale that was previously created via
+   * `sales.create({ status: 'draft' })` and possibly suspended +
+   * resumed in between. Flips `status` to `'completed'`, attaches
+   * payments + the cash movement, and binds the sale to the caller's
+   * currently active cash session (so reports aggregate cash where
+   * the money physically landed, not where the draft was born).
+   *
+   * Invariants:
+   * - Target must be `status='draft'` and NOT currently suspended
+   *   (caller must `sales.resume` first to clear `suspended_at`).
+   * - Items are locked at complete-time: no `items` input is accepted.
+   *   If the operator wants to change the basket they discard this
+   *   draft (which now reverses stock) and start a fresh one.
+   * - The draft's stock was already debited at `sales.create` time, so
+   *   completing does NOT touch `products.stock` or
+   *   `inventory_balances`. This is the whole point of the split —
+   *   double-debit is what we're avoiding.
+   * - Any pre-existing `sale_payments` rows (drafts carry placeholder
+   *   rows from the initial create) are deleted and replaced with the
+   *   real tenders supplied by the operator.
+   *
+   * Permissions:
+   * - Cashier who created the draft, or any manager / admin.
+   * - Caller must have an active cash session for their (tenant, site)
+   *   pair — enforced via `requireActiveCashSession`.
+   */
+  completeDraft: tenantProcedure
+    .input(completeDraftInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'SALE_NOT_FOUND',
+          message: 'Sale not found',
+        });
+      }
+
+      if (existing.status !== 'draft') {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_DRAFT_REQUIRED',
+          message: 'Only draft sales can be completed',
+          details: { operation: 'complete', actualStatus: existing.status },
+        });
+      }
+
+      if (existing.suspendedAt) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_COMPLETE_DRAFT_SUSPENDED',
+          message:
+            'Resume the draft with sales.resume before completing it',
+          details: { saleId: input.saleId },
+        });
+      }
+
+      const actorRole = ctx.user?.role;
+      const isCreator = existing.createdBy === ctx.user!.id;
+      const canOverride = actorRole === 'manager' || actorRole === 'admin';
+
+      if (!isCreator && !canOverride) {
+        throwServerError({
+          trpcCode: 'FORBIDDEN',
+          errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+          message: 'Only the cashier who created this draft can complete it',
+          details: { operation: 'complete' },
+        });
+      }
+
+      const activeCashSession = await requireActiveCashSession(
+        ctx.db,
+        ctx.tenantId,
+        ctx.siteId,
+        ctx.user!.id
+      );
+
+      const lineItemCount = await ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, input.saleId))
+        .get();
+
+      if (!lineItemCount || (lineItemCount.count ?? 0) === 0) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_WITHOUT_ITEMS',
+          message: 'Cannot complete a draft without line items',
+        });
+      }
+
+      const total = existing.total;
+
+      const resolvedPayments = resolveSalePayments({
+        payments: input.payments?.map(payment => ({
+          method: payment.method,
+          amount: payment.amount,
+          reference: payment.reference ?? null,
+        })),
+        legacyMethod: input.paymentMethod,
+        amountReceived: input.amountReceived,
+        total,
+      });
+      const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
+
+      const paymentStatus = getPaymentStatus({
+        amountReceived: input.amountReceived,
+        paymentMethod: resolvedPayments.dominantMethod,
+        requestedStatus: input.paymentStatus,
+        total,
+        isSplit: isSplitPayment,
+      });
+      const change =
+        input.amountReceived !== undefined && input.amountReceived > total
+          ? input.amountReceived - total
+          : 0;
+      const cashCollectedAmount = isSplitPayment
+        ? resolvedPayments.rows
+            .filter(payment => payment.method === 'cash')
+            .reduce((acc, payment) => acc + payment.amount, 0)
+        : getCashCollectedAmount({
+            paymentMethod: input.paymentMethod,
+            amountReceived: input.amountReceived,
+            total,
+            change,
+          });
+
+      if (
+        !isSplitPayment &&
+        input.amountReceived !== undefined &&
+        paymentStatus === 'paid' &&
+        input.amountReceived < total
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
+          message:
+            'Amount received cannot be less than the sale total for a paid sale',
+        });
+      }
+
+      const now = new Date().toISOString();
+      const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
+
+      ctx.db.transaction(tx => {
+        // Replace any placeholder payment rows the draft might have
+        // carried from its initial `sales.create` call with the real
+        // tenders captured at complete-time.
+        tx.delete(salePayments)
+          .where(eq(salePayments.saleId, input.saleId))
+          .run();
+
+        for (const payment of resolvedPayments.rows) {
+          tx.insert(salePayments)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              saleId: input.saleId,
+              method: payment.method,
+              amount: payment.amount,
+              reference: payment.reference,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+            })
+            .run();
+        }
+
+        tx.update(sales)
+          .set({
+            paymentMethod: resolvedPayments.dominantMethod,
+            paymentStatus,
+            status: 'completed',
+            // Re-bind to the active session so cash reports show the
+            // income where it physically arrived.
+            cashSessionId: activeCashSession.id,
+            notes: input.notes ?? existing.notes,
+            syncStatus: 'pending',
+            syncVersion: nextSyncVersion,
+            updatedAt: now,
+          })
+          .where(eq(sales.id, input.saleId))
+          .run();
+
+        insertCashMovement({
+          tx,
+          tenantId: ctx.tenantId,
+          sessionId: activeCashSession.id,
+          type: 'sale',
+          amount: cashCollectedAmount,
+          referenceId: input.saleId,
+          note: `Sale ${existing.saleNumber} · completed from draft`,
+          createdBy: ctx.user!.id,
+          createdAt: now,
+        });
+
+        tx.insert(syncQueue)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            entityType: 'sales',
+            entityId: input.saleId,
+            operation: 'update',
+            data: {
+              id: input.saleId,
+              status: 'completed',
+              completedFromDraft: true,
+              total,
+              paymentStatus,
+            },
+            localVersion: nextSyncVersion,
+            attempts: 0,
+            createdAt: now,
+          })
+          .run();
+
+        // Parity with void / return / park / resume / discard / reprint:
+        // every state-change on an existing sale leaves a `sale.*` audit
+        // row. `sale.complete` captures the draft → completed transition
+        // with the session rebind so auditors can trace which register
+        // actually received the cash, independent of where the draft was
+        // born.
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sale.complete',
+          resourceType: 'sale',
+          resourceId: input.saleId,
+          before: {
+            status: 'draft',
+            cashSessionId: existing.cashSessionId,
+            paymentStatus: existing.paymentStatus,
+          },
+          after: {
+            status: 'completed',
+            cashSessionId: activeCashSession.id,
+            paymentStatus,
+            total,
+          },
+          metadata: {
+            completedFromDraft: true,
+            saleNumber: existing.saleNumber,
+            ...(input.payments && input.payments.length > 0
+              ? { tenderCount: input.payments.length }
+              : {}),
+          },
+        });
+      });
+
+      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    }),
 
   /**
    * ENG-019 — Reprint a sale receipt. Returns the full sale record so

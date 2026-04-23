@@ -44,7 +44,8 @@
     "sale.price_override": "Precio manual en venta",
     "sale.park": "Venta suspendida",
     "sale.resume": "Venta retomada",
-    "sale.reprint": "Recibo reimpreso"
+    "sale.reprint": "Recibo reimpreso",
+    "sale.complete": "Borrador completado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -80,6 +81,7 @@
     "saleResume_override": "{{saleNumber}} retomada por supervisor",
     "saleReprint_one": "{{saleNumber}} — reimpresa {{count}} vez",
     "saleReprint_other": "{{saleNumber}} — reimpresa {{count}} veces",
-    "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})"
+    "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})",
+    "saleComplete": "{{saleNumber}} completada desde borrador"
   }
 }

@@ -171,6 +171,10 @@ export const SERVER_ERROR_CODES = {
   SALE_REPRINT_DRAFT_FORBIDDEN: 'SALE_REPRINT_DRAFT_FORBIDDEN',
   /** Cashier reprint: caller has no open cash session or the sale does not belong to it. */
   SALE_REPRINT_ACTIVE_SESSION_REQUIRED: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
+
+  // --- ENG-018c draft completion ---
+  /** Attempt to complete a draft that is still suspended; caller must resume first. */
+  SALE_COMPLETE_DRAFT_SUSPENDED: 'SALE_COMPLETE_DRAFT_SUSPENDED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

@@ -44,7 +44,8 @@
     "sale.price_override": "Sale price override",
     "sale.park": "Sale suspended",
     "sale.resume": "Sale resumed",
-    "sale.reprint": "Receipt reprinted"
+    "sale.reprint": "Receipt reprinted",
+    "sale.complete": "Draft completed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -80,6 +81,7 @@
     "saleResume_override": "{{saleNumber}} resumed by supervisor override",
     "saleReprint_one": "{{saleNumber}} — reprinted {{count}} time",
     "saleReprint_other": "{{saleNumber}} — reprinted {{count}} times",
-    "saleReprintReason": "{{saleNumber}} — reprint #{{count}} ({{reason}})"
+    "saleReprintReason": "{{saleNumber}} — reprint #{{count}} ({{reason}})",
+    "saleComplete": "{{saleNumber}} completed from draft"
   }
 }
