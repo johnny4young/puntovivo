@@ -65,13 +65,13 @@ Relevant file:
 ```bash
 npm install
 npx electron-rebuild -m apps/desktop
-npm run dev
+npm run dev:desktop
 ```
 
 ### Local web + standalone server
 
 ```bash
-npm run dev:fullstack
+npm run dev:web-stack
 ```
 
 ### Custom backend port

@@ -86,6 +86,22 @@ export const auditLogResourceTypeEnum = [
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
+/**
+ * Iter 2 — Receipt templates (declarative editor + pure renderer).
+ *
+ * `kind` partitions templates by document type; `paper_width` is denormalized
+ * out of the JSON layout so the list view can filter without parsing every
+ * blob. The actual block tree lives in `layout_json` as a `ReceiptLayout`
+ * shape validated by Zod at the router boundary — no free-form HTML is
+ * accepted, only a closed set of atomic blocks (text, logo, items table,
+ * totals, tenders, qr, separator, barcode128).
+ */
+export const receiptTemplateKindEnum = ['sale', 'quotation', 'fiscal_dee'] as const;
+export type ReceiptTemplateKind = (typeof receiptTemplateKindEnum)[number];
+
+export const receiptTemplatePaperWidthEnum = ['58mm', '80mm', 'letter', 'a4'] as const;
+export type ReceiptTemplatePaperWidth = (typeof receiptTemplatePaperWidthEnum)[number];
+
 export interface CashSessionDenomination {
   value: number;
   count: number;
@@ -2220,6 +2236,79 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 }));
 
 // ============================================================================
+// RECEIPT TEMPLATES (Iter 2 — declarative receipt editor + pure renderer)
+// ============================================================================
+
+/**
+ * `receipt_templates` is the persistence layer for the declarative receipt
+ * editor: each row owns a JSON `layout` of atomic blocks (text, logo, items
+ * table, totals, tenders, qr, separator, barcode128) plus print metadata
+ * (paper width, default flag). The companion pure renderer
+ * (`services/receipt-renderer`) consumes the layout to emit HTML for
+ * `webContents.print()` and ESC/POS bytes for thermal printers from the
+ * SAME source of truth.
+ *
+ * Concurrency invariant: at most one row per `(tenant_id, kind)` may have
+ * `is_default = 1`. Enforced by a partial unique index in the raw DDL
+ * mirror (Drizzle's SQLite dialect cannot express partial uniques today)
+ * AND defended at the service layer with a transaction that flips the
+ * old default to false in the same statement that flips the new one to
+ * true.
+ */
+export const receiptTemplates = sqliteTable(
+  'receipt_templates',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    kind: text('kind', { enum: receiptTemplateKindEnum }).notNull(),
+    name: text('name').notNull(),
+    paperWidth: text('paper_width', { enum: receiptTemplatePaperWidthEnum })
+      .notNull()
+      .default('80mm'),
+    /**
+     * Declarative `ReceiptLayout` validated by Zod at the router. Stored as
+     * JSON text via Drizzle's `mode: 'json'`; the runtime shape is the
+     * `ReceiptLayout` exported from `trpc/schemas/receiptTemplates`.
+     */
+    layout: text('layout', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    updatedBy: text('updated_by').references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_receipt_templates_tenant').on(table.tenantId),
+    index('idx_receipt_templates_tenant_kind').on(table.tenantId, table.kind),
+    index('idx_receipt_templates_tenant_active').on(table.tenantId, table.isActive),
+  ]
+);
+
+export const receiptTemplatesRelations = relations(receiptTemplates, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [receiptTemplates.tenantId],
+    references: [tenants.id],
+  }),
+  createdByUser: one(users, {
+    fields: [receiptTemplates.createdBy],
+    references: [users.id],
+    relationName: 'receipt_templates_created_by',
+  }),
+  updatedByUser: one(users, {
+    fields: [receiptTemplates.updatedBy],
+    references: [users.id],
+    relationName: 'receipt_templates_updated_by',
+  }),
+}));
+
+// ============================================================================
 // SYNC QUEUE (Local operations waiting to be synced)
 // ============================================================================
 
@@ -2395,6 +2484,9 @@ export type NewQuotationItem = typeof quotationItems.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+export type ReceiptTemplate = typeof receiptTemplates.$inferSelect;
+export type NewReceiptTemplate = typeof receiptTemplates.$inferInsert;
 
 export type SyncQueueItem = typeof syncQueue.$inferSelect;
 export type NewSyncQueueItem = typeof syncQueue.$inferInsert;

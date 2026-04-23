@@ -14,6 +14,7 @@ import enInventory from './locales/en/inventory.json';
 import enProducts from './locales/en/products.json';
 import enCustomers from './locales/en/customers.json';
 import enQuotations from './locales/en/quotations.json';
+import enReceiptTemplates from './locales/en/receiptTemplates.json';
 import enAuditLogs from './locales/en/auditLogs.json';
 import enSettings from './locales/en/settings.json';
 import enErrors from './locales/en/errors.json';
@@ -29,6 +30,7 @@ import esInventory from './locales/es/inventory.json';
 import esProducts from './locales/es/products.json';
 import esCustomers from './locales/es/customers.json';
 import esQuotations from './locales/es/quotations.json';
+import esReceiptTemplates from './locales/es/receiptTemplates.json';
 import esAuditLogs from './locales/es/auditLogs.json';
 import esSettings from './locales/es/settings.json';
 import esErrors from './locales/es/errors.json';
@@ -64,7 +66,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'auditLogs', 'settings', 'errors'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'settings', 'errors'],
   resources: {
     en: {
       common: enCommon,
@@ -78,6 +80,7 @@ void i18next.use(initReactI18next).init({
       products: enProducts,
       customers: enCustomers,
       quotations: enQuotations,
+      receiptTemplates: enReceiptTemplates,
       auditLogs: enAuditLogs,
       settings: enSettings,
       errors: enErrors,
@@ -94,6 +97,7 @@ void i18next.use(initReactI18next).init({
       products: esProducts,
       customers: esCustomers,
       quotations: esQuotations,
+      receiptTemplates: esReceiptTemplates,
       auditLogs: esAuditLogs,
       settings: esSettings,
       errors: esErrors,

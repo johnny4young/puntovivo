@@ -53,6 +53,10 @@
     "QUOTATION_INVALID_STATUS_TRANSITION": "Este cambio de estado no está permitido para la cotización en su estado actual.",
     "QUOTATION_DELETE_NOT_DRAFT": "Solo las cotizaciones en borrador pueden eliminarse.",
     "QUOTATION_SEQUENTIAL_MISSING": "No hay un consecutivo de cotizaciones configurado para este tenant.",
+    "RECEIPT_TEMPLATE_NOT_FOUND": "No se pudo encontrar la plantilla de recibo.",
+    "RECEIPT_TEMPLATE_NAME_REQUIRED": "El nombre de la plantilla es obligatorio.",
+    "RECEIPT_TEMPLATE_LAST_FOR_KIND": "No puedes eliminar ni desactivar la única plantilla de este tipo. Crea o activa una de reemplazo primero.",
+    "RECEIPT_TEMPLATE_NAME_DUPLICATE": "Ya existe una plantilla con ese nombre para este tipo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

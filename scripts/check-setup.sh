@@ -50,7 +50,7 @@ echo ""
 # repo genuinely needs. The project's own .npmrc sets
 # `ignore-scripts=false` to override, but only `npm install` runs that are
 # started from inside the repo see it. Double-check that the artefacts
-# are on disk so later `npm run dev` doesn't crash at
+# are on disk so later `npm run dev:desktop` doesn't crash at
 # `require('electron')` or with `NODE_MODULE_VERSION mismatch`.
 
 GLOBAL_IGNORE=$(npm config get ignore-scripts --global 2>/dev/null || echo "")
@@ -63,7 +63,7 @@ fi
 
 # Electron runtime binary — populated by node_modules/electron/install.js
 # as a postinstall step. Missing means the download was skipped or failed
-# and `npm run dev` will crash at "Electron failed to install correctly".
+# and `npm run dev:desktop` will crash at "Electron failed to install correctly".
 if [ -f "node_modules/electron/path.txt" ]; then
     echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
 else
@@ -113,10 +113,10 @@ echo "  Quick Start Commands"
 echo "======================================"
 echo ""
 echo "Desktop App (Electron):"
-echo "  npm run dev"
+echo "  npm run dev:desktop"
 echo ""
 echo "Web App (Browser):"
-echo "  npm run dev:fullstack"
+echo "  npm run dev:web-stack"
 echo ""
 echo "Default Login:"
 echo "  Email: admin@localhost"

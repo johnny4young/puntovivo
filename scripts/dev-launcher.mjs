@@ -36,7 +36,7 @@ const MODE_CONFIG = {
       { name: 'WEB', args: ['run', 'dev', '--workspace=@puntovivo/web'] },
       {
         name: 'DESKTOP',
-        args: ['run', 'start', '--workspace=@puntovivo/desktop'],
+        args: ['run', 'dev:desktop', '--workspace=@puntovivo/desktop'],
         waitForUrl: 'http://localhost:3000',
       },
     ],
@@ -46,7 +46,7 @@ const MODE_CONFIG = {
     steps: [
       {
         name: 'DESKTOP',
-        args: ['run', 'start', '--workspace=@puntovivo/desktop'],
+        args: ['run', 'dev:desktop', '--workspace=@puntovivo/desktop'],
         waitForUrl: 'http://localhost:3000',
         requireExistingUrl: true,
       },

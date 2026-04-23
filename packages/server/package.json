@@ -27,7 +27,8 @@
     "format:fix": "prettier --write \"src/**/*.ts\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed:dev": "npm run native:ensure:node && tsx src/scripts/seed-dev.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

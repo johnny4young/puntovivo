@@ -44,10 +44,12 @@ Execution matrix for manual validation and later automation with Playwright Web 
 ## Environment Matrix
 
 - `WEB`
-  - `npm run dev:web`
-  - `npm run dev:server`
+  - recommended: `npm run dev:web-stack`
+  - or run separately:
+    - `npm run dev:web`
+    - `npm run dev:server`
 - `ELEC`
-  - `npm run dev`
+  - `npm run dev:desktop`
 - Shutdown:
   - `npm run dev:stop`
 
@@ -790,16 +792,16 @@ Covers Phase 6c ([UI-SURFACES.md](./UI-SURFACES.md)).
 
 ### Receipt Templates — TEMPL-01 through TEMPL-08
 
-Covers the "small task" of the April 2026 plan ([RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md)).
+Iter 2 (April 22, 2026) shipped the editor + renderer ([RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md)).
 
-- TEMPL-01 Create template with every atomic block → saves and round-trips
-- TEMPL-02 Preview renders mock sale data live within 100ms of edit
-- TEMPL-03 Zod rejects unknown variable (outside `company|sale|item|fiscal|tender` namespaces)
-- TEMPL-04 Zod rejects template with > 50 blocks
-- TEMPL-05 Security: `<script>` and `javascript:` inside a text block appear escaped in output
-- TEMPL-06 Test-print delivers rendered HTML to configured printer
-- TEMPL-07 Set as default: new sales use the selected template
-- TEMPL-08 Duplicate template preserves layout and creates independent row
+- TEMPL-01 ✅ Create template with every atomic block → saves and round-trips (`receipt-templates.test.ts → renders all atomic blocks for a 4-item sale with split tenders`)
+- TEMPL-02 ✅ Preview renders mock sale data live within ~200ms of edit (debounced, server-rendered through `renderPreview` tRPC procedure; smoke check during Iter 2 verified iframe srcdoc updates, and follow-up regression coverage fixes the locale-sensitive labels passed from web i18n)
+- TEMPL-03 ✅ Zod rejects unknown variable (outside `company|sale|item|fiscal|tender` namespaces) (`receipt-templates.test.ts → ReceiptLayout Zod schema rejects a variable referencing an unknown namespace`)
+- TEMPL-04 ✅ Zod rejects template with > 50 blocks (`receipt-templates.test.ts → ReceiptLayout Zod schema rejects a layout with more than 50 blocks`)
+- TEMPL-05 ✅ Security: `<script>` and `javascript:` inside a text/qr block appear escaped or rejected (`receipt-templates.test.ts → escapes HTML special characters injected via tenant data`, `escapes HTML special characters in literal template text`, `rejects a qr.source with a javascript: scheme`)
+- TEMPL-06 ⏳ Test-print delivers rendered HTML to configured printer — deferred to Iter 4 (requires `EscPosPrinterAdapter` + physical hardware; today's path uses `webContents.print()` against the system default)
+- TEMPL-07 ✅ Set as default: the partial unique index + `setDefaultReceiptTemplate` transaction guarantee one default per `(tenant, kind)` (`receipt-templates.test.ts → setDefault flips atomically — the prior default becomes false`)
+- TEMPL-08 ✅ Duplicate template preserves layout and creates independent row (`receipt-templates.test.ts → duplicate creates a non-default copy with " (copy)" suffix`)
 
 ### Park-and-Resume Sales (M2 improvement) — PARK-01 through PARK-06
 

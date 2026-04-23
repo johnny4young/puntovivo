@@ -7,7 +7,7 @@
 ### Full desktop app
 
 ```bash
-npm run dev
+npm run dev:desktop
 ```
 
 ### Web only
@@ -27,8 +27,8 @@ npm run dev:server
 Desktop-specific debug scripts are exposed from the workspace, not the repo root:
 
 ```bash
-npm run dev:debug --workspace=@puntovivo/desktop
-npm run dev:debug-brk --workspace=@puntovivo/desktop
+npm run dev:desktop:debug --workspace=@puntovivo/desktop
+npm run dev:desktop:debug-brk --workspace=@puntovivo/desktop
 ```
 
 These start Electron with Node inspect enabled for the main process.
@@ -98,7 +98,7 @@ Use when debugging:
 
 ### Debug a desktop bridge issue
 
-1. run `npm run dev:debug --workspace=@puntovivo/desktop`
+1. run `npm run dev:desktop:debug --workspace=@puntovivo/desktop`
 2. set breakpoints in Electron main or preload
 3. trigger the UI action from the desktop app
 

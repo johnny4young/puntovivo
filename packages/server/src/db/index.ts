@@ -1091,6 +1091,31 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs (resource_type, resource_id);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
 
+    -- Receipt Templates (Iter 2 — declarative editor + pure renderer)
+    CREATE TABLE IF NOT EXISTS receipt_templates (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      paper_width TEXT NOT NULL DEFAULT '80mm',
+      layout TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      updated_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_receipt_templates_tenant ON receipt_templates (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_receipt_templates_tenant_kind ON receipt_templates (tenant_id, kind);
+    CREATE INDEX IF NOT EXISTS idx_receipt_templates_tenant_active ON receipt_templates (tenant_id, is_active);
+    -- Partial unique: at most one default per (tenant, kind). Drizzle's
+    -- SQLite dialect can't express partial uniques, so this lives only in
+    -- the raw DDL mirror + the service-layer transaction defense.
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_receipt_templates_tenant_kind_default
+      ON receipt_templates (tenant_id, kind)
+      WHERE is_default = 1;
+
     -- Sync Queue
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,

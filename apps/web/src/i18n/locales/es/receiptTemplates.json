@@ -1,0 +1,166 @@
+{
+  "page": {
+    "kicker": "Configuración",
+    "title": "Plantillas de recibo",
+    "description": "Diseña los recibos y cotizaciones impresos que emite tu negocio. Las plantillas son por tenant y aplican en todas las sedes."
+  },
+  "actions": {
+    "newTemplate": "Nueva plantilla",
+    "edit": "Editar",
+    "duplicate": "Duplicar",
+    "delete": "Eliminar",
+    "setDefault": "Marcar como predeterminada",
+    "back": "Volver",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "addBlock": "Agregar bloque",
+    "removeBlock": "Eliminar",
+    "moveUp": "Subir",
+    "moveDown": "Bajar"
+  },
+  "list": {
+    "filters": {
+      "kind": "Tipo",
+      "all": "Todos los tipos"
+    },
+    "columns": {
+      "name": "Nombre",
+      "kind": "Tipo",
+      "paperWidth": "Papel",
+      "default": "Predeterminada",
+      "active": "Activa",
+      "updated": "Actualizada"
+    },
+    "emptyState": {
+      "title": "Sin plantillas",
+      "description": "Crea tu primera plantilla para definir cómo se imprimirán los recibos.",
+      "cta": "Crear plantilla"
+    },
+    "defaultBadge": "Predeterminada"
+  },
+  "kinds": {
+    "sale": "Recibo de venta",
+    "quotation": "Cotización",
+    "fiscal_dee": "DEE fiscal"
+  },
+  "paperWidths": {
+    "58mm": "58mm",
+    "80mm": "80mm",
+    "letter": "Carta",
+    "a4": "A4"
+  },
+  "editor": {
+    "createTitle": "Nueva plantilla de recibo",
+    "editTitle": "Editar plantilla de recibo",
+    "fields": {
+      "name": "Nombre de la plantilla",
+      "namePlaceholder": "ej. Recibo de venta — 80mm",
+      "kind": "Tipo",
+      "paperWidth": "Ancho del papel"
+    },
+    "blocksPanel": {
+      "title": "Bloques",
+      "description": "Arrastra para reordenar. Hasta 50 bloques por plantilla.",
+      "empty": "Agrega un bloque para empezar."
+    },
+    "previewPanel": {
+      "title": "Vista previa en vivo",
+      "description": "Renderizada con datos de muestra."
+    },
+    "defaults": {
+      "newText": "Nuevo texto",
+      "saleNumberLabel": "Venta",
+      "quotationNumberLabel": "Cotización",
+      "cashierLabel": "Cajero",
+      "customerLabel": "Cliente",
+      "taxIdLabel": "NIT",
+      "resolutionLabel": "Resolución",
+      "thankYou": "Gracias por tu compra"
+    },
+    "blockTypes": {
+      "logo": "Logo",
+      "text": "Texto",
+      "itemsTable": "Tabla de ítems",
+      "totalsBlock": "Totales",
+      "tendersTable": "Pagos",
+      "qr": "Código QR",
+      "separator": "Separador",
+      "barcode128": "Código de barras 128"
+    },
+    "blockFields": {
+      "value": "Valor",
+      "valueHelp": "Variables: {{company.*}}, {{sale.*}}, {{item.*}}, {{fiscal.*}}, {{tender.*}}",
+      "align": "Alinear",
+      "alignLeft": "Izquierda",
+      "alignCenter": "Centro",
+      "alignRight": "Derecha",
+      "style": "Estilo",
+      "styleNormal": "Normal",
+      "styleTitle": "Título",
+      "styleSubtitle": "Subtítulo",
+      "styleMuted": "Tenue",
+      "styleMonospace": "Monoespacio",
+      "bold": "Negrita",
+      "maxHeightMm": "Altura máxima (mm)",
+      "sizeMm": "Tamaño (mm)",
+      "heightMm": "Altura (mm)",
+      "char": "Carácter",
+      "showHeader": "Mostrar encabezado",
+      "showChange": "Mostrar fila de cambio",
+      "columns": "Columnas",
+      "columnsHelp": "Elige las columnas a imprimir, en orden.",
+      "totalsLines": "Líneas",
+      "totalsLinesHelp": "Elige los totales a mostrar.",
+      "source": "Fuente"
+    },
+    "blockColumns": {
+      "name": "Ítem",
+      "qty": "Cant.",
+      "unitPrice": "Precio unit.",
+      "taxPercent": "% IVA",
+      "discount": "Descuento",
+      "total": "Total"
+    },
+    "totalsLines": {
+      "subtotal": "Subtotal",
+      "discount": "Descuento",
+      "taxTotal": "Impuesto",
+      "tip": "Propina",
+      "grandTotal": "Total"
+    }
+  },
+  "preview": {
+    "documentTitle": "Vista previa del recibo",
+    "tendersTable": {
+      "method": "Método",
+      "reference": "Referencia",
+      "amount": "Monto",
+      "change": "Cambio"
+    }
+  },
+  "duplicate": {
+    "title": "Duplicar plantilla",
+    "namePrompt": "Nombre de la plantilla nueva",
+    "confirm": "Duplicar"
+  },
+  "delete": {
+    "title": "Eliminar plantilla",
+    "confirmMessage": "Esta plantilla se eliminará de forma permanente. Esta acción no se puede deshacer.",
+    "confirm": "Eliminar"
+  },
+  "toast": {
+    "createSuccess": "Plantilla creada",
+    "createError": "No se pudo crear la plantilla",
+    "updateSuccess": "Plantilla actualizada",
+    "updateError": "No se pudo guardar la plantilla",
+    "deleteSuccess": "Plantilla eliminada",
+    "deleteError": "No se pudo eliminar la plantilla",
+    "setDefaultSuccess": "Plantilla marcada como predeterminada",
+    "setDefaultError": "No se pudo cambiar la predeterminada",
+    "duplicateSuccess": "Plantilla duplicada",
+    "duplicateError": "No se pudo duplicar la plantilla"
+  },
+  "errors": {
+    "atLeastOneBlock": "Agrega al menos un bloque al layout."
+  }
+}
