@@ -2828,6 +2828,49 @@ export type FiscalDocumentItem = typeof fiscalDocumentItems.$inferSelect;
 export type NewFiscalDocumentItem = typeof fiscalDocumentItems.$inferInsert;
 
 // ============================================================================
+// LOGIN RATE-LIMIT STATE (ENG-008b)
+// ============================================================================
+//
+// Persistent counters backing `security/loginRateLimit.ts`. ENG-008
+// shipped the policy against an in-memory Map; ENG-008b promotes the DB to
+// source of truth so `auth.login` rate limits survive a server restart.
+//
+// **NOT tenant-scoped**: rate limiting applies per-IP and per-email across
+// every tenant. An attacker hammering multiple tenants from the same origin
+// should be globally throttled — adding `tenant_id` here would let them
+// split attempts across tenants to evade the cap. Documented in
+// docs/SECURITY.md §Rate limiting.
+
+/** Two bucket kinds: by client IP, or by normalized (lowercased) email. */
+export const loginAttemptKindEnum = ['ip', 'username'] as const;
+export type LoginAttemptKind = (typeof loginAttemptKindEnum)[number];
+
+export const loginAttempts = sqliteTable(
+  'login_attempts',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind', { enum: loginAttemptKindEnum }).notNull(),
+    /** Either the client IP string or the normalized email. */
+    key: text('key').notNull(),
+    /** Monotonically increasing count inside the current window. */
+    count: integer('count').notNull().default(0),
+    /** Epoch millis when the bucket was first touched in the current window. */
+    firstAt: integer('first_at').notNull(),
+    /** Epoch millis when the bucket expires (firstAt + windowMs). */
+    expiresAt: integer('expires_at').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_login_attempts_kind_key').on(table.kind, table.key),
+    index('idx_login_attempts_expires_at').on(table.expiresAt),
+  ]
+);
+
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 

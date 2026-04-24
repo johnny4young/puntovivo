@@ -10,10 +10,10 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants } from '../db/schema.js';
+import { users, tenants, loginAttempts } from '../db/schema.js';
 import { hash, verify } from 'argon2';
 import { nanoid } from 'nanoid';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
@@ -167,11 +167,12 @@ describe('Auth tRPC Router', () => {
     }
   });
 
-  // ENG-008 — the login rate-limit service keeps module-level bucket state
-  // across invocations. Reset it between every test so failed-login paths
-  // exercised by one case do not saturate the bucket for the next.
+  // ENG-008 / ENG-008b — the login rate-limit service keeps both
+  // module-level cache state AND DB rows across invocations. Reset both
+  // between every test so failed-login paths exercised by one case do not
+  // saturate the bucket for the next.
   beforeEach(() => {
-    resetLoginRateLimit();
+    resetLoginRateLimit(getDatabase());
   });
 
   describe('auth.login', () => {
@@ -754,6 +755,39 @@ describe('Auth tRPC Router', () => {
         'UNAUTHORIZED',
         'AUTH_INVALID_CREDENTIALS'
       );
+    });
+
+    // ENG-008b — a failed login must now write rows to the `login_attempts`
+    // table so the buckets survive a server restart. Assert on the DB
+    // directly to pin that guarantee in the integration surface as well as
+    // in the unit tests.
+    it('persists rate-limit rows to login_attempts on a failed login (ENG-008b)', async () => {
+      const db = getDatabase();
+
+      await expectCode(
+        attemptLogin('persist@example.com', 'wrongpassword'),
+        'UNAUTHORIZED',
+        'AUTH_INVALID_CREDENTIALS'
+      );
+
+      const ipRow = db
+        .select()
+        .from(loginAttempts)
+        .where(and(eq(loginAttempts.kind, 'ip'), eq(loginAttempts.key, '127.0.0.1')))
+        .get();
+      expect(ipRow).toBeDefined();
+      expect(ipRow!.count).toBe(1);
+      expect(ipRow!.expiresAt).toBeGreaterThan(Date.now());
+
+      const usernameRow = db
+        .select()
+        .from(loginAttempts)
+        .where(
+          and(eq(loginAttempts.kind, 'username'), eq(loginAttempts.key, 'persist@example.com'))
+        )
+        .get();
+      expect(usernameRow).toBeDefined();
+      expect(usernameRow!.count).toBe(1);
     });
   });
 });

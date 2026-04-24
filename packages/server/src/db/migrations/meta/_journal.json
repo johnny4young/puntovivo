@@ -43,6 +43,13 @@
       "when": 1778544100000,
       "tag": "0005_fiscal_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1778544200000,
+      "tag": "0006_login_attempts",
+      "breakpoints": true
     }
   ]
 }
