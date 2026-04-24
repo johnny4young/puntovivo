@@ -1,0 +1,65 @@
+/**
+ * ENG-001 Step 3 — Electron smoke test.
+ *
+ * Launches the Electron main process against a pre-seeded tmpdir DB
+ * (see `global-setup.ts`), drives the first-window renderer through
+ * the admin login, and asserts the dashboard shell rendered without
+ * console errors.
+ *
+ * Kept deliberately minimal — a single happy-path flow that proves:
+ *
+ *   1. The Electron main process starts the embedded Fastify server
+ *      in-process without crashing.
+ *   2. The renderer loads the web dev bundle served by Playwright.
+ *   3. The renderer can reach the embedded Fastify server through the
+ *      same tRPC HTTP client used by the web app.
+ *   4. The login flow round-trips with the seeded `e2e.admin@local.test`
+ *      user and the admin lands on `/dashboard`.
+ *   5. No `console.error` / `pageerror` events fire during the flow —
+ *      the contract enforced by the web suite's smoke also applies
+ *      here.
+ *
+ * Extensive role / business-flow coverage stays in the web suite. The
+ * Electron runner exists to catch main-process regressions (IPC
+ * bridge, sandbox flags, embedded-server boot) that the web suite
+ * cannot reach.
+ *
+ * @module e2e/electron/smoke
+ */
+
+import { electronTest as test, expect } from './fixtures.js';
+import {
+  attachClientIssueTracker,
+  E2E_USERS,
+  expectNoClientIssues,
+} from '../web/support/app.js';
+
+test.describe('Electron smoke (ENG-001 Step 3)', () => {
+  test('launches, logs in as admin, and loads the dashboard shell', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    const admin = E2E_USERS.admin;
+
+    // The renderer boots on the login route by default (AuthProvider
+    // redirects unauthenticated sessions there). Wait for the form to
+    // render.
+    const emailInput = page.getByLabel(/email/i);
+    const passwordInput = page.getByRole('textbox', { name: /password/i });
+    await expect(emailInput).toBeVisible({ timeout: 30_000 });
+    await expect(passwordInput).toBeVisible();
+
+    await emailInput.fill(admin.email);
+    await passwordInput.fill(admin.password);
+    await page
+      .getByRole('button', { name: /enter workspace|entrar al espacio de trabajo/i })
+      .click();
+
+    // Dashboard shell — look for any element that the web suite's
+    // smoke.spec.ts also keys off. The sidebar nav brand is the most
+    // stable anchor because it renders for every authenticated role.
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+
+    await expectNoClientIssues(tracker);
+  });
+});

@@ -139,3 +139,74 @@ jobs:
           name: coverage-server
           path: packages/server/coverage/lcov.info
           if-no-files-found: warn
+
+  # ============================================================================
+  # Web E2E Suite (ENG-001 Step 3)
+  # ----------------------------------------------------------------------------
+  # Playwright web suite — 25 tests driving the real Vite app against
+  # a real standalone backend. Runs on ubuntu-latest only; Electron E2E
+  # is local-only for now (adds xvfb + packaged-binary overhead that is
+  # deferred to a follow-up ticket when signed release builds approach).
+  #
+  # On failure, the HTML report + trace + screenshots are uploaded as
+  # artifacts so the run can be reproduced offline. Retention 7 days
+  # matches the coverage artifacts above.
+  # ============================================================================
+  e2e-web:
+    name: E2E Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Cache the Playwright browser binary across runs. The key
+      # uses the package-lock.json hash — any bump to @playwright/test
+      # (and therefore to the browser binary pin) changes the lockfile
+      # and invalidates the cache automatically.
+      - name: Cache Playwright browser binary
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: .playwright-browsers
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright chromium + system deps
+        run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+
+      - name: Run web E2E suite
+        run: npm run test:e2e:web
+
+      # Artefacts: HTML report is always useful (pass shows green runs,
+      # fail shows the failure). The test-results folder (traces +
+      # screenshots + videos) is only populated on failure per the
+      # Playwright config.
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-web
+          path: playwright-report/web
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Playwright test-results (traces, screenshots, videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-web
+          path: test-results/playwright-web
+          if-no-files-found: ignore
+          retention-days: 7

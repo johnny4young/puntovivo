@@ -27,6 +27,7 @@ import {
   type ReactNode,
 } from 'react';
 import i18n from '@/i18n';
+import { readLanguagePreference } from '@/i18n/resolveLocale';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
@@ -111,8 +112,22 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       timezone: query.data.timezone,
       dateFormatShort: query.data.dateFormatShort,
     });
+    // Only follow the tenant's language when the user has NOT pinned
+    // an explicit preference. `readLanguagePreference()` returns
+    // `'system'` when localStorage carries no override; in that case
+    // the tenant's resolved language is the source of truth. When the
+    // user chose `'en'` or `'es'` via the header dropdown, that choice
+    // must stick across login and tenant-switch — otherwise logging
+    // in against a tenant whose country resolves to a different
+    // language (or whose locale settings row is missing, falling back
+    // to en-US) silently overwrites what the user picked.
+    const userPreference = readLanguagePreference();
     const currentLang = i18n.resolvedLanguage ?? i18n.language;
-    if (query.data.language && currentLang !== query.data.language) {
+    if (
+      userPreference === 'system' &&
+      query.data.language &&
+      currentLang !== query.data.language
+    ) {
       void i18n.changeLanguage(query.data.language);
     }
   }, [isAuthenticated, tenantId, query.data]);

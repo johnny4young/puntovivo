@@ -349,7 +349,7 @@
     "localWorkspaceSelect": "Cambiar a {{label}}",
     "localWorkspaceActive": "Activo",
     "labelPromptTitle": "Suspender venta",
-    "labelPromptDescription": "Agregá una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
+    "labelPromptDescription": "Agrega una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
     "labelPromptConfirm": "Suspender",
     "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
     "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",

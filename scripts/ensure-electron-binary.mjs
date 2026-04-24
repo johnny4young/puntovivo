@@ -19,7 +19,7 @@
 // re-runs Electron's own `install.js` once if anything is missing. It
 // exits non-zero with an actionable message if the repair itself fails.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -28,6 +28,8 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const electronDir = join(repoRoot, 'node_modules', 'electron');
 const pathTxt = join(electronDir, 'path.txt');
 const installJs = join(electronDir, 'install.js');
+const distDir = join(electronDir, 'dist');
+const electronApp = join(distDir, 'Electron.app');
 
 function log(line) {
   // Keep one stable prefix so operators can grep logs.
@@ -47,9 +49,40 @@ function executablePath() {
   return join(electronDir, 'dist', relative);
 }
 
-function isHealthy() {
+function codeSignatureIssue() {
+  if (process.platform !== 'darwin' || !existsSync(electronApp)) {
+    return null;
+  }
+
+  const result = spawnSync(
+    'codesign',
+    ['--verify', '--deep', '--strict', '--verbose=2', electronApp],
+    { encoding: 'utf8' }
+  );
+
+  if (result.status === 0) {
+    return null;
+  }
+
+  return (
+    result.stderr.trim() ||
+    result.stdout.trim() ||
+    'codesign verification failed'
+  );
+}
+
+function healthIssue() {
   const exe = executablePath();
-  return exe !== null && existsSync(exe);
+  if (exe === null || !existsSync(exe)) {
+    return 'Electron runtime missing (no dist/ + path.txt)';
+  }
+
+  const signatureIssue = codeSignatureIssue();
+  if (signatureIssue) {
+    return `Electron runtime has an invalid macOS code signature: ${signatureIssue}`;
+  }
+
+  return null;
 }
 
 function runInstall() {
@@ -73,24 +106,70 @@ function runInstall() {
   return true;
 }
 
+function runAdHocCodesign() {
+  if (process.platform !== 'darwin' || !existsSync(electronApp)) {
+    return true;
+  }
+
+  log('applying local ad-hoc codesign to Electron.app');
+  const result = spawnSync(
+    'codesign',
+    ['--force', '--deep', '--sign', '-', electronApp],
+    {
+      cwd: electronDir,
+      stdio: 'inherit',
+    }
+  );
+
+  if (result.status !== 0) {
+    log('codesign repair exited with a non-zero status');
+    return false;
+  }
+
+  return true;
+}
+
 if (!existsSync(electronDir)) {
   log('node_modules/electron is missing — run `npm install` first');
   process.exit(1);
 }
 
-if (isHealthy()) {
+const initialIssue = healthIssue();
+if (!initialIssue) {
   // Fast path: nothing to do.
   process.exit(0);
 }
 
-log('Electron runtime missing (no dist/ + path.txt); attempting auto-repair');
+log(`${initialIssue}; attempting auto-repair`);
 
 if (!existsSync(installJs)) {
   log('node_modules/electron/install.js not found — run `npm install` to reinstall the package');
   process.exit(1);
 }
 
-if (!runInstall() || !isHealthy()) {
+if (existsSync(distDir)) {
+  rmSync(distDir, { recursive: true, force: true });
+}
+if (existsSync(pathTxt)) {
+  rmSync(pathTxt, { force: true });
+}
+
+if (!runInstall()) {
+  log('auto-repair failed. Try:');
+  log('  1) rm -rf node_modules/electron && npm install');
+  log('  2) if the download keeps failing, clear the Electron cache:');
+  log('       rm -rf "$HOME/Library/Caches/electron"   # macOS');
+  log('       rm -rf "$HOME/.cache/electron"           # Linux');
+  log('       rm -rf "$LOCALAPPDATA\\electron\\Cache"  # Windows');
+  log('     then re-run `npm install`');
+  process.exit(1);
+}
+
+if (healthIssue() && !runAdHocCodesign()) {
+  process.exit(1);
+}
+
+if (healthIssue()) {
   log('auto-repair failed. Try:');
   log('  1) rm -rf node_modules/electron && npm install');
   log('  2) if the download keeps failing, clear the Electron cache:');
