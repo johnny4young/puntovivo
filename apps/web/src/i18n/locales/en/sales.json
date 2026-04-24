@@ -331,13 +331,21 @@
     "overrideHint": "You are resuming a draft suspended by another cashier.",
     "closedSessionWarning": "You have {{count}} suspended sales. They remain as drafts and will survive the close, but will not produce a receipt until resumed.",
     "confirmDiscardTitle": "Discard draft?",
-    "confirmDiscardMessage": "The suspended draft will be marked cancelled. Items are not in stock so nothing is returned to inventory.",
+    "confirmDiscardMessage": "The suspended draft will be cancelled and every item returns to inventory. This cannot be undone.",
     "toastSuspendTitle": "Sale suspended",
     "toastResumeTitle": "Sale resumed",
     "toastDiscardTitle": "Draft discarded",
     "toastErrorTitle": "Unable to update draft",
     "shortcutSuspend": "Ctrl+P",
-    "shortcutResume": "Ctrl+R"
+    "shortcutResume": "Ctrl+R",
+    "newSale": "New sale",
+    "newSaleHint": "Start a second cart in parallel without charging the current one.",
+    "labelPromptTitle": "Suspend sale",
+    "labelPromptDescription": "Add an optional label so you can find this draft later (e.g. Mesa 5).",
+    "labelPromptConfirm": "Suspend",
+    "resumedBanner": "Draft {{saleNumber}} resumed · items are locked",
+    "resumedBannerWithLabel": "Draft {{saleNumber}} resumed ({{label}}) · items are locked",
+    "resumedBannerHint": "To change items, discard this draft and start a new sale."
   },
   "reprint": {
     "action": "Reprint receipt",

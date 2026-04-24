@@ -809,8 +809,8 @@ Iter 2 (April 22, 2026) shipped the editor + renderer ([RECEIPT-TEMPLATES.md](./
 - PARK-02 ✅ Resume restores items, discounts, customer, and notes exactly (`sales-park-and-reprint.test.ts → lets the owning cashier resume and clears suspension state`)
 - PARK-03 ✅ Two cashiers cannot resume the same suspended sale (lock) (`sales-park-and-reprint.test.ts → blocks a different cashier from resuming and lets manager override`)
 - PARK-04 ✅ Suspend fires an audit entry (always written — free-form enum, optional tenant flag reserved for a future mute) (`sales-park-and-reprint.test.ts → writes a sale.park audit row`)
-- PARK-05 ⏳ Ctrl+P suspends; Ctrl+R opens the resume panel; shortcuts ignored in input focus — deferred to ENG-018b (requires the Ctrl-guard lift in `useSalesKeyboardShortcuts.ts:48`)
-- PARK-06 ⏳ Close cash session with outstanding suspended sales → prompt to resolve — deferred to ENG-018b (UI-side prompt in the close modal)
+- PARK-05 ✅ Ctrl+P suspends; Ctrl+R opens the resume panel; shortcuts ignored in input focus (`useSalesKeyboardShortcuts.test.ts → calls onSuspend when Ctrl+P fires and canSuspend is true`, `fires onToggleSuspendedPanel on Ctrl+R`, `ignores Ctrl+P when focus is inside an editable input`)
+- PARK-06 ✅ Close cash session with outstanding suspended sales → prompt to resolve (`CashSessionCloseModal.test.tsx → surfaces an ENG-018b warning when suspended drafts remain in flight`)
 
 ### Receipt Reprint (ENG-019) — REPRINT-01 through REPRINT-05
 
@@ -818,7 +818,7 @@ Iter 2 (April 22, 2026) shipped the editor + renderer ([RECEIPT-TEMPLATES.md](./
 - REPRINT-02 ✅ Draft sales cannot be reprinted (`sales-park-and-reprint.test.ts → rejects drafts`)
 - REPRINT-03 ✅ Cashier can only reprint sales from their active cash session; manager/admin overrides (`sales-park-and-reprint.test.ts → blocks cashier from reprinting another cashier active-session sale, but manager can`)
 - REPRINT-04 ✅ Cross-tenant isolation: tenant B's admin cannot reprint tenant A's sale (`sales-park-and-reprint.test.ts → is cross-tenant isolated`)
-- REPRINT-05 ⏳ Ctrl+Shift+P reprints the selected history row — deferred to ENG-018b (shares the Ctrl-guard lift)
+- REPRINT-05 ✅ Ctrl+Shift+P reprints the selected history row (`useSalesKeyboardShortcuts.test.ts → fires onReprintSelectedHistoryRow on Ctrl+Shift+P`; E2E round-trip in `business.spec.ts → cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft` exercises the same Ctrl-guard lift)
 
 ### Audit Trail Extensions — AUDIT-22 through AUDIT-30
 

@@ -30,9 +30,25 @@ interface SalesHistoryTableProps {
   error: string | null;
   onRetry: () => void;
   onView: (saleId: string) => void;
+  /**
+   * ENG-018b — id of the sale row the operator most recently focused
+   * (click or keyboard nav). Used by Ctrl+Shift+P in SalesPage to
+   * trigger reprint on the picked row. Controlled from the parent so
+   * the shortcut handler has access to it.
+   */
+  selectedSaleId?: string | null;
+  onSelectedSaleIdChange?: (saleId: string | null) => void;
 }
 
-export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: SalesHistoryTableProps) {
+export function SalesHistoryTable({
+  sales,
+  isLoading,
+  error,
+  onRetry,
+  onView,
+  selectedSaleId,
+  onSelectedSaleIdChange,
+}: SalesHistoryTableProps) {
   const { t } = useTranslation('sales');
   const columns = useMemo<ColumnDef<Sale>[]>(
     () => [
@@ -133,6 +149,14 @@ export function SalesHistoryTable({ sales, isLoading, error, onRetry, onView }: 
             searchKey="saleNumber"
             searchPlaceholder={t('history.search')}
             pageSize={8}
+            onRowFocusChange={row => {
+              if (onSelectedSaleIdChange) {
+                onSelectedSaleIdChange(row ? row.id : null);
+              }
+            }}
+            isRowSelected={row =>
+              selectedSaleId != null && row.id === selectedSaleId
+            }
           />
         </div>
       )}

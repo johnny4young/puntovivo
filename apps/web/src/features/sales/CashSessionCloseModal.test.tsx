@@ -74,4 +74,38 @@ describe('CashSessionCloseModal', () => {
       })
     );
   });
+
+  it('surfaces an ENG-018b warning when suspended drafts remain in flight', () => {
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        suspendedDraftsCount={3}
+      />
+    );
+    const warning = screen.getByTestId('close-session-suspended-warning');
+    expect(warning).toBeInTheDocument();
+    expect(warning.textContent).toContain('3');
+  });
+
+  it('does not render the suspended-drafts warning when the count is zero', () => {
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        suspendedDraftsCount={0}
+      />
+    );
+    expect(
+      screen.queryByTestId('close-session-suspended-warning')
+    ).not.toBeInTheDocument();
+  });
 });

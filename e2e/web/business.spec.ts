@@ -1332,4 +1332,109 @@ test.describe('web business flows', () => {
 
     await expectNoClientIssues(tracker);
   });
+
+  test('cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft (ENG-018b / 018c round-trip)', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedSaleScenario(
+      `park-roundtrip-${testInfo.parallelIndex}-${Date.now()}`
+    );
+
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+
+    const stockBefore = getProductStock(scenario.product.id);
+    expect(stockBefore).toBe(scenario.product.totalStock);
+
+    // --- Cart A: add one unit, then suspend with a label ------------------
+    await page.locator('#sales-product-search-input').fill(scenario.product.sku);
+    await page.locator('#sales-product-search-input').press('Enter');
+    const firstProductRow = page
+      .locator('tr', { has: page.getByText(scenario.product.sku) })
+      .first();
+    await expect(firstProductRow).toBeVisible();
+    await firstProductRow.click();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await expect(page.getByRole('button', { name: 'Add to cart' })).toHaveCount(0);
+
+    await page.getByTestId('checkout-suspend').click();
+    const labelInput = page.getByTestId('suspend-label-input');
+    await expect(labelInput).toBeVisible();
+    await labelInput.fill('Mesa 5');
+    await page.getByRole('button', { name: 'Suspend', exact: true }).click();
+    await expectSuccessToast(page, 'Sale suspended');
+
+    // Cart A is now a server draft — stock is still reserved.
+    const stockAfterSuspend = getProductStock(scenario.product.id);
+    expect(stockAfterSuspend).toBe(scenario.product.totalStock - 1);
+
+    // --- Cart B: add one unit and charge normally -------------------------
+    await page.locator('#sales-product-search-input').fill(scenario.product.sku);
+    await page.locator('#sales-product-search-input').press('Enter');
+    const secondProductRow = page
+      .locator('tr', { has: page.getByText(scenario.product.sku) })
+      .first();
+    await expect(secondProductRow).toBeVisible();
+    await secondProductRow.click();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    await expect(page.getByRole('button', { name: 'Add to cart' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const chargeDialogB = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Charge Sale' }) })
+      .last();
+    await expect(chargeDialogB).toBeVisible();
+    await chargeDialogB.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(chargeDialogB).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Sale completed');
+
+    // Cart B completed → a second unit left stock permanently.
+    const stockAfterChargeB = getProductStock(scenario.product.id);
+    expect(stockAfterChargeB).toBe(scenario.product.totalStock - 2);
+
+    // --- Resume cart A from the suspended panel ---------------------------
+    await page.getByTestId('checkout-open-suspended-panel').click();
+    const draftCard = page.getByTestId('suspended-draft-card').first();
+    await expect(draftCard).toBeVisible();
+    await expect(draftCard).toContainText('Mesa 5');
+    await draftCard.getByTestId('suspended-draft-resume').click();
+    await expectSuccessToast(page, 'Sale resumed');
+
+    const resumedBanner = page.getByTestId('resumed-cart-banner');
+    await expect(resumedBanner).toBeVisible();
+
+    // --- Charge the resumed cart via completeDraft -----------------------
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const chargeDialogA = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Charge Sale' }) })
+      .last();
+    await expect(chargeDialogA).toBeVisible();
+    await chargeDialogA.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(chargeDialogA).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Sale completed');
+
+    // Stock settled at -2 because cart A was already debited at
+    // create-draft time (ENG-018 baseline model). completeDraft does
+    // NOT re-debit — the whole point of ENG-018c.
+    const stockFinal = getProductStock(scenario.product.id);
+    expect(stockFinal).toBe(scenario.product.totalStock - 2);
+
+    // Per-site inventory balance should mirror the product-level total.
+    expect(
+      getInventoryBalance(scenario.activeSite.id, scenario.product.id)?.onHand
+    ).toBe(scenario.product.stockPerSite - 2);
+
+    // Audit trail of the draft → completed transition is exercised by
+    // the server-side test `completeDraft flips a non-suspended draft
+    // to completed` in sales-park-and-reprint.test.ts; this E2E is
+    // focused on the UX end-to-end round-trip.
+
+    await expectNoClientIssues(tracker);
+  });
 });
