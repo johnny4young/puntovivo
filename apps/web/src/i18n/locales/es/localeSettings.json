@@ -1,0 +1,33 @@
+{
+  "card": {
+    "title": "Idioma y moneda",
+    "description": "Elegí el país donde opera este negocio. Los valores por defecto vienen del catálogo global; los overrides aplican solo a este tenant.",
+    "countryLabel": "País",
+    "countryPlaceholder": "Seleccioná un país",
+    "uiNotReadyWarning": "La interfaz operativa aún no tiene el paquete de {{language}}. Los números y fechas se muestran correctamente; los textos caerán al español.",
+    "overrideSection": "Overrides (opcional)",
+    "overrideHint": "Dejá vacío para heredar los valores por defecto del país.",
+    "currencyOverrideLabel": "Moneda",
+    "currencyOverridePlaceholder": "Por defecto: {{default}}",
+    "currencyOverrideClear": "Usar valor del país",
+    "localeOverrideLabel": "Locale (BCP-47)",
+    "localeOverridePlaceholder": "Por defecto: {{default}}",
+    "timezoneOverrideLabel": "Zona horaria (IANA)",
+    "timezoneOverridePlaceholder": "Por defecto: {{default}}",
+    "firstDayOfWeekLabel": "Primer día de la semana",
+    "firstDayOfWeekDefault": "Usar valor del país ({{default}})",
+    "firstDayOfWeekSunday": "Domingo",
+    "firstDayOfWeekMonday": "Lunes",
+    "saveAction": "Guardar locale",
+    "savingAction": "Guardando...",
+    "previewHeading": "Previsualización",
+    "previewSampleAmount": "Monto",
+    "previewSampleDate": "Hoy"
+  },
+  "toast": {
+    "saveSuccessTitle": "Idioma actualizado",
+    "saveSuccessDescription": "Todas las monedas y fechas usan ahora los valores por defecto de {{country}}.",
+    "saveErrorTitle": "No se pudo guardar el idioma",
+    "saveErrorFallback": "No se pudo guardar la configuración de idioma. Inténtalo de nuevo."
+  }
+}

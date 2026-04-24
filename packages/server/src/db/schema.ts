@@ -2404,6 +2404,130 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // ============================================================================
+// LOCALE CATALOGS (ENG-017)
+// ============================================================================
+//
+// Global read-only catalogs. `country_catalog` + `currency_catalog` are
+// the first two tables in the repo that are explicitly NOT tenant-
+// scoped — ISO codes are universal truth and every tenant shares the
+// same rows. Seeded on boot via `seedLocaleCatalogs()` in `db/index.ts`;
+// idempotent by PK so the seed runs safely on every start.
+//
+// The existing `countries` table stays unchanged (tenant-scoped catalog
+// of operationally relevant countries for customer addresses). The two
+// link only via ISO code when the operator picks their default country.
+
+/** Global, read-only ISO-4217 currency catalog. Seeded at boot. */
+export const currencyCatalog = sqliteTable('currency_catalog', {
+  /** ISO 4217 alpha-3 code (e.g. 'COP', 'USD'). Primary key. */
+  code: text('code').primaryKey(),
+  nameEn: text('name_en').notNull(),
+  nameEs: text('name_es').notNull(),
+  symbol: text('symbol').notNull(),
+  /**
+   * Legal decimals per ISO 4217 (usually 2; 0 for CLP / PYG / JPY).
+   * Used by fiscal / accounting surfaces that must never round below
+   * the legal tender precision.
+   */
+  decimals: integer('decimals').notNull(),
+  /**
+   * Practical display decimals used by POS rendering. Colombia
+   * renders COP with 0 decimals in retail even though ISO 4217 says
+   * 2. Keep this distinct from `decimals` so fiscal documents get
+   * the legally required precision while the UI renders
+   * operator-friendly amounts.
+   */
+  displayDecimals: integer('display_decimals').notNull(),
+});
+
+/** Global, read-only ISO-3166 country catalog with locale defaults. */
+export const countryCatalog = sqliteTable('country_catalog', {
+  /** ISO 3166-1 alpha-2 code (e.g. 'CO', 'US'). Primary key. */
+  code: text('code').primaryKey(),
+  nameEn: text('name_en').notNull(),
+  nameEs: text('name_es').notNull(),
+  /** BCP-47 locale (e.g. 'es-CO', 'en-US') used by Intl formatters. */
+  defaultLocale: text('default_locale').notNull(),
+  /** Primary language subtag (e.g. 'es', 'en', 'pt') for i18next. */
+  generalLocale: text('general_locale').notNull(),
+  defaultCurrencyCode: text('default_currency_code')
+    .notNull()
+    .references(() => currencyCatalog.code),
+  /**
+   * Additional currencies the country operates in (e.g. Panama's
+   * PAB+USD). Informational only; operator chooses via override.
+   */
+  additionalCurrencyCodes: text('additional_currency_codes', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+  /** IANA timezone (e.g. 'America/Bogota'). */
+  defaultTimezone: text('default_timezone').notNull(),
+  /** 0 = Sunday, 1 = Monday. Used by calendar widgets. */
+  firstDayOfWeek: integer('first_day_of_week').notNull(),
+  /** Date format hint shown in admin preview ('dd/MM/yyyy', 'MM/dd/yyyy'). */
+  dateFormatShort: text('date_format_short').notNull(),
+  dateFormatLong: text('date_format_long').notNull(),
+  /** Common tax-ID codes (e.g. ['CC', 'NIT', 'CE']) for operator hints. */
+  taxIdTypesHint: text('tax_id_types_hint', { mode: 'json' })
+    .$type<string[]>()
+    .default([]),
+  /**
+   * Whether the UI has i18next bundles for this country's general
+   * locale. Brazil (pt-BR) is false until the pt bundle ships; the
+   * admin UI will warn when the picked country is not ui-ready.
+   */
+  uiLocaleReady: integer('ui_locale_ready', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+});
+
+/**
+ * Per-tenant locale choice + overrides. A null override inherits from
+ * `country_catalog` via `resolveTenantLocale` in
+ * `services/tenant-locale.ts`.
+ */
+export const tenantLocaleSettings = sqliteTable('tenant_locale_settings', {
+  tenantId: text('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: 'cascade' }),
+  countryCode: text('country_code')
+    .notNull()
+    .references(() => countryCatalog.code),
+  localeOverride: text('locale_override'),
+  currencyOverride: text('currency_override').references(
+    () => currencyCatalog.code
+  ),
+  timezoneOverride: text('timezone_override'),
+  firstDayOfWeekOverride: integer('first_day_of_week_override'),
+  updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+});
+
+export const countryCatalogRelations = relations(countryCatalog, ({ one }) => ({
+  defaultCurrency: one(currencyCatalog, {
+    fields: [countryCatalog.defaultCurrencyCode],
+    references: [currencyCatalog.code],
+  }),
+}));
+
+export const tenantLocaleSettingsRelations = relations(
+  tenantLocaleSettings,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [tenantLocaleSettings.tenantId],
+      references: [tenants.id],
+    }),
+    country: one(countryCatalog, {
+      fields: [tenantLocaleSettings.countryCode],
+      references: [countryCatalog.code],
+    }),
+    currencyOverrideRef: one(currencyCatalog, {
+      fields: [tenantLocaleSettings.currencyOverride],
+      references: [currencyCatalog.code],
+    }),
+  })
+);
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 
@@ -2527,3 +2651,12 @@ export type NewSyncConflict = typeof syncConflicts.$inferInsert;
 
 export type AppSetting = typeof appSettings.$inferSelect;
 export type NewAppSetting = typeof appSettings.$inferInsert;
+
+export type CurrencyCatalogRow = typeof currencyCatalog.$inferSelect;
+export type NewCurrencyCatalogRow = typeof currencyCatalog.$inferInsert;
+
+export type CountryCatalogRow = typeof countryCatalog.$inferSelect;
+export type NewCountryCatalogRow = typeof countryCatalog.$inferInsert;
+
+export type TenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferSelect;
+export type NewTenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferInsert;

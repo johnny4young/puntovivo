@@ -37,6 +37,7 @@ import { transfersRouter } from './routers/transfers.js';
 import { quotationsRouter } from './routers/quotations.js';
 import { receiptTemplatesRouter } from './routers/receiptTemplates.js';
 import { auditLogsRouter } from './routers/auditLogs.js';
+import { tenantLocaleRouter } from './routers/tenantLocale.js';
 
 export const appRouter = router({
   health: router({
@@ -80,6 +81,7 @@ export const appRouter = router({
   receiptTemplates: receiptTemplatesRouter,
   auditLogs: auditLogsRouter,
   users: usersRouter,
+  tenantLocale: tenantLocaleRouter,
 });
 
 export type AppRouter = typeof appRouter;

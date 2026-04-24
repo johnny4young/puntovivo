@@ -820,6 +820,14 @@ Iter 2 (April 22, 2026) shipped the editor + renderer ([RECEIPT-TEMPLATES.md](./
 - REPRINT-04 ✅ Cross-tenant isolation: tenant B's admin cannot reprint tenant A's sale (`sales-park-and-reprint.test.ts → is cross-tenant isolated`)
 - REPRINT-05 ✅ Ctrl+Shift+P reprints the selected history row (`useSalesKeyboardShortcuts.test.ts → fires onReprintSelectedHistoryRow on Ctrl+Shift+P`; E2E round-trip in `business.spec.ts → cashier parks a cart, charges a second one, resumes the first, and charges it via completeDraft` exercises the same Ctrl-guard lift)
 
+### Country / locale / currency (ENG-017) — LOCALE-01 through LOCALE-05
+
+- LOCALE-01 ✅ Resolver joins `tenant_locale_settings` + country + currency catalogs and returns the resolved shape for the 4 canonical countries (`tenant-locale.test.ts → resolves Colombia to es-CO / COP with 0 display decimals (canonical case)`, `resolves the USA baseline to en-US / USD with 2/2 decimals`, `resolves Chile to es-CL / CLP with 0/0 decimals (strict integer currency)`, `resolves Mexico to es-MX / MXN with 2/2 decimals`)
+- LOCALE-02 ✅ Override precedence — currency / locale / timezone / firstDayOfWeek each shadow the country defaults independently (`tenant-locale.test.ts → currencyOverride shadows the country default…`, `localeOverride shadows the country default locale…`, `timezoneOverride and firstDayOfWeekOverride shadow…`)
+- LOCALE-03 ✅ Fallback to US/USD when the tenant has no row in `tenant_locale_settings` (`tenant-locale.test.ts → falls back to US/USD when the tenant has no locale settings row`)
+- LOCALE-04 ✅ Cross-tenant isolation — primary CO does not bleed into secondary US (`tenant-locale.test.ts → keeps two tenants isolated — primary CO does not affect secondary US`)
+- LOCALE-05 ✅ Admin card live-preview updates on country change without a server round-trip (`CompanyLocaleSettingsCard.test.tsx → updates the live preview when the operator changes the country without firing a server request`)
+
 ### Audit Trail Extensions — AUDIT-22 through AUDIT-30
 
 - AUDIT-22 `sale.void` recorded with actor + metadata.reason

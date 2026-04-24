@@ -26,7 +26,7 @@ This table mirrors the authoritative `Status` column in
 | Iter 6c | [`ENG-018c`](./ROADMAP.md) | Shipped | Server: `sales.completeDraft` + `sales.discardDraft` stock reversal + ownership gate widen. Shipped 38e2a47. |
 | Iter 7 | [`ENG-019`](./ROADMAP.md) | Shipped | Sales receipt reprint — server 5d8f720 + UI 05eea2d. Spec §4. Ctrl+Shift+P + history row selection landed as part of ENG-018b. |
 | Iter 3 Fase A | [`ENG-020`](./ROADMAP.md) | Pending | Fiscal DIAN modeling + MockAdapter. Spec §5. |
-| — | [`ENG-017`](./ROADMAP.md) | Pending | Country / locale / currency configuration. See [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). |
+| — | [`ENG-017`](./ROADMAP.md) | Shipped | Country / locale / currency configuration — 3 catalog tables, resolver service, LocaleProvider, admin CompanyLocaleSettingsCard. See [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). |
 | Iter 4 | [`ENG-022`](./ROADMAP.md) | Gated | Hardware POS (test lab hardware). Spec §6. |
 | Iter 3 Fase B | [`ENG-021`](./ROADMAP.md) | Gated | Fiscal DIAN PT integration (PT contract). Spec §7. |
 | Iter 5 | [`ENG-023`](./ROADMAP.md) | Gated | Bold payment terminal (depends on Iter 4 + Bold sandbox). Spec §8. |
@@ -36,9 +36,8 @@ This table mirrors the authoritative `Status` column in
 
 Value-per-day priority, skipping gated tickets:
 
-1. **ENG-017** — country/locale/currency configuration (~1 week, blocks Iter 3 Fase A so land it before fiscal work starts)
-2. **Iter 3 Fase A / ENG-020** — fiscal DIAN modeling with MockAdapter (~2 weeks, deep-but-gateless, unblocks Fase B the day the PT contract lands)
-3. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
+1. **Iter 3 Fase A / ENG-020** — fiscal DIAN modeling with MockAdapter (~2 weeks, deep-but-gateless, unblocks Fase B the day the PT contract lands; ENG-017 locale foundation is now in place)
+2. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
 
 Anything gated (Iter 3 Fase B, Iter 4 without hardware, Iter 5) stops the flow and raises a question to the user — do not speculate a workaround.
 

@@ -61,6 +61,16 @@ and want to batch them into one sprint.
   confirm calls mutation, resume callback fires) would catch future
   regressions without needing a full browser. Flagged by the code
   review that landed ENG-018b. — 2026-04-23 (jy)
+- `[infra][locale]` Retire the legacy `tenants.settings` JSON blob
+  fields `currency`, `timezone`, `dateFormat` now that ENG-017
+  resolves locale through `tenant_locale_settings` + the global
+  catalogs. The `DEFAULT_TENANT_SETTINGS` constant in
+  `apps/web/src/features/auth/AuthProvider.tsx` and the
+  `TenantSettings` interface in `apps/web/src/types/index.ts` still
+  carry the stale currency/timezone/dateFormat fields; nothing reads
+  them anymore. Either delete the fields (breaking type contract,
+  needs a minor version bump) or keep them as type-only metadata
+  marked `@deprecated`. — 2026-04-23 (jy)
 
 ## 3. Spikes and research
 

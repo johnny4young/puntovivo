@@ -6,6 +6,7 @@ import {
   PageLoadingState,
 } from '@/components/feedback/LoadingState';
 import { AuthProvider } from '@/features/auth/AuthProvider';
+import { LocaleProvider } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -143,6 +144,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
+        <LocaleProvider>
         <Routes>
           <Route
             path="/login"
@@ -332,6 +334,7 @@ function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </LocaleProvider>
       </TenantProvider>
     </AuthProvider>
   );

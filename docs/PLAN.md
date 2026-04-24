@@ -2828,6 +2828,20 @@ The following dependency chain must be respected across phases — building out 
 
 **What's still missing — tracked as `ENG-017`**: country / currency / locale bundling. `formatCurrency()` defaults to `USD` regardless of tenant, which makes a Colombian tenant render totals as `0,00 US$` instead of `$ 0 COP`. The fix is a dedicated country catalog + currency catalog + per-tenant locale overrides covering LATAM + USA (21 countries, 18 currencies). Full design + country matrix in [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). This must land **before** Iter 3 Fase A fiscal document snapshots so they capture the correct currency code.
 
+### 17.0 Status Update — April 2026 (addendum — ENG-017 shipped)
+
+**ENG-017 shipped**. Migration `0003_locale_catalogs.sql` adds three new tables: `country_catalog` + `currency_catalog` (both global, read-only, PK-seeded with 21 LATAM+USA countries / 18 currencies on every boot via `seedLocaleCatalogs` in `db/index.ts`) and `tenant_locale_settings` (per-tenant override row). The resolver `resolveTenantLocale` in `services/tenant-locale.ts` joins the three tables, applies override-shadow logic (null overrides inherit from the country defaults), and falls back to US/USD when the tenant has no settings row yet. Nine server tests cover the canonical cases.
+
+The receipt renderer now accepts an optional `locale: ReceiptRenderLocale` on `RenderData` and threads it through `formatReceiptAmount()` for every currency surface (items, totals, tenders, change, ESC/POS). Existing callers that don't pass the locale still work — the fallback is the legacy `.toFixed(2)` shape — so the contract is backward compatible. `receiptTemplates.renderPreview` resolves the locale per tenant so the editor preview renders in the operator's country format.
+
+On the client, `LocaleProvider` wraps the app inside `TenantProvider`, fetches `tenantLocale.get`, and pushes a snapshot (locale + currency + displayDecimals) into a module-level singleton that `formatCurrency` / `formatDate` / `formatDateTime` in `@/lib/utils` read from when called without explicit args. This means the ~140 existing call sites of `formatCurrency(amount)` switched from hardcoded USD to the tenant's resolved currency without any individual edit. The `useTenantSettings` hook (used by `DashboardPage`) also delegates to the new stack. `LocaleProvider` dispatches `i18n.changeLanguage(primarySubtag)` so the i18next bundle swaps in lockstep when an operator changes country.
+
+The admin `CompanyLocaleSettingsCard` (mounted first in the `CompanyPage` grid) renders the picker with country + currency override + locale / timezone / first-day overrides, a live-preview strip (`$123,457` for CO, `$123,456.79` for US) driven by `Intl.NumberFormat` on the client — no server round-trip — and a Save button that dispatches `tenantLocale.update`. The i18next namespace `localeSettings.*` ships in en + es and is registered in `i18n/index.ts`.
+
+Dev seed now sets `demo-co` to `countryCode='CO'` so the demo tenant renders in COP out of the box.
+
+Remaining deferral: the `tenants.settings` JSON blob still carries a historical `currency` / `timezone` / `dateFormat` field that the app no longer reads (the resolver has taken over). Removing the blob is a follow-up cleanup — captured in BACKLOG.md.
+
 The analysis below is kept for historical context — the "Current State" subsection reflects the pre-i18n era.
 
 ### 17.1 Current State (pre-i18n, historical)
@@ -2976,7 +2990,7 @@ Design docs that ship alongside already-shipped or in-flight features:
 
 - [`docs/RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) — declarative receipt editor + pure renderer (**shipped** as Iter 2)
 - [`docs/DEV-SEED.md`](./DEV-SEED.md) — `npm run seed:dev` runbook, country-aware seed for `demo-co` (**shipped** as `ENG-015`)
-- [`docs/LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md) — country / currency / locale configuration catalog for LATAM + USA, fixes the `0,00 US$` UX bug (**spec ready, implementation tracked as `ENG-017`**)
+- [`docs/LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md) — country / currency / locale configuration catalog for LATAM + USA, fixes the `0,00 US$` UX bug (**implementation shipped under `ENG-017`** — see §17.0 Status Update addendum)
 - [`docs/FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md) — DIAN via Proveedor Tecnológico, shipped as spec (Iter 3 Fase A ships schema + MockAdapter; Fase B is gated on PT contract)
 - [`docs/HARDWARE-POS.md`](./HARDWARE-POS.md) — ESC/POS printer + cajón + scanner spec (Iter 4, gated on test lab)
 - [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
