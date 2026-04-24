@@ -118,6 +118,25 @@ export interface ReceiptRenderLocale {
   displayDecimals: number;
 }
 
+/**
+ * ENG-016 pass 1 (item #5) — Puntovivo-branded `appFooter` block
+ * metadata. These constants are intentionally stable across tenants:
+ * the footer is a product identification surface (Siigo / Alegra
+ * parallel) and not a per-tenant setting. If white-label mode is ever
+ * needed, it becomes a separate ticket.
+ *
+ * `appName` + `appVersion` are split so downstream tests can pin the
+ * version independently of the `package.json` read — the renderer
+ * never imports `process.env` or the filesystem to keep the function
+ * pure.
+ */
+export const APP_FOOTER_METADATA = {
+  appName: 'Puntovivo',
+  appVersion: '1.0.0',
+  appUrl: 'puntovivo.co',
+  appSupport: 'soporte@puntovivo.co',
+} as const;
+
 // ---------------------------------------------------------------------------
 // HTML escape + variable substitution
 // ---------------------------------------------------------------------------
@@ -521,6 +540,25 @@ function renderSeparatorBlockHtml(
   return `<div class="block block-separator">${escapeHtml(repeated)}</div>`;
 }
 
+/**
+ * ENG-016 pass 1 (item #5) — HTML renderer for the Puntovivo-branded
+ * footer block. Outputs three lines (name+version, URL, support contact)
+ * from `APP_FOOTER_METADATA`. `show: false` collapses the block to an
+ * empty string so admins can toggle the branding off without removing
+ * the block.
+ */
+function renderAppFooterBlockHtml(
+  block: Extract<ReceiptBlock, { type: 'appFooter' }>
+): string {
+  if (block.show === false) return '';
+  const align = alignClass(block.align ?? 'center');
+  const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
+  const line1 = escapeHtml(`${appName} ${appVersion}`);
+  const line2 = escapeHtml(appUrl);
+  const line3 = escapeHtml(appSupport);
+  return `<div class="block block-app-footer ${align}"><div>${line1}</div><div>${line2}</div><div>${line3}</div></div>`;
+}
+
 function renderBarcode128BlockHtml(
   block: Extract<ReceiptBlock, { type: 'barcode128' }>,
   data: RenderData
@@ -557,6 +595,8 @@ function renderBlockHtml(
       return renderSeparatorBlockHtml(block);
     case 'barcode128':
       return renderBarcode128BlockHtml(block, data);
+    case 'appFooter':
+      return renderAppFooterBlockHtml(block);
     default: {
       // Exhaustiveness check — TypeScript will flag if a block type is
       // added without a renderer.
@@ -729,6 +769,17 @@ function renderBlockEscPos(
         ...bytesFromString(`[BC: ${resolved}]`),
         ...escposLine(),
       ];
+    }
+    case 'appFooter': {
+      // ENG-016 pass 1 (item #5) — 3 centered lines of Puntovivo branding.
+      if (block.show === false) return [];
+      const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
+      const out: number[] = [...escposAlign(block.align ?? 'center')];
+      for (const line of [`${appName} ${appVersion}`, appUrl, appSupport]) {
+        out.push(...bytesFromString(line));
+        out.push(...escposLine());
+      }
+      return out;
     }
     default: {
       const _exhaustive: never = block;

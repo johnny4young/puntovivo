@@ -12,6 +12,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import {
+  APP_FOOTER_METADATA,
   buildPreviewData,
   renderReceipt,
 } from '../services/receipt-renderer.js';
@@ -288,6 +289,64 @@ describe('Receipt Templates (Iter 2)', () => {
       const r58 = renderReceipt(layout58, data);
       const r80 = renderReceipt(layout80, data);
       expect(r80.escpos.length).toBeGreaterThan(r58.escpos.length);
+    });
+
+    // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+    it('renders the appFooter block with Puntovivo metadata (HTML + ESC/POS)', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'appFooter' as const, show: true, align: 'center' as const }],
+      };
+      const result = renderReceipt(layout, data);
+      const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
+      expect(result.html).toContain(`${appName} ${appVersion}`);
+      expect(result.html).toContain(appUrl);
+      expect(result.html).toContain(appSupport);
+      // ESC/POS byte stream carries the same three lines (ASCII).
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      expect(escposText).toContain(`${appName} ${appVersion}`);
+      expect(escposText).toContain(appUrl);
+      expect(escposText).toContain(appSupport);
+    });
+
+    // ENG-016 pass 1 (item #5) — toggle hides both HTML and ESC/POS output.
+    it('renders an empty appFooter when show is false (soft-hide)', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'appFooter' as const, show: false }],
+      };
+      const result = renderReceipt(layout, data);
+      const { appName } = APP_FOOTER_METADATA;
+      expect(result.html).not.toContain(appName);
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      expect(escposText).not.toContain(appName);
+    });
+
+    // ENG-016 pass 1 (item #5) — schema acceptance + rejection of unknown fields.
+    it('Zod schema accepts appFooter and rejects unknown block fields', () => {
+      const ok = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [{ type: 'appFooter', show: true, align: 'center' }],
+      });
+      expect(ok.success).toBe(true);
+
+      const okDefault = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [{ type: 'appFooter' }],
+      });
+      expect(okDefault.success).toBe(true);
+
+      const bad = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [{ type: 'appFooter', show: 'yes' }],
+      });
+      expect(bad.success).toBe(false);
     });
   });
 

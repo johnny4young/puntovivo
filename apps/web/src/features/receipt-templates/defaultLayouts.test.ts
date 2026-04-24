@@ -35,4 +35,31 @@ describe('receipt template default layouts', () => {
       value: 'New text',
     });
   });
+
+  // ENG-016 pass 1 (item #5) — appFooter included in every default
+  // preset so fresh templates ship with Puntovivo branding enabled.
+  it('includes a visible appFooter block in every default preset', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    for (const kind of ['sale', 'quotation', 'fiscal_dee'] as const) {
+      const layout = getDefaultLayout(kind, t);
+      const footer = layout.blocks.find(b => b.type === 'appFooter');
+      expect(footer, `appFooter missing in ${kind} preset`).toBeDefined();
+      expect(footer).toMatchObject({
+        type: 'appFooter',
+        show: true,
+        align: 'center',
+      });
+    }
+  });
+
+  // ENG-016 pass 1 (item #5) — createEmptyBlock returns a visible
+  // appFooter when the operator adds the block from the menu.
+  it('createEmptyBlock("appFooter") returns a visible centered block', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    expect(createEmptyBlock('appFooter', t)).toEqual({
+      type: 'appFooter',
+      show: true,
+      align: 'center',
+    });
+  });
 });

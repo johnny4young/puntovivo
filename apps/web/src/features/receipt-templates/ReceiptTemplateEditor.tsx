@@ -1,7 +1,8 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { captureFlipSnapshot, playFlip, type FlipSnapshot } from '@/lib/flipAnimate';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import {
@@ -37,6 +38,8 @@ const BLOCK_KINDS: ReceiptBlockKind[] = [
   'qr',
   'separator',
   'barcode128',
+  // ENG-016 pass 1 (item #5) — Puntovivo-branded footer.
+  'appFooter',
 ];
 
 const PAPER_WIDTHS: EditorReceiptLayout['paperWidth'][] = [
@@ -104,6 +107,22 @@ export function ReceiptTemplateEditor({
     initialLayout.blocks.length > 0 ? 0 : null
   );
 
+  // ENG-016 pass 1 (item #6) — FLIP reorder animation. `moveBlock`
+  // captures a snapshot of the block-list card positions into
+  // `pendingFlipRef` before React commits the new array; the
+  // `useLayoutEffect` below plays the inverse transform once the
+  // commit lands so the user can follow each block to its new position.
+  // Under `prefers-reduced-motion: reduce` the helper returns `[]`
+  // without scheduling animations, matching the original instant UX.
+  const blockListRef = useRef<HTMLUListElement | null>(null);
+  const pendingFlipRef = useRef<FlipSnapshot | null>(null);
+  useLayoutEffect(() => {
+    const snapshot = pendingFlipRef.current;
+    if (!snapshot || !blockListRef.current) return;
+    pendingFlipRef.current = null;
+    playFlip(blockListRef.current, '[data-flip-key]', snapshot);
+  }, [blockKeys]);
+
   function patchBlock(index: number, patch: Partial<EditorReceiptBlock>) {
     setLayout(prev => {
       const blocks = prev.blocks.slice();
@@ -140,6 +159,15 @@ export function ReceiptTemplateEditor({
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
+    // ENG-016 pass 1 (item #6) — snapshot the DOM positions BEFORE
+    // React reorders the block cards so the post-commit FLIP helper
+    // can compute the inverse transform per card. Safe to call even
+    // when `blockListRef` is null (first render, tests without a DOM)
+    // — `captureFlipSnapshot` short-circuits on null.
+    pendingFlipRef.current = captureFlipSnapshot(
+      blockListRef.current,
+      '[data-flip-key]'
+    );
     setLayout(prev => {
       const next = prev.blocks.slice();
       const target = index + direction;
@@ -308,7 +336,11 @@ export function ReceiptTemplateEditor({
             ))}
           </div>
 
-          <ul className="space-y-2" data-testid="block-list">
+          <ul
+            ref={blockListRef}
+            className="space-y-2"
+            data-testid="block-list"
+          >
             {layout.blocks.length === 0 ? (
               <li className="rounded border border-dashed border-line p-4 text-center text-sm text-secondary-500">
                 {t('editor.blocksPanel.empty')}
@@ -317,6 +349,7 @@ export function ReceiptTemplateEditor({
               layout.blocks.map((block, index) => (
                 <li
                   key={blockKeys[index] ?? `idx-${index}`}
+                  data-flip-key={blockKeys[index] ?? `idx-${index}`}
                   className={`rounded border p-2 transition ${
                     activeBlockIndex === index
                       ? 'border-primary bg-primary/5'
@@ -527,6 +560,17 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
     case 'itemsTable':
       return (
         <div className="space-y-2">
+          {/*
+            ENG-016 pass 1 (item #4) — bindings caption. Tells the
+            operator where the row data comes from so they do not
+            wonder why "items" isn't a plain text field. Pure UI + i18n.
+          */}
+          <div
+            className="rounded border border-info/30 bg-info/10 p-2 text-xs text-secondary-700"
+            data-testid="items-table-caption"
+          >
+            {t('editor.blockFields.itemsTableCaption')}
+          </div>
           <span className="label">{t('editor.blockFields.columns')}</span>
           <p className="text-xs text-secondary-500">
             {t('editor.blockFields.columnsHelp')}
@@ -568,6 +612,11 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
     case 'totalsBlock':
       return (
         <div className="space-y-2">
+          {/*
+            ENG-016 pass 1 (item #4) — collapsible bindings explainer.
+            Lists which sale fields each totals line resolves to.
+          */}
+          <TotalsBlockCaption />
           <span className="label">{t('editor.blockFields.totalsLines')}</span>
           <p className="text-xs text-secondary-500">
             {t('editor.blockFields.totalsLinesHelp')}
@@ -678,10 +727,81 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
           </label>
         </div>
       );
+    case 'appFooter':
+      return (
+        // ENG-016 pass 1 (item #5) — single toggle + align. Metadata
+        // (name, version, URL, support) is rendered from stable
+        // constants by the server so there is nothing else to edit here.
+        <div className="space-y-2">
+          <p className="text-xs text-secondary-500">
+            {t('editor.blockFields.appFooterHelp')}
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={block.show ?? true}
+              onChange={e => onPatch({ show: e.target.checked })}
+              data-testid="app-footer-show-toggle"
+            />
+            {t('editor.blockFields.appFooterShow')}
+          </label>
+          <label className="block">
+            <span className="label">{t('editor.blockFields.align')}</span>
+            <select
+              className="input mt-1"
+              value={block.align ?? 'center'}
+              onChange={handleAlignChange}
+            >
+              <option value="left">{t('editor.blockFields.alignLeft')}</option>
+              <option value="center">{t('editor.blockFields.alignCenter')}</option>
+              <option value="right">{t('editor.blockFields.alignRight')}</option>
+            </select>
+          </label>
+        </div>
+      );
     default: {
       const _exhaustive: never = block;
       void _exhaustive;
       return null;
     }
   }
+}
+
+/**
+ * ENG-016 pass 1 (item #4) — collapsible explainer shown above the
+ * `totalsBlock` controls. Pulls each line's source from i18n so the
+ * caption stays in sync with whatever the renderer shows.
+ */
+function TotalsBlockCaption() {
+  const { t } = useTranslation('receiptTemplates');
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="rounded border border-info/30 bg-info/10 p-2 text-xs text-secondary-700"
+      data-testid="totals-block-caption"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-1 text-left font-medium"
+        onClick={() => setOpen(prev => !prev)}
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+        {t('editor.blockFields.totalsBlockCaption')}
+      </button>
+      {open ? (
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>{t('editor.blockFields.totalsBlockBindings.subtotal')}</li>
+          <li>{t('editor.blockFields.totalsBlockBindings.discount')}</li>
+          <li>{t('editor.blockFields.totalsBlockBindings.taxTotal')}</li>
+          <li>{t('editor.blockFields.totalsBlockBindings.tip')}</li>
+          <li>{t('editor.blockFields.totalsBlockBindings.grandTotal')}</li>
+        </ul>
+      ) : null}
+    </div>
+  );
 }

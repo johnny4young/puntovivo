@@ -173,6 +173,27 @@ const barcode128BlockSchema = z.object({
   heightMm: z.number().finite().min(8).max(40).optional(),
 });
 
+/**
+ * ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+ *
+ * Non-editable atomic block. Renders the `Puntovivo` name, version, and
+ * contact URL resolved from `APP_FOOTER_METADATA` in
+ * `services/receipt-renderer.ts`.
+ *
+ * Toggleable: when `show: false` the block is retained in the layout
+ * but renders nothing, letting admins hide the block without deleting
+ * it (useful for branding-free invoice prints). `show` defaults to
+ * `true` on create.
+ *
+ * Common in LATAM receipts (Siigo, Alegra, etc.) and allowed under
+ * DIAN Anexo 1.9 free-text footer rules.
+ */
+const appFooterBlockSchema = z.object({
+  type: z.literal('appFooter'),
+  show: z.boolean().optional(),
+  align: blockAlignSchema,
+});
+
 export const receiptBlockSchema = z.discriminatedUnion('type', [
   logoBlockSchema,
   textBlockSchema,
@@ -182,6 +203,7 @@ export const receiptBlockSchema = z.discriminatedUnion('type', [
   qrBlockSchema,
   separatorBlockSchema,
   barcode128BlockSchema,
+  appFooterBlockSchema,
 ]);
 
 export type ReceiptBlock = z.infer<typeof receiptBlockSchema>;

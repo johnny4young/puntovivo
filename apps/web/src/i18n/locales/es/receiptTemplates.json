@@ -60,7 +60,7 @@
     },
     "blocksPanel": {
       "title": "Bloques",
-      "description": "Arrastra para reordenar. Hasta 50 bloques por plantilla.",
+      "description": "Usa los botones de flecha para reordenar. Hasta 50 bloques por plantilla.",
       "empty": "Agrega un bloque para empezar."
     },
     "previewPanel": {
@@ -85,7 +85,8 @@
       "tendersTable": "Pagos",
       "qr": "Código QR",
       "separator": "Separador",
-      "barcode128": "Código de barras 128"
+      "barcode128": "Código de barras 128",
+      "appFooter": "Pie de la aplicación"
     },
     "blockFields": {
       "value": "Valor",
@@ -111,7 +112,18 @@
       "columnsHelp": "Elige las columnas a imprimir, en orden.",
       "totalsLines": "Líneas",
       "totalsLinesHelp": "Elige los totales a mostrar.",
-      "source": "Fuente"
+      "source": "Fuente",
+      "itemsTableCaption": "Las filas están enlazadas a los ítems de la venta actual. Usa las columnas siguientes para elegir cuáles se imprimen.",
+      "totalsBlockCaption": "¿De dónde vienen estos valores?",
+      "totalsBlockBindings": {
+        "subtotal": "Subtotal — suma de los totales de ítems antes de impuestos.",
+        "discount": "Descuento — total de descuentos aplicados a los ítems.",
+        "taxTotal": "Impuesto — suma de los impuestos de todos los ítems.",
+        "tip": "Propina — campo opcional de propina en la venta.",
+        "grandTotal": "Total — subtotal menos descuentos más impuestos y propina."
+      },
+      "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
+      "appFooterShow": "Mostrar el pie de Puntovivo"
     },
     "blockColumns": {
       "name": "Ítem",

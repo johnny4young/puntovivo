@@ -1817,6 +1817,9 @@ function buildDefaultReceiptLayouts(): Record<
           { type: 'tendersTable', showChange: true },
           { type: 'separator' },
           { type: 'text', value: 'Gracias por tu compra', align: 'center', style: 'muted' },
+          // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+          // Admins can toggle `show: false` to hide without deleting.
+          { type: 'appFooter', show: true, align: 'center' },
         ],
       },
     },
@@ -1835,6 +1838,7 @@ function buildDefaultReceiptLayouts(): Record<
           },
           { type: 'separator' },
           { type: 'totalsBlock', show: ['subtotal', 'discount', 'taxTotal', 'grandTotal'] },
+          { type: 'appFooter', show: true, align: 'center' },
         ],
       },
     },
@@ -1854,6 +1858,7 @@ function buildDefaultReceiptLayouts(): Record<
           { type: 'separator' },
           { type: 'qr', source: '{{fiscal.qrUrl}}', sizeMm: 25 },
           { type: 'text', value: 'CUFE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
+          { type: 'appFooter', show: true, align: 'center' },
         ],
       },
     },
