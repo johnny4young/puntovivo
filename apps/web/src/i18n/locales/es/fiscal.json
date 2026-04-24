@@ -1,0 +1,68 @@
+{
+  "page": {
+    "kicker": "Facturación electrónica",
+    "title": "Documentos fiscales",
+    "description": "Cada venta, anulación y devolución preparada para reporte DIAN, con comprador, totales y líneas congeladas."
+  },
+  "filters": {
+    "all": "Todos",
+    "kind": "Tipo",
+    "status": "Estado",
+    "source": "Origen",
+    "fromDate": "Desde",
+    "toDate": "Hasta"
+  },
+  "kind": {
+    "DEE": "Documento equivalente electrónico (DEE)",
+    "FEV": "Factura electrónica de venta (FEV)",
+    "NC": "Nota crédito (NC)",
+    "ND": "Nota débito (ND)"
+  },
+  "status": {
+    "pending": "Pendiente",
+    "sent": "Enviado",
+    "accepted": "Aceptado",
+    "rejected": "Rechazado",
+    "contingency": "Contingencia"
+  },
+  "source": {
+    "sale": "Venta",
+    "void": "Anulación",
+    "return": "Devolución"
+  },
+  "list": {
+    "title": "Documentos emitidos",
+    "description": "Orden cronológico inverso. Cada documento tiene un CUFE — el hash SHA-384 determinístico de la DIAN — que enlaza esta fila con la venta, anulación o devolución de origen.",
+    "empty": "Aún no hay documentos fiscales. Cuando el reporte DIAN esté habilitado para este tenant, las ventas completadas aparecerán aquí.",
+    "loading": "Cargando documentos fiscales…",
+    "error": "No se pudieron cargar los documentos fiscales",
+    "columns": {
+      "emittedAt": "Cuándo",
+      "kind": "Tipo",
+      "status": "Estado",
+      "documentNumber": "Número",
+      "cufe": "CUFE",
+      "buyer": "Comprador",
+      "total": "Total",
+      "provider": "Proveedor"
+    }
+  },
+  "contingency": {
+    "badge": "{{count}} en contingencia",
+    "title": "Documentos esperando aceptación DIAN",
+    "description": "Contingencia significa que el documento espera aceptación o requiere un reintento posterior."
+  },
+  "reports": {
+    "kicker": "Reportes fiscales",
+    "title": "Reportes",
+    "description": "Los reportes fiscales agregados aparecerán aquí cuando las exportaciones estén habilitadas.",
+    "empty": "Aún no hay reportes fiscales disponibles."
+  },
+  "wizard": {
+    "kicker": "Configuración",
+    "title": "Asistente de habilitación DIAN",
+    "description": "El flujo guiado capturará el NIT, la resolución de numeración y las credenciales de autorización del tenant.",
+    "gated": "Requiere un contrato activo de facturación electrónica antes de la activación productiva.",
+    "cta": "Más información"
+  }
+}

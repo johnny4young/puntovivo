@@ -16,6 +16,7 @@ import { paginationInput } from './common.js';
 export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
 export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'other']);
 export const paymentStatusEnum = z.enum(['pending', 'paid', 'partial', 'refunded']);
+const completablePaymentStatusEnum = z.enum(['pending', 'paid', 'partial']);
 export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided']);
 
 // ============================================================================
@@ -154,7 +155,7 @@ export const discardDraftInput = z.object({
 export const completeDraftInput = z.object({
   saleId: z.string().min(1, 'Sale ID is required'),
   paymentMethod: paymentMethodEnum.default('cash'),
-  paymentStatus: paymentStatusEnum.default('pending'),
+  paymentStatus: completablePaymentStatusEnum.default('pending'),
   notes: z.string().optional(),
   amountReceived: z.number().min(0).optional(),
   /**

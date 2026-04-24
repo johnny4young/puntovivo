@@ -71,6 +71,15 @@ and want to batch them into one sprint.
   them anymore. Either delete the fields (breaking type contract,
   needs a minor version bump) or keep them as type-only metadata
   marked `@deprecated`. — 2026-04-23 (jy)
+- `[lint][bug]` `apps/web/src/features/company/CompanyLocaleSettingsCard.tsx:76`
+  fails the `react-hooks/set-state-in-effect` lint rule ("Calling
+  setState synchronously within an effect can trigger cascading
+  renders"). Pre-existing on `main` at commit `9eadf62` — blocks
+  `npm run ci:web`. Discovered while shipping ENG-020; scope kept
+  clean. The fix is a one-file refactor: replace the
+  `useEffect(() => { if (pickedCountry === null && current?.countryCode) setPickedCountry(current.countryCode); }, [...])`
+  pattern with a functional setState, a ref guard, or a derived
+  `useMemo`. — 2026-04-24 (jy)
 
 ## 3. Spikes and research
 

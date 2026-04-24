@@ -30,7 +30,9 @@
     "vatRates": "Tarifas IVA",
     "users": "Usuarios",
     "receiptTemplates": "Plantillas de recibo",
-    "auditLogs": "Auditoría"
+    "auditLogs": "Auditoría",
+    "fiscalDocuments": "Documentos fiscales",
+    "fiscalReports": "Reportes fiscales"
   },
   "actions": {
     "collapseRail": "Contraer menú",

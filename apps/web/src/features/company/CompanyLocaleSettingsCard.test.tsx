@@ -64,6 +64,46 @@ const mockCurrencies = [
   { code: 'USD', nameEn: 'US Dollar', nameEs: 'Dólar estadounidense', symbol: '$', decimals: 2, displayDecimals: 2 },
 ];
 
+type MockCurrentLocale = {
+  locale: string;
+  language: string;
+  countryCode: string;
+  currency: string;
+  currencySymbol: string;
+  legalDecimals: number;
+  displayDecimals: number;
+  timezone: string;
+  firstDayOfWeek: number;
+  dateFormatShort: string;
+  localeOverride: string | null;
+  currencyOverride: string | null;
+  timezoneOverride: string | null;
+  firstDayOfWeekOverride: number | null;
+  uiLocaleReady: boolean;
+  isFallback: boolean;
+};
+
+const defaultCurrentLocale: MockCurrentLocale = {
+  locale: 'es-CO',
+  language: 'es',
+  countryCode: 'CO',
+  currency: 'COP',
+  currencySymbol: '$',
+  legalDecimals: 2,
+  displayDecimals: 0,
+  timezone: 'America/Bogota',
+  firstDayOfWeek: 1,
+  dateFormatShort: 'dd/MM/yyyy',
+  localeOverride: null,
+  currencyOverride: null,
+  timezoneOverride: null,
+  firstDayOfWeekOverride: null,
+  uiLocaleReady: true,
+  isFallback: false,
+};
+
+let mockCurrentLocale = defaultCurrentLocale;
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -74,20 +114,7 @@ vi.mock('@/lib/trpc', () => ({
     tenantLocale: {
       get: {
         useQuery: () => ({
-          data: {
-            locale: 'es-CO',
-            language: 'es',
-            countryCode: 'CO',
-            currency: 'COP',
-            currencySymbol: '$',
-            legalDecimals: 2,
-            displayDecimals: 0,
-            timezone: 'America/Bogota',
-            firstDayOfWeek: 1,
-            dateFormatShort: 'dd/MM/yyyy',
-            uiLocaleReady: true,
-            isFallback: false,
-          },
+          data: mockCurrentLocale,
           isLoading: false,
           error: null,
         }),
@@ -113,6 +140,7 @@ import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 describe('CompanyLocaleSettingsCard (ENG-017)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockCurrentLocale = defaultCurrentLocale;
     await i18n.changeLanguage('en');
   });
 
@@ -161,5 +189,33 @@ describe('CompanyLocaleSettingsCard (ENG-017)', () => {
     expect(payload.countryCode).toBe('CO');
     expect(payload.currencyOverride).toBeNull();
     expect(payload.localeOverride).toBeNull();
+  });
+
+  it('preserves existing override fields when Save is clicked without edits', () => {
+    mockCurrentLocale = {
+      ...defaultCurrentLocale,
+      locale: 'en-US',
+      language: 'en',
+      currency: 'USD',
+      displayDecimals: 2,
+      timezone: 'America/Los_Angeles',
+      firstDayOfWeek: 0,
+      localeOverride: 'en-US',
+      currencyOverride: 'USD',
+      timezoneOverride: 'America/Los_Angeles',
+      firstDayOfWeekOverride: 0,
+    };
+
+    render(<CompanyLocaleSettingsCard />);
+    fireEvent.click(screen.getByTestId('locale-save'));
+
+    const [, payload] = mutate.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(payload).toMatchObject({
+      countryCode: 'CO',
+      localeOverride: 'en-US',
+      currencyOverride: 'USD',
+      timezoneOverride: 'America/Los_Angeles',
+      firstDayOfWeekOverride: 0,
+    });
   });
 });

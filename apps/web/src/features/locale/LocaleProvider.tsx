@@ -43,6 +43,10 @@ export interface ResolvedLocale {
   timezone: string;
   firstDayOfWeek: number;
   dateFormatShort: string;
+  localeOverride: string | null;
+  currencyOverride: string | null;
+  timezoneOverride: string | null;
+  firstDayOfWeekOverride: number | null;
   uiLocaleReady: boolean;
   isFallback: boolean;
 }
@@ -58,6 +62,10 @@ const FALLBACK_RESOLVED_LOCALE: ResolvedLocale = {
   timezone: 'America/New_York',
   firstDayOfWeek: 0,
   dateFormatShort: 'MM/dd/yyyy',
+  localeOverride: null,
+  currencyOverride: null,
+  timezoneOverride: null,
+  firstDayOfWeekOverride: null,
   uiLocaleReady: true,
   isFallback: true,
 };
@@ -86,21 +94,28 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const resolved: ResolvedLocale =
     (query.data as ResolvedLocale | undefined) ?? FALLBACK_RESOLVED_LOCALE;
 
-  // Keep the formatter singleton + i18next bundle in lockstep with
-  // whatever resolution we have right now. Firing on every mount is
-  // cheap because the comparison is primitive string equality; React
-  // bails the effect when the dependencies are unchanged.
+  // Keep tenant-driven formatting + copy in lockstep only after the
+  // tenant locale is known. While unauthenticated, leave i18next on
+  // the user's persisted language instead of forcing the fallback
+  // en-US bundle over the login screen.
   useEffect(() => {
+    if (!isAuthenticated || tenantId === null || !query.data) {
+      setActiveTenantLocale(null);
+      return;
+    }
+
     setActiveTenantLocale({
-      locale: resolved.locale,
-      currency: resolved.currency,
-      displayDecimals: resolved.displayDecimals,
+      locale: query.data.locale,
+      currency: query.data.currency,
+      displayDecimals: query.data.displayDecimals,
+      timezone: query.data.timezone,
+      dateFormatShort: query.data.dateFormatShort,
     });
     const currentLang = i18n.resolvedLanguage ?? i18n.language;
-    if (resolved.language && currentLang !== resolved.language) {
-      void i18n.changeLanguage(resolved.language);
+    if (query.data.language && currentLang !== query.data.language) {
+      void i18n.changeLanguage(query.data.language);
     }
-  }, [resolved.locale, resolved.currency, resolved.displayDecimals, resolved.language]);
+  }, [isAuthenticated, tenantId, query.data]);
 
   // Cleanup on unmount: reset the singleton so a subsequent mount
   // (e.g. logout then re-login as a different tenant) does not read

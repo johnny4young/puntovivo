@@ -96,6 +96,8 @@ interface ActiveTenantLocaleSnapshot {
   locale: string;
   currency: string;
   displayDecimals: number;
+  timezone: string;
+  dateFormatShort: string;
 }
 
 let activeTenantLocale: ActiveTenantLocaleSnapshot | null = null;
@@ -145,7 +147,18 @@ export function formatDate(
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  const resolvedTimezone = activeTenantLocale?.timezone;
+
+  if (!options && !locale && activeTenantLocale?.dateFormatShort) {
+    return formatDateByPattern(
+      d,
+      activeTenantLocale.dateFormatShort,
+      activeTenantLocale.timezone
+    );
+  }
+
   return new Intl.DateTimeFormat(resolvedLocale, {
+    ...(resolvedTimezone ? { timeZone: resolvedTimezone } : {}),
     dateStyle: 'medium',
     ...options,
   }).format(d);
@@ -154,10 +167,59 @@ export function formatDate(
 export function formatDateTime(date: Date | string, locale?: string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+
+  if (!locale && activeTenantLocale?.dateFormatShort) {
+    const time = new Intl.DateTimeFormat(resolvedLocale, {
+      timeStyle: 'short',
+      timeZone: activeTenantLocale.timezone,
+    }).format(d);
+    return `${formatDateByPattern(
+      d,
+      activeTenantLocale.dateFormatShort,
+      activeTenantLocale.timezone
+    )} ${time}`;
+  }
+
   return new Intl.DateTimeFormat(resolvedLocale, {
+    ...(activeTenantLocale?.timezone ? { timeZone: activeTenantLocale.timezone } : {}),
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(d);
+}
+
+function formatDateByPattern(
+  date: Date,
+  pattern: string,
+  timeZone: string
+): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = new Map(
+    parts
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, part.value])
+  );
+  const year = values.get('year') ?? '0000';
+  const month = values.get('month') ?? '01';
+  const day = values.get('day') ?? '01';
+
+  switch (pattern) {
+    case 'dd/MM/yyyy':
+      return `${day}/${month}/${year}`;
+    case 'MM/dd/yyyy':
+      return `${month}/${day}/${year}`;
+    case 'yyyy-MM-dd':
+      return `${year}-${month}-${day}`;
+    default:
+      return new Intl.DateTimeFormat(getActiveLocale(), {
+        dateStyle: 'medium',
+        timeZone,
+      }).format(date);
+  }
 }
 
 export function generateId(): string {

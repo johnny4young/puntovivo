@@ -2528,6 +2528,306 @@ export const tenantLocaleSettingsRelations = relations(
 );
 
 // ============================================================================
+// DIAN IDENTIFICATION TYPES CATALOG (ENG-020 Phase A)
+// ============================================================================
+//
+// Global, read-only catalog of the 10 identification types recognised by
+// Colombia's DIAN (Dirección de Impuestos y Aduanas Nacionales). Seeded
+// on boot by `seedDianIdentificationTypes()` in `db/index.ts`. Keyed by
+// the DIAN-issued numeric code (`11`, `13`, `22`, …) which is what the
+// fiscal XML needs, while `abbr` is the human-friendly label operators
+// know ("CC", "NIT", "CE") and that buyer snapshots carry verbatim.
+//
+// Distinct from the existing `identification_types` table, which is
+// tenant-scoped and stores each tenant's custom catalog for UX flows.
+// The two link only via `abbr` when a tenant wires up their identificationTypes
+// row to a DIAN code (that mapping is out of scope for ENG-020 Phase A
+// and is handled by operator choice in the admin fiscal settings later).
+
+/** Global, read-only DIAN identification type catalog. Seeded at boot. */
+export const dianIdentificationTypes = sqliteTable(
+  'dian_identification_types',
+  {
+    /** DIAN-issued 2-digit code ('11', '13', '22'). Primary key. */
+    code: text('code').primaryKey(),
+    /** Short human-friendly abbreviation ('CC', 'NIT', 'CE'). */
+    abbr: text('abbr').notNull(),
+    nameEs: text('name_es').notNull(),
+    nameEn: text('name_en').notNull(),
+    /** When the type is issued to natural persons (vs. legal entities). */
+    naturalPerson: integer('natural_person', { mode: 'boolean' })
+      .notNull()
+      .default(true),
+  }
+);
+
+export type DianIdentificationType = typeof dianIdentificationTypes.$inferSelect;
+export type NewDianIdentificationType = typeof dianIdentificationTypes.$inferInsert;
+
+// ============================================================================
+// FISCAL DOCUMENTS (ENG-020 Phase A — Colombia DIAN MVP)
+// ============================================================================
+//
+// Four tenant-scoped tables that together model the fiscal-document
+// lifecycle without committing to any specific Proveedor Tecnológico.
+// ENG-021 (Fase B) swaps the `MockAdapter` implementation behind the
+// `FiscalAdapter` interface for a real PT integration — the tables
+// themselves do not change shape.
+//
+// Immutability contract: once a `fiscal_document` row is inserted it
+// MUST NOT be updated except through a very narrow set of status
+// transitions managed by `services/fiscal/orchestrator.ts`. The buyer
+// and line snapshots are FROZEN at issuance time so later mutations
+// of the `customers` / `products` rows cannot alter the emitted fiscal
+// record. This is a legal requirement under DIAN Resolución 165/2023.
+//
+// Scope per tenant:
+// - `fiscal_numbering_resolutions` — DIAN-issued consecutive ranges.
+//   Each site holds one active range per kind (DEE, FEV, NC, ND).
+// - `fiscal_certificates` — references to the p12 cert + passphrase
+//   (stored out of band; only the ref + validity metadata lives here).
+// - `fiscal_documents` — one row per emitted fiscal event.
+// - `fiscal_document_items` — line snapshot; frozen product name/sku.
+
+/** Kinds of fiscal documents DIAN recognises for POS / e-invoicing. */
+export const fiscalDocumentKindEnum = ['DEE', 'FEV', 'NC', 'ND'] as const;
+export type FiscalDocumentKind = (typeof fiscalDocumentKindEnum)[number];
+
+/** Lifecycle states a fiscal document can occupy. */
+export const fiscalDocumentStatusEnum = [
+  'pending',
+  'sent',
+  'accepted',
+  'rejected',
+  'contingency',
+] as const;
+export type FiscalDocumentStatus = (typeof fiscalDocumentStatusEnum)[number];
+
+/** Source event that triggered the document. */
+export const fiscalDocumentSourceEnum = ['sale', 'void', 'return'] as const;
+export type FiscalDocumentSource = (typeof fiscalDocumentSourceEnum)[number];
+
+export const fiscalNumberingResolutions = sqliteTable(
+  'fiscal_numbering_resolutions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    kind: text('kind', { enum: fiscalDocumentKindEnum }).notNull(),
+    /** DIAN resolution number — opaque string the PT expects verbatim. */
+    resolutionNumber: text('resolution_number').notNull(),
+    prefix: text('prefix').notNull(),
+    fromNumber: integer('from_number').notNull(),
+    toNumber: integer('to_number').notNull(),
+    currentNumber: integer('current_number').notNull(),
+    /** Technical key provided by DIAN, used in CUFE inputs. */
+    technicalKey: text('technical_key').notNull(),
+    validFrom: text('valid_from').notNull(),
+    validUntil: text('valid_until').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_fiscal_resolutions_tenant').on(table.tenantId),
+    index('idx_fiscal_resolutions_site_kind').on(
+      table.siteId,
+      table.kind,
+      table.isActive
+    ),
+  ]
+);
+
+export const fiscalCertificates = sqliteTable(
+  'fiscal_certificates',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    alias: text('alias').notNull(),
+    /** Reference (URL or path) to the p12 blob — never the blob itself. */
+    p12Ref: text('p12_ref').notNull(),
+    /** Reference to the passphrase (vault / KMS), never the passphrase. */
+    passphraseRef: text('passphrase_ref').notNull(),
+    /** PEM-encoded subject DN for the admin UI. Non-secret. */
+    subjectDn: text('subject_dn'),
+    validFrom: text('valid_from').notNull(),
+    validUntil: text('valid_until').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [index('idx_fiscal_certificates_tenant').on(table.tenantId)]
+);
+
+export const fiscalDocuments = sqliteTable(
+  'fiscal_documents',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    /** Source event type (which sale lifecycle hook fired). */
+    source: text('source', { enum: fiscalDocumentSourceEnum }).notNull(),
+    /** Id of the source row — sale id, sale return id, etc. */
+    sourceId: text('source_id').notNull(),
+    /** DIAN document kind (DEE, FEV, NC, ND). */
+    kind: text('kind', { enum: fiscalDocumentKindEnum }).notNull(),
+    /** Numbering resolution used to generate the consecutive. */
+    resolutionId: text('resolution_id')
+      .notNull()
+      .references(() => fiscalNumberingResolutions.id),
+    consecutive: integer('consecutive').notNull(),
+    documentNumber: text('document_number').notNull(),
+    /**
+     * CUFE (Código Único de Factura Electrónica). 96-char hex string
+     * computed via SHA-384 per DIAN Resolución 165/2023. Unique.
+     */
+    cufe: text('cufe').notNull(),
+    status: text('status', { enum: fiscalDocumentStatusEnum })
+      .notNull()
+      .default('pending'),
+    // --- Buyer snapshot (frozen at emission) ---------------------------------
+    /** null when consumidor final; otherwise the source customer id. */
+    customerId: text('customer_id').references(() => customers.id),
+    buyerTaxId: text('buyer_tax_id').notNull(),
+    buyerTaxIdTypeCode: text('buyer_tax_id_type_code')
+      .notNull()
+      .references(() => dianIdentificationTypes.code),
+    buyerName: text('buyer_name').notNull(),
+    buyerEmail: text('buyer_email'),
+    buyerAddress: text('buyer_address'),
+    buyerCity: text('buyer_city'),
+    buyerDepartment: text('buyer_department'),
+    buyerCountry: text('buyer_country'),
+    // --- Sale header snapshot ------------------------------------------------
+    subtotal: real('subtotal').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    discountAmount: real('discount_amount').notNull().default(0),
+    totalAmount: real('total_amount').notNull().default(0),
+    currencyCode: text('currency_code').notNull(),
+    localeCode: text('locale_code').notNull(),
+    /**
+     * When the source is `void` or `return`, this holds the CUFE of the
+     * original `fiscal_documents` row being compensated.
+     */
+    originalCufe: text('original_cufe'),
+    reasonCode: text('reason_code'),
+    /** Provider that emitted the document. Fase A = 'mock'. */
+    providerId: text('provider_id').notNull(),
+    /** PT response JSON snapshot for troubleshooting. Null for MockAdapter. */
+    providerResponse: text('provider_response', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    /** Reference to the XML blob (storage path). Null until stored. */
+    xmlRef: text('xml_ref'),
+    /** Retry count for the contingency queue. */
+    retries: integer('retries').notNull().default(0),
+    emittedByUserId: text('emitted_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    emittedAt: text('emitted_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_fiscal_documents_tenant').on(table.tenantId),
+    index('idx_fiscal_documents_source').on(table.source, table.sourceId),
+    uniqueIndex('idx_fiscal_documents_cufe').on(table.cufe),
+    uniqueIndex('idx_fiscal_documents_tenant_doc').on(
+      table.tenantId,
+      table.documentNumber
+    ),
+    index('idx_fiscal_documents_status').on(table.status),
+  ]
+);
+
+export const fiscalDocumentItems = sqliteTable(
+  'fiscal_document_items',
+  {
+    id: text('id').primaryKey(),
+    fiscalDocumentId: text('fiscal_document_id')
+      .notNull()
+      .references(() => fiscalDocuments.id, { onDelete: 'cascade' }),
+    lineNumber: integer('line_number').notNull(),
+    /** Product id at emission time — kept only for lineage; NOT joined. */
+    productId: text('product_id'),
+    /** Product name snapshot. Frozen. */
+    productName: text('product_name').notNull(),
+    productSku: text('product_sku'),
+    /** Unit of measure code (DIAN spec: 'EA', 'KGM', 'LTR', …). */
+    unitMeasureCode: text('unit_measure_code').notNull().default('EA'),
+    quantity: real('quantity').notNull(),
+    unitPrice: real('unit_price').notNull(),
+    discountAmount: real('discount_amount').notNull().default(0),
+    taxRate: real('tax_rate').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    /** DIAN tax category code ('01' IVA, '04' INC, '05' ReteIVA, …). */
+    taxCategoryCode: text('tax_category_code').notNull().default('01'),
+    lineTotal: real('line_total').notNull(),
+  },
+  table => [
+    index('idx_fiscal_document_items_doc').on(table.fiscalDocumentId),
+  ]
+);
+
+export const fiscalNumberingResolutionsRelations = relations(
+  fiscalNumberingResolutions,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [fiscalNumberingResolutions.tenantId],
+      references: [tenants.id],
+    }),
+    site: one(sites, {
+      fields: [fiscalNumberingResolutions.siteId],
+      references: [sites.id],
+    }),
+  })
+);
+
+export const fiscalDocumentsRelations = relations(
+  fiscalDocuments,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [fiscalDocuments.tenantId],
+      references: [tenants.id],
+    }),
+    resolution: one(fiscalNumberingResolutions, {
+      fields: [fiscalDocuments.resolutionId],
+      references: [fiscalNumberingResolutions.id],
+    }),
+    emittedBy: one(users, {
+      fields: [fiscalDocuments.emittedByUserId],
+      references: [users.id],
+    }),
+    items: many(fiscalDocumentItems),
+  })
+);
+
+export const fiscalDocumentItemsRelations = relations(
+  fiscalDocumentItems,
+  ({ one }) => ({
+    fiscalDocument: one(fiscalDocuments, {
+      fields: [fiscalDocumentItems.fiscalDocumentId],
+      references: [fiscalDocuments.id],
+    }),
+  })
+);
+
+export type FiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferSelect;
+export type NewFiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferInsert;
+export type FiscalCertificate = typeof fiscalCertificates.$inferSelect;
+export type NewFiscalCertificate = typeof fiscalCertificates.$inferInsert;
+export type FiscalDocument = typeof fiscalDocuments.$inferSelect;
+export type NewFiscalDocument = typeof fiscalDocuments.$inferInsert;
+export type FiscalDocumentItem = typeof fiscalDocumentItems.$inferSelect;
+export type NewFiscalDocumentItem = typeof fiscalDocumentItems.$inferInsert;
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 

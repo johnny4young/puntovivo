@@ -7,9 +7,18 @@ import {
   generateId,
   debounce,
   isOnline,
+  setActiveTenantLocale,
 } from '../utils';
 
 describe('utils', () => {
+  beforeEach(() => {
+    setActiveTenantLocale(null);
+  });
+
+  afterEach(() => {
+    setActiveTenantLocale(null);
+  });
+
   describe('cn', () => {
     it('should merge class names correctly', () => {
       expect(cn('foo', 'bar')).toBe('foo bar');
@@ -96,6 +105,30 @@ describe('utils', () => {
       expect(result).toContain('Dec');
       expect(result).toContain('2024');
     });
+
+    it('uses the active tenant short date format and timezone', () => {
+      setActiveTenantLocale({
+        locale: 'es-CO',
+        currency: 'COP',
+        displayDecimals: 0,
+        timezone: 'America/Bogota',
+        dateFormatShort: 'dd/MM/yyyy',
+      });
+
+      expect(formatDate('2026-04-23T23:30:00Z')).toBe('23/04/2026');
+    });
+
+    it('uses US ordering when the active tenant format is MM/dd/yyyy', () => {
+      setActiveTenantLocale({
+        locale: 'en-US',
+        currency: 'USD',
+        displayDecimals: 2,
+        timezone: 'America/New_York',
+        dateFormatShort: 'MM/dd/yyyy',
+      });
+
+      expect(formatDate('2026-04-23T23:30:00Z')).toBe('04/23/2026');
+    });
   });
 
   describe('formatDateTime', () => {
@@ -126,6 +159,19 @@ describe('utils', () => {
       // Either should contain AM/PM or be in 24h format
       expect(morningResult).toMatch(/AM|PM|\d{2}:\d{2}/);
       expect(eveningResult).toMatch(/AM|PM|\d{2}:\d{2}/);
+    });
+
+    it('combines tenant short date with tenant-local time', () => {
+      setActiveTenantLocale({
+        locale: 'es-CO',
+        currency: 'COP',
+        displayDecimals: 0,
+        timezone: 'America/Bogota',
+        dateFormatShort: 'dd/MM/yyyy',
+      });
+
+      const result = formatDateTime('2026-04-23T23:30:00Z');
+      expect(result).toMatch(/^23\/04\/2026\s/);
     });
   });
 

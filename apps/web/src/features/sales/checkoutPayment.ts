@@ -4,6 +4,8 @@ import type {
 } from '@/features/sales/SalePaymentModal';
 import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
 
+type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded'>;
+
 /**
  * A sale is considered multi-tender (and therefore worth rendering a tender
  * breakdown for) when it has two or more persisted payment rows. Single-row
@@ -46,7 +48,7 @@ function getDominantSplitTenderMethod(
 export function getRequestedPaymentStatus(
   values: SalePaymentValues,
   total: number
-): PaymentStatus {
+): CompletablePaymentStatus {
   if (values.tenders.length > 0) {
     return 'paid';
   }
@@ -78,7 +80,7 @@ export function getCheckoutPaymentState(
   total: number
 ): {
   paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
+  paymentStatus: CompletablePaymentStatus;
   amountReceived: number;
   payments: CheckoutForwardTender[] | undefined;
 } {

@@ -2311,6 +2311,23 @@ Before starting MVP fiscal implementation (Iter 3 of the April 2026 plan):
 5. Agree on error-code mapping: PT's native error codes → Puntovivo's `ServerErrorWithCode` set.
 6. Plan for PT-outage drills: what does Puntovivo do when the PT itself is down, not just DIAN?
 
+#### Phase 11.0 Status Update (ENG-020 shipped, April 2026)
+
+**Fase A shipped** (ENG-020, this commit bundle). The whole DIAN
+data model, adapter interface, MockAdapter implementation, sale
+lifecycle hooks, and admin reporting UI are in main without waiting
+for a Proveedor Tecnológico contract:
+
+- Migrations `0004_dian_identification_types.sql` + `0005_fiscal_documents.sql` land the global 10-code DIAN ID catalog plus the 4 tenant-scoped fiscal tables. Buyer (`buyerTaxId`, `buyerName`, `buyerAddress`, 5 more) and line (`productName`, `productSku`, `unitMeasureCode`, 7 more) snapshot columns are frozen at emission — they must not be updated thereafter.
+- `services/fiscal/cufe.ts` computes the DIAN CUFE deterministically via Node's built-in `crypto.createHash('sha384')`, exactly matching the canonical input concatenation order from Resolución 165/2023: `documentNumber + issueDate + issueTime + subtotal(2dp) + '01' + ivaAmount + '04' + incAmount + '03' + icaAmount + totalAmount + issuerNit + buyerIdTypeCode + buyerIdNumber + technicalKey + environment`.
+- `services/fiscal/{adapter,mock-adapter,registry}.ts` — `FiscalAdapter` interface (`issue` / `voidDocument` / `fetchStatus` + capability flags), `MockAdapter` that wraps `computeCufe` with a `contingencyOracle` hook for offline-path tests, module-level `getFiscalAdapter()` singleton that ENG-021 will swap at boot.
+- `services/fiscal/orchestrator.ts` — `emitFiscalDocument` idempotent by `(tenantId, source, sourceId, kind)`, reads the active numbering resolution + tenant locale, falls back to `CONSUMIDOR_FINAL` constants (`222222222222` / `'31'` / `'Consumidor final'`) when `customerId` is null, and persists both the header and line rows inside the caller's transaction. Hooked into four sale lifecycle points in `trpc/routers/sales.ts` as best-effort post-tx calls (non-blocking on failure).
+- Feature flag `tenants.settings.fiscal_dian_enabled` defaults `false` so existing tests keep passing on synthetic tenants. The dev seed flips it to `true` for `demo-co` and inserts one DEE resolution + one placeholder certificate; every seeded sale now emits a fiscal document through the MockAdapter.
+- `reports.fiscal.list` + `getByCufe` admin router reads frozen snapshots directly — **never joins `customers` / `products`**. `architectural-lint.test.ts` enforces that invariant via regex-based scanning of `routers/reports/**` import lists.
+- Web UI: `FiscalDocumentListPage` (paged list with kind/status/source filters), `FiscalReportsPage` + `FiscalHabilitationWizard` (gated placeholder shell), `FiscalContingencyIndicator` (header badge); `fiscal.*` i18n namespace registered en/es; admin-only routes at `/fiscal-documents` and `/fiscal-reports`.
+
+**Fase B gating (ENG-021)**: unchanged. When a signed PT contract lands along with sandbox credentials + DIAN certificate + validated PT POC + error-code map, the swap is literally one `setFiscalAdapter(new FactureAdapter(...))` call at boot plus the XAdES + contingency daemon work inside `FactureAdapter`. No schema, no hook, no UI changes. See [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) for the updated gate list.
+
 #### Phase 11 Extension: Country-Parametrizable Fiscal Rules
 
 Goal:

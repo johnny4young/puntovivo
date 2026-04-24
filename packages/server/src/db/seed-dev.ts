@@ -44,6 +44,8 @@ import {
   countries,
   customers,
   departments,
+  fiscalCertificates,
+  fiscalNumberingResolutions,
   identificationTypes,
   locations,
   personTypes,
@@ -195,7 +197,11 @@ export async function seedDevData(
       id: tenantId,
       name: DEV_TENANT_NAME,
       slug: DEV_TENANT_SLUG,
-      settings: {},
+      // ENG-020 — enable DIAN emission for the Colombia demo tenant so
+      // every sale seeded through `sales.create` also produces a
+      // fiscal_documents row. Real tenants opt in via the admin
+      // habilitación wizard (stubbed in Fase E as placeholder UI).
+      settings: { fiscal_dian_enabled: true },
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -284,6 +290,56 @@ export async function seedDevData(
       })
       .run();
   }
+
+  // ----- 3b. Fiscal placeholders (ENG-020) --------------------------------
+  // The orchestrator skips emission when no active numbering resolution
+  // exists for the sale site. Seed one DEE range per site so the dev
+  // environment can exercise the full CUFE round-trip across both
+  // registers. ENG-021 swaps the technicalKey for a DIAN-issued value
+  // and plugs a real Proveedor Tecnológico certificate.
+  const devFiscalValidFrom = new Date();
+  const devFiscalValidUntil = new Date(devFiscalValidFrom);
+  devFiscalValidUntil.setFullYear(devFiscalValidUntil.getFullYear() + 1);
+  for (const [index, site] of siteRows.entries()) {
+    await db
+      .insert(fiscalNumberingResolutions)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId: site.id,
+        kind: 'DEE',
+        resolutionNumber: `1876000000${index + 1}`,
+        prefix: `SE${index + 1}P`,
+        fromNumber: 1,
+        toNumber: 10_000,
+        currentNumber: 0,
+        technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+        validFrom: devFiscalValidFrom.toISOString(),
+        validUntil: devFiscalValidUntil.toISOString(),
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  }
+  await db
+    .insert(fiscalCertificates)
+    .values({
+      id: nanoid(),
+      tenantId,
+      alias: 'dev-mock-certificate',
+      // Fase A ships a placeholder ref; Fase B wires a real p12 blob
+      // via a storage service. The ref itself is non-secret.
+      p12Ref: 'mock://certificates/demo-co.p12',
+      passphraseRef: 'mock://vault/demo-co-passphrase',
+      subjectDn: 'CN=Demo Retail Colombia, O=Puntovivo, C=CO',
+      validFrom: devFiscalValidFrom.toISOString(),
+      validUntil: devFiscalValidUntil.toISOString(),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
 
   // ----- 4. Locations (tenant-wide) --------------------------------------
   const locationRows = DEV_LOCATIONS.map((loc, index) => ({

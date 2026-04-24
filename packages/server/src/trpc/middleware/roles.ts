@@ -5,7 +5,7 @@ import { tenantProcedure } from './tenant.js';
 
 type AppUserRole = (typeof userRoleEnum)[number];
 
-function createRoleGuard(
+export function createRoleGuard(
   allowedRoles: readonly AppUserRole[],
   message: string
 ) {
@@ -31,5 +31,12 @@ export const managerOrAdminProcedure = tenantProcedure.use(
   createRoleGuard(
     ['admin', 'manager'],
     'Only administrators and managers can perform this action'
+  )
+);
+
+export const cashierManagerOrAdminProcedure = tenantProcedure.use(
+  createRoleGuard(
+    ['admin', 'manager', 'cashier'],
+    'Only cashiers, managers, and administrators can perform this action'
   )
 );

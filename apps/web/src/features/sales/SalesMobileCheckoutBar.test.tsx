@@ -110,4 +110,41 @@ describe('SalesMobileCheckoutBar', () => {
     expect(onCharge).not.toHaveBeenCalled();
   });
 
+  it('exposes park actions on mobile when wired', async () => {
+    await i18next.changeLanguage('es');
+
+    const user = userEvent.setup();
+    const onSuspend = vi.fn();
+    const onNewSale = vi.fn();
+    const onToggleSuspendedPanel = vi.fn();
+
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        canCloseCashSession
+        onOpenSearch={vi.fn()}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+        canSuspend
+        onSuspend={onSuspend}
+        onNewSale={onNewSale}
+        suspendedDraftsCount={2}
+        onToggleSuspendedPanel={onToggleSuspendedPanel}
+      />
+    );
+
+    await user.click(screen.getByTestId('mobile-checkout-suspend'));
+    await user.click(screen.getByTestId('mobile-checkout-new-sale'));
+    await user.click(screen.getByTestId('mobile-checkout-open-suspended-panel'));
+
+    expect(onSuspend).toHaveBeenCalledTimes(1);
+    expect(onNewSale).toHaveBeenCalledTimes(1);
+    expect(onToggleSuspendedPanel).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
 });

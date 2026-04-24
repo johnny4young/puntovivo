@@ -15,15 +15,18 @@
  * Save.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe2 } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 
+const EMPTY_COUNTRIES: readonly never[] = [];
+const EMPTY_CURRENCIES: readonly never[] = [];
+
 export function CompanyLocaleSettingsCard() {
-  const { t } = useTranslation(['localeSettings', 'errors']);
+  const { t, i18n } = useTranslation(['localeSettings', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -31,14 +34,13 @@ export function CompanyLocaleSettingsCard() {
   const countriesQuery = trpc.tenantLocale.listCountries.useQuery();
   const currenciesQuery = trpc.tenantLocale.listCurrencies.useQuery();
 
-  // Local form state — hydrated once from the server. We do NOT keep
-  // the form state in sync on every server push to avoid clobbering
-  // in-progress edits.
+  // Local form state starts untouched; effective values are derived
+  // from server data until the admin edits a field.
   const [pickedCountry, setPickedCountry] = useState<string | null>(null);
-  const [currencyOverride, setCurrencyOverride] = useState<string>('');
-  const [localeOverride, setLocaleOverride] = useState<string>('');
-  const [timezoneOverride, setTimezoneOverride] = useState<string>('');
-  const [firstDayOverride, setFirstDayOverride] = useState<string>('');
+  const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
+  const [localeOverride, setLocaleOverride] = useState<string | null>(null);
+  const [timezoneOverride, setTimezoneOverride] = useState<string | null>(null);
+  const [firstDayOverride, setFirstDayOverride] = useState<string | null>(null);
 
   const mutation = trpc.tenantLocale.update.useMutation({
     onSuccess: async (_data, variables) => {
@@ -62,26 +64,28 @@ export function CompanyLocaleSettingsCard() {
     },
   });
 
-  const countries = countriesQuery.data ?? [];
-  const currencies = currenciesQuery.data ?? [];
+  const countries = countriesQuery.data ?? EMPTY_COUNTRIES;
+  const currencies = currenciesQuery.data ?? EMPTY_CURRENCIES;
   const current = currentQuery.data;
 
-  // Seed the form state with whatever the server returned so the
-  // admin sees their existing configuration pre-selected. The useEffect
-  // guard on `pickedCountry === null` ensures we do not clobber
-  // in-progress edits when the query re-fetches (e.g. tenant switch
-  // during a long-lived session).
-  useEffect(() => {
-    if (pickedCountry === null && current?.countryCode) {
-      setPickedCountry(current.countryCode);
-    }
-  }, [pickedCountry, current?.countryCode]);
-
   const effectiveCountryCode = pickedCountry ?? current?.countryCode ?? null;
+  const effectiveCurrencyOverride =
+    currencyOverride ?? current?.currencyOverride ?? '';
+  const effectiveLocaleOverride =
+    localeOverride ?? current?.localeOverride ?? '';
+  const effectiveTimezoneOverride =
+    timezoneOverride ?? current?.timezoneOverride ?? '';
+  const effectiveFirstDayOverride =
+    firstDayOverride ??
+    (current?.firstDayOfWeekOverride === null ||
+    current?.firstDayOfWeekOverride === undefined
+      ? ''
+      : String(current.firstDayOfWeekOverride));
   const countryRow = useMemo(
     () => countries.find(c => c.code === effectiveCountryCode) ?? null,
     [countries, effectiveCountryCode]
   );
+  const isSpanish = (i18n.resolvedLanguage ?? i18n.language).startsWith('es');
 
   // Tentative locale for the live-preview. Overrides shadow the
   // country's defaults; when an override is blank we fall back to the
@@ -96,20 +100,20 @@ export function CompanyLocaleSettingsCard() {
       };
     }
     const currencyCode =
-      currencyOverride && currencyOverride.length > 0
-        ? currencyOverride
+      effectiveCurrencyOverride.length > 0
+        ? effectiveCurrencyOverride
         : countryRow.defaultCurrencyCode;
     const currencyRow = currencies.find(c => c.code === currencyCode);
     return {
       locale:
-        localeOverride && localeOverride.length > 0
-          ? localeOverride
+        effectiveLocaleOverride.length > 0
+          ? effectiveLocaleOverride
           : countryRow.defaultLocale,
       currency: currencyCode,
       displayDecimals: currencyRow?.displayDecimals ?? 2,
       dateFormatShort: countryRow.dateFormatShort,
     };
-  }, [countryRow, currencies, currencyOverride, localeOverride]);
+  }, [countryRow, currencies, effectiveCurrencyOverride, effectiveLocaleOverride]);
 
   const previewCurrency = useMemo(() => {
     try {
@@ -139,13 +143,23 @@ export function CompanyLocaleSettingsCard() {
     mutation.mutate({
       countryCode: effectiveCountryCode,
       localeOverride:
-        localeOverride.trim().length > 0 ? localeOverride.trim() : null,
+        effectiveLocaleOverride.trim().length > 0
+          ? effectiveLocaleOverride.trim()
+          : null,
       currencyOverride:
-        currencyOverride.trim().length > 0 ? currencyOverride.trim() : null,
+        effectiveCurrencyOverride.trim().length > 0
+          ? effectiveCurrencyOverride.trim()
+          : null,
       timezoneOverride:
-        timezoneOverride.trim().length > 0 ? timezoneOverride.trim() : null,
+        effectiveTimezoneOverride.trim().length > 0
+          ? effectiveTimezoneOverride.trim()
+          : null,
       firstDayOfWeekOverride:
-        firstDayOverride === '0' ? 0 : firstDayOverride === '1' ? 1 : null,
+        effectiveFirstDayOverride === '0'
+          ? 0
+          : effectiveFirstDayOverride === '1'
+            ? 1
+            : null,
     });
   };
 
@@ -181,7 +195,7 @@ export function CompanyLocaleSettingsCard() {
           <option value="">{t('localeSettings:card.countryPlaceholder')}</option>
           {countries.map(country => (
             <option key={country.code} value={country.code}>
-              {country.nameEs} ({country.code})
+              {isSpanish ? country.nameEs : country.nameEn} ({country.code})
             </option>
           ))}
         </select>
@@ -212,7 +226,7 @@ export function CompanyLocaleSettingsCard() {
             </span>
             <select
               className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-2 text-sm"
-              value={currencyOverride}
+              value={effectiveCurrencyOverride}
               onChange={event => setCurrencyOverride(event.target.value)}
               data-testid="locale-currency-override"
             >
@@ -223,7 +237,7 @@ export function CompanyLocaleSettingsCard() {
               </option>
               {currencies.map(currency => (
                 <option key={currency.code} value={currency.code}>
-                  {currency.code} — {currency.nameEs}
+                  {currency.code} — {isSpanish ? currency.nameEs : currency.nameEn}
                 </option>
               ))}
             </select>
@@ -235,7 +249,7 @@ export function CompanyLocaleSettingsCard() {
             <input
               type="text"
               className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-2 text-sm"
-              value={localeOverride}
+              value={effectiveLocaleOverride}
               onChange={event => setLocaleOverride(event.target.value)}
               placeholder={t('localeSettings:card.localeOverridePlaceholder', {
                 default: countryRow?.defaultLocale ?? '—',
@@ -249,7 +263,7 @@ export function CompanyLocaleSettingsCard() {
             <input
               type="text"
               className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-2 text-sm"
-              value={timezoneOverride}
+              value={effectiveTimezoneOverride}
               onChange={event => setTimezoneOverride(event.target.value)}
               placeholder={t('localeSettings:card.timezoneOverridePlaceholder', {
                 default: countryRow?.defaultTimezone ?? '—',
@@ -262,12 +276,15 @@ export function CompanyLocaleSettingsCard() {
             </span>
             <select
               className="mt-1 block w-full rounded-md border border-secondary-300 bg-white px-2 py-2 text-sm"
-              value={firstDayOverride}
+              value={effectiveFirstDayOverride}
               onChange={event => setFirstDayOverride(event.target.value)}
             >
               <option value="">
                 {t('localeSettings:card.firstDayOfWeekDefault', {
-                  default: countryRow?.firstDayOfWeek === 0 ? 'Sunday' : 'Monday',
+                  default:
+                    countryRow?.firstDayOfWeek === 0
+                      ? t('localeSettings:card.firstDayOfWeekSunday')
+                      : t('localeSettings:card.firstDayOfWeekMonday'),
                 })}
               </option>
               <option value="0">{t('localeSettings:card.firstDayOfWeekSunday')}</option>

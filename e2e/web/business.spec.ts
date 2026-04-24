@@ -1346,6 +1346,9 @@ test.describe('web business flows', () => {
       password: scenario.cashier.password,
       defaultPath: '/sales',
     });
+    const activeSite = scenario.sites[0];
+    expect(activeSite, 'seed scenario should include an active site').toBeTruthy();
+    await switchToSite(page, activeSite.name);
 
     const stockBefore = getProductStock(scenario.product.id);
     expect(stockBefore).toBe(scenario.product.totalStock);
@@ -1427,7 +1430,7 @@ test.describe('web business flows', () => {
 
     // Per-site inventory balance should mirror the product-level total.
     expect(
-      getInventoryBalance(scenario.activeSite.id, scenario.product.id)?.onHand
+      getInventoryBalance(activeSite.id, scenario.product.id)?.onHand
     ).toBe(scenario.product.stockPerSite - 2);
 
     // Audit trail of the draft → completed transition is exercised by

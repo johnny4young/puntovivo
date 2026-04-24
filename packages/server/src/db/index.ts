@@ -1203,6 +1203,111 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       first_day_of_week_override INTEGER,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- ENG-020 Phase A: global DIAN identification types (10 official rows).
+    CREATE TABLE IF NOT EXISTS dian_identification_types (
+      code TEXT PRIMARY KEY,
+      abbr TEXT NOT NULL,
+      name_es TEXT NOT NULL,
+      name_en TEXT NOT NULL,
+      natural_person INTEGER NOT NULL DEFAULT 1
+    );
+
+    -- ENG-020 Phase B: fiscal documents domain (4 tenant-scoped tables).
+    CREATE TABLE IF NOT EXISTS fiscal_numbering_resolutions (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      site_id TEXT NOT NULL REFERENCES sites(id),
+      kind TEXT NOT NULL,
+      resolution_number TEXT NOT NULL,
+      prefix TEXT NOT NULL,
+      from_number INTEGER NOT NULL,
+      to_number INTEGER NOT NULL,
+      current_number INTEGER NOT NULL,
+      technical_key TEXT NOT NULL,
+      valid_from TEXT NOT NULL,
+      valid_until TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fiscal_resolutions_tenant ON fiscal_numbering_resolutions (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_fiscal_resolutions_site_kind ON fiscal_numbering_resolutions (site_id, kind, is_active);
+
+    CREATE TABLE IF NOT EXISTS fiscal_certificates (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      alias TEXT NOT NULL,
+      p12_ref TEXT NOT NULL,
+      passphrase_ref TEXT NOT NULL,
+      subject_dn TEXT,
+      valid_from TEXT NOT NULL,
+      valid_until TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fiscal_certificates_tenant ON fiscal_certificates (tenant_id);
+
+    CREATE TABLE IF NOT EXISTS fiscal_documents (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      source TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      resolution_id TEXT NOT NULL REFERENCES fiscal_numbering_resolutions(id),
+      consecutive INTEGER NOT NULL,
+      document_number TEXT NOT NULL,
+      cufe TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      customer_id TEXT REFERENCES customers(id),
+      buyer_tax_id TEXT NOT NULL,
+      buyer_tax_id_type_code TEXT NOT NULL REFERENCES dian_identification_types(code),
+      buyer_name TEXT NOT NULL,
+      buyer_email TEXT,
+      buyer_address TEXT,
+      buyer_city TEXT,
+      buyer_department TEXT,
+      buyer_country TEXT,
+      subtotal REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      discount_amount REAL NOT NULL DEFAULT 0,
+      total_amount REAL NOT NULL DEFAULT 0,
+      currency_code TEXT NOT NULL,
+      locale_code TEXT NOT NULL,
+      original_cufe TEXT,
+      reason_code TEXT,
+      provider_id TEXT NOT NULL,
+      provider_response TEXT,
+      xml_ref TEXT,
+      retries INTEGER NOT NULL DEFAULT 0,
+      emitted_by_user_id TEXT NOT NULL REFERENCES users(id),
+      emitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_fiscal_documents_tenant ON fiscal_documents (tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_fiscal_documents_source ON fiscal_documents (source, source_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fiscal_documents_cufe ON fiscal_documents (cufe);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fiscal_documents_tenant_doc ON fiscal_documents (tenant_id, document_number);
+    CREATE INDEX IF NOT EXISTS idx_fiscal_documents_status ON fiscal_documents (status);
+
+    CREATE TABLE IF NOT EXISTS fiscal_document_items (
+      id TEXT PRIMARY KEY,
+      fiscal_document_id TEXT NOT NULL REFERENCES fiscal_documents(id) ON DELETE CASCADE,
+      line_number INTEGER NOT NULL,
+      product_id TEXT,
+      product_name TEXT NOT NULL,
+      product_sku TEXT,
+      unit_measure_code TEXT NOT NULL DEFAULT 'EA',
+      quantity REAL NOT NULL,
+      unit_price REAL NOT NULL,
+      discount_amount REAL NOT NULL DEFAULT 0,
+      tax_rate REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      tax_category_code TEXT NOT NULL DEFAULT '01',
+      line_total REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_fiscal_document_items_doc ON fiscal_document_items (fiscal_document_id);
   `);
 
   ensureColumn(client, 'products', 'price2', 'price2 REAL NOT NULL DEFAULT 0');
@@ -1319,6 +1424,11 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
   // the seed idempotent and deterministic even as operators upgrade
   // between versions that add new rows or tweak a symbol.
   seedLocaleCatalogs(client);
+  // ENG-020 Phase A — DIAN identification types, 10 official codes from
+  // Resolución DIAN. Seeded with INSERT OR IGNORE so the function is
+  // safe to re-run; operators cannot reconfigure these rows because
+  // they map to regulated codes the fiscal XML requires verbatim.
+  seedDianIdentificationTypes(client);
 }
 
 /**
@@ -1410,6 +1520,37 @@ function seedLocaleCatalogs(client: Database.Database): void {
   ];
   for (const row of countries) {
     insertCountry.run(...row);
+  }
+}
+
+/**
+ * Seed the global `dian_identification_types` catalog with the 10
+ * official codes that Colombia's DIAN publishes. Primary-key-gated so
+ * the seed is idempotent across reboots. These rows are regulated —
+ * the `code` column feeds directly into the fiscal XML DIAN accepts,
+ * so operators cannot edit them.
+ *
+ * Source: DIAN Resolución 042/2020 Anexo Técnico, Codificación Tipos
+ * de Documento de Identificación.
+ */
+function seedDianIdentificationTypes(client: Database.Database): void {
+  const insert = client.prepare(
+    'INSERT OR IGNORE INTO dian_identification_types (code, abbr, name_es, name_en, natural_person) VALUES (?, ?, ?, ?, ?)'
+  );
+  const rows: Array<[string, string, string, string, number]> = [
+    ['11', 'RC', 'Registro civil', 'Civil registry', 1],
+    ['12', 'TI', 'Tarjeta de identidad', 'Identity card', 1],
+    ['13', 'CC', 'Cédula de ciudadanía', 'Citizenship ID', 1],
+    ['21', 'TE', 'Tarjeta de extranjería', 'Foreigner card', 1],
+    ['22', 'CE', 'Cédula de extranjería', 'Foreigner ID', 1],
+    ['31', 'NIT', 'Número de identificación tributaria', 'Tax identification number', 0],
+    ['41', 'PA', 'Pasaporte', 'Passport', 1],
+    ['42', 'TDE', 'Tipo de documento extranjero', 'Foreign document type', 1],
+    ['47', 'PEP', 'Permiso especial de permanencia', 'Special stay permit', 1],
+    ['91', 'NUIP', 'Número único de identificación personal', 'Unique personal identification number', 1],
+  ];
+  for (const row of rows) {
+    insert.run(...row);
   }
 }
 

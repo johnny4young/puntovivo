@@ -25,7 +25,7 @@ This table mirrors the authoritative `Status` column in
 | Iter 6b | [`ENG-018b`](./ROADMAP.md) | Shipped | ENG-018 UI follow-up: Zustand multi-cart workspace, SuspendedSalesPanel, suspend/new-sale/resume controls, Ctrl+P / Ctrl+R / Ctrl+Shift+P shortcuts, close-session drafts warning, row-selection in history, E2E round-trip. |
 | Iter 6c | [`ENG-018c`](./ROADMAP.md) | Shipped | Server: `sales.completeDraft` + `sales.discardDraft` stock reversal + ownership gate widen. Shipped 38e2a47. |
 | Iter 7 | [`ENG-019`](./ROADMAP.md) | Shipped | Sales receipt reprint — server 5d8f720 + UI 05eea2d. Spec §4. Ctrl+Shift+P + history row selection landed as part of ENG-018b. |
-| Iter 3 Fase A | [`ENG-020`](./ROADMAP.md) | Pending | Fiscal DIAN modeling + MockAdapter. Spec §5. |
+| Iter 3 Fase A | [`ENG-020`](./ROADMAP.md) | Shipped | Fiscal DIAN modeling + MockAdapter. Spec §5. |
 | — | [`ENG-017`](./ROADMAP.md) | Shipped | Country / locale / currency configuration — 3 catalog tables, resolver service, LocaleProvider, admin CompanyLocaleSettingsCard. See [LOCALE-CURRENCY.md](./LOCALE-CURRENCY.md). |
 | Iter 4 | [`ENG-022`](./ROADMAP.md) | Gated | Hardware POS (test lab hardware). Spec §6. |
 | Iter 3 Fase B | [`ENG-021`](./ROADMAP.md) | Gated | Fiscal DIAN PT integration (PT contract). Spec §7. |
@@ -36,8 +36,8 @@ This table mirrors the authoritative `Status` column in
 
 Value-per-day priority, skipping gated tickets:
 
-1. **Iter 3 Fase A / ENG-020** — fiscal DIAN modeling with MockAdapter (~2 weeks, deep-but-gateless, unblocks Fase B the day the PT contract lands; ENG-017 locale foundation is now in place)
-2. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
+1. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
+2. **Iter 3 Fase B / ENG-021** — fiscal DIAN PT integration — **only after the PT contract + certificate + resolution + PT POC land** (6 gates documented in [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)); the `MockAdapter` → real-adapter swap is a one-file change thanks to the seams ENG-020 shipped
 
 Anything gated (Iter 3 Fase B, Iter 4 without hardware, Iter 5) stops the flow and raises a question to the user — do not speculate a workaround.
 
@@ -54,7 +54,7 @@ Anything gated (Iter 3 Fase B, Iter 4 without hardware, Iter 5) stops the flow a
    - `sales.suspend({ saleId, label? })` — cashierProcedure, idempotent, persists `status='draft'` + `suspendedAt=now` + `suspendedBy=ctx.userId`. Optional audit log if tenant flag `audit_park_sale` is set.
    - `sales.resume({ saleId })` — cashierProcedure, SELECT FOR UPDATE (SQLite busy_timeout emulates), FORBIDDEN when `suspendedBy !== ctx.userId && ctx.role not in {manager, admin}`. Returns items + discounts + customer + notes and clears the suspended flags.
    - `sales.listDrafts({ filter: { site, cashier?, date? }, page, perPage })` — paginated. Default: cashier sees only their own; manager/admin sees all in the site.
-   - `sales.discardDraft({ saleId })` — marks `status='cancelled'` (stock never moved).
+   - `sales.discardDraft({ saleId })` — marks `status='cancelled'` and reverses the stock debited when the draft was created, scoped by tenant and original cash-session site.
    - Tests: suspend→resume round-trip preserves items/discounts/customer/notes; two cashiers cannot resume the same draft concurrently; cashier A cannot resume cashier B's draft but manager can; `listDrafts` respects role scope.
 
 2. **Commit 2 — UI web** (~2 days)
@@ -167,6 +167,16 @@ feat(sales): reprint receipt action in history and sale details
 3. **Commit 3** — `FiscalAdapter` interface + `MockAdapter` with canonical CUFE SHA-384 and simulated contingency.
 4. **Commit 4** — `fiscal-documents` orchestrator + hooks in `sales.complete`/`void`/`return` + dev seed for `fiscal_numbering_resolution` + `fiscal_certificate`.
 5. **Commit 5** — `FiscalHabilitationWizard` placeholder + `FiscalContingencyIndicator` + `FiscalDocumentListPage` + `FiscalReportsPage` + architectural lint.
+
+**5.2 Status**: **Shipped**. All five commits staged end-to-end:
+
+- Commit 1 — migration `0004_dian_identification_types.sql` + raw DDL + `seedDianIdentificationTypes` (10 DIAN codes).
+- Commit 2 — migration `0005_fiscal_documents.sql` + 4 fiscal tables with the immutable buyer + line snapshots in `schema.ts` + raw DDL mirror + `fiscalDocumentsRelations` drizzle joins.
+- Commit 3 — `services/fiscal/{cufe,adapter,mock-adapter,registry}.ts` + 13 tests (6 CUFE avalanche + canonical-order assertions, 7 MockAdapter issue/void/fetchStatus assertions).
+- Commit 4 — `services/fiscal/orchestrator.ts` with `emitFiscalDocument` idempotent by `(tenantId, source, sourceId, kind)`; four hooks wired into `sales.ts` (`create` completed / `completeDraft` / `void` / `returnSale`) as best-effort post-tx calls behind `tenants.settings.fiscal_dian_enabled`. Dev seed now enables the flag and inserts one DEE resolution per site + placeholder cert for `demo-co`; 10 orchestrator integration tests cover site-scoped resolution lookup and rollback when fiscal persistence fails mid-write, plus extended seed-dev assertion (20 sales → 20 fiscal documents).
+- Commit 5 — `trpc/routers/reports/fiscal.ts` + `reports/index.ts` aggregator mounted on `appRouter`, `trpc/schemas/fiscal.ts`, `architectural-lint.test.ts` (regex-based guard + synthetic positive test), `fiscal-reports.test.ts` (7 tests across list, paginated total count, getByCufe, cross-tenant isolation, FORBIDDEN, NOT_FOUND). Web UI: `FiscalDocumentListPage`, `FiscalReportsPage`, `FiscalHabilitationWizard`, header-mounted `FiscalContingencyIndicator`; `fiscal` i18n namespace registered en/es; admin-only `/fiscal-documents` and `/fiscal-reports` routes.
+
+ENG-021 is the one-file swap of `MockAdapter` → `FactureAdapter`/`HkaAdapter` — the seams hold (FiscalAdapter interface + registry + hooks).
 
 ## 6. Iter 4 / ENG-022 — Hardware POS 🟡
 
