@@ -20,7 +20,8 @@ export type ReceiptBlockKind =
   | 'tendersTable'
   | 'qr'
   | 'separator'
-  | 'barcode128';
+  | 'barcode128'
+  | 'appFooter';
 
 export type EditorReceiptBlock =
   | { type: 'logo'; align?: 'left' | 'center' | 'right'; maxHeightMm?: number }
@@ -43,7 +44,11 @@ export type EditorReceiptBlock =
   | { type: 'tendersTable'; showChange?: boolean }
   | { type: 'qr'; source: string; sizeMm?: number }
   | { type: 'separator'; char?: string }
-  | { type: 'barcode128'; source: string; heightMm?: number };
+  | { type: 'barcode128'; source: string; heightMm?: number }
+  // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+  // `show` defaults to `true`; setting it `false` keeps the block
+  // in the layout but hides its rendered output (soft toggle).
+  | { type: 'appFooter'; show?: boolean; align?: 'left' | 'center' | 'right' };
 
 export interface EditorReceiptLayout {
   paperWidth: '58mm' | '80mm' | 'letter' | 'a4';
@@ -102,6 +107,9 @@ export function buildDefaultLayouts(
         { type: 'tendersTable', showChange: true },
         { type: 'separator' },
         { type: 'text', value: t('editor.defaults.thankYou'), align: 'center', style: 'muted' },
+        // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
+        // Admins can toggle `show: false` to hide without deleting.
+        { type: 'appFooter', show: true, align: 'center' },
       ],
     },
     quotation: {
@@ -128,6 +136,7 @@ export function buildDefaultLayouts(
         },
         { type: 'separator' },
         { type: 'totalsBlock', show: ['subtotal', 'discount', 'taxTotal', 'grandTotal'] },
+        { type: 'appFooter', show: true, align: 'center' },
       ],
     },
     fiscal_dee: {
@@ -160,6 +169,7 @@ export function buildDefaultLayouts(
         { type: 'separator' },
         { type: 'qr', source: '{{fiscal.qrUrl}}', sizeMm: 25 },
         { type: 'text', value: 'CUFE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
+        { type: 'appFooter', show: true, align: 'center' },
       ],
     },
   };
@@ -193,6 +203,10 @@ export function createEmptyBlock(
       return { type: 'separator' };
     case 'barcode128':
       return { type: 'barcode128', source: '{{sale.saleNumber}}', heightMm: 12 };
+    case 'appFooter':
+      // ENG-016 pass 1 (item #5) — new block defaults to visible +
+      // centered; admins can toggle the `show` field from the form.
+      return { type: 'appFooter', show: true, align: 'center' };
     default: {
       const exhaustive: never = kind;
       void exhaustive;

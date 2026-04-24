@@ -413,55 +413,60 @@ Reference comparables worth studying before we lock in syntax:
   but pipe-based (`{{variable | limit:9}}`). Worth copying the UX
   of the autocomplete popover.
 
-### 4. Bindings documentation exposed in the editor
+### 4. Bindings documentation exposed in the editor — **shipped (ENG-016 pass 1)**
 
-- Add a permanent caption above `itemsTable` in the editor that
-  reads (translated): "Lines bound to the items of the current sale.
-  Use the columns below to pick what gets printed." so the operator
-  does not wonder "where does the list come from".
-- Add a permanent caption above `totalsBlock` with the table of
-  currently supported totals + where their values come from (same
-  content as the "Data bindings" section of this doc, but in a
-  tooltip / collapsible explainer).
+Shipped as part of ENG-016 pass 1:
 
-### 5. Puntovivo-branded footer elements
+- Permanent caption above `itemsTable` in the editor reads (translated):
+  "Rows are bound to the items in the current sale. Use the columns
+  below to pick which ones get printed." — so the operator does not
+  wonder where the list comes from.
+- Collapsible explainer above `totalsBlock` lists the supported
+  totals (subtotal, discount, tax, tip, grand total) + where their
+  values come from, gated behind a chevron so it does not clutter
+  the editor by default.
+- Both captions live under `apps/web/src/features/receipt-templates/ReceiptTemplateEditor.tsx` and are exercised by
+  `ReceiptTemplateEditor.test.tsx`.
 
-Common in LATAM receipts: a footer row naming the POS software,
-contact URL, version. Comparable implementations include Siigo's
-"Software de facturación" footer and Alegra's "Generado con Alegra".
-Follow-up work:
+### 5. Puntovivo-branded footer elements — **shipped (ENG-016 pass 1)**
 
-- Add a new atomic block type **`appFooter`** that renders (non
-  editable, but toggleable):
-  - App name + version (`Puntovivo 1.0.0`).
-  - A short URL (e.g. `puntovivo.co`).
-  - Contact email or support URL.
-- Colombian DIAN Anexo 1.9 allows a free-text footer — this block
-  complies with that while also giving Puntovivo organic brand
-  surface. Include it in every default preset but tag it as
-  toggleable so a tenant that wants a branding-free receipt can
-  delete it.
-- Legally required per some jurisdictions (e.g. if the software is
-  part of the certified billing chain). Revisit in Iter 3 Fase A /
-  Fase B to ensure it aligns with what DIAN expects the software
-  identifier to look like.
+Shipped as part of ENG-016 pass 1:
 
-### 6. Reorder animation and keyboard-move transitions
+- New atomic block type `appFooter` in the Zod schema (`packages/server/src/trpc/schemas/receiptTemplates.ts`) with fields
+  `show: boolean?` + `align: 'left' | 'center' | 'right'?`.
+- Renderer (`packages/server/src/services/receipt-renderer.ts`) emits
+  three centered lines: `Puntovivo <version>`, URL, support contact.
+  Metadata lives in `APP_FOOTER_METADATA`. HTML + ESC/POS both
+  respect `show: false` as a soft hide.
+- Included in every default preset — both the client-side editor
+  starter layouts (`apps/web/src/features/receipt-templates/defaultLayouts.ts`) and the dev seed (`packages/server/src/db/seed-dev.ts`).
+- Available from the "add block" menu; admins can toggle visibility
+  or remove the block entirely for a branding-free receipt.
+- Default footer content is intentionally stable across tenants (see
+  §Risks in the ENG-016 pass 1 summary). White-label mode is a
+  future ticket; the current design matches DIAN Anexo 1.9
+  free-text footer rules.
 
-Even without full drag-and-drop (which is follow-up #1), the current
-`↑` / `↓` buttons should animate the move so the user can see the
-block traveled. CSS-only:
+### 6. Reorder animation and keyboard-move transitions — **shipped (ENG-016 pass 1)**
 
-- Give the block list `LayoutGroup`-style FLIP animation (measure
-  pre-move rect, apply inverse transform, tween to identity).
-  React-spring or `framer-motion`'s `LayoutGroup` both do this.
-  Bundle cost ~12kB for framer-motion but Puntovivo does not
-  currently depend on it. Alternative: a small in-house FLIP helper
-  (~50 LoC).
-- Respect `prefers-reduced-motion` and make the tween instant for
-  those users.
-- Duration: ~180ms ease-out matches the rest of the UI's
-  micro-interactions.
+Shipped as part of ENG-016 pass 1:
+
+- Small in-house FLIP helper at `apps/web/src/lib/flipAnimate.ts`
+  (~60 LoC) — framework-agnostic so subsequent features can reuse
+  it. Measures pre-move rect, applies inverse transform, tweens to
+  identity at 180ms ease-out.
+- `ReceiptTemplateEditor.tsx` captures a snapshot in `moveBlock`
+  before React commits the reorder, then `useLayoutEffect` replays
+  the FLIP against the block-list `<ul>` via `data-flip-key`
+  attributes so each card visibly animates to its new slot.
+- Respects `prefers-reduced-motion: reduce` — under that media
+  query the helper short-circuits to an instant move, matching the
+  original UX for users who opt out of motion.
+- No new deps (Web Animations API via `Element.animate`).
+- 9 unit tests in `apps/web/src/lib/__tests__/flipAnimate.test.ts`
+  pin the decision logic (zero-delta skip, reduced-motion
+  short-circuit, inverse transform, new-element skip, null
+  container).
 
 ### 7. Explicit i18n/variable error strategy
 

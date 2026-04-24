@@ -60,7 +60,7 @@
     },
     "blocksPanel": {
       "title": "Blocks",
-      "description": "Drag to reorder. Up to 50 blocks per layout.",
+      "description": "Use the arrow buttons to reorder. Up to 50 blocks per layout.",
       "empty": "Add a block to get started."
     },
     "previewPanel": {
@@ -85,7 +85,8 @@
       "tendersTable": "Tenders",
       "qr": "QR code",
       "separator": "Separator",
-      "barcode128": "Barcode 128"
+      "barcode128": "Barcode 128",
+      "appFooter": "App footer"
     },
     "blockFields": {
       "value": "Value",
@@ -111,7 +112,18 @@
       "columnsHelp": "Pick the columns to print, in order.",
       "totalsLines": "Lines",
       "totalsLinesHelp": "Pick the totals to display.",
-      "source": "Source"
+      "source": "Source",
+      "itemsTableCaption": "Rows are bound to the items in the current sale. Use the columns below to pick which ones get printed.",
+      "totalsBlockCaption": "Where do these values come from?",
+      "totalsBlockBindings": {
+        "subtotal": "Subtotal — sum of item totals before taxes.",
+        "discount": "Discount — total discounts applied to items.",
+        "taxTotal": "Tax — sum of tax amounts across all items.",
+        "tip": "Tip — optional gratuity field on the sale.",
+        "grandTotal": "Total — subtotal minus discounts plus taxes and tip."
+      },
+      "appFooterHelp": "Adds three lines at the bottom of the receipt with the Puntovivo product name, URL, and support contact. Keep it enabled to credit the software, or toggle it off for a branding-free receipt.",
+      "appFooterShow": "Show the Puntovivo footer"
     },
     "blockColumns": {
       "name": "Item",
