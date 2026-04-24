@@ -18,6 +18,7 @@ import enReceiptTemplates from './locales/en/receiptTemplates.json';
 import enAuditLogs from './locales/en/auditLogs.json';
 import enSettings from './locales/en/settings.json';
 import enErrors from './locales/en/errors.json';
+import enLocaleSettings from './locales/en/localeSettings.json';
 
 import esCommon from './locales/es/common.json';
 import esAuth from './locales/es/auth.json';
@@ -34,6 +35,7 @@ import esReceiptTemplates from './locales/es/receiptTemplates.json';
 import esAuditLogs from './locales/es/auditLogs.json';
 import esSettings from './locales/es/settings.json';
 import esErrors from './locales/es/errors.json';
+import esLocaleSettings from './locales/es/localeSettings.json';
 
 const preference = readLanguagePreference();
 const lng = resolveLocale(preference);
@@ -66,7 +68,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'settings', 'errors'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'settings', 'errors', 'localeSettings'],
   resources: {
     en: {
       common: enCommon,
@@ -84,6 +86,7 @@ void i18next.use(initReactI18next).init({
       auditLogs: enAuditLogs,
       settings: enSettings,
       errors: enErrors,
+      localeSettings: enLocaleSettings,
     },
     es: {
       common: esCommon,
@@ -101,6 +104,7 @@ void i18next.use(initReactI18next).init({
       auditLogs: esAuditLogs,
       settings: esSettings,
       errors: esErrors,
+      localeSettings: esLocaleSettings,
     },
   },
   interpolation: {

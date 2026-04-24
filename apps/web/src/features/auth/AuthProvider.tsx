@@ -48,6 +48,11 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// ENG-017 — `currency`, `timezone`, and `dateFormat` no longer live
+// in the tenant JSON blob; they are resolved by `LocaleProvider`
+// against `tenant_locale_settings` and the global catalogs. Kept
+// `taxRate` as a neutral default because credit-sale / discount flows
+// still key off the JSON blob until that feature retires.
 const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
   currency: 'USD',
   timezone: 'UTC',

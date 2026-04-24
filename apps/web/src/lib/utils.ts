@@ -86,28 +86,75 @@ function getActiveLocale(): string {
   return 'en-US';
 }
 
-export function formatCurrency(amount: number, currency = 'USD', locale = getActiveLocale()): string {
-  return new Intl.NumberFormat(locale, {
+// ENG-017 — module-level locale singleton. `LocaleProvider` calls
+// `setActiveTenantLocale` when the tenant's resolved locale mutates,
+// and the formatters below read from this cell when the caller did
+// not pass explicit args. Avoids touching the ~140 existing call
+// sites of `formatCurrency(amount)` — they keep the same shape, the
+// default currency just stops being hardcoded `USD`.
+interface ActiveTenantLocaleSnapshot {
+  locale: string;
+  currency: string;
+  displayDecimals: number;
+}
+
+let activeTenantLocale: ActiveTenantLocaleSnapshot | null = null;
+
+/**
+ * Update the process-wide default locale used by `formatCurrency`,
+ * `formatDate`, and `formatDateTime` when called without arguments.
+ * Invoked by `LocaleProvider` on mount and on tenant switch. Pass
+ * `null` to revert to the hardcoded USA fallback (e.g. during logout).
+ */
+export function setActiveTenantLocale(
+  snapshot: ActiveTenantLocaleSnapshot | null
+): void {
+  activeTenantLocale = snapshot;
+}
+
+/** Read-only accessor used by `useResolvedLocale` for SSR-safe access. */
+export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
+  return activeTenantLocale;
+}
+
+export function formatCurrency(
+  amount: number,
+  currency?: string,
+  locale?: string
+): string {
+  const resolvedCurrency =
+    currency ?? activeTenantLocale?.currency ?? 'USD';
+  const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  const displayDecimals = activeTenantLocale?.displayDecimals;
+  return new Intl.NumberFormat(resolvedLocale, {
     style: 'currency',
-    currency,
+    currency: resolvedCurrency,
+    ...(currency === undefined && displayDecimals !== undefined
+      ? {
+          minimumFractionDigits: displayDecimals,
+          maximumFractionDigits: displayDecimals,
+        }
+      : {}),
   }).format(amount);
 }
 
 export function formatDate(
   date: Date | string,
   options?: Intl.DateTimeFormatOptions,
-  locale = getActiveLocale()
+  locale?: string
 ): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat(locale, {
+  const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  return new Intl.DateTimeFormat(resolvedLocale, {
     dateStyle: 'medium',
     ...options,
   }).format(d);
 }
 
-export function formatDateTime(date: Date | string, locale = getActiveLocale()): string {
+export function formatDateTime(date: Date | string, locale?: string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat(locale, {
+  const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  return new Intl.DateTimeFormat(resolvedLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(d);

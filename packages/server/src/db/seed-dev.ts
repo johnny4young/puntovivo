@@ -51,6 +51,7 @@ import {
   regimeTypes,
   sequentials,
   sites,
+  tenantLocaleSettings,
   tenants,
   units,
   userRoleEnum,
@@ -199,6 +200,22 @@ export async function seedDevData(
       createdAt: now,
       updatedAt: now,
     })
+    .run();
+
+  // ENG-017 — bootstrap this dev tenant with Colombia as its country
+  // so `formatCurrency` renders COP with 0 display decimals and
+  // `dd/MM/yyyy` dates out of the box. `INSERT OR IGNORE`-style
+  // guard via the `on conflict do nothing` pattern keeps the seed
+  // idempotent when re-running `seedDevData()` against an existing
+  // DB.
+  await db
+    .insert(tenantLocaleSettings)
+    .values({
+      tenantId,
+      countryCode: 'CO',
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
     .run();
 
   // ----- 2. Users ---------------------------------------------------------

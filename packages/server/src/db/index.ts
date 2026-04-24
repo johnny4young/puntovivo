@@ -1169,6 +1169,40 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
       value TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- ENG-017 locale catalogs (global, read-only, PK-seeded on boot).
+    CREATE TABLE IF NOT EXISTS currency_catalog (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL,
+      name_es TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      decimals INTEGER NOT NULL,
+      display_decimals INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS country_catalog (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL,
+      name_es TEXT NOT NULL,
+      default_locale TEXT NOT NULL,
+      general_locale TEXT NOT NULL,
+      default_currency_code TEXT NOT NULL REFERENCES currency_catalog(code),
+      additional_currency_codes TEXT DEFAULT '[]',
+      default_timezone TEXT NOT NULL,
+      first_day_of_week INTEGER NOT NULL,
+      date_format_short TEXT NOT NULL,
+      date_format_long TEXT NOT NULL,
+      tax_id_types_hint TEXT DEFAULT '[]',
+      ui_locale_ready INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS tenant_locale_settings (
+      tenant_id TEXT PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+      country_code TEXT NOT NULL REFERENCES country_catalog(code),
+      locale_override TEXT,
+      currency_override TEXT REFERENCES currency_catalog(code),
+      timezone_override TEXT,
+      first_day_of_week_override INTEGER,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   ensureColumn(client, 'products', 'price2', 'price2 REAL NOT NULL DEFAULT 0');
@@ -1280,6 +1314,103 @@ async function runSchemaSync(database: DatabaseInstance): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_sales_suspended_by ON sales (suspended_by)'
   );
   client.exec('DROP INDEX IF EXISTS idx_purchases_order_unique');
+  // ENG-017 — seed the read-only locale catalogs on every boot. Both
+  // tables are keyed by ISO code so the INSERT-OR-IGNORE pattern keeps
+  // the seed idempotent and deterministic even as operators upgrade
+  // between versions that add new rows or tweak a symbol.
+  seedLocaleCatalogs(client);
+}
+
+/**
+ * Seed the global `currency_catalog` + `country_catalog` tables with
+ * the ENG-017 matrices (18 currencies, 21 LATAM+USA countries). Uses
+ * `INSERT OR IGNORE` so the function is safe to re-run on every boot
+ * — existing rows are preserved, new rows are added. Updates to
+ * existing rows (e.g. adjusting `display_decimals`) require a targeted
+ * migration; this seeder never writes over prior values.
+ */
+function seedLocaleCatalogs(client: Database.Database): void {
+  const insertCurrency = client.prepare(
+    'INSERT OR IGNORE INTO currency_catalog (code, name_en, name_es, symbol, decimals, display_decimals) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  // ISO 4217 codes ordered to mirror the LOCALE-CURRENCY.md matrix.
+  const currencies: Array<[string, string, string, string, number, number]> = [
+    ['COP', 'Colombian Peso', 'Peso colombiano', '$', 2, 0],
+    ['USD', 'US Dollar', 'Dólar estadounidense', '$', 2, 2],
+    ['MXN', 'Mexican Peso', 'Peso mexicano', '$', 2, 2],
+    ['ARS', 'Argentine Peso', 'Peso argentino', '$', 2, 2],
+    ['CLP', 'Chilean Peso', 'Peso chileno', '$', 0, 0],
+    ['PEN', 'Peruvian Sol', 'Sol peruano', 'S/', 2, 2],
+    ['VES', 'Venezuelan Sovereign Bolívar', 'Bolívar soberano', 'Bs. S', 2, 2],
+    ['UYU', 'Uruguayan Peso', 'Peso uruguayo', '$U', 2, 2],
+    ['PYG', 'Paraguayan Guaraní', 'Guaraní', '₲', 0, 0],
+    ['BOB', 'Bolivian Boliviano', 'Boliviano', 'Bs', 2, 2],
+    ['CRC', 'Costa Rican Colón', 'Colón costarricense', '₡', 2, 2],
+    ['PAB', 'Panamanian Balboa', 'Balboa', 'B/.', 2, 2],
+    ['GTQ', 'Guatemalan Quetzal', 'Quetzal', 'Q', 2, 2],
+    ['HNL', 'Honduran Lempira', 'Lempira', 'L', 2, 2],
+    ['NIO', 'Nicaraguan Córdoba', 'Córdoba', 'C$', 2, 2],
+    ['DOP', 'Dominican Peso', 'Peso dominicano', 'RD$', 2, 2],
+    ['CUP', 'Cuban Peso', 'Peso cubano', '$', 2, 2],
+    ['BRL', 'Brazilian Real', 'Real', 'R$', 2, 2],
+  ];
+  for (const row of currencies) {
+    insertCurrency.run(...row);
+  }
+
+  const insertCountry = client.prepare(
+    `INSERT OR IGNORE INTO country_catalog (
+       code, name_en, name_es, default_locale, general_locale,
+       default_currency_code, additional_currency_codes,
+       default_timezone, first_day_of_week, date_format_short,
+       date_format_long, tax_id_types_hint, ui_locale_ready
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  type CountryRow = [
+    code: string,
+    nameEn: string,
+    nameEs: string,
+    defaultLocale: string,
+    generalLocale: string,
+    defaultCurrencyCode: string,
+    additionalCurrencyCodes: string,
+    defaultTimezone: string,
+    firstDayOfWeek: number,
+    dateFormatShort: string,
+    dateFormatLong: string,
+    taxIdTypesHint: string,
+    uiLocaleReady: number,
+  ];
+  const countries: CountryRow[] = [
+    ['CO', 'Colombia', 'Colombia', 'es-CO', 'es', 'COP', '[]', 'America/Bogota', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CC', 'NIT', 'CE', 'TI', 'PA']), 1],
+    ['US', 'United States', 'Estados Unidos', 'en-US', 'en', 'USD', '[]', 'America/New_York', 0, 'MM/dd/yyyy', 'MMMM d, yyyy', JSON.stringify(['SSN', 'EIN']), 1],
+    ['MX', 'Mexico', 'México', 'es-MX', 'es', 'MXN', '[]', 'America/Mexico_City', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['RFC', 'CURP']), 1],
+    ['AR', 'Argentina', 'Argentina', 'es-AR', 'es', 'ARS', '[]', 'America/Argentina/Buenos_Aires', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['DNI', 'CUIT', 'CUIL']), 1],
+    ['CL', 'Chile', 'Chile', 'es-CL', 'es', 'CLP', '[]', 'America/Santiago', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['RUT']), 1],
+    ['PE', 'Peru', 'Perú', 'es-PE', 'es', 'PEN', '[]', 'America/Lima', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['DNI', 'RUC']), 1],
+    ['EC', 'Ecuador', 'Ecuador', 'es-EC', 'es', 'USD', '[]', 'America/Guayaquil', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CI', 'RUC']), 1],
+    ['VE', 'Venezuela', 'Venezuela', 'es-VE', 'es', 'VES', JSON.stringify(['USD']), 'America/Caracas', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['V', 'E', 'J', 'G']), 1],
+    ['UY', 'Uruguay', 'Uruguay', 'es-UY', 'es', 'UYU', '[]', 'America/Montevideo', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CI', 'RUT']), 1],
+    ['PY', 'Paraguay', 'Paraguay', 'es-PY', 'es', 'PYG', '[]', 'America/Asuncion', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CI', 'RUC']), 1],
+    ['BO', 'Bolivia', 'Bolivia', 'es-BO', 'es', 'BOB', '[]', 'America/La_Paz', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CI', 'NIT']), 1],
+    ['CR', 'Costa Rica', 'Costa Rica', 'es-CR', 'es', 'CRC', '[]', 'America/Costa_Rica', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['cedula', 'cedula_juridica']), 1],
+    ['PA', 'Panama', 'Panamá', 'es-PA', 'es', 'PAB', JSON.stringify(['USD']), 'America/Panama', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['cedula', 'RUC']), 1],
+    ['GT', 'Guatemala', 'Guatemala', 'es-GT', 'es', 'GTQ', '[]', 'America/Guatemala', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['DPI', 'NIT']), 1],
+    ['SV', 'El Salvador', 'El Salvador', 'es-SV', 'es', 'USD', '[]', 'America/El_Salvador', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['DUI', 'NIT']), 1],
+    ['HN', 'Honduras', 'Honduras', 'es-HN', 'es', 'HNL', '[]', 'America/Tegucigalpa', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['DNI', 'RTN']), 1],
+    ['NI', 'Nicaragua', 'Nicaragua', 'es-NI', 'es', 'NIO', '[]', 'America/Managua', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['cedula', 'RUC']), 1],
+    ['DO', 'Dominican Republic', 'República Dominicana', 'es-DO', 'es', 'DOP', '[]', 'America/Santo_Domingo', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['cedula', 'RNC']), 1],
+    ['CU', 'Cuba', 'Cuba', 'es-CU', 'es', 'CUP', '[]', 'America/Havana', 1, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['carne_identidad']), 1],
+    ['PR', 'Puerto Rico', 'Puerto Rico', 'es-PR', 'es', 'USD', '[]', 'America/Puerto_Rico', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['SSN']), 1],
+    // Brazil is seeded with uiLocaleReady=0 until the pt-BR bundle
+    // ships — the admin UI will warn and still let the operator pick
+    // it (formatters work because Intl has pt-BR; only the i18next
+    // UI copy needs the bundle).
+    ['BR', 'Brazil', 'Brasil', 'pt-BR', 'pt', 'BRL', '[]', 'America/Sao_Paulo', 0, 'dd/MM/yyyy', 'd MMMM yyyy', JSON.stringify(['CPF', 'CNPJ']), 0],
+  ];
+  for (const row of countries) {
+    insertCountry.run(...row);
+  }
 }
 
 function ensureColumn(

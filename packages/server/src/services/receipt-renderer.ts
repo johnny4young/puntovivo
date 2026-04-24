@@ -92,6 +92,30 @@ export interface RenderData {
   sale: RenderSale;
   fiscal?: RenderFiscal;
   logoDataUrl?: string | null;
+  /**
+   * ENG-017 — resolved tenant locale. When present the renderer
+   * formats currency-typed fields (unitPrice, total, subtotal, tax,
+   * tenders, change) through `Intl.NumberFormat` so receipts match
+   * the tenant's country (COP with 0 decimals for Colombia, USD with
+   * 2 for USA, CLP with 0 for Chile, etc.). Optional for backwards
+   * compatibility with test callers that synthesise RenderData by
+   * hand — when absent the renderer falls back to raw `.toFixed(2)`
+   * without a currency symbol (pre-ENG-017 behaviour).
+   */
+  locale?: ReceiptRenderLocale;
+}
+
+/**
+ * Subset of `ResolvedLocale` the renderer needs. Kept separate from
+ * the full `services/tenant-locale.ts` shape so the renderer can stay
+ * pure (no DB imports) — callers resolve the locale once and hand the
+ * small payload in.
+ */
+export interface ReceiptRenderLocale {
+  locale: string;
+  currency: string;
+  legalDecimals: number;
+  displayDecimals: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +321,7 @@ function renderItemsTableHtml(
     .map(item => {
       const cells = block.columns
         .map(col => {
-          const text = formatItemCell(col, item);
+          const text = formatItemCell(col, item, data.locale);
           return `<td class="col-${col}">${escapeHtml(text)}</td>`;
         })
         .join('');
@@ -334,20 +358,46 @@ function formatNumber(value: number): string {
   return value.toFixed(2);
 }
 
-function formatItemCell(column: string, item: RenderSaleItem): string {
+/**
+ * ENG-017 — format a currency amount honoring the tenant's resolved
+ * locale. When `locale` is missing (legacy test callers), falls back
+ * to raw `.toFixed(2)` without a symbol so the pre-ENG-017 contract
+ * keeps working. When present, `Intl.NumberFormat` produces the
+ * country-correct output (COP = `$ 1.234`, USD = `$1,234.50`,
+ * CLP = `$ 1.234`).
+ */
+function formatReceiptAmount(
+  value: number,
+  locale: ReceiptRenderLocale | undefined
+): string {
+  if (!Number.isFinite(value)) return '0';
+  if (!locale) return value.toFixed(2);
+  return new Intl.NumberFormat(locale.locale, {
+    style: 'currency',
+    currency: locale.currency,
+    minimumFractionDigits: locale.displayDecimals,
+    maximumFractionDigits: locale.displayDecimals,
+  }).format(value);
+}
+
+function formatItemCell(
+  column: string,
+  item: RenderSaleItem,
+  locale: ReceiptRenderLocale | undefined
+): string {
   switch (column) {
     case 'name':
       return item.name;
     case 'qty':
       return formatNumber(item.qty);
     case 'unitPrice':
-      return formatNumber(item.unitPrice);
+      return formatReceiptAmount(item.unitPrice, locale);
     case 'taxPercent':
       return `${formatNumber(item.taxPercent)}%`;
     case 'discount':
       return formatNumber(item.discount);
     case 'total':
-      return formatNumber(item.total);
+      return formatReceiptAmount(item.total, locale);
     default:
       return '';
   }
@@ -362,7 +412,7 @@ function renderTotalsBlockHtml(
     .map(line => {
       const label = totalsLabel(line, labels);
       const value = totalsValue(line, data);
-      return `<tr><td class="totals-label">${escapeHtml(label)}</td><td class="totals-value">${escapeHtml(formatNumber(value))}</td></tr>`;
+      return `<tr><td class="totals-label">${escapeHtml(label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(value, data.locale))}</td></tr>`;
     })
     .join('');
   return `<div class="block block-totals"><table><tbody>${rows}</tbody></table></div>`;
@@ -412,12 +462,12 @@ function renderTendersTableHtml(
 ): string {
   const rows = data.sale.tenders
     .map(tender => {
-      return `<tr><td>${escapeHtml(tender.method)}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatNumber(tender.amount))}</td></tr>`;
+      return `<tr><td>${escapeHtml(tender.method)}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
     })
     .join('');
   const change =
     block.showChange && data.sale.changeDue && data.sale.changeDue > 0
-      ? `<tr class="change-row"><td>${escapeHtml(labels.tendersTable.change)}</td><td></td><td class="tender-amount">${escapeHtml(formatNumber(data.sale.changeDue))}</td></tr>`
+      ? `<tr class="change-row"><td>${escapeHtml(labels.tendersTable.change)}</td><td></td><td class="tender-amount">${escapeHtml(formatReceiptAmount(data.sale.changeDue, data.locale))}</td></tr>`
       : '';
   return `<div class="block block-tenders"><table><thead><tr><th>${escapeHtml(labels.tendersTable.method)}</th><th>${escapeHtml(labels.tendersTable.reference)}</th><th class="tender-amount">${escapeHtml(labels.tendersTable.amount)}</th></tr></thead><tbody>${rows}${change}</tbody></table></div>`;
 }
@@ -612,7 +662,7 @@ function renderBlockEscPos(
       for (const item of data.sale.items) {
         const namePiece = item.name.padEnd(Math.max(0, paperWidthChars - 16)).slice(0, paperWidthChars - 16);
         const qtyPiece = formatNumber(item.qty).padStart(6);
-        const totalPiece = formatNumber(item.total).padStart(10);
+        const totalPiece = formatReceiptAmount(item.total, data.locale).padStart(10);
         out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`));
         out.push(...escposLine());
       }
@@ -623,7 +673,7 @@ function renderBlockEscPos(
       out.push(...escposAlign('right'));
       for (const line of block.show) {
         const label = totalsLabel(line, labels);
-        const value = formatNumber(totalsValue(line, data));
+        const value = formatReceiptAmount(totalsValue(line, data), data.locale);
         const padded = `${label}: ${value}`;
         out.push(...bytesFromString(padded));
         out.push(...escposLine());
@@ -636,7 +686,7 @@ function renderBlockEscPos(
       for (const tender of data.sale.tenders) {
         out.push(
           ...bytesFromString(
-            `${tender.method.padEnd(8)} ${formatNumber(tender.amount).padStart(10)}`
+            `${tender.method.padEnd(8)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`
           )
         );
         out.push(...escposLine());
@@ -644,7 +694,7 @@ function renderBlockEscPos(
       if (block.showChange && data.sale.changeDue && data.sale.changeDue > 0) {
         out.push(
           ...bytesFromString(
-            `${labels.tendersTable.change.padEnd(8)} ${formatNumber(data.sale.changeDue).padStart(10)}`
+            `${labels.tendersTable.change.padEnd(8)} ${formatReceiptAmount(data.sale.changeDue, data.locale).padStart(10)}`
           )
         );
         out.push(...escposLine());

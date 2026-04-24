@@ -1,0 +1,33 @@
+{
+  "card": {
+    "title": "Locale and currency",
+    "description": "Pick the country where this business operates. Defaults flow from the global catalog; overrides apply only to this tenant.",
+    "countryLabel": "Country",
+    "countryPlaceholder": "Select a country",
+    "uiNotReadyWarning": "The operator UI does not yet ship a {{language}} bundle. Numbers and dates render correctly; text copy will fall back to Spanish.",
+    "overrideSection": "Overrides (optional)",
+    "overrideHint": "Leave blank to inherit from the country defaults.",
+    "currencyOverrideLabel": "Currency",
+    "currencyOverridePlaceholder": "Default: {{default}}",
+    "currencyOverrideClear": "Use country default",
+    "localeOverrideLabel": "Locale (BCP-47)",
+    "localeOverridePlaceholder": "Default: {{default}}",
+    "timezoneOverrideLabel": "Timezone (IANA)",
+    "timezoneOverridePlaceholder": "Default: {{default}}",
+    "firstDayOfWeekLabel": "First day of week",
+    "firstDayOfWeekDefault": "Use country default ({{default}})",
+    "firstDayOfWeekSunday": "Sunday",
+    "firstDayOfWeekMonday": "Monday",
+    "saveAction": "Save locale",
+    "savingAction": "Saving...",
+    "previewHeading": "Preview",
+    "previewSampleAmount": "Amount",
+    "previewSampleDate": "Today"
+  },
+  "toast": {
+    "saveSuccessTitle": "Locale updated",
+    "saveSuccessDescription": "All currency and date formatting now use the {{country}} defaults.",
+    "saveErrorTitle": "Unable to save locale",
+    "saveErrorFallback": "Unable to save the locale settings. Please try again."
+  }
+}

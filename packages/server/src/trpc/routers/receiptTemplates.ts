@@ -38,6 +38,7 @@ import {
   buildPreviewData,
   renderReceipt,
 } from '../../services/receipt-renderer.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   createReceiptTemplateInput,
   deleteReceiptTemplateInput,
@@ -137,7 +138,7 @@ export const receiptTemplatesRouter = router({
 
   renderPreview: adminProcedure
     .input(renderPreviewReceiptTemplateInput)
-    .query(({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       // Resolve the layout: either the inline draft from the editor or
       // the persisted layout of an existing template (for the read-only
       // preview shown in the list page).
@@ -167,7 +168,24 @@ export const receiptTemplatesRouter = router({
         kind = kind ?? persisted.kind;
       }
 
-      const data = buildPreviewData(kind ?? 'sale');
+      // ENG-017 — resolve the tenant's locale once so the preview
+      // renders currency amounts in the operator's country format
+      // (COP 0 decimals, USD 2 decimals, CLP 0/0, etc.). Fallback
+      // inside `resolveTenantLocale` keeps the preview rendering when
+      // the tenant has not yet configured locale settings.
+      const resolvedLocale = await resolveTenantLocale(
+        ctx.db,
+        ctx.tenantId
+      );
+      const data = {
+        ...buildPreviewData(kind ?? 'sale'),
+        locale: {
+          locale: resolvedLocale.locale,
+          currency: resolvedLocale.currency,
+          legalDecimals: resolvedLocale.legalDecimals,
+          displayDecimals: resolvedLocale.displayDecimals,
+        },
+      };
       const rendered = renderReceipt(layout, data, input.labels);
       return {
         kind: kind ?? 'sale',
