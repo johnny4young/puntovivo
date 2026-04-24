@@ -17,6 +17,7 @@ import {
 } from '@/lib/trpc';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
+import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 
 interface AuthContextType {
   user: User | null;
@@ -95,6 +96,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const clearLocalSession = () => {
     clearAccessToken();
     clearAuthSession();
+    // ENG-018b — drop any parked multi-cart workspaces so a new cashier
+    // signing in on the same machine never sees the previous user's
+    // drafts. The ownerKey filter also prevents rendering, but clearing
+    // the localStorage entry avoids the stale data sitting on disk.
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
     setUser(null);
     setTenant(null);
     setError(null);

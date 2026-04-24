@@ -331,13 +331,21 @@
     "overrideHint": "Estás retomando un borrador suspendido por otro cajero.",
     "closedSessionWarning": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
     "confirmDiscardTitle": "¿Descartar borrador?",
-    "confirmDiscardMessage": "El borrador suspendido se marcará como cancelado. Los artículos no estaban descontados de stock, así que no se devuelve nada al inventario.",
+    "confirmDiscardMessage": "El borrador suspendido se cancelará y los artículos vuelven al inventario. Esta acción no se puede deshacer.",
     "toastSuspendTitle": "Venta suspendida",
     "toastResumeTitle": "Venta retomada",
     "toastDiscardTitle": "Borrador descartado",
     "toastErrorTitle": "No se pudo actualizar el borrador",
     "shortcutSuspend": "Ctrl+P",
-    "shortcutResume": "Ctrl+R"
+    "shortcutResume": "Ctrl+R",
+    "newSale": "Nueva venta",
+    "newSaleHint": "Abre un segundo carrito en paralelo sin cobrar el actual.",
+    "labelPromptTitle": "Suspender venta",
+    "labelPromptDescription": "Agregá una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
+    "labelPromptConfirm": "Suspender",
+    "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
+    "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",
+    "resumedBannerHint": "Para cambiar artículos, descartá este borrador e iniciá una venta nueva."
   },
   "reprint": {
     "action": "Reimprimir recibo",

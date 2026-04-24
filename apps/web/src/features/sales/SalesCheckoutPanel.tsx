@@ -1,4 +1,12 @@
-import { Plus, Receipt, ScanLine, WalletCards } from 'lucide-react';
+import {
+  FilePlus2,
+  ListTree,
+  PauseCircle,
+  Plus,
+  Receipt,
+  ScanLine,
+  WalletCards,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -21,6 +29,19 @@ interface SalesCheckoutPanelProps {
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
+  // ENG-018b — optional multi-cart affordances. When `onSuspend` /
+  // `onNewSale` are omitted the panel renders exactly like before so
+  // legacy callers (Storybook, tests) stay green.
+  canSuspend?: boolean;
+  onSuspend?: () => void;
+  onNewSale?: () => void;
+  /**
+   * When wired, renders a badge-button that toggles the
+   * SuspendedSalesPanel. The badge count makes the feature
+   * discoverable even for operators who do not know Ctrl+R.
+   */
+  suspendedDraftsCount?: number;
+  onToggleSuspendedPanel?: () => void;
 }
 
 export function SalesCheckoutPanel({
@@ -39,11 +60,18 @@ export function SalesCheckoutPanel({
   onCloseCashSession,
   onOpenMovement,
   onRegisterAssignmentChange,
+  canSuspend = false,
+  onSuspend,
+  onNewSale,
+  suspendedDraftsCount = 0,
+  onToggleSuspendedPanel,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
   const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+  const showSuspendControls = Boolean(onSuspend || onNewSale);
+  const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
 
   return (
     <aside className="card p-5 sm:p-6 xl:sticky xl:top-24">
@@ -171,6 +199,56 @@ export function SalesCheckoutPanel({
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}
         </button>
+
+        {showSuspendControls && (
+          <div className="hidden gap-2 xl:flex" data-testid="checkout-park-controls">
+            {onSuspend && (
+              <button
+                type="button"
+                className="btn-outline flex-1 justify-center"
+                onClick={onSuspend}
+                disabled={!canSuspend}
+                data-testid="checkout-suspend"
+              >
+                <PauseCircle className="h-4 w-4" />
+                {t('park.suspend')}
+              </button>
+            )}
+            {onNewSale && (
+              <button
+                type="button"
+                className="btn-outline flex-1 justify-center"
+                onClick={onNewSale}
+                data-testid="checkout-new-sale"
+              >
+                <FilePlus2 className="h-4 w-4" />
+                {t('park.newSale')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {showSuspendedToggle && (
+          <button
+            type="button"
+            className="btn-ghost hidden w-full justify-between xl:inline-flex"
+            onClick={onToggleSuspendedPanel}
+            data-testid="checkout-open-suspended-panel"
+          >
+            <span className="inline-flex items-center gap-2">
+              <ListTree className="h-4 w-4" />
+              {t('park.panelTitle')}
+            </span>
+            {suspendedDraftsCount > 0 && (
+              <span
+                className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700"
+                data-testid="suspended-drafts-badge"
+              >
+                {suspendedDraftsCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );

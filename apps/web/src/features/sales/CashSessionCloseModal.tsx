@@ -21,6 +21,14 @@ interface CashSessionCloseModalProps {
   error: string | null;
   onClose: () => void;
   onSubmit: (values: CashSessionCloseValues) => Promise<void>;
+  /**
+   * ENG-018b — count of suspended drafts still in flight for this
+   * cashier's visibility scope. When greater than zero, the modal
+   * surfaces a warning so the operator knows the drafts will survive
+   * the close as `status='draft'` rows and must be picked up later.
+   * Defaults to 0 when the caller does not wire it.
+   */
+  suspendedDraftsCount?: number;
 }
 
 function createDefaultValues(): CashSessionCloseValues {
@@ -37,6 +45,7 @@ export function CashSessionCloseModal({
   error,
   onClose,
   onSubmit,
+  suspendedDraftsCount = 0,
 }: CashSessionCloseModalProps) {
   const { t } = useTranslation('sales');
   const form = useForm<CashSessionCloseValues>({
@@ -86,6 +95,16 @@ export function CashSessionCloseModal({
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {suspendedDraftsCount > 0 && (
+          <div
+            className="rounded-2xl border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-900"
+            role="alert"
+            data-testid="close-session-suspended-warning"
+          >
+            {t('park.closedSessionWarning', { count: suspendedDraftsCount })}
+          </div>
+        )}
+
         <section className="card-inset p-4 sm:p-5">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
             <div className="card-inset bg-surface/92 px-4 py-3">

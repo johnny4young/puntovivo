@@ -32,6 +32,19 @@ interface DataTableProps<TData, TValue> {
   enableRowSelection?: boolean;
   onRowSelectionChange?: (rows: TData[]) => void;
   pageSize?: number;
+  /**
+   * Fires when the keyboard-focused row changes (click, ArrowUp/Down,
+   * Home/End). `null` is emitted when focus leaves the table body. Used
+   * by ENG-018b to let SalesHistoryTable surface the currently selected
+   * sale id to Ctrl+Shift+P reprint.
+   */
+  onRowFocusChange?: (row: TData | null) => void;
+  /**
+   * Extra class applied to the `<tr>` when a predicate says the row is
+   * in an app-level "selected" state (ENG-018b history-table
+   * highlight). The predicate is called with the row's original data.
+   */
+  isRowSelected?: (row: TData) => boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -42,6 +55,8 @@ export function DataTable<TData, TValue>({
   enableRowSelection = false,
   onRowSelectionChange,
   pageSize = 10,
+  onRowFocusChange,
+  isRowSelected,
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -214,11 +229,53 @@ export function DataTable<TData, TValue>({
                   }}
                   data-state={row.getIsSelected() && 'selected'}
                   data-row-id={typeof domainId === 'string' ? domainId : undefined}
+                  data-app-selected={
+                    isRowSelected && isRowSelected(row.original)
+                      ? 'true'
+                      : undefined
+                  }
                   tabIndex={rowIndex === resolvedFocusedRowIndex ? 0 : -1}
-                  aria-selected={enableRowSelection ? row.getIsSelected() : undefined}
-                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset"
+                  aria-selected={
+                    isRowSelected
+                      ? isRowSelected(row.original)
+                      : enableRowSelection
+                        ? row.getIsSelected()
+                        : undefined
+                  }
+                  className={cn(
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset',
+                    isRowSelected &&
+                      isRowSelected(row.original) &&
+                      'bg-primary-50/70'
+                  )}
                   onFocus={() => {
                     setFocusedRowIndex(rowIndex);
+                    if (onRowFocusChange) {
+                      onRowFocusChange(row.original);
+                    }
+                  }}
+                  onClick={() => {
+                    // Announce focus changes on click too so parent-level
+                    // selection tracking stays in sync with mouse users.
+                    if (onRowFocusChange) {
+                      onRowFocusChange(row.original);
+                    }
+                  }}
+                  onBlur={event => {
+                    // Only clear selection when the blur target is outside
+                    // the current row; otherwise intra-row tabbing would
+                    // spuriously deselect.
+                    if (
+                      onRowFocusChange &&
+                      !event.currentTarget.contains(
+                        event.relatedTarget as Node | null
+                      )
+                    ) {
+                      // Do NOT clear on blur — the operator may Ctrl+Shift+P
+                      // after tabbing away. SalesHistoryTable clears
+                      // explicitly via click on a different row or on the
+                      // Escape key if it wants to.
+                    }
                   }}
                   onKeyDown={event => {
                     handleRowKeyDown(event, rowIndex, row.getCanSelect(), () => {
