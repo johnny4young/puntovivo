@@ -26,6 +26,8 @@
     "ci:desktop": "npm run ci:audit && npm run build --workspace=@puntovivo/server && npm run build --workspace=@puntovivo/web && npm run typecheck --workspace=@puntovivo/desktop && npm run lint --workspace=@puntovivo/desktop && npm run test --workspace=@puntovivo/desktop",
     "ci:server": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/server && npm run lint --workspace=@puntovivo/server && npm run test:coverage --workspace=@puntovivo/server",
     "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.web.config.ts",
+    "test:e2e:electron": "npm run build --workspace=@puntovivo/server && npm run electron:ensure:binary --workspace=@puntovivo/desktop && npm run build:main --workspace=@puntovivo/desktop && node scripts/ensure-electron-main-build.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.electron.config.ts",
+    "test:e2e": "npm run test:e2e:web && npm run test:e2e:electron",
     "test:release-script": "node --test scripts/prepare-release-tag.test.mjs scripts/upload-release-assets.test.mjs scripts/ensure-github-release.test.mjs scripts/github-cli-utils.test.mjs",
     "seed:dev": "npm run seed:dev --workspace=@puntovivo/server",
     "clean": "rm -rf node_modules apps/*/node_modules",

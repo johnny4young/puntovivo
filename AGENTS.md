@@ -36,7 +36,7 @@ Or use the workspace shortcut: `npm run rebuild --workspace=@puntovivo/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
-Current desktop runtime is Electron `41.1.0`. If you pass `-v` to `electron-rebuild`, use `41.1.0` instead of older examples.
+Current desktop runtime is Electron `41.2.2`. If you pass `-v` to `electron-rebuild`, use `41.2.2` instead of older examples.
 
 If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
 
@@ -74,7 +74,7 @@ Error: Electron failed to install correctly, please delete node_modules/electron
 Three defences cover this:
 
 1. Root `.npmrc` sets `foreground-scripts=true`. Any postinstall that exits non-zero now fails the whole `npm install`, surfacing the problem immediately instead of leaving a broken tree behind.
-2. `scripts/ensure-electron-binary.mjs` runs as part of the desktop `preflight:desktop` script before Electron Forge boots. It checks `path.txt` + the executable under `dist/`; if anything is missing it re-runs `node_modules/electron/install.js` once to auto-heal. If the repair itself fails it prints the exact recovery commands and exits non-zero.
+2. `scripts/ensure-electron-binary.mjs` runs as part of the desktop `preflight:desktop` script before Electron Forge boots. It checks `path.txt` + the executable under `dist/`, and on macOS also verifies the local app signature; if anything is missing or invalid it re-runs `node_modules/electron/install.js` once and applies local ad-hoc signing when needed. If the repair itself fails it prints the exact recovery commands and exits non-zero.
 3. The `@puntovivo/desktop` package's `dev:desktop`, `dev:desktop:debug`, `dev:desktop:debug-brk`, `package:desktop`, and `make:desktop` scripts all chain through `preflight:desktop`, so every entry point sees the check.
 
 If the auto-heal still loses (genuinely dead cache, offline box, proxy):
@@ -107,6 +107,8 @@ Before committing, every change must pass the per-workspace CI script that corre
 | Any React or TypeScript in `apps/web`                                 | `npm run ci:web`                                    |
 | Any Node.js / backend in `packages/server`                            | `npm run ci:server`                                 |
 | Any Electron main-process code in `apps/desktop/src/main`             | `npm run ci:desktop`                                |
+| Anything under `e2e/web/` or the login / sales / inventory flows     | `npm run test:e2e:web` (runs in CI automatically via the `e2e-web` job, but keep it green locally when you touch the suite) |
+| Anything under `e2e/electron/` or the Electron main-process bootstrap | `npm run test:e2e:electron` (local-only; prerequisite `.vite/build/` bundle — see `e2e/README.md`) |
 
 Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
 
@@ -160,6 +162,23 @@ Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chor
 2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire it in the router, and add a unit/integration test in `packages/server/src/__tests__/`. Frontend types are inferred end-to-end via the `AppRouter` export — only add entries to `apps/web/src/types/index.ts` for domain models that don't flow through tRPC.
 3. New frontend page → add a lazy route in `apps/web/src/App.tsx`, add a sidebar entry in `apps/web/src/components/layout/Sidebar.tsx`, and wire any role gating through `ProtectedRoute`. All user-visible strings must live in `apps/web/src/i18n/locales/*` (an ESLint rule blocks hardcoded strings in `title`, `placeholder`, and `aria-label`). The parity test `apps/web/src/i18n/locale-parity.test.ts` blocks PRs that introduce a key in one locale without the other — add a new namespace by importing it in `apps/web/src/i18n/index.ts`, registering it in the `ns` array, and adding both `en/<ns>.json` and `es/<ns>.json`.
 4. Run `npm run ci:web` and/or `npm run ci:server` (see "Required checks" above) before committing.
+
+### Spanish copy dialect — neutral Latin American, never voseo
+
+All user-visible Spanish strings under `apps/web/src/i18n/locales/es/**` and any receipt / PDF / email rendered in Spanish must use **neutral Latin American Spanish** in the `tú` register. Specifically: no voseo. This is an audience-wide choice — the product targets every LATAM market, not only the Rioplatense / paisa regions where voseo is native, and voseo reads as a regional accent to users from Mexico, Colombia (interior), Chile, Perú, Centroamérica, etc.
+
+Concretely:
+
+- Imperatives end in `-a / -e / -i`, never in `-á / -é / -í`:
+  - ✅ Elige un país. Selecciona una opción. Agrega una etiqueta. Deja vacío para heredar. Crea tu primera plantilla. Ingresa tu correo. Guarda los cambios. Verifica los datos. Indica la razón. Configura el dispositivo.
+  - ❌ Elegí, Seleccioná, Agregá, Dejá, Creá, Ingresá, Guardá, Verificá, Indicá, Configurá.
+- Conjugations use `tú`, never `vos`:
+  - ✅ tienes / puedes / quieres / eres / sabes.
+  - ❌ tenés / podés / querés / sos / sabés.
+- Pronouns: prefer omitting the subject pronoun when natural; when an explicit form is needed, use `tú` (never `vos`). Avoid `ustedes` for 2nd-person plural unless the copy is specifically addressing a multi-user group.
+- Nouns + conjunctions: any word that the locale has regional variants for (e.g. `ordenador` vs `computadora`, `ficha` vs `tarjeta`) defaults to the LATAM variant — match what the existing es/ namespace already uses rather than importing peninsular Spanish.
+
+When reviewing a diff: grep for the voseo imperatives + conjugations listed above (`grep -rnE "(tenés|podés|querés|sos|[A-Z][a-z]*(á|é|í)\\b)" apps/web/src/i18n/locales/es/` catches most of them, discounting legitimate accented nouns like `categoría`, `línea`, `válida`). This rule is enforced by review, not by a CI lint today — if voseo lands, fix it inline per the collateral-bug policy and flag it in the commit body.
 
 ## Multi-tenant invariants (non-obvious)
 

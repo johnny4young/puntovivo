@@ -1,12 +1,12 @@
 {
   "card": {
     "title": "Idioma y moneda",
-    "description": "Elegí el país donde opera este negocio. Los valores por defecto vienen del catálogo global; los overrides aplican solo a este tenant.",
+    "description": "Elige el país donde opera este negocio. Los valores por defecto vienen del catálogo global; los overrides aplican solo a este tenant.",
     "countryLabel": "País",
-    "countryPlaceholder": "Seleccioná un país",
+    "countryPlaceholder": "Selecciona un país",
     "uiNotReadyWarning": "La interfaz operativa aún no tiene el paquete de {{language}}. Los números y fechas se muestran correctamente; los textos caerán al español.",
     "overrideSection": "Overrides (opcional)",
-    "overrideHint": "Dejá vacío para heredar los valores por defecto del país.",
+    "overrideHint": "Deja vacío para heredar los valores por defecto del país.",
     "currencyOverrideLabel": "Moneda",
     "currencyOverridePlaceholder": "Por defecto: {{default}}",
     "currencyOverrideClear": "Usar valor del país",

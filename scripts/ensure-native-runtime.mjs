@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -59,6 +59,70 @@ async function getFileHash(filePath) {
     return createHash('sha256').update(content).digest('hex');
   } catch {
     return null;
+  }
+}
+
+async function collectNodeBinaries(rootDir) {
+  const results = [];
+  let entries;
+
+  try {
+    entries = await readdir(rootDir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...(await collectNodeBinaries(entryPath)));
+    } else if (entry.isFile() && entry.name.endsWith('.node')) {
+      results.push(entryPath);
+    }
+  }
+
+  return results;
+}
+
+function runCodesign(binaryPath) {
+  const displayPath = path.relative(repoRoot, binaryPath);
+
+  try {
+    execFileSync('codesign', ['--force', '--sign', '-', binaryPath], {
+      cwd: repoRoot,
+      stdio: 'pipe',
+    });
+    execFileSync('codesign', ['--verify', '--verbose=2', binaryPath], {
+      cwd: repoRoot,
+      stdio: 'pipe',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to ad-hoc sign native addon ${displayPath}: ${message}`);
+  }
+}
+
+async function signElectronNativeAddons() {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
+  const candidates = new Set([
+    getBetterSqliteBinaryPath(),
+    path.join(repoRoot, 'node_modules', 'argon2', 'build', 'Release', 'argon2.node'),
+  ]);
+
+  for (const binaryPath of await collectNodeBinaries(path.join(repoRoot, 'node_modules', 'argon2', 'bin'))) {
+    candidates.add(binaryPath);
+  }
+
+  for (const binaryPath of candidates) {
+    if (!(await getFileHash(binaryPath))) {
+      continue;
+    }
+
+    console.log(`[native-runtime] Ensuring macOS code signature for ${path.relative(repoRoot, binaryPath)}`);
+    runCodesign(binaryPath);
   }
 }
 
@@ -143,13 +207,30 @@ async function main() {
     state.cachedArtifactHash === cachedBinaryHash;
 
   if (alreadyPreparedForRuntime) {
+    if (runtime === 'electron') {
+      await signElectronNativeAddons();
+      const currentArtifactHash = await cacheActiveBinary(desiredKey);
+      await writeState({
+        keys: {
+          ...state.keys,
+          [runtime]: desiredKey,
+        },
+        cachedArtifactHash: currentArtifactHash,
+        currentArtifactHash,
+        lastPreparedRuntime: runtime,
+      });
+    }
     console.log(`[native-runtime] ${runtime} runtime already prepared`);
     return;
   }
 
   if (cachedBinaryHash && cachedBinaryHash !== nativeBinaryHash) {
     console.log(`[native-runtime] Restoring cached better-sqlite3 binary for ${runtime}`);
-    const restoredHash = await restoreCachedBinary(desiredKey);
+    await restoreCachedBinary(desiredKey);
+    if (runtime === 'electron') {
+      await signElectronNativeAddons();
+    }
+    const restoredHash = await cacheActiveBinary(desiredKey);
     await writeState({
       keys: {
         ...state.keys,
@@ -175,6 +256,10 @@ async function main() {
       ['run', 'rebuild', '--workspace=@puntovivo/desktop'],
       'Rebuilding better-sqlite3 for Electron'
     );
+  }
+
+  if (runtime === 'electron') {
+    await signElectronNativeAddons();
   }
 
   const currentArtifactHash = await cacheActiveBinary(desiredKey);
