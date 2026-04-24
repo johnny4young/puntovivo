@@ -452,10 +452,10 @@ inserting a foreign-actor audit row and asserting the join collapses
 
 ## Schema migrations (ENG-002)
 
-The database schema is defined in Drizzle (`packages/server/src/db/schema.ts`)
-and mirrored in a legacy `runSchemaSync()` raw-DDL bootstrap for historical
-reasons. As of ENG-002 step 1, **versioned Drizzle migrations are the
-canonical path** for every new schema change:
+The database schema is defined in Drizzle (`packages/server/src/db/schema.ts`).
+**Versioned Drizzle migrations are the single schema path** — as of
+ENG-002 Step 3 the legacy `runSchemaSync()` raw-DDL mirror has been
+retired. Every new schema change follows the same flow:
 
 1. Edit `schema.ts` (add a column, widen a type, etc.).
 2. From `packages/server`, run `npm run db:generate`. This calls
@@ -467,19 +467,19 @@ canonical path** for every new schema change:
    router work. Fresh installs apply every migration top-to-bottom;
    existing installs only apply what they have not already seen.
 
-Adoption shim: installs that predate ENG-002 still carry the schema from
-`runSchemaSync()` and have no `__drizzle_migrations` table. On first boot
-against this codebase, `ensureMigrationBaseline()` detects a populated
-DB (any user-defined table other than `__drizzle_migrations`) and pre-
-seeds the baseline row with the exact `(hash, created_at)` Drizzle would
-write. That short-circuits the migrator's baseline re-run so it does not
-collide with the existing tables.
+Adoption shim: installs that predate ENG-002 carry the schema from the
+now-retired raw-DDL bootstrap and have no `__drizzle_migrations` table.
+On first boot against this codebase, `ensureMigrationBaseline()` detects
+a populated DB (any user-defined table other than `__drizzle_migrations`)
+and pre-seeds the entire journal with the exact `(hash, created_at)`
+tuples Drizzle would write. That short-circuits the migrator so it does
+not collide with the existing tables.
 
-`runSchemaSync()` is retained for one more release cycle as a belt-and-
-suspenders no-op: its `CREATE TABLE IF NOT EXISTS` blocks are idempotent,
-so running it after the migrator costs nothing on an already-migrated DB.
-A follow-up ticket removes it once every deployed install has exercised
-the shim.
+Catalog data that must exist on every boot (country / currency
+catalogs, DIAN identification types) lives in a post-migration
+`seedCatalogs()` hook in `db/index.ts`. Each seeder is table-existence
+gated and uses `INSERT OR IGNORE`, so adopted DBs that skip the
+transitional release log an actionable warning instead of crashing.
 
 Timestamp defaults: the schema keeps timestamp columns on a dynamic SQL
 default (`datetime('now')`) so the generated baseline does not freeze the
@@ -521,15 +521,11 @@ outside the Vite module graph:
    `import.meta.url`, matching the existing `packages/server/dist/db`
    layout.
 
-The `existsSync(meta/_journal.json)` guard in `initDatabase()` is
-retained as a belt-and-suspenders safety net for tests and hand-crafted
-deployments that intentionally boot with no migrations folder (the app
-still boots via the idempotent `runSchemaSync()` fallback). It is no
-longer the production code path.
-
-Retirement of `runSchemaSync()` is tracked as ENG-002 step 3 — now that
-every supported boot path honors `drizzleMigrate()`, the legacy bootstrap
-can be removed after one more release cycle of overlap.
+The `existsSync(meta/_journal.json)` guard in `initDatabase()` is the
+safety net for malformed deployments: after ENG-002 Step 3 the branch
+hard-throws an actionable error naming the resolved migrations path.
+Tests that want to opt out of migrations pass `runMigrations: false`
+explicitly; production code paths all ship the folder.
 
 ## CI coverage gate (ENG-003)
 

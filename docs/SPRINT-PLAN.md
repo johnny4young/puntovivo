@@ -170,8 +170,8 @@ feat(sales): reprint receipt action in history and sale details
 
 **5.2 Status**: **Shipped**. All five commits staged end-to-end:
 
-- Commit 1 — migration `0004_dian_identification_types.sql` + raw DDL + `seedDianIdentificationTypes` (10 DIAN codes).
-- Commit 2 — migration `0005_fiscal_documents.sql` + 4 fiscal tables with the immutable buyer + line snapshots in `schema.ts` + raw DDL mirror + `fiscalDocumentsRelations` drizzle joins.
+- Commit 1 — migration `0004_dian_identification_types.sql` + `seedDianIdentificationTypes` (10 DIAN codes).
+- Commit 2 — migration `0005_fiscal_documents.sql` + 4 fiscal tables with the immutable buyer + line snapshots in `schema.ts` + `fiscalDocumentsRelations` drizzle joins.
 - Commit 3 — `services/fiscal/{cufe,adapter,mock-adapter,registry}.ts` + 13 tests (6 CUFE avalanche + canonical-order assertions, 7 MockAdapter issue/void/fetchStatus assertions).
 - Commit 4 — `services/fiscal/orchestrator.ts` with `emitFiscalDocument` idempotent by `(tenantId, source, sourceId, kind)`; four hooks wired into `sales.ts` (`create` completed / `completeDraft` / `void` / `returnSale`) as best-effort post-tx calls behind `tenants.settings.fiscal_dian_enabled`. Dev seed now enables the flag and inserts one DEE resolution per site + placeholder cert for `demo-co`; 10 orchestrator integration tests cover site-scoped resolution lookup and rollback when fiscal persistence fails mid-write, plus extended seed-dev assertion (20 sales → 20 fiscal documents).
 - Commit 5 — `trpc/routers/reports/fiscal.ts` + `reports/index.ts` aggregator mounted on `appRouter`, `trpc/schemas/fiscal.ts`, `architectural-lint.test.ts` (regex-based guard + synthetic positive test), `fiscal-reports.test.ts` (7 tests across list, paginated total count, getByCufe, cross-tenant isolation, FORBIDDEN, NOT_FOUND). Web UI: `FiscalDocumentListPage`, `FiscalReportsPage`, `FiscalHabilitationWizard`, header-mounted `FiscalContingencyIndicator`; `fiscal` i18n namespace registered en/es; admin-only `/fiscal-documents` and `/fiscal-reports` routes.
@@ -213,7 +213,7 @@ ENG-021 is the one-file swap of `MockAdapter` → `FactureAdapter`/`HkaAdapter` 
 ## 10. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter (`apps/web/src/i18n/locale-parity.test.ts`).
-- **Drizzle migrations** — one migration per iter that touches schema; update the raw DDL mirror in `db/index.ts` in the same commit; use `IF NOT EXISTS` when Drizzle's SQLite dialect cannot emit the construct (partial unique indexes, `WHERE` clauses).
+- **Drizzle migrations** — one migration per iter that touches schema; update `schema.ts`, generate the SQL migration, register the journal entry, and use `IF NOT EXISTS` when Drizzle's SQLite dialect cannot emit the construct (partial unique indexes, `WHERE` clauses). `db/index.ts` is no longer a raw-DDL mirror after ENG-002 Step 3.
 - **Audit trail** — `auditLogActionEnum` is free-form strings; adding a new action never needs a migration. But `AuditLogsTable.tsx` needs an i18n key per action.
 - **E2E suite** — 25+ tests in `e2e/web/`; every closing commit runs `npm run test:e2e:web` before pushing.
 - **Electron boundary** — any peripheral or FS call goes through `ipcMain.handle` → `contextBridge.exposeInMainWorld('electron', {...})` → `window.electron.*`. Never `require('fs')` in the renderer.

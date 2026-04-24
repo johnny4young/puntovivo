@@ -109,12 +109,12 @@ CREATE UNIQUE INDEX idx_receipt_templates_tenant_kind_default
   WHERE is_default = 1;
 ```
 
-The partial unique index lives only in the raw DDL mirror (`db/index.ts`)
-and the hand-appended Drizzle migration `0001_receipt_templates.sql`,
-because Drizzle's SQLite dialect cannot generate `WHERE` clauses for
-unique indexes today. The service layer additionally enforces the
-invariant inside transactions: any insert/promote that would create a
-second default first demotes the prior one in the same statement.
+The partial unique index lives in the hand-appended Drizzle migration
+`0001_receipt_templates.sql`, because Drizzle's SQLite dialect cannot
+generate `WHERE` clauses for unique indexes today. The service layer
+additionally enforces the invariant inside transactions: any insert/promote
+that would create a second default first demotes the prior one in the same
+statement.
 
 ### tRPC procedures (admin only)
 

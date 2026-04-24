@@ -1701,6 +1701,18 @@ Test tickets:
 - `TEST-005` SiteCapabilities correctly computed from vertical + settings for each vertical type
 - `TEST-006` Module-conditional sidebar only shows items for active vertical
 
+### DB-002 Status Update — April 2026
+
+**All three steps shipped** (tracked as `ENG-002` in ROADMAP §3b):
+
+- **Step 1**: baseline migration (`packages/server/src/db/migrations/0000_0000_baseline.sql`) captures the full schema. `initDatabase()` runs `drizzleMigrate()` at boot; `ensureMigrationBaseline()` pins the journal on DBs that predate versioned migrations so the migrator skips DDL that would collide with existing objects.
+- **Step 2**: `DatabaseOptions.migrationsFolder` override threaded through packaged Electron via Forge `extraResource`. The override-path test in `migrations.test.ts` pins the packaged contract.
+- **Step 3**: `runSchemaSync()` + `ensureColumn()` + `createIndexIfColumnsExist()` retired. `packages/server/src/db/index.ts` dropped from 1,638 to 444 lines. `drizzleMigrate()` is the single schema path — the missing-folder branch now hard-throws an actionable error instead of silently falling back. Catalog seeds (locale + DIAN identification types) hoisted into a defensive `seedCatalogs()` hook called from `initDatabase()` post-migrate; each seeder is table-existence-gated, so adopted DBs that skip the transitional release log an actionable warning instead of crashing the boot. New `migrations-parity.test.ts` locks the invariant that the migrations-only path produces the full schema + non-empty catalog tables; `migrations.test.ts` gained a missing-folder-throws case and an adopted-DB-catalog-seed case; `db.seed.test.ts` legacy case rewritten from an `ensureColumn` regression to an adoption-shim column-preservation regression.
+
+**Adoption contract after Step 3**: operators must upgrade through a transitional release (anything shipping Step 2) before reaching Step 3. That release materialises the full schema via the raw-DDL bootstrap while the dual path was still wired. Installs that jump straight from pre-Step-1 to post-Step-3 will see `seedCatalogs()` log actionable warnings about missing catalog tables — no crash, no data loss, but the catalog rows will not populate until a bridge release has run.
+
+**AGENTS.md checklist item 1** (under "Adding new features — checklist") used to tell contributors to keep `schema.ts` and the raw DDL in `db/index.ts` hand-synchronised. That contract is retired together with the raw DDL; the checklist has been updated to point at `drizzle-kit generate` as the single source of schema truth.
+
 ### Phase 1: Cash Management, Shift Control, and Fractional Quantity Foundation
 
 Goal:

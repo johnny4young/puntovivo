@@ -1,15 +1,14 @@
 -- Iter 2 — receipt templates. This migration is hand-tuned to use
 -- `IF NOT EXISTS` because earlier installs saw the `receipt_templates`
--- table land via the raw-DDL fallback (`runSchemaSync()` in
--- `db/index.ts`) during the same release cycle that introduced
--- Drizzle versioned migrations. On those installs the
--- `__drizzle_migrations` row for 0001 is missing but the table is
--- already present; a vanilla `CREATE TABLE` would fail the migration
--- mid-run and leave the DB unbootable. Using `IF NOT EXISTS` lets
--- drizzle-migrate mark 0001 as applied on pre-existing schemas while
--- still producing the right shape on truly fresh DBs. The partial
--- unique index at the bottom keeps the invariant enforced regardless
--- of how the table actually got created.
+-- table land via the now-retired raw-DDL bootstrap during the same
+-- release cycle that introduced Drizzle versioned migrations. On those
+-- installs the `__drizzle_migrations` row for 0001 is missing but the
+-- table is already present; a vanilla `CREATE TABLE` would fail the
+-- migration mid-run and leave the DB unbootable. Using `IF NOT EXISTS`
+-- lets drizzle-migrate mark 0001 as applied on pre-existing schemas
+-- while still producing the right shape on truly fresh DBs. The
+-- partial unique index at the bottom keeps the invariant enforced
+-- regardless of how the table actually got created.
 CREATE TABLE IF NOT EXISTS `receipt_templates` (
 	`id` text PRIMARY KEY NOT NULL,
 	`tenant_id` text NOT NULL,

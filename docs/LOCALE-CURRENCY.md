@@ -237,7 +237,7 @@ Dual-currency / dollarized notes:
 ### Phase A — model + seed (1-2 days, no UI change)
 
 1. Add `country_catalog` and `currency_catalog` tables (Drizzle
-   schema + raw DDL mirror + migration `0002_locale_catalog.sql`).
+   schema + generated migration `0003_locale_catalogs.sql`).
 2. Seed both tables with the LATAM + USA matrix above. Seed runs on
    every DB boot (idempotent by `code` primary key).
 3. Add `tenant_locale_settings` table (1:1 with tenants).

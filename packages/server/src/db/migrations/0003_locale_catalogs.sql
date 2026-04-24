@@ -6,13 +6,11 @@
 -- `tenant_locale_settings` can reference them. Statement ordering
 -- matters because SQLite parses foreign keys at CREATE time.
 --
--- Safe to run on every install: `drizzleMigrate()` executes before
--- `runSchemaSync()` in `db/index.ts`, so on fresh DBs the migration
--- lands the canonical shape; on legacy DBs the raw-DDL fallback in
--- `runSchemaSync()` follows with `CREATE TABLE IF NOT EXISTS` to keep
--- the shape in sync. The adoption shim in `ensureMigrationBaseline()`
--- seeds every journal entry at adoption time so migrations never
--- race runSchemaSync on minimally-seeded adoption paths.
+-- `IF NOT EXISTS` is retained on every CREATE so this migration is
+-- idempotent against the ENG-002 adoption shim (`ensureMigrationBaseline`
+-- pins the full journal on DBs that reached the current shape via the
+-- now-retired raw-DDL bootstrap — those rows already exist). Catalog
+-- row content lands via the post-migration `seedCatalogs()` hook.
 CREATE TABLE IF NOT EXISTS `currency_catalog` (
 	`code` text PRIMARY KEY NOT NULL,
 	`name_en` text NOT NULL,
