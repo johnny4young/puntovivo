@@ -18,11 +18,16 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  adminProcedure,
+  cashierManagerOrAdminProcedure,
+  managerOrAdminProcedure,
+} from '../middleware/roles.js';
 import {
   cashMovements,
   cashSessions,
   customers,
+  fiscalDocuments,
   inventoryBalances,
   inventoryMovements,
   products,
@@ -61,6 +66,67 @@ import {
   applyInventoryBalanceDelta,
   ensureInventoryBalancesForSite,
 } from '../../services/inventory-balances.js';
+import { emitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import { getFiscalAdapter } from '../../services/fiscal/registry.js';
+import type {
+  FiscalDocumentKind,
+  FiscalDocumentSource,
+} from '../../db/schema.js';
+
+/**
+ * ENG-020 — best-effort fiscal emission post-transaction. The sale
+ * lifecycle tx has already committed by the time this runs; an
+ * emission failure (PT outage, missing resolution, malformed input)
+ * MUST NOT roll back the sale. The orchestrator itself is idempotent
+ * by `(tenantId, source, sourceId, kind)`, so a later retry (from the
+ * contingency daemon planned in ENG-021) picks the dropped emission
+ * back up without duplicating it.
+ *
+ * When the tenant has not opted into DIAN (feature flag off) the
+ * orchestrator returns `null` without throwing. Errors are logged
+ * but swallowed — this function never throws.
+ */
+async function safelyEmitFiscalDocument(
+  ctx: Context,
+  args: {
+    source: FiscalDocumentSource;
+    sourceId: string;
+    saleId: string;
+    kind: FiscalDocumentKind;
+    originalCufe?: string;
+    reasonCode?: string;
+  }
+): Promise<void> {
+  if (!ctx.tenantId || !ctx.user) return;
+  try {
+    await emitFiscalDocument({
+      tx: ctx.db,
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      source: args.source,
+      sourceId: args.sourceId,
+      saleId: args.saleId,
+      kind: args.kind,
+      originalCufe: args.originalCufe,
+      reasonCode: args.reasonCode,
+      adapter: getFiscalAdapter(),
+    });
+  } catch (err) {
+    const log = ctx.req?.server?.log;
+    if (log) {
+      log.warn(
+        {
+          err,
+          tenantId: ctx.tenantId,
+          saleId: args.saleId,
+          source: args.source,
+          kind: args.kind,
+        },
+        'fiscal emission failed (non-blocking)'
+      );
+    }
+  }
+}
 
 type ResolvedSaleItem = {
   id: string;
@@ -1039,6 +1105,17 @@ export const salesRouter = router({
 
     const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
 
+    // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
+    // `completed`. Drafts never emit. Runs post-tx best-effort.
+    if (input.status === 'completed') {
+      await safelyEmitFiscalDocument(ctx, {
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+      });
+    }
+
     return {
       ...created,
       change,
@@ -1242,7 +1319,7 @@ export const salesRouter = router({
             syncVersion: sql`${products.syncVersion} + 1`,
             updatedAt: now,
           })
-          .where(eq(products.id, item.productId))
+          .where(and(eq(products.id, item.productId), eq(products.tenantId, ctx.tenantId)))
           .run();
 
         tx.insert(inventoryMovements)
@@ -1377,6 +1454,29 @@ export const salesRouter = router({
           refundCashSessionId: activeCashSession.id,
         },
       });
+    });
+
+    // ENG-020 — emit DIAN credit note (NC) for the refunded sale. The
+    // originalCufe is looked up so DIAN can tie the compensation to the
+    // original DEE; absence is non-fatal (emission runs best-effort).
+    const originalFiscal = await ctx.db
+      .select({ cufe: fiscalDocuments.cufe })
+      .from(fiscalDocuments)
+      .where(
+        and(
+          eq(fiscalDocuments.tenantId, ctx.tenantId),
+          eq(fiscalDocuments.sourceId, input.id),
+          eq(fiscalDocuments.kind, 'DEE')
+        )
+      )
+      .get();
+    await safelyEmitFiscalDocument(ctx, {
+      source: 'return',
+      sourceId: refundId,
+      saleId: input.id,
+      kind: 'NC',
+      originalCufe: originalFiscal?.cufe,
+      reasonCode: input.reason ?? undefined,
     });
 
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
@@ -1605,6 +1705,28 @@ export const salesRouter = router({
             : {}),
         },
       });
+    });
+
+    // ENG-020 — emit DIAN credit note (NC) for the voided sale. Pulls
+    // the original DEE's CUFE so the NC references it. Best-effort.
+    const originalVoidFiscal = await ctx.db
+      .select({ cufe: fiscalDocuments.cufe })
+      .from(fiscalDocuments)
+      .where(
+        and(
+          eq(fiscalDocuments.tenantId, ctx.tenantId),
+          eq(fiscalDocuments.sourceId, input.id),
+          eq(fiscalDocuments.kind, 'DEE')
+        )
+      )
+      .get();
+    await safelyEmitFiscalDocument(ctx, {
+      source: 'void',
+      sourceId: input.id,
+      saleId: input.id,
+      kind: 'NC',
+      originalCufe: originalVoidFiscal?.cufe,
+      reasonCode: input.reason ?? undefined,
     });
 
     const updated = await ctx.db.select().from(sales).where(eq(sales.id, input.id)).get();
@@ -2050,7 +2172,7 @@ export const salesRouter = router({
           syncVersion: nextSyncVersion,
           updatedAt: now,
         })
-        .where(eq(sales.id, input.saleId))
+        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
         .run();
 
       tx.insert(syncQueue)
@@ -2117,7 +2239,7 @@ export const salesRouter = router({
    * - Caller must have an active cash session for their (tenant, site)
    *   pair — enforced via `requireActiveCashSession`.
    */
-  completeDraft: tenantProcedure
+  completeDraft: cashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db
@@ -2245,7 +2367,7 @@ export const salesRouter = router({
         // carried from its initial `sales.create` call with the real
         // tenders captured at complete-time.
         tx.delete(salePayments)
-          .where(eq(salePayments.saleId, input.saleId))
+          .where(and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId)))
           .run();
 
         for (const payment of resolvedPayments.rows) {
@@ -2277,7 +2399,7 @@ export const salesRouter = router({
             syncVersion: nextSyncVersion,
             updatedAt: now,
           })
-          .where(eq(sales.id, input.saleId))
+          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
           .run();
 
         insertCashMovement({
@@ -2344,6 +2466,16 @@ export const salesRouter = router({
               : {}),
           },
         });
+      });
+
+      // ENG-020 — emit DIAN DEE when a draft transitions to completed.
+      // Parallels the `sales.create` hook so drafts and direct sales
+      // both produce a fiscal document on their first completion event.
+      await safelyEmitFiscalDocument(ctx, {
+        source: 'sale',
+        sourceId: input.saleId,
+        saleId: input.saleId,
+        kind: 'DEE',
       });
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);

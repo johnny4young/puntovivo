@@ -97,7 +97,13 @@ export const tenantLocaleRouter = router({
 
       const now = new Date().toISOString();
       const existing = await ctx.db
-        .select({ tenantId: tenantLocaleSettings.tenantId })
+        .select({
+          tenantId: tenantLocaleSettings.tenantId,
+          localeOverride: tenantLocaleSettings.localeOverride,
+          currencyOverride: tenantLocaleSettings.currencyOverride,
+          timezoneOverride: tenantLocaleSettings.timezoneOverride,
+          firstDayOfWeekOverride: tenantLocaleSettings.firstDayOfWeekOverride,
+        })
         .from(tenantLocaleSettings)
         .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))
         .get();
@@ -106,10 +112,22 @@ export const tenantLocaleRouter = router({
           .update(tenantLocaleSettings)
           .set({
             countryCode: input.countryCode,
-            localeOverride: input.localeOverride ?? null,
-            currencyOverride: input.currencyOverride ?? null,
-            timezoneOverride: input.timezoneOverride ?? null,
-            firstDayOfWeekOverride: input.firstDayOfWeekOverride ?? null,
+            localeOverride:
+              input.localeOverride === undefined
+                ? existing.localeOverride
+                : input.localeOverride,
+            currencyOverride:
+              input.currencyOverride === undefined
+                ? existing.currencyOverride
+                : input.currencyOverride,
+            timezoneOverride:
+              input.timezoneOverride === undefined
+                ? existing.timezoneOverride
+                : input.timezoneOverride,
+            firstDayOfWeekOverride:
+              input.firstDayOfWeekOverride === undefined
+                ? existing.firstDayOfWeekOverride
+                : input.firstDayOfWeekOverride,
             updatedAt: now,
           })
           .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))

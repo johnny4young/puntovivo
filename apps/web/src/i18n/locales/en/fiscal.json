@@ -1,0 +1,68 @@
+{
+  "page": {
+    "kicker": "Electronic invoicing",
+    "title": "Fiscal documents",
+    "description": "Every sale, void, and refund prepared for DIAN reporting, with immutable buyer, totals, and line snapshots."
+  },
+  "filters": {
+    "all": "All",
+    "kind": "Kind",
+    "status": "Status",
+    "source": "Source",
+    "fromDate": "From",
+    "toDate": "To"
+  },
+  "kind": {
+    "DEE": "Electronic sales document (DEE)",
+    "FEV": "Electronic invoice (FEV)",
+    "NC": "Credit note (NC)",
+    "ND": "Debit note (ND)"
+  },
+  "status": {
+    "pending": "Pending",
+    "sent": "Sent",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "contingency": "Contingency"
+  },
+  "source": {
+    "sale": "Sale",
+    "void": "Void",
+    "return": "Return"
+  },
+  "list": {
+    "title": "Emitted documents",
+    "description": "Reverse-chronological. Every document has a CUFE — DIAN's deterministic SHA-384 hash — that ties this row to the underlying sale, void, or return.",
+    "empty": "No fiscal documents yet. When DIAN reporting is enabled for this tenant, completed sales will appear here.",
+    "loading": "Loading fiscal documents…",
+    "error": "Unable to load fiscal documents",
+    "columns": {
+      "emittedAt": "When",
+      "kind": "Kind",
+      "status": "Status",
+      "documentNumber": "Document number",
+      "cufe": "CUFE",
+      "buyer": "Buyer",
+      "total": "Total",
+      "provider": "Provider"
+    }
+  },
+  "contingency": {
+    "badge": "{{count}} in contingency",
+    "title": "Documents awaiting DIAN acceptance",
+    "description": "Contingency means the document is waiting for acceptance or needs a later retry."
+  },
+  "reports": {
+    "kicker": "Fiscal reports",
+    "title": "Reports",
+    "description": "Aggregated fiscal reports will appear here once reporting exports are enabled.",
+    "empty": "No fiscal reports are available yet."
+  },
+  "wizard": {
+    "kicker": "Setup",
+    "title": "DIAN setup wizard",
+    "description": "The guided onboarding flow will capture the tenant tax ID, numbering resolution, and authorization credentials.",
+    "gated": "Requires an active electronic invoicing provider contract before production activation.",
+    "cta": "Learn more"
+  }
+}

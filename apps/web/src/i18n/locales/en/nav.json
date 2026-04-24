@@ -30,7 +30,9 @@
     "vatRates": "VAT Rates",
     "users": "Users",
     "receiptTemplates": "Receipt templates",
-    "auditLogs": "Audit log"
+    "auditLogs": "Audit log",
+    "fiscalDocuments": "Fiscal documents",
+    "fiscalReports": "Fiscal reports"
   },
   "actions": {
     "collapseRail": "Collapse rail",

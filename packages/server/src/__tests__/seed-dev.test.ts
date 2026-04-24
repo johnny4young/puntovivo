@@ -37,6 +37,9 @@ import {
 import {
   categories,
   customers,
+  fiscalCertificates,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
   inventoryBalances,
   products,
   providers,
@@ -140,6 +143,46 @@ describe('Dev seed (`seedDevData`)', () => {
     // meaningful history exists — at least half of the 20-per-cashier target.
     expect(result?.c ?? 0).toBeGreaterThanOrEqual(10);
     expect(result?.c ?? 0).toBeLessThanOrEqual(40);
+  });
+
+  // ENG-020 — the demo tenant seeds `fiscal_dian_enabled=true` plus one
+  // DEE resolution per site + placeholder certificate so every historical
+  // sale goes through the full fiscal emission path. The orchestrator is
+  // best-effort — a failed emission does not block the sale — so the seed
+  // count equality proves the happy path fired cleanly.
+  it('emits a fiscal_document for every seeded sale and materializes resolution/certificate rows', async () => {
+    const tenant = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.slug, DEV_TENANT_SLUG))
+      .get();
+    expect(tenant?.settings).toMatchObject({ fiscal_dian_enabled: true });
+
+    const [resolutionRows, certRows, saleCount, fiscalCount] = await Promise.all([
+      db
+        .select()
+        .from(fiscalNumberingResolutions)
+        .where(eq(fiscalNumberingResolutions.tenantId, tenantId))
+        .all(),
+      db
+        .select()
+        .from(fiscalCertificates)
+        .where(eq(fiscalCertificates.tenantId, tenantId))
+        .all(),
+      count(db, sales, tenantId),
+      count(db, fiscalDocuments, tenantId),
+    ]);
+
+    expect(resolutionRows).toHaveLength(2);
+    expect(resolutionRows.every(row => row.kind === 'DEE')).toBe(true);
+    expect(resolutionRows.every(row => row.isActive)).toBe(true);
+    expect(new Set(resolutionRows.map(row => row.siteId)).size).toBe(2);
+    expect(certRows).toHaveLength(1);
+    expect(certRows[0]?.isActive).toBe(true);
+
+    // Every historical sale should have produced exactly one DEE fiscal
+    // document via the sales.create hook.
+    expect(fiscalCount).toBe(saleCount);
   });
 
   it('is idempotent: a second seedDevData() call on the same DB is a no-op', async () => {

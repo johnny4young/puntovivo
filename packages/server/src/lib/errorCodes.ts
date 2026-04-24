@@ -175,6 +175,10 @@ export const SERVER_ERROR_CODES = {
   // --- ENG-018c draft completion ---
   /** Attempt to complete a draft that is still suspended; caller must resume first. */
   SALE_COMPLETE_DRAFT_SUSPENDED: 'SALE_COMPLETE_DRAFT_SUSPENDED',
+
+  // --- ENG-020 fiscal reports ---
+  /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
+  FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

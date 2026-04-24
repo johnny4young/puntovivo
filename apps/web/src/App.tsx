@@ -79,6 +79,13 @@ const ReceiptTemplatesPage = lazyPage(async () => ({
 const AuditLogsPage = lazyPage(async () => ({
   default: (await import('@/features/audit-logs/AuditLogsPage')).AuditLogsPage,
 }));
+const FiscalDocumentListPage = lazyPage(async () => ({
+  default: (await import('@/features/fiscal/FiscalDocumentListPage'))
+    .FiscalDocumentListPage,
+}));
+const FiscalReportsPage = lazyPage(async () => ({
+  default: (await import('@/features/fiscal/FiscalReportsPage')).FiscalReportsPage,
+}));
 const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,
 }));
@@ -328,6 +335,22 @@ function App() {
               element={
                 <ShellRoute allowedRoles={adminOnlyRoles}>
                   <AuditLogsPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="fiscal-documents"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <FiscalDocumentListPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="fiscal-reports"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <FiscalReportsPage />
                 </ShellRoute>
               }
             />

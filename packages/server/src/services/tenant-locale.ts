@@ -52,6 +52,11 @@ export interface ResolvedLocale {
   firstDayOfWeek: number;
   /** Short-format hint shown in admin preview. */
   dateFormatShort: string;
+  /** Raw admin overrides so the settings UI can preserve untouched fields. */
+  localeOverride: string | null;
+  currencyOverride: string | null;
+  timezoneOverride: string | null;
+  firstDayOfWeekOverride: number | null;
   /** Whether i18next has bundles for `language` — BR/pt-BR starts false. */
   uiLocaleReady: boolean;
   /** True when the resolver hit the hardcoded fallback path. */
@@ -74,6 +79,10 @@ export const LOCALE_FALLBACK: ResolvedLocale = {
   timezone: 'America/New_York',
   firstDayOfWeek: 0,
   dateFormatShort: 'MM/dd/yyyy',
+  localeOverride: null,
+  currencyOverride: null,
+  timezoneOverride: null,
+  firstDayOfWeekOverride: null,
   uiLocaleReady: true,
   isFallback: true,
 };
@@ -102,6 +111,10 @@ function combine(
     firstDayOfWeek:
       settings.firstDayOfWeekOverride ?? country.firstDayOfWeek,
     dateFormatShort: country.dateFormatShort,
+    localeOverride: settings.localeOverride,
+    currencyOverride: settings.currencyOverride,
+    timezoneOverride: settings.timezoneOverride,
+    firstDayOfWeekOverride: settings.firstDayOfWeekOverride,
     uiLocaleReady: country.uiLocaleReady ?? true,
     isFallback: false,
   };

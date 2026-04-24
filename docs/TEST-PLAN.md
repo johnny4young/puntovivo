@@ -605,6 +605,27 @@ Execution matrix for manual validation and later automation with Playwright Web 
 
 ---
 
+## FISCAL (ENG-020 Fase A — Colombia DIAN MockAdapter)
+
+| Status | ID | Runner | Role | Flow | Expected validation |
+|---|---|---|---|---|---|
+| ✅ | FISCAL-01 | SRV | admin | `computeCufe` with the canonical sandbox input | Produces a 96-char lowercase SHA-384 hex digest; re-running with the same input yields the same hash; mutating any one of the 13 canonical fields changes the digest (`fiscal-cufe.test.ts`) |
+| ✅ | FISCAL-02 | SRV | admin | `MockAdapter.issue` from Fase A | Deterministic CUFE matches the pure helper byte-for-byte; `status='sent'` by default; a `contingencyOracle` hook can force `status='contingency'`; `voidDocument` returns a distinct CUFE so the unique index never collides (`fiscal-adapter.test.ts`) |
+| ✅ | FISCAL-03 | SRV | admin | `emitFiscalDocument` happy path (flag on, resolution seeded) | Inserts one `fiscal_documents` row with deterministic CUFE, advances the resolution's `current_number`, and materializes the line snapshot in `fiscal_document_items` (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-04 | SRV | admin | `emitFiscalDocument` with feature flag `fiscal_dian_enabled=false` | Returns `null` and inserts zero rows — the sale still completes, keeping backward compat for non-CO tenants (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-05 | SRV | admin | Buyer snapshot immutability: complete a sale, then rename / re-taxId the customer row | `fiscal_documents.buyerName` + `buyerTaxId` stay on the ORIGINAL values; the product row snapshot behaves the same way (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-06 | SRV | admin | Consumidor final emission (customerId null) | `buyerTaxId='222222222222'`, `buyerTaxIdTypeCode='31'`, `buyerName='Consumidor final'` without creating a ficticious customer row (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-07 | SRV | admin | Cross-tenant isolation: tenant A + tenant B both emit fiscal documents | Each tenant sees only its own rows in `reports.fiscal.list` and `fiscal_documents` query scoped by `tenantId` (`fiscal-orchestrator.test.ts`, `fiscal-reports.test.ts`) |
+| ✅ | FISCAL-08 | SRV | admin | Architectural lint — try importing `customers` or `products` from `trpc/routers/reports/**` | `architectural-lint.test.ts` fails the build with a precise error message naming the offending file + identifier (`architectural-lint.test.ts`) |
+| ✅ | FISCAL-09 | SRV | admin | Sale belongs to site B while site A also has an active DEE resolution | `emitFiscalDocument` advances only site B's resolution and the document number uses site B's prefix (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-10 | SRV | admin | Fiscal persistence fails while inserting line snapshots | Header, lines, and numbering update roll back together; no partial fiscal document remains (`fiscal-orchestrator.test.ts`) |
+| ✅ | FISCAL-11 | SRV | admin | Fiscal list is paginated with `limit=1` while two rows match the filter | `reports.fiscal.list` returns one item plus `total=2`, so UI badges can show the real count (`fiscal-reports.test.ts`) |
+| ⬜ | FISCAL-12 | BOTH | admin | Admin navigates to `/fiscal-documents` on a tenant with `fiscal_dian_enabled=true` | Table lists the seeded demo-co fiscal documents with CUFE, buyer name, total formatted in COP, status badge |
+| ⬜ | FISCAL-13 | BOTH | admin | Admin navigates to `/fiscal-reports` | Renders the habilitación wizard placeholder (gated CTA) and the "coming soon" empty state card |
+| ⬜ | FISCAL-14 | BOTH | cashier | Tries to hit `/fiscal-documents` as a non-admin | `ShellRoute` guard redirects; direct `reports.fiscal.list` tRPC call returns FORBIDDEN |
+
+---
+
 ## DESKTOP / WORKSTATION
 
 | Status | ID | Runner | Role | Flow | Expected validation |

@@ -13,8 +13,8 @@
  *   override metadata when the caller is not the original cashier.
  * - listDrafts: cashier scope (own only), manager scope (all), search
  *   matches label + saleNumber, pagination.
- * - discardDraft: flips to 'cancelled', same lock rules as resume, no
- *   stock touch.
+ * - discardDraft: flips to 'cancelled', same lock rules as resume, and
+ *   reverses stock debited at draft creation.
  * - getForReprint (ENG-019): increments `reprintCount`, stamps
  *   timestamps, rejects drafts, cashier limited to active session,
  *   manager override, audit row emitted with reason metadata.
@@ -45,6 +45,7 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { completeDraftInput } from '../trpc/schemas/sales.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -63,7 +64,7 @@ let otherAdminId: string;
 
 function createContext(
   userId: string,
-  role: 'admin' | 'manager' | 'cashier',
+  role: 'admin' | 'manager' | 'cashier' | 'viewer',
   tenant: string,
   siteId: string | null
 ): Context {
@@ -922,6 +923,33 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         amountReceived: 10,
       });
       expect(completed.status).toBe('completed');
+    });
+
+    it('blocks viewers explicitly before ownership checks', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const viewerCaller = appRouter.createCaller(
+        createContext(cashier1Id, 'viewer', tenantId, primarySiteId)
+      );
+
+      await expect(
+        viewerCaller.sales.completeDraft({
+          saleId: draftId,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        })
+      ).rejects.toThrowError(/cashiers, managers, and administrators/i);
+    });
+
+    it('rejects refunded as a completion payment status at the input boundary', () => {
+      const parsed = completeDraftInput.safeParse({
+        saleId: 'draft-1',
+        paymentMethod: 'cash',
+        paymentStatus: 'refunded',
+        amountReceived: 10,
+      });
+
+      expect(parsed.success).toBe(false);
     });
 
     it('is cross-tenant isolated', async () => {

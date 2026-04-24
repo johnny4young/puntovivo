@@ -1,8 +1,32 @@
 # Fiscal Integration — Colombia DIAN
 
-> Status: **Stub — design document, not yet implemented.**
+> Status: **Fase A shipped (ENG-020, April 2026)** — full data model,
+> adapter interface, `MockAdapter`, sale lifecycle hooks, admin
+> reports router, and architectural lint on `main`. **Fase B
+> (ENG-021) still gated** on the 6 external dependencies listed
+> below.
 > Phase 11 of [ROADMAP.md](./ROADMAP.md), re-prioritized to P0 (Tier-1 3a).
-> Created: April 21, 2026.
+> Created: April 21, 2026. Updated: April 24, 2026.
+
+## Shipped in Fase A
+
+The schema, adapter seam, CUFE compute, lifecycle hooks,
+feature-flagged dev seed, and admin reports surface described in
+this doc are **implemented and staged in the ENG-020 commit
+bundle**:
+
+- Global `dian_identification_types` catalog (10 DIAN codes) + seed.
+- `fiscal_documents` / `fiscal_document_items` / `fiscal_numbering_resolutions` / `fiscal_certificates` tables with immutable buyer + line snapshot columns.
+- `services/fiscal/cufe.ts` (pure SHA-384 helper), `FiscalAdapter` interface, `MockAdapter`, `registry.ts` adapter singleton, `emitFiscalDocument` orchestrator idempotent by `(tenantId, source, sourceId, kind)`.
+- Hooks in `sales.create` (when `status='completed'`) / `sales.completeDraft` / `sales.void` / `sales.returnSale`, gated behind `tenants.settings.fiscal_dian_enabled`.
+- `reports.fiscal.list` + `reports.fiscal.getByCufe` admin router + `architectural-lint.test.ts` enforcing that reports never join `customers` / `products`.
+- Web UI placeholders: fiscal documents list page, fiscal reports page, habilitación wizard, and contingency indicator.
+
+**What Fase B (ENG-021) still owes**: real XAdES-EPES signing in
+a `FactureAdapter` / `HkaAdapter`, the contingency retry daemon
+with backoff, and the real habilitación flow wired to the PT
+sandbox. Everything else is in place and tested end-to-end against
+the MockAdapter.
 
 ## Goal
 
@@ -77,7 +101,7 @@ CREATE TABLE fiscal_certificates (
 CREATE TABLE fiscal_numbering_resolutions (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
-  site_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,            -- one active range per site + kind
   kind TEXT NOT NULL CHECK (kind IN ('DEE', 'FEV', 'NC', 'ND')),
   resolution_number TEXT NOT NULL,
   prefix TEXT NOT NULL,

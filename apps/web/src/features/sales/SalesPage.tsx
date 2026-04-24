@@ -73,6 +73,7 @@ export function SalesPage() {
   const ownerKey =
     currentTenant && user ? `${currentTenant.id}:${user.id}` : null;
   const activeWorkspace = useCartWorkspaceStore(selectActiveWorkspace);
+  const allWorkspaces = useCartWorkspaceStore(state => state.workspaces);
   const updateCartAction = useCartWorkspaceStore(state => state.updateCart);
   const setSelectedItemAction = useCartWorkspaceStore(
     state => state.setSelectedItem
@@ -105,6 +106,11 @@ export function SalesPage() {
   }, [ownerKey]);
 
   const cartItems = activeWorkspace?.items ?? [];
+  const ownedWorkspaces = ownerKey
+    ? Object.values(allWorkspaces)
+        .filter(workspace => workspace.ownerKey === ownerKey)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : [];
   const selectedCartItemKey = activeWorkspace?.selectedItemKey ?? null;
   const isResumedCart = activeWorkspace?.serverSaleId != null;
 
@@ -254,7 +260,7 @@ export function SalesPage() {
         description: `${itemCount} ${t('toast.successDetail')}`,
       });
     },
-    [ownerKey, t, toast, utils]
+    [ownerKey, t, toast, utils, setIsPaymentModalOpen]
   );
 
   const createMutation = trpc.sales.create.useMutation({
@@ -708,6 +714,10 @@ export function SalesPage() {
     useCartWorkspaceStore.getState().createDraft(ownerKey);
   };
 
+  const handleSelectWorkspace = (workspaceId: string) => {
+    useCartWorkspaceStore.getState().setActive(workspaceId);
+  };
+
   const handleToggleSuspendedPanel = () => {
     setIsSuspendedPanelOpen(open => !open);
   };
@@ -843,6 +853,70 @@ export function SalesPage() {
           </div>
         )}
 
+        {ownedWorkspaces.length > 1 && (
+          <section
+            className="rounded-2xl border border-line/80 bg-surface px-4 py-3 shadow-sm"
+            aria-label={t('park.localWorkspacesTitle')}
+            data-testid="cart-workspace-switcher"
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-secondary-950">
+                  {t('park.localWorkspacesTitle')}
+                </p>
+                <p className="text-xs text-secondary-500">
+                  {t('park.localWorkspacesDescription')}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {ownedWorkspaces.map((workspace, index) => {
+                const workspaceSummary = getCartSummary(workspace.items);
+                const fallbackLabel = t('park.localWorkspaceFallback', {
+                  index: ownedWorkspaces.length - index,
+                });
+                const label =
+                  workspace.label ??
+                  (workspace.serverSaleNumber
+                    ? t('park.localWorkspaceServerDraft', {
+                        saleNumber: workspace.serverSaleNumber,
+                      })
+                    : fallbackLabel);
+                const isActive = workspace.id === activeWorkspace?.id;
+
+                return (
+                  <button
+                    key={workspace.id}
+                    type="button"
+                    className={
+                      isActive
+                        ? 'rounded-2xl border border-primary-300 bg-primary-50 px-3 py-2 text-left text-sm text-primary-900'
+                        : 'rounded-2xl border border-line bg-white px-3 py-2 text-left text-sm text-secondary-700 hover:border-primary-200 hover:bg-primary-50/60'
+                    }
+                    onClick={() => handleSelectWorkspace(workspace.id)}
+                    aria-pressed={isActive}
+                    aria-label={t('park.localWorkspaceSelect', { label })}
+                    data-testid="cart-workspace-switcher-item"
+                  >
+                    <span className="block whitespace-nowrap font-semibold">
+                      {label}
+                    </span>
+                    <span className="mt-1 block whitespace-nowrap text-xs opacity-75">
+                      {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
+                      {formatCurrency(workspaceSummary.total)}
+                    </span>
+                    {isActive && (
+                      <span className="mt-1 inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-[0.65rem] font-semibold text-primary-700">
+                        {t('park.localWorkspaceActive')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {isSuspendedPanelOpen && (
           <SuspendedSalesPanel
             isOpen={isSuspendedPanelOpen}
@@ -913,6 +987,11 @@ export function SalesPage() {
         onCharge={handleOpenPaymentModal}
         onOpenCashSession={handleOpenCashSessionModal}
         onCloseCashSession={handleOpenCloseCashSessionModal}
+        canSuspend={canCharge && !isResumedCart}
+        onSuspend={handleOpenSuspendPrompt}
+        onNewSale={handleNewSale}
+        suspendedDraftsCount={suspendedDraftsCount}
+        onToggleSuspendedPanel={handleToggleSuspendedPanel}
       />
       {isProductSearchOpen && (
         <ProductSearchDialog

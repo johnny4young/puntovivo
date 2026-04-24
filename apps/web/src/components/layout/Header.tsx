@@ -5,6 +5,7 @@ import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
 import {
   persistLanguagePreference,
   readLanguagePreference,
@@ -98,6 +99,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                 {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                 {online ? t('common:status.online') : t('common:status.offline')}
               </div>
+
+              <FiscalContingencyIndicator />
+
 
               <div className="w-[5.7rem] min-w-0 flex-none sm:w-[6.1rem]">
                 <Select

@@ -19,7 +19,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Clock, PlayCircle, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Clock, PlayCircle, RotateCw, Trash2, Users } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
@@ -141,7 +141,40 @@ export function SuspendedSalesPanel({
               …
             </div>
           )}
-          {!listQuery.isLoading && drafts.length === 0 && (
+          {listQuery.isError && (
+            <div
+              className="rounded-2xl border border-danger-200 bg-danger-50 p-5 text-sm text-danger-700"
+              data-testid="suspended-sales-error"
+              role="alert"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-danger-700">
+                    {t('sales:park.loadError')}
+                  </p>
+                  <p className="mt-1">
+                    {translateServerError(
+                      listQuery.error,
+                      t,
+                      t('errors:server.unknown')
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-outline mt-3"
+                    onClick={() => {
+                      void listQuery.refetch();
+                    }}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    {t('sales:park.retry')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {!listQuery.isLoading && !listQuery.isError && drafts.length === 0 && (
             <div
               className="rounded-2xl border border-dashed border-line bg-secondary-50 p-6 text-center text-sm text-secondary-500"
               data-testid="suspended-sales-empty"
@@ -149,7 +182,7 @@ export function SuspendedSalesPanel({
               {t('sales:park.emptyState')}
             </div>
           )}
-          {drafts.map(draft => (
+          {!listQuery.isError && drafts.map(draft => (
             <div
               key={draft.id}
               className="card-inset flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"

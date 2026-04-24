@@ -1,4 +1,11 @@
-import { Receipt, Search, WalletCards } from 'lucide-react';
+import {
+  FilePlus2,
+  ListTree,
+  PauseCircle,
+  Receipt,
+  Search,
+  WalletCards,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
@@ -14,6 +21,11 @@ interface SalesMobileCheckoutBarProps {
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
+  canSuspend?: boolean;
+  onSuspend?: () => void;
+  onNewSale?: () => void;
+  suspendedDraftsCount?: number;
+  onToggleSuspendedPanel?: () => void;
 }
 
 export function SalesMobileCheckoutBar({
@@ -26,6 +38,11 @@ export function SalesMobileCheckoutBar({
   onCharge,
   onOpenCashSession,
   onCloseCashSession,
+  canSuspend = false,
+  onSuspend,
+  onNewSale,
+  suspendedDraftsCount = 0,
+  onToggleSuspendedPanel,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
   const hasDraftItems = draftSummary.itemCount > 0;
@@ -44,6 +61,7 @@ export function SalesMobileCheckoutBar({
       ? !canCharge
       : !canCloseCashSession
     : !canOpenCashSession;
+  const showParkActions = Boolean(onSuspend || onNewSale || onToggleSuspendedPanel);
 
   return (
     <div className="xl:hidden">
@@ -80,6 +98,52 @@ export function SalesMobileCheckoutBar({
             {primaryActionLabel}
           </button>
         </div>
+        {showParkActions && (
+          <div
+            className="mx-auto mt-3 grid max-w-7xl grid-cols-3 gap-2"
+            data-testid="mobile-park-controls"
+          >
+            {onSuspend && (
+              <button
+                type="button"
+                className="btn-outline justify-center px-2 text-xs"
+                onClick={onSuspend}
+                disabled={!canSuspend}
+                data-testid="mobile-checkout-suspend"
+              >
+                <PauseCircle className="h-4 w-4" />
+                {t('park.suspend')}
+              </button>
+            )}
+            {onNewSale && (
+              <button
+                type="button"
+                className="btn-outline justify-center px-2 text-xs"
+                onClick={onNewSale}
+                data-testid="mobile-checkout-new-sale"
+              >
+                <FilePlus2 className="h-4 w-4" />
+                {t('park.newSale')}
+              </button>
+            )}
+            {onToggleSuspendedPanel && (
+              <button
+                type="button"
+                className="btn-outline justify-center px-2 text-xs"
+                onClick={onToggleSuspendedPanel}
+                data-testid="mobile-checkout-open-suspended-panel"
+              >
+                <ListTree className="h-4 w-4" />
+                {t('park.panelTitle')}
+                {suspendedDraftsCount > 0 && (
+                  <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[0.65rem] font-semibold text-primary-700">
+                    {suspendedDraftsCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
