@@ -1,20 +1,20 @@
 -- ENG-020 Phase A — global DIAN identification types catalog.
 --
--- Seeded on every boot by `seedDianIdentificationTypes()` in
--- `db/index.ts` with the 10 official codes DIAN publishes in
--- Resolución 042/2020 Anexo Técnico. Keyed by the 2-digit DIAN code
--- that the fiscal XML requires verbatim (11, 13, 22, 31, …).
+-- Row content is populated on every boot by
+-- `seedDianIdentificationTypes()` in `db/index.ts` (via the post-
+-- migration `seedCatalogs()` hook) with the 10 official codes DIAN
+-- publishes in Resolución 042/2020 Anexo Técnico. Keyed by the
+-- 2-digit DIAN code that the fiscal XML requires verbatim
+-- (11, 13, 22, 31, …).
 --
 -- NOT tenant-scoped: ISO-like regulated truth, identical across every
 -- tenant. Distinct from the tenant-scoped `identification_types` table
 -- which stores each tenant's custom catalog for UX flows.
 --
--- Safe to run on every install for the same reason the ENG-017 locale
--- catalogs are: `drizzleMigrate()` runs before `runSchemaSync()`, and
--- `runSchemaSync()` uses `CREATE TABLE IF NOT EXISTS` as a fallback
--- for legacy installs. The adoption shim in `ensureMigrationBaseline()`
--- seeds every journal entry at adoption time so this migration never
--- races runSchemaSync on minimally-seeded adoption paths.
+-- `IF NOT EXISTS` is retained so this migration is idempotent against
+-- the ENG-002 adoption shim (`ensureMigrationBaseline` pins the full
+-- journal on DBs that reached the current shape via the now-retired
+-- raw-DDL bootstrap — the table is already present there).
 CREATE TABLE IF NOT EXISTS `dian_identification_types` (
 	`code` text PRIMARY KEY NOT NULL,
 	`abbr` text NOT NULL,

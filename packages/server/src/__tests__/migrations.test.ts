@@ -152,8 +152,10 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // Simulate a DB bootstrapped BEFORE versioned migrations existed:
     // `tenants` already present, `__drizzle_migrations` absent. We only
     // seed the `tenants` table (not the full schema) because the adoption
-    // check keys off its existence; the rest of the schema will land when
-    // initDatabase() runs runSchemaSync() after the shim.
+    // check keys off its existence; the rest of the schema is assumed to
+    // have been materialised by a transitional release before the
+    // upgrade (the seedCatalogs hook skips missing catalog tables with
+    // an actionable warning).
     const legacySqlite = new Database(dbPath);
     legacySqlite
       .prepare(
@@ -224,9 +226,10 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     const rows = listMigrationRows(liveDb.$client);
     expectMigrationsMatchJournal(rows);
 
-    // Spot-check: the schema really landed via the override path — not
-    // via the silent `runSchemaSync()` fallback that would still leave
-    // `__drizzle_migrations` empty if the override had been ignored.
+    // Spot-check: the schema really landed via the override path. If
+    // the override had been ignored, drizzleMigrate would have thrown
+    // because the default path is unlikely to resolve inside the temp
+    // staging directory.
     const db = getDatabase();
     const seededTenants = await db.select().from(tenants).all();
     expect(Array.isArray(seededTenants)).toBe(true);
@@ -253,5 +256,112 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     };
     const rows = listMigrationRows(liveDb.$client);
     expectMigrationsMatchJournal(rows);
+  });
+
+  it('hard-fails with an actionable error when the migrations folder is missing', async () => {
+    // ENG-002 Step 3 — the legacy `runSchemaSync()` fallback used to
+    // cover the missing-folder case with a warn. After retirement the
+    // path must throw loudly so malformed deployments surface instead
+    // of silently booting against an empty schema.
+    const missingFolder = join(
+      tmpdir(),
+      `puntovivo-no-migrations-${Date.now()}`
+    );
+
+    await expect(
+      initDatabase({
+        dbPath: ':memory:',
+        seedData: false,
+        migrationsFolder: missingFolder,
+      })
+    ).rejects.toThrowError(/migrations folder missing/);
+  });
+
+  it('populates catalog rows on an adopted DB whose schema was already materialised', async () => {
+    // ENG-002 Step 3 regression pin: adopted DBs whose journal is
+    // pinned by ensureMigrationBaseline() skip every migration, so
+    // seedCatalogs() is the only path that still writes the seed
+    // rows on every boot. This test seeds the catalog tables empty
+    // (mimicking a DB that went through dual-path materialisation at
+    // least once but whose catalog rows got wiped or never populated)
+    // and asserts the post-migration hook refills them.
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-adopted-catalogs-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'adopted.db');
+
+    const legacy = new Database(dbPath);
+    const runDdl = (sql: string): void => {
+      legacy.prepare(sql).run();
+    };
+    // Pre-existing schema: a handful of tables that the shim probe
+    // keys off (tenants) plus the catalog tables the seeder targets,
+    // empty. This is a realistic shape for an install that booted
+    // under dual-path code and then had its catalog rows cleared
+    // for a test scenario — the seeder is the recovery path.
+    runDdl(
+      'CREATE TABLE IF NOT EXISTS tenants (' +
+        'id TEXT PRIMARY KEY, ' +
+        'name TEXT NOT NULL, ' +
+        "slug TEXT NOT NULL DEFAULT '', " +
+        'settings TEXT, ' +
+        'is_active INTEGER DEFAULT 1, ' +
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')), " +
+        "updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
+    );
+    runDdl(
+      'CREATE TABLE IF NOT EXISTS currency_catalog (' +
+        'code TEXT PRIMARY KEY, ' +
+        'name_en TEXT NOT NULL, ' +
+        'name_es TEXT NOT NULL, ' +
+        'symbol TEXT NOT NULL, ' +
+        'decimals INTEGER NOT NULL, ' +
+        'display_decimals INTEGER NOT NULL)'
+    );
+    runDdl(
+      'CREATE TABLE IF NOT EXISTS country_catalog (' +
+        'code TEXT PRIMARY KEY, ' +
+        'name_en TEXT NOT NULL, ' +
+        'name_es TEXT NOT NULL, ' +
+        'default_locale TEXT NOT NULL, ' +
+        'general_locale TEXT NOT NULL, ' +
+        'default_currency_code TEXT NOT NULL, ' +
+        "additional_currency_codes TEXT NOT NULL DEFAULT '[]', " +
+        'default_timezone TEXT NOT NULL, ' +
+        'first_day_of_week INTEGER NOT NULL, ' +
+        'date_format_short TEXT NOT NULL, ' +
+        'date_format_long TEXT NOT NULL, ' +
+        "tax_id_types_hint TEXT NOT NULL DEFAULT '[]', " +
+        'ui_locale_ready INTEGER NOT NULL DEFAULT 1)'
+    );
+    runDdl(
+      'CREATE TABLE IF NOT EXISTS dian_identification_types (' +
+        'code TEXT PRIMARY KEY, ' +
+        'abbr TEXT NOT NULL, ' +
+        'name_es TEXT NOT NULL, ' +
+        'name_en TEXT NOT NULL, ' +
+        'natural_person INTEGER NOT NULL)'
+    );
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as {
+      $client: Database.Database;
+    };
+
+    const currencyCount = (liveDb.$client
+      .prepare('SELECT COUNT(*) AS count FROM currency_catalog')
+      .get() as { count: number } | undefined)?.count ?? 0;
+    const countryCount = (liveDb.$client
+      .prepare('SELECT COUNT(*) AS count FROM country_catalog')
+      .get() as { count: number } | undefined)?.count ?? 0;
+    const dianCount = (liveDb.$client
+      .prepare('SELECT COUNT(*) AS count FROM dian_identification_types')
+      .get() as { count: number } | undefined)?.count ?? 0;
+
+    expect(currencyCount).toBeGreaterThanOrEqual(18);
+    expect(countryCount).toBeGreaterThanOrEqual(21);
+    expect(dianCount).toBe(10);
   });
 });

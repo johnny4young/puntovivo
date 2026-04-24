@@ -81,39 +81,60 @@ describe('database foundation seed', () => {
     );
   });
 
-  it('adds newer purchase item columns before creating dependent indexes on a legacy database', async () => {
+  it('adopts a legacy DB that already has the migrated purchase_items shape without regressing its columns or indexes', async () => {
+    // ENG-002 Step 3 regression pin. The previous incarnation of this
+    // test validated the now-retired `runSchemaSync()` path that used
+    // `ensureColumn()` to backfill newer columns onto adopted DBs.
+    // After retirement the adoption contract is strictly: operators
+    // upgrade through a transitional release that materialises the
+    // full schema BEFORE touching the post-retirement code. This test
+    // exercises the post-transitional state — a legacy DB that already
+    // carries the expected columns + indexes — and asserts the
+    // adoption shim preserves them through a boot.
     const dbPath = join(tmpdir(), `puntovivo-legacy-${Date.now()}.sqlite`);
     const legacyDb = new Database(dbPath);
 
-    legacyDb.exec(`
-      CREATE TABLE purchases (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL,
-        purchase_number TEXT NOT NULL,
-        provider_id TEXT NOT NULL,
-        site_id TEXT NOT NULL,
-        subtotal REAL NOT NULL DEFAULT 0,
-        total REAL NOT NULL DEFAULT 0,
-        notes TEXT,
-        created_by TEXT NOT NULL,
-        sync_status TEXT DEFAULT 'pending',
-        sync_version INTEGER DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      CREATE TABLE purchase_items (
-        id TEXT PRIMARY KEY,
-        purchase_id TEXT NOT NULL,
-        product_id TEXT NOT NULL,
-        quantity INTEGER NOT NULL DEFAULT 1,
-        unit_id TEXT NOT NULL,
-        unit_equivalence REAL NOT NULL DEFAULT 1,
-        cost_per_unit REAL NOT NULL DEFAULT 0,
-        base_unit_cost REAL NOT NULL DEFAULT 0,
-        total REAL NOT NULL DEFAULT 0
-      );
-    `);
+    const runDdl = (sql: string): void => {
+      legacyDb.prepare(sql).run();
+    };
+    runDdl(
+      'CREATE TABLE purchases (' +
+        'id TEXT PRIMARY KEY, ' +
+        'tenant_id TEXT NOT NULL, ' +
+        'purchase_number TEXT NOT NULL, ' +
+        'provider_id TEXT NOT NULL, ' +
+        'site_id TEXT NOT NULL, ' +
+        'subtotal REAL NOT NULL DEFAULT 0, ' +
+        'total REAL NOT NULL DEFAULT 0, ' +
+        'notes TEXT, ' +
+        'created_by TEXT NOT NULL, ' +
+        "sync_status TEXT DEFAULT 'pending', " +
+        'sync_version INTEGER DEFAULT 0, ' +
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')), " +
+        "updated_at TEXT NOT NULL DEFAULT (datetime('now'))" +
+        ')'
+    );
+    // Post-transitional shape: `source_order_item_id` is present from the
+    // start, matching what the retired `runSchemaSync()` would have
+    // backfilled during the dual-path window.
+    runDdl(
+      'CREATE TABLE purchase_items (' +
+        'id TEXT PRIMARY KEY, ' +
+        'purchase_id TEXT NOT NULL, ' +
+        'product_id TEXT NOT NULL, ' +
+        'quantity INTEGER NOT NULL DEFAULT 1, ' +
+        'unit_id TEXT NOT NULL, ' +
+        'unit_equivalence REAL NOT NULL DEFAULT 1, ' +
+        'cost_per_unit REAL NOT NULL DEFAULT 0, ' +
+        'base_unit_cost REAL NOT NULL DEFAULT 0, ' +
+        'total REAL NOT NULL DEFAULT 0, ' +
+        'source_order_item_id TEXT' +
+        ')'
+    );
+    runDdl(
+      'CREATE INDEX idx_purchase_items_source_order_item ' +
+        'ON purchase_items (source_order_item_id)'
+    );
     legacyDb.close();
 
     try {
@@ -132,8 +153,12 @@ describe('database foundation seed', () => {
         .all() as Array<{ name: string }>;
       inspectionDb.close();
 
+      // The shim must NOT drop columns or indexes that the adopted DB
+      // already carried.
       expect(columns.some(column => column.name === 'source_order_item_id')).toBe(true);
-      expect(indexes.some(index => index.name === 'idx_purchase_items_source_order_item')).toBe(true);
+      expect(
+        indexes.some(index => index.name === 'idx_purchase_items_source_order_item')
+      ).toBe(true);
     } finally {
       await rm(dbPath, { force: true });
       await rm(`${dbPath}-wal`, { force: true });
