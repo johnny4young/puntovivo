@@ -97,14 +97,32 @@ When either cap is exceeded, the procedure responds with:
   acceptable residual for the embedded POS; see "Future hardening" below
   for the multi-tenant path.
 
-### Persistence and restart behavior
+### Persistence and restart behavior (ENG-008b)
 
-Bucket state lives in two `Map<string, {count, firstAt}>` instances at the
-module level. A server restart wipes the counters and every attempt starts
-fresh. For the embedded Electron build this is acceptable (a restart is
-rare and observable; the DB stays intact so actual account state is
-unchanged). `ENG-008b` tracks DB-backed persistence for the multi-tenant
-cloud deployment.
+Bucket state is persisted to the `login_attempts` table. The in-memory Maps
+from ENG-008 are retained as a **write-through cache** — reads consult the
+cache first and fall back to the DB row; writes mutate the DB first and
+then mirror the state into the cache. A server restart therefore does not
+wipe an active bucket: the embedded Electron server restarts every time
+the operator relaunches the app, and a cloud deployment can hot-reload or
+blue-green-restart without amnestying an ongoing attack.
+
+The table is intentionally **NOT tenant-scoped**. Rate limiting applies
+per-IP and per-(normalized email) across every tenant; an attacker hammering
+multiple tenants from one IP must still trip the global caps. One row per
+`(kind, key)` pair is enforced by the `idx_login_attempts_kind_key` unique
+index.
+
+Lazy eviction: expired rows are deleted on the next access to their key,
+so there is no sweeper timer to unwind at shutdown. `warmCacheFromDb(db)`
+at boot is an optimisation that avoids a first-request DB round-trip; the
+lazy-load fallback also tolerates a cold cache.
+
+Adopted-DB defense: if `ensureMigrationBaseline()` pinned the journal
+before migration 0006 could run, `loginRateLimit` falls back to an
+in-memory-only path and logs one warning (mirrors the `seedCatalogs`
+pattern). Operators who skip the transitional release must run the
+migration manually to recover persistence.
 
 ### Operations
 
@@ -136,8 +154,6 @@ already carries `details.kind` / `details.key` for that follow-up hook.
 
 ### Future hardening (tracked follow-ups)
 
-- `ENG-008b` — persistent DB-backed tracking so server restarts do not
-  amnesty attackers.
 - Per-account exponential backoff (double the window for repeated locks).
 - CAPTCHA challenge after N consecutive locks.
 - IP allowlist / denylist for deployments that know their customer subnets.

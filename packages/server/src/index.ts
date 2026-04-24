@@ -17,6 +17,7 @@ import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.j
 import { createModuleLogger, rootLogger } from './logging/logger.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
+import { warmCacheFromDb } from './security/loginRateLimit.js';
 import {
   CSRF_HEADER_NAME,
   ensureCsrfCookie,
@@ -89,6 +90,12 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     verbose,
     migrationsFolder,
   });
+
+  // ENG-008b — prime the loginRateLimit in-memory cache from the persisted
+  // `login_attempts` table so the first post-restart check hits the cache
+  // instead of paying a DB round-trip. `warmCacheFromDb` is safe to call
+  // against an adopted DB missing migration 0006 (no-op + warn).
+  warmCacheFromDb(db);
 
   // ENG-006 — Fastify adopts the shared pino rootLogger so HTTP request
   // logs and application logs share one NDJSON stream with the same

@@ -88,15 +88,17 @@ export const authRouter = router({
     const { email, password } = input;
     const ip = ctx.req.ip;
 
-    // ENG-008 gate — refuse before any DB work when the buckets are saturated.
-    checkLoginIp(ip);
-    checkLoginUsername(email);
+    // ENG-008 / ENG-008b — refuse before any DB work when the buckets are
+    // saturated. Since ENG-008b the buckets are DB-backed so a server restart
+    // no longer wipes mid-attack state; pass `ctx.db` through on every call.
+    checkLoginIp(ctx.db, ip);
+    checkLoginUsername(ctx.db, email);
 
     // Find user by email
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
     if (!user) {
-      registerLoginFailure(ip, email);
+      registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
@@ -106,7 +108,7 @@ export const authRouter = router({
 
     // Check if user is active
     if (!user.isActive) {
-      registerLoginFailure(ip, email);
+      registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_USER_DISABLED',
@@ -117,7 +119,7 @@ export const authRouter = router({
     // Verify password
     const isValidPassword = await argon2.verify(user.passwordHash, password);
     if (!isValidPassword) {
-      registerLoginFailure(ip, email);
+      registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
@@ -129,7 +131,7 @@ export const authRouter = router({
     const tenant = await ctx.db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get();
 
     if (!tenant || !tenant.isActive) {
-      registerLoginFailure(ip, email);
+      registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_TENANT_DISABLED',
@@ -138,7 +140,7 @@ export const authRouter = router({
     }
 
     // ENG-008 — clear the username bucket after every field cleared.
-    registerLoginSuccess(email);
+    registerLoginSuccess(ctx.db, email);
 
     const token = signAccessToken(ctx.req.server, user);
     const refreshToken = signRefreshToken(ctx.req.server, user);
