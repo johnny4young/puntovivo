@@ -187,7 +187,7 @@ jobs:
         run: npm run rebuild --workspace=@puntovivo/desktop
 
       - name: Build and package desktop app
-        run: npm run make --workspace=@puntovivo/desktop
+        run: npm run make:desktop --workspace=@puntovivo/desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
