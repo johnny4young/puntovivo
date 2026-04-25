@@ -17,7 +17,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@tanstack/react-query": "^5.100.3",
+    "@tanstack/react-query": "^5.100.5",
     "@tanstack/react-table": "^8.11.0",
     "@tanstack/react-virtual": "^3.13.24",
     "@trpc/client": "^11.9.0",
