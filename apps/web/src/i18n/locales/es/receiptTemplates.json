@@ -138,6 +138,24 @@
       "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
       "appFooterShow": "Mostrar el pie de Puntovivo"
     },
+    "functionsHelp": {
+      "title": "Funciones disponibles",
+      "intro": "Encierra cualquier valor en dobles llaves para interpolarlo. También puedes invocar las funciones de abajo — combínalas con rutas como sale.grandTotal o con números y textos entre comillas.",
+      "entries": {
+        "currency": "Formatea un número como moneda según la configuración del país. El segundo argumento opcional fuerza la cantidad de decimales.",
+        "date": "Formatea una fecha o cadena ISO. Tokens de patrón: yyyy MM dd HH mm ss. Por defecto usa el formato corto del país.",
+        "upper": "Convierte el texto a mayúsculas.",
+        "lower": "Convierte el texto a minúsculas.",
+        "round": "Redondea un número a N decimales (0 por defecto).",
+        "limit": "Recorta el texto a N caracteres y agrega puntos suspensivos cuando se acorta.",
+        "concat": "Une varios valores en una sola cadena.",
+        "default": "Devuelve el respaldo cuando el primer argumento está vacío (nulo, indefinido o solo espacios).",
+        "abs": "Valor absoluto del número.",
+        "max": "El mayor de los números dados.",
+        "min": "El menor de los números dados.",
+        "sum": "Suma de los números dados."
+      }
+    },
     "blockColumns": {
       "name": "Ítem",
       "qty": "Cant.",

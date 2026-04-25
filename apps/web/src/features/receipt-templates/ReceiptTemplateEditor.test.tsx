@@ -182,6 +182,53 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
     expect(moveDownButtons.length).toBe(grips.length);
   });
 
+  // ---------------------------------------------------------------------
+  // ENG-016 pass 3 (item #3) — template functions cheat-sheet
+  // ---------------------------------------------------------------------
+
+  it('renders the template functions cheat-sheet for text blocks with every whitelisted function', () => {
+    renderEditor();
+    const list = screen.getByTestId('block-list');
+    const textRow = within(list)
+      .getAllByText(/text/i)
+      .find(el => el.closest('[data-testid^="block-row-"]'));
+    expect(textRow).toBeDefined();
+    fireEvent.click(textRow!);
+
+    const cheatsheet = screen.getByTestId('template-functions-cheatsheet');
+    expect(cheatsheet).toBeInTheDocument();
+    const text = cheatsheet.textContent ?? '';
+    for (const name of [
+      'currency',
+      'date',
+      'upper',
+      'lower',
+      'round',
+      'limit',
+      'concat',
+      'default',
+      'abs',
+      'max',
+      'min',
+      'sum',
+    ]) {
+      expect(text, `cheat-sheet entry ${name}`).toContain(name + '(');
+    }
+  });
+
+  it('does not render the cheat-sheet for non-text blocks', () => {
+    renderEditor();
+    const list = screen.getByTestId('block-list');
+    const totalsRow = within(list)
+      .getAllByText(/totals/i)
+      .find(el => el.closest('[data-testid^="block-row-"]'));
+    expect(totalsRow).toBeDefined();
+    fireEvent.click(totalsRow!);
+    expect(
+      screen.queryByTestId('template-functions-cheatsheet')
+    ).not.toBeInTheDocument();
+  });
+
   it('wires localized dnd-kit screen-reader instructions in English and Spanish', async () => {
     const { unmount } = renderEditor();
     await waitFor(() => {

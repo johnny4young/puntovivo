@@ -19,7 +19,7 @@ This table mirrors the authoritative `Status` column in
 | Iter | Ticket | Status | Scope |
 |---|---|---|---|
 | Iter 1 | (doc-only, no ENG) | Shipped | Design stubs + Mermaid architecture + 12 follow-up docs |
-| Iter 2 | (pre-ENG numbering, follow-up in `ENG-016`) | Shipped | Receipt templates — editor + renderer. See [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md). |
+| Iter 2 | (pre-ENG numbering, follow-up in `ENG-016`) | Shipped | Receipt templates — editor + renderer. See [RECEIPT-TEMPLATES.md](./RECEIPT-TEMPLATES.md). ENG-016 follow-ups landed across pass 1 (items 4/5/6 — bindings captions + appFooter + FLIP), pass 2 (item 1 — dnd-kit drag-and-drop), and pass 3 (item 3 — template functions: parser + 12-fn whitelist + Zod AST validator + editor cheat-sheet). |
 | — | [`ENG-015`](./ROADMAP.md) | Shipped | Dev seed command. See [DEV-SEED.md](./DEV-SEED.md). |
 | Iter 6 | [`ENG-018`](./ROADMAP.md) | Shipped | Sales park-and-resume (multi-cart workspace). Server + audit + UI shipped across 5d8f720 / 05eea2d / 38e2a47 / ENG-018b diff. Spec §3. |
 | Iter 6b | [`ENG-018b`](./ROADMAP.md) | Shipped | ENG-018 UI follow-up: Zustand multi-cart workspace, SuspendedSalesPanel, suspend/new-sale/resume controls, Ctrl+P / Ctrl+R / Ctrl+Shift+P shortcuts, close-session drafts warning, row-selection in history, E2E round-trip. |

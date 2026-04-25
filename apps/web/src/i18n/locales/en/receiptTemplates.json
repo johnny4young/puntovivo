@@ -138,6 +138,24 @@
       "appFooterHelp": "Adds three lines at the bottom of the receipt with the Puntovivo product name, URL, and support contact. Keep it enabled to credit the software, or toggle it off for a branding-free receipt.",
       "appFooterShow": "Show the Puntovivo footer"
     },
+    "functionsHelp": {
+      "title": "Available functions",
+      "intro": "Wrap any value in double curly braces to interpolate it. You can also call the functions below — combine them with paths like sale.grandTotal or with numbers and quoted strings.",
+      "entries": {
+        "currency": "Format a number as a tenant-locale currency. Optional second argument overrides decimals.",
+        "date": "Format a date or ISO string. Pattern tokens: yyyy MM dd HH mm ss. Defaults to the tenant's short date format.",
+        "upper": "Convert text to upper case.",
+        "lower": "Convert text to lower case.",
+        "round": "Round a number to N decimals (default 0).",
+        "limit": "Truncate text to N characters and append an ellipsis when shortened.",
+        "concat": "Join multiple values into a single string.",
+        "default": "Return the fallback when the first argument is empty (null, undefined, or whitespace only).",
+        "abs": "Absolute value of a number.",
+        "max": "Largest of the given numbers.",
+        "min": "Smallest of the given numbers.",
+        "sum": "Sum of the given numbers."
+      }
+    },
     "blockColumns": {
       "name": "Item",
       "qty": "Qty",
