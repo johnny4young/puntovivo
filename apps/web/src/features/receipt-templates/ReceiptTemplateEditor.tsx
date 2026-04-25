@@ -1,6 +1,26 @@
-import { useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DndContextProps,
+  type DragEndEvent,
+  type DragStartEvent,
+  type UniqueIdentifier,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { captureFlipSnapshot, playFlip, type FlipSnapshot } from '@/lib/flipAnimate';
 import { translateServerError } from '@/lib/translateServerError';
@@ -189,6 +209,124 @@ export function ReceiptTemplateEditor({
     setActiveBlockIndex(index + direction);
   }
 
+  // ENG-016 pass 2 (item #1) — drag-and-drop reorder via @dnd-kit/sortable.
+  // The pointer + keyboard sensors emit `onDragEnd` with the dragged block's
+  // key + the destination key; this helper translates those keys into the
+  // existing index-based mutation and reuses the FLIP machinery so the post-
+  // drop landing transition matches the keyboard-button path. Out-of-range
+  // moves and "drop on self" no-op for free.
+  function moveBlockTo(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || toIndex < 0) return;
+    if (fromIndex >= layout.blocks.length || toIndex >= layout.blocks.length) {
+      return;
+    }
+    pendingFlipRef.current = captureFlipSnapshot(
+      blockListRef.current,
+      '[data-flip-key]'
+    );
+    setLayout(prev => {
+      const next = prev.blocks.slice();
+      const [moved] = next.splice(fromIndex, 1);
+      if (!moved) return prev;
+      next.splice(toIndex, 0, moved);
+      return { ...prev, blocks: next };
+    });
+    setBlockKeys(prev => {
+      const next = prev.slice();
+      const [moved] = next.splice(fromIndex, 1);
+      if (!moved) return prev;
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+    setActiveBlockIndex(toIndex);
+  }
+
+  // ENG-016 pass 2 (item #1) — dnd-kit sensors. Pointer activation distance
+  // (4px) ensures simple clicks on the grip do not start a drag; keyboard
+  // sensor wires the standard sortable coordinate getter so arrow keys move
+  // the picked-up block one slot per press.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const draggingIndex = useMemo(
+    () => (draggingKey ? blockKeys.indexOf(draggingKey) : -1),
+    [draggingKey, blockKeys]
+  );
+  const dndAccessibility = useMemo<NonNullable<DndContextProps['accessibility']>>(() => {
+    const getBlockAnnouncementLabel = (id: UniqueIdentifier) => {
+      const blockKey = String(id);
+      const index = blockKeys.indexOf(blockKey);
+      const block = index >= 0 ? layout.blocks[index] : undefined;
+      if (!block) return blockKey;
+
+      return t('editor.dragAndDrop.blockAnnouncementLabel', {
+        index: index + 1,
+        type: t(`editor.blockTypes.${block.type}`),
+      });
+    };
+
+    return {
+      screenReaderInstructions: {
+        draggable: t('editor.dragAndDrop.screenReaderInstructions'),
+      },
+      announcements: {
+        onDragStart({ active }) {
+          return t('editor.dragAndDrop.announcements.dragStart', {
+            active: getBlockAnnouncementLabel(active.id),
+          });
+        },
+        onDragOver({ active, over }) {
+          const activeLabel = getBlockAnnouncementLabel(active.id);
+          if (!over) {
+            return t('editor.dragAndDrop.announcements.dragOverNone', {
+              active: activeLabel,
+            });
+          }
+          return t('editor.dragAndDrop.announcements.dragOver', {
+            active: activeLabel,
+            over: getBlockAnnouncementLabel(over.id),
+          });
+        },
+        onDragEnd({ active, over }) {
+          const activeLabel = getBlockAnnouncementLabel(active.id);
+          if (!over) {
+            return t('editor.dragAndDrop.announcements.dragEndNone', {
+              active: activeLabel,
+            });
+          }
+          return t('editor.dragAndDrop.announcements.dragEnd', {
+            active: activeLabel,
+            over: getBlockAnnouncementLabel(over.id),
+          });
+        },
+        onDragCancel({ active }) {
+          return t('editor.dragAndDrop.announcements.dragCancel', {
+            active: getBlockAnnouncementLabel(active.id),
+          });
+        },
+      },
+    };
+  }, [blockKeys, layout.blocks, t]);
+
+  function handleDragStart(event: DragStartEvent) {
+    setDraggingKey(String(event.active.id));
+  }
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggingKey(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fromIndex = blockKeys.indexOf(String(active.id));
+    const toIndex = blockKeys.indexOf(String(over.id));
+    if (fromIndex < 0 || toIndex < 0) return;
+    moveBlockTo(fromIndex, toIndex);
+  }
+  function handleDragCancel() {
+    setDraggingKey(null);
+  }
+
   function setPaperWidth(width: EditorReceiptLayout['paperWidth']) {
     setLayout(prev => ({ ...prev, paperWidth: width }));
   }
@@ -336,79 +474,96 @@ export function ReceiptTemplateEditor({
             ))}
           </div>
 
-          <ul
-            ref={blockListRef}
-            className="space-y-2"
-            data-testid="block-list"
+          {/*
+            ENG-016 pass 2 (item #1) — drag-and-drop reorder. <DndContext>
+            owns the pointer/keyboard sensors; <SortableContext> exposes the
+            ordered block-key list to its descendants. The block list itself
+            stays as the same <ul> structure so pass-1's FLIP attribute
+            (data-flip-key) and the keyboard ↑/↓ buttons keep working
+            unchanged. Drag activation is gated to the grip icon only —
+            see SortableBlockRow.
+          */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            accessibility={dndAccessibility}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
           >
-            {layout.blocks.length === 0 ? (
-              <li className="rounded border border-dashed border-line p-4 text-center text-sm text-secondary-500">
-                {t('editor.blocksPanel.empty')}
-              </li>
-            ) : (
-              layout.blocks.map((block, index) => (
-                <li
-                  key={blockKeys[index] ?? `idx-${index}`}
-                  data-flip-key={blockKeys[index] ?? `idx-${index}`}
-                  className={`rounded border p-2 transition ${
-                    activeBlockIndex === index
-                      ? 'border-primary bg-primary/5'
-                      : 'border-line bg-surface'
-                  }`}
-                  data-testid={`block-row-${index}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      className="flex-1 text-left text-sm font-medium text-secondary-900"
-                      onClick={() =>
-                        setActiveBlockIndex(activeBlockIndex === index ? null : index)
-                      }
-                    >
-                      {index + 1}. {t(`editor.blockTypes.${block.type}`)}
-                    </button>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        className="btn-icon btn-ghost"
-                        onClick={() => moveBlock(index, -1)}
-                        disabled={index === 0}
-                        aria-label={t('actions.moveUp')}
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-icon btn-ghost"
-                        onClick={() => moveBlock(index, 1)}
-                        disabled={index === layout.blocks.length - 1}
-                        aria-label={t('actions.moveDown')}
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-icon btn-ghost text-error"
-                        onClick={() => removeBlock(index)}
-                        aria-label={t('actions.removeBlock')}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {activeBlockIndex === index ? (
-                    <div className="mt-3 space-y-2 border-t border-line pt-3">
-                      <BlockForm
-                        block={block}
-                        onPatch={patch => patchBlock(index, patch)}
+            <SortableContext
+              items={blockKeys}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul
+                ref={blockListRef}
+                className="space-y-2"
+                data-testid="block-list"
+              >
+                {layout.blocks.length === 0 ? (
+                  <li className="rounded border border-dashed border-line p-4 text-center text-sm text-secondary-500">
+                    {t('editor.blocksPanel.empty')}
+                  </li>
+                ) : (
+                  layout.blocks.map((block, index) => {
+                    const blockKey = blockKeys[index] ?? `idx-${index}`;
+                    return (
+                      <SortableBlockRow
+                        key={blockKey}
+                        blockKey={blockKey}
+                        index={index}
+                        active={activeBlockIndex === index}
+                        isLast={index === layout.blocks.length - 1}
+                        gripLabel={t('editor.dragAndDrop.gripAriaLabel')}
+                        moveUpLabel={t('actions.moveUp')}
+                        moveDownLabel={t('actions.moveDown')}
+                        removeLabel={t('actions.removeBlock')}
+                        title={
+                          <>
+                            {index + 1}. {t(`editor.blockTypes.${block.type}`)}
+                          </>
+                        }
+                        expandedForm={
+                          activeBlockIndex === index ? (
+                            <div className="mt-3 space-y-2 border-t border-line pt-3">
+                              <BlockForm
+                                block={block}
+                                onPatch={patch => patchBlock(index, patch)}
+                              />
+                            </div>
+                          ) : undefined
+                        }
+                        onSelect={() =>
+                          setActiveBlockIndex(activeBlockIndex === index ? null : index)
+                        }
+                        onMoveUp={() => moveBlock(index, -1)}
+                        onMoveDown={() => moveBlock(index, 1)}
+                        onRemove={() => removeBlock(index)}
                       />
-                    </div>
-                  ) : null}
-                </li>
-              ))
-            )}
-          </ul>
+                    );
+                  })
+                )}
+              </ul>
+            </SortableContext>
+            <DragOverlay>
+              {draggingKey && draggingIndex >= 0 ? (
+                <div
+                  className="rounded border border-primary bg-primary/10 p-2 shadow-md"
+                  data-testid="drag-overlay"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium text-secondary-900">
+                    <GripVertical className="h-4 w-4 text-secondary-500" />
+                    <span>
+                      {draggingIndex + 1}.{' '}
+                      {t(
+                        `editor.blockTypes.${layout.blocks[draggingIndex]?.type ?? 'text'}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
 
         <div className="card space-y-3 p-6">
@@ -765,6 +920,140 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
       return null;
     }
   }
+}
+
+/**
+ * ENG-016 pass 2 (item #1) — sortable wrapper around an existing block
+ * card. Owns the `useSortable` hook so the parent component does not
+ * have to thread the dnd-kit transforms through. Critical contract:
+ *
+ *  - `data-flip-key` MUST stay on the outer `<li>` so pass-1's FLIP
+ *    helper continues to animate the keyboard `↑/↓` reorder path.
+ *  - The drag listeners attach to the grip icon ONLY; the row title,
+ *    the `↑/↓` buttons, and the trash button stay clickable without
+ *    starting a drag.
+ *  - `transform` + `transition` from `useSortable` are applied to the
+ *    `<li>` so the dragged item visually follows the pointer until
+ *    drop (the `<DragOverlay>` portal in the parent renders the
+ *    floating clone).
+ */
+interface SortableBlockRowProps {
+  blockKey: string;
+  index: number;
+  active: boolean;
+  isLast: boolean;
+  gripLabel: string;
+  moveUpLabel: string;
+  moveDownLabel: string;
+  removeLabel: string;
+  title: ReactNode;
+  expandedForm?: ReactNode;
+  onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}
+
+function SortableBlockRow({
+  blockKey,
+  index,
+  active,
+  isLast,
+  gripLabel,
+  moveUpLabel,
+  moveDownLabel,
+  removeLabel,
+  title,
+  expandedForm,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: SortableBlockRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: blockKey });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      data-flip-key={blockKey}
+      style={style}
+      className={`rounded border p-2 transition ${
+        active ? 'border-primary bg-primary/5' : 'border-line bg-surface'
+      }`}
+      data-testid={`block-row-${index}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        {/*
+          Grip handle is the SOLE drag activator. `setActivatorNodeRef`
+          + `attributes` + `listeners` are spread here so pointer drag
+          and keyboard sortable activation only fire from this element.
+          The row title, `↑/↓` buttons, and trash button stay clickable.
+        */}
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          className="btn-icon btn-ghost cursor-grab text-secondary-500"
+          aria-label={gripLabel}
+          data-testid="block-grip"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="flex-1 text-left text-sm font-medium text-secondary-900"
+          onClick={onSelect}
+        >
+          {title}
+        </button>
+        <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            className="btn-icon btn-ghost"
+            onClick={onMoveUp}
+            disabled={index === 0}
+            aria-label={moveUpLabel}
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="btn-icon btn-ghost"
+            onClick={onMoveDown}
+            disabled={isLast}
+            aria-label={moveDownLabel}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="btn-icon btn-ghost text-error"
+            onClick={onRemove}
+            aria-label={removeLabel}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {expandedForm}
+    </li>
+  );
 }
 
 /**

@@ -319,20 +319,36 @@ here so the next pass on the editor picks them up in order. Each item
 carries a short rationale + implementation sketch so an engineer can
 estimate without re-deriving the context.
 
-### 1. Drag-and-drop reordering with animation
+### 1. Drag-and-drop reordering with animation — **shipped (ENG-016 pass 2)**
 
-Currently blocks reorder via `↑` / `↓` buttons (one position at a
-time, instant). The follow-up:
+Shipped as part of ENG-016 pass 2:
 
-- Adopt **`@dnd-kit/sortable`** (already referenced in an earlier
-  draft of the plan) for pointer + keyboard drag-drop reordering of
-  the block list. Keep `↑` / `↓` buttons as an a11y fallback.
-- Animate the drop and the keyboard move with a short (~150ms)
-  `transform` transition on the block card so the user can follow
-  where the block moved (otherwise on long lists the reorder is
-  visually lossy).
-- Package add: `@dnd-kit/core` + `@dnd-kit/sortable`. Bundle cost ~8kB
-  gzipped.
+- Adopted `@dnd-kit/core` + `@dnd-kit/sortable` (~8kB gzipped, no peer
+  conflicts on React 19). Wrapped the block list with `<DndContext>` +
+  `<SortableContext>` (vertical strategy); `PointerSensor` (4px
+  activation distance to avoid accidental drags) and `KeyboardSensor`
+  (with `sortableKeyboardCoordinates`) cover both input modalities.
+- Each block row is rendered through a new internal `SortableBlockRow`
+  subcomponent in `ReceiptTemplateEditor.tsx` that calls `useSortable`
+  and applies `transform` + `transition` to the `<li>`. Drag listeners
+  attach to a dedicated grip icon (`GripVertical` lucide) at the start
+  of the row so the row title stays clickable for selection and the
+  `↑/↓` buttons stay clickable for the a11y fallback.
+- A `<DragOverlay>` portal renders the dragged card clone with the
+  same active styling so the user can clearly track what they're
+  moving.
+- The `onDragEnd` handler routes through a new `moveBlockTo(fromIndex,
+  toIndex)` helper that mirrors the keyboard `moveBlock` semantics —
+  it captures a FLIP snapshot before the state mutation so pass-1's
+  reusable `flipAnimate` helper plays the post-drop landing
+  transition through the same `useLayoutEffect` path.
+- New i18n keys under `editor.dragAndDrop.*` (`gripAriaLabel`,
+  `screenReaderInstructions`) in both `en/` and `es/` (neutral LATAM
+  Spanish per AGENTS.md).
+- Three new component tests in `ReceiptTemplateEditor.test.tsx` pin:
+  grip aria-label presence on every row, `data-flip-key` survives the
+  dnd-kit wrapping (regression gate for pass-1's FLIP), and the
+  `↑/↓` buttons coexist with the grip per row.
 
 ### 2. `text.value` field — authoring UX
 

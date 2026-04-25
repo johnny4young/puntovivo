@@ -60,8 +60,21 @@
     },
     "blocksPanel": {
       "title": "Bloques",
-      "description": "Usa los botones de flecha para reordenar. Hasta 50 bloques por plantilla.",
+      "description": "Arrastra un bloque por su asa o usa los botones de flecha para reordenar. Hasta 50 bloques por plantilla.",
       "empty": "Agrega un bloque para empezar."
+    },
+    "dragAndDrop": {
+      "gripAriaLabel": "Arrastra el bloque para reordenar",
+      "screenReaderInstructions": "Para tomar un bloque, presiona Espacio o Enter. Mientras arrastras, usa las flechas del teclado para mover el bloque. Presiona Espacio o Enter de nuevo para soltar, o Escape para cancelar.",
+      "blockAnnouncementLabel": "{{index}}. {{type}}",
+      "announcements": {
+        "dragStart": "Tomaste {{active}}.",
+        "dragOver": "{{active}} se movió sobre {{over}}.",
+        "dragOverNone": "{{active}} no está sobre ningún bloque.",
+        "dragEnd": "Soltaste {{active}} sobre {{over}}.",
+        "dragEndNone": "Soltaste {{active}}.",
+        "dragCancel": "Se canceló el reordenamiento de {{active}}."
+      }
     },
     "previewPanel": {
       "title": "Vista previa en vivo",

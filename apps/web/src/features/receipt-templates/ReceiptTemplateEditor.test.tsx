@@ -12,7 +12,7 @@
  *    pin the invocation contract).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render } from '@/test/utils';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
@@ -135,5 +135,72 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
     // once. The mock preserves the real implementation, so at minimum
     // the spy saw the call.
     expect(playFlip).toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------
+  // ENG-016 pass 2 (item #1) — drag-and-drop reorder via dnd-kit
+  // ---------------------------------------------------------------------
+
+  it('renders a grip handle with the localized aria-label on every block row', () => {
+    renderEditor();
+    const grips = screen.getAllByTestId('block-grip');
+    expect(grips.length).toBeGreaterThan(0);
+    // Every grip carries the i18n-translated aria-label.
+    for (const grip of grips) {
+      expect(grip).toHaveAttribute('aria-label', 'Drag block to reorder');
+    }
+  });
+
+  it('preserves the data-flip-key attribute on every block row after the dnd-kit wrapping', () => {
+    // ENG-016 pass 2 (item #1) — regression gate. The pass-1 FLIP path
+    // depends on every <li> exposing a `data-flip-key` so
+    // captureFlipSnapshot/playFlip can correlate before/after rects
+    // when the keyboard ↑/↓ buttons mutate the order. Wrapping each row
+    // in <SortableBlockRow> must NOT strip that attribute.
+    const { container } = renderEditor();
+    const flipNodes = container.querySelectorAll('[data-flip-key]');
+    expect(flipNodes.length).toBeGreaterThan(0);
+    // Each flip-key value is unique (matches the blockKeys array contract).
+    const keys = Array.from(flipNodes).map(n => n.getAttribute('data-flip-key'));
+    const uniqueKeys = new Set(keys);
+    expect(uniqueKeys.size).toBe(keys.length);
+  });
+
+  it('keeps the ↑/↓ buttons working alongside the new grip handle (regression gate)', () => {
+    renderEditor();
+    // The pass-1 FLIP test already exercises the move-down click path;
+    // this test specifically asserts that BOTH the grip and the buttons
+    // coexist on every row so dnd-kit did not accidentally replace the
+    // a11y fallback.
+    const grips = screen.getAllByTestId('block-grip');
+    const moveUpButtons = screen.getAllByRole('button', { name: /move up/i });
+    const moveDownButtons = screen.getAllByRole('button', {
+      name: /move down/i,
+    });
+    expect(grips.length).toBeGreaterThan(0);
+    expect(moveUpButtons.length).toBe(grips.length);
+    expect(moveDownButtons.length).toBe(grips.length);
+  });
+
+  it('wires localized dnd-kit screen-reader instructions in English and Spanish', async () => {
+    const { unmount } = renderEditor();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/To pick up a block, press space or enter/i)
+      ).toBeInTheDocument();
+    });
+    unmount();
+
+    await i18next.changeLanguage('es');
+    renderEditor();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Para tomar un bloque, presiona Espacio o Enter/i)
+      ).toBeInTheDocument();
+    });
+    expect(screen.getAllByTestId('block-grip')[0]).toHaveAttribute(
+      'aria-label',
+      'Arrastra el bloque para reordenar'
+    );
   });
 });
