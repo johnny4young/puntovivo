@@ -60,8 +60,21 @@
     },
     "blocksPanel": {
       "title": "Blocks",
-      "description": "Use the arrow buttons to reorder. Up to 50 blocks per layout.",
+      "description": "Drag a block by its grip or use the arrow buttons to reorder. Up to 50 blocks per layout.",
       "empty": "Add a block to get started."
+    },
+    "dragAndDrop": {
+      "gripAriaLabel": "Drag block to reorder",
+      "screenReaderInstructions": "To pick up a block, press space or enter. While dragging, use the arrow keys to move the block. Press space or enter again to drop, or escape to cancel.",
+      "blockAnnouncementLabel": "{{index}}. {{type}}",
+      "announcements": {
+        "dragStart": "Picked up {{active}}.",
+        "dragOver": "{{active}} moved over {{over}}.",
+        "dragOverNone": "{{active}} is not over a block.",
+        "dragEnd": "{{active}} was dropped over {{over}}.",
+        "dragEndNone": "{{active}} was dropped.",
+        "dragCancel": "Reordering canceled for {{active}}."
+      }
     },
     "previewPanel": {
       "title": "Live preview",
