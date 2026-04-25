@@ -25,6 +25,7 @@ import {
   receiptTemplateKindEnum,
   receiptTemplatePaperWidthEnum,
 } from '../../db/schema.js';
+import { validateTemplate } from '../../services/template-expression.js';
 
 export const receiptTemplateKindSchema = z.enum(receiptTemplateKindEnum);
 export const receiptTemplatePaperWidthSchema = z.enum(
@@ -42,8 +43,13 @@ export const receiptTemplatePaperWidthSchema = z.enum(
  *  - `item.*` — line-level fields (only valid inside `itemsTable`)
  *  - `fiscal.*` — fiscal document fields (cufe, qrUrl, …)
  *  - `tender.*` — payment-tender fields (only valid inside `tendersTable`)
+ *
+ * ENG-016 pass 3 — Substitutions also accept whitelisted formatter
+ * functions like `{{ currency(sale.grandTotal) }}` and
+ * `{{ limit(sale.notes, 30) }}`. The grammar + function whitelist live
+ * in `services/template-expression.ts`; this module wires the AST-level
+ * validator into the Zod refinement so Zod issues stay translatable.
  */
-const VARIABLE_PATTERN = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z0-9_.]+)\s*\}\}/g;
 const ALLOWED_NAMESPACES = new Set([
   'company',
   'sale',
@@ -51,6 +57,7 @@ const ALLOWED_NAMESPACES = new Set([
   'fiscal',
   'tender',
 ]);
+
 /**
  * Reject any URL that uses a JS-executable scheme. Used as a guard on
  * `qr.source` and `barcode128.source` so an admin cannot configure a
@@ -59,20 +66,17 @@ const ALLOWED_NAMESPACES = new Set([
  */
 const DISALLOWED_URL_SCHEME = /^(javascript|data|vbscript|file):/i;
 
-function validateVariableWhitelist(
+function validateExpressionField(
   value: string,
-  ctx: z.RefinementCtx
+  ctx: z.RefinementCtx,
+  options: { rejectStringScheme?: RegExp } = {}
 ): void {
-  for (const match of value.matchAll(VARIABLE_PATTERN)) {
-    const path = match[1];
-    if (!path) continue;
-    const namespace = path.split('.', 1)[0];
-    if (!namespace || !ALLOWED_NAMESPACES.has(namespace)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `Variable {{${path}}} references unknown namespace "${namespace ?? ''}". Allowed: ${Array.from(ALLOWED_NAMESPACES).join(', ')}`,
-      });
-    }
+  const issues = validateTemplate(value, {
+    allowedNamespaces: ALLOWED_NAMESPACES,
+    rejectStringScheme: options.rejectStringScheme,
+  });
+  for (const issue of issues) {
+    ctx.addIssue({ code: 'custom', message: issue.message });
   }
 }
 
@@ -91,7 +95,7 @@ const textBlockSchema = z.object({
     .string()
     .max(500, 'Text block cannot exceed 500 characters')
     .superRefine((value, ctx) => {
-      validateVariableWhitelist(value, ctx);
+      validateExpressionField(value, ctx);
     }),
   style: z.enum(['title', 'subtitle', 'normal', 'muted', 'monospace']).optional(),
   align: blockAlignSchema,
@@ -144,8 +148,10 @@ const qrBlockSchema = z.object({
     .min(1)
     .max(200)
     .superRefine((value, ctx) => {
-      validateVariableWhitelist(value, ctx);
-      const literalValue = value.replace(VARIABLE_PATTERN, '').trim();
+      validateExpressionField(value, ctx, {
+        rejectStringScheme: DISALLOWED_URL_SCHEME,
+      });
+      const literalValue = value.replace(/\{\{[\s\S]*?\}\}/g, '').trim();
       if (literalValue && DISALLOWED_URL_SCHEME.test(literalValue)) {
         ctx.addIssue({
           code: 'custom',
@@ -168,7 +174,7 @@ const barcode128BlockSchema = z.object({
     .min(1)
     .max(200)
     .superRefine((value, ctx) => {
-      validateVariableWhitelist(value, ctx);
+      validateExpressionField(value, ctx);
     }),
   heightMm: z.number().finite().min(8).max(40).optional(),
 });

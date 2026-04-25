@@ -26,6 +26,11 @@ import type {
   ReceiptLayout,
 } from '../trpc/schemas/receiptTemplates.js';
 import type { ReceiptTemplateKind } from '../db/schema.js';
+import {
+  applyDatePattern,
+  evaluateTemplate,
+  type EvalContext,
+} from './template-expression.js';
 
 // ---------------------------------------------------------------------------
 // Render data shape
@@ -116,6 +121,15 @@ export interface ReceiptRenderLocale {
   currency: string;
   legalDecimals: number;
   displayDecimals: number;
+  /**
+   * Optional default date pattern (`dd/MM/yyyy`, `MM/dd/yyyy`, …) drawn
+   * from `tenant_locale_settings.dateFormatShort`. Used by the
+   * `{{ date(value) }}` template function as the default pattern when
+   * the operator does not pass one explicitly. Absent for legacy test
+   * callers that synthesize the locale by hand — the template engine
+   * falls back to `yyyy-MM-dd` in that case.
+   */
+  dateFormat?: string;
 }
 
 /**
@@ -153,20 +167,28 @@ export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, char => HTML_ESCAPE_MAP[char] ?? char);
 }
 
-const VARIABLE_PATTERN = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z0-9_.]+)\s*\}\}/g;
-
 /**
- * Resolve a dotted path inside a record. Returns undefined if any
- * segment is missing — the renderer treats that as the empty string
- * to keep partially-configured layouts robust (a freshly-installed
- * tenant may not have set `fiscal.cufe` yet, and the receipt should
- * still print cleanly).
+ * Resolve a dotted path inside the render-data record. Returns
+ * undefined if any segment is missing — the renderer treats that as
+ * the empty string to keep partially-configured layouts robust (a
+ * freshly-installed tenant may not have set `fiscal.cufe` yet, and the
+ * receipt should still print cleanly).
+ *
+ * Uses `Object.prototype.hasOwnProperty.call` (not `in`) so prototype
+ * chain segments like `__proto__`, `constructor`, or `toString` cannot
+ * leak through the namespace whitelist. The Zod validator restricts
+ * top-level namespaces but does not constrain nested paths — this
+ * guard is the runtime defense.
  */
 function lookupPath(data: RenderData, path: string): unknown {
   const segments = path.split('.');
   let current: unknown = data as unknown as Record<string, unknown>;
   for (const segment of segments) {
-    if (current && typeof current === 'object' && segment in current) {
+    if (
+      current &&
+      typeof current === 'object' &&
+      Object.prototype.hasOwnProperty.call(current, segment)
+    ) {
       current = (current as Record<string, unknown>)[segment];
     } else {
       return undefined;
@@ -175,59 +197,45 @@ function lookupPath(data: RenderData, path: string): unknown {
   return current;
 }
 
-function formatScalar(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value.toString() : '';
-  }
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
-  }
-  return String(value);
+/**
+ * Build the EvalContext consumed by the template-expression engine.
+ * Exposes the path resolver plus tenant-locale-aware currency/date
+ * formatters so the `{{ currency(...) }}` and `{{ date(...) }}` helpers
+ * inherit ENG-017 behaviour without duplicating the Intl config.
+ */
+function buildEvalContext(data: RenderData): EvalContext {
+  return {
+    lookupPath: path => lookupPath(data, path),
+    formatCurrency: (value, decimals) =>
+      formatReceiptAmount(value, data.locale, decimals),
+    formatDate: (value, pattern) => {
+      const explicit = pattern && pattern.length > 0 ? pattern : undefined;
+      const fallback = data.locale?.dateFormat;
+      return formatTemplateDate(value, explicit ?? fallback);
+    },
+  };
 }
 
 /**
- * Resolve `{{variable}}` substitutions inside a template string and
- * return the result already HTML-escaped. The function NEVER concats
- * raw user input into HTML — escaping happens in the same call so the
- * caller cannot accidentally bypass it.
+ * ENG-016 pass 3 — Resolve `{{variable}}` and `{{ fn(...) }}`
+ * substitutions and return the result already HTML-escaped. The
+ * function NEVER concatenates raw user input into the returned HTML:
+ * the entire substituted string passes through `escapeHtml` at the
+ * exit, so neither literal markup typed in `text.value` nor data
+ * pulled in via a path or function call can survive as live HTML.
  */
 export function resolveAndEscape(template: string, data: RenderData): string {
-  // Build pieces with explicit string-vs-variable provenance, escape
-  // only the variable values, then join. This way literal `<` in the
-  // template (e.g. an admin who legitimately wants `<` displayed) is
-  // also escaped via the escapeHtml(template) call below — there is no
-  // safe path that emits raw markup from this function.
-  const parts: string[] = [];
-  let cursor = 0;
-  for (const match of template.matchAll(VARIABLE_PATTERN)) {
-    const start = match.index ?? 0;
-    if (start > cursor) {
-      parts.push(escapeHtml(template.slice(cursor, start)));
-    }
-    const path = match[1] ?? '';
-    const resolved = lookupPath(data, path);
-    parts.push(escapeHtml(formatScalar(resolved)));
-    cursor = start + match[0].length;
-  }
-  if (cursor < template.length) {
-    parts.push(escapeHtml(template.slice(cursor)));
-  }
-  return parts.join('');
+  return escapeHtml(evaluateTemplate(template, buildEvalContext(data)));
 }
 
 /**
- * Plain-text variant for ESC/POS output. Same semantics as
- * `resolveAndEscape` but without HTML escaping (the printer renders
- * raw bytes; HTML entities would print literally). Variables still
- * resolve through the same whitelist that Zod enforced upstream.
+ * Plain-text variant for ESC/POS output. Same expression engine,
+ * without HTML escaping (the printer renders raw bytes; HTML entities
+ * would print literally). Variables and functions still resolve
+ * through the same whitelist that Zod enforced upstream.
  */
 function resolvePlain(template: string, data: RenderData): string {
-  return template.replace(VARIABLE_PATTERN, (_, path: string) => {
-    return formatScalar(lookupPath(data, path));
-  });
+  return evaluateTemplate(template, buildEvalContext(data));
 }
 
 // ---------------------------------------------------------------------------
@@ -384,19 +392,59 @@ function formatNumber(value: number): string {
  * keeps working. When present, `Intl.NumberFormat` produces the
  * country-correct output (COP = `$ 1.234`, USD = `$1,234.50`,
  * CLP = `$ 1.234`).
+ *
+ * ENG-016 pass 3 — `decimalsOverride` lets the `{{ currency(value, n) }}`
+ * template function pin a specific decimal count regardless of the
+ * tenant locale (useful when a receipt deliberately wants `123.00` even
+ * for COP, or `123` even for USD).
  */
 function formatReceiptAmount(
   value: number,
-  locale: ReceiptRenderLocale | undefined
+  locale: ReceiptRenderLocale | undefined,
+  decimalsOverride?: number
 ): string {
   if (!Number.isFinite(value)) return '0';
-  if (!locale) return value.toFixed(2);
+  const fallbackDecimals =
+    decimalsOverride !== undefined ? decimalsOverride : 2;
+  if (!locale) return value.toFixed(fallbackDecimals);
+  const decimals =
+    decimalsOverride !== undefined
+      ? decimalsOverride
+      : locale.displayDecimals;
   return new Intl.NumberFormat(locale.locale, {
     style: 'currency',
     currency: locale.currency,
-    minimumFractionDigits: locale.displayDecimals,
-    maximumFractionDigits: locale.displayDecimals,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(value);
+}
+
+/**
+ * ENG-016 pass 3 — Format a date for `{{ date(value, pattern?) }}`.
+ * Coerces ISO strings, Date instances, and unix-ms numbers to a Date,
+ * then runs `applyDatePattern` against the tenant's `dateFormat` (when
+ * available) or `yyyy-MM-dd` (the deterministic fallback). Returns the
+ * empty string when the input cannot be parsed — keeps the receipt
+ * clean for partially-configured tenants.
+ */
+function formatTemplateDate(
+  value: unknown,
+  pattern: string | undefined
+): string {
+  let date: Date | null = null;
+  if (value instanceof Date) {
+    date = Number.isFinite(value.getTime()) ? value : null;
+  } else if (typeof value === 'number' && Number.isFinite(value)) {
+    date = new Date(value);
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed) {
+      const candidate = new Date(trimmed);
+      date = Number.isFinite(candidate.getTime()) ? candidate : null;
+    }
+  }
+  if (!date) return '';
+  return applyDatePattern(date, pattern ?? 'yyyy-MM-dd');
 }
 
 function formatItemCell(

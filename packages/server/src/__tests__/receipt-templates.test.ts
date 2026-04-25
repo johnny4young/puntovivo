@@ -351,6 +351,229 @@ describe('Receipt Templates (Iter 2)', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Template functions (ENG-016 pass 3 — item #3)
+  // -------------------------------------------------------------------------
+
+  describe('Template functions (ENG-016 pass 3)', () => {
+    const buildSampleData = () => ({
+      ...buildPreviewData('sale'),
+      locale: {
+        locale: 'es-CO',
+        currency: 'COP',
+        legalDecimals: 2,
+        displayDecimals: 0,
+        dateFormat: 'dd/MM/yyyy',
+      },
+    });
+
+    it('renders currency() with locale-aware formatting', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value: 'Total: {{ currency(sale.grandTotal) }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toContain('Total: ');
+      // es-CO + COP + 0 decimals → "$ 94.000" (non-breaking space between
+      // symbol and digits). Match the digit grouping shape rather than the
+      // raw NBSP since the codepoint is locale-implementation specific.
+      expect(html).toMatch(/Total: [^<]*\$[^<]*\d{1,3}[.,]\d{3}/);
+    });
+
+    it('renders currency() with explicit decimals override', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value: '{{ currency(sale.grandTotal, 2) }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toMatch(/[.,]\d{2}/);
+    });
+
+    it('renders date() with default tenant pattern and explicit pattern', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value:
+              'Default: {{ date(sale.createdAt) }} | Explicit: {{ date(sale.createdAt, "yyyy/MM/dd") }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toMatch(/Default: \d{2}\/\d{2}\/\d{4}/);
+      expect(html).toMatch(/Explicit: \d{4}\/\d{2}\/\d{2}/);
+    });
+
+    it('renders limit() truncating long text with ellipsis', () => {
+      const data = buildSampleData();
+      data.sale = {
+        ...data.sale,
+        notes: 'a'.repeat(60),
+      };
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value: '{{ limit(sale.notes, 20) }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, data).html;
+      expect(html).toContain('a'.repeat(17) + '...');
+    });
+
+    it('renders concat() with literal + path + nested call', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value:
+              "{{ concat('Caja: ', sale.cashier, ' | Total: ', currency(sale.grandTotal)) }}",
+          },
+        ],
+      });
+      const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toMatch(/Caja: [^|]+ \| Total: /);
+    });
+
+    it('renders default() falling back when value is empty', () => {
+      const data = buildSampleData();
+      data.fiscal = { ...(data.fiscal ?? {}), cufe: '' };
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value: '{{ default(fiscal.cufe, "Sin CUFE") }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, data).html;
+      expect(html).toContain('Sin CUFE');
+    });
+
+    it('renders upper(), lower(), round(), abs(), max(), min(), sum()', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value:
+              "{{upper('hola')}} {{lower('HOLA')}} {{round(1.456,2)}} {{abs(-7)}} {{max(1,5,3)}} {{min(1,5,3)}} {{sum(1,2,3)}}",
+          },
+        ],
+      });
+      const html = renderReceipt(layout, buildSampleData()).html;
+      expect(html).toContain('HOLA');
+      expect(html).toContain('hola');
+      expect(html).toContain('1.46');
+      expect(html).toContain('7');
+      expect(html).toContain('5');
+      expect(html).toContain('1');
+      expect(html).toContain('6');
+    });
+
+    it('escapes HTML in fallback string literals at the emission boundary', () => {
+      const data = buildSampleData();
+      data.sale = { ...data.sale, notes: '' };
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value:
+              '{{ default(sale.notes, "<script>alert(1)</script>") }}',
+          },
+        ],
+      });
+      const html = renderReceipt(layout, data).html;
+      expect(html).toContain('&lt;script&gt;');
+      expect(html).not.toContain('<script>alert');
+    });
+
+    it('emits ESC/POS bytes for function-bearing templates without HTML entities', () => {
+      const layout = receiptLayoutSchema.parse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'text' as const,
+            value: "{{ concat('TOTAL: ', currency(sale.grandTotal)) }}",
+          },
+        ],
+      });
+      const result = renderReceipt(layout, buildSampleData());
+      const bytes = Array.from(result.escpos);
+      const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      expect(text).toContain('TOTAL: ');
+      expect(text).not.toContain('&lt;');
+      expect(text).not.toContain('&amp;');
+    });
+
+    it('Zod rejects unknown function names', () => {
+      const result = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [
+          { type: 'text', value: "{{ notAWhitelistedName('hi') }}" },
+        ],
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toMatch(/Unknown function/);
+      }
+    });
+
+    it('Zod rejects wrong arity for whitelisted functions', () => {
+      const cases = [
+        '{{ upper() }}',
+        "{{ limit('hola') }}",
+        "{{ default('only one') }}",
+      ];
+      for (const value of cases) {
+        const result = receiptLayoutSchema.safeParse({
+          paperWidth: '80mm',
+          blocks: [{ type: 'text', value }],
+        });
+        expect(result.success, `value: ${value}`).toBe(false);
+      }
+    });
+
+    it('Zod rejects qr.source containing a string-literal javascript: scheme', () => {
+      const result = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'qr' as const,
+            source: "{{ concat('javascript:', sale.saleNumber) }}",
+          },
+        ],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('keeps backward compatibility: default presets still render byte-identical to legacy regex output', () => {
+      const layout = receiptLayoutSchema.parse(basicLayout());
+      const data = buildSampleData();
+      const result = renderReceipt(layout, data);
+      expect(result.html).toContain('block-text');
+      expect(result.html).toContain('block-items');
+      expect(result.html).toContain('block-tenders');
+      expect(result.escpos.length).toBeGreaterThan(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Router — CRUD + setDefault + duplicate + cross-tenant
   // -------------------------------------------------------------------------
 

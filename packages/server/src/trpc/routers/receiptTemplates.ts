@@ -184,6 +184,7 @@ export const receiptTemplatesRouter = router({
           currency: resolvedLocale.currency,
           legalDecimals: resolvedLocale.legalDecimals,
           displayDecimals: resolvedLocale.displayDecimals,
+          dateFormat: resolvedLocale.dateFormatShort,
         },
       };
       const rendered = renderReceipt(layout, data, input.labels);

@@ -381,42 +381,84 @@ Today `text.value` is a plain `<textarea>`. Follow-up work:
   names are exported) so the autocomplete and the validator read
   from one source.
 
-### 3. Template functions (basic → advanced)
+### 3. Template functions (basic batch) — **shipped (ENG-016 pass 3)**
 
-Today the template grammar is limited to `{{namespace.path}}`
-substitution. Market tools (JasperReports, Crystal Reports,
-Metabase, Grafana templating, Siigo/Alegra receipt builders) all ship
-a small function library. Start with a conservative whitelist:
+Shipped as part of ENG-016 pass 3:
 
-- **Formatters**: `currency(value, locale?)`, `date(value,
-  pattern?)`, `upper(value)`, `lower(value)`, `round(value,
-  decimals)`.
-- **Aggregations / math**: `max(a, b, ...)`, `min(a, b, ...)`,
-  `sum(a, b, ...)`, `abs(a)`.
-- **String**: `limit(value, n)` — the canonical example from the
-  user feedback: `limit("hola mundo", 9)` returns `"hola m..."`
-  (truncate to `n` chars, append `...` if truncated). Also
-  `concat(a, b, ...)`, `default(value, fallback)`.
-- **Conditional** (later): `if(cond, then, else?)`, `eq(a, b)`,
-  `gt(a, b)`.
+- New module `packages/server/src/services/template-expression.ts`
+  hosts a recursive-descent parser, AST evaluator, and a static
+  whitelisted function registry. Inside any `{{ … }}` substitution,
+  operators can now write a bare path (`namespace.field` — current
+  behavior, unchanged), a number/string literal, or a single
+  function call whose arguments may themselves be paths, literals,
+  or one level of nested function call.
+- 12 functions ship in the registry — formatters
+  (`currency(value, decimals?)`, `date(value, pattern?)`,
+  `upper(value)`, `lower(value)`, `round(value, decimals?)`),
+  string helpers (`limit(value, n)`, `concat(a, b, …)`,
+  `default(value, fallback)`), and math (`abs(value)`,
+  `max(a, b, …)`, `min(a, b, …)`, `sum(a, b, …)`). The conditional
+  family (`if/eq/gt`) was tagged "(later)" in the original spec and
+  stays parked.
+- `currency()` reuses the renderer's `formatReceiptAmount` callback
+  so it inherits ENG-017's tenant-locale (COP 0 decimals, USD 2,
+  CLP 0, etc.) without duplicating the `Intl.NumberFormat` config.
+  An optional second argument forces a specific decimal count
+  (capped at 20 — `Math.pow(10, 1000)` would otherwise produce
+  `NaN` and silently lose the amount).
+- `date()` takes ISO strings, `Date` instances, or unix-ms numbers.
+  Pattern tokens are `yyyy / MM / dd / HH / mm / ss`; the default
+  pattern is the tenant's `dateFormatShort` (now exposed on
+  `ReceiptRenderLocale`) or `yyyy-MM-dd` when absent.
+- `limit("hola mundo", 9)` returns `"hola m..."` per the canonical
+  example the operator feedback called out. `default(empty, "Sin
+  CUFE")` lets templates fall back to a literal when an optional
+  field is unset (e.g. fiscal docs on a tenant without DIAN
+  habilitation).
+- Zod refinement parses the AST and rejects unknown function names,
+  wrong arity, unknown variable namespaces, and (for `qr.source`)
+  string literals matching the disallowed-URL-scheme regex — closes
+  the `concat("javascript:", …)` bypass that the legacy regex-only
+  literal-strip would have missed.
+- Defense-in-depth: the renderer's `lookupPath` swapped from `seg in
+  obj` to `Object.prototype.hasOwnProperty.call(obj, seg)` so
+  prototype-chain segments (`__proto__`, `constructor`,
+  `toString`) cannot leak through. The evaluator also re-checks
+  arity before dispatch — a future caller that bypasses
+  `validateTemplate` cannot trigger `Math.max(...[]) → -Infinity` or
+  `default(only-one-arg)` reading `args[1] === undefined`.
+- HTML escape boundary preserved: `resolveAndEscape` runs the
+  template through the evaluator first, then HTML-escapes the whole
+  concatenated result, so neither literal markup typed in
+  `text.value` nor data pulled in via paths/functions can survive
+  as live HTML. `default(sale.notes, "<script>alert(1)</script>")`
+  emits `&lt;script&gt;alert(1)&lt;/script&gt;`.
+- Editor: a collapsible `<details>` "Available functions"
+  cheat-sheet sits below the `text.value` textarea, listing each
+  function's signature + a one-line description (translatable via
+  `editor.functionsHelp.entries.<name>`) + a canonical example.
+  Items #2 and #7 will replace the static panel with rich
+  autocomplete + inline error markers; until they land this gives
+  operators a reference without leaving the editor.
+- 50+ new tests: 46 in `template-expression.test.ts` covering
+  tokenizer, parser, evaluator per function, validator per failure
+  mode, and the prototype-chain / arity / decimals-clamp regressions
+  surfaced by review; 12 in `receipt-templates.test.ts` covering
+  HTML / ESC/POS rendering with functions, Zod rejections, and the
+  default-preset byte-stream regression. All previously-shipped
+  receipt-template tests still pass — the rewire is fully
+  backward compatible for layouts that only use bare-path
+  substitutions.
 
-**Implementation path**:
+**Remaining**: the conditional family (`if/eq/gt`) stays parked
+inside the broader ENG-016 "Remaining" list (items 2, 7, 8). Item
+#2 (rich text-authoring UX) and item #7 (in-preview error markers)
+will benefit from this AST: the autocomplete panel can introspect
+the same `FUNCTION_REGISTRY`, and the error markers can highlight
+the `raw` substring on each `ValidationIssue`.
 
-- Grammar: parse `{{ function(arg1, arg2, {{variable}}) }}` — a
-  one-level expression inside the moustaches. Either hand-roll a
-  small recursive-descent parser (ASTs stay shallow, no precedence)
-  or use a tiny library (e.g. `jexl`, `expressionparser`).
-- Zod: validate at save time that every function name is in a
-  whitelist and argument counts match. Adding functions behind the
-  whitelist means a malicious template cannot call `eval`-equivalent
-  helpers.
-- Renderer: evaluate the AST at substitution time with the same
-  variable-resolution context that already exists; each function is
-  a pure TS implementation with no I/O.
-- Documentation: cheat-sheet inside the editor panel (a small "?"
-  tooltip listing every available function with one example each).
-
-Reference comparables worth studying before we lock in syntax:
+Reference comparables worth studying before items #2 / #7 lock in
+the autocomplete syntax:
 
 - **JasperReports** — `$F{field}`, `$V{var}`, expressions in Java.
   Over-powered but battle-tested for fiscal receipts in LATAM.
