@@ -54,4 +54,64 @@ describe('getAuditLogsExportColumns', () => {
     expect(actionColumn?.formatter?.(entry.action, entry)).toBe('Cotización convertida');
     expect(resourceTypeColumn?.formatter?.(entry.resourceType, entry)).toBe('Cotización');
   });
+
+  it('createdAt formatter is robust against missing values', () => {
+    const columns = getAuditLogsExportColumns(i18n.t.bind(i18n));
+    const fmt = columns.find(c => c.key === 'createdAt')!.formatter!;
+    const entry = buildEntry();
+    expect(typeof fmt(entry.createdAt, entry)).toBe('string');
+    expect(fmt(null, entry)).toBe('');
+    expect(fmt(undefined, entry)).toBe('');
+  });
+
+  it('actorName formatter falls back through actorEmail to actorId', () => {
+    const columns = getAuditLogsExportColumns(i18n.t.bind(i18n));
+    const fmt = columns.find(c => c.key === 'actorName')!.formatter!;
+    const full = buildEntry();
+    expect(fmt(undefined, full)).toBe('Administrator');
+    expect(
+      fmt(undefined, {
+        ...full,
+        actorName: undefined,
+      } as unknown as AuditLogEntry)
+    ).toBe('admin@localhost');
+    expect(
+      fmt(undefined, {
+        ...full,
+        actorName: undefined,
+        actorEmail: undefined,
+      } as unknown as AuditLogEntry)
+    ).toBe('user-1');
+  });
+
+  it('metadata formatter serializes objects to JSON, empty to "", and null/undefined to ""', () => {
+    const columns = getAuditLogsExportColumns(i18n.t.bind(i18n));
+    const fmt = columns.find(c => c.key === 'metadata')!.formatter!;
+    const entry = buildEntry();
+    expect(fmt({ foo: 'bar' }, entry)).toBe('{"foo":"bar"}');
+    // The current contract treats `{}` as truthy and serializes it.
+    expect(fmt({}, entry)).toBe('{}');
+    expect(fmt(null, entry)).toBe('');
+    expect(fmt(undefined, entry)).toBe('');
+  });
+
+  it('action / resourceType formatters fall back to the raw key when the i18n key is missing', () => {
+    const columns = getAuditLogsExportColumns(i18n.t.bind(i18n));
+    const action = columns.find(c => c.key === 'action')!.formatter!;
+    const resource = columns.find(c => c.key === 'resourceType')!.formatter!;
+    const entry = buildEntry();
+    // An action that has no i18n key should pass through via defaultValue.
+    expect(action('totally.unknown.action', entry)).toBe('totally.unknown.action');
+    expect(resource('totally_unknown_resource', entry)).toBe(
+      'totally_unknown_resource'
+    );
+    // null / undefined are normalized to empty strings.
+    expect(action(null, entry)).toBe('');
+    expect(resource(undefined, entry)).toBe('');
+  });
+
+  it('resourceId column has no formatter (raw passthrough)', () => {
+    const columns = getAuditLogsExportColumns(i18n.t.bind(i18n));
+    expect(columns.find(c => c.key === 'resourceId')?.formatter).toBeUndefined();
+  });
 });

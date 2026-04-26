@@ -125,7 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       setAuthSessionExpiredHandler(null);
     };
-  }, [handleAuthSessionExpired]);
+  }, []);
 
   // Check for existing auth on mount
   useEffect(() => {
