@@ -229,7 +229,7 @@ ENG-021 is the one-file swap of `MockAdapter` → `FactureAdapter`/`HkaAdapter` 
 | Lint web | `npm run lint --workspace=@puntovivo/web` | 0 new errors |
 | Lint server | `npm run lint --workspace=@puntovivo/server` | 0 new errors |
 | Tests server | `npm run test --workspace=@puntovivo/server -- --run` | all pass |
-| Tests web | `npm run test --workspace=@puntovivo/web -- --run` | coverage > 65/65/68/60 |
+| Tests web | `npm run test --workspace=@puntovivo/web -- --run` | coverage ≥ 70/70/70/70 |
 | i18n parity | included in web test run | ✓ |
 | E2E | `npm run test:e2e:web` | all pass |
 | CI aggregate | `npm run ci:web` and `npm run ci:server` in parallel | ✓ |

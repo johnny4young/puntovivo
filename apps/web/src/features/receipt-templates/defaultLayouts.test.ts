@@ -62,4 +62,83 @@ describe('receipt template default layouts', () => {
       align: 'center',
     });
   });
+
+  it('createEmptyBlock returns the documented defaults for every block kind', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    expect(createEmptyBlock('logo', t)).toEqual({
+      type: 'logo',
+      align: 'center',
+      maxHeightMm: 18,
+    });
+    expect(createEmptyBlock('itemsTable', t)).toEqual({
+      type: 'itemsTable',
+      columns: ['name', 'qty', 'unitPrice', 'total'],
+    });
+    expect(createEmptyBlock('totalsBlock', t)).toEqual({
+      type: 'totalsBlock',
+      show: ['subtotal', 'taxTotal', 'grandTotal'],
+    });
+    expect(createEmptyBlock('tendersTable', t)).toEqual({
+      type: 'tendersTable',
+      showChange: true,
+    });
+    expect(createEmptyBlock('qr', t)).toEqual({
+      type: 'qr',
+      source: '{{fiscal.qrUrl}}',
+      sizeMm: 25,
+    });
+    expect(createEmptyBlock('separator', t)).toEqual({ type: 'separator' });
+    expect(createEmptyBlock('barcode128', t)).toEqual({
+      type: 'barcode128',
+      source: '{{sale.saleNumber}}',
+      heightMm: 12,
+    });
+  });
+
+  it('createEmptyBlock throws on an unknown kind (exhaustive guard)', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    expect(() =>
+      createEmptyBlock(
+        'definitely-not-a-real-kind' as unknown as Parameters<
+          typeof createEmptyBlock
+        >[0],
+        t
+      )
+    ).toThrow(/Unknown block kind/);
+  });
+
+  it('getDefaultLayout returns an independent clone (mutating one does not affect the other)', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    const a = getDefaultLayout('sale', t);
+    const b = getDefaultLayout('sale', t);
+    a.blocks.push({ type: 'separator' });
+    expect(b.blocks.length).not.toBe(a.blocks.length);
+  });
+
+  it('every preset declares a paperWidth and at least one block', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    for (const kind of ['sale', 'quotation', 'fiscal_dee'] as const) {
+      const layout = getDefaultLayout(kind, t);
+      expect(['58mm', '80mm', 'letter', 'a4']).toContain(layout.paperWidth);
+      expect(layout.blocks.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('quotation preset includes the quotationNumberLabel and validUntil-friendly content', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    const layout = getDefaultLayout('quotation', t);
+    const textBlocks = layout.blocks.filter(b => b.type === 'text');
+    const values = textBlocks.map(b => b.value);
+    expect(values.some(v => v.includes('{{sale.saleNumber}}'))).toBe(true);
+  });
+
+  it('fiscal_dee preset includes a QR block referencing the fiscal qrUrl variable', () => {
+    const t = i18next.getFixedT('en', 'receiptTemplates');
+    const layout = getDefaultLayout('fiscal_dee', t);
+    const qr = layout.blocks.find(b => b.type === 'qr');
+    expect(qr).toBeDefined();
+    if (qr && qr.type === 'qr') {
+      expect(qr.source).toContain('{{fiscal.qrUrl}}');
+    }
+  });
 });

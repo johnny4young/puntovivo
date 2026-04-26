@@ -106,4 +106,73 @@ describe('checkoutPayment', () => {
       { method: 'transfer', amount: 50, reference: 'WIRE-9' },
     ]);
   });
+
+  describe('getRequestedPaymentStatus — single-tender branches', () => {
+    it('returns "paid" when the cashier covers the total in cash', () => {
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        amountReceived: 120,
+      });
+      expect(getRequestedPaymentStatus(values, 100)).toBe('paid');
+    });
+
+    it('returns "partial" when the cashier covers part of the total', () => {
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        amountReceived: 50,
+      });
+      expect(getRequestedPaymentStatus(values, 100)).toBe('partial');
+    });
+
+    it('returns "pending" when no money has been received and the method is not credit', () => {
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        amountReceived: 0,
+      });
+      expect(getRequestedPaymentStatus(values, 100)).toBe('pending');
+    });
+
+    it('returns "paid" when split tenders exist regardless of the legacy method', () => {
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        amountReceived: 0,
+        tenders: [{ method: 'cash', amount: 100, reference: '' }],
+      });
+      expect(getRequestedPaymentStatus(values, 100)).toBe('paid');
+    });
+  });
+
+  describe('getCheckoutPaymentState — split-tender dominant-method tie-break', () => {
+    it('preserves the first tender on amount ties (cash-biased default)', () => {
+      const values = buildPaymentValues({
+        tenders: [
+          { method: 'cash', amount: 50, reference: '' },
+          { method: 'card', amount: 50, reference: '' },
+        ],
+      });
+      // The first tender (cash) wins the tie via strict `>` comparison.
+      expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('cash');
+    });
+
+    it('elects the largest tender as the dominant method', () => {
+      const values = buildPaymentValues({
+        tenders: [
+          { method: 'cash', amount: 30, reference: '' },
+          { method: 'card', amount: 70, reference: '' },
+        ],
+      });
+      expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('card');
+    });
+
+    it('falls back to cash when the tenders array is empty (defensive helper guard)', () => {
+      // Synthetic case: tenders=[] forces the legacy branch in the public
+      // function. The internal helper never sees this path because the
+      // outer `if (values.tenders.length > 0)` short-circuits first.
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        tenders: [],
+      });
+      expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('cash');
+    });
+  });
 });

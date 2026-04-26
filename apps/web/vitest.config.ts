@@ -17,16 +17,20 @@ export default defineConfig({
       // terminal, json for programmatic checks, html for drill-down).
       reporter: ['text', 'text-summary', 'json', 'html', 'lcov'],
       exclude: ['node_modules/', 'src/test/', '**/*.d.ts', '**/*.config.*', '**/types/**'],
-      // ENG-003 — floor at current coverage with a small buffer. These
-      // were previously declared at 70/70/70/70 but never enforced via
-      // CI, and the suite had drifted below. Raising the web floor back
-      // toward 70 is tracked as ENG-003b in the ROADMAP. Do not lower
-      // these without an accompanying ROADMAP note.
+      // ENG-003 floored the gate at 65/65/68/60 to match the actual
+      // suite at the time and tracked the lift back to 70 as ENG-003b.
+      // ENG-003b shipped 13 new + 6 extended test files (roleAccess,
+      // useElectron, siteSelection, siteStorage, authStorage,
+      // AuthProvider, TenantProvider, sale/purchase/quotation/audit-logs
+      // exports, useTableExport, exportService CSV+printTable, pricing,
+      // checkoutPayment, providerState, saleCart, defaultLayouts, utils)
+      // closing the gap on every axis. Do not lower these without an
+      // accompanying ROADMAP note.
       thresholds: {
-        statements: 65,
-        branches: 60,
-        functions: 68,
-        lines: 65,
+        statements: 70,
+        branches: 70,
+        functions: 70,
+        lines: 70,
       },
     },
     testTimeout: 10000,

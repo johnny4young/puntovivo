@@ -145,7 +145,14 @@ export function formatDate(
   options?: Intl.DateTimeFormatOptions,
   locale?: string
 ): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  // Defensive null/undefined check: while the public type is `Date | string`,
+  // many callers pass `String(value ?? '')` from JSON payloads where `value`
+  // is genuinely null at runtime, and a few pass a `Date` constructed from
+  // invalid input. Returning '' on any non-Date / non-finite input keeps
+  // downstream export pipelines from throwing inside `Intl.DateTimeFormat`.
+  if (date === null || date === undefined) return '';
+  const d = date instanceof Date ? date : new Date(date as string);
+  if (!Number.isFinite(d.getTime())) return '';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
   const resolvedTimezone = activeTenantLocale?.timezone;
 
@@ -165,7 +172,10 @@ export function formatDate(
 }
 
 export function formatDateTime(date: Date | string, locale?: string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  // See formatDate above for rationale; same null/undefined guard.
+  if (date === null || date === undefined) return '';
+  const d = date instanceof Date ? date : new Date(date as string);
+  if (!Number.isFinite(d.getTime())) return '';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
 
   if (!locale && activeTenantLocale?.dateFormatShort) {
