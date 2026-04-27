@@ -116,6 +116,17 @@ describe('Logos tRPC Router', () => {
       ).rejects.toThrow();
     });
 
+    it('rejects javascript: even when the URL parser normalizes control characters', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(
+        caller.logos.create({
+          name: 'Control Character JS',
+          imageUrl: 'java\nscript:alert(1)',
+          isActive: true,
+        })
+      ).rejects.toThrow();
+    });
+
     it('rejects data:text/html scheme on create', async () => {
       const caller = appRouter.createCaller(createTestContext());
       await expect(

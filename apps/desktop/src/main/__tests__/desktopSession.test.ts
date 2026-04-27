@@ -104,7 +104,7 @@ describe('desktopSession (ENG-025 vector 1)', () => {
     assert.equal(requireRole(), 'cashier');
   });
 
-  it('peek() returns a frozen snapshot — mutating it does not leak into the singleton', async () => {
+  it('peek() returns a defensive copy — mutating it does not leak into the singleton', async () => {
     await register('valid-token', acceptVerifier(sampleAdminPayload));
     const snapshot = peek();
     assert.ok(snapshot);

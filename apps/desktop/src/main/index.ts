@@ -823,6 +823,33 @@ async function assertRowBelongsToActiveTenant(
   }
 }
 
+function getSaleIdFromRecord(data: Record<string, unknown>): string | null {
+  const value = data.saleId ?? data.sale_id;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function assertSaleItemWriteBelongsToActiveTenant(
+  data: Record<string, unknown>,
+  options: { requireSaleId: boolean }
+): Promise<void> {
+  const saleId = getSaleIdFromRecord(data);
+  if (!saleId) {
+    if (options.requireSaleId) {
+      throw new Error('SALE_ID_REQUIRED');
+    }
+    return;
+  }
+
+  const activeTenantId = desktopSession.requireTenantId();
+  const row = getSqliteClient().$client
+    .prepare('SELECT tenant_id FROM sales WHERE id = ? LIMIT 1')
+    .get(saleId) as { tenant_id?: string } | undefined;
+
+  if (!row?.tenant_id || row.tenant_id !== activeTenantId) {
+    throw new Error('CROSS_TENANT_ACCESS');
+  }
+}
+
 async function handleDesktopGetAll(tableName: string, tenantId: string): Promise<unknown[]> {
   const table = getAllowedDesktopTable(tableName);
   const sqlite = getSqliteClient().$client;
@@ -913,14 +940,30 @@ async function handleDesktopGetByField(
 ): Promise<unknown[]> {
   const table = getAllowedDesktopTable(tableName);
   const field = toSnakeCase(fieldName);
+  const activeTenantId = desktopSession.requireTenantId();
 
   if (!getTableColumns(table).has(field)) {
     throw new Error(`Field "${fieldName}" is not allowed for table "${table}"`);
   }
 
-  const rows = getSqliteClient().$client
-    .prepare(`SELECT * FROM ${table} WHERE ${field} = ?`)
-    .all(value) as Record<string, unknown>[];
+  const sqlite = getSqliteClient().$client;
+  const rows =
+    table === 'sale_items'
+      ? (sqlite
+          .prepare(
+            `SELECT si.*
+             FROM sale_items si
+             INNER JOIN sales s ON s.id = si.sale_id
+             WHERE si.${field} = ? AND s.tenant_id = ?`
+          )
+          .all(value, activeTenantId) as Record<string, unknown>[])
+      : DIRECT_TENANT_TABLES.has(table)
+        ? (sqlite
+            .prepare(`SELECT * FROM ${table} WHERE ${field} = ? AND tenant_id = ?`)
+            .all(value, activeTenantId) as Record<string, unknown>[])
+        : (sqlite
+            .prepare(`SELECT * FROM ${table} WHERE ${field} = ?`)
+            .all(value) as Record<string, unknown>[]);
 
   return rows
     .map(row => mapRowToRendererRecord(table, row))
@@ -1774,6 +1817,10 @@ ipcMain.handle('db:getById', async (_event, table: string, id: string) => {
   return handleDesktopGetById(table, id);
 });
 ipcMain.handle('db:insert', async (_event, table: string, data: Record<string, unknown>) => {
+  const validatedTable = getAllowedDesktopTable(table);
+  if (validatedTable === 'sale_items') {
+    await assertSaleItemWriteBelongsToActiveTenant(data, { requireSaleId: true });
+  }
   // Force the tenant scope server-side. Even if the renderer passed a
   // different tenantId (or omitted it) the row lands in the active
   // tenant.
@@ -1785,6 +1832,9 @@ ipcMain.handle(
   async (_event, table: string, id: string, data: Record<string, unknown>) => {
     const validatedTable = getAllowedDesktopTable(table);
     await assertRowBelongsToActiveTenant(validatedTable, id);
+    if (validatedTable === 'sale_items') {
+      await assertSaleItemWriteBelongsToActiveTenant(data, { requireSaleId: false });
+    }
     // Block tenant migration via update — same rationale as insert.
     const sessionTenantId = activeTenantId(data.tenantId);
     const tenantScopedData = { ...data, tenantId: sessionTenantId };
