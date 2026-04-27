@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  companies,
   receiptTemplates as receiptTemplatesTable,
   sites,
   tenants,
@@ -186,6 +187,16 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.escpos[result.escpos.length - 2]).toBe(0x56);
       expect(result.escpos[result.escpos.length - 1]).toBe(0x00);
       expect(result.escpos.length).toBeGreaterThan(50);
+    });
+
+    it('keeps preview company.city empty to match the variable availability contract', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'text' as const, value: '{{company.city}}' }],
+      };
+      expect(data.company.city).toBeNull();
+      expect(renderReceipt(layout, data).html).not.toContain('Bogotá');
     });
 
     it('escapes HTML special characters injected via tenant data', () => {
@@ -877,6 +888,272 @@ describe('Receipt Templates (Iter 2)', () => {
       );
       await expect(
         caller.receiptTemplates.list()
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Variable availability (ENG-016 pass 5 — closes item #7)
+  // -------------------------------------------------------------------------
+
+  describe('variableAvailability', () => {
+    it('returns sale + item + tender keys all true (per-tenant contract pins them as always populated)', async () => {
+      const caller = appRouter.createCaller(createAdminContext());
+      const map = await caller.receiptTemplates.variableAvailability();
+      // Every documented per-row field comes back true regardless of
+      // company / tenant settings — these reflect schema-guaranteed
+      // values that the renderer always emits at print time.
+      expect(map.sale.saleNumber).toBe(true);
+      expect(map.sale.grandTotal).toBe(true);
+      expect(map.sale.cashier).toBe(true);
+      expect(Object.values(map.sale).every(v => v === true)).toBe(true);
+      expect(Object.values(map.item).every(v => v === true)).toBe(true);
+      expect(Object.values(map.tender).every(v => v === true)).toBe(true);
+    });
+
+    // Parity guard: the property keys per namespace MUST mirror
+    // `NAMESPACE_PROPERTIES` in apps/web/src/features/receipt-templates/templateAutocomplete.ts.
+    // Drift between the two breaks the editor's "dimmed for unset variables"
+    // hint — the editor only checks paths it knows about, but a path the
+    // server forgot to advertise renders silently as empty at print time.
+    it('publishes the documented property keys per namespace (web parity)', async () => {
+      const caller = appRouter.createCaller(createAdminContext());
+      const map = await caller.receiptTemplates.variableAvailability();
+      expect(Object.keys(map).sort()).toEqual([
+        'company',
+        'fiscal',
+        'item',
+        'sale',
+        'tender',
+      ]);
+      expect(Object.keys(map.company).sort()).toEqual([
+        'address',
+        'city',
+        'email',
+        'name',
+        'phone',
+        'taxId',
+      ]);
+      expect(Object.keys(map.sale).sort()).toEqual([
+        'cashier',
+        'changeDue',
+        'createdAt',
+        'customer',
+        'customerTaxId',
+        'discount',
+        'grandTotal',
+        'notes',
+        'saleNumber',
+        'site',
+        'subtotal',
+        'taxTotal',
+        'tip',
+      ]);
+      expect(Object.keys(map.item).sort()).toEqual([
+        'discount',
+        'name',
+        'qty',
+        'sku',
+        'taxPercent',
+        'total',
+        'unitPrice',
+      ]);
+      expect(Object.keys(map.fiscal).sort()).toEqual([
+        'cufe',
+        'documentNumber',
+        'qrUrl',
+        'resolution',
+      ]);
+      expect(Object.keys(map.tender).sort()).toEqual([
+        'amount',
+        'method',
+        'reference',
+      ]);
+    });
+
+    it('reflects fiscal_dian_enabled flag — disabled tenant gets fiscal.* false', async () => {
+      const db = getDatabase();
+      const previous = await db
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .get();
+      try {
+        await db
+          .update(tenants)
+          .set({ settings: { ...(previous?.settings ?? {}), fiscal_dian_enabled: false } })
+          .where(eq(tenants.id, tenantId));
+
+        const caller = appRouter.createCaller(createAdminContext());
+        const map = await caller.receiptTemplates.variableAvailability();
+        expect(map.fiscal.cufe).toBe(false);
+        expect(map.fiscal.qrUrl).toBe(false);
+        expect(map.fiscal.resolution).toBe(false);
+        expect(map.fiscal.documentNumber).toBe(false);
+      } finally {
+        await db
+          .update(tenants)
+          .set({ settings: previous?.settings ?? {} })
+          .where(eq(tenants.id, tenantId));
+      }
+    });
+
+    it('reflects fiscal_dian_enabled flag — enabled tenant gets fiscal.* true', async () => {
+      const db = getDatabase();
+      const previous = await db
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .get();
+      try {
+        await db
+          .update(tenants)
+          .set({ settings: { ...(previous?.settings ?? {}), fiscal_dian_enabled: true } })
+          .where(eq(tenants.id, tenantId));
+
+        const caller = appRouter.createCaller(createAdminContext());
+        const map = await caller.receiptTemplates.variableAvailability();
+        expect(map.fiscal.cufe).toBe(true);
+        expect(map.fiscal.documentNumber).toBe(true);
+      } finally {
+        await db
+          .update(tenants)
+          .set({ settings: previous?.settings ?? {} })
+          .where(eq(tenants.id, tenantId));
+      }
+    });
+
+    it.each([
+      ['legacy camelCase boolean', { fiscalDianEnabled: true }],
+      ['string true', { fiscal_dian_enabled: 'true' }],
+      ['numeric true', { fiscal_dian_enabled: 1 }],
+    ])('treats %s fiscal flag shape as enabled', async (_label, settings) => {
+      const db = getDatabase();
+      const previous = await db
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .get();
+      try {
+        await db
+          .update(tenants)
+          .set({ settings })
+          .where(eq(tenants.id, tenantId));
+
+        const map = await appRouter
+          .createCaller(createAdminContext())
+          .receiptTemplates.variableAvailability();
+        expect(map.fiscal.cufe).toBe(true);
+        expect(map.fiscal.documentNumber).toBe(true);
+      } finally {
+        await db
+          .update(tenants)
+          .set({ settings: previous?.settings ?? {} })
+          .where(eq(tenants.id, tenantId));
+      }
+    });
+
+    it('reflects nullable company columns — populated row gets true, empty row gets false', async () => {
+      const db = getDatabase();
+      const before = await db
+        .select({
+          taxId: companies.taxId,
+          address: companies.address,
+          phone: companies.phone,
+          email: companies.email,
+        })
+        .from(companies)
+        .where(eq(companies.tenantId, tenantId))
+        .get();
+
+      try {
+        // Force every optional column to null, then assert the map
+        // reports them as false.
+        await db
+          .update(companies)
+          .set({ taxId: null, address: null, phone: null, email: null })
+          .where(eq(companies.tenantId, tenantId));
+        let map = await appRouter
+          .createCaller(createAdminContext())
+          .receiptTemplates.variableAvailability();
+        expect(map.company.name).toBe(true);
+        expect(map.company.taxId).toBe(false);
+        expect(map.company.address).toBe(false);
+        expect(map.company.phone).toBe(false);
+        expect(map.company.email).toBe(false);
+        expect(map.company.city).toBe(false);
+
+        // Re-populate them and assert they flip to true.
+        await db
+          .update(companies)
+          .set({
+            taxId: '900.123.456-7',
+            address: 'Cra 7 # 12-34',
+            phone: '+57 320 555 1234',
+            email: 'contacto@example.co',
+          })
+          .where(eq(companies.tenantId, tenantId));
+        map = await appRouter
+          .createCaller(createAdminContext())
+          .receiptTemplates.variableAvailability();
+        expect(map.company.taxId).toBe(true);
+        expect(map.company.address).toBe(true);
+        expect(map.company.phone).toBe(true);
+        expect(map.company.email).toBe(true);
+        // city has no schema column — pinned to false until that ticket lands.
+        expect(map.company.city).toBe(false);
+      } finally {
+        // Restore previous state regardless of intermediate assertion failure
+        // so the next test inherits the seed-baseline row, not a half-mutated one.
+        await db
+          .update(companies)
+          .set({
+            taxId: before?.taxId ?? null,
+            address: before?.address ?? null,
+            phone: before?.phone ?? null,
+            email: before?.email ?? null,
+          })
+          .where(eq(companies.tenantId, tenantId));
+      }
+    });
+
+    it('treats whitespace-only values as unset (empty trim)', async () => {
+      const db = getDatabase();
+      const before = await db
+        .select({ phone: companies.phone })
+        .from(companies)
+        .where(eq(companies.tenantId, tenantId))
+        .get();
+      try {
+        await db
+          .update(companies)
+          .set({ phone: '   ' })
+          .where(eq(companies.tenantId, tenantId));
+        const map = await appRouter
+          .createCaller(createAdminContext())
+          .receiptTemplates.variableAvailability();
+        expect(map.company.phone).toBe(false);
+      } finally {
+        await db
+          .update(companies)
+          .set({ phone: before?.phone ?? null })
+          .where(eq(companies.tenantId, tenantId));
+      }
+    });
+
+    it('rejects manager and cashier callers (admin-only)', async () => {
+      const managerCaller = appRouter.createCaller(
+        createAdminContext({ role: 'manager' })
+      );
+      await expect(
+        managerCaller.receiptTemplates.variableAvailability()
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      const cashierCaller = appRouter.createCaller(
+        createAdminContext({ role: 'cashier' })
+      );
+      await expect(
+        cashierCaller.receiptTemplates.variableAvailability()
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
   });

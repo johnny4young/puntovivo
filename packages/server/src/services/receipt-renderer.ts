@@ -902,7 +902,7 @@ export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
       address: 'Cra 7 # 12-34',
       phone: '+57 320 555 1234',
       email: 'contacto@mitienda.co',
-      city: 'Bogotá',
+      city: null,
     },
     sale: {
       saleNumber: 'V-000123',

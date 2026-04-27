@@ -560,30 +560,73 @@ Shipped as part of ENG-016 pass 1:
   short-circuit, inverse transform, new-element skip, null
   container).
 
-### 7. Explicit i18n/variable error strategy — **partially shipped (ENG-016 pass 4)**
+### 7. Explicit i18n/variable error strategy — **shipped (ENG-016 pass 4 + 5)**
 
-Pass 4 closes the parser-side bullet of item #7 via the same CM6
-linter that ships under item #2: invalid syntax / unknown
-namespace / unknown function / wrong arity surface as inline red
-markers with translatable hover tooltips at edit time, alongside
-the existing Zod rejection at save time.
+**Pass 4** closed the parser-side bullet via the CM6 linter under
+item #2: invalid syntax / unknown namespace / unknown function /
+wrong arity surface as inline red markers with translatable hover
+tooltips at edit time, alongside the existing Zod rejection at
+save time.
 
-**Remaining for item #7**:
+**Pass 5** closed the runtime-hint bullets:
 
-- "Dimmed for unset variables" — when a substitution like
-  `{{fiscal.cufe}}` would resolve to the empty string at render
-  time on the active tenant (e.g. a non-CO tenant with fiscal
-  disabled), the editor preview should visually flag the
-  substitution. Needs a per-tenant runtime "is this variable
-  populated?" hint that the editor doesn't have today.
-- "Variable availability endpoint" — a server endpoint that
-  returns the per-tenant availability map for `{ company.*,
-  fiscal.*, …}`. Distinct concern from item #2's parser-side
-  error markers; deferred until the dimmed-variable UX is
-  scoped.
+- **Variable availability endpoint** — new
+  `receiptTemplates.variableAvailability` admin tRPC procedure in
+  `packages/server/src/trpc/routers/receiptTemplates.ts`. Reads the
+  active tenant's `companies` row + `tenants.settings.fiscal_dian_enabled`
+  flag and returns:
 
-The placeholder text below is preserved for context on the
-remaining sub-bullets.
+  ```ts
+  Record<'company' | 'sale' | 'item' | 'fiscal' | 'tender',
+    Record<string, boolean>>
+  ```
+
+  Contract: `sale.*`, `item.*`, `tender.*` always return `true`
+  (those values are populated on every sale at render time —
+  per-row optional fields like `customer` are still surfaced
+  because the editor cannot reason per-sale). `company.*` reflects
+  actual column population (`name` always true, `taxId / address /
+  phone / email` reflect the row, `city` pinned to false until a
+  schema column lands). `fiscal.*` reflects the
+  `fiscal_dian_enabled` flag.
+
+- **Dimmed for unset variables** — new CodeMirror 6 Decoration
+  extension at `apps/web/src/features/receipt-templates/templateUnavailableDecorations.ts`.
+  Walks the buffer per change, finds every `{{ namespace.field }}`
+  path token, and adds a `cm-variable-unavailable` class to those
+  whose availability map resolves false. Style: `opacity: 0.55;
+  font-style: italic; text-decoration: underline dotted #94a3b8`.
+  Hover tooltip via CM6 `hoverTooltip` surfaces a translatable
+  message (`editor.codeEditor.unavailableVariable`) with the
+  offending path interpolated in.
+
+  The decoration walker tolerates string literals (a quoted
+  `"fiscal.cufe"` inside a `concat(...)` is NOT flagged), function
+  call names (only the inner path inside a `currency(fiscal.cufe)`
+  is flagged), unterminated `{{`, and stale availability maps that
+  miss a namespace key (treated as available — defensive against
+  over-dim).
+
+- The decoration layer is added BEFORE the linter in the CM6
+  extension array so a single token can carry both severities (a
+  typo for an optional field shows the dim hint plus the red
+  squiggle).
+
+- `useVariableAvailability` hook (`templateAvailability.ts`) wraps
+  the tRPC query with a 60s staleTime; `TextBlockEditor` accepts
+  an `unavailableVariables` prop and dispatches a CM6 `StateEffect`
+  to update the StateField without remounting on prop change.
+
+Tests: 6 new server cases (fiscal flag enabled/disabled, optional
+company columns populated/not, whitespace-only treated as unset,
+manager + cashier rejected as admin-only) + 17 web pure-helper
+tests (covering offset accuracy, nested function calls, escape
+sequences, unterminated `{{`, defensive empty-map behavior) + 3
+TextBlockEditor component tests asserting the dim class is
+applied/skipped per prop. i18n parity green; voseo audit clean.
+
+**Remaining**: nothing for item #7. All four originally-listed
+sub-bullets ship across passes 4 + 5.
 
 Builds on follow-up #2:
 

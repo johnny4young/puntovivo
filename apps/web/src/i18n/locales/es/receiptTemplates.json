@@ -2,7 +2,7 @@
   "page": {
     "kicker": "Configuración",
     "title": "Plantillas de recibo",
-    "description": "Diseña los recibos y cotizaciones impresos que emite tu negocio. Las plantillas son por tenant y aplican en todas las sedes."
+    "description": "Diseña los recibos y cotizaciones impresos que emite tu negocio. Las plantillas aplican a toda la empresa y a todas las sedes."
   },
   "actions": {
     "newTemplate": "Nueva plantilla",
@@ -146,7 +146,8 @@
         "unknownNamespace": "Espacio de nombres desconocido \"{{namespace}}\". Permitidos: {{allowed}}.",
         "unknownFunction": "Función desconocida \"{{name}}\". Disponibles: {{allowed}}.",
         "wrongArity": "La función \"{{name}}\" recibe {{expected}} argumento(s); llegaron {{actual}}."
-      }
+      },
+      "unavailableVariable": "{{path}} no está configurado para esta empresa. El recibo imprimirá este valor vacío hasta que se complete el ajuste correspondiente."
     },
     "functionsHelp": {
       "title": "Funciones disponibles",

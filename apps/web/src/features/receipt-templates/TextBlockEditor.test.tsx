@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
@@ -167,6 +167,62 @@ describe('TextBlockEditor — accessibility', () => {
   });
 });
 
-// Suppress an unused-variable warning in jsdom tests when vi.fn isn't needed
-// to demonstrate the test patterns above.
-void vi.fn;
+describe('TextBlockEditor — unavailableVariables prop (ENG-016 pass 5)', () => {
+  it('renders cm-variable-unavailable decoration for an unset path', async () => {
+    let captured: EditorView | null = null;
+    function Wrapper() {
+      return (
+        <TextBlockEditor
+          value="{{fiscal.cufe}}"
+          onChange={() => {}}
+          unavailableVariables={{
+            fiscal: { cufe: false, qrUrl: false, resolution: false, documentNumber: false },
+          }}
+          onCreateView={view => {
+            captured = view;
+          }}
+        />
+      );
+    }
+    render(<Wrapper />);
+    await waitFor(() => {
+      expect(captured).not.toBeNull();
+    });
+    const dimNodes = captured!.contentDOM.querySelectorAll(
+      '.cm-variable-unavailable'
+    );
+    expect(dimNodes.length).toBeGreaterThan(0);
+  });
+
+  it('does NOT add the dim class when the namespace is fully populated', async () => {
+    let captured: EditorView | null = null;
+    function Wrapper() {
+      return (
+        <TextBlockEditor
+          value="{{sale.grandTotal}}"
+          onChange={() => {}}
+          unavailableVariables={{
+            sale: { grandTotal: true, saleNumber: true },
+          }}
+          onCreateView={view => {
+            captured = view;
+          }}
+        />
+      );
+    }
+    render(<Wrapper />);
+    await waitFor(() => {
+      expect(captured).not.toBeNull();
+    });
+    expect(
+      captured!.contentDOM.querySelectorAll('.cm-variable-unavailable')
+    ).toHaveLength(0);
+  });
+
+  it('omits decorations when no availability map is supplied (loading state)', async () => {
+    const { view } = await mountEditor({ initialValue: '{{fiscal.cufe}}' });
+    expect(
+      view.contentDOM.querySelectorAll('.cm-variable-unavailable')
+    ).toHaveLength(0);
+  });
+});

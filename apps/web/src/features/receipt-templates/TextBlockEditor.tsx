@@ -16,7 +16,7 @@
  * @module features/receipt-templates/TextBlockEditor
  */
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { EditorState, Prec, type Extension } from '@codemirror/state';
@@ -26,6 +26,11 @@ import { defaultKeymap, historyKeymap, history } from '@codemirror/commands';
 import { receiptTemplateExtension } from './templateLanguage';
 import { templateAutocompleteSource } from './templateAutocomplete';
 import { buildTemplateLinter } from './templateLinter';
+import {
+  buildUnavailableVariablesExtension,
+  setAvailabilityForView,
+  type AvailabilityMap,
+} from './templateUnavailableDecorations';
 
 export interface TextBlockEditorProps {
   value: string;
@@ -35,6 +40,14 @@ export interface TextBlockEditorProps {
   placeholder?: string;
   className?: string;
   ariaLabel?: string;
+  /**
+   * ENG-016 pass 5 — per-tenant variable availability map. When
+   * supplied, every `{{namespace.field}}` token whose path resolves
+   * to `false` in the map renders dimmed-italic with a translatable
+   * hover tooltip. Pass `null` (default) to disable the feature
+   * entirely (e.g. while the parent's tRPC query is loading).
+   */
+  unavailableVariables?: AvailabilityMap | null;
   /**
    * Test hook: invoked once after the underlying CodeMirror EditorView
    * mounts. Tests use it to capture the view and dispatch transactions
@@ -61,6 +74,23 @@ const BASE_THEME = EditorView.theme({
     borderColor: '#0ea5e9',
     boxShadow: '0 0 0 1px #0ea5e9',
   },
+  // ENG-016 pass 5 — dim style for tokens whose namespace.field path
+  // resolves to false in the per-tenant availability map.
+  '.cm-variable-unavailable': {
+    opacity: '0.55',
+    fontStyle: 'italic',
+    textDecoration: 'underline dotted #94a3b8',
+  },
+  '.cm-tooltip-variable-unavailable': {
+    backgroundColor: '#1e293b',
+    color: '#f8fafc',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '0.25rem',
+    fontSize: '0.75rem',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    maxWidth: '24rem',
+  },
 });
 
 export function TextBlockEditor({
@@ -70,10 +100,29 @@ export function TextBlockEditor({
   placeholder,
   className,
   ariaLabel,
+  unavailableVariables = null,
   onCreateView,
 }: TextBlockEditorProps) {
   const { t } = useTranslation('receiptTemplates');
   const editorRef = useRef<ReactCodeMirrorRef>(null);
+  // Snapshot the prop at first mount so the extension array baked into
+  // useMemo doesn't churn on every availability change. Subsequent prop
+  // changes flow through the useEffect below as a StateEffect dispatch
+  // (no remount). useState's lazy initializer is the lint-clean way to
+  // express "read this prop once" — a ref would trigger the
+  // react-hooks/refs rule for accessing `.current` during render.
+  const [initialAvailability] = useState<AvailabilityMap | null>(
+    () => unavailableVariables ?? null
+  );
+
+  // Keep the editor's availability state in sync with the prop. The
+  // CM6 StateField listens for the dispatched effect and rebuilds the
+  // decoration set without remounting the editor.
+  useEffect(() => {
+    const view = editorRef.current?.view;
+    if (!view) return;
+    setAvailabilityForView(view, unavailableVariables);
+  }, [unavailableVariables]);
 
   const extensions = useMemo<Extension[]>(() => {
     const lengthFilter = EditorState.transactionFilter.of(tr => {
@@ -120,6 +169,16 @@ export function TextBlockEditor({
         activateOnTyping: true,
         closeOnBlur: true,
       }),
+      // Decorations layer must come BEFORE the linter so the linter's
+      // diagnostic decorations layer ON TOP of the dim decoration when
+      // a token is both unset AND syntactically invalid (e.g. a typo
+      // for an optional field — the dim hint marks "this would be
+      // empty even if the syntax were right" while the lint marker
+      // surfaces the syntax error).
+      buildUnavailableVariablesExtension(
+        initialAvailability,
+        (key, params) => t(key, params as Record<string, unknown>) as string
+      ),
       buildTemplateLinter((key, params) =>
         params ? t(key, params as Record<string, unknown>) : t(key)
       ),
@@ -130,7 +189,7 @@ export function TextBlockEditor({
       BASE_THEME,
       ariaExtension,
     ];
-  }, [maxLength, t, ariaLabel]);
+  }, [maxLength, t, ariaLabel, initialAvailability]);
 
   return (
     <div className={className} data-testid="text-block-editor">

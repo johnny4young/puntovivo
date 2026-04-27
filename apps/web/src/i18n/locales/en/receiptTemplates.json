@@ -2,7 +2,7 @@
   "page": {
     "kicker": "Setup",
     "title": "Receipt templates",
-    "description": "Design the printed receipts and quotations your business issues. Templates are tenant-wide and apply to every site."
+    "description": "Design the printed receipts and quotations your business issues. Templates apply across the business and every site."
   },
   "actions": {
     "newTemplate": "New template",
@@ -146,14 +146,15 @@
         "unknownNamespace": "Unknown namespace \"{{namespace}}\". Allowed: {{allowed}}.",
         "unknownFunction": "Unknown function \"{{name}}\". Available: {{allowed}}.",
         "wrongArity": "Function \"{{name}}\" takes {{expected}} argument(s); got {{actual}}."
-      }
+      },
+      "unavailableVariable": "{{path}} is not configured for this business. The receipt will print this value as empty until the corresponding setting is populated."
     },
     "functionsHelp": {
       "title": "Available functions",
       "intro": "Wrap any value in double curly braces to interpolate it. You can also call the functions below — combine them with paths like sale.grandTotal or with numbers and quoted strings.",
       "entries": {
-        "currency": "Format a number as a tenant-locale currency. Optional second argument overrides decimals.",
-        "date": "Format a date or ISO string. Pattern tokens: yyyy MM dd HH mm ss. Defaults to the tenant's short date format.",
+        "currency": "Format a number with the business currency settings. Optional second argument overrides decimals.",
+        "date": "Format a date or ISO string. Pattern tokens: yyyy MM dd HH mm ss. Defaults to the business short date format.",
         "upper": "Convert text to upper case.",
         "lower": "Convert text to lower case.",
         "round": "Round a number to N decimals (default 0).",

@@ -34,6 +34,8 @@ import {
 } from './defaultLayouts';
 import { ReceiptTemplatePreview } from './ReceiptTemplatePreview';
 import { TextBlockEditor } from './TextBlockEditor';
+import { useVariableAvailability } from './templateAvailability';
+import type { AvailabilityMap } from './templateUnavailableDecorations';
 
 export interface ReceiptTemplateEditorProps {
   /** When set, edits the existing template; when null, creates a new one. */
@@ -94,6 +96,7 @@ export function ReceiptTemplateEditor({
   const { t } = useTranslation(['receiptTemplates', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
+  const { availability } = useVariableAvailability();
 
   const [name, setName] = useState(initial?.name ?? '');
   const [kind, setKind] = useState<'sale' | 'quotation' | 'fiscal_dee'>(
@@ -530,6 +533,7 @@ export function ReceiptTemplateEditor({
                               <BlockForm
                                 block={block}
                                 onPatch={patch => patchBlock(index, patch)}
+                                unavailableVariables={availability}
                               />
                             </div>
                           ) : undefined
@@ -605,6 +609,8 @@ export function ReceiptTemplateEditor({
 interface BlockFormProps {
   block: EditorReceiptBlock;
   onPatch: (patch: Partial<EditorReceiptBlock>) => void;
+  /** ENG-016 pass 5 — passed through to TextBlockEditor for unset-variable hints. */
+  unavailableVariables?: AvailabilityMap | null;
 }
 
 /**
@@ -613,7 +619,7 @@ interface BlockFormProps {
  * union after merge — this keeps every branch type-safe while sharing
  * the same callback.
  */
-function BlockForm({ block, onPatch }: BlockFormProps) {
+function BlockForm({ block, onPatch, unavailableVariables }: BlockFormProps) {
   const { t } = useTranslation('receiptTemplates');
 
   function handleAlignChange(e: ChangeEvent<HTMLSelectElement>) {
@@ -632,6 +638,7 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
                 onChange={value => onPatch({ value })}
                 maxLength={500}
                 ariaLabel={t('editor.blockFields.value')}
+                unavailableVariables={unavailableVariables}
               />
             </div>
             <p className="mt-1 text-xs text-secondary-500">
