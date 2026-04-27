@@ -31,15 +31,22 @@ This table mirrors the authoritative `Status` column in
 | Iter 3 Fase B | [`ENG-021`](./ROADMAP.md) | Gated | Fiscal DIAN PT integration (PT contract). Spec §7. |
 | Iter 5 | [`ENG-023`](./ROADMAP.md) | Gated | Bold payment terminal (depends on Iter 4 + Bold sandbox). Spec §8. |
 | Iter 8 | [`ENG-024`](./ROADMAP.md) | Deferred | Inter-site transfer requests + `reserved` lifecycle. Spec §9. |
+| Plan v2.0 | [`ENG-025..ENG-040`](./ROADMAP.md) | Pending | 16-ticket phased plan promoted from the 2026-Q2 audit (security + code-quality + dependency + market intelligence). Phase 0 hardening (`ENG-025..029`), Phase 1 AI Wave 1 (`ENG-030..033`, Vercel AI SDK + Anthropic), Phase 2 multi-country fiscal engine (`ENG-034..036`, MX + CL packs), Phase 3 sync + LATAM payment rails (`ENG-037..038`), Phase 4 restaurant vertical + AI Wave 2 (`ENG-039..040`). Per-quarter spec in [PLAN-V2.md](./PLAN-V2.md). `ENG-025` (critical security closure) lands first and is unconditional. |
 
 ## 2. Recommended sequence
 
 Value-per-day priority, skipping gated tickets:
 
-1. **Iter 4 / ENG-022** — hardware POS — **only if the test lab hardware arrived**; otherwise rotate to ENG-016 or ENG-010 from the engineering backlog
-2. **Iter 3 Fase B / ENG-021** — fiscal DIAN PT integration — **only after the PT contract + certificate + resolution + PT POC land** (6 gates documented in [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)); the `MockAdapter` → real-adapter swap is a one-file change thanks to the seams ENG-020 shipped
+1. **`ENG-025` — critical security closure** — first and unconditional. Closes the SEC-1 HIGH finding (Electron IPC bridge bypassing tenant scope) plus three MED findings (rate-limit, XSS, logout sessionVersion). Spec lives in [PLAN-V2.md](./PLAN-V2.md) §2 Phase 0; per-vector approach captured in the 2026-Q2 audit synthesis. Must ship before any new feature touches user data.
+2. **`ENG-026..ENG-029` — Phase 0 hygiene tail** — Vite 8 bump, dead code removal, cross-cutting helpers, hotspot splits triggered defensively. Cheap to land, raises the floor for everything else.
+3. **`ENG-030..ENG-033` — AI Wave 1** — Vercel AI SDK foundation (`ENG-030`) blocks `ENG-031` and `ENG-033`; `ENG-032` (local-only anomaly) can run in parallel with the foundation work. Operator-approved provider default: Anthropic Sonnet 4.7; Ollama parked for `ENG-040`.
+4. **`ENG-034..ENG-036` — Multi-country fiscal engine** — `ENG-034` FISCAL-CORE refactor blocks the country packs; `ENG-035` (MX) and `ENG-036` (CL) can run in parallel once the contract is in place. Argentina / Peru / Brazil packs queue after MX + CL are in sandbox-validated state.
+5. **`ENG-037..ENG-038` — Sync + payment rails** — libSQL/Turso spike + LATAM payment rails (Wompi, Bold, ePayco, Mercado Pago, Nequi) with AI-assisted reconciliation.
+6. **`ENG-039..ENG-040` — Vertical restaurant MX + AI Wave 2** — restaurant mode integrated with the MX pack; vision + voice features layer on the AI foundation.
+7. **Gated tickets** stay parked until their gate clears: `ENG-022` hardware POS (test lab), `ENG-021` fiscal PT integration (signed contract + 5 more gates), `ENG-023` Bold datáfono (depends on `ENG-022` adapter interface + Bold sandbox).
+8. **`ENG-024`** (inter-site transfer reservation) is deferred unless a multi-site tenant pushes for it.
 
-Anything gated (Iter 3 Fase B, Iter 4 without hardware, Iter 5) stops the flow and raises a question to the user — do not speculate a workaround.
+Per-quarter detail and architectural decisions closed by the 2026-Q2 audit live in [PLAN-V2.md](./PLAN-V2.md). Anything gated stops the flow and raises a question to the user — do not speculate a workaround.
 
 ## 3. Iter 6 / ENG-018 — Sales park-and-resume
 
