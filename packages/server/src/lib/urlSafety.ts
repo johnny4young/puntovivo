@@ -50,8 +50,15 @@ export function isUrlSchemeBlocked(url: unknown): boolean {
   if (typeof url !== 'string') return false;
   const normalized = url.trim().toLowerCase();
   if (normalized.length === 0) return false;
+  const resolved = (() => {
+    try {
+      return new URL(normalized).href.toLowerCase();
+    } catch {
+      return normalized;
+    }
+  })();
   for (const prefix of RESOLVED_URL_SCHEME_BLOCKLIST) {
-    if (normalized.startsWith(prefix)) return true;
+    if (resolved.startsWith(prefix)) return true;
   }
   return false;
 }

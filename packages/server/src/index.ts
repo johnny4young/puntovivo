@@ -184,10 +184,10 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // untouched while still catching brute-force.
   //
   // `auth.login` keeps its custom DB-backed dual bucket from
-  // `loginRateLimit.ts` (per-IP 10/60s + per-username 5/15min) which
-  // is stricter than 100/min and fires before this global bucket
-  // would; the two coexist cleanly because the custom bucket throws
-  // TRPCError before the Fastify plugin's counter increments.
+  // `loginRateLimit.ts` (per-IP 10/60s + per-username 5/15min), which
+  // stays stricter for failed-login traffic. The global bucket still
+  // caps aggregate login traffic, matching every other HTTP route
+  // until ENG-025's per-procedure follow-up lands.
   //
   // Per-procedure stricter buckets (e.g. `auth.changePassword`
   // tightened to 5/15min) need a tRPC-layer middleware similar to
