@@ -78,7 +78,8 @@
     },
     "previewPanel": {
       "title": "Vista previa en vivo",
-      "description": "Renderizada con datos de muestra."
+      "description": "Renderizada con datos de muestra.",
+      "templateIssues": "Corrige las expresiones marcadas antes de renderizar la vista previa."
     },
     "defaults": {
       "newText": "Nuevo texto",
@@ -137,6 +138,15 @@
       },
       "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
       "appFooterShow": "Mostrar el pie de Puntovivo"
+    },
+    "codeEditor": {
+      "placeholder": "Usa dobles llaves para abrir el selector de variables y funciones.",
+      "linter": {
+        "unparseable": "No se puede interpretar esta expresión. Usa una ruta namespace.campo o una llamada función(...).",
+        "unknownNamespace": "Espacio de nombres desconocido \"{{namespace}}\". Permitidos: {{allowed}}.",
+        "unknownFunction": "Función desconocida \"{{name}}\". Disponibles: {{allowed}}.",
+        "wrongArity": "La función \"{{name}}\" recibe {{expected}} argumento(s); llegaron {{actual}}."
+      }
     },
     "functionsHelp": {
       "title": "Funciones disponibles",

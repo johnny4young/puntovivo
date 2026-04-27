@@ -350,36 +350,70 @@ Shipped as part of ENG-016 pass 2:
   dnd-kit wrapping (regression gate for pass-1's FLIP), and the
   `↑/↓` buttons coexist with the grip per row.
 
-### 2. `text.value` field — authoring UX
+### 2. `text.value` field — authoring UX — **shipped (ENG-016 pass 4)**
 
-Today `text.value` is a plain `<textarea>`. Follow-up work:
+Shipped as part of ENG-016 pass 4 via CodeMirror 6 adoption:
 
-- **Auto-close pairs**: typing `{{` inserts `}}` with the caret
-  between. Typing a trailing `}` against an existing `}}` swallows
-  the extra character (standard pair-matching like IDE editors).
-- **Syntax highlighting**: color the `{{namespace.path}}` tokens
-  distinctly from literal text. Reuse a lightweight code-editor
-  component (CodeMirror 6 headless mode or a custom contenteditable
-  tokenizer — CodeMirror is heavier but gives us autocomplete for
-  free).
-- **Autocomplete**:
-  - After typing `{{`, show a dropdown of the 5 allowed namespaces
-    (`company`, `sale`, `item`, `fiscal`, `tender`) filtered by what
-    the operator has typed so far.
-  - After the operator selects a namespace and types `.`, show the
-    known properties of that namespace from a static list
-    (`company.name`, `company.taxId`, ...) — same list the docs
-    enumerate, shared between the editor and the Zod whitelist so
-    they can never drift.
-- **Inline error reporting**: when the Zod schema rejects a value
-  (unknown namespace, > 500 chars, JS scheme), show a red underline
-  + tooltip on the offending token. The Zod issue `path` already
-  points at the failing block; translate its `message` through the
-  existing `translateServerError` helper for localized errors.
-- Expose the whitelist of namespaces + properties from
-  `trpc/schemas/receiptTemplates.ts` (currently only the namespace
-  names are exported) so the autocomplete and the validator read
-  from one source.
+- **Auto-close pairs**: a custom `EditorView.inputHandler` watches
+  for a `{` keystroke that immediately follows another `{` and
+  swaps it for `{}}` with the caret between the closing braces.
+  CM6's built-in `closeBrackets` only supports single-char pairs,
+  so the multi-char `{{` ↔ `}}` case is handled explicitly. The
+  handler is unit-tested via direct facet invocation in
+  `TextBlockEditor.test.tsx`.
+- **Syntax highlighting**: a `StreamLanguage` tokenizer in
+  `templateLanguage.ts` emits `bracket`, `variableName`,
+  `function(variableName)`, `string`, `number`, `punctuation`, and
+  `invalid` tags via `@lezer/highlight`. The accompanying
+  `HighlightStyle` paints brackets purple, namespaces teal,
+  function names blue, strings amber, numbers magenta, and stray
+  characters red with a wavy underline. Default CM6 themes (light
+  + one-dark) inherit the same tag set so the palette stays
+  legible across themes.
+- **Autocomplete**: a `CompletionSource` in
+  `templateAutocomplete.ts` inspects the cursor position via
+  `getActiveSubstitution(text, cursor)` and emits suggestions:
+  - Right after `{{` (no dot yet): the 5 allowed namespaces +
+    the 12 whitelisted function names (each with a colored badge).
+  - After a `.` following a known namespace: only that
+    namespace's documented properties (catalog hardcoded in
+    `NAMESPACE_PROPERTIES`).
+  - Inside a function-call argument: still surfaces namespaces +
+    properties so nested `{{ currency(sale.| ) }}` works.
+  - Filtered by `validFor: /^[A-Za-z0-9_]*$/` so CM6's typing-
+    filter stays consistent with the namespace/property identifier
+    shape.
+- **Inline error reporting**: a CM6 `linter()` extension in
+  `templateLinter.ts` runs on every doc change and emits
+  `Diagnostic` markers per validation issue: unknown namespace
+  (range = the namespace token), unknown function (range = the
+  function name), wrong arity (range = the call's `(` to `)`), or
+  unparseable expression (range = the whole `{{…}}`). Messages
+  are translatable through the same i18next instance the editor
+  already uses (`editor.codeEditor.linter.*` keys, neutral LATAM
+  Spanish). The web-side parser duplicates the server's grammar
+  to avoid pulling fastify/drizzle into the web bundle; two
+  parity tests pin drift (function names on both sides + a
+  `MAX_EXPRESSION_LENGTH=200` mirror of the server cap).
+- **Whitelist source of truth**: `TEMPLATE_NAMESPACES` and
+  `NAMESPACE_PROPERTIES` are exported from `templateAutocomplete.ts`.
+  Server-side `ALLOWED_NAMESPACES` (in
+  `trpc/schemas/receiptTemplates.ts`) is a read-only mirror of the
+  same five names; the parity test on the server suite catches
+  drift if either side is updated independently.
+
+The new editor lives in `apps/web/src/features/receipt-templates/TextBlockEditor.tsx`
+and is dropped into `ReceiptTemplateEditor.tsx`'s `text` block
+form as a one-line replacement of the previous `<textarea>`. The
+adoption added 9 deps (codemirror, @codemirror/{state, view,
+language, autocomplete, lint, commands}, @lezer/highlight,
+@uiw/react-codemirror), lazy-loaded into the admin-only
+`/receipt-templates` route. The verified `npm run ci:web` build for
+this pass emits `ReceiptTemplatesPage` at 493.00 kB / 158.00 kB gzip
+and the main `index` chunk at 681.98 kB / 210.76 kB gzip.
+
+**Remaining for item #2**: nothing. All four originally-listed
+sub-features ship in pass 4.
 
 ### 3. Template functions (basic batch) — **shipped (ENG-016 pass 3)**
 
@@ -526,7 +560,30 @@ Shipped as part of ENG-016 pass 1:
   short-circuit, inverse transform, new-element skip, null
   container).
 
-### 7. Explicit i18n/variable error strategy
+### 7. Explicit i18n/variable error strategy — **partially shipped (ENG-016 pass 4)**
+
+Pass 4 closes the parser-side bullet of item #7 via the same CM6
+linter that ships under item #2: invalid syntax / unknown
+namespace / unknown function / wrong arity surface as inline red
+markers with translatable hover tooltips at edit time, alongside
+the existing Zod rejection at save time.
+
+**Remaining for item #7**:
+
+- "Dimmed for unset variables" — when a substitution like
+  `{{fiscal.cufe}}` would resolve to the empty string at render
+  time on the active tenant (e.g. a non-CO tenant with fiscal
+  disabled), the editor preview should visually flag the
+  substitution. Needs a per-tenant runtime "is this variable
+  populated?" hint that the editor doesn't have today.
+- "Variable availability endpoint" — a server endpoint that
+  returns the per-tenant availability map for `{ company.*,
+  fiscal.*, …}`. Distinct concern from item #2's parser-side
+  error markers; deferred until the dimmed-variable UX is
+  scoped.
+
+The placeholder text below is preserved for context on the
+remaining sub-bullets.
 
 Builds on follow-up #2:
 

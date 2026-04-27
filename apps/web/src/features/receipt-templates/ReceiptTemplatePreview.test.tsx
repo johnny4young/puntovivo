@@ -79,4 +79,43 @@ describe('ReceiptTemplatePreview', () => {
       screen.queryByText('Receipt template not found')
     ).not.toBeInTheDocument();
   });
+
+  it('keeps invalid expressions out of the server preview query', () => {
+    useQueryMock.mockReturnValue({
+      data: { html: '<p>stale ok</p>', escposByteLength: 42 },
+      isLoading: false,
+      error: null,
+    });
+
+    render(
+      <ReceiptTemplatePreview
+        layout={{
+          paperWidth: '80mm',
+          blocks: [{ type: 'text', value: 'Gracias {{unknown.field}}' }],
+        }}
+        kind="sale"
+      />
+    );
+
+    expect(useQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: {
+          paperWidth: '80mm',
+          blocks: [{ type: 'text', value: '' }],
+        },
+        kind: 'sale',
+      }),
+      expect.objectContaining({
+        enabled: false,
+        refetchOnWindowFocus: false,
+        staleTime: Infinity,
+      })
+    );
+    expect(
+      screen.getByText(
+        'Corrige las expresiones marcadas antes de renderizar la vista previa.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByTitle('Vista previa en vivo')).not.toBeInTheDocument();
+  });
 });
