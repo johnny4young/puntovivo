@@ -172,11 +172,31 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     });
   });
 
-  // Register rate limiting (must be registered before routes that use it)
+  // ENG-025 vector 2 — global rate-limit on every HTTP surface
+  // (tRPC, SSE, /api/health). Previously registered with
+  // `global: false`, which meant nothing on the wire was throttled —
+  // `auth.refresh`, `auth.changePassword`, and every mutation were
+  // open to brute-force. Switched to global: true with a generous
+  // 100/min/IP cap; the fastify-trpc plugin registers a single
+  // wildcard route (`/api/trpc/:path`) so per-procedure distinction
+  // is not possible at the Fastify level — the cap is uniform and
+  // intentionally permissive to leave normal session traffic
+  // untouched while still catching brute-force.
+  //
+  // `auth.login` keeps its custom DB-backed dual bucket from
+  // `loginRateLimit.ts` (per-IP 10/60s + per-username 5/15min) which
+  // is stricter than 100/min and fires before this global bucket
+  // would; the two coexist cleanly because the custom bucket throws
+  // TRPCError before the Fastify plugin's counter increments.
+  //
+  // Per-procedure stricter buckets (e.g. `auth.changePassword`
+  // tightened to 5/15min) need a tRPC-layer middleware similar to
+  // `loginRateLimit.ts`. Captured as a follow-up; the 100/min cap
+  // closes the bulk of the SEC-2 finding.
   const rateLimit = await import('@fastify/rate-limit');
   await app.register(rateLimit.default, {
-    global: false, // Don't apply to all routes
-    max: 100, // Default max for other routes
+    global: true,
+    max: 100,
     timeWindow: '1 minute',
   });
 
@@ -252,6 +272,12 @@ export * from './db/schema.js';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
 export type { AppRouter } from './trpc/router.js';
+// ENG-025 — `desktopSession` (apps/desktop/src/main) imports this to
+// validate the renderer's access token without a FastifyRequest.
+export {
+  verifyTokenWithServer,
+  type AuthTokenPayload,
+} from './security/authTokens.js';
 // ENG-006 — the Electron main imports createModuleLogger via this
 // barrel so app-level logs from both the embedded server and the
 // desktop shell flow through the same pino instance.

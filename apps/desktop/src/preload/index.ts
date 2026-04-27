@@ -75,27 +75,35 @@ export interface ElectronAPI {
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
 }
 
+/**
+ * ENG-025 vector 1 — the `tenantId` argument is no longer accepted on
+ * tenant-scoped methods. Main process derives it from the registered
+ * desktopSession (set via `session.register` after login). Legacy
+ * arities are kept marked deprecated for one release so the
+ * IndexedDB browser fallback can keep its current call shape; the
+ * Electron path drops them.
+ */
 export interface DatabaseAPI {
-  getAll: (table: string, tenantId: string) => Promise<unknown[]>;
+  getAll: (table: string) => Promise<unknown[]>;
   getById: (table: string, id: string) => Promise<unknown>;
   insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
   delete: (table: string, id: string) => Promise<boolean>;
   getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
-  deleteByTenant: (table: string, tenantId: string) => Promise<number>;
-  countByTenant: (table: string, tenantId: string) => Promise<number>;
+  deleteByTenant: (table: string) => Promise<number>;
+  countByTenant: (table: string) => Promise<number>;
   addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
-  getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
+  getPendingSyncItems: () => Promise<unknown[]>;
 }
 
 export interface SyncAPI {
-  getStatus: (tenantId?: string) => Promise<{
+  getStatus: () => Promise<{
     isOnline: boolean;
     lastSync: string | null;
     pendingItems: number;
     conflicts: number;
   }>;
-  triggerSync: (tenantId?: string) => Promise<{
+  triggerSync: () => Promise<{
     success: boolean;
     synced: number;
     errors: string[];
@@ -107,9 +115,22 @@ export interface SyncAPI {
   setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
+/**
+ * ENG-025 vector 1 — desktop session lifecycle. Renderer's
+ * AuthProvider calls `register(accessToken)` after a successful login
+ * (and after every successful `auth.refresh` rotation), and `clear()`
+ * after logout. Until `register` succeeds, every `db.*` / `sync.*`
+ * call rejects with `SESSION_NOT_REGISTERED`.
+ */
+export interface SessionAPI {
+  register: (accessToken: string) => Promise<{ ok: true }>;
+  clear: () => Promise<{ ok: true }>;
+}
+
 export interface DesktopBridgeAPI extends ElectronAPI {
   db: DatabaseAPI;
   sync: SyncAPI;
+  session: SessionAPI;
 }
 
 // Custom APIs for renderer
@@ -134,7 +155,9 @@ const electronAPI: ElectronAPI = {
 };
 
 const dbAPI: DatabaseAPI = {
-  getAll: (table: string, tenantId: string) => ipcRenderer.invoke('db:getAll', table, tenantId),
+  // ENG-025 vector 1 — tenantId stays out of the wire. Main process
+  // reads it from the desktopSession singleton.
+  getAll: (table: string) => ipcRenderer.invoke('db:getAll', table),
   getById: (table: string, id: string) => ipcRenderer.invoke('db:getById', table, id),
   insert: (table: string, data: Record<string, unknown>) =>
     ipcRenderer.invoke('db:insert', table, data),
@@ -143,28 +166,33 @@ const dbAPI: DatabaseAPI = {
   delete: (table: string, id: string) => ipcRenderer.invoke('db:delete', table, id),
   getByField: (table: string, fieldName: string, value: unknown) =>
     ipcRenderer.invoke('db:getByField', table, fieldName, value),
-  deleteByTenant: (table: string, tenantId: string) =>
-    ipcRenderer.invoke('db:deleteByTenant', table, tenantId),
-  countByTenant: (table: string, tenantId: string) =>
-    ipcRenderer.invoke('db:countByTenant', table, tenantId),
+  deleteByTenant: (table: string) => ipcRenderer.invoke('db:deleteByTenant', table),
+  countByTenant: (table: string) => ipcRenderer.invoke('db:countByTenant', table),
   addToSyncQueue: (item: Record<string, unknown>) => ipcRenderer.invoke('db:addToSyncQueue', item),
-  getPendingSyncItems: (tenantId: string) => ipcRenderer.invoke('db:getPendingSyncItems', tenantId),
+  getPendingSyncItems: () => ipcRenderer.invoke('db:getPendingSyncItems'),
 };
 
 const syncAPI: SyncAPI = {
-  getStatus: (tenantId?: string) => ipcRenderer.invoke('sync:getStatus', tenantId),
-  triggerSync: (tenantId?: string) => ipcRenderer.invoke('sync:triggerSync', tenantId),
+  getStatus: () => ipcRenderer.invoke('sync:getStatus'),
+  triggerSync: () => ipcRenderer.invoke('sync:triggerSync'),
   setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('sync:setConfig', config),
+};
+
+const sessionAPI: SessionAPI = {
+  register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
+  clear: () => ipcRenderer.invoke('session:clear'),
 };
 
 const desktopBridgeAPI: DesktopBridgeAPI = {
   ...electronAPI,
   db: dbAPI,
   sync: syncAPI,
+  session: sessionAPI,
 };
 
 // Expose APIs to renderer process
 contextBridge.exposeInMainWorld('electron', electronAPI);
 contextBridge.exposeInMainWorld('db', dbAPI);
 contextBridge.exposeInMainWorld('sync', syncAPI);
+contextBridge.exposeInMainWorld('session', sessionAPI);
 contextBridge.exposeInMainWorld('api', desktopBridgeAPI);

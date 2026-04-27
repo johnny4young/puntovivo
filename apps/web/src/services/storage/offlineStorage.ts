@@ -100,13 +100,14 @@ export class OfflineStorage {
    * Get all records from a store
    */
   async getAll<K extends keyof StoreTypeMap>(storeName: K): Promise<StoreTypeMap[K][]> {
-    const tenantId = this.ensureTenantId();
-
     if (isElectron()) {
-      const result = await window.api!.db.getAll(storeToTable[storeName], tenantId);
+      // ENG-025 — tenantId is derived server-side from desktopSession;
+      // we don't pass it on the wire anymore.
+      const result = await window.api!.db.getAll(storeToTable[storeName]);
       return result as StoreTypeMap[K][];
     }
 
+    const tenantId = this.ensureTenantId();
     return indexedDB.getAll<StoreTypeMap[K]>(storeName, tenantId);
   }
 
@@ -139,7 +140,10 @@ export class OfflineStorage {
     const id = data.id || generateId();
     const timestamp = new Date().toISOString();
 
-    // Build the complete record
+    // Build the complete record. We still stamp tenantId locally so
+    // the IndexedDB browser fallback path works; on the Electron
+    // path the main process re-stamps it from desktopSession,
+    // ignoring this hint (ENG-025).
     const record = {
       ...data,
       id,
@@ -163,7 +167,8 @@ export class OfflineStorage {
         );
       }
 
-      // Add to sync queue via Electron API
+      // Add to sync queue via Electron API. tenantId in the payload
+      // is the renderer hint; main forces it to the session value.
       if (!options.skipSync) {
         await window.api!.db.addToSyncQueue({
           entityType: storeToEntityType[storeName],
@@ -327,14 +332,15 @@ export class OfflineStorage {
    * Clear all data for the current tenant
    */
   async clearTenantData(): Promise<void> {
-    const tenantId = this.ensureTenantId();
-
     if (isElectron()) {
+      // ENG-025 — main derives tenantId from desktopSession; the
+      // operation acts on the active tenant only.
       const tables = Object.values(storeToTable);
       for (const table of tables) {
-        await window.api!.db.deleteByTenant(table, tenantId);
+        await window.api!.db.deleteByTenant(table);
       }
     } else {
+      const tenantId = this.ensureTenantId();
       // Browser: Clear each store (this clears ALL data, not just tenant)
       // For proper tenant isolation, we'd need to iterate and delete by tenant
       const stores = Object.values(STORE_NAMES);
@@ -351,12 +357,12 @@ export class OfflineStorage {
    * Get count of records in a store
    */
   async count(storeName: StoreName): Promise<number> {
-    const tenantId = this.ensureTenantId();
-
     if (isElectron()) {
-      return window.api!.db.countByTenant(storeToTable[storeName], tenantId);
+      // ENG-025 — main derives tenantId from desktopSession.
+      return window.api!.db.countByTenant(storeToTable[storeName]);
     }
 
+    const tenantId = this.ensureTenantId();
     return indexedDB.count(storeName, tenantId);
   }
 

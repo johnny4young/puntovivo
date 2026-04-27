@@ -106,6 +106,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // drafts. The ownerKey filter also prevents rendering, but clearing
     // the localStorage entry avoids the stale data sitting on disk.
     useCartWorkspaceStore.getState().resetAllWorkspaces();
+    // ENG-025 — clear the desktop session singleton so the main
+    // process IPC handlers reject any subsequent db:* / sync:* call
+    // until the next successful login. Best-effort: any failure here
+    // does not block the local cleanup. window.api is undefined in
+    // pure-browser mode (no IPC bridge to clear).
+    void window.api?.session?.clear?.().catch(() => {});
     setUser(null);
     setTenant(null);
     setError(null);
@@ -136,6 +142,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await vanillaClient.health.check.query();
         const refreshResult = await vanillaClient.auth.refresh.mutate();
         setAccessToken(refreshResult.token);
+        // ENG-025 — register the rotated access token with the
+        // desktop session singleton so the IPC bridge handlers can
+        // derive tenantId server-side. No-op in pure-browser mode.
+        // Best-effort: a register failure means the bridge stays
+        // closed (handlers throw SESSION_NOT_REGISTERED) but tRPC
+        // still works.
+        try {
+          await window.api?.session?.register?.(refreshResult.token);
+        } catch (registerErr) {
+          console.warn('Desktop session register failed during init:', registerErr);
+        }
         const session = mapSession(await vanillaClient.auth.me.query());
         persistAuthSession(session);
 
@@ -185,6 +202,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password: credentials.password,
       });
       setAccessToken(authData.token);
+      // ENG-025 — bind the access token to the desktop session
+      // singleton so subsequent IPC db:*/sync:* calls can derive
+      // tenantId server-side. No-op in pure-browser mode.
+      try {
+        await window.api?.session?.register?.(authData.token);
+      } catch (registerErr) {
+        console.warn('Desktop session register failed during login:', registerErr);
+      }
 
       const session = mapSession(await vanillaClient.auth.me.query());
 

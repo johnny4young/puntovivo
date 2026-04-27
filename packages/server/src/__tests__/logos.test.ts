@@ -100,4 +100,82 @@ describe('Logos tRPC Router', () => {
       message: 'Unassign this logo from the company before deleting it.',
     });
   });
+
+  // ENG-025 vector 3 — `imageUrl` Zod refine blocks dangerous URL
+  // schemes at input time so they never reach storage. Defense in
+  // depth pairs with `escapeHtml` in `services/receipt-renderer.ts`.
+  describe('ENG-025 vector 3 — imageUrl scheme blocklist', () => {
+    it('rejects javascript: scheme on create', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(
+        caller.logos.create({
+          name: 'Malicious Logo',
+          imageUrl: 'javascript:alert(1)',
+          isActive: true,
+        })
+      ).rejects.toThrow();
+    });
+
+    it('rejects data:text/html scheme on create', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(
+        caller.logos.create({
+          name: 'Malicious Logo',
+          imageUrl: 'data:text/html,<script>alert(1)</script>',
+          isActive: true,
+        })
+      ).rejects.toThrow();
+    });
+
+    it('rejects vbscript: and file: schemes on create', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(
+        caller.logos.create({
+          name: 'Bad VB',
+          imageUrl: 'vbscript:msgbox(1)',
+          isActive: true,
+        })
+      ).rejects.toThrow();
+      await expect(
+        caller.logos.create({
+          name: 'Bad File',
+          imageUrl: 'file:///etc/passwd',
+          isActive: true,
+        })
+      ).rejects.toThrow();
+    });
+
+    it('accepts https:// and data:image/... schemes', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const httpsLogo = await caller.logos.create({
+        name: 'HTTPS Logo',
+        imageUrl: 'https://example.com/logo.png',
+        isActive: true,
+      });
+      expect(httpsLogo.imageUrl).toBe('https://example.com/logo.png');
+
+      const dataImageLogo = await caller.logos.create({
+        name: 'Inline Logo',
+        imageUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        isActive: true,
+      });
+      expect(dataImageLogo.imageUrl.startsWith('data:image/png;')).toBe(true);
+    });
+
+    it('rejects javascript: scheme on update', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const logo = await caller.logos.create({
+        name: 'Existing Logo',
+        imageUrl: 'https://example.com/safe.png',
+        isActive: true,
+      });
+      await expect(
+        caller.logos.update({
+          id: logo.id,
+          imageUrl: 'javascript:alert(1)',
+        })
+      ).rejects.toThrow();
+    });
+  });
 });

@@ -164,10 +164,22 @@ export const authRouter = router({
   }),
 
   /**
-   * Logout (client-side token removal)
-   * Provided for API completeness
+   * Logout — invalidates every outstanding access token issued for
+   * the current user by bumping `users.sessionVersion`. The next
+   * call to `verifyAccessToken` (or `verifyRefreshToken`) for that
+   * user rejects any pre-logout token because the recorded
+   * `sessionVersion` no longer matches the JWT payload.
+   *
+   * Promoted from `publicProcedure` to `protectedProcedure` in
+   * ENG-025 vector 4: only an authenticated caller can sign their
+   * own session out, and the `ctx.user.id` we need for the bump
+   * comes from the validated JWT.
    */
-  logout: publicProcedure.mutation(({ ctx }) => {
+  logout: protectedProcedure.mutation(async ({ ctx }) => {
+    await ctx.db
+      .update(users)
+      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
+      .where(eq(users.id, ctx.user.id));
     clearRefreshCookie(ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),

@@ -49,7 +49,8 @@ export function useOfflineSync() {
 
     if (hasDesktopSync && window.api) {
       try {
-        const syncStatus = await window.api.sync.getStatus(tenantId ?? undefined);
+        // ENG-025 — sync APIs derive tenantId from desktopSession.
+        const syncStatus = await window.api.sync.getStatus();
         setStatus(prev => ({
           ...prev,
           isOnline: online,
@@ -123,7 +124,8 @@ export function useOfflineSync() {
     setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      const result = await window.api.sync.triggerSync(tenantId ?? undefined);
+      // ENG-025 — sync APIs derive tenantId from desktopSession.
+      const result = await window.api.sync.triggerSync();
       setStatus(prev => ({
         ...prev,
         isSyncing: false,

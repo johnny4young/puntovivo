@@ -115,6 +115,17 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
     }
 
     setAccessToken(nextToken);
+    // ENG-025 — re-register the rotated token with the desktop
+    // session singleton so the IPC bridge keeps validating against
+    // the current sessionVersion. No-op in pure-browser mode. A
+    // failure here means the bridge handlers will throw
+    // SESSION_NOT_REGISTERED on the next call; tRPC itself keeps
+    // working with the new token.
+    try {
+      await window.api?.session?.register?.(nextToken);
+    } catch (registerErr) {
+      console.warn('Desktop session re-register failed after refresh:', registerErr);
+    }
     return nextToken;
   })().finally(() => {
     refreshRequest = null;

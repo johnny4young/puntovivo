@@ -57,6 +57,14 @@ import {
 } from './auto-updater';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
 import { buildMainWindowWebPreferences } from './window-config.js';
+// ENG-025 — single source of truth for the authenticated identity at
+// the IPC boundary. Every db:* / sync:* handler reads tenantId from
+// here instead of trusting the renderer-supplied argument. The
+// `SESSION_NOT_REGISTERED` and `SESSION_REGISTER_REJECTED` error
+// strings are the stable contract the renderer matches against to
+// decide whether to redirect to the login screen.
+import * as desktopSession from './session/desktopSession.js';
+import { verifyTokenWithServer } from '@puntovivo/server';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -758,6 +766,61 @@ async function getDesktopRecordById(
     | undefined;
 
   return mapRowToRendererRecord(table, row);
+}
+
+/**
+ * ENG-025 — guard that blocks single-record operations (`db:getById`,
+ * `db:update`, `db:delete`) when the target row belongs to a tenant
+ * other than the one held by `desktopSession`. Returns silently when
+ * the row is reachable; throws `CROSS_TENANT_ACCESS` otherwise. For
+ * tables that do not carry a `tenant_id` column directly (e.g.
+ * `sale_items`) the check climbs through `sales.tenant_id` so the
+ * scope still holds.
+ *
+ * Existing behaviour for non-existent rows: pass through (the
+ * handler returns `undefined` / no-op) — we only block
+ * cross-tenant access of existing rows, mirroring the tRPC layer's
+ * "not found vs not authorized" silence to avoid leaking which IDs
+ * exist in other tenants.
+ */
+async function assertRowBelongsToActiveTenant(
+  table: AllowedDesktopTable,
+  id: string
+): Promise<void> {
+  const activeTenantId = desktopSession.requireTenantId();
+  const sqlite = getSqliteClient().$client;
+
+  let rowTenantId: string | null = null;
+  if (table === 'sale_items') {
+    const joined = sqlite
+      .prepare(
+        `SELECT s.tenant_id AS tenant_id
+         FROM sale_items si
+         INNER JOIN sales s ON s.id = si.sale_id
+         WHERE si.id = ? LIMIT 1`
+      )
+      .get(id) as { tenant_id?: string } | undefined;
+    rowTenantId = joined?.tenant_id ?? null;
+  } else if (DIRECT_TENANT_TABLES.has(table)) {
+    const row = sqlite
+      .prepare(`SELECT tenant_id FROM ${table} WHERE id = ? LIMIT 1`)
+      .get(id) as { tenant_id?: string } | undefined;
+    rowTenantId = row?.tenant_id ?? null;
+  } else {
+    // Catalog / global tables (none in ALLOWED_DESKTOP_TABLES today,
+    // but defensive). No tenant column → access is always allowed.
+    return;
+  }
+
+  if (rowTenantId === null) {
+    // Row missing — let the actual handler return its usual "not
+    // found" response instead of leaking existence cross-tenant.
+    return;
+  }
+
+  if (rowTenantId !== activeTenantId) {
+    throw new Error('CROSS_TENANT_ACCESS');
+  }
 }
 
 async function handleDesktopGetAll(tableName: string, tenantId: string): Promise<unknown[]> {
@@ -1656,53 +1719,118 @@ ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<Ma
   refreshTray();
   return next;
 });
-ipcMain.handle('db:getAll', async (_event, table: string, tenantId: string) => {
-  return handleDesktopGetAll(table, tenantId);
+// ENG-025 vector 1 — session lifecycle. `session:register` is called
+// by the renderer's AuthProvider after a successful login (or after a
+// successful refresh that rotated the access token); `session:clear`
+// is called on logout. Until a session is registered, every db:* and
+// sync:* handler below throws SESSION_NOT_REGISTERED so the renderer
+// can never reach the SQLite store with a tenantId of its choosing.
+ipcMain.handle('session:register', async (_event, accessToken: unknown) => {
+  if (typeof accessToken !== 'string' || accessToken.length === 0) {
+    throw new Error('SESSION_REGISTER_REJECTED');
+  }
+  if (!server) {
+    throw new Error('Embedded server is not started yet');
+  }
+  const fastifyApp = server.app;
+  await desktopSession.register(accessToken, token =>
+    verifyTokenWithServer(fastifyApp, token, 'access')
+  );
+  return { ok: true };
+});
+ipcMain.handle('session:clear', async () => {
+  desktopSession.clear();
+  return { ok: true };
+});
+
+// ENG-025 vector 1 — every db:* / sync:* handler now derives tenantId
+// from the registered desktopSession instead of trusting the
+// renderer-supplied argument. The legacy renderer call sites still
+// pass a tenantId for backward compatibility while the offlineStorage
+// wrapper is migrated; we accept it but IGNORE it. Mismatches are
+// logged at warn level so a stale renderer surfaces in the operator
+// log instead of silently bypassing the scope.
+function activeTenantId(rendererTenantIdHint?: unknown): string {
+  const sessionTenantId = desktopSession.requireTenantId();
+  if (
+    typeof rendererTenantIdHint === 'string' &&
+    rendererTenantIdHint.length > 0 &&
+    rendererTenantIdHint !== sessionTenantId
+  ) {
+    mainLog.warn(
+      { sessionTenantId, rendererTenantId: rendererTenantIdHint },
+      'ENG-025: ignored renderer-supplied tenantId — desktopSession wins'
+    );
+  }
+  return sessionTenantId;
+}
+
+ipcMain.handle('db:getAll', async (_event, table: string, rendererTenantId?: unknown) => {
+  return handleDesktopGetAll(table, activeTenantId(rendererTenantId));
 });
 ipcMain.handle('db:getById', async (_event, table: string, id: string) => {
+  const validatedTable = getAllowedDesktopTable(table);
+  await assertRowBelongsToActiveTenant(validatedTable, id);
   return handleDesktopGetById(table, id);
 });
 ipcMain.handle('db:insert', async (_event, table: string, data: Record<string, unknown>) => {
-  return handleDesktopInsert(table, data);
+  // Force the tenant scope server-side. Even if the renderer passed a
+  // different tenantId (or omitted it) the row lands in the active
+  // tenant.
+  const tenantScopedData = { ...data, tenantId: activeTenantId(data.tenantId) };
+  return handleDesktopInsert(table, tenantScopedData);
 });
 ipcMain.handle(
   'db:update',
   async (_event, table: string, id: string, data: Record<string, unknown>) => {
-    return handleDesktopUpdate(table, id, data);
+    const validatedTable = getAllowedDesktopTable(table);
+    await assertRowBelongsToActiveTenant(validatedTable, id);
+    // Block tenant migration via update — same rationale as insert.
+    const sessionTenantId = activeTenantId(data.tenantId);
+    const tenantScopedData = { ...data, tenantId: sessionTenantId };
+    return handleDesktopUpdate(table, id, tenantScopedData);
   }
 );
 ipcMain.handle('db:delete', async (_event, table: string, id: string) => {
+  const validatedTable = getAllowedDesktopTable(table);
+  await assertRowBelongsToActiveTenant(validatedTable, id);
   return handleDesktopDelete(table, id);
 });
 ipcMain.handle(
   'db:getByField',
   async (_event, table: string, fieldName: string, value: unknown) => {
+    // Require a registered session even though this op does not take
+    // a tenantId argument — without it, the renderer could query
+    // arbitrary rows by indexed field across tenants.
+    desktopSession.requireTenantId();
     return handleDesktopGetByField(table, fieldName, value);
   }
 );
-ipcMain.handle('db:deleteByTenant', async (_event, table: string, tenantId: string) => {
-  return handleDesktopDeleteByTenant(table, tenantId);
+ipcMain.handle('db:deleteByTenant', async (_event, table: string, rendererTenantId?: unknown) => {
+  return handleDesktopDeleteByTenant(table, activeTenantId(rendererTenantId));
 });
-ipcMain.handle('db:countByTenant', async (_event, table: string, tenantId: string) => {
-  return handleDesktopCountByTenant(table, tenantId);
+ipcMain.handle('db:countByTenant', async (_event, table: string, rendererTenantId?: unknown) => {
+  return handleDesktopCountByTenant(table, activeTenantId(rendererTenantId));
 });
 ipcMain.handle('db:addToSyncQueue', async (_event, item: DesktopSyncQueueInput) => {
-  return handleDesktopAddToSyncQueue(item);
+  // Force the tenantId of the queued item to the active session,
+  // ignoring whatever the renderer claimed.
+  const sessionTenantId = activeTenantId(item?.tenantId);
+  return handleDesktopAddToSyncQueue({ ...item, tenantId: sessionTenantId });
 });
-ipcMain.handle('db:getPendingSyncItems', async (_event, tenantId: string) => {
-  return handleDesktopGetPendingSyncItems(tenantId);
+ipcMain.handle('db:getPendingSyncItems', async (_event, rendererTenantId?: unknown) => {
+  return handleDesktopGetPendingSyncItems(activeTenantId(rendererTenantId));
 });
-ipcMain.handle('sync:getStatus', async (_event, tenantId?: string) => {
-  return getDesktopSyncStatus(tenantId);
+ipcMain.handle('sync:getStatus', async (_event, rendererTenantId?: unknown) => {
+  return getDesktopSyncStatus(activeTenantId(rendererTenantId));
 });
-ipcMain.handle('sync:triggerSync', async (_event, tenantId?: string) => {
-  if (!tenantId) {
-    throw new Error('A tenant id is required to trigger sync');
-  }
-
-  return handleDesktopTriggerSync(tenantId);
+ipcMain.handle('sync:triggerSync', async (_event, rendererTenantId?: unknown) => {
+  return handleDesktopTriggerSync(activeTenantId(rendererTenantId));
 });
 ipcMain.handle('sync:setConfig', async (_event, config: Record<string, unknown>) => {
+  // No tenant data crosses here, but a registered session is still
+  // required so unauthenticated renderer code cannot reconfigure sync.
+  desktopSession.requireTenantId();
   return handleDesktopSetSyncConfig(config);
 });
 ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
