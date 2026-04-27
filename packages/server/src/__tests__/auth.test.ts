@@ -278,12 +278,62 @@ describe('Auth tRPC Router', () => {
   });
 
   describe('auth.logout', () => {
-    it('should return success', async () => {
-      const caller = appRouter.createCaller(createTestContext());
+    it('should return success when called by an authenticated user', async () => {
+      const caller = appRouter.createCaller(
+        createTestContext({
+          id: testUserId,
+          email: 'trpctest@example.com',
+          role: 'admin',
+          tenantId: testTenantId,
+        })
+      );
       const result = await caller.auth.logout();
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Logged out successfully');
+    });
+
+    // ENG-025 vector 4 — logout must promote to protectedProcedure
+    // so the bump of sessionVersion has a user id to target. An
+    // unauthenticated logout call would have no way to identify
+    // whose tokens to invalidate; rejecting it is the correct
+    // contract.
+    it('should reject unauthenticated callers (ENG-025)', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(caller.auth.logout()).rejects.toThrow(TRPCError);
+    });
+
+    // ENG-025 vector 4 — the signature feature: every successful
+    // logout increments users.sessionVersion. The next access token
+    // verification for that user (via verifyAccessToken) sees the
+    // mismatch and rejects, even within the 15-minute access TTL.
+    // Without this, a leaked access token survives logout for up
+    // to 15 minutes.
+    it('should bump users.sessionVersion on every successful logout (ENG-025 SEC-4)', async () => {
+      const db = getDatabase();
+      const before = await db
+        .select({ sessionVersion: users.sessionVersion })
+        .from(users)
+        .where(eq(users.id, testUserId))
+        .get();
+      expect(before?.sessionVersion).toBeDefined();
+
+      const caller = appRouter.createCaller(
+        createTestContext({
+          id: testUserId,
+          email: 'trpctest@example.com',
+          role: 'admin',
+          tenantId: testTenantId,
+        })
+      );
+      await caller.auth.logout();
+
+      const after = await db
+        .select({ sessionVersion: users.sessionVersion })
+        .from(users)
+        .where(eq(users.id, testUserId))
+        .get();
+      expect(after?.sessionVersion).toBe((before?.sessionVersion ?? 0) + 1);
     });
   });
 
@@ -788,6 +838,67 @@ describe('Auth tRPC Router', () => {
         .get();
       expect(usernameRow).toBeDefined();
       expect(usernameRow!.count).toBe(1);
+    });
+  });
+
+  // ENG-025 vector 2 — @fastify/rate-limit registered with
+  // global:false; an onRoute hook in `index.ts` injects a 60/min/IP
+  // bucket onto every `/api/trpc/*` wildcard route. The bucket is
+  // intentionally a single tier because tRPC's Fastify adapter
+  // registers ONE wildcard route (`/api/trpc/:path`); per-procedure
+  // distinction would require a tRPC-layer middleware. Pin the
+  // bucket via app.inject so a future edit that drops the hook
+  // trips the suite.
+  describe('ENG-025 vector 2 — tRPC rate-limit hook', () => {
+    it('rejects calls to /api/trpc/* after the per-IP bucket saturates (100/min)', async () => {
+      // @fastify/rate-limit keys by request.ip + route. inject()
+      // honors `remoteAddress` by setting the underlying socket's
+      // remote address, which then drives request.ip. Use a unique
+      // IP per test so the bucket is isolated from sibling tests.
+      // Hammer the public `health.check` procedure — it's a tRPC
+      // route (so it inherits the bucket) but does no work, so the
+      // calls run in milliseconds.
+      const remoteAddress = '198.51.100.10';
+      let saw429 = false;
+      let okCount = 0;
+      for (let i = 0; i < 110; i += 1) {
+        const response = await server.app.inject({
+          method: 'GET',
+          url: '/api/trpc/health.check',
+          remoteAddress,
+        });
+        if (response.statusCode === 429) {
+          saw429 = true;
+          break;
+        }
+        if (response.statusCode === 200) okCount += 1;
+      }
+      // 100/min cap — the 101st call must fire 429.
+      expect(saw429).toBe(true);
+      expect(okCount).toBeGreaterThanOrEqual(80);
+      expect(okCount).toBeLessThanOrEqual(100);
+    });
+
+    it('uses per-IP keying — a different remoteAddress gets a fresh bucket', async () => {
+      // Saturate from one IP first, then verify a different IP can
+      // still reach the procedure. Confirms the bucket is per-IP, not
+      // global.
+      const saturatingIp = '198.51.100.30';
+      for (let i = 0; i < 105; i += 1) {
+        await server.app.inject({
+          method: 'GET',
+          url: '/api/trpc/health.check',
+          remoteAddress: saturatingIp,
+        });
+      }
+      // A fresh IP should get a 200, proving the bucket is per-IP.
+      const freshIp = '198.51.100.31';
+      const freshResponse = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/health.check',
+        remoteAddress: freshIp,
+      });
+      expect(freshResponse.statusCode).toBe(200);
     });
   });
 });

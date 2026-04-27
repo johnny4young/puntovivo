@@ -327,10 +327,13 @@ function renderLogoBlockHtml(
   const heightStyle = block.maxHeightMm
     ? ` style="max-height: ${block.maxHeightMm}mm;"`
     : '';
-  // The data URL never goes through escapeHtml because it is a
-  // tenant-controlled binary asset, not a layout variable. Source of
-  // truth: the `logos` table referenced from the company snapshot.
-  return `<div class="block block-logo ${alignClass(block.align)}"><img src="${data.logoDataUrl}" alt=""${heightStyle} /></div>`;
+  // ENG-025 vector 3 — defense in depth on top of the Zod
+  // `imageUrl` refine in `trpc/schemas/logos.ts`. The data URL is
+  // tenant-controlled but still ends up inside an attribute value
+  // loaded by `printWindow.loadURL('data:text/html;...')`; escape it
+  // so a malformed entry (or a value that bypassed validation in a
+  // future code path) cannot break out of the `src=""` quotes.
+  return `<div class="block block-logo ${alignClass(block.align)}"><img src="${escapeHtml(data.logoDataUrl)}" alt=""${heightStyle} /></div>`;
 }
 
 function renderItemsTableHtml(

@@ -71,8 +71,19 @@ export function getBearerToken(request: FastifyRequest): string | null {
   return token;
 }
 
-async function verifyToken(
-  request: FastifyRequest,
+/**
+ * In-process token verification.
+ *
+ * Receives the FastifyInstance directly (not a FastifyRequest) so that
+ * non-HTTP callers — specifically the Electron main-process
+ * `desktopSession` (ENG-025) — can validate tokens without faking a
+ * Fastify request object. Both `verifyAccessToken` and
+ * `verifyRefreshToken` collapse onto this helper for consistency: any
+ * change to the verification contract (e.g. revoking on tenant
+ * deactivation) lands once here.
+ */
+export async function verifyTokenWithServer(
+  server: FastifyInstance,
   token: string | null,
   expectedType: AuthTokenType
 ): Promise<AuthTokenPayload | null> {
@@ -81,12 +92,12 @@ async function verifyToken(
   }
 
   try {
-    const payload = await request.server.jwt.verify<AuthTokenPayload>(token);
+    const payload = await server.jwt.verify<AuthTokenPayload>(token);
     if (payload.tokenType !== expectedType) {
       return null;
     }
 
-    const user = await request.server.db
+    const user = await server.db
       .select({
         email: users.email,
         role: users.role,
@@ -120,11 +131,15 @@ async function verifyToken(
 }
 
 export function verifyAccessToken(request: FastifyRequest): Promise<AuthTokenPayload | null> {
-  return verifyToken(request, getBearerToken(request), 'access');
+  return verifyTokenWithServer(request.server, getBearerToken(request), 'access');
 }
 
 export function verifyRefreshToken(request: FastifyRequest): Promise<AuthTokenPayload | null> {
-  return verifyToken(request, request.cookies[REFRESH_COOKIE_NAME] ?? null, 'refresh');
+  return verifyTokenWithServer(
+    request.server,
+    request.cookies[REFRESH_COOKIE_NAME] ?? null,
+    'refresh'
+  );
 }
 
 export function clearRefreshCookie(reply: FastifyReply): void {

@@ -148,7 +148,8 @@ export function StorageProvider({
 
       try {
         const count = state.isElectron
-          ? (await window.api!.sync.getStatus(tenantId)).pendingItems
+          ? // ENG-025 — sync APIs derive tenantId from desktopSession.
+            (await window.api!.sync.getStatus()).pendingItems
           : await getPendingCount(tenantId);
 
         setState(prev => ({ ...prev, pendingSyncCount: count }));
@@ -304,7 +305,8 @@ export function StorageProvider({
     if (!state.tenantId) return [];
 
     if (state.isElectron) {
-      return (await window.api!.db.getPendingSyncItems(state.tenantId)) as SyncQueueItem[];
+      // ENG-025 — db APIs derive tenantId from desktopSession.
+      return (await window.api!.db.getPendingSyncItems()) as SyncQueueItem[];
     }
 
     return getQueuedOperations(state.tenantId);
@@ -326,8 +328,9 @@ export function StorageProvider({
     if (!state.tenantId) return [];
 
     if (state.isElectron) {
-      // Electron handles retry internally via triggerSync
-      await window.api!.sync.triggerSync(state.tenantId);
+      // Electron handles retry internally via triggerSync.
+      // ENG-025 — sync APIs derive tenantId from desktopSession.
+      await window.api!.sync.triggerSync();
       return [];
     }
 
