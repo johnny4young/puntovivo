@@ -32,6 +32,13 @@ vi.mock('@/lib/trpc', () => ({
       renderPreview: {
         useQuery: () => ({ data: null, isLoading: false, error: null }),
       },
+      // ENG-016 pass 5 — variable availability hook called from
+      // ReceiptTemplateEditor. Returns null while loading so the editor
+      // does not paint false-negative dim styles before the real map
+      // arrives.
+      variableAvailability: {
+        useQuery: () => ({ data: null, isLoading: false, error: null }),
+      },
     },
   },
 }));
