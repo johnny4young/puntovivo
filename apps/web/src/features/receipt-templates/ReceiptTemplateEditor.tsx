@@ -33,6 +33,7 @@ import {
   type ReceiptBlockKind,
 } from './defaultLayouts';
 import { ReceiptTemplatePreview } from './ReceiptTemplatePreview';
+import { TextBlockEditor } from './TextBlockEditor';
 
 export interface ReceiptTemplateEditorProps {
   /** When set, edits the existing template; when null, creates a new one. */
@@ -623,18 +624,20 @@ function BlockForm({ block, onPatch }: BlockFormProps) {
     case 'text':
       return (
         <div className="space-y-2">
-          <label className="block">
+          <div className="block">
             <span className="label">{t('editor.blockFields.value')}</span>
-            <textarea
-              className="input mt-1 min-h-[5rem]"
-              value={block.value}
-              maxLength={500}
-              onChange={e => onPatch({ value: e.target.value })}
-            />
+            <div className="mt-1">
+              <TextBlockEditor
+                value={block.value}
+                onChange={value => onPatch({ value })}
+                maxLength={500}
+                ariaLabel={t('editor.blockFields.value')}
+              />
+            </div>
             <p className="mt-1 text-xs text-secondary-500">
               {t('editor.blockFields.valueHelp')}
             </p>
-          </label>
+          </div>
           <TemplateFunctionsCheatSheet />
           <div className="grid grid-cols-3 gap-2">
             <label className="block">

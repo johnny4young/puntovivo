@@ -78,7 +78,8 @@
     },
     "previewPanel": {
       "title": "Live preview",
-      "description": "Rendered with sample data."
+      "description": "Rendered with sample data.",
+      "templateIssues": "Fix the highlighted template expressions before the preview can render."
     },
     "defaults": {
       "newText": "New text",
@@ -137,6 +138,15 @@
       },
       "appFooterHelp": "Adds three lines at the bottom of the receipt with the Puntovivo product name, URL, and support contact. Keep it enabled to credit the software, or toggle it off for a branding-free receipt.",
       "appFooterShow": "Show the Puntovivo footer"
+    },
+    "codeEditor": {
+      "placeholder": "Use double curly braces to open the picker for variables and functions.",
+      "linter": {
+        "unparseable": "This expression cannot be parsed. Use a namespace.field path or a functionName(...) call.",
+        "unknownNamespace": "Unknown namespace \"{{namespace}}\". Allowed: {{allowed}}.",
+        "unknownFunction": "Unknown function \"{{name}}\". Available: {{allowed}}.",
+        "wrongArity": "Function \"{{name}}\" takes {{expected}} argument(s); got {{actual}}."
+      }
     },
     "functionsHelp": {
       "title": "Available functions",

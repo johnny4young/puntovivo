@@ -546,3 +546,72 @@ describe('applyDatePattern — single-pass token replacement', () => {
     expect(out.length).toBe(8);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-package drift detector for the editor autocomplete
+// ---------------------------------------------------------------------------
+
+/**
+ * The web editor's autocomplete catalog (TEMPLATE_FUNCTION_NAMES in
+ * `apps/web/src/features/receipt-templates/templateAutocomplete.ts`)
+ * mirrors this list. Adding a function on the server requires updating
+ * the editor catalog; this test fails until that happens. The matching
+ * test on the web side fails if anyone updates the editor without
+ * touching this list. Together the two pin the parity invariant
+ * without a runtime cross-package import.
+ */
+const EXPECTED_EDITOR_FUNCTION_NAMES = [
+  'currency',
+  'date',
+  'upper',
+  'lower',
+  'round',
+  'limit',
+  'concat',
+  'default',
+  'abs',
+  'max',
+  'min',
+  'sum',
+] as const;
+
+describe('FUNCTION_REGISTRY — drift detector vs web editor autocomplete', () => {
+  it('exposes exactly the 12 names the editor surfaces in autocomplete', () => {
+    expect(Object.keys(FUNCTION_REGISTRY).sort()).toEqual(
+      [...EXPECTED_EDITOR_FUNCTION_NAMES].sort()
+    );
+  });
+
+  /**
+   * Pin the per-function arity numbers so a symbolic bump like
+   * `MAX_FUNCTION_ARGS = 16` in the registry's evaluators does not
+   * silently float past the editor's hand-typed `FUNCTION_ARITY`
+   * literals (templateLinter.ts). The matching test on the web side
+   * (templateLinter.test.ts) pins the same numbers — together they
+   * make either-side drift fail one of the two suites. Reviewer
+   * feedback (node skill) flagged this as MED → upgraded to a real
+   * pin to close the gap.
+   */
+  const EXPECTED_ARITY: Record<string, { min: number; max: number }> = {
+    currency: { min: 1, max: 2 },
+    date: { min: 1, max: 2 },
+    upper: { min: 1, max: 1 },
+    lower: { min: 1, max: 1 },
+    round: { min: 1, max: 2 },
+    limit: { min: 2, max: 2 },
+    concat: { min: 1, max: 8 },
+    default: { min: 2, max: 2 },
+    abs: { min: 1, max: 1 },
+    max: { min: 1, max: 8 },
+    min: { min: 1, max: 8 },
+    sum: { min: 1, max: 8 },
+  };
+
+  it('pins the exact minArgs / maxArgs per function (drift detector vs web FUNCTION_ARITY)', () => {
+    for (const [name, expected] of Object.entries(EXPECTED_ARITY)) {
+      const spec = FUNCTION_REGISTRY[name];
+      expect(spec, `missing FUNCTION_REGISTRY[${name}]`).toBeDefined();
+      expect({ min: spec!.minArgs, max: spec!.maxArgs }).toEqual(expected);
+    }
+  });
+});

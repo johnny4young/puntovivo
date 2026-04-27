@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import type { EditorReceiptLayout } from './defaultLayouts';
+import type { EditorReceiptBlock, EditorReceiptLayout } from './defaultLayouts';
+import { lintTemplate } from './templateLinter';
 
 interface ReceiptTemplatePreviewProps {
   layout: EditorReceiptLayout;
@@ -14,6 +15,18 @@ interface ReceiptTemplatePreviewProps {
    * the receipt isolated from the host stylesheet).
    */
   className?: string;
+}
+
+function makePreviewSafeBlock(block: EditorReceiptBlock): EditorReceiptBlock {
+  if (block.type === 'text') {
+    return { ...block, value: '' };
+  }
+
+  if (block.type === 'qr' || block.type === 'barcode128') {
+    return { ...block, source: 'preview-disabled' };
+  }
+
+  return block;
 }
 
 /**
@@ -79,9 +92,30 @@ export function ReceiptTemplatePreview({
     [t]
   );
 
+  const templateLintIssues = useMemo(() => {
+    return debouncedLayout.blocks.flatMap(block => {
+      if (block.type === 'text') return lintTemplate(block.value);
+      if (block.type === 'qr' || block.type === 'barcode128') {
+        return lintTemplate(block.source);
+      }
+      return [];
+    });
+  }, [debouncedLayout]);
+  const hasTemplateLintIssues = templateLintIssues.length > 0;
+
+  const previewLayout = useMemo(() => {
+    if (!hasTemplateLintIssues) return debouncedLayout;
+
+    return {
+      ...debouncedLayout,
+      blocks: debouncedLayout.blocks.map(makePreviewSafeBlock),
+    };
+  }, [debouncedLayout, hasTemplateLintIssues]);
+
   const previewQuery = trpc.receiptTemplates.renderPreview.useQuery(
-    { layout: debouncedLayout, kind, labels: previewLabels },
+    { layout: previewLayout, kind, labels: previewLabels },
     {
+      enabled: !hasTemplateLintIssues,
       // The preview is read-only and stable until the layout changes;
       // there is no benefit to refetching on focus.
       refetchOnWindowFocus: false,
@@ -93,7 +127,11 @@ export function ReceiptTemplatePreview({
     <div
       className={className ?? 'rounded-lg border border-line bg-surface p-4 shadow-sm'}
     >
-      {previewQuery.isLoading ? (
+      {hasTemplateLintIssues ? (
+        <div className="text-sm text-error" role="alert">
+          {t('editor.previewPanel.templateIssues')}
+        </div>
+      ) : previewQuery.isLoading ? (
         <div className="flex h-72 items-center justify-center text-sm text-secondary-500">
           …
         </div>
