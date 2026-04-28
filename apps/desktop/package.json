@@ -44,7 +44,6 @@
     "@puntovivo/server": "1.0.0",
     "@tanstack/react-query": "^5.100.3",
     "@tanstack/react-table": "^8.20.6",
-    "@tanstack/react-virtual": "^3.13.24",
     "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.1",
     "exceljs": "^4.4.0",

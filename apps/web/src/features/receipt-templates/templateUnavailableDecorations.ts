@@ -245,13 +245,3 @@ export function buildUnavailableVariablesExtension(
     buildHoverTooltip(translate),
   ];
 }
-
-/**
- * Internal handle for tests — exposes the StateField + effect so a
- * test can drive the field directly without booting a full EditorView.
- */
-export const __test = {
-  availabilityField,
-  setAvailabilityEffect,
-  buildDecorations,
-};

@@ -318,5 +318,3 @@ export function TableToolbar({
     </div>
   );
 }
-
-export default TableToolbar;

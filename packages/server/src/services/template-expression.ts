@@ -782,16 +782,3 @@ export function validateTemplate(
   }
   return issues;
 }
-
-// ---------------------------------------------------------------------------
-// Helpers re-exported for callers that build their own rendering
-// pipelines (kept minimal — most callers just use evaluateTemplate).
-// ---------------------------------------------------------------------------
-
-export const __test = {
-  tokenize,
-  parseExpression,
-  toScalarString,
-  toNumberValue,
-  coerceDate,
-};

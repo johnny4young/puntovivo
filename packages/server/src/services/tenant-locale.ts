@@ -169,16 +169,3 @@ export async function resolveTenantLocale(
 
   return combine(settings, country, currency);
 }
-
-/**
- * Synchronous variant used by the receipt renderer when it already
- * holds the raw rows (e.g. the caller pre-fetched them inside a
- * transaction). Kept tiny so tests can compose their own inputs.
- */
-export function composeResolvedLocale(args: {
-  settings: TenantLocaleSettingsRow;
-  country: CountryCatalogRow;
-  currency: CurrencyCatalogRow;
-}): ResolvedLocale {
-  return combine(args.settings, args.country, args.currency);
-}

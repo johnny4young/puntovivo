@@ -1,0 +1,4 @@
+interface:
+  display_name: "Puntovivo Ship"
+  short_description: "Ship Puntovivo roadmap tickets"
+  default_prompt: "Use $puntovivo-ship to implement the next Puntovivo ENG ticket end to end."

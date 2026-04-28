@@ -159,14 +159,3 @@ export function useResolvedLocale(): ResolvedLocale {
   const context = useContext(LocaleContext);
   return context?.resolved ?? FALLBACK_RESOLVED_LOCALE;
 }
-
-export function useLocaleStatus(): {
-  isLoading: boolean;
-  isFallback: boolean;
-} {
-  const context = useContext(LocaleContext);
-  return {
-    isLoading: context?.isLoading ?? false,
-    isFallback: context?.isFallback ?? true,
-  };
-}

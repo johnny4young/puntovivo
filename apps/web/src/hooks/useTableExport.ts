@@ -285,5 +285,3 @@ export function useTableExport<T extends object>(
     clearError,
   };
 }
-
-export default useTableExport;

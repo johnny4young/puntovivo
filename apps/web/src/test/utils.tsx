@@ -2,7 +2,7 @@ import { ReactElement, ReactNode } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import type { User, Tenant, TenantSettings, Product, Customer, Sale, SaleItem, Site } from '@/types';
+import type { User, Tenant, TenantSettings, Product, SaleItem } from '@/types';
 
 // ============================================================================
 // Test Query Client
@@ -24,63 +24,6 @@ function createTestQueryClient() {
 }
 
 // ============================================================================
-// Mock Auth Context
-// ============================================================================
-
-export interface MockAuthContextValue {
-  user: User | null;
-  tenant: Tenant | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  error: string | null;
-}
-
-export function createMockAuthContext(
-  overrides?: Partial<MockAuthContextValue>
-): MockAuthContextValue {
-  return {
-    user: createMockUser(),
-    tenant: createMockTenant(),
-    isAuthenticated: true,
-    isLoading: false,
-    login: async () => {},
-    logout: async () => {},
-    error: null,
-    ...overrides,
-  };
-}
-
-// ============================================================================
-// Mock Tenant Context
-// ============================================================================
-
-export interface MockTenantContextValue {
-  currentTenant: Tenant | null;
-  tenantSettings: TenantSettings | null;
-  sites: Site[];
-  currentSite: Site | null;
-  isLoadingSites: boolean;
-  switchSite: (siteId: string) => Promise<void>;
-}
-
-export function createMockTenantContext(
-  overrides?: Partial<MockTenantContextValue>
-): MockTenantContextValue {
-  const tenant = createMockTenant();
-  return {
-    currentTenant: tenant,
-    tenantSettings: tenant.settings,
-    sites: [],
-    currentSite: null,
-    isLoadingSites: false,
-    switchSite: async () => {},
-    ...overrides,
-  };
-}
-
-// ============================================================================
 // Mock Data Factories
 // ============================================================================
 
@@ -89,10 +32,6 @@ let mockIdCounter = 0;
 function generateMockId(): string {
   mockIdCounter += 1;
   return `mock-id-${mockIdCounter}`;
-}
-
-export function resetMockIdCounter(): void {
-  mockIdCounter = 0;
 }
 
 export function createMockUser(overrides?: Partial<User>): User {
@@ -180,26 +119,6 @@ export function createMockProduct(overrides?: Partial<Product>): Product {
   };
 }
 
-export function createMockCustomer(overrides?: Partial<Customer>): Customer {
-  const id = generateMockId();
-  return {
-    id,
-    tenantId: 'tenant-1',
-    name: `Test Customer ${id}`,
-    email: `customer-${id}@example.com`,
-    phone: '555-0100',
-    address: '123 Test Street',
-    city: 'Test City',
-    state: 'TS',
-    postalCode: '12345',
-    country: 'US',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...overrides,
-  };
-}
-
 export function createMockSaleItem(overrides?: Partial<SaleItem>): SaleItem {
   const id = generateMockId();
   const unitPrice = 29.99;
@@ -220,36 +139,6 @@ export function createMockSaleItem(overrides?: Partial<SaleItem>): SaleItem {
     taxRate,
     taxAmount,
     total,
-    ...overrides,
-  };
-}
-
-export function createMockSale(overrides?: Partial<Sale>): Sale {
-  const id = generateMockId();
-  const items = [createMockSaleItem({ saleId: id })];
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.unitPrice * item.quantity - item.discount,
-    0
-  );
-  const taxAmount = items.reduce((sum, item) => sum + item.taxAmount, 0);
-  const total = subtotal + taxAmount;
-
-  return {
-    id,
-    tenantId: 'tenant-1',
-    saleNumber: `SALE-${id}`,
-    customerId: 'customer-1',
-    items,
-    subtotal,
-    taxAmount,
-    discountAmount: 0,
-    total,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    status: 'completed',
-    createdBy: 'user-1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
