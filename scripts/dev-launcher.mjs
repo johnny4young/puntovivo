@@ -103,7 +103,7 @@ async function freePort(port) {
 
   let output = '';
   try {
-    output = runCapture('lsof', ['-ti', `tcp:${port}`]);
+    output = runCapture('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN']);
   } catch {
     return;
   }

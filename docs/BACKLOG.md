@@ -79,6 +79,25 @@ research.
   `ENG-016` item 8 (the parked low-priority sub-bullet) is
   reconsidered in the context of AI Wave 1. — 2026-04-27 (jy)
 
+- `[infra][migrations]` Harden `ensureMigrationBaseline()` in
+  `packages/server/src/db/index.ts` to handle the partial-adoption
+  case: a DB with N rows in `__drizzle_migrations` whose hashes
+  match the first N journal entries but where the journal has more
+  entries than rows (e.g. the operator started development before
+  migrations 0002+ were generated and the legacy raw-DDL bootstrap
+  pre-created those columns). Today the shim short-circuits the
+  moment any row exists, so `drizzleMigrate` then re-runs the
+  remaining migrations and crashes on `duplicate column name`.
+  Fix idea: walk both lists, verify the leading prefix hashes
+  match, and seed the missing tail entries. Surfaced during the
+  ENG-026 dev:desktop live smoke against an operator dev DB (path
+  `~/Library/Application Support/@puntovivo/desktop/data/local.db`)
+  whose `__drizzle_migrations` table held two rows — one matching
+  the current `0000_0000_baseline.sql` hash and one stale hash for
+  a pre-edit version of `0001_receipt_templates.sql`. Workaround
+  used: backup + delete the local DB so the next boot reseeds.
+  — 2026-04-27 (jy)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

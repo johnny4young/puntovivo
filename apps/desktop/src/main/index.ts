@@ -96,13 +96,20 @@ const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 
 // ENG-002 step 2 — in packaged builds, the generated Drizzle migrations
 // ship via forge.config.ts `extraResource` into process.resourcesPath.
-// In dev the server workspace's own `dist/db/migrations/` layout is
-// intact, so the default (undefined → server-side MIGRATIONS_FOLDER
-// fallback inside initDatabase()) resolves correctly without an
-// override. Passing `undefined` is a no-op at the server layer.
+// In dev (electron-forge start), the server module is bundled into
+// `apps/desktop/.vite/build/index.cjs`, so the server-side
+// `MIGRATIONS_FOLDER` (computed from `import.meta.url`) resolves
+// against that bundle path rather than the original source. Up to
+// Vite 7 the bundler preserved the original `import.meta.url`, so
+// the default fallback worked; ENG-026's bump to Vite 8 (Rolldown)
+// rewrites the URL to the bundle and the lookup misses. Anchor the
+// dev override against `app.getAppPath()` (the workspace's
+// `apps/desktop/` directory) and walk up to the server workspace's
+// own `dist/db/migrations` so the path stays correct regardless of
+// how Vite bundles main.
 const MIGRATIONS_PATH = app.isPackaged
   ? join(process.resourcesPath, 'migrations')
-  : undefined;
+  : join(app.getAppPath(), '..', '..', 'packages', 'server', 'dist', 'db', 'migrations');
 
 interface DesktopDatabaseActionResult {
   success: boolean;
@@ -790,7 +797,7 @@ async function assertRowBelongsToActiveTenant(
   const activeTenantId = desktopSession.requireTenantId();
   const sqlite = getSqliteClient().$client;
 
-  let rowTenantId: string | null = null;
+  let rowTenantId: string | null;
   if (table === 'sale_items') {
     const joined = sqlite
       .prepare(
