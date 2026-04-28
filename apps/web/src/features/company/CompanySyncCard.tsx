@@ -15,7 +15,8 @@ import {
 } from '@/features/company/CompanySyncPreviewSections';
 import { CompanySyncMergeModal } from '@/features/company/CompanySyncMergeModal';
 import { vanillaClient } from '@/lib/trpc';
-import { formatDateTime, getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
+import { formatDateTime } from '@/lib/utils';
 
 const syncSnapshotQueryKey = ['sync', 'snapshot', 5, 5] as const;
 const syncPreviewLimit = 5;
@@ -76,7 +77,7 @@ export function CompanySyncCard() {
     onError: error => {
       toast.error({
         title: t('company.sync.toast.queueError'),
-        description: getErrorMessage(error, t('company.sync.toast.queueError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -93,7 +94,7 @@ export function CompanySyncCard() {
     onError: error => {
       toast.error({
         title: t('company.sync.toast.snapshotError'),
-        description: getErrorMessage(error, t('company.sync.toast.snapshotError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -107,6 +108,7 @@ export function CompanySyncCard() {
       id: string;
       resolution: ConflictResolution;
       mergedData?: Record<string, unknown>;
+      localRecordExists?: boolean | null;
     }) => vanillaClient.sync.resolve.mutate({ id, resolution, mergedData }),
     onSuccess: async (_result, variables) => {
       await refreshSyncSnapshot();
@@ -116,14 +118,16 @@ export function CompanySyncCard() {
           variables.resolution === 'local_wins'
             ? t('company.sync.toast.conflictLocalWins')
             : variables.resolution === 'remote_wins'
-              ? t('company.sync.toast.conflictRemoteWins')
+              ? variables.localRecordExists === false
+                ? t('company.sync.toast.staleLocalDiscarded')
+                : t('company.sync.toast.conflictRemoteWins')
               : t('company.sync.toast.conflictMerged'),
       });
     },
     onError: error => {
       toast.error({
         title: t('company.sync.toast.conflictError'),
-        description: getErrorMessage(error, t('company.sync.toast.conflictError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -147,7 +151,11 @@ export function CompanySyncCard() {
         </div>
       </div>
 
-      {snapshotQuery.error && <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">{snapshotQuery.error.message}</div>}
+      {snapshotQuery.error && (
+        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          {translateServerError(snapshotQuery.error, t, t('errors:server.unknown'))}
+        </div>
+      )}
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
         <SyncMetric label={t('company.sync.pendingChanges')} value={snapshot?.pendingCount ?? '...'} />
@@ -205,6 +213,7 @@ export function CompanySyncCard() {
           void resolveMutation.mutateAsync({
             id: pendingResolution.id,
             resolution: pendingResolution.resolution,
+            localRecordExists: pendingResolution.localRecordExists,
           });
         }}
       />
@@ -218,6 +227,7 @@ export function CompanySyncCard() {
             id: pendingResolution.id,
             resolution: 'merged',
             mergedData,
+            localRecordExists: pendingResolution.localRecordExists,
           });
         }}
       />

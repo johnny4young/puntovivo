@@ -99,6 +99,12 @@ export const KNOWN_SERVER_ERROR_CODES = [
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
 
 const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SERVER_ERROR_CODES);
+const NETWORK_ERROR_MESSAGES = new Set([
+  'failed to fetch',
+  'fetch failed',
+  'load failed',
+  'networkerror when attempting to fetch resource.',
+]);
 
 /**
  * Best-effort extraction of the `errorCode` field that tRPC's error formatter
@@ -132,6 +138,37 @@ export function extractServerErrorCode(error: unknown): KnownServerErrorCode | n
   return null;
 }
 
+function collectErrorMessages(error: unknown, messages: string[] = []): string[] {
+  if (!error || typeof error !== 'object') {
+    return messages;
+  }
+
+  if (
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    messages.push((error as { message: string }).message);
+  }
+
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause && cause !== error) {
+    collectErrorMessages(cause, messages);
+  }
+
+  return messages;
+}
+
+export function isNetworkConnectivityError(error: unknown): boolean {
+  return collectErrorMessages(error).some(message => {
+    const normalized = message.trim().toLowerCase();
+    return (
+      NETWORK_ERROR_MESSAGES.has(normalized) ||
+      normalized.includes('failed to fetch') ||
+      normalized.includes('fetch failed')
+    );
+  });
+}
+
 /**
  * Translate a server error into a localized user-facing message.
  *
@@ -159,6 +196,14 @@ export function translateServerError(
     // Force-resolve from the `errors` namespace regardless of the caller's
     // default namespace.
     const translationKey = `errors:server.${code}`;
+    const translated = t(translationKey);
+    if (typeof translated === 'string' && translated !== translationKey) {
+      return translated;
+    }
+  }
+
+  if (isNetworkConnectivityError(error)) {
+    const translationKey = 'errors:server.networkUnavailable';
     const translated = t(translationKey);
     if (typeof translated === 'string' && translated !== translationKey) {
       return translated;

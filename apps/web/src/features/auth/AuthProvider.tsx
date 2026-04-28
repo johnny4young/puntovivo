@@ -15,6 +15,7 @@ import {
   setAuthSessionExpiredHandler,
   vanillaClient,
 } from '@/lib/trpc';
+import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
@@ -169,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           (err.data?.code === 'UNAUTHORIZED' ||
             err.message === 'You must be logged in to perform this action');
 
-        if (!isUnauthorized) {
+        if (!isUnauthorized && !isNetworkConnectivityError(err)) {
           console.error('Auth init error:', err);
         }
 

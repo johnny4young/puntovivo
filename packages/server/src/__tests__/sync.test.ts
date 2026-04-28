@@ -126,6 +126,20 @@ describe('Sync tRPC Router', () => {
       tenantId: testTenantId,
     });
 
+  async function insertSyncProduct(entityId: string, name = 'Sync Product') {
+    const now = new Date().toISOString();
+    await getDatabase().insert(products).values({
+      id: entityId,
+      tenantId: testTenantId,
+      name,
+      sku: `sync-${nanoid(6)}`,
+      syncStatus: 'pending',
+      syncVersion: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
   describe('sync.status', () => {
     it('returns synced status with zero counts when queue is empty', async () => {
       const caller = appRouter.createCaller(userCtx());
@@ -327,6 +341,12 @@ describe('Sync tRPC Router', () => {
       expect(status.retryingCount).toBe(1);
       expect(status.failedCount).toBe(1);
       expect(status.oldestPendingAt).not.toBeNull();
+
+      const snapshot = await caller.sync.pull({ queueLimit: 10, conflictLimit: 10 });
+      expect(snapshot.conflicts[0]?.localRecordExists).toBe(false);
+
+      const listedConflicts = await caller.sync.listConflicts({ limit: 10 });
+      expect(listedConflicts.items[0]?.localRecordExists).toBe(false);
     });
   });
 
@@ -369,6 +389,7 @@ describe('Sync tRPC Router', () => {
       const entityId = nanoid();
       const conflictId = nanoid();
       const now = new Date().toISOString();
+      await insertSyncProduct(entityId, 'Keep Local');
 
       await db.insert(syncConflicts).values({
         id: conflictId,
@@ -432,6 +453,7 @@ describe('Sync tRPC Router', () => {
       const entityId = nanoid();
       const conflictId = nanoid();
       const now = new Date().toISOString();
+      await insertSyncProduct(entityId, 'Local Name');
 
       await db.insert(syncConflicts).values({
         id: conflictId,
@@ -480,6 +502,126 @@ describe('Sync tRPC Router', () => {
         price: 10,
         stock: 5,
       });
+    });
+
+    it('rejects local or merged resolutions when the local record is missing', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Deleted locally' },
+        remoteData: {},
+        status: 'pending',
+        createdAt: now,
+      });
+
+      await db.insert(syncQueue).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        operation: 'update',
+        data: { id: entityId, name: 'Deleted locally' },
+        localVersion: 1,
+        attempts: 1,
+        createdAt: now,
+      });
+
+      for (const resolution of ['local_wins', 'merged'] as const) {
+        try {
+          await caller.sync.resolve({
+            id: conflictId,
+            resolution,
+            ...(resolution === 'merged' ? { mergedData: { id: entityId, name: 'Merged' } } : {}),
+          });
+          expect.unreachable(`Should have rejected ${resolution}`);
+        } catch (err) {
+          expect(err).toBeInstanceOf(TRPCError);
+          expect((err as TRPCError).code).toBe('BAD_REQUEST');
+          expect((err as TRPCError).message).toContain('local record no longer exists');
+        }
+      }
+
+      const conflict = await db
+        .select()
+        .from(syncConflicts)
+        .where(and(eq(syncConflicts.id, conflictId), eq(syncConflicts.tenantId, testTenantId)))
+        .get();
+      expect(conflict?.status).toBe('pending');
+
+      const queuedItems = await db
+        .select()
+        .from(syncQueue)
+        .where(
+          and(
+            eq(syncQueue.tenantId, testTenantId),
+            eq(syncQueue.entityType, 'products'),
+            eq(syncQueue.entityId, entityId)
+          )
+        )
+        .all();
+      expect(queuedItems).toHaveLength(1);
+    });
+
+    it('accepts remote data to clear a missing-local conflict and stale queue item', async () => {
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Deleted locally' },
+        remoteData: {},
+        status: 'pending',
+        createdAt: now,
+      });
+
+      await db.insert(syncQueue).values({
+        id: nanoid(),
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        operation: 'update',
+        data: { id: entityId, name: 'Deleted locally' },
+        localVersion: 1,
+        attempts: 1,
+        createdAt: now,
+      });
+
+      const result = await caller.sync.resolve({
+        id: conflictId,
+        resolution: 'remote_wins',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.resolution).toBe('remote_wins');
+      expect(result.pendingCount).toBe(0);
+      expect(result.conflictsCount).toBe(0);
+
+      const queuedItems = await db
+        .select()
+        .from(syncQueue)
+        .where(
+          and(
+            eq(syncQueue.tenantId, testTenantId),
+            eq(syncQueue.entityType, 'products'),
+            eq(syncQueue.entityId, entityId)
+          )
+        )
+        .all();
+      expect(queuedItems).toHaveLength(0);
     });
   });
 

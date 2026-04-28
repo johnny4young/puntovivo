@@ -82,6 +82,7 @@
     "SALE_REPRINT_DRAFT_FORBIDDEN": "Draft sales have no receipt to reprint.",
     "SALE_REPRINT_ACTIVE_SESSION_REQUIRED": "Cashiers can only reprint sales from their own active cash session.",
     "SALE_COMPLETE_DRAFT_SUSPENDED": "This draft is still suspended. Resume it before completing the sale.",
+    "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }
 }

@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
@@ -190,7 +190,7 @@ export function CompanyPage() {
     onError: error => {
       toast.error({
         title: t('company.toast.saveError'),
-        description: getErrorMessage(error, t('company.toast.saveError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -227,7 +227,7 @@ export function CompanyPage() {
       {companyQuery.error && (
         <QueryErrorState
           title={t('company.error')}
-          message={companyQuery.error.message}
+          message={translateServerError(companyQuery.error, t, t('errors:server.unknown'))}
           onRetry={() => {
             void companyQuery.refetch();
           }}
@@ -240,7 +240,7 @@ export function CompanyPage() {
             company={company}
             canEdit={canEdit}
             isSaving={upsertMutation.isPending}
-            error={upsertMutation.error?.message ?? null}
+            error={upsertMutation.error ? translateServerError(upsertMutation.error, t, t('errors:server.unknown')) : null}
             onSubmit={onSubmit}
           />
         </div>

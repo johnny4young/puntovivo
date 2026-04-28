@@ -66,7 +66,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-8">
       <div className="shell-panel px-4 py-3 sm:px-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(18rem,21rem)_minmax(0,1fr)] xl:items-start 2xl:grid-cols-[minmax(19rem,23rem)_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] xl:items-center 2xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
           <div className="flex items-start gap-3">
             <button
               type="button"
@@ -88,14 +88,14 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             </div>
           </div>
 
-          <div className="grid gap-3 2xl:grid-cols-[minmax(16rem,1fr)_auto] 2xl:items-start">
+          <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-end xl:items-center">
             <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
               <input className="input pl-10" placeholder={t('common:quickSearch')} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 2xl:justify-end">
-              <div className={online ? 'badge badge-success' : 'badge badge-warning'}>
+            <div className="flex flex-wrap items-end gap-2.5 lg:justify-end">
+              <div className={`${online ? 'badge badge-success' : 'badge badge-warning'} self-end`}>
                 {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                 {online ? t('common:status.online') : t('common:status.offline')}
               </div>
@@ -103,7 +103,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <FiscalContingencyIndicator />
 
 
-              <div className="w-[5.7rem] min-w-0 flex-none sm:w-[6.1rem]">
+              <div className="w-[5.9rem] min-w-0 flex-none sm:w-[6.25rem]">
                 <Select
                   options={languageOptions}
                   value={languagePreference}
@@ -115,7 +115,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                 />
               </div>
 
-              <div className="min-w-[11.5rem] flex-1 sm:min-w-[12.5rem] xl:min-w-[13rem] xl:max-w-[15rem] xl:flex-none">
+              <div className="w-full min-w-[11.5rem] flex-none sm:w-[12.5rem] md:w-[14rem] xl:w-[13.5rem] 2xl:w-[15rem]">
                 <Select
                   options={siteOptions}
                   value={currentSite?.id ?? null}
@@ -132,14 +132,14 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
               <button
                 type="button"
-                className="btn-outline btn-icon relative"
+                className="btn-outline btn-icon relative self-end"
                 aria-label={t('common:notifications')}
               >
                 <Bell className="h-5 w-5" />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-500" />
               </button>
 
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 self-end">
                 <button
                   type="button"
                   className="btn-outline flex w-full min-w-[10.75rem] items-center justify-between gap-3 px-3 sm:w-auto"
