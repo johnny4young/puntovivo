@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 
 type BackupAction = 'backup' | 'restore' | null;
 
@@ -69,13 +69,14 @@ export function CompanyBackupCard() {
           : t('company.backup.toast.savedOk'),
       });
     } catch (error) {
+      const message = translateServerError(error, t, t('errors:server.unknown'));
       toast.error({
         title: t('company.backup.toast.failed'),
-        description: getErrorMessage(error, t('company.backup.toast.failed')),
+        description: message,
       });
       setStatus({
         tone: 'error',
-        message: getErrorMessage(error, t('company.backup.toast.failed')),
+        message,
       });
     } finally {
       setActiveAction(null);
@@ -126,13 +127,14 @@ export function CompanyBackupCard() {
       });
       setIsRestoreConfirmOpen(false);
     } catch (error) {
+      const message = translateServerError(error, t, t('errors:server.unknown'));
       toast.error({
         title: t('company.backup.toast.restoreFailed'),
-        description: getErrorMessage(error, t('company.backup.toast.restoreFailed')),
+        description: message,
       });
       setStatus({
         tone: 'error',
-        message: getErrorMessage(error, t('company.backup.toast.restoreFailed')),
+        message,
       });
     } finally {
       setActiveAction(null);

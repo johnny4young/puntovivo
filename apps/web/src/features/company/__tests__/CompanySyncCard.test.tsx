@@ -117,11 +117,13 @@ describe('CompanySyncCard', () => {
     renderWithProviders(<CompanySyncCard />);
 
     expect(await screen.findByText('Sync Center')).toBeInTheDocument();
-    await screen.findByText(/entity id: product-1/i);
+    await screen.findByText(/product change waiting to sync/i);
     expect(screen.getByText('Retrying')).toBeInTheDocument();
     expect(screen.getByText('Failures')).toBeInTheDocument();
     expect(screen.getByText(/oldest queued change/i)).toBeInTheDocument();
     expect(screen.getByText(/retry attempt 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/we couldn't sync this change/i)).toBeInTheDocument();
+    expect(screen.queryByText(/entity id:/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /process queue/i }));
 
@@ -135,7 +137,7 @@ describe('CompanySyncCard', () => {
 
     renderWithProviders(<CompanySyncCard />);
 
-    await screen.findByText(/entity id: product-1/i);
+    await screen.findByText(/product change waiting to sync/i);
     await user.click(screen.getByRole('button', { name: /pull snapshot/i }));
 
     await waitFor(() => {
@@ -148,9 +150,10 @@ describe('CompanySyncCard', () => {
 
     renderWithProviders(<CompanySyncCard />);
 
-    await screen.findByText(/products · product-1/i);
+    await screen.findByText(/product conflict/i);
     await user.click(screen.getByRole('button', { name: /keep local/i }));
     expect(screen.getByText(/keep local changes/i)).toBeInTheDocument();
+    expect(screen.getByText(/keep the local product changes/i)).toBeInTheDocument();
     expect(resolveMutation).not.toHaveBeenCalled();
     const dialog = screen.getByRole('dialog');
 
@@ -169,9 +172,10 @@ describe('CompanySyncCard', () => {
 
     renderWithProviders(<CompanySyncCard />);
 
-    await screen.findByText(/products · product-1/i);
+    await screen.findByText(/product conflict/i);
     await user.click(screen.getByRole('button', { name: /accept remote/i }));
     expect(screen.getByText(/accept remote changes/i)).toBeInTheDocument();
+    expect(screen.getByText(/accept the remote product version/i)).toBeInTheDocument();
     expect(resolveMutation).not.toHaveBeenCalled();
     const dialog = screen.getByRole('dialog');
 
@@ -185,12 +189,70 @@ describe('CompanySyncCard', () => {
     });
   });
 
+  it('only offers discard for missing-local conflicts', async () => {
+    const user = userEvent.setup();
+
+    pullQuery.mockResolvedValueOnce({
+      pendingCount: 1,
+      retryingCount: 1,
+      failedCount: 1,
+      conflictsCount: 1,
+      externalSyncEnabled: true,
+      lastSyncAt: '2026-04-08T10:00:00.000Z',
+      oldestPendingAt: '2026-04-08T09:58:00.000Z',
+      status: 'conflict',
+      queue: [
+        {
+          id: 'queue-missing-local',
+          entityType: 'sales',
+          entityId: 'sale-missing-local',
+          operation: 'update',
+          createdAt: '2026-04-08T10:01:00.000Z',
+          attempts: 2,
+          lastError: 'Unable to sync sales:sale-missing-local because the local record is missing',
+        },
+      ],
+      conflicts: [
+        {
+          id: 'conflict-missing-local',
+          entityType: 'sales',
+          entityId: 'sale-missing-local',
+          localData: { id: 'sale-missing-local', total: 10 },
+          remoteData: {},
+          localRecordExists: false,
+          createdAt: '2026-04-08T10:02:00.000Z',
+        },
+      ],
+    });
+
+    renderWithProviders(<CompanySyncCard />);
+
+    await screen.findByText(/sale conflict/i);
+    expect(screen.getByText(/sale change waiting to sync/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/local record no longer exists/i)).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /keep local/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /merge/i })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /discard local change/i }));
+    expect(screen.getByText(/discard stale local change/i)).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+
+    await user.click(within(dialog).getByRole('button', { name: /discard local change/i }));
+
+    await waitFor(() => {
+      expect(resolveMutation).toHaveBeenCalledWith({
+        id: 'conflict-missing-local',
+        resolution: 'remote_wins',
+      });
+    });
+  });
+
   it('allows editing merged conflict data before resolving', async () => {
     const user = userEvent.setup();
 
     renderWithProviders(<CompanySyncCard />);
 
-    await screen.findByText(/products · product-1/i);
+    await screen.findByText(/product conflict/i);
     await user.click(screen.getByRole('button', { name: /merge/i }));
 
     expect(screen.getByText(/merge conflict data/i)).toBeInTheDocument();

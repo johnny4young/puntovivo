@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
 import {
   extractServerErrorCode,
+  isNetworkConnectivityError,
   translateServerError,
 } from './translateServerError';
 
@@ -120,6 +121,32 @@ describe('translateServerError', () => {
     expect(translateServerError(error, t, fallback)).toBe(
       'Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.'
     );
+  });
+
+  it('translates browser fetch failures instead of showing the raw network message', () => {
+    const t = makeFakeT({
+      'errors:server.networkUnavailable': 'No se pudo alcanzar el servicio de datos.',
+    });
+
+    expect(translateServerError(new TypeError('Failed to fetch'), t, fallback)).toBe(
+      'No se pudo alcanzar el servicio de datos.'
+    );
+    expect(translateServerError(new Error('TRPCClientError: Failed to fetch'), t, fallback)).toBe(
+      'No se pudo alcanzar el servicio de datos.'
+    );
+    expect(isNetworkConnectivityError(new TypeError('Failed to fetch'))).toBe(true);
+  });
+
+  it('detects nested network failures from wrapped tRPC errors', () => {
+    const t = makeFakeT({
+      'errors:server.networkUnavailable': 'Data service is unavailable.',
+    });
+    const error = {
+      message: 'Unable to complete request',
+      cause: new TypeError('Load failed'),
+    };
+
+    expect(translateServerError(error, t, fallback)).toBe('Data service is unavailable.');
   });
 
   it('falls back to the server message when the translation key is missing', () => {

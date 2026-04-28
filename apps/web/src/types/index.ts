@@ -877,6 +877,7 @@ export interface SyncConflict {
   entityId: string;
   localData: Record<string, unknown>;
   remoteData: Record<string, unknown>;
+  localRecordExists?: boolean | null;
   resolution?: 'local_wins' | 'remote_wins' | 'merged';
   resolvedAt?: string;
   tenantId: string;

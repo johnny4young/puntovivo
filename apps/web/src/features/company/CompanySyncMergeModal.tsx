@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { PendingResolution } from '@/features/company/CompanySyncConflictModal';
+import { getSyncEntityLabel } from './companySyncDisplay';
 
 function buildInitialMergedJson(pendingResolution: PendingResolution | null) {
   const merged = {
@@ -56,6 +57,7 @@ function MergeModalContent({
   const { t } = useTranslation('settings');
   const [mergedJson, setMergedJson] = useState(() => buildInitialMergedJson(pendingResolution));
   const [error, setError] = useState<string | null>(null);
+  const entityLabel = pendingResolution.entityLabel ?? getSyncEntityLabel(t, pendingResolution.entityType);
 
   const handleConfirm = () => {
     try {
@@ -93,8 +95,7 @@ function MergeModalContent({
       <div className="space-y-4">
         <p className="text-sm text-secondary-600">
           {t('company.sync.conflict.mergeDescription', {
-            entityType: pendingResolution.entityType,
-            entityId: pendingResolution.entityId,
+            entity: entityLabel,
           })}
         </p>
 

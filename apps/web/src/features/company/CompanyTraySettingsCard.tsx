@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppWindow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 
 interface TraySettings {
   enabled: boolean;
@@ -80,7 +80,7 @@ export function CompanyTraySettingsCard() {
     onError: error => {
       toast.error({
         title: t('company.tray.saveError'),
-        description: getErrorMessage(error, t('company.tray.saveError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -120,7 +120,7 @@ export function CompanyTraySettingsCard() {
 
       {settingsQuery.error && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-          {settingsQuery.error.message}
+          {translateServerError(settingsQuery.error, t, t('errors:server.unknown'))}
         </div>
       )}
 

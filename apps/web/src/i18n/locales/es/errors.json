@@ -81,7 +81,8 @@
     "SALE_SUSPEND_OWNERSHIP_REQUIRED": "Solo el cajero que suspendió esta venta puede retomarla o descartarla.",
     "SALE_REPRINT_DRAFT_FORBIDDEN": "Las ventas en borrador no tienen recibo que reimprimir.",
     "SALE_REPRINT_ACTIVE_SESSION_REQUIRED": "Los cajeros solo pueden reimprimir ventas de su propio turno activo.",
-    "SALE_COMPLETE_DRAFT_SUSPENDED": "Este borrador sigue suspendido. Retomalo antes de completar la venta.",
+    "SALE_COMPLETE_DRAFT_SUSPENDED": "Este borrador sigue suspendido. Retómalo antes de completar la venta.",
+    "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

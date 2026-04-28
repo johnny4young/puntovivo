@@ -6,7 +6,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 import type { Company, Logo } from '@/types';
 import {
   CompanyLogoFormModal,
@@ -37,7 +37,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onError: error => {
       toast.error({
         title: t('company.logo.toast.createError'),
-        description: getErrorMessage(error, t('company.logo.toast.createError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -51,7 +51,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onError: error => {
       toast.error({
         title: t('company.logo.toast.updateError'),
-        description: getErrorMessage(error, t('company.logo.toast.updateError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -65,7 +65,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onError: error => {
       toast.error({
         title: t('company.logo.toast.deleteError'),
-        description: getErrorMessage(error, t('company.logo.toast.deleteError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -78,7 +78,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
     onError: error => {
       toast.error({
         title: t('company.logo.toast.logoUpdateError'),
-        description: getErrorMessage(error, t('company.logo.toast.logoUpdateError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -171,7 +171,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
           <div className="mt-6">
             <QueryErrorState
               title={t('company.logo.loadError')}
-              message={logosQuery.error.message}
+              message={translateServerError(logosQuery.error, t, t('errors:server.unknown'))}
               onRetry={() => {
                 void logosQuery.refetch();
               }}

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { getSyncEntityLabel } from './companySyncDisplay';
 
 export type ConflictResolution = 'local_wins' | 'remote_wins' | 'merged';
 
@@ -7,9 +8,11 @@ export interface PendingResolution {
   id: string;
   entityId: string;
   entityType: string;
+  entityLabel?: string;
   resolution: ConflictResolution;
   localData?: Record<string, unknown> | null;
   remoteData?: Record<string, unknown> | null;
+  localRecordExists?: boolean | null;
 }
 
 interface CompanySyncConflictModalProps {
@@ -27,25 +30,40 @@ export function CompanySyncConflictModal({
 }: CompanySyncConflictModalProps) {
   const { t } = useTranslation('settings');
   const isLocalResolution = pendingResolution?.resolution === 'local_wins';
+  const isMissingLocalRemoteResolution =
+    pendingResolution?.resolution === 'remote_wins' && pendingResolution.localRecordExists === false;
+  const entityLabel = pendingResolution?.entityLabel ?? getSyncEntityLabel(t, pendingResolution?.entityType);
 
+  const title = isLocalResolution
+    ? t('company.sync.conflict.keepLocalTitle')
+    : isMissingLocalRemoteResolution
+      ? t('company.sync.conflict.discardLocalTitle')
+      : t('company.sync.conflict.acceptRemoteTitle');
   const message = isLocalResolution
     ? t('company.sync.conflict.keepLocalMessage', {
-        entityType: pendingResolution?.entityType,
-        entityId: pendingResolution?.entityId,
+        entity: entityLabel,
       })
-    : t('company.sync.conflict.acceptRemoteMessage', {
-        entityType: pendingResolution?.entityType,
-        entityId: pendingResolution?.entityId,
-      });
+    : isMissingLocalRemoteResolution
+      ? t('company.sync.conflict.discardLocalMessage', {
+          entity: entityLabel,
+        })
+      : t('company.sync.conflict.acceptRemoteMessage', {
+          entity: entityLabel,
+        });
+  const confirmText = isLocalResolution
+    ? t('company.sync.conflict.keepLocal')
+    : isMissingLocalRemoteResolution
+      ? t('company.sync.conflict.discardLocalChange')
+      : t('company.sync.conflict.acceptRemote');
 
   return (
     <ConfirmModal
       isOpen={pendingResolution !== null}
       onClose={onClose}
       onConfirm={onConfirm}
-      title={isLocalResolution ? t('company.sync.conflict.keepLocalTitle') : t('company.sync.conflict.acceptRemoteTitle')}
+      title={title}
       message={message}
-      confirmText={isLocalResolution ? t('company.sync.conflict.keepLocal') : t('company.sync.conflict.acceptRemote')}
+      confirmText={confirmText}
       loading={isLoading}
       variant={isLocalResolution ? 'primary' : 'danger'}
     />

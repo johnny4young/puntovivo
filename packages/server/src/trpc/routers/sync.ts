@@ -341,6 +341,20 @@ function findEntity(
     .get(entityId, tenantId) as { id: string } | undefined;
 }
 
+function getConflictLocalRecordExists(
+  db: DatabaseInstance,
+  tenantId: string,
+  conflict: { entityType: string; entityId: string }
+) {
+  const config = getSyncEntityConfiguration(conflict.entityType);
+
+  if (!config) {
+    return null;
+  }
+
+  return Boolean(findEntity(db, config, tenantId, conflict.entityId));
+}
+
 function markEntityAsSynced(
   db: DatabaseInstance,
   config: (typeof syncEntityConfig)[SyncEntityType],
@@ -472,7 +486,13 @@ export const syncRouter = router({
         .get(),
     ]);
 
-    return { items, count: countRow?.count ?? 0 };
+    return {
+      items: items.map(item => ({
+        ...item,
+        localRecordExists: getConflictLocalRecordExists(ctx.db, ctx.tenantId, item),
+      })),
+      count: countRow?.count ?? 0,
+    };
   }),
 
   /**
@@ -584,7 +604,10 @@ export const syncRouter = router({
     return {
       ...overview,
       queue,
-      conflicts,
+      conflicts: conflicts.map(conflict => ({
+        ...conflict,
+        localRecordExists: getConflictLocalRecordExists(ctx.db, ctx.tenantId, conflict),
+      })),
     };
   }),
 
@@ -613,6 +636,26 @@ export const syncRouter = router({
         : input.resolution === 'local_wins'
           ? conflict.localData ?? {}
           : null;
+
+    if (nextData) {
+      const config = getSyncEntityConfiguration(conflict.entityType);
+
+      if (!config) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Unsupported sync entity type: ${conflict.entityType}`,
+        });
+      }
+
+      const entity = findEntity(ctx.db, config, ctx.tenantId, conflict.entityId);
+      if (!entity) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            'Cannot keep or merge local changes because the local record no longer exists. Accept remote to discard the stale queued change.',
+        });
+      }
+    }
 
     await ctx.db.transaction(tx => {
       tx

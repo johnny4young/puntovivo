@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { formatDateTime, getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
+import { formatDateTime } from '@/lib/utils';
 
 type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
 
@@ -134,7 +135,7 @@ export function CompanyAutoUpdateCard() {
     onError: error => {
       toast.error({
         title: t('company.updater.toast.checkError'),
-        description: getErrorMessage(error, t('company.updater.toast.checkError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -159,7 +160,7 @@ export function CompanyAutoUpdateCard() {
     onError: error => {
       toast.error({
         title: t('company.updater.toast.restartError'),
-        description: getErrorMessage(error, t('company.updater.toast.restartError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     },
   });
@@ -189,7 +190,7 @@ export function CompanyAutoUpdateCard() {
 
       {statusQuery.error && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-          {statusQuery.error.message}
+          {translateServerError(statusQuery.error, t, t('errors:server.unknown'))}
         </div>
       )}
 

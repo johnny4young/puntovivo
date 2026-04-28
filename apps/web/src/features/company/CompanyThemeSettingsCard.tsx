@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { MonitorCog, Moon, Sun } from 'lucide-react';
 import { useTheme, type ThemePreference } from '@/components/feedback/ThemeProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 
 interface ThemeOption {
   value: ThemePreference;
@@ -59,7 +59,7 @@ export function CompanyThemeSettingsCard() {
     } catch (error) {
       toast.error({
         title: t('company.theme.toast.updateError'),
-        description: getErrorMessage(error, t('company.theme.toast.updateError')),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     } finally {
       setIsSaving(false);

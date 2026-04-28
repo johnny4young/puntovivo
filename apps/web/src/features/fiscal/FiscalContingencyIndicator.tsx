@@ -33,7 +33,7 @@ export function FiscalContingencyIndicator() {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-state-warning-soft px-3 py-1 text-xs font-semibold text-state-warning"
+      className="inline-flex self-end items-center gap-1.5 rounded-full bg-state-warning-soft px-3 py-1 text-xs font-semibold text-state-warning"
       title={t('contingency.title')}
       aria-label={t('contingency.badge', { count })}
     >
