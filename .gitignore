@@ -65,5 +65,15 @@ backend/server
 playwright-report/
 test-results/
 
-# Claude Code per-developer worktrees
+# Claude Code per-developer state. We list these explicitly instead
+# of using `.claude/*` + negation because git does not recurse into
+# excluded directories — a wildcard at the parent level hides
+# `.claude/skills/` even with `!.claude/skills/**` afterwards.
+# Project-scoped skills (e.g. `puntovivo-ship`, `puntovivo-review`)
+# under `.claude/skills/` are intentionally NOT listed here so they
+# stay versioned and shared with every collaborator.
 .claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/launch.json
+.claude/preview.json
