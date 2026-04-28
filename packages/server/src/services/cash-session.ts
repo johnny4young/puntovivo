@@ -34,20 +34,6 @@ const CASH_MOVEMENT_NEGATIVE_TYPES = new Set<
 
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 
-export interface RegisterAssignmentTemplate {
-  id: string;
-  tenantId: string;
-  siteId: string;
-  registerName: string;
-  label: string;
-  openingFloat: number;
-  denominations: CashSessionDenomination[];
-  sortOrder: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export function normalizeRegisterName(registerName: string): string {
   const normalized = registerName.trim();
   return normalized.length > 0 ? normalized : DEFAULT_REGISTER_NAME;
@@ -66,15 +52,6 @@ export function getCashSessionDenominationTotal(
   return denominations.reduce((total, denomination) => {
     return total + denomination.value * denomination.count;
   }, 0);
-}
-
-export function amountsMatch(
-  expectedAmount: number,
-  denominations: readonly CashSessionDenomination[]
-): boolean {
-  return (
-    Math.abs(getCashSessionDenominationTotal(denominations) - expectedAmount) < CASH_SESSION_EPSILON
-  );
 }
 
 function assertCashAmountMatchesDenominations(args: {

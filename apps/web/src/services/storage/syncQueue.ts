@@ -28,12 +28,6 @@ export interface AddToQueueInput {
   tenantId: string;
 }
 
-// Sync queue item with additional metadata
-export interface SyncQueueItemWithMeta extends SyncQueueItem {
-  status: 'pending' | 'processing' | 'failed';
-  processedAt?: string;
-}
-
 // Maximum retry attempts before marking as failed
 const MAX_RETRY_COUNT = 5;
 
