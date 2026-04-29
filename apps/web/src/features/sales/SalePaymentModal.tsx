@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { sumBy } from '@/lib/numbers';
 import { formatCurrency } from '@/lib/utils';
 import type { Customer, PaymentMethod } from '@/types';
 
@@ -75,7 +76,7 @@ export function SalePaymentModal({
   const outstanding = Math.max(0, total - (amountReceived || 0));
 
   const tenderSum = useMemo(
-    () => tenders.reduce((sum, tender) => sum + (Number(tender.amount) || 0), 0),
+    () => sumBy(tenders, tender => Number(tender.amount) || 0),
     [tenders]
   );
   const tenderDelta = tenderSum - total;
@@ -306,9 +307,10 @@ export function SalePaymentModal({
               type="button"
               className="btn-secondary inline-flex items-center gap-2 text-sm"
               onClick={() => {
-                const currentTenderSum = form
-                  .getValues('tenders')
-                  .reduce((sum, tender) => sum + (Number(tender.amount) || 0), 0);
+                const currentTenderSum = sumBy(
+                  form.getValues('tenders'),
+                  tender => Number(tender.amount) || 0
+                );
                 tenderFields.append({
                   method: 'card',
                   amount: Math.max(0, total - currentTenderSum),

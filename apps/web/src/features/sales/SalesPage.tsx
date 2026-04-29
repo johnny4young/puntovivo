@@ -43,6 +43,8 @@ import {
   useCartWorkspaceStore,
 } from '@/features/sales/useCartWorkspaceStore';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { invalidateGroups } from '@/lib/invalidateGroups';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
@@ -232,18 +234,18 @@ export function SalesPage() {
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
     async (itemCount: number) => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.movements.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.cashSessions.registerAssignments.invalidate(),
-        utils.sales.list.invalidate(),
-        utils.sales.listDrafts.invalidate(),
-        utils.sales.summary.invalidate(),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.movements,
+        u => u.cashSessions.report,
+        u => u.cashSessions.registerAssignments,
+        u => u.sales.list,
+        u => u.sales.listDrafts,
+        u => u.sales.summary,
+        u => u.inventory.listMovements,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
       ]);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -275,12 +277,7 @@ export function SalesPage() {
       }
       await finishSaleEpilogue(variables.items.length);
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.error'),
-        description: getServerErrorMessage(error),
-      });
-    },
+    onError: onErrorToast(toast, t),
   });
 
   // ENG-018c — completing a resumed draft. `items` is locked server
@@ -290,12 +287,7 @@ export function SalesPage() {
     onSuccess: async result => {
       await finishSaleEpilogue(result.items.length);
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.error'),
-        description: getServerErrorMessage(error),
-      });
-    },
+    onError: onErrorToast(toast, t),
   });
 
   // ENG-018b — server calls for the suspend / resume orchestration.
@@ -315,10 +307,10 @@ export function SalesPage() {
   const discardDraftMutation = trpc.sales.discardDraft.useMutation();
   const openCashSessionMutation = trpc.cashSessions.open.useMutation({
     onSuccess: async cashSession => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.cashSessions.registerAssignments.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.report,
+        u => u.cashSessions.registerAssignments,
       ]);
       setCashSessionError(null);
       setIsCashSessionModalOpen(false);
@@ -330,21 +322,16 @@ export function SalesPage() {
         }),
       });
     },
-    onError: error => {
-      const description = getServerErrorMessage(error);
-      setCashSessionError(description);
-      toast.error({
-        title: t('toast.error'),
-        description,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      extra: description => setCashSessionError(description),
+    }),
   });
   const closeCashSessionMutation = trpc.cashSessions.close.useMutation({
     onSuccess: async cashSession => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.cashSessions.registerAssignments.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.report,
+        u => u.cashSessions.registerAssignments,
       ]);
       setCashSessionCloseError(null);
       setIsCashSessionCloseModalOpen(false);
@@ -372,22 +359,17 @@ export function SalesPage() {
         description,
       });
     },
-    onError: error => {
-      const description = getServerErrorMessage(error);
-      setCashSessionCloseError(description);
-      toast.error({
-        title: t('toast.error'),
-        description,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      extra: description => setCashSessionCloseError(description),
+    }),
   });
   const recordCashMovementMutation = trpc.cashSessions.recordMovement.useMutation({
     onSuccess: async movement => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.movements.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.cashSessions.registerAssignments.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.movements,
+        u => u.cashSessions.report,
+        u => u.cashSessions.registerAssignments,
       ]);
       setCashSessionMovementError(null);
       setIsCashSessionMovementModalOpen(false);
@@ -399,14 +381,9 @@ export function SalesPage() {
         }),
       });
     },
-    onError: error => {
-      const description = getServerErrorMessage(error);
-      setCashSessionMovementError(description);
-      toast.error({
-        title: t('toast.error'),
-        description,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      extra: description => setCashSessionMovementError(description),
+    }),
   });
 
   const summary = summaryQuery.data;
@@ -448,9 +425,6 @@ export function SalesPage() {
     hasAvailableRegisterAssignment;
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
-
-  const getServerErrorMessage = (error: unknown) =>
-    translateServerError(error, t, t('errors:server.unknown'));
 
   // ENG-018b — resumed carts (serverSaleId set) have server-locked
   // items: the server-side `sales.completeDraft` contract re-finalizes
@@ -601,7 +575,7 @@ export function SalesPage() {
         payments: payment.payments,
       });
     } catch (error) {
-      setSaleError(getServerErrorMessage(error));
+      setSaleError(translateServerError(error, t, t('errors:server.unknown')));
     }
   };
 
@@ -655,13 +629,13 @@ export function SalesPage() {
       // Success — clear the tracker so the catch block does not try to
       // discard an already-suspended draft.
       pendingDraftId = null;
-      await Promise.all([
-        utils.sales.list.invalidate(),
-        utils.sales.listDrafts.invalidate(),
-        utils.sales.summary.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.sales.list,
+        u => u.sales.listDrafts,
+        u => u.sales.summary,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
       ]);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -676,7 +650,7 @@ export function SalesPage() {
     } catch (error) {
       toast.error({
         title: t('park.toastErrorTitle'),
-        description: getServerErrorMessage(error),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
       // Compensate: step 1 succeeded (stock already debited) but
       // step 2 threw. Discard the orphan so ENG-018c's reversal
@@ -688,10 +662,10 @@ export function SalesPage() {
           await discardDraftMutation.mutateAsync({
             saleId: pendingDraftId,
           });
-          await Promise.all([
-            utils.inventory.listStock.invalidate(),
-            utils.products.list.invalidate(),
-            utils.products.search.invalidate(),
+          await invalidateGroups(utils, [
+            u => u.inventory.listStock,
+            u => u.products.list,
+            u => u.products.search,
           ]);
         } catch {
           // Best-effort: the original error is the one the
@@ -761,7 +735,7 @@ export function SalesPage() {
     } catch (error) {
       toast.error({
         title: t('park.toastErrorTitle'),
-        description: getServerErrorMessage(error),
+        description: translateServerError(error, t, t('errors:server.unknown')),
       });
     }
   };

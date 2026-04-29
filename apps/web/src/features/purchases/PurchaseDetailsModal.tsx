@@ -8,8 +8,9 @@ import {
   PurchaseReturnModal,
   type PurchaseReturnValues,
 } from '@/features/purchases/PurchaseReturnModal';
+import { invalidateGroups } from '@/lib/invalidateGroups';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
 
 interface PurchaseDetailsModalProps {
   purchaseId: string | null;
@@ -36,55 +37,49 @@ export function PurchaseDetailsModal({
 
   const returnMutation = trpc.purchases.returnPurchase.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.purchases.list.invalidate(),
-        utils.purchases.getById.invalidate({ id: purchaseId ?? '' }),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listBalancesBySite.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
-        utils.dashboard.summary.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.purchases.list,
+        u => u.purchases.getById,
+        u => u.inventory.listMovements,
+        u => u.inventory.listBalancesBySite,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
+        u => u.dashboard.summary,
       ]);
       toast.success({ title: t('purchases:details.toast.returnSuccessTitle') });
       setIsReturnModalOpen(false);
       setReturnError(null);
     },
-    onError: error => {
-      const message = getErrorMessage(error, t('purchases:details.toast.returnErrorFallback'));
-      setReturnError(message);
-      toast.error({
-        title: t('purchases:details.toast.returnErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'purchases:details.toast.returnErrorTitle',
+      fallbackKey: 'purchases:details.toast.returnErrorFallback',
+      extra: description => setReturnError(description),
+    }),
   });
 
   const voidMutation = trpc.purchases.void.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.purchases.list.invalidate(),
-        utils.purchases.getById.invalidate({ id: purchaseId ?? '' }),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listBalancesBySite.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
-        utils.dashboard.summary.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.purchases.list,
+        u => u.purchases.getById,
+        u => u.inventory.listMovements,
+        u => u.inventory.listBalancesBySite,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
+        u => u.dashboard.summary,
       ]);
       toast.success({ title: t('purchases:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
       setVoidError(null);
       onClose();
     },
-    onError: error => {
-      const message = getErrorMessage(error, t('purchases:details.toast.voidErrorFallback'));
-      setVoidError(message);
-      toast.error({
-        title: t('purchases:details.toast.voidErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'purchases:details.toast.voidErrorTitle',
+      fallbackKey: 'purchases:details.toast.voidErrorFallback',
+      extra: description => setVoidError(description),
+    }),
   });
 
   const purchaseQuery = trpc.purchases.getById.useQuery(

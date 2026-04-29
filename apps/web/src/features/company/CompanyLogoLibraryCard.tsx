@@ -5,6 +5,7 @@ import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import type { Company, Logo } from '@/types';
@@ -34,12 +35,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       handleCloseModal();
       toast.success({ title: t('company.logo.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.logo.toast.createError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.createError' }),
   });
 
   const updateMutation = trpc.logos.update.useMutation({
@@ -48,12 +44,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       handleCloseModal();
       toast.success({ title: t('company.logo.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.logo.toast.updateError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.updateError' }),
   });
 
   const deleteMutation = trpc.logos.delete.useMutation({
@@ -62,12 +53,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       setLogoToDelete(null);
       toast.success({ title: t('company.logo.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.logo.toast.deleteError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.deleteError' }),
   });
 
   const selectLogoMutation = trpc.companies.setLogo.useMutation({
@@ -75,12 +61,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
       await utils.companies.getCurrent.setData(undefined, companyRecord);
       toast.success({ title: t('company.logo.toast.logoUpdated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.logo.toast.logoUpdateError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.logo.toast.logoUpdateError' }),
   });
 
   const logos = (logosQuery.data?.items ?? []) as Logo[];

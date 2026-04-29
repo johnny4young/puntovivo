@@ -19,7 +19,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe2 } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
 const EMPTY_COUNTRIES: readonly never[] = [];
@@ -52,16 +52,10 @@ export function CompanyLocaleSettingsCard() {
         }),
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('localeSettings:toast.saveErrorTitle'),
-        description: translateServerError(
-          error,
-          t,
-          t('localeSettings:toast.saveErrorFallback')
-        ),
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'localeSettings:toast.saveErrorTitle',
+      fallbackKey: 'localeSettings:toast.saveErrorFallback',
+    }),
   });
 
   const countries = countriesQuery.data ?? EMPTY_COUNTRIES;

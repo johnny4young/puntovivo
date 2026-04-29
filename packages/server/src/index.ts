@@ -194,9 +194,16 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // `loginRateLimit.ts`. Captured as a follow-up; the 100/min cap
   // closes the bulk of the SEC-2 finding.
   const rateLimit = await import('@fastify/rate-limit');
+  const globalRateLimitMax = Number.parseInt(
+    process.env.PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX ?? '',
+    10
+  );
   await app.register(rateLimit.default, {
     global: true,
-    max: 100,
+    max:
+      Number.isFinite(globalRateLimitMax) && globalRateLimitMax > 0
+        ? globalRateLimitMax
+        : 100,
     timeWindow: '1 minute',
   });
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 
@@ -162,12 +162,7 @@ export function QuotationCreateModal({
       onCreated?.(result.id);
       onClose();
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.createError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'quotations:toast.createError' }),
   });
 
   const productOptions: ProductOption[] = useMemo(

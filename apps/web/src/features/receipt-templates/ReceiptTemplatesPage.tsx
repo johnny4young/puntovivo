@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import {
   ReceiptTemplateEditor,
@@ -58,12 +58,7 @@ export function ReceiptTemplatesPage() {
       await utils.receiptTemplates.list.invalidate();
       toast.success({ title: t('toast.setDefaultSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.setDefaultError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'receiptTemplates:toast.setDefaultError' }),
   });
 
   const duplicateMutation = trpc.receiptTemplates.duplicate.useMutation({
@@ -71,12 +66,7 @@ export function ReceiptTemplatesPage() {
       await utils.receiptTemplates.list.invalidate();
       toast.success({ title: t('toast.duplicateSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.duplicateError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'receiptTemplates:toast.duplicateError' }),
   });
 
   const deleteMutation = trpc.receiptTemplates.delete.useMutation({
@@ -85,12 +75,7 @@ export function ReceiptTemplatesPage() {
       toast.success({ title: t('toast.deleteSuccess') });
       setPendingDelete(null);
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.deleteError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'receiptTemplates:toast.deleteError' }),
   });
 
   const items = listQuery.data?.items ?? [];

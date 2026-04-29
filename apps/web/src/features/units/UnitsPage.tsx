@@ -9,7 +9,7 @@ import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 interface UnitFormValues {
   name: string;
@@ -143,12 +143,7 @@ export function UnitsPage() {
       handleCloseModal();
       toast.success({ title: t('units.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('units.toast.createError'),
-        description: getErrorMessage(error, t('units.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.createError' }),
   });
   const updateMutation = trpc.units.update.useMutation({
     onSuccess: async () => {
@@ -156,12 +151,7 @@ export function UnitsPage() {
       handleCloseModal();
       toast.success({ title: t('units.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('units.toast.updateError'),
-        description: getErrorMessage(error, t('units.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.updateError' }),
   });
   const deleteMutation = trpc.units.delete.useMutation({
     onSuccess: async () => {
@@ -169,12 +159,7 @@ export function UnitsPage() {
       setUnitToDelete(null);
       toast.success({ title: t('units.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('units.toast.deleteError'),
-        description: getErrorMessage(error, t('units.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:units.toast.deleteError' }),
   });
 
   const canManage = canManageUnits(user?.role);

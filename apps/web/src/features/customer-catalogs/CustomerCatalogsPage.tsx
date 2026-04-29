@@ -14,7 +14,7 @@ import {
   type CustomerCatalogKey,
 } from '@/features/customer-catalogs/customerCatalogConfig';
 import { buildCustomerCatalogColumns } from '@/features/customer-catalogs/customerCatalogColumns';
-import { getErrorMessage } from '@/lib/utils';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { CustomerCatalogItem } from '@/types';
 
@@ -184,7 +184,7 @@ export function CustomerCatalogsPage() {
     } catch (error) {
       toast.error({
         title: t('catalogs.toast.createError'),
-        description: getErrorMessage(error, t('catalogs.toast.createError')),
+        description: translateServerError(error, t, t('catalogs.toast.createError')),
       });
     }
   };
@@ -202,7 +202,7 @@ export function CustomerCatalogsPage() {
     } catch (error) {
       toast.error({
         title: t('catalogs.toast.createError'),
-        description: getErrorMessage(error, t('catalogs.toast.createError')),
+        description: translateServerError(error, t, t('catalogs.toast.createError')),
       });
     }
   };

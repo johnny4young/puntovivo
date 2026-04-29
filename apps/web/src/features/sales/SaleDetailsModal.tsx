@@ -6,7 +6,8 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
 import { printSaleReceipt } from '@/features/sales/receiptPrinter';
-import { translateServerError } from '@/lib/translateServerError';
+import { invalidateGroups } from '@/lib/invalidateGroups';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
 
@@ -47,18 +48,18 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const [reprintError, setReprintError] = useState<string | null>(null);
   const returnMutation = trpc.sales.returnSale.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.movements.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.sales.list.invalidate(),
-        utils.sales.summary.invalidate(),
-        utils.sales.getById.invalidate({ id: saleId ?? '' }),
-        utils.dashboard.summary.invalidate(),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.movements,
+        u => u.cashSessions.report,
+        u => u.sales.list,
+        u => u.sales.summary,
+        u => u.sales.getById,
+        u => u.dashboard.summary,
+        u => u.inventory.listMovements,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
       ]);
       toast.success({ title: t('sales:details.toast.refundSuccessTitle') });
       setIsReturnConfirmOpen(false);
@@ -66,18 +67,11 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       setReturnError(null);
       onClose();
     },
-    onError: error => {
-      const message = translateServerError(
-        error,
-        t,
-        t('sales:details.toast.refundErrorFallback')
-      );
-      setReturnError(message);
-      toast.error({
-        title: t('sales:details.toast.refundErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'sales:details.toast.refundErrorTitle',
+      fallbackKey: 'sales:details.toast.refundErrorFallback',
+      extra: description => setReturnError(description),
+    }),
   });
   const reprintMutation = trpc.sales.getForReprint.useMutation({
     onSuccess: async refreshed => {
@@ -107,37 +101,30 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         setIsPrinting(false);
       }
     },
-    onError: error => {
-      // Use translateServerError so mapped errorCodes (e.g.
-      // SALE_REPRINT_ACTIVE_SESSION_REQUIRED) surface in the active
-      // locale. Falls back to the server's English message or to the
-      // generic unknown-error string when no code matches.
-      const message = translateServerError(
-        error,
-        t,
-        t('errors:server.unknown')
-      );
-      setReprintError(message);
-      toast.error({
-        title: t('sales:reprint.toastErrorTitle'),
-        description: message,
-      });
-    },
+    // Use onErrorToast so mapped errorCodes (e.g.
+    // SALE_REPRINT_ACTIVE_SESSION_REQUIRED) surface in the active
+    // locale via translateServerError. Falls back to the server's
+    // English message or to the generic unknown-error string when no
+    // code matches.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'sales:reprint.toastErrorTitle',
+      extra: description => setReprintError(description),
+    }),
   });
   const voidMutation = trpc.sales.void.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.cashSessions.getActive.invalidate(),
-        utils.cashSessions.movements.invalidate(),
-        utils.cashSessions.report.invalidate(),
-        utils.sales.list.invalidate(),
-        utils.sales.summary.invalidate(),
-        utils.sales.getById.invalidate({ id: saleId ?? '' }),
-        utils.dashboard.summary.invalidate(),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.cashSessions.getActive,
+        u => u.cashSessions.movements,
+        u => u.cashSessions.report,
+        u => u.sales.list,
+        u => u.sales.summary,
+        u => u.sales.getById,
+        u => u.dashboard.summary,
+        u => u.inventory.listMovements,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
       ]);
       toast.success({ title: t('sales:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
@@ -146,18 +133,11 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       setVoidError(null);
       onClose();
     },
-    onError: error => {
-      const message = translateServerError(
-        error,
-        t,
-        t('sales:details.toast.voidErrorFallback')
-      );
-      setVoidError(message);
-      toast.error({
-        title: t('sales:details.toast.voidErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'sales:details.toast.voidErrorTitle',
+      fallbackKey: 'sales:details.toast.voidErrorFallback',
+      extra: description => setVoidError(description),
+    }),
   });
   const saleQuery = trpc.sales.getById.useQuery(
     {

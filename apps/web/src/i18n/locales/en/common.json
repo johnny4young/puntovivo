@@ -75,7 +75,8 @@
     "specialCharacter": "Password must contain at least one special character"
   },
   "toast": {
-    "dismiss": "Dismiss {{title}}"
+    "dismiss": "Dismiss {{title}}",
+    "error": "Something went wrong"
   },
   "changePassword": "Change password",
   "signOut": "Sign out",

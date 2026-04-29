@@ -11,7 +11,8 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { Sequential, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 
 interface SequentialFormValues {
   siteId: string;
@@ -212,6 +213,10 @@ export function SequentialsPage() {
       setEditingSequential(null);
       toast.success({ title: editingSequential ? t('sequentials.toast.updated') : t('sequentials.toast.created') });
     },
+    // Title flips between create / update depending on the dialog mode, so
+    // the helper-built variant cannot capture this dynamically — keep a
+    // custom onError but route the description through translateServerError
+    // for locale-aware code resolution.
     onError: error => {
       const fallback = editingSequential
         ? t('sequentials.toast.updateError')
@@ -219,7 +224,7 @@ export function SequentialsPage() {
 
       toast.error({
         title: fallback,
-        description: getErrorMessage(error, fallback),
+        description: translateServerError(error, t, fallback),
       });
     },
   });
@@ -230,12 +235,7 @@ export function SequentialsPage() {
       setSequentialToDelete(null);
       toast.success({ title: t('sequentials.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sequentials.toast.deleteError'),
-        description: getErrorMessage(error, t('sequentials.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:sequentials.toast.deleteError' }),
   });
 
   const columns: ColumnDef<Sequential>[] = [

@@ -19,8 +19,10 @@ import {
   type OrderCartItem,
 } from '@/features/orders/orderCart';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency, getErrorMessage } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Category, Order, Provider } from '@/types';
 
 interface OrderDialogState {
@@ -56,12 +58,7 @@ export function OrdersPage() {
         description: `${data.orderNumber} ${t('toast.successDetail')}`,
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.error'),
-        description: getErrorMessage(error, t('toast.error')),
-      });
-    },
+    onError: onErrorToast(toast, t),
   });
 
   const draftSummary = getOrderCartSummary(cartItems);
@@ -75,7 +72,7 @@ export function OrdersPage() {
     order => order.status === 'submitted' || order.status === 'partial_received'
   );
   const orderTotals = {
-    committedTotal: openOrders.reduce((sum, order) => sum + order.total, 0),
+    committedTotal: sumBy(openOrders, order => order.total),
     providerCount: new Set(openOrders.map(order => order.providerId)).size,
   };
 

@@ -13,7 +13,7 @@ import {
   type CategoryFormValues,
   type CategoryLookupOption,
 } from '@/features/categories/CategoryFormModal';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 interface CategoryTreeRow extends Category {
   depth: number;
@@ -92,12 +92,7 @@ export function CategoriesPage() {
       handleCloseModal();
       toast.success({ title: t('categories.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('categories.toast.createError'),
-        description: getErrorMessage(error, t('categories.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.createError' }),
   });
   const updateMutation = trpc.categories.update.useMutation({
     onSuccess: async () => {
@@ -106,12 +101,7 @@ export function CategoriesPage() {
       handleCloseModal();
       toast.success({ title: t('categories.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('categories.toast.updateError'),
-        description: getErrorMessage(error, t('categories.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.updateError' }),
   });
   const deleteMutation = trpc.categories.delete.useMutation({
     onSuccess: async () => {
@@ -120,12 +110,7 @@ export function CategoriesPage() {
       setCategoryToDelete(null);
       toast.success({ title: t('categories.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('categories.toast.deleteError'),
-        description: getErrorMessage(error, t('categories.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.deleteError' }),
   });
 
   const canManage = user?.role === 'admin';
