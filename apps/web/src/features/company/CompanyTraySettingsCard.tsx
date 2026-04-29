@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppWindow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 
 interface TraySettings {
@@ -77,12 +78,7 @@ export function CompanyTraySettingsCard() {
       queryClient.setQueryData(traySettingsQueryKey, settings);
       toast.success({ title: t('company.tray.saved') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.tray.saveError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.tray.saveError' }),
   });
 
   const settings = settingsQuery.data ?? defaultTraySettings;

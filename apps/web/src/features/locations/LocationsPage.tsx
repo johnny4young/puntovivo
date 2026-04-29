@@ -8,7 +8,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { LocationFormModal, type LocationFormValues } from '@/features/locations/LocationFormModal';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Location, UserRole } from '@/types';
 
@@ -97,12 +97,7 @@ export function LocationsPage() {
       handleCloseModal();
       toast.success({ title: t('locations.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('locations.toast.createError'),
-        description: getErrorMessage(error, t('locations.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.createError' }),
   });
   const updateMutation = trpc.locations.update.useMutation({
     onSuccess: async () => {
@@ -110,12 +105,7 @@ export function LocationsPage() {
       handleCloseModal();
       toast.success({ title: t('locations.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('locations.toast.updateError'),
-        description: getErrorMessage(error, t('locations.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.updateError' }),
   });
   const deleteMutation = trpc.locations.delete.useMutation({
     onSuccess: async () => {
@@ -123,12 +113,7 @@ export function LocationsPage() {
       setLocationToDelete(null);
       toast.success({ title: t('locations.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('locations.toast.deleteError'),
-        description: getErrorMessage(error, t('locations.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:locations.toast.deleteError' }),
   });
 
   const canManage = canManageLocations(user?.role);

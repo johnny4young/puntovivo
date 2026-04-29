@@ -7,6 +7,7 @@ import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
@@ -59,12 +60,9 @@ export function InventoryTransferHistory() {
       setConfirmingVoidId(null);
       toast.success({ title: t('transferHistory.voidSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('transferHistory.voidError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'inventory:transferHistory.voidError',
+    }),
   });
 
   const receiveMutation = trpc.transfers.receive.useMutation({
@@ -79,16 +77,13 @@ export function InventoryTransferHistory() {
       toast.success({ title: t('transferHistory.receiveSuccess') });
       void invalidateAfterMutation();
     },
-    onError: error => {
-      const description = translateServerError(error, t, t('errors:server.unknown'));
-      // Surface the error inside the modal (so the user can correct a
-      // variance entry) and also toast it for non-modal contexts.
-      setReceiveSubmitError(description);
-      toast.error({
-        title: t('transferHistory.receiveError'),
-        description,
-      });
-    },
+    // Surface the error inside the modal (so the user can correct a
+    // variance entry) via setReceiveSubmitError, and also toast it for
+    // non-modal contexts.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'inventory:transferHistory.receiveError',
+      extra: description => setReceiveSubmitError(description),
+    }),
   });
 
   const handleRequestVoid = useCallback((id: string) => {

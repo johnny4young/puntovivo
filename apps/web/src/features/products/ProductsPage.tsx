@@ -18,6 +18,7 @@ import {
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
@@ -161,12 +162,7 @@ export function ProductsPage() {
       handleCloseModal();
       toast.success({ title: t('toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.createError'),
-        description: getServerErrorMessage(error),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'products:toast.createError' }),
   });
   const updateMutation = trpc.products.update.useMutation({
     onSuccess: async () => {
@@ -174,12 +170,7 @@ export function ProductsPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.updateError'),
-        description: getServerErrorMessage(error),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'products:toast.updateError' }),
   });
   const deleteMutation = trpc.products.delete.useMutation({
     onSuccess: async () => {
@@ -187,12 +178,7 @@ export function ProductsPage() {
       setProductToDelete(null);
       toast.success({ title: t('toast.deactivated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.deactivateError'),
-        description: getServerErrorMessage(error),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'products:toast.deactivateError' }),
   });
 
   const canManage = canManageProducts(user?.role);
@@ -239,9 +225,6 @@ export function ProductsPage() {
         providerAssignments: editingProductDetailQuery.data.providerAssignments ?? [],
       }
     : editingProduct;
-
-  const getServerErrorMessage = (error: unknown) =>
-    translateServerError(error, t, t('errors:server.unknown'));
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -395,9 +378,9 @@ export function ProductsPage() {
         isSaving={createMutation.isPending || updateMutation.isPending}
         error={
           createMutation.error
-            ? getServerErrorMessage(createMutation.error)
+            ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
             : updateMutation.error
-              ? getServerErrorMessage(updateMutation.error)
+              ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
               : null
         }
         onClose={handleCloseModal}

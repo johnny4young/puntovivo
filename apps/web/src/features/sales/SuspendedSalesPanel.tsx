@@ -22,6 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { AlertCircle, Clock, PlayCircle, RotateCw, Trash2, Users } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { invalidateGroups } from '@/lib/invalidateGroups';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
@@ -69,24 +71,17 @@ export function SuspendedSalesPanel({
 
   const discardMutation = trpc.sales.discardDraft.useMutation({
     onSuccess: async () => {
-      await Promise.all([
-        utils.sales.listDrafts.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.sales.listDrafts,
+        u => u.inventory.listStock,
+        u => u.products.list,
       ]);
       setDiscardTarget(null);
       toast.success({ title: t('sales:park.toastDiscardTitle') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sales:park.toastErrorTitle'),
-        description: translateServerError(
-          error,
-          t,
-          t('errors:server.unknown')
-        ),
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'sales:park.toastErrorTitle',
+    }),
   });
 
   if (!isOpen) {

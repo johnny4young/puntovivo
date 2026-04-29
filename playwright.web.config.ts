@@ -3,6 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(process.cwd(), '.playwright-browsers');
 
+const webServerEnv = Object.fromEntries(
+  Object.entries({
+    ...process.env,
+    PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
+  }).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+);
+
 export default defineConfig({
   testDir: './e2e/web',
   fullyParallel: true,
@@ -36,6 +43,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run dev:server',
+      env: webServerEnv,
       url: 'http://127.0.0.1:8090/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

@@ -75,7 +75,8 @@
     "specialCharacter": "La contraseña debe contener al menos un carácter especial"
   },
   "toast": {
-    "dismiss": "Descartar {{title}}"
+    "dismiss": "Descartar {{title}}",
+    "error": "Algo salió mal"
   },
   "changePassword": "Cambiar contraseña",
   "signOut": "Cerrar sesión",

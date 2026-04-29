@@ -11,8 +11,8 @@ import {
   type ProviderFormValues,
 } from '@/features/providers/ProviderFormModal';
 import { createProviderColumns } from '@/features/providers/providerColumns';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
 import type { Category, City, Provider, UserRole } from '@/types';
 
 function canManageProviders(role: UserRole | undefined): boolean {
@@ -44,12 +44,7 @@ export function ProvidersPage() {
       handleCloseModal();
       toast.success({ title: t('providers.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('providers.toast.createError'),
-        description: getErrorMessage(error, t('providers.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:providers.toast.createError' }),
   });
   const updateMutation = trpc.providers.update.useMutation({
     onSuccess: async () => {
@@ -57,12 +52,7 @@ export function ProvidersPage() {
       handleCloseModal();
       toast.success({ title: t('providers.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('providers.toast.updateError'),
-        description: getErrorMessage(error, t('providers.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:providers.toast.updateError' }),
   });
   const deleteMutation = trpc.providers.delete.useMutation({
     onSuccess: async () => {
@@ -70,12 +60,7 @@ export function ProvidersPage() {
       setProviderToDelete(null);
       toast.success({ title: t('providers.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('providers.toast.deleteError'),
-        description: getErrorMessage(error, t('providers.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:providers.toast.deleteError' }),
   });
   const replaceCategoriesMutation = trpc.providers.replaceCategoryAssignments.useMutation({
     onSuccess: async () => {
@@ -86,12 +71,7 @@ export function ProvidersPage() {
       setProviderForCategories(null);
       toast.success({ title: t('providers.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('providers.toast.updateError'),
-        description: getErrorMessage(error, t('providers.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:providers.toast.updateError' }),
   });
 
   const canManage = canManageProviders(user?.role);

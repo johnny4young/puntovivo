@@ -14,6 +14,7 @@ import {
   CompanySyncQueuePreview,
 } from '@/features/company/CompanySyncPreviewSections';
 import { CompanySyncMergeModal } from '@/features/company/CompanySyncMergeModal';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
@@ -74,12 +75,7 @@ export function CompanySyncCard() {
             : t('company.sync.toast.alreadyUpToDate'),
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.sync.toast.queueError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.queueError' }),
   });
   const pullMutation = useMutation({
     mutationFn: () =>
@@ -91,12 +87,7 @@ export function CompanySyncCard() {
       queryClient.setQueryData(syncSnapshotQueryKey, snapshot);
       toast.success({ title: t('company.sync.toast.snapshotRefreshed') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.sync.toast.snapshotError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.snapshotError' }),
   });
 
   const resolveMutation = useMutation({
@@ -124,12 +115,7 @@ export function CompanySyncCard() {
               : t('company.sync.toast.conflictMerged'),
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.sync.toast.conflictError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.conflictError' }),
   });
 
   const snapshot = snapshotQuery.data;

@@ -19,8 +19,11 @@ import {
   type PurchaseCartItem,
 } from '@/features/purchases/purchaseCart';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { invalidateGroups } from '@/lib/invalidateGroups';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency, getErrorMessage } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Category, Provider, Purchase } from '@/types';
 
 interface PurchaseDialogState {
@@ -49,13 +52,13 @@ export function PurchasesPage() {
 
   const createMutation = trpc.purchases.create.useMutation({
     onSuccess: async (_data, variables) => {
-      await Promise.all([
-        utils.purchases.list.invalidate(),
-        utils.inventory.listMovements.invalidate(),
-        utils.inventory.listBalancesBySite.invalidate(),
-        utils.inventory.listStock.invalidate(),
-        utils.products.list.invalidate(),
-        utils.products.search.invalidate(),
+      await invalidateGroups(utils, [
+        u => u.purchases.list,
+        u => u.inventory.listMovements,
+        u => u.inventory.listBalancesBySite,
+        u => u.inventory.listStock,
+        u => u.products.list,
+        u => u.products.search,
       ]);
       setCartItems([]);
       setPurchaseError(null);
@@ -65,12 +68,7 @@ export function PurchasesPage() {
         description: `${variables.items.length} ${t('toast.successDetail')}`,
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.error'),
-        description: getErrorMessage(error, t('toast.error')),
-      });
-    },
+    onError: onErrorToast(toast, t),
   });
 
   const draftSummary = getPurchaseCartSummary(cartItems);
@@ -82,7 +80,7 @@ export function PurchasesPage() {
   const canManageReturns = user?.role === 'admin' || user?.role === 'manager';
   const completedPurchases = purchases.filter(purchase => purchase.status === 'completed');
   const purchaseTotals = {
-    recentTotal: completedPurchases.reduce((sum, purchase) => sum + purchase.total, 0),
+    recentTotal: sumBy(completedPurchases, purchase => purchase.total),
     providerCount: new Set(completedPurchases.map(purchase => purchase.providerId)).size,
   };
 

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 
 interface ReceiptPrintSettings {
@@ -77,12 +78,7 @@ export function CompanyPrintSettingsCard() {
       queryClient.setQueryData(receiptPrintSettingsQueryKey, settings);
       toast.success({ title: t('company.print.saved') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.print.saveError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.print.saveError' }),
   });
 
   const settings = settingsQuery.data ?? defaultPrintSettings;

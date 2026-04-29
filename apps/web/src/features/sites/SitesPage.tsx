@@ -12,7 +12,7 @@ import { createSiteColumns } from '@/features/sites/siteColumns';
 import type { Location, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 function canManageSites(role: UserRole | undefined): boolean {
   return role === 'admin';
@@ -52,12 +52,7 @@ export function SitesPage() {
       handleCloseModal();
       toast.success({ title: t('sites.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sites.toast.createError'),
-        description: getErrorMessage(error, t('sites.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:sites.toast.createError' }),
   });
 
   const updateMutation = trpc.sites.update.useMutation({
@@ -66,12 +61,7 @@ export function SitesPage() {
       handleCloseModal();
       toast.success({ title: t('sites.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sites.toast.updateError'),
-        description: getErrorMessage(error, t('sites.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:sites.toast.updateError' }),
   });
 
   const deleteMutation = trpc.sites.delete.useMutation({
@@ -80,12 +70,7 @@ export function SitesPage() {
       setSiteToDelete(null);
       toast.success({ title: t('sites.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sites.toast.deleteError'),
-        description: getErrorMessage(error, t('sites.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:sites.toast.deleteError' }),
   });
 
   const replaceLocationsMutation = trpc.sites.replaceLocationAssignments.useMutation({
@@ -97,12 +82,7 @@ export function SitesPage() {
       setSiteForLocations(null);
       toast.success({ title: t('sites.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('sites.toast.updateError'),
-        description: getErrorMessage(error, t('sites.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:sites.toast.updateError' }),
   });
 
   const handleCloseModal = () => {

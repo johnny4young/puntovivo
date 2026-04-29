@@ -8,6 +8,7 @@ import { TableExportActions } from '@/components/tables/TableExportActions';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
@@ -65,12 +66,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
       await invalidateAfterMutation();
       toast.success({ title: t('toast.statusSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.statusError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'quotations:toast.statusError' }),
   });
 
   const deleteMutation = trpc.quotations.delete.useMutation({
@@ -79,12 +75,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
       setConfirmingDelete(null);
       toast.success({ title: t('toast.deleteSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.deleteError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'quotations:toast.deleteError' }),
   });
 
   const handleStatusChange = useCallback(

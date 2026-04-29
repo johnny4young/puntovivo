@@ -12,7 +12,7 @@ import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getPasswordRequirementMessage, type PasswordRequirementKey } from '@/features/auth/passwordPolicy';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 interface UserFormValues {
   email: string;
@@ -253,12 +253,7 @@ export function UsersPage() {
       setEditingUser(null);
       toast.success({ title: t('users.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('users.toast.createError'),
-        description: getErrorMessage(error, t('users.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.createError' }),
   });
 
   const updateMutation = trpc.users.update.useMutation({
@@ -283,12 +278,7 @@ export function UsersPage() {
 
       toast.success({ title: t('users.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('users.toast.updateError'),
-        description: getErrorMessage(error, t('users.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.updateError' }),
   });
 
   const resetPasswordMutation = trpc.users.resetPassword.useMutation({
@@ -306,12 +296,7 @@ export function UsersPage() {
 
       toast.success({ title: t('users.toast.passwordReset') });
     },
-    onError: error => {
-      toast.error({
-        title: t('users.toast.updateError'),
-        description: getErrorMessage(error, t('users.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.updateError' }),
   });
 
   const columns: ColumnDef<User>[] = [

@@ -23,7 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { captureFlipSnapshot, playFlip, type FlipSnapshot } from '@/lib/flipAnimate';
-import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import {
   createEmptyBlock,
@@ -355,12 +355,7 @@ export function ReceiptTemplateEditor({
       toast.success({ title: t('toast.createSuccess') });
       onClose();
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.createError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'receiptTemplates:toast.createError' }),
   });
 
   const updateMutation = trpc.receiptTemplates.update.useMutation({
@@ -370,12 +365,7 @@ export function ReceiptTemplateEditor({
       toast.success({ title: t('toast.updateSuccess') });
       onClose();
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.updateError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'receiptTemplates:toast.updateError' }),
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;

@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
@@ -187,12 +188,7 @@ export function CompanyPage() {
       await utils.companies.getCurrent.setData(undefined, company);
       toast.success({ title: t('company.toast.saved') });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.toast.saveError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.toast.saveError' }),
   });
 
   const onSubmit = async (values: CompanyFormValues) => {

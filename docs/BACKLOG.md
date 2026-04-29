@@ -46,6 +46,14 @@ research.
   the matching entry in `web/src/lib/translateServerError.ts`, and
   en/es strings in `web/src/i18n/locales/*/errors.json`. — 2026-04-23 (jy)
 
+- `[security][infra][trpc]` Replace the single global
+  `100/min/IP` Fastify rate limit with tRPC-aware buckets before
+  production scale: keep strict auth buckets, add tenant/site/user
+  scoped buckets for sales mutations, separate read vs write traffic,
+  and keep env overrides per deployment. The current global default is
+  a useful safety net, but can throttle legitimate high-demand stores
+  behind one NAT. — 2026-04-29 (jy)
+
 - `[refactor][infra]` Migrate `apps/web/src/services/storage/offlineStorage.ts`
   Electron path from the `window.db.*` IPC bridge to dedicated tRPC
   procedures, then delete the bridge from preload + main. Closes the

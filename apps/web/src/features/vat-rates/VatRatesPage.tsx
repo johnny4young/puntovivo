@@ -9,7 +9,7 @@ import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { UserRole, VatRate } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 interface VatRateFormValues {
   name: string;
@@ -150,12 +150,7 @@ export function VatRatesPage() {
       handleCloseModal();
       toast.success({ title: t('vatRates.toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('vatRates.toast.createError'),
-        description: getErrorMessage(error, t('vatRates.toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.createError' }),
   });
   const updateMutation = trpc.vatRates.update.useMutation({
     onSuccess: async () => {
@@ -163,12 +158,7 @@ export function VatRatesPage() {
       handleCloseModal();
       toast.success({ title: t('vatRates.toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('vatRates.toast.updateError'),
-        description: getErrorMessage(error, t('vatRates.toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.updateError' }),
   });
   const deleteMutation = trpc.vatRates.delete.useMutation({
     onSuccess: async () => {
@@ -176,12 +166,7 @@ export function VatRatesPage() {
       setVatRateToDelete(null);
       toast.success({ title: t('vatRates.toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('vatRates.toast.deleteError'),
-        description: getErrorMessage(error, t('vatRates.toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:vatRates.toast.deleteError' }),
   });
 
   const canManage = canManageVatRates(user?.role);

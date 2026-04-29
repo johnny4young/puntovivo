@@ -13,7 +13,7 @@ import {
   CustomerFormModal,
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
-import { getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -50,12 +50,7 @@ export function CustomersPage() {
       handleCloseModal();
       toast.success({ title: t('toast.created') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.createError'),
-        description: getErrorMessage(error, t('toast.createError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.createError' }),
   });
   const updateMutation = trpc.customers.update.useMutation({
     onSuccess: async () => {
@@ -63,12 +58,7 @@ export function CustomersPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.updateError'),
-        description: getErrorMessage(error, t('toast.updateError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.updateError' }),
   });
 
   const deleteMutation = trpc.customers.delete.useMutation({
@@ -77,12 +67,7 @@ export function CustomersPage() {
       setCustomerToDelete(null);
       toast.success({ title: t('toast.deleted') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.deleteError'),
-        description: getErrorMessage(error, t('toast.deleteError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.deleteError' }),
   });
 
   const canDelete = user?.role === 'admin';

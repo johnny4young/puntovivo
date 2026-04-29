@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
 
@@ -132,12 +133,7 @@ export function CompanyAutoUpdateCard() {
         description: status.isAvailable ? undefined : status.reason ?? undefined,
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.updater.toast.checkError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.checkError' }),
   });
   const restartMutation = useMutation({
     mutationFn: async () => {
@@ -157,12 +153,7 @@ export function CompanyAutoUpdateCard() {
         description: t('company.updater.toast.restartDescription'),
       });
     },
-    onError: error => {
-      toast.error({
-        title: t('company.updater.toast.restartError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.restartError' }),
   });
 
   const status = statusQuery.data ?? defaultAutoUpdateStatus;

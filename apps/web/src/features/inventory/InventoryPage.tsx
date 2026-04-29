@@ -35,7 +35,8 @@ import {
   inventoryStockExportColumns,
 } from '@/features/inventory/inventoryExport';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency, formatDateTime, getErrorMessage } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
 import type {
   Category,
   InitialInventoryEntry,
@@ -700,12 +701,7 @@ export function InventoryPage() {
       setSelectedProduct(null);
       toast.success({ title: t('toast.adjustSuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.adjustError'),
-        description: getErrorMessage(error, t('toast.adjustError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.adjustError' }),
   });
 
   const recordEntryMutation = trpc.inventory.recordEntry.useMutation({
@@ -721,12 +717,7 @@ export function InventoryPage() {
       setIsSearchOpen(false);
       toast.success({ title: t('toast.entrySuccess') });
     },
-    onError: error => {
-      toast.error({
-        title: t('toast.entryError'),
-        description: getErrorMessage(error, t('toast.entryError')),
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.entryError' }),
   });
 
   const categories = (categoriesQuery.data?.items ?? []) as Category[];

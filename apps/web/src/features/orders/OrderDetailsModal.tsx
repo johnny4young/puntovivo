@@ -8,8 +8,8 @@ import {
   OrderReceiveModal,
   type OrderReceiveValues,
 } from '@/features/orders/OrderReceiveModal';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
 
 interface OrderDetailsModalProps {
   orderId: string | null;
@@ -57,14 +57,11 @@ export function OrderDetailsModal({
       setReceiveError(null);
       onClose();
     },
-    onError: error => {
-      const message = getErrorMessage(error, t('orders:details.toast.receiveErrorFallback'));
-      setReceiveError(message);
-      toast.error({
-        title: t('orders:details.toast.receiveErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'orders:details.toast.receiveErrorTitle',
+      fallbackKey: 'orders:details.toast.receiveErrorFallback',
+      extra: description => setReceiveError(description),
+    }),
   });
 
   const voidMutation = trpc.orders.void.useMutation({
@@ -78,14 +75,11 @@ export function OrderDetailsModal({
       setVoidError(null);
       onClose();
     },
-    onError: error => {
-      const message = getErrorMessage(error, t('orders:details.toast.voidErrorFallback'));
-      setVoidError(message);
-      toast.error({
-        title: t('orders:details.toast.voidErrorTitle'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'orders:details.toast.voidErrorTitle',
+      fallbackKey: 'orders:details.toast.voidErrorFallback',
+      extra: description => setVoidError(description),
+    }),
   });
 
   const orderQuery = trpc.orders.getById.useQuery(
