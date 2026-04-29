@@ -26,6 +26,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { appSettings, syncQueue, syncConflicts } from '../../db/schema.js';
 import {
   listQueueInput,
@@ -637,27 +638,49 @@ export const syncRouter = router({
           ? conflict.localData ?? {}
           : null;
 
+    // ENG-042 close-out — the unsupported-entityType check stays OUTSIDE
+    // the transaction: it does not require rollback because no DB writes
+    // have happened yet. The findEntity guard, however, moves INSIDE the
+    // transaction callback below so a concurrent delete between the
+    // outer check and the keepLocal / merged write can no longer leave
+    // the path resolving against stale data. better-sqlite3 transactions
+    // are connection-scoped, so calling findEntity(ctx.db, ...) from
+    // inside the callback runs against the same in-flight BEGIN.
+    let entityConfig: (typeof syncEntityConfig)[SyncEntityType] | null = null;
     if (nextData) {
-      const config = getSyncEntityConfiguration(conflict.entityType);
+      entityConfig = getSyncEntityConfiguration(conflict.entityType);
 
-      if (!config) {
+      if (!entityConfig) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: `Unsupported sync entity type: ${conflict.entityType}`,
         });
       }
-
-      const entity = findEntity(ctx.db, config, ctx.tenantId, conflict.entityId);
-      if (!entity) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message:
-            'Cannot keep or merge local changes because the local record no longer exists. Accept remote to discard the stale queued change.',
-        });
-      }
     }
 
     await ctx.db.transaction(tx => {
+      if (nextData && entityConfig) {
+        const entity = findEntity(
+          ctx.db,
+          entityConfig,
+          ctx.tenantId,
+          conflict.entityId
+        );
+        if (!entity) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'SYNC_LOCAL_RECORD_MISSING',
+            message:
+              'Local record missing; accept remote to discard the stale queued change',
+            details: {
+              entityType: conflict.entityType,
+              entityId: conflict.entityId,
+              resolution: input.resolution,
+            },
+          });
+        }
+      }
+
       tx
         .update(syncConflicts)
         .set({

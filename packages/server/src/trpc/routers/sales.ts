@@ -16,6 +16,7 @@
 
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
@@ -72,6 +73,55 @@ import type {
   FiscalDocumentKind,
   FiscalDocumentSource,
 } from '../../db/schema.js';
+
+/**
+ * ENG-042 TOCTOU defense for sale lifecycle transactions.
+ *
+ * `requireActiveCashSession(...)` runs OUTSIDE the transaction (as a
+ * fast-fail UX guard, so the common no-session case never opens a
+ * BEGIN). This helper re-validates the session is still open against
+ * the in-transaction snapshot before any sale write touches
+ * `cashSessionId`. Without it, a concurrent `cashSessions.close` between
+ * the outer check and the transaction body would silently bind the new
+ * sale (or refund / completion) to a now-closed shift.
+ *
+ * better-sqlite3 single-process serialization keeps the production
+ * window small but not zero, and the libSQL/Turso replication planned
+ * in ENG-037 will widen it. The defense is also structurally correct
+ * for any future runtime (Bun, Deno, multi-process) the project may
+ * adopt.
+ *
+ * Throws `CASH_SESSION_REQUIRED` (already wired in en + es locales) and
+ * relies on Drizzle to propagate the throw out of the transaction with
+ * rollback intact.
+ */
+function assertCashSessionStillOpen(
+  tx: Pick<DatabaseInstance, 'select'>,
+  tenantId: string,
+  cashSessionId: string
+): void {
+  const stillOpen = tx
+    .select({ id: cashSessions.id })
+    .from(cashSessions)
+    .where(
+      and(
+        eq(cashSessions.id, cashSessionId),
+        eq(cashSessions.tenantId, tenantId),
+        eq(cashSessions.status, 'open')
+      )
+    )
+    .get();
+
+  if (!stillOpen) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CASH_SESSION_REQUIRED',
+      message:
+        'Cash session was closed between the precondition check and the transaction body',
+      details: { cashSessionId },
+    });
+  }
+}
 
 /**
  * ENG-020 — best-effort fiscal emission post-transaction. The sale
@@ -914,6 +964,14 @@ export const salesRouter = router({
     const productStockState = new Map(resolvedItems.productStocks);
 
     ctx.db.transaction(tx => {
+      // ENG-042 TOCTOU defense: the outer requireActiveCashSession check
+      // ran before this transaction opened. better-sqlite3 single-process
+      // serialization keeps the production race window small but not zero
+      // (and ENG-037 libSQL/Turso replication will widen it). Re-verify
+      // the session is still open against the transaction snapshot so the
+      // sale is never bound to a session that closed mid-flight.
+      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+
       tx.update(sequentials)
         .set({
           currentValue: nextSequentialValue,
@@ -1296,6 +1354,13 @@ export const salesRouter = router({
       : null;
 
     ctx.db.transaction(tx => {
+      // ENG-042 TOCTOU defense: re-verify the active cash session under
+      // the transaction snapshot. See sales.create above for full
+      // rationale. Refunds bind the cash movement to activeCashSession.id;
+      // a session closed mid-flight would attach the refund to a closed
+      // shift.
+      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+
       for (const item of saleLineItems) {
         const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
         const previousStock = productStockState.get(item.productId);
@@ -2363,6 +2428,12 @@ export const salesRouter = router({
       const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
 
       ctx.db.transaction(tx => {
+        // ENG-042 TOCTOU defense: see sales.create for full rationale.
+        // completeDraft binds the finalized sale to activeCashSession.id;
+        // a session closed mid-flight would attach the completion to a
+        // closed shift.
+        assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+
         // Replace any placeholder payment rows the draft might have
         // carried from its initial `sales.create` call with the real
         // tenders captured at complete-time.

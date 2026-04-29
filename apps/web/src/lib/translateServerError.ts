@@ -94,6 +94,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_REPRINT_DRAFT_FORBIDDEN',
   'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
   'SALE_COMPLETE_DRAFT_SUSPENDED',
+  // --- ENG-042 sync resolve TOCTOU close-out ---
+  'SYNC_LOCAL_RECORD_MISSING',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

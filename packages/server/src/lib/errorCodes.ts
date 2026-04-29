@@ -179,6 +179,16 @@ export const SERVER_ERROR_CODES = {
   // --- ENG-020 fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
+
+  // --- ENG-042 sync resolve TOCTOU close-out ---
+  /**
+   * `sync.resolve` refused a `local_wins` or `merged` resolution because the
+   * local record no longer exists at the moment the transaction opens. The
+   * caller should either delete the queued change or pick `remote_wins`.
+   * Detected inside the transaction so the conflict row stays `pending` and
+   * the queue is unchanged on this throw.
+   */
+  SYNC_LOCAL_RECORD_MISSING: 'SYNC_LOCAL_RECORD_MISSING',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];
