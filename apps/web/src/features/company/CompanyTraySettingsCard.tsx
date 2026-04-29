@@ -39,7 +39,7 @@ function TraySettingToggle({
       </div>
       <input
         type="checkbox"
-        className="mt-1 h-4 w-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+        className="mt-1 h-8 w-8 shrink-0 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 lg:h-4 lg:w-4"
         checked={checked}
         disabled={disabled}
         onChange={event => onChange(event.target.checked)}
