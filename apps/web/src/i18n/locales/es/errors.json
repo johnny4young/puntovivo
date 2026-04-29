@@ -82,6 +82,7 @@
     "SALE_REPRINT_DRAFT_FORBIDDEN": "Las ventas en borrador no tienen recibo que reimprimir.",
     "SALE_REPRINT_ACTIVE_SESSION_REQUIRED": "Los cajeros solo pueden reimprimir ventas de su propio turno activo.",
     "SALE_COMPLETE_DRAFT_SUSPENDED": "Este borrador sigue suspendido. Retómalo antes de completar la venta.",
+    "SYNC_LOCAL_RECORD_MISSING": "El registro local ya no existe. Descarta el cambio local para aceptar la versión remota.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

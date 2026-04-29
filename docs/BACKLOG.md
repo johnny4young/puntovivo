@@ -106,33 +106,19 @@ research.
   used: backup + delete the local DB so the next boot reseeds.
   — 2026-04-27 (jy)
 
-- `[infra][sync]` Close the two follow-ups left under `ENG-042`'s
-  Remaining bullet so the row can flip from Partial to Shipped.
-  Working title: `ENG-043`. Two coordinated changes in
-  `packages/server/src/trpc/routers/sync.ts`. (a) Move the
-  `findEntity` guard that today runs at line ~640 (just before
-  `ctx.db.transaction(...)`) INSIDE the transaction callback,
-  using the same `tx` handle so a concurrent delete between the
-  check and the commit cannot leave the keepLocal / merged path
-  resolving against stale local data. Drizzle propagates throws
-  out of the transaction with rollback intact, so the only edit
-  is hoisting the lookup. better-sqlite3 serializes writes per
-  connection so the production risk is low, but the correct
-  pattern still belongs inside the transaction. (b) Replace the
-  prose `error.message` "Cannot keep or merge local changes
-  because the local record no longer exists. Accept remote to
-  discard the stale queued change." with
-  `throwServerError({ trpcCode: 'BAD_REQUEST', errorCode:
-  'SYNC_LOCAL_RECORD_MISSING', message: '...short developer string
-  ...' })` per the pattern in `packages/server/src/lib/errorCodes.ts`.
-  Add the matching entry in `apps/web/src/lib/translateServerError.ts
-  KNOWN_SERVER_ERROR_CODES` plus the locale copy in
-  `apps/web/src/i18n/locales/{en,es}/errors.json` so a Spanish
-  operator stops seeing English when the discard flow refuses.
-  Smoke: open a sync conflict with `localRecordExists: false`,
-  click Keep Local, expect the localized error toast (verifies the
-  errorCode + i18n path) and the conflict still pending (verifies
-  the rollback path). — 2026-04-28 (jy)
+- `[server][testing]` Add a vitest harness hook that lets a test
+  inject behavior between the outer `requireActiveCashSession`
+  fast-fail and the inner `assertCashSessionStillOpen` re-check
+  inside `sales.create` / `sales.returnSale` / `sales.completeDraft`
+  transactions, so the ENG-042 close-out sales.ts TOCTOU defense gets
+  direct race-window coverage. Today the throw branch is structurally
+  pinned but not directly testable because better-sqlite3's
+  synchronous transaction model collapses the window to a single
+  callstack inside vitest. Options: (1) expose a private
+  `__beforeTransaction` callback on the procedure for test-only
+  injection; (2) refactor to take an injectable cash-session
+  validator. Low priority — the defense-in-depth is correct by
+  construction. — 2026-04-29 (jy)
 
 ## 2. Small bugs / polish
 
@@ -149,6 +135,15 @@ and want to batch them into one sprint.
   confirm calls mutation, resume callback fires) would catch future
   regressions without needing a full browser. Flagged by the code
   review that landed ENG-018b. — 2026-04-23 (jy)
+- `[inventory][testing]` Investigate the flaky E2E transfer-receipt
+  path where `inventory.receiveTransfer` can surface `database is
+  locked` under parallel Playwright load, leaving the "Receive
+  transfer" modal open until the suite retry passes. `better-sqlite3`
+  already defaults to a 5000 ms busy timeout, so the fix likely needs
+  reducing writer contention or making the transfer receive path retry
+  transient SQLite busy errors safely. Captured from
+  `test:e2e:web` on 2026-04-29; first attempt failed, retry passed.
+  — 2026-04-29 (jy)
 - `[infra][locale]` Retire the legacy `tenants.settings` JSON blob
   fields `currency`, `timezone`, `dateFormat` now that ENG-017
   resolves locale through `tenant_locale_settings` + the global

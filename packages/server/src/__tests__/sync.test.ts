@@ -545,7 +545,13 @@ describe('Sync tRPC Router', () => {
         } catch (err) {
           expect(err).toBeInstanceOf(TRPCError);
           expect((err as TRPCError).code).toBe('BAD_REQUEST');
-          expect((err as TRPCError).message).toContain('local record no longer exists');
+          // ENG-042 close-out — assert the stable errorCode the web layer
+          // resolves to a localized string. The English message is a
+          // developer-facing fallback that may change without notice.
+          const cause = (err as TRPCError).cause as
+            | { errorCode?: string }
+            | undefined;
+          expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
         }
       }
 
@@ -622,6 +628,124 @@ describe('Sync tRPC Router', () => {
         )
         .all();
       expect(queuedItems).toHaveLength(0);
+    });
+
+    it('rejects local_wins with SYNC_LOCAL_RECORD_MISSING without partially resolving the conflict when the local record is missing', async () => {
+      // ENG-042 close-out — verifies both the new errorCode shape AND
+      // the no-partial-write semantics. The findEntity guard now runs
+      // INSIDE the transaction before any write, so a throw from there
+      // must leave the row `pending` and the queue untouched.
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const queueItemId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Deleted locally' },
+        remoteData: { id: entityId, name: 'Remote version' },
+        status: 'pending',
+        createdAt: now,
+      });
+
+      await db.insert(syncQueue).values({
+        id: queueItemId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        operation: 'update',
+        data: { id: entityId, name: 'Deleted locally' },
+        localVersion: 1,
+        attempts: 1,
+        createdAt: now,
+      });
+
+      // Intentionally do NOT insert a `products` row — findEntity will
+      // return undefined and the inner guard must throw before writes.
+      let caught: unknown;
+      try {
+        await caller.sync.resolve({
+          id: conflictId,
+          resolution: 'local_wins',
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(TRPCError);
+      const cause = (caught as TRPCError).cause as
+        | { errorCode?: string }
+        | undefined;
+      expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
+
+      // No-partial-write proof: the inner throw must leave the conflict
+      // unresolved.
+      const conflictRow = await db
+        .select()
+        .from(syncConflicts)
+        .where(eq(syncConflicts.id, conflictId))
+        .get();
+      expect(conflictRow?.status).toBe('pending');
+      expect(conflictRow?.resolution).toBeNull();
+      expect(conflictRow?.resolvedAt).toBeNull();
+
+      // The queue item must also still be present.
+      const queueRows = await db
+        .select()
+        .from(syncQueue)
+        .where(eq(syncQueue.id, queueItemId))
+        .all();
+      expect(queueRows).toHaveLength(1);
+    });
+
+    it('rejects merged with SYNC_LOCAL_RECORD_MISSING when the local record is missing', async () => {
+      // ENG-042 close-out — same path as local_wins above; merged
+      // resolution also reads nextData and so triggers the inner guard.
+      const caller = appRouter.createCaller(userCtx());
+      const db = getDatabase();
+      const entityId = nanoid();
+      const conflictId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Deleted locally' },
+        remoteData: { id: entityId, name: 'Remote version' },
+        status: 'pending',
+        createdAt: now,
+      });
+
+      let caught: unknown;
+      try {
+        await caller.sync.resolve({
+          id: conflictId,
+          resolution: 'merged',
+          mergedData: { id: entityId, name: 'Merged version' },
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(TRPCError);
+      const cause = (caught as TRPCError).cause as
+        | { errorCode?: string }
+        | undefined;
+      expect(cause?.errorCode).toBe('SYNC_LOCAL_RECORD_MISSING');
+
+      const conflictRow = await db
+        .select()
+        .from(syncConflicts)
+        .where(eq(syncConflicts.id, conflictId))
+        .get();
+      expect(conflictRow?.status).toBe('pending');
     });
   });
 
