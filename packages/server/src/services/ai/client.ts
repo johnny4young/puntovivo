@@ -20,7 +20,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
 import { getProvider, isNotImplemented } from './providers/registry.js';
-import type { AIProvider } from './providers/types.js';
+import type { AIProvider, TokenUsage } from './providers/types.js';
 import type { AICompletionInput, AICompletionResult, AISettings } from './types.js';
 import { DEFAULT_AI_SETTINGS } from './types.js';
 
@@ -116,6 +116,36 @@ const defaultFactory: ProviderFactory = id => {
   return provider;
 };
 
+interface UsageForPricing {
+  inputTokens?: number;
+  outputTokens?: number;
+  inputTokenDetails?: {
+    noCacheTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+  };
+}
+
+function tokenCount(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function toBillableTokenUsage(usage: UsageForPricing): TokenUsage {
+  const totalInputTokens = tokenCount(usage.inputTokens);
+  const cacheReadTokens = tokenCount(usage.inputTokenDetails?.cacheReadTokens);
+  const cacheWriteTokens = tokenCount(usage.inputTokenDetails?.cacheWriteTokens);
+  const noCacheTokens =
+    usage.inputTokenDetails?.noCacheTokens ??
+    Math.max(totalInputTokens - cacheReadTokens - cacheWriteTokens, 0);
+
+  return {
+    inputTokens: tokenCount(noCacheTokens),
+    outputTokens: tokenCount(usage.outputTokens),
+    cacheReadTokens,
+    cacheWriteTokens,
+  };
+}
+
 /**
  * Run a single completion against the configured provider. Throws via
  * `throwServerError` for every gating failure (`AI_DISABLED`,
@@ -184,8 +214,10 @@ export async function completeAI(
     const outputTokens = result.usage.outputTokens ?? 0;
     const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
     const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-    const usage = { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
-    const costUsd = provider.pricing.calculateCostUsd(modelId, usage);
+    const costUsd = provider.pricing.calculateCostUsd(
+      modelId,
+      toBillableTokenUsage(result.usage)
+    );
     const durationMs = Date.now() - startedAt;
 
     const { id: auditLogId } = await recordCall(ctx.db, {

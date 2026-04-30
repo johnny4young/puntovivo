@@ -34,10 +34,10 @@ describe('ai/providers/registry', () => {
       expect(provider).toBe(anthropicProvider);
     });
 
-    it('returns the openai stub flagged as notImplemented', () => {
+    it('returns the openai instance flagged as implemented (ENG-044)', () => {
       const provider = getProvider('openai');
       expect(provider.id).toBe('openai');
-      expect(isNotImplemented(provider)).toBe(true);
+      expect(isNotImplemented(provider)).toBe(false);
     });
 
     it('returns the ollama stub flagged as notImplemented', () => {
@@ -54,13 +54,13 @@ describe('ai/providers/registry', () => {
       expect(list.map(entry => entry.id)).toEqual(['anthropic', 'openai', 'ollama']);
     });
 
-    it('flags only anthropic as implemented in this ticket', () => {
+    it('flags anthropic and openai as implemented; ollama parked for ENG-040', () => {
       const list = listProviders();
       const byId = Object.fromEntries(list.map(entry => [entry.id, entry] as const));
       expect(byId.anthropic.isImplemented).toBe(true);
       expect(byId.anthropic.availableInTicket).toBeUndefined();
-      expect(byId.openai.isImplemented).toBe(false);
-      expect(byId.openai.availableInTicket).toBe('ENG-033');
+      expect(byId.openai.isImplemented).toBe(true);
+      expect(byId.openai.availableInTicket).toBeUndefined();
       expect(byId.ollama.isImplemented).toBe(false);
       expect(byId.ollama.availableInTicket).toBe('ENG-040');
     });
@@ -68,10 +68,13 @@ describe('ai/providers/registry', () => {
 
   describe('notImplemented stubs', () => {
     it('throws AI_PROVIDER_ERROR with the ticket hint when languageModel is called', () => {
-      const provider = getProvider('openai');
+      // Ollama is the only remaining notImplemented provider after
+      // ENG-044 turned OpenAI on. Tested here so the rejection flow is
+      // pinned regardless of which provider stays parked.
+      const provider = getProvider('ollama');
       let caught: unknown;
       try {
-        provider.languageModel('gpt-4o-mini');
+        provider.languageModel('llama3.2');
       } catch (error) {
         caught = error;
       }
@@ -79,11 +82,10 @@ describe('ai/providers/registry', () => {
       const cause = (caught as TRPCError).cause;
       expect(cause).toBeInstanceOf(ServerErrorWithCode);
       expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
-      expect((caught as TRPCError).message).toContain('ENG-033');
+      expect((caught as TRPCError).message).toContain('ENG-040');
     });
 
-    it('reports isConfigured() === false', () => {
-      expect(getProvider('openai').isConfigured()).toBe(false);
+    it('reports isConfigured() === false for the ollama stub', () => {
       expect(getProvider('ollama').isConfigured()).toBe(false);
     });
   });

@@ -270,6 +270,87 @@ describe('client.completeAI', () => {
     expect(rows[0]?.costUsd).toBeCloseTo(result.costUsd, 6);
   });
 
+  it('prices cached input once while preserving total input in the audit log', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const cachedPricingModels = {
+      'cached-model': {
+        input: 10,
+        output: 20,
+        cacheRead: 1,
+        cacheWrite: 2,
+      },
+    };
+    const provider = buildMockProvider({
+      defaultModelId: 'cached-model',
+      pricing: {
+        models: cachedPricingModels,
+        calculateCostUsd: (modelId, usage) => {
+          const row = cachedPricingModels[modelId as keyof typeof cachedPricingModels];
+          if (!row) return 0;
+          return (
+            (usage.inputTokens / 1_000_000) * row.input +
+            (usage.outputTokens / 1_000_000) * row.output +
+            (usage.cacheReadTokens / 1_000_000) * row.cacheRead +
+            (usage.cacheWriteTokens / 1_000_000) * row.cacheWrite
+          );
+        },
+      },
+      languageModel: () =>
+        new MockLanguageModelV3({
+          provider: 'anthropic',
+          modelId: 'cached-model',
+          doGenerate: async () => ({
+            content: [{ type: 'text', text: 'pong' }],
+            finishReason: 'stop',
+            usage: {
+              inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
+              outputTokens: { total: 20 },
+            },
+            warnings: [],
+          }),
+          doStream: async () => ({
+            stream: simulateReadableStream({
+              chunks: [
+                { type: 'text-delta', id: mockId(), delta: 'pong' },
+                {
+                  type: 'finish',
+                  finishReason: 'stop',
+                  usage: {
+                    inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
+                    outputTokens: { total: 20 },
+                  },
+                },
+              ],
+            }),
+          }),
+        }),
+    });
+
+    const result = await completeAI(
+      { db, tenantId, siteId, userId },
+      baseInput,
+      () => provider
+    );
+
+    expect(result.inputTokens).toBe(100);
+    expect(result.cacheReadTokens).toBe(40);
+    expect(result.cacheWriteTokens).toBe(10);
+    expect(result.costUsd).toBeCloseTo(
+      (50 / 1_000_000) * 10 +
+        (20 / 1_000_000) * 20 +
+        (40 / 1_000_000) * 1 +
+        (10 / 1_000_000) * 2,
+      6
+    );
+
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows[0]?.inputTokens).toBe(100);
+    expect(rows[0]?.cacheReadTokens).toBe(40);
+    expect(rows[0]?.cacheWriteTokens).toBe(10);
+    expect(rows[0]?.costUsd).toBeCloseTo(result.costUsd, 6);
+  });
+
   it('persists ctx.siteId === null without breaking the insert', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
