@@ -30,6 +30,9 @@ const LoginPage = lazyPage(async () => ({
 const DashboardPage = lazyPage(async () => ({
   default: (await import('@/features/dashboard/DashboardPage')).DashboardPage,
 }));
+const CopilotPage = lazyPage(async () => ({
+  default: (await import('@/features/copilot/CopilotPage')).CopilotPage,
+}));
 const CompanyPage = lazyPage(async () => ({
   default: (await import('@/features/company/CompanyPage')).CompanyPage,
 }));
@@ -175,6 +178,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={dashboardRoles}>
                   <DashboardPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="co-pilot"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                  <CopilotPage />
                 </ShellRoute>
               }
             />

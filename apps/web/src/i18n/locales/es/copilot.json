@@ -1,0 +1,28 @@
+{
+  "page": {
+    "kicker": "Analítica IA",
+    "title": "Co-pilot",
+    "description": "Haz preguntas operativas y recibe una respuesta auditada con el SQL, las filas y el gráfico usados para calcularla."
+  },
+  "chat": {
+    "title": "Conversación",
+    "starter": "Prueba: ¿cuánto vendí ayer en Sur?"
+  },
+  "composer": {
+    "label": "Pregunta de analítica",
+    "placeholder": "Pregunta por ventas, sedes, productos, cajeros o tendencias recientes...",
+    "send": "Enviar pregunta"
+  },
+  "states": {
+    "emptyTitle": "Sin análisis aún",
+    "emptyDescription": "Haz una pregunta para ver aquí la respuesta, consulta, tabla y gráfico.",
+    "loading": "Analizando..."
+  },
+  "results": {
+    "tableTitle": "Filas del resultado",
+    "sqlDisclosure": "SQL ejecutado",
+    "noRows": "Este análisis no devolvió filas.",
+    "truncated": "El resultado fue recortado al límite de filas del servidor.",
+    "meta": "{{provider}} / {{model}} · {{rows}} filas · {{cost}}"
+  }
+}

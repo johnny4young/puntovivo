@@ -100,6 +100,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
   'AI_PROVIDER_ERROR',
+  'AI_COPILOT_SQL_REJECTED',
+  'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

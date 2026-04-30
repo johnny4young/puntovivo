@@ -86,6 +86,8 @@
     "AI_DISABLED": "Las funciones de IA están desactivadas para esta organización. Actívalas en Empresa → Configuración de IA.",
     "AI_BUDGET_EXCEEDED": "El gasto de IA de este mes alcanzó el presupuesto configurado. Aumenta el presupuesto o espera al próximo mes.",
     "AI_PROVIDER_ERROR": "El proveedor de IA no está disponible o devolvió un error. Revisa la configuración del proveedor e intenta de nuevo.",
+    "AI_COPILOT_SQL_REJECTED": "El co-pilot no pudo ejecutar ese análisis de forma segura. Haz una pregunta más simple o reduce los filtros.",
+    "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "Ese análisis cubre demasiados datos. Reduce el rango de fechas o selecciona una sede e intenta de nuevo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

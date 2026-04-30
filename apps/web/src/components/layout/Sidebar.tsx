@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ShoppingBasket,
   ShoppingCart,
+  Sparkles,
   Store,
   Truck,
   Users,
@@ -63,6 +64,7 @@ const navigationSections = [
     titleKey: 'sections.overview',
     items: [
       { nameKey: 'items.dashboard', href: '/dashboard', icon: LayoutDashboard, allowedRoles: dashboardRoles },
+      { nameKey: 'items.coPilot', href: '/co-pilot', icon: Sparkles, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
       { nameKey: 'items.inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
     ],

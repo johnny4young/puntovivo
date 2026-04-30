@@ -210,6 +210,17 @@ export const SERVER_ERROR_CODES = {
    * error in `details.cause`.
    */
   AI_PROVIDER_ERROR: 'AI_PROVIDER_ERROR',
+  /**
+   * The conversational analytics co-pilot rejected generated SQL before
+   * execution. Only single-statement SELECT/WITH queries over the bounded
+   * analytics snapshot are allowed.
+   */
+  AI_COPILOT_SQL_REJECTED: 'AI_COPILOT_SQL_REJECTED',
+  /**
+   * The co-pilot analytics snapshot would exceed its server-side row caps.
+   * The caller must provide a narrower date/site context before retrying.
+   */
+  AI_COPILOT_QUERY_LIMIT_EXCEEDED: 'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

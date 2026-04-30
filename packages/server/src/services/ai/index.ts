@@ -27,6 +27,20 @@ export {
   type ListUsagePage,
 } from './auditLog.js';
 
+export {
+  copilotLimits,
+  runCopilotChat,
+  runReadOnlySQL,
+  validateReadOnlySQL,
+  type CopilotChart,
+  type CopilotChatInput,
+  type CopilotChatMessage,
+  type CopilotChatResult,
+  type CopilotContextInput,
+  type CopilotRow,
+  type CopilotSQLResult,
+} from './copilot.js';
+
 export type {
   AICompletionInput,
   AICompletionResult,

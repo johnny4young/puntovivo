@@ -9,8 +9,17 @@ import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { aiAuditLog, companies, sites, tenants, users } from '../db/schema.js';
+import {
+  aiAuditLog,
+  cashSessions,
+  companies,
+  sales,
+  sites,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import { runReadOnlySQL, validateReadOnlySQL } from '../services/ai/index.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -18,6 +27,7 @@ let server: PuntovivoServer;
 let tenantId: string;
 let tenantOther: string;
 let adminId: string;
+let managerId: string;
 let cashierId: string;
 let siteId: string;
 
@@ -80,6 +90,7 @@ beforeAll(async () => {
   ]);
 
   adminId = nanoid();
+  managerId = nanoid();
   cashierId = nanoid();
   await db.insert(users).values([
     {
@@ -89,6 +100,17 @@ beforeAll(async () => {
       passwordHash: await hash('AIPass123!'),
       name: 'AI Admin',
       role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: managerId,
+      tenantId,
+      email: 'ai-manager@example.com',
+      passwordHash: await hash('AIPass123!'),
+      name: 'AI Manager',
+      role: 'manager',
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -136,6 +158,54 @@ beforeEach(async () => {
   await db.delete(aiAuditLog).run();
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
 });
+
+async function insertCompletedSale(opts: {
+  tenantId: string;
+  siteId: string;
+  cashierId: string;
+  saleNumber: string;
+  total: number;
+  createdAt?: string;
+}) {
+  const db = getDatabase();
+  const now = opts.createdAt ?? new Date().toISOString();
+  const sessionId = nanoid();
+
+  await db.insert(cashSessions).values({
+    id: sessionId,
+    tenantId: opts.tenantId,
+    siteId: opts.siteId,
+    cashierId: opts.cashierId,
+    registerName: `Register ${nanoid(4)}`,
+    openingFloat: 0,
+    openingCountDenominations: [],
+    expectedBalance: opts.total,
+    status: 'closed',
+    openedAt: now,
+    closedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(sales).values({
+    id: nanoid(),
+    tenantId: opts.tenantId,
+    saleNumber: opts.saleNumber,
+    customerId: null,
+    subtotal: opts.total,
+    taxAmount: 0,
+    discountAmount: 0,
+    total: opts.total,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    status: 'completed',
+    cashSessionId: sessionId,
+    notes: null,
+    createdBy: opts.cashierId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
 
 describe('ai.settings.get', () => {
   it('returns sensible defaults for a fresh tenant', async () => {
@@ -423,5 +493,226 @@ describe('ai.completeTest', () => {
     }
     expect(caught).toBeInstanceOf(TRPCError);
     expect((caught as TRPCError).code).toBe('FORBIDDEN');
+  });
+});
+
+describe('ai.copilot.chat', () => {
+  it('allows manager callers through the role guard and preserves AI_DISABLED', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager', siteId })
+    );
+
+    let caught: unknown;
+    try {
+      await caller.ai.copilot.chat({
+        messages: [{ role: 'user', content: 'Cuanto vendi ayer en Sur?' }],
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('AI_DISABLED');
+  });
+
+  it('rejects cashier callers with FORBIDDEN', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+
+    let caught: unknown;
+    try {
+      await caller.ai.copilot.chat({
+        messages: [{ role: 'user', content: 'Show sales today' }],
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe('FORBIDDEN');
+  });
+
+  it('keeps provider-missing failures on the existing AI_PROVIDER_ERROR code', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 5 });
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      let caught: unknown;
+      try {
+        await caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show sales today' }],
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(TRPCError);
+      const cause = (caught as TRPCError).cause;
+      expect(cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
+    } finally {
+      if (original !== undefined) {
+        process.env.ANTHROPIC_API_KEY = original;
+      }
+    }
+  });
+
+  it('returns the existing AI_BUDGET_EXCEEDED code before calling the provider', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 1 });
+    await getDatabase().insert(aiAuditLog).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      userId: adminId,
+      feature: 'completeTest',
+      providerId: 'anthropic',
+      modelId: 'claude-haiku-4-5',
+      inputTokens: 10,
+      outputTokens: 10,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 1.5,
+      durationMs: 10,
+      errorCode: null,
+      createdAt: new Date().toISOString(),
+    });
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      let caught: unknown;
+      try {
+        await caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show sales today' }],
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(TRPCError);
+      const cause = (caught as TRPCError).cause;
+      expect(cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_BUDGET_EXCEEDED');
+    } finally {
+      if (original === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = original;
+      }
+    }
+  });
+});
+
+describe('runReadOnlySQL', () => {
+  it('rejects mutations, pragmas, multiple statements, and non-snapshot tables', () => {
+    const blocked = [
+      'UPDATE sales_summary SET total = 0',
+      'DELETE FROM sales_summary',
+      'DROP TABLE sales_summary',
+      'PRAGMA table_info(sales_summary)',
+      'ATTACH DATABASE "x" AS x',
+      'SELECT 1; SELECT 2',
+      'SELECT * FROM sales',
+    ];
+
+    for (const query of blocked) {
+      let caught: unknown;
+      try {
+        validateReadOnlySQL(query);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(TRPCError);
+      const cause = (caught as TRPCError).cause;
+      expect(cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_COPILOT_SQL_REJECTED');
+    }
+
+    expect(() =>
+      validateReadOnlySQL(
+        'WITH daily AS (SELECT sale_date, SUM(total) AS revenue FROM sales_summary GROUP BY sale_date) SELECT * FROM daily'
+      )
+    ).not.toThrow();
+  });
+
+  it('executes only against the tenant-scoped in-memory analytics snapshot', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    const saleNumber = `AI-SALE-${nanoid(6)}`;
+    await insertCompletedSale({
+      tenantId,
+      siteId,
+      cashierId: adminId,
+      saleNumber,
+      total: 120,
+      createdAt: now,
+    });
+
+    const otherAdmin = nanoid();
+    const otherCompany = nanoid();
+    const otherSite = nanoid();
+    await db.insert(users).values({
+      id: otherAdmin,
+      tenantId: tenantOther,
+      email: `other-ai-${nanoid(6)}@example.com`,
+      passwordHash: await hash('AIPass123!'),
+      name: 'Other AI Admin',
+      role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: otherCompany,
+      tenantId: tenantOther,
+      name: `Other AI Co ${nanoid(4)}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: otherSite,
+      tenantId: tenantOther,
+      companyId: otherCompany,
+      name: 'Sur',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await insertCompletedSale({
+      tenantId: tenantOther,
+      siteId: otherSite,
+      cashierId: otherAdmin,
+      saleNumber: `OTHER-SALE-${nanoid(6)}`,
+      total: 999,
+      createdAt: now,
+    });
+
+    const result = await runReadOnlySQL(db, tenantId, {
+      query: `SELECT site_name, SUM(total) AS revenue FROM sales_summary WHERE sale_number = '${saleNumber}' GROUP BY site_name`,
+    });
+
+    expect(result.columns).toEqual(['site_name', 'revenue']);
+    expect(result.rows).toEqual([
+      {
+        site_name: 'Main Site',
+        revenue: 120,
+      },
+    ]);
+    expect(result.chart).toEqual({
+      type: 'bar',
+      labelKey: 'site_name',
+      valueKey: 'revenue',
+    });
   });
 });

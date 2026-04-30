@@ -29,3 +29,19 @@ export const aiBreakdownInput = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
+
+export const copilotChatMessageInput = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(4_000),
+});
+
+export const copilotChatInput = z.object({
+  messages: z.array(copilotChatMessageInput).min(1).max(20),
+  context: z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+      siteId: z.string().min(1).nullable().optional(),
+    })
+    .optional(),
+});
