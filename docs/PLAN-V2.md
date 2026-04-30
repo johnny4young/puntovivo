@@ -68,7 +68,7 @@ moves; the goal is to stop bleeding before pouring.
 ### Phase 1 — AI Wave 1: conversational co-pilot (Q1 2027, ~6-8 weeks)
 
 The visible v2.0 differentiator. One foundation ticket plus three
-high-value-low-effort features. Provider-agnostic via Vercel AI SDK v5,
+high-value-low-effort features. Provider-agnostic via Vercel AI SDK v6,
 default `@ai-sdk/anthropic` (Sonnet 4.7); no second provider configured
 at launch — operator decision. Local Ollama support is parked for
 Phase 4.
@@ -79,6 +79,11 @@ Phase 4.
 | `ENG-031` | AI conversational analytics co-pilot ("¿cuánto vendí ayer en Sur?" with tool-calling against a tenant-scoped read-only view) |
 | `ENG-032` | AI anomaly + fraud detection (local-only z-score / isolation-forest, no LLM dependency) |
 | `ENG-033` | AI semantic product search + auto-categorization (embeddings via AI SDK + cosine index in SQLite) |
+
+Status: 2 / 4 Phase 1 tickets shipped. `ENG-030` established the AI
+foundation; `ENG-031` added the manager/admin `/co-pilot` route with
+server-side tool calling, bounded tenant-scoped SQLite `:memory:`
+analytics snapshots, SQL guardrails, and inline SQL/table/chart UI.
 
 ### Phase 2 — Multi-country fiscal engine (Q2 2027, ~10-12 weeks)
 
@@ -189,10 +194,11 @@ finding (IPC bridge bypassing tenant scope) is a precondition for
 shipping any new feature that touches user data. Phase 0 ships before
 Phase 1 starts.
 
-Within Phase 1, `ENG-030` (AI-FOUNDATION) blocks `ENG-031` / `ENG-033`
-because both depend on the audit log table and the provider client.
-`ENG-032` (anomaly detection) is local-only and can run in parallel
-with the foundation work.
+Within Phase 1, `ENG-030` (AI-FOUNDATION) and `ENG-031` (conversational
+analytics co-pilot) are closed. `ENG-032` (anomaly detection) is
+local-only and can run before or alongside `ENG-033`, while `ENG-033`
+still depends on the provider/embedding choices introduced by the AI
+foundation.
 
 Within Phase 2, `ENG-034` (FISCAL-CORE refactor) blocks `ENG-035` and
 `ENG-036`. The two country packs can run in parallel once the

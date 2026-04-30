@@ -169,6 +169,54 @@ research.
   this is a "two failures in a row" path that has not been observed
   in practice. — 2026-04-29 (jy)
 
+- `[ai][perf]` Anthropic prompt-cache hit rate likely zero on the
+  co-pilot. `services/ai/copilot.ts::buildSystemPrompt` embeds the
+  resolved analytics window (`from`/`to` ISO timestamps) and the
+  active `siteId` directly into the system string, then sets
+  `providerOptions.anthropic.cacheControl: { type: 'ephemeral' }`.
+  Because the window defaults to "last 90 days from now", the
+  timestamp changes on every call, so the cache key never matches
+  the previous request. The ENG-030 cost-reduction claim ("~90% cost
+  reduction on repeated system prompts") therefore does not apply
+  to copilot calls in practice. Fix candidates: (a) keep the system
+  prompt static and pass the window/site as a tool input, (b) round
+  `to` to the day boundary so consecutive same-day calls share the
+  cache, (c) keep the dynamic prompt as a tail message and cache
+  only the static instructions. — 2026-04-29 (review)
+
+- `[ai][testing]` Co-pilot WITH/CTE end-to-end execution is unproven.
+  `validateReadOnlySQL` is unit-tested against a `WITH daily AS (...)
+  SELECT * FROM daily` example, but no test calls `runReadOnlySQL`
+  with a `WITH` query — only plain `SELECT` is exercised. The
+  cap-wrapper `SELECT * FROM (${safeQuery}) LIMIT N` relies on
+  modern SQLite accepting a CTE inside a subquery; works on
+  better-sqlite3 v12 (SQLite 3.45+), but the path is unproven for
+  this codebase. Add an end-to-end test that runs a CTE against the
+  in-memory snapshot to lock the contract. — 2026-04-29 (review)
+
+- `[ai][ux]` Co-pilot composer textarea has no Enter-to-send
+  shortcut. `apps/web/src/features/copilot/CopilotPage.tsx` requires
+  the operator to click the send button or Tab+Enter to submit;
+  every other modern chat surface treats Enter as send and
+  Shift+Enter as newline. Two-line change: capture `onKeyDown` on
+  the textarea, dispatch the form submit on plain Enter (and skip
+  on `event.shiftKey || event.isComposing`). — 2026-04-29 (review)
+
+- `[ai][infra]` Activate the OpenAI provider as a chat fallback to
+  unblock co-pilot live smoke when Anthropic is gated by billing
+  reconciliation. Today `services/ai/providers/openai.ts` is a
+  `notImplemented` stub reserved for embeddings
+  (`availableInTicket: 'ENG-033'`). Operator-identified during
+  ENG-031 review that the Anthropic billing block has stalled two
+  consecutive live smokes (ENG-030 + ENG-031); enabling OpenAI for
+  chat (gpt-4o-mini or similar) alongside the embedding role would
+  give a parallel validation path when Anthropic is down. Implies:
+  fill `openaiProvider.languageModel(modelId)`, add a pricing table
+  for the chat models, and either bring `availableInTicket` forward
+  or split the stub so chat ships now while embeddings stay parked
+  for ENG-033. Promote to ROADMAP when ENG-033 approaches to avoid
+  duplicating the lift. — 2026-04-29 (operator → review)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

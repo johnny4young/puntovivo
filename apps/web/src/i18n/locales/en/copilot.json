@@ -1,0 +1,28 @@
+{
+  "page": {
+    "kicker": "AI analytics",
+    "title": "Co-pilot",
+    "description": "Ask operational questions and get an audited answer with the SQL, rows, and chart used to calculate it."
+  },
+  "chat": {
+    "title": "Conversation",
+    "starter": "Try: How much did I sell yesterday in Sur?"
+  },
+  "composer": {
+    "label": "Analytics question",
+    "placeholder": "Ask about sales, sites, products, cashiers, or recent trends...",
+    "send": "Send question"
+  },
+  "states": {
+    "emptyTitle": "No analysis yet",
+    "emptyDescription": "Ask a question to see the answer, query, table, and chart here.",
+    "loading": "Analyzing..."
+  },
+  "results": {
+    "tableTitle": "Result rows",
+    "sqlDisclosure": "Executed SQL",
+    "noRows": "No rows returned for this analysis.",
+    "truncated": "The result was truncated to the server-side row limit.",
+    "meta": "{{provider}} / {{model}} · {{rows}} rows · {{cost}}"
+  }
+}

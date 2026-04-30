@@ -11,6 +11,7 @@
   },
   "items": {
     "dashboard": "Panel",
+    "coPilot": "Co-pilot",
     "sales": "Ventas",
     "inventory": "Inventario",
     "orders": "Pedidos",

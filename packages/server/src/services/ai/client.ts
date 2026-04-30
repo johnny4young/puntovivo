@@ -5,7 +5,7 @@
  * configured provider → records cost + tokens to `ai_audit_log`.
  *
  * The renderer never invokes this module directly; the tRPC layer
- * (`ai.completeTest` in this ticket; `ai.copilotChat` in ENG-031;
+ * (`ai.completeTest` in this ticket; `ai.copilot.chat` in ENG-031;
  * `ai.embedProducts` in ENG-033) is the single entry point.
  *
  * @module services/ai/client

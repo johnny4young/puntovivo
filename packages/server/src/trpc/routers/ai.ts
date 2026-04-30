@@ -1,7 +1,7 @@
 /**
- * ENG-030 — AI router (admin-only).
+ * ENG-030/031 — AI router.
  *
- * Five procedures:
+ * Six procedure groups:
  * - `ai.settings.get` — current AI configuration + provider availability
  *   + this-month spend.
  * - `ai.settings.update` — partial patch on `tenants.settings.ai`.
@@ -12,11 +12,13 @@
  * - `ai.completeTest` — fixed "ping" prompt that exercises the full
  *   pipeline so the operator can validate the env var + provider
  *   round-trip without waiting for ENG-031.
+ * - `ai.copilot.chat` — manager/admin conversational analytics over a
+ *   bounded tenant-scoped snapshot.
  *
  * @module trpc/routers/ai
  */
 import { router } from '../init.js';
-import { adminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   byBreakdown,
   completeAI,
@@ -25,12 +27,14 @@ import {
   listProviders,
   listUsage,
   resolveAISettings,
+  runCopilotChat,
   writeAISettings,
 } from '../../services/ai/index.js';
 import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   aiBreakdownInput,
+  copilotChatInput,
   aiUsageInput,
   updateAISettingsInput,
 } from '../schemas/ai.js';
@@ -74,8 +78,26 @@ const settingsRouter = router({
     }),
 });
 
+const copilotRouter = router({
+  chat: managerOrAdminProcedure
+    .input(copilotChatInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id ?? null;
+      return runCopilotChat(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+        },
+        input
+      );
+    }),
+});
+
 export const aiRouter = router({
   settings: settingsRouter,
+  copilot: copilotRouter,
 
   usage: adminProcedure.input(aiUsageInput).query(async ({ ctx, input }) => {
     return listUsage(ctx.db, ctx.tenantId, {
