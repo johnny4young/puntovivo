@@ -8,14 +8,25 @@
  *   npm run start      - Production
  *
  * Environment variables:
- *   PORT          - Server port (default: 8090)
- *   HOST          - Server host (default: 127.0.0.1)
- *   DATABASE_URL  - SQLite database path (default: ./data/local.db)
- *   JWT_SECRET    - JWT signing secret (auto-generated if not set)
- *   VERBOSE       - Enable verbose logging (default: false)
+ *   PORT               - Server port (default: 8090)
+ *   HOST               - Server host (default: 127.0.0.1)
+ *   DATABASE_URL       - SQLite database path (default: ./data/local.db)
+ *   JWT_SECRET         - JWT signing secret (auto-generated if not set)
+ *   VERBOSE            - Enable verbose logging (default: false)
+ *   ANTHROPIC_API_KEY  - Required for AI features (ENG-030 onwards). See
+ *                        `.env.example` for the full list.
+ *
+ * `.env` (at repo root) is auto-loaded via `./loadEnv.ts` — that import
+ * MUST stay first so its side effect runs before any module that
+ * reads `process.env.*` at evaluation time.
  *
  * @module standalone
  */
+
+// MUST be the first import: side-effect module that runs
+// `process.loadEnvFile()` for the standard `.env` locations before
+// any downstream module evaluates and reads env vars.
+import './loadEnv.js';
 
 import { createServer, createModuleLogger } from './index.js';
 import { join, dirname } from 'path';

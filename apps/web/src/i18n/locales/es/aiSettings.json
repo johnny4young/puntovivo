@@ -1,0 +1,32 @@
+{
+  "card": {
+    "kicker": "Asistencia con IA",
+    "title": "Configuración de IA",
+    "description": "Activa las funciones de IA para esta organización, define un presupuesto mensual en USD y elige el proveedor que responde las solicitudes.",
+    "enableLabel": "Activar funciones de IA",
+    "enableHint": "Cuando está desactivado, cada superficie de IA se corta con un aviso claro.",
+    "providerLabel": "Proveedor",
+    "providerHint": "Anthropic Sonnet es la recomendación para llamadas con herramientas y español latinoamericano.",
+    "providerComingIn": "disponible con",
+    "modelLabel": "Id del modelo",
+    "modelPlaceholder": "Por defecto: {{defaultModelId}}",
+    "modelHint": "Déjalo en blanco para usar el modelo por defecto del proveedor. Sobrescríbelo solo si Anthropic publica un modelo nuevo.",
+    "budgetLabel": "Presupuesto mensual (USD)",
+    "budgetHint": "Las llamadas se rechazan cuando el gasto del mes alcanza el presupuesto. Pon 0 para desactivar temporalmente.",
+    "spentLabel": "Usado este mes",
+    "spentSuffix": "de {{budget}}",
+    "providerOk": "Proveedor configurado",
+    "providerMissing": "Proveedor sin configurar (define la variable de entorno con la API key)",
+    "saveAction": "Guardar configuración de IA",
+    "savingAction": "Guardando…",
+    "testAction": "Probar conexión",
+    "testingAction": "Probando…"
+  },
+  "toast": {
+    "saveSuccessTitle": "Configuración de IA guardada",
+    "saveErrorTitle": "No se pudo guardar la configuración de IA",
+    "testSuccessTitle": "Proveedor de IA conectado",
+    "testSuccessDescription": "El modelo {{model}} respondió en {{durationMs}} ms ({{cost}})",
+    "testErrorTitle": "La prueba de IA falló"
+  }
+}

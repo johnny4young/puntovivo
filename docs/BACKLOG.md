@@ -120,6 +120,55 @@ research.
   validator. Low priority — the defense-in-depth is correct by
   construction. — 2026-04-29 (jy)
 
+- `[ai][docs]` Document the Anthropic billing-tier gotcha in
+  `docs/AI-PROVIDERS.md` (or similar): an organization can show a
+  positive credit balance in the Console while the API rejects calls
+  with `invalid_request_error: Your credit balance is too low`. Seen
+  during the ENG-030 live-smoke against an org with $75 of "Credit
+  grant" status (mix of promotional + paid). Diagnostic checklist:
+  capture the `anthropic-organization-id` response header, run
+  `curl /v1/messages` to confirm the error is upstream, contact
+  Anthropic support with the request_id + org-id. Worth a runbook
+  entry so future operators don't repeat the diagnosis. — 2026-04-29 (jy)
+
+- `[ai][ux]` Surface the Anthropic SDK error detail in the
+  `AI_PROVIDER_ERROR` toast. Today the server catches the SDK throw
+  and rewraps with a generic "Provider unavailable" message; the
+  Anthropic-specific text ("credit balance too low", "invalid model",
+  rate-limited, etc.) is preserved in `details.cause` of the
+  `ServerErrorWithCode` but `translateServerError` does not surface
+  causes. A two-line change in the renderer hint would tell operators
+  WHY the provider rejected without making them dig through server
+  logs. — 2026-04-29 (jy)
+
+- `[ai][infra]` AI audit-log retention policy + cleanup sweep.
+  `ai_audit_log` rows accumulate indefinitely as ENG-031 (co-pilot)
+  and ENG-033 (semantic search) ramp call frequency. At
+  ~5 cashier-days × 50 AI calls/day per tenant the table is fine for
+  years, but a small archival/delete sweep keeps `currentMonthSpend`
+  and `byBreakdown` queries fast at 100k+ rows. Sized when the first
+  pilot tenant crosses 10k rows. — 2026-04-29 (jy)
+
+- `[ai][ux]` Surface `ai.usageByBreakdown` in the admin UI. The tRPC
+  procedure ships with ENG-030 but no card / tile renders it; the
+  operator currently has to call it via tRPC directly to see which
+  site / cashier / feature is burning the budget. Two natural homes:
+  (a) expand `CompanyAISettingsCard` with a collapsible
+  "Recent AI usage" section, (b) a dedicated tile on the admin
+  dashboard. Sized once ENG-031 ships and there's actual usage
+  data to render. — 2026-04-29 (jy)
+
+- `[ai][infra]` Harden `services/ai/client.ts` failure-path
+  `recordCall` invocation. Today the catch block runs
+  `await recordCall(...)` followed by `throwServerError(...)`. If
+  the audit-log insert itself fails (e.g. SQLite WAL lock during a
+  degraded restart), that secondary exception escapes and replaces
+  the original SDK error in the rethrow. Wrap the catch-block
+  `recordCall` in its own try / catch that logs the secondary
+  failure without losing the original error context. Low priority —
+  this is a "two failures in a row" path that has not been observed
+  in practice. — 2026-04-29 (jy)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

@@ -39,6 +39,7 @@ import { receiptTemplatesRouter } from './routers/receiptTemplates.js';
 import { auditLogsRouter } from './routers/auditLogs.js';
 import { tenantLocaleRouter } from './routers/tenantLocale.js';
 import { reportsRouter } from './routers/reports/index.js';
+import { aiRouter } from './routers/ai.js';
 
 export const appRouter = router({
   health: router({
@@ -84,6 +85,7 @@ export const appRouter = router({
   users: usersRouter,
   tenantLocale: tenantLocaleRouter,
   reports: reportsRouter,
+  ai: aiRouter,
 });
 
 export type AppRouter = typeof appRouter;

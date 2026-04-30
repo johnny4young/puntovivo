@@ -189,6 +189,27 @@ export const SERVER_ERROR_CODES = {
    * the queue is unchanged on this throw.
    */
   SYNC_LOCAL_RECORD_MISSING: 'SYNC_LOCAL_RECORD_MISSING',
+
+  // --- ENG-030 AI foundation ---
+  /**
+   * AI features are turned off at the tenant level
+   * (`tenants.settings.ai.enabled === false`). The renderer should gray
+   * out AI-driven UI surfaces; the server short-circuits before any
+   * provider call so no audit-log row is written.
+   */
+  AI_DISABLED: 'AI_DISABLED',
+  /**
+   * The current month's AI spend is at or above the tenant's
+   * `monthlyBudgetUsd`. Pre-checked before each call. Caller should
+   * raise the budget, wait for next month, or disable the feature.
+   */
+  AI_BUDGET_EXCEEDED: 'AI_BUDGET_EXCEEDED',
+  /**
+   * The configured provider is unreachable, unconfigured (no env-var
+   * key), or returned an error. Wraps the original SDK / network
+   * error in `details.cause`.
+   */
+  AI_PROVIDER_ERROR: 'AI_PROVIDER_ERROR',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];
