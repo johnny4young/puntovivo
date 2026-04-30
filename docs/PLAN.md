@@ -3022,6 +3022,7 @@ Design docs that ship alongside already-shipped or in-flight features:
 - [`docs/LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md) — country / currency / locale configuration catalog for LATAM + USA, fixes the `0,00 US$` UX bug (**implementation shipped under `ENG-017`** — see §17.0 Status Update addendum)
 - [`docs/FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md) — DIAN via Proveedor Tecnológico, shipped as spec (Iter 3 Fase A ships schema + MockAdapter; Fase B is gated on PT contract)
 - [`docs/HARDWARE-POS.md`](./HARDWARE-POS.md) — ESC/POS printer + cajón + scanner spec (Iter 4, gated on test lab)
+- [`docs/AI-ANOMALY-DETECTION.md`](./AI-ANOMALY-DETECTION.md) — local-only fraud detector design + LATAM context, in Spanish (**shipped** as `ENG-032`)
 - [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
 
 ### 18.2 Still planned

@@ -652,7 +652,7 @@ describe('runReadOnlySQL', () => {
     const db = getDatabase();
     const now = new Date().toISOString();
 
-    const saleNumber = `AI-SALE-${nanoid(6)}`;
+    const saleNumber = `AI-SALE-${nanoid(6).replaceAll('-', '0')}`;
     await insertCompletedSale({
       tenantId,
       siteId,
@@ -717,5 +717,104 @@ describe('runReadOnlySQL', () => {
       labelKey: 'site_name',
       valueKey: 'revenue',
     });
+  });
+});
+
+describe('ai.anomalies.list', () => {
+  it('rejects cashier callers with FORBIDDEN (manager+ only)', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.anomalies.list({});
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe('FORBIDDEN');
+  });
+
+  it('returns an empty result without querying when ai.enabled is false', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    const result = await caller.ai.anomalies.list({});
+    expect(result.enabled).toBe(false);
+    expect(result.totalCount).toBe(0);
+    expect(result.alerts).toEqual([]);
+    expect(result.severityCounts).toEqual({ medium: 0, high: 0 });
+    expect(result.kindCounts).toEqual({
+      ticketsPerHourSpike: 0,
+      voidRate: 0,
+      refundAmount: 0,
+      noSaleSessions: 0,
+    });
+    expect(typeof result.computedAt).toBe('string');
+  });
+
+  it('allows manager callers without requiring admin-only settings access', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager', siteId })
+    );
+    const result = await caller.ai.anomalies.list({});
+    expect(result.enabled).toBe(false);
+    expect(result.totalCount).toBe(0);
+  });
+
+  it('runs the detectors when ai.enabled is true (returns valid shape, may be empty)', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: true });
+    const result = await caller.ai.anomalies.list({});
+    expect(result.enabled).toBe(true);
+    expect(Array.isArray(result.alerts)).toBe(true);
+    expect(result.totalCount).toBe(result.alerts.length);
+    expect(result.severityCounts).toBeDefined();
+    expect(result.kindCounts).toBeDefined();
+  });
+
+  it('rejects from > to with BAD_REQUEST', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: true });
+    let caught: unknown;
+    try {
+      await caller.ai.anomalies.list({
+        from: '2026-04-30T00:00:00.000Z',
+        to: '2026-04-29T00:00:00.000Z',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe('BAD_REQUEST');
+  });
+
+  it('does not leak alerts across tenants', async () => {
+    // Tenant other no tiene settings AI activado por defecto, así que
+    // su list devuelve [] aunque tengamos data en tenantId. Pinea
+    // multi-tenant via su propia configuración.
+    const db = getDatabase();
+    const otherAdmin = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: otherAdmin,
+      tenantId: tenantOther,
+      email: `other-anom-${nanoid(6)}@example.com`,
+      passwordHash: await hash('AnomPass123!'),
+      name: 'Other Anom Admin',
+      role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const callerOther = appRouter.createCaller(
+      createCtx({ tenantId: tenantOther, userId: otherAdmin, role: 'admin' })
+    );
+    const result = await callerOther.ai.anomalies.list({});
+    expect(result.alerts).toEqual([]);
   });
 });

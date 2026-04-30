@@ -41,6 +41,17 @@ export {
   type CopilotSQLResult,
 } from './copilot.js';
 
+export {
+  ANALYSIS_WINDOW_DAYS,
+  anomalyDetectionConstants,
+  detectAnomalies,
+  type AnomalyAlert,
+  type AnomalyDetectionInput,
+  type AnomalyDetectionResult,
+  type AnomalyKind,
+  type AnomalySeverity,
+} from './anomalyDetection.js';
+
 export type {
   AICompletionInput,
   AICompletionResult,

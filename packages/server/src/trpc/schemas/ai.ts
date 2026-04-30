@@ -45,3 +45,17 @@ export const copilotChatInput = z.object({
     })
     .optional(),
 });
+
+/**
+ * ENG-032 — input para `ai.anomalies.list`. `from` / `to` son ISO
+ * strings opcionales; cuando faltan, el router computa una ventana de
+ * `ANALYSIS_WINDOW_DAYS` (30) días terminando en `now`.
+ *
+ * Validación: si ambos están presentes y `from > to`, el handler
+ * rechaza con `BAD_REQUEST` (no requiere errorCode dedicado, es un
+ * error de input plano).
+ */
+export const anomalyListInput = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});

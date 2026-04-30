@@ -80,10 +80,17 @@ Phase 4.
 | `ENG-032` | AI anomaly + fraud detection (local-only z-score / isolation-forest, no LLM dependency) |
 | `ENG-033` | AI semantic product search + auto-categorization (embeddings via AI SDK + cosine index in SQLite) |
 
-Status: 2 / 4 Phase 1 tickets shipped. `ENG-030` established the AI
+Status: 3 / 4 Phase 1 tickets shipped. `ENG-030` established the AI
 foundation; `ENG-031` added the manager/admin `/co-pilot` route with
 server-side tool calling, bounded tenant-scoped SQLite `:memory:`
-analytics snapshots, SQL guardrails, and inline SQL/table/chart UI.
+analytics snapshots, SQL guardrails, and inline SQL/table/chart UI;
+`ENG-032` added the local-only anomaly + fraud detector with four
+sub-detectors (`ticketsPerHourSpike`, `voidRate`, `refundAmount`,
+`noSaleSessions`), z-score with leave-one-out, dashboard tile +
+drill-down modal, and a dedicated Spanish-language design doc
+(`docs/AI-ANOMALY-DETECTION.md`). Last Phase 1 ticket open is
+`ENG-033` (semantic search + auto-categorization), unblocked by the
+out-of-band `ENG-044` activation of OpenAI as a chat provider.
 
 ### Phase 2 — Multi-country fiscal engine (Q2 2027, ~10-12 weeks)
 
@@ -194,11 +201,12 @@ finding (IPC bridge bypassing tenant scope) is a precondition for
 shipping any new feature that touches user data. Phase 0 ships before
 Phase 1 starts.
 
-Within Phase 1, `ENG-030` (AI-FOUNDATION) and `ENG-031` (conversational
-analytics co-pilot) are closed. `ENG-032` (anomaly detection) is
-local-only and can run before or alongside `ENG-033`, while `ENG-033`
-still depends on the provider/embedding choices introduced by the AI
-foundation.
+Within Phase 1, `ENG-030` (AI-FOUNDATION), `ENG-031` (conversational
+analytics co-pilot), and `ENG-032` (local-only anomaly detection) are
+closed. The remaining ticket is `ENG-033` (semantic product search +
+auto-categorization), with `ENG-044` (out-of-band) already reducing
+provider risk by activating OpenAI as a live chat fallback. The
+embedding model wiring itself still lands in `ENG-033`.
 
 Within Phase 2, `ENG-034` (FISCAL-CORE refactor) blocks `ENG-035` and
 `ENG-036`. The two country packs can run in parallel once the

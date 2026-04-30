@@ -202,6 +202,70 @@ research.
   the textarea, dispatch the form submit on plain Enter (and skip
   on `event.shiftKey || event.isComposing`). — 2026-04-29 (review)
 
+- `[ai][settings]` Per-tenant anomaly threshold tuning. ENG-032 hardcodes
+  `MAHALANOBIS_THRESHOLD = 3.0` in `services/ai/anomalyDetection.ts`. Pilot
+  tenants will eventually want to tune this — large multi-store retailers
+  may want 2.5σ for tighter detection while small shops may want 3.5σ to
+  reduce noise. Surface as an optional number input on the AI Settings card
+  bound to `tenants.settings.ai.anomalyThreshold`; pass through
+  `ai.anomalies.list` so the detector reads it. — 2026-04-30 (ENG-032)
+
+- `[ai][algorithm]` Promote anomaly detection from z-score to isolation
+  forest if pilot data warrants. Trigger criteria documented in
+  `docs/AI-ANOMALY-DETECTION.md`: false-positive rate > 30% reported by a
+  pilot tenant, or a confirmed false-negative (real fraud missed). Estimated
+  ~150 LOC + tuning; the public `detectAnomalies()` interface stays the
+  same. — 2026-04-30 (ENG-032)
+
+- `[ai][ux]` "Investigate cashier" CTA on each row of `AnomalyDetailsModal`.
+  v1 is read-only; the manager has to manually cross-reference
+  `Configuración → Auditoría` and the sales reports filtered by cashier.
+  v2 should add a button that pre-filters those views by the alert's
+  `cashierId` and the time window of the anomaly. — 2026-04-30 (ENG-032)
+
+- `[ai][algorithm]` Sweethearting detector — invert
+  `ticketsPerHourSpike` to flag downward dips during high-traffic
+  windows. Requires correlating cashier activity with store traffic
+  (e.g. by averaging tickets/hour across all on-shift cashiers and
+  flagging individuals far below). Captured separately because the
+  v1 spike detector only catches upward outliers. — 2026-04-30 (ENG-032)
+
+- `[ai][ux]` Sidebar badge on the `Dashboard` nav item with the
+  count of high-severity anomalies. Today the only surface for
+  ENG-032 alerts is the dashboard tile itself, so an admin or
+  manager working on `/products` or `/sales` does not learn that
+  anomalies appeared until they navigate to `/dashboard`. A small
+  numeric badge on the sidebar item closes the "you have to go
+  look for it" gap without introducing email / push noise. Reuse
+  the existing `dashboardRoles` gate so cashiers and viewers do
+  not see the badge. — 2026-04-30 (ENG-032 review)
+
+- `[ai][infra]` Persist anomaly alerts to `audit_logs` with
+  `action = 'ai.anomaly.detected'` plus a JSON metadata block
+  carrying `kind`, `cashierId`, `severity`, `distance`, and
+  `evidenceRef`. Today alerts are computed on each `ai.anomalies.list`
+  call from raw transactional data and disappear once the underlying
+  events fall out of the 30-day window — no historical trace of
+  what was flagged, when, or whether anyone reviewed it. Persisting
+  to `audit_logs` gives legal/HR cover for any disciplinary action
+  taken on the strength of a flag, plus enables cross-reference
+  from `/audit-logs` filtered by the alert's `cashierId`. Be
+  careful to deduplicate so the same outlier does not write a row
+  per refetch (e.g. a content hash of `kind+cashierId+occurredAt`
+  as the dedup key). — 2026-04-30 (ENG-032 review)
+
+- `[ai][ux]` "Marcar como revisada" / snooze flow on each row of
+  `AnomalyDetailsModal`. Today an alert that the manager
+  investigated and confirmed legitimate (e.g. a $5000 refund that
+  was a real high-ticket return signed off by ownership) keeps
+  surfacing for 30 days until the underlying event ages out of the
+  window. Add a per-tenant snooze table keyed by
+  `(kind, cashierId, evidenceRef?)` with a snoozedUntil column;
+  filter snoozed entries out of `ai.anomalies.list` while the
+  snooze is active. Pairs naturally with the `audit_logs` trace
+  above — every snooze gets its own audit row attributing the
+  manager who dismissed the alert. — 2026-04-30 (ENG-032 review)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

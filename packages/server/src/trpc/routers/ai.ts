@@ -1,7 +1,7 @@
 /**
  * ENG-030/031 — AI router.
  *
- * Six procedure groups:
+ * Seven procedure groups:
  * - `ai.settings.get` — current AI configuration + provider availability
  *   + this-month spend.
  * - `ai.settings.update` — partial patch on `tenants.settings.ai`.
@@ -14,15 +14,21 @@
  *   round-trip without waiting for ENG-031.
  * - `ai.copilot.chat` — manager/admin conversational analytics over a
  *   bounded tenant-scoped snapshot.
+ * - `ai.anomalies.list` — manager/admin local-only anomaly detection
+ *   for the dashboard tile.
  *
  * @module trpc/routers/ai
  */
+import { TRPCError } from '@trpc/server';
+
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  ANALYSIS_WINDOW_DAYS,
   byBreakdown,
   completeAI,
   currentMonthSpend,
+  detectAnomalies,
   isNotImplemented,
   listProviders,
   listUsage,
@@ -34,6 +40,7 @@ import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   aiBreakdownInput,
+  anomalyListInput,
   copilotChatInput,
   aiUsageInput,
   updateAISettingsInput,
@@ -95,9 +102,74 @@ const copilotRouter = router({
     }),
 });
 
+/**
+ * ENG-032 — anomalies sub-router.
+ *
+ * `list` returns the four-detector aggregate. `managerOrAdminProcedure`
+ * gates out cashiers (already excluded from `/dashboard` at the
+ * sidebar level; this is defense-in-depth at the API layer).
+ *
+ * Behavior contract:
+ *   - When `tenants.settings.ai.enabled === false`, return an empty
+ *     result without running the detector queries. UX consistency
+ *     with `ai.copilot.chat` and `ai.completeTest`: the operator can
+ *     flip the master toggle off and every AI surface short-circuits
+ *     in the same way.
+ *   - When `from > to`, throw BAD_REQUEST. No errorCode (plain Zod
+ *     input shape error).
+ *   - When `from` / `to` omitted, default window is the last
+ *     `ANALYSIS_WINDOW_DAYS` (30) days ending at `now`.
+ */
+const anomaliesRouter = router({
+  list: managerOrAdminProcedure
+    .input(anomalyListInput)
+    .query(async ({ ctx, input }) => {
+      const settings = await resolveAISettings(ctx.db, ctx.tenantId);
+      const now = new Date();
+      const computedAt = now.toISOString();
+
+      if (!settings.enabled) {
+        return {
+          enabled: false,
+          alerts: [],
+          totalCount: 0,
+          severityCounts: { medium: 0, high: 0 } as const,
+          kindCounts: {
+            ticketsPerHourSpike: 0,
+            voidRate: 0,
+            refundAmount: 0,
+            noSaleSessions: 0,
+          } as const,
+          computedAt,
+        };
+      }
+
+      const to = input.to ? new Date(input.to) : now;
+      const from = input.from
+        ? new Date(input.from)
+        : new Date(to.getTime() - ANALYSIS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+      if (from.getTime() > to.getTime()) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'from must be earlier than or equal to to',
+        });
+      }
+
+      const result = await detectAnomalies(ctx.db, {
+        tenantId: ctx.tenantId,
+        from,
+        to,
+      });
+
+      return { ...result, enabled: true, computedAt };
+    }),
+});
+
 export const aiRouter = router({
   settings: settingsRouter,
   copilot: copilotRouter,
+  anomalies: anomaliesRouter,
 
   usage: adminProcedure.input(aiUsageInput).query(async ({ ctx, input }) => {
     return listUsage(ctx.db, ctx.tenantId, {

@@ -1,0 +1,49 @@
+{
+  "card": {
+    "kicker": "Internal control",
+    "title": "Anomaly detection",
+    "description": "Statistical scan over the last 30 days that flags voids, refunds, no-sale opens, and ticket spikes outside the team's normal pattern.",
+    "states": {
+      "loading": "Computing anomalies…",
+      "error": "Could not load anomalies. Try again in a moment.",
+      "disabled": "AI features are turned off. Enable them in Company → AI settings to scan for anomalies.",
+      "empty": "No anomalies detected in the last 30 days. Team is operating within the normal pattern.",
+      "summary_one": "{{count}} alert detected in the last 30 days",
+      "summary_other": "{{count}} alerts detected in the last 30 days"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium"
+    },
+    "viewDetails": "View details",
+    "settingsLink": "Open AI settings"
+  },
+  "modal": {
+    "title": "Detected anomalies",
+    "description": "Each row is a statistical outlier compared to the rest of the team or to the cashier's own 30-day baseline. Use this as a starting point for an investigation, not a definitive accusation.",
+    "filters": {
+      "all": "All kinds",
+      "ticketsPerHourSpike": "Ticket spikes",
+      "voidRate": "Voids",
+      "refundAmount": "Refunds",
+      "noSaleSessions": "No-sale opens"
+    },
+    "table": {
+      "severity": "Severity",
+      "kind": "Kind",
+      "cashier": "Cashier",
+      "observed": "Observed",
+      "baseline": "Baseline",
+      "occurredAt": "Occurred at"
+    },
+    "kindLabels": {
+      "ticketsPerHourSpike": "Hourly ticket spike",
+      "voidRate": "Abnormal void rate",
+      "refundAmount": "Outlier refund amount",
+      "noSaleSessions": "Excess no-sale openings"
+    },
+    "cashierUnknown": "Unknown cashier",
+    "noResults": "No anomalies match this filter.",
+    "close": "Close"
+  }
+}
