@@ -31,10 +31,10 @@ import {
 } from '../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
+import { resolveAISettings, toBillableTokenUsage } from './client.js';
 import type { AIInvocationContext, ProviderFactory } from './client.js';
 import { getProvider, isNotImplemented } from './providers/registry.js';
 import type { AIProvider } from './providers/types.js';
-import { resolveAISettings } from './client.js';
 import type { AISettings } from './types.js';
 
 const DEFAULT_WINDOW_DAYS = 90;
@@ -702,12 +702,22 @@ export async function runCopilotChat(
     const cacheWriteTokens =
       usageNestedNumber(inputRecord, 'cacheWrite') ||
       usageNestedNumber(detailsRecord, 'cacheWriteTokens');
-    const costUsd = provider.pricing.calculateCostUsd(modelId, {
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-    });
+    const noCacheTokens =
+      usageNestedNumber(inputRecord, 'noCache') ||
+      usageNestedNumber(detailsRecord, 'noCacheTokens') ||
+      Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
+    const costUsd = provider.pricing.calculateCostUsd(
+      modelId,
+      toBillableTokenUsage({
+        inputTokens,
+        outputTokens,
+        inputTokenDetails: {
+          noCacheTokens,
+          cacheReadTokens,
+          cacheWriteTokens,
+        },
+      })
+    );
     const durationMs = Date.now() - startedAt;
 
     const { id: auditLogId } = await recordCall(ctx.db, {

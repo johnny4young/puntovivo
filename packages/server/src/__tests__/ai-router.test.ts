@@ -224,8 +224,8 @@ describe('ai.settings.get', () => {
     expect(result.availableProviders).toHaveLength(3);
     const byId = Object.fromEntries(result.availableProviders.map(p => [p.id, p]));
     expect(byId.anthropic.isImplemented).toBe(true);
-    expect(byId.openai.isImplemented).toBe(false);
-    expect(byId.openai.availableInTicket).toBe('ENG-033');
+    expect(byId.openai.isImplemented).toBe(true);
+    expect(byId.openai.availableInTicket).toBeUndefined();
     expect(byId.ollama.isImplemented).toBe(false);
     expect(byId.ollama.availableInTicket).toBe('ENG-040');
   });
@@ -284,12 +284,15 @@ describe('ai.settings.update', () => {
   });
 
   it('rejects providerId pointing at a notImplemented stub', async () => {
+    // ENG-044 turned OpenAI on; Ollama remains the parked stub for
+    // ENG-040. Switching the assertion to ollama keeps the rejection
+    // flow under test without relying on a now-implemented provider.
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
     let caught: unknown;
     try {
-      await caller.ai.settings.update({ providerId: 'openai' });
+      await caller.ai.settings.update({ providerId: 'ollama' });
     } catch (error) {
       caught = error;
     }
@@ -297,7 +300,7 @@ describe('ai.settings.update', () => {
     const cause = (caught as TRPCError).cause;
     expect(cause).toBeInstanceOf(ServerErrorWithCode);
     expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
-    expect((caught as TRPCError).message).toContain('ENG-033');
+    expect((caught as TRPCError).message).toContain('ENG-040');
   });
 
   it('does not leak settings between tenants', async () => {

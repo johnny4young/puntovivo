@@ -202,21 +202,6 @@ research.
   the textarea, dispatch the form submit on plain Enter (and skip
   on `event.shiftKey || event.isComposing`). — 2026-04-29 (review)
 
-- `[ai][infra]` Activate the OpenAI provider as a chat fallback to
-  unblock co-pilot live smoke when Anthropic is gated by billing
-  reconciliation. Today `services/ai/providers/openai.ts` is a
-  `notImplemented` stub reserved for embeddings
-  (`availableInTicket: 'ENG-033'`). Operator-identified during
-  ENG-031 review that the Anthropic billing block has stalled two
-  consecutive live smokes (ENG-030 + ENG-031); enabling OpenAI for
-  chat (gpt-4o-mini or similar) alongside the embedding role would
-  give a parallel validation path when Anthropic is down. Implies:
-  fill `openaiProvider.languageModel(modelId)`, add a pricing table
-  for the chat models, and either bring `availableInTicket` forward
-  or split the stub so chat ships now while embeddings stay parked
-  for ENG-033. Promote to ROADMAP when ENG-033 approaches to avoid
-  duplicating the lift. — 2026-04-29 (operator → review)
-
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated
