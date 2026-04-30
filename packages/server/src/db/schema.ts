@@ -2871,6 +2871,81 @@ export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
 
 // ============================================================================
+// AI AUDIT LOG (ENG-030 — provider-agnostic call recording + budget control)
+// ============================================================================
+//
+// One row per AI provider call (success and failure) so the admin can see
+// total tenant spend, per-site breakdown, per-feature breakdown, and
+// per-provider breakdown without crossing tenant boundaries. Budget
+// enforcement (`services/ai/client.ts::completeAI`) reads
+// `currentMonthSpend` from this table.
+//
+// `site_id` and `provider_id` are populated from day 1 so future per-site
+// reporting / per-site BUDGET enforcement does not require a follow-up
+// migration. ENG-030 ships per-tenant single-budget enforcement; the data
+// is already wide enough for finer-grained controls later.
+//
+// Failed calls are persisted with `error_code` set + `cost_usd = 0` so the
+// `byBreakdown` reports include error counts (e.g. provider-down minutes
+// per site) without joining a separate observability table.
+
+export const aiAuditLog = sqliteTable(
+  'ai_audit_log',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id').references(() => sites.id),
+    userId: text('user_id').references(() => users.id),
+    /** AI feature label (`completeTest`, `copilot`, `autoCategorize`, `embeddings`). */
+    feature: text('feature').notNull(),
+    /** Provider id (`anthropic`, `openai`, `ollama`). */
+    providerId: text('provider_id').notNull(),
+    /** Provider-specific model id (e.g. `claude-haiku-4-5`). */
+    modelId: text('model_id').notNull(),
+    inputTokens: integer('input_tokens').notNull(),
+    outputTokens: integer('output_tokens').notNull(),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    /** USD cost of this call, computed from the provider's pricing table. */
+    costUsd: real('cost_usd').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    /** Server errorCode when the call failed; null on success. */
+    errorCode: text('error_code'),
+    createdAt: text('created_at').notNull().$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_ai_audit_log_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_ai_audit_log_tenant_site_created').on(
+      table.tenantId,
+      table.siteId,
+      table.createdAt
+    ),
+    index('idx_ai_audit_log_tenant_feature').on(table.tenantId, table.feature),
+    index('idx_ai_audit_log_tenant_provider').on(table.tenantId, table.providerId),
+  ]
+);
+
+export const aiAuditLogRelations = relations(aiAuditLog, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [aiAuditLog.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [aiAuditLog.siteId],
+    references: [sites.id],
+  }),
+  user: one(users, {
+    fields: [aiAuditLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export type AIAuditLogRow = typeof aiAuditLog.$inferSelect;
+export type NewAIAuditLogRow = typeof aiAuditLog.$inferInsert;
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 

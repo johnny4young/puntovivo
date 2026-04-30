@@ -83,6 +83,9 @@
     "SALE_REPRINT_ACTIVE_SESSION_REQUIRED": "Cashiers can only reprint sales from their own active cash session.",
     "SALE_COMPLETE_DRAFT_SUSPENDED": "This draft is still suspended. Resume it before completing the sale.",
     "SYNC_LOCAL_RECORD_MISSING": "The local record no longer exists. Discard the local change to accept the remote version.",
+    "AI_DISABLED": "AI features are turned off for this organization. Enable them in Company → AI settings.",
+    "AI_BUDGET_EXCEEDED": "This month's AI spend has reached the configured budget. Raise the budget or wait until next month.",
+    "AI_PROVIDER_ERROR": "The AI provider is unreachable or returned an error. Check the provider configuration and try again.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }

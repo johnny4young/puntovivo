@@ -31,11 +31,13 @@
     "seed:dev": "npm run native:ensure:node && tsx src/scripts/seed-dev.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.72",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
     "@trpc/server": "^11.9.0",
+    "ai": "^6.0.170",
     "argon2": "^0.44.0",
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.45.2",

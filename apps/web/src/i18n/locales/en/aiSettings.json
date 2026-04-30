@@ -1,0 +1,32 @@
+{
+  "card": {
+    "kicker": "AI assistance",
+    "title": "AI settings",
+    "description": "Turn AI features on for this organization, set a monthly USD budget, and choose which provider answers requests.",
+    "enableLabel": "Enable AI features",
+    "enableHint": "When off, every AI surface short-circuits with a friendly notice.",
+    "providerLabel": "Provider",
+    "providerHint": "Anthropic Sonnet is recommended for tool calling and Latin American Spanish.",
+    "providerComingIn": "available with",
+    "modelLabel": "Model id",
+    "modelPlaceholder": "Default: {{defaultModelId}}",
+    "modelHint": "Leave blank to use the provider's default. Override only if Anthropic releases a newer model.",
+    "budgetLabel": "Monthly budget (USD)",
+    "budgetHint": "Calls refuse once this month's spend reaches the budget. Set to 0 to disable temporarily.",
+    "spentLabel": "Used this month",
+    "spentSuffix": "of {{budget}}",
+    "providerOk": "Provider configured",
+    "providerMissing": "Provider not configured (set the API key environment variable)",
+    "saveAction": "Save AI settings",
+    "savingAction": "Saving…",
+    "testAction": "Test connection",
+    "testingAction": "Testing…"
+  },
+  "toast": {
+    "saveSuccessTitle": "AI settings saved",
+    "saveErrorTitle": "Could not save AI settings",
+    "testSuccessTitle": "AI provider connected",
+    "testSuccessDescription": "Model {{model}} replied in {{durationMs}} ms ({{cost}})",
+    "testErrorTitle": "AI test call failed"
+  }
+}
