@@ -191,6 +191,23 @@ export const SERVER_ERROR_CODES = {
    */
   FISCAL_PACK_NOT_AVAILABLE: 'FISCAL_PACK_NOT_AVAILABLE',
 
+  // --- ENG-035a pack México fundación ---
+  /**
+   * El RFC capturado en los ajustes fiscales de México no pasa la
+   * validación SAT (longitud incorrecta, estructura mal formada,
+   * fecha embebida inválida, homoclave equivocada o prefijo en lista
+   * negra). Tirado por `fiscal.settings.updateMx` cuando el operador
+   * intenta persistir un RFC malformado.
+   */
+  FISCAL_RFC_INVALID: 'FISCAL_RFC_INVALID',
+  /**
+   * El código de régimen fiscal MX capturado no existe en el catálogo
+   * SAT (`services/fiscal/packs/mx/catalogs/regimenFiscal.ts`). El
+   * catálogo ship con 23 regímenes curados; el operador eligió un
+   * código fuera de esa lista. Tirado por `fiscal.settings.updateMx`.
+   */
+  FISCAL_REGIMEN_INVALID: 'FISCAL_REGIMEN_INVALID',
+
   // --- ENG-042 sync resolve TOCTOU close-out ---
   /**
    * `sync.resolve` refused a `local_wins` or `merged` resolution because the

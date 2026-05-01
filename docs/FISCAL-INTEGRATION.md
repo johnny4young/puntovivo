@@ -82,6 +82,64 @@ returns one entry per registered country pack. Mirrors
 readiness card (BACKLOG follow-up) can render the same shape as
 `CompanyAISettingsCard`.
 
+## ENG-035a — Pack México fundación (mayo 2026)
+
+Primer slice del pack México. ENG-035 completo (CFDI 4.0 + PAC +
+firmado CSD + complemento Pago 2.0) es 2-3 semanas + depende de
+contrato PAC y sandbox SAT — split en tres tickets para shippear
+valor estructural sin esperar las dependencias externas.
+
+**Shipped en ENG-035a**:
+
+- **`MexicoCFDIAdapter`** reemplaza al stub
+  `MexicoNotImplementedAdapter` de ENG-034. `validateConfig` ahora
+  hace probe real de los settings MX (RFC, régimen fiscal, lugar
+  de expedición, ambiente) en lugar de devolver
+  `PACK_NOT_AVAILABLE`. `issue` / `voidDocument` / `fetchStatus`
+  siguen tirando `FISCAL_PACK_NOT_AVAILABLE` apuntando a
+  ENG-035b — la emisión XML real shipa ahí.
+- **Validador RFC** (`packs/mx/rfc.ts`) — función pura que valida
+  longitud (12 PM / 13 PF), estructura (3-4 letras + fecha AAMMDD
+  + 3 alfanuméricos), fecha embebida (calendario válido), checksum
+  de homoclave (algoritmo SAT módulo 11), lista negra de prefijos
+  altisonantes, y atajo para los RFCs genéricos extranjeros del
+  SAT (`XEXX010101000` PM, `XAXX010101000` PF). 17 tests cubren
+  los caminos felices y de fallo.
+- **Catálogos SAT** (`packs/mx/catalogs/`) como TS modules: 23
+  regímenes fiscales (601 General PM, 612 PF Empresarial, 626
+  RESICO, etc.), 24 usos CFDI (G03 Gastos, S01 Sin efectos
+  fiscales, etc.), 22 formas de pago (01 Efectivo, 04 Tarjeta de
+  crédito, etc.), 25 claves de unidad (H87 Pieza fallback, KGM
+  Kilogramo, MTR Metro, etc.). El catálogo `claveProdServ` (50k
+  entradas, requiere refresh desde API SAT) queda parqueado para
+  ENG-035b.
+- **Namespace `tenants.settings.fiscal.mx.*`** — aditivo al
+  `fiscal_dian_enabled` heredado del pack CO. El rename a
+  namespace country-aware (`tenants.settings.fiscal.{country}.enabled`)
+  queda capturado para ENG-035c.
+- **Router admin `fiscal.settings.{getByCountry, updateMx}`** con
+  validación server-side de RFC + régimen contra catálogo antes
+  del write. Re-corre `validateConfig` post-mutation para que la
+  respuesta lleve el readiness fresco (la card evita un round-trip
+  extra).
+- **Tab `Fiscal`** en `/company` con `CompanyMxFiscalCard`
+  (mirror del shape de `CompanyAISettingsCard` de ENG-030):
+  readiness badge verde/rojo + form con RFC + régimen Select +
+  lugar de expedición + ambiente. Cuando el `countryCode` del
+  tenant es CO o CL, la card muestra placeholder apuntando al
+  ticket que trae cada pack.
+- **Error codes nuevos** `FISCAL_RFC_INVALID` +
+  `FISCAL_REGIMEN_INVALID` registrados server + web con i18n
+  en/es (neutral LATAM tú).
+
+**Convención fiscal en español a partir de ENG-035a**: por
+preferencia operativa (audiencia LATAM hispanohablante), todos
+los comentarios JSDoc dentro de `services/fiscal/**` + el router
+`fiscal-settings.ts` + las secciones nuevas de este doc se
+escriben en español a partir de aquí. Identificadores de código
+(clases, tipos, funciones, error codes) siguen en inglés porque
+cruzan el boundary tRPC y se consumen desde el web.
+
 ## Goal
 
 Enable every sale in Puntovivo to be a legally valid fiscal document

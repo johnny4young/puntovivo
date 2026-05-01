@@ -41,12 +41,18 @@ research.
   anyway and is the natural moment to relocate the helper. —
   2026-05-01 (jy)
 - `[fiscal][ux]` Admin card surfacing `listFiscalAdapterCountries()`
-  readiness. The function ships in ENG-034 with no UI consumer.
-  Natural home: a small card under `/company → Datos` with one row
-  per country (CO green, MX/CL red with "lands with ENG-035 / 036"
-  hint), mirroring `CompanyAISettingsCard`'s provider-configured
-  badge. Sized when the operator first asks for multi-country
-  visibility. — 2026-05-01 (jy)
+  readiness. La función shippea en ENG-034 con consumer parcial:
+  ENG-035a usa el adapter MX directo en `CompanyMxFiscalCard`.
+  Pendiente: una vista consolidada multi-país (mostrar simultáneamente
+  CO + MX + CL con su readiness badge). Sized cuando el operador
+  pida visibilidad multi-país. — 2026-05-01 (jy)
+- `[fiscal][mx]` Catálogo SAT `claveProdServ` (50k+ entradas, productos
+  y servicios). ENG-035a curó los otros 4 catálogos como TS modules
+  pero `claveProdServ` requiere refresh dinámico desde la API del SAT
+  (cambia varias veces al año). Decisión pendiente para ENG-035b: TS
+  module gigante, DB table con seed + cron, o lazy-load on-demand.
+  El mapeo entre `products.id` interno y `claveProdServ` también
+  queda para ese ticket. — 2026-05-01 (jy)
 - `[fiscal][refactor]` Rename `tenants.settings.fiscal_dian_enabled`
   to a country-agnostic `fiscal.enabled` flag (or per-country
   `fiscal.{co,mx,cl}.enabled` if granularity matters). Today the

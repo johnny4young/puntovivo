@@ -214,9 +214,23 @@ Within Phase 2, `ENG-034` (FISCAL-CORE refactor) is **closed**:
 `packs/co/` (`ColombiaMockAdapter`) and Mexico + Chile parked as
 `NotImplementedAdapter` stubs in `packs/mx/` + `packs/cl/`. The
 adapter contract gained `validateConfig` (pre-flight readiness) and
-`countryCode` (introspection). `ENG-035` and `ENG-036` are unblocked
-and can run in parallel; both land as new files implementing the
-same contract plus tests.
+`countryCode` (introspection).
+
+`ENG-035` (Pack México CFDI 4.0) se hizo split en tres slices por
+tamaño + dependencias externas:
+
+- **ENG-035a** (Shipped) — Fundación: validador RFC + catálogos
+  SAT + ajustes admin + adapter `validateConfig` real. Sin emisión
+  XML.
+- **ENG-035b** (Pending) — Modelado XML CFDI 4.0 + emisión sin
+  firmar. Persiste el XML en `fiscal_documents.xml_ref`; documento
+  queda en `status='draft'`.
+- **ENG-035c** (Pending) — PAC integration + firmado CSD +
+  complemento Pago 2.0. Necesita contrato PAC + sandbox SAT +
+  certificados CSD de prueba (dependencias externas operativas).
+
+`ENG-036` (Pack Chile SII) sigue Pending y se puede correr en
+paralelo a cualquier slice de ENG-035.
 
 Phase 3 and Phase 4 can run partially overlapped if a second
 contributor joins; the natural critical path is F0 → F1 → F2 → F3 → F4.

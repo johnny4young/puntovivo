@@ -249,7 +249,8 @@
       "locale": "Locale",
       "data": "Data",
       "device": "Device",
-      "ai": "AI"
+      "ai": "AI",
+      "fiscal": "Fiscal"
     },
     "submitting": "Saving...",
     "save": "Save Company",

@@ -64,5 +64,62 @@
     "description": "El flujo guiado capturará el NIT, la resolución de numeración y las credenciales de autorización del tenant.",
     "gated": "Requiere un contrato activo de facturación electrónica antes de la activación productiva.",
     "cta": "Más información"
+  },
+  "settings": {
+    "tabTitle": "Fiscal",
+    "tabDescription": "Configuración fiscal por país. El paquete que se muestra abajo depende del código de país del tenant.",
+    "country": {
+      "MX": "México (CFDI 4.0)",
+      "CO": "Colombia (DIAN)",
+      "CL": "Chile (SII)"
+    },
+    "readiness": {
+      "ready": "Listo",
+      "notReady": "No listo",
+      "issuesTitle": "Pendientes",
+      "issueCodes": {
+        "MISSING_RFC": "Falta o no es válido el RFC del emisor",
+        "MISSING_RESOLUTION": "Falta el régimen fiscal o no está en el catálogo",
+        "MISSING_CERTIFICATE": "Falta el lugar de expedición o no tiene 5 dígitos",
+        "INVALID_ENVIRONMENT": "El ambiente no es sandbox ni production",
+        "MISSING_NIT": "Falta el NIT del emisor",
+        "MISSING_RUT": "Falta el RUT del emisor",
+        "PACK_NOT_AVAILABLE": "El paquete del país aún no está disponible"
+      }
+    },
+    "mx": {
+      "title": "México — CFDI 4.0",
+      "description": "Configura los datos del emisor antes de activar la emisión de CFDI. La emisión real llega con ENG-035b (modelado XML) y ENG-035c (integración con PAC + firma).",
+      "fields": {
+        "enabled": "Activar pack fiscal de México",
+        "enabledHelp": "Cuando esté activo, las ventas emitirán un CFDI 4.0 una vez que ENG-035b se implemente. Hoy esta opción sólo controla el diagnóstico de preparación.",
+        "rfc": "RFC del emisor",
+        "rfcHelp": "12 caracteres para persona moral (PM); 13 para persona física (PF).",
+        "rfcPlaceholder": "p. ej. XEXX010101000",
+        "regimen": "Régimen fiscal",
+        "regimenPlaceholder": "Selecciona un régimen",
+        "lugar": "Lugar de expedición (CP de 5 dígitos)",
+        "lugarPlaceholder": "p. ej. 06700",
+        "environment": "Ambiente",
+        "environmentSandbox": "Sandbox",
+        "environmentProduction": "Producción"
+      },
+      "actions": {
+        "save": "Guardar",
+        "saving": "Guardando..."
+      },
+      "toast": {
+        "saved": "Ajustes fiscales de México guardados",
+        "saveError": "No se pudieron guardar los ajustes fiscales de México"
+      }
+    },
+    "co": {
+      "title": "Colombia — DIAN",
+      "comingSoon": "Los ajustes fiscales de Colombia siguen viviendo en Localización. La migración a esta pestaña llega con ENG-035c."
+    },
+    "cl": {
+      "title": "Chile — SII",
+      "comingSoon": "El pack fiscal de Chile llega con ENG-036."
+    }
   }
 }
