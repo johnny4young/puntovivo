@@ -90,7 +90,8 @@
     "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "Ese análisis cubre demasiados datos. Reduce el rango de fechas o selecciona una sede e intenta de nuevo.",
     "FISCAL_PACK_NOT_AVAILABLE": "La emisión fiscal para este país aún no está disponible. La venta se completó sin documento fiscal; vuelve a intentarlo cuando salga el paquete del país.",
     "FISCAL_RFC_INVALID": "El RFC del emisor mexicano no es válido. Revisa la longitud (12 para persona moral, 13 para persona física), la estructura, la fecha embebida y la homoclave.",
-    "FISCAL_REGIMEN_INVALID": "El código del régimen fiscal mexicano no está en el catálogo SAT. Elige uno de los códigos soportados.",
+    "FISCAL_REGIMEN_INVALID": "El código de régimen fiscal o giro comercial no está en el catálogo. Elige uno de los códigos soportados.",
+    "FISCAL_RUT_INVALID": "El RUT del emisor chileno no es válido. Revisa el formato (cuerpo-dígito verificador) y que el dígito coincida con el cuerpo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

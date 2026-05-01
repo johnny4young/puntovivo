@@ -140,6 +140,76 @@ escriben en español a partir de aquí. Identificadores de código
 (clases, tipos, funciones, error codes) siguen en inglés porque
 cruzan el boundary tRPC y se consumen desde el web.
 
+## ENG-036a — Pack Chile fundación (mayo 2026)
+
+Espejo estructural exacto de ENG-035a, ahora para Chile. Mismo
+split en tres slices que ENG-035: ENG-036a (este, fundación),
+ENG-036b (modelado XML DTE), ENG-036c (certificación SII + firma +
+entrega digital).
+
+**Shipped en ENG-036a**:
+
+- **`ChileSIIAdapter`** reemplaza al stub
+  `ChileNotImplementedAdapter` de ENG-034. `validateConfig` ahora
+  hace probe real de los settings CL (RUT, giro, comuna, casa
+  matriz, ambiente) en lugar de devolver `PACK_NOT_AVAILABLE`.
+  `issue` / `voidDocument` / `fetchStatus` siguen tirando
+  `FISCAL_PACK_NOT_AVAILABLE` apuntando a ENG-036b.
+- **Validador RUT** (`packs/cl/rut.ts`) — función pura que valida
+  formato (`<cuerpo>-<dv>` con cuerpo de 1-8 dígitos y dv de
+  `0-9` o `K`), calcula el dígito verificador esperado por el
+  algoritmo SII (módulo 11 con pesos cíclicos `{2,3,4,5,6,7}`
+  aplicados de derecha a izquierda al cuerpo), y mapea
+  `r=0→'0' / r=1→'K' / r=2..10→'11-r'`. Atajo para el RUT
+  genérico extranjero del SII (`55555555-5`). Threshold práctico
+  de 50M para distinguir persona natural de jurídica. 15 tests
+  cubren los caminos felices y de fallo.
+- **Catálogos SII** (`packs/cl/catalogs/`) como TS modules:
+  - `tipoDte`: 7 entradas (33 Factura, 34 Factura Exenta, 39
+    Boleta, 41 Boleta Exenta, 52 Guía de Despacho, 56 Nota Débito,
+    61 Nota Crédito).
+  - `giroComercial`: 26 giros curados de CIIU.cl rev 4 — comercio
+    al por menor (47XX), comercio al por mayor selecto (46XX),
+    restaurantes (561X), servicios personales (95XX), reparación
+    de vehículos (4520).
+  - `comuna`: 35 entradas curadas — 18 del Gran Santiago + 16
+    capitales regionales + Ñuble + `COMUNA_FALLBACK=13101`. El
+    catálogo completo (~346 comunas) queda parqueado para
+    ENG-036b cuando llegue el modelado XML que necesita la
+    comuna del lugar de emisión real.
+- **Namespace `tenants.settings.fiscal.cl.*`** — aditivo al
+  `fiscal.mx.*` de ENG-035a y al `fiscal_dian_enabled` heredado
+  del pack CO. El rename a namespace country-aware
+  (`tenants.settings.fiscal.{country}.enabled`) sigue parqueado
+  para ENG-035c / ENG-036c — cualquiera de los dos puede
+  liderarlo.
+- **Router admin extendido**: `fiscal.settings.updateCl` valida
+  RUT + giro server-side antes del write; reusa el code
+  `FISCAL_REGIMEN_INVALID` de ENG-035a para giros fuera del
+  catálogo CIIU.cl (semánticamente cubre "el catálogo rechazó el
+  código de actividad económica del emisor" en cualquier país).
+  `getByCountry({ countryCode: 'CL' })` ahora desempaca settings
+  (antes devolvía `null`).
+- **`CompanyClFiscalCard`** paralela a `CompanyMxFiscalCard`.
+  Mismo shape (form + readiness badge + submit). Dispatch entre
+  cards de país en el tab Fiscal se movió a `CompanyPage.tsx`
+  (lee `trpc.tenantLocale.get` y monta MX / CL / CO-placeholder
+  según `countryCode`). La card MX simplifica — los branches
+  CO/CL muertos se removieron y returns null cuando
+  `tenantCountry !== 'MX'` como red de seguridad defensiva.
+- **Error code nuevo** `FISCAL_RUT_INVALID` registrado server +
+  web con i18n en/es (neutral LATAM tú).
+
+**Mapeo semántico de issue codes** (decisión documentada): el
+enum `FiscalValidationIssueCode` es shared entre todos los packs.
+Para CL reusamos `MISSING_RESOLUTION` para giros (concepto
+equivalente al régimen mexicano: "actividad económica declarada
+al SII") y `MISSING_CERTIFICATE` para casa matriz + comuna (datos
+de identificación del emisor que ENG-036c va a extender con el
+certificado digital real). Si la granularidad por país se vuelve
+insuficiente, separar a codes específicos por pack es un
+follow-up barato.
+
 ## Goal
 
 Enable every sale in Puntovivo to be a legally valid fiscal document

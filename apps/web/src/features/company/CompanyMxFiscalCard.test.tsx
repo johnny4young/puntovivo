@@ -4,8 +4,9 @@
  * Cobertura:
  * - Renderiza la card cuando el tenant es MX con badge rojo y los
  *   issues que el adapter reporta.
- * - Renderiza el placeholder de Colombia cuando el tenant es CO.
- * - Renderiza el placeholder de Chile cuando el tenant es CL.
+ * - No renderiza nada cuando el tenant es CO o CL (defensive layer;
+ *   ENG-036a movió el dispatch al CompanyPage para que cada país
+ *   monte su propia card sin que MX tenga que conocer al resto).
  * - Submit del form llama a `fiscalSettings.updateMx` con el shape
  *   correcto.
  */
@@ -126,22 +127,16 @@ describe('CompanyMxFiscalCard (ENG-035a)', () => {
     ).toBeInTheDocument();
   });
 
-  it('renderiza el placeholder de Colombia cuando el tenant es CO', () => {
+  it('no renderiza nada cuando el tenant es CO (CompanyPage hace el dispatch)', () => {
     mockCountryCode = 'CO';
-    render(<CompanyMxFiscalCard />);
-    expect(screen.getByText(/Colombia — DIAN/i)).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/Issuer RFC/i)
-    ).not.toBeInTheDocument();
+    const { container } = render(<CompanyMxFiscalCard />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it('renderiza el placeholder de Chile cuando el tenant es CL', () => {
+  it('no renderiza nada cuando el tenant es CL (CompanyPage hace el dispatch)', () => {
     mockCountryCode = 'CL';
-    render(<CompanyMxFiscalCard />);
-    expect(screen.getByText(/Chile — SII/i)).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/Issuer RFC/i)
-    ).not.toBeInTheDocument();
+    const { container } = render(<CompanyMxFiscalCard />);
+    expect(container.firstChild).toBeNull();
   });
 
   it('submit envía el patch con los campos del form', () => {

@@ -8,7 +8,7 @@
  * - `'CO'` → `ColombiaMockAdapter` (real PT swap lands with ENG-021).
  * - `'MX'` → `MexicoCFDIAdapter` (real CFDI 4.0 lands with
  *   ENG-035).
- * - `'CL'` → `ChileNotImplementedAdapter` (real SII boleta/factura
+ * - `'CL'` → `ChileSIIAdapter` (real SII boleta/factura
  *   lands with ENG-036).
  * - Unknown country → falls back to `ColombiaMockAdapter`.
  *
@@ -30,7 +30,7 @@
 
 import type { FiscalAdapter } from './adapter.js';
 import {
-  ChileNotImplementedAdapter,
+  ChileSIIAdapter,
   ColombiaMockAdapter,
   MexicoCFDIAdapter,
 } from './packs/index.js';
@@ -45,7 +45,7 @@ export type SupportedFiscalCountry = 'CO' | 'MX' | 'CL';
 const ADAPTER_FACTORIES: Record<SupportedFiscalCountry, () => FiscalAdapter> = {
   CO: () => new ColombiaMockAdapter(),
   MX: () => new MexicoCFDIAdapter(),
-  CL: () => new ChileNotImplementedAdapter(),
+  CL: () => new ChileSIIAdapter(),
 };
 
 /** Default country code when the caller does not supply one. */

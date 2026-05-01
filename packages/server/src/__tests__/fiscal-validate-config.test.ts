@@ -1,5 +1,5 @@
 /**
- * ENG-034 + ENG-035a — Tests de `validateConfig` por pack.
+ * ENG-034 + ENG-035a + ENG-036a — Tests de `validateConfig` por pack.
  *
  * El probe de pre-flight es lo que la futura card de readiness
  * fiscal va a consumir para pintar el badge verde/rojo por país.
@@ -12,14 +12,16 @@
  *   MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
  *   están vacíos; ok=true cuando RFC válido + régimen válido +
  *   lugar de expedición de 5 dígitos.
- * - ChileNotImplementedAdapter → ok=false, single
- *   PACK_NOT_AVAILABLE issue apuntando a ENG-036.
+ * - ChileSIIAdapter (ENG-036a) → ok=false con MISSING_RUT /
+ *   MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
+ *   están vacíos; ok=true cuando RUT válido + giro CIIU.cl +
+ *   casa matriz + comuna SUBDERE válida.
  */
 
 import { describe, expect, it } from 'vitest';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
-import { ChileNotImplementedAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
+import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 import type { FiscalAdapterConfig } from '../services/fiscal/adapter.js';
 
 const baseConfig = (
@@ -39,20 +41,119 @@ describe('validateConfig (ENG-034 + ENG-035a)', () => {
     expect(result.issues).toEqual([]);
   });
 
-  it('ChileNotImplementedAdapter reporta PACK_NOT_AVAILABLE apuntando a ENG-036', async () => {
-    const adapter = new ChileNotImplementedAdapter();
+});
+
+describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
+  it('settings vacíos → ok=false con MISSING_RUT + MISSING_RESOLUTION + MISSING_CERTIFICATE (×2)', async () => {
+    const adapter = new ChileSIIAdapter();
     const result = await adapter.validateConfig(baseConfig('CL'));
     expect(result.ok).toBe(false);
-    expect(result.issues).toHaveLength(1);
-    expect(result.issues[0]).toEqual({
-      code: 'PACK_NOT_AVAILABLE',
-      field: 'countryCode',
-      message: 'Chile SII pack lands with ENG-036.',
-    });
+    const codes = result.issues.map(issue => issue.code).sort();
+    // Casa matriz + comuna ambos faltan → 2 issues con
+    // MISSING_CERTIFICATE; RUT y giro 1 issue cada uno.
+    expect(codes).toEqual([
+      'MISSING_CERTIFICATE',
+      'MISSING_CERTIFICATE',
+      'MISSING_RESOLUTION',
+      'MISSING_RUT',
+    ]);
   });
 
-  it('ChileNotImplementedAdapter tira FISCAL_PACK_NOT_AVAILABLE en issue()', async () => {
-    const adapter = new ChileNotImplementedAdapter();
+  it('settings completos y válidos → ok=true sin issues', async () => {
+    const adapter = new ChileSIIAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CL', {
+        fiscal: {
+          cl: {
+            enabled: true,
+            // RUT genérico extranjero — el SII lo acepta sin
+            // checksum estricto.
+            rut: '55555555-5',
+            giroCode: '4711',
+            comunaCode: 13101,
+            casaMatriz: 'Av Apoquindo 4500',
+            environment: 'certificacion',
+          },
+        },
+      })
+    );
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('RUT inválido → ok=false con MISSING_RUT apuntando a fiscal.cl.rut', async () => {
+    const adapter = new ChileSIIAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CL', {
+        fiscal: {
+          cl: {
+            enabled: true,
+            rut: 'BAD123',
+            giroCode: '4711',
+            comunaCode: 13101,
+            casaMatriz: 'Av Apoquindo 4500',
+            environment: 'certificacion',
+          },
+        },
+      })
+    );
+    expect(result.ok).toBe(false);
+    const rutIssue = result.issues.find(issue => issue.code === 'MISSING_RUT');
+    expect(rutIssue).toBeDefined();
+    expect(rutIssue?.field).toBe('fiscal.cl.rut');
+  });
+
+  it('giro fuera del catálogo CIIU.cl → MISSING_RESOLUTION', async () => {
+    const adapter = new ChileSIIAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CL', {
+        fiscal: {
+          cl: {
+            enabled: true,
+            rut: '55555555-5',
+            giroCode: '9999', // no existe
+            comunaCode: 13101,
+            casaMatriz: 'Av Apoquindo 4500',
+            environment: 'certificacion',
+          },
+        },
+      })
+    );
+    expect(result.ok).toBe(false);
+    const giroIssue = result.issues.find(
+      issue => issue.code === 'MISSING_RESOLUTION'
+    );
+    expect(giroIssue).toBeDefined();
+    expect(giroIssue?.field).toBe('fiscal.cl.giroCode');
+  });
+
+  it('comuna fuera del catálogo SUBDERE → MISSING_CERTIFICATE', async () => {
+    const adapter = new ChileSIIAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CL', {
+        fiscal: {
+          cl: {
+            enabled: true,
+            rut: '55555555-5',
+            giroCode: '4711',
+            comunaCode: 99999, // no existe
+            casaMatriz: 'Av Apoquindo 4500',
+            environment: 'certificacion',
+          },
+        },
+      })
+    );
+    expect(result.ok).toBe(false);
+    const comunaIssue = result.issues.find(
+      issue =>
+        issue.code === 'MISSING_CERTIFICATE' &&
+        issue.field === 'fiscal.cl.comunaCode'
+    );
+    expect(comunaIssue).toBeDefined();
+  });
+
+  it('issue() tira FISCAL_PACK_NOT_AVAILABLE apuntando a ENG-036b', async () => {
+    const adapter = new ChileSIIAdapter();
     let caught: unknown;
     try {
       await adapter.issue();
@@ -60,8 +161,11 @@ describe('validateConfig (ENG-034 + ENG-035a)', () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    const cause = (caught as { cause?: { errorCode?: string } }).cause;
+    const cause = (caught as {
+      cause?: { errorCode?: string; details?: { availableInTicket?: string } };
+    }).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
+    expect(cause?.details?.availableInTicket).toBe('ENG-036b');
   });
 });
 

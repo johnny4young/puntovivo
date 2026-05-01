@@ -17,6 +17,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 
+// Mock countryCode mutable para que cada test pueda flippar el
+// dispatch del tab Fiscal entre MX / CL / CO sin re-mocks.
+let mockCountryCode: 'MX' | 'CL' | 'CO' = 'CO';
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     companies: {
@@ -32,6 +36,15 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({
           mutateAsync: vi.fn(),
           isPending: false,
+          error: null,
+        }),
+      },
+    },
+    tenantLocale: {
+      get: {
+        useQuery: () => ({
+          data: { countryCode: mockCountryCode },
+          isLoading: false,
           error: null,
         }),
       },
@@ -63,7 +76,10 @@ vi.mock('../CompanyAISettingsCard', () => ({
   CompanyAISettingsCard: () => <div data-testid="card-ai">AI</div>,
 }));
 vi.mock('../CompanyMxFiscalCard', () => ({
-  CompanyMxFiscalCard: () => <div data-testid="card-fiscal">Fiscal</div>,
+  CompanyMxFiscalCard: () => <div data-testid="card-fiscal-mx">Fiscal MX</div>,
+}));
+vi.mock('../CompanyClFiscalCard', () => ({
+  CompanyClFiscalCard: () => <div data-testid="card-fiscal-cl">Fiscal CL</div>,
 }));
 vi.mock('../CompanyBackupCard', () => ({
   CompanyBackupCard: () => <div data-testid="card-backup">Backup</div>,
@@ -113,7 +129,8 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-sync')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-theme')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('card-fiscal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {
@@ -160,15 +177,40 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
   });
 
-  it('renders the Fiscal tab with only the fiscal card', async () => {
+  it('renders the Fiscal tab with the MX card when tenant countryCode is MX', async () => {
+    mockCountryCode = 'MX';
     const user = userEvent.setup();
     render(<CompanyPage />);
 
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
-    expect(screen.getByTestId('card-fiscal')).toBeInTheDocument();
+    expect(screen.getByTestId('card-fiscal-mx')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the Fiscal tab with the CL card when tenant countryCode is CL', async () => {
+    mockCountryCode = 'CL';
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-fiscal'));
+
+    expect(screen.getByTestId('card-fiscal-cl')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
+  });
+
+  it('renders the CO placeholder under the Fiscal tab when tenant countryCode is CO', async () => {
+    mockCountryCode = 'CO';
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-fiscal'));
+
+    // Ni MX ni CL renderizan; el placeholder de CO sí.
+    expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
+    expect(screen.getByText(/Colombia — DIAN/i)).toBeInTheDocument();
   });
 });
 

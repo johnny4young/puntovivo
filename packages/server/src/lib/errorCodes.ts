@@ -205,8 +205,23 @@ export const SERVER_ERROR_CODES = {
    * SAT (`services/fiscal/packs/mx/catalogs/regimenFiscal.ts`). El
    * catálogo ship con 23 regímenes curados; el operador eligió un
    * código fuera de esa lista. Tirado por `fiscal.settings.updateMx`.
+   *
+   * En ENG-036a se reusa también para giros CL fuera del catálogo
+   * CIIU.cl curado — el code semánticamente cubre "el catálogo
+   * rechazó el código de actividad económica del emisor" en cualquier
+   * país. Si granularidad por país es necesaria, separar a
+   * FISCAL_GIRO_INVALID en una iteración futura (BACKLOG).
    */
   FISCAL_REGIMEN_INVALID: 'FISCAL_REGIMEN_INVALID',
+
+  // --- ENG-036a pack Chile fundación ---
+  /**
+   * El RUT capturado en los ajustes fiscales de Chile no pasa la
+   * validación SII (formato, dígito verificador o estructura del
+   * cuerpo numérico). Tirado por `fiscal.settings.updateCl` cuando
+   * el operador intenta persistir un RUT malformado.
+   */
+  FISCAL_RUT_INVALID: 'FISCAL_RUT_INVALID',
 
   // --- ENG-042 sync resolve TOCTOU close-out ---
   /**

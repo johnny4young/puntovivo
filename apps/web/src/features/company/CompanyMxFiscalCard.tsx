@@ -135,49 +135,13 @@ export function CompanyMxFiscalCard() {
     });
   };
 
-  // Placeholders cuando el tenant no es MX. CO + CL tendrán sus
-  // propias cards (ENG-035c, ENG-036); por ahora apuntamos al
-  // ticket correspondiente.
-  if (tenantCountry === 'CO') {
-    return (
-      <div className="card p-6 space-y-3">
-        <div className="flex items-center gap-3">
-          <FileSignature className="h-5 w-5 text-secondary-500" />
-          <h2 className="text-lg font-semibold text-secondary-950">
-            {t('fiscal:settings.co.title')}
-          </h2>
-        </div>
-        <p className="text-sm text-secondary-600">
-          {t('fiscal:settings.co.comingSoon')}
-        </p>
-      </div>
-    );
-  }
-
-  if (tenantCountry === 'CL') {
-    return (
-      <div className="card p-6 space-y-3">
-        <div className="flex items-center gap-3">
-          <FileSignature className="h-5 w-5 text-secondary-500" />
-          <h2 className="text-lg font-semibold text-secondary-950">
-            {t('fiscal:settings.cl.title')}
-          </h2>
-        </div>
-        <p className="text-sm text-secondary-600">
-          {t('fiscal:settings.cl.comingSoon')}
-        </p>
-      </div>
-    );
-  }
-
+  // Defensive: ENG-035a renderizaba placeholders para CO/CL aquí.
+  // ENG-036a movió ese dispatch a CompanyPage, así que la card MX
+  // ahora asume que se renderiza únicamente cuando tenantCountry
+  // === 'MX'. Esta guarda existe por si alguien reutiliza el
+  // componente fuera del tab Fiscal de CompanyPage.
   if (tenantCountry !== 'MX') {
-    return (
-      <div className="card p-6 space-y-3">
-        <p className="text-sm text-secondary-600">
-          {t('fiscal:settings.tabDescription')}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   // Render principal: tenant MX. Form + readiness badge.
