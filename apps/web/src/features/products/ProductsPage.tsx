@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
+import { Pencil, Plus, RefreshCw, Search, Sparkles, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
+import { cn } from '@/lib/utils';
 import {
   ProductFormModal,
   type LookupOption,
@@ -28,12 +29,20 @@ function canManageProducts(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
 
+// ENG-048 — when ProductsPage runs in semantic-search mode the rows
+// carry an extra optional `similarity` score. Using the loose row type
+// here keeps the literal-mode columns identical and lets the optional
+// "Match" column read the score from the semantic-mode rows without
+// changing the public `Product` type for unrelated callers.
+type DisplayProduct = Product & { similarity?: number };
+
 const columns = (
   onEdit: (product: Product) => void,
   onDelete: (product: Product) => void,
   canEdit: boolean,
-  canDelete: boolean
-): ColumnDef<Product>[] => [
+  canDelete: boolean,
+  showSimilarity: boolean
+): ColumnDef<DisplayProduct>[] => [
   {
     accessorKey: 'name',
     header: () => i18next.t('products:table.product'),
@@ -110,6 +119,23 @@ const columns = (
       </span>
     ),
   },
+  ...(showSimilarity
+    ? [
+        {
+          id: 'similarity',
+          header: () => i18next.t('products:table.match'),
+          size: 90,
+          cell: ({ row }: { row: { original: DisplayProduct } }) => {
+            const sim = row.original.similarity;
+            if (typeof sim !== 'number') return <span className="text-secondary-400">-</span>;
+            const pct = Math.round(sim * 100);
+            return (
+              <span className="badge badge-primary">{`${pct}%`}</span>
+            );
+          },
+        } satisfies ColumnDef<DisplayProduct>,
+      ]
+    : []),
   {
     id: 'actions',
     size: 100,
@@ -140,7 +166,68 @@ export function ProductsPage() {
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
-  const productsQuery = trpc.products.list.useQuery({ page: 1, perPage: 50 });
+  const canManage = canManageProducts(user?.role);
+  const canDelete = user?.role === 'admin';
+  const canRegenerate = user?.role === 'admin';
+  const canUseSemantic = canManage;
+
+  // ENG-048 — semantic search UI surface. The toggle flips between the
+  // existing client-side text filter (DataTable's internal globalFilter
+  // on the "name" column) and the server-side cosine-similarity ranking
+  // exposed by `products.semanticSearch`. We debounce by 300ms so each
+  // keystroke does not trigger a network roundtrip + OpenAI embed call.
+  // The mutation `regenerateEmbeddings` is admin-only and is the way to
+  // bring a freshly seeded catalog (or one whose products have been
+  // edited heavily) up to date — the UI surfaces "X embedded" toast on
+  // success and a translated warning when AI is disabled / unconfigured.
+  const [semanticEnabled, setSemanticEnabled] = useState(false);
+  const [semanticQuery, setSemanticQuery] = useState('');
+  const [debouncedSemanticQuery, setDebouncedSemanticQuery] = useState('');
+  const semanticModeEnabled = canUseSemantic && semanticEnabled;
+  const literalFallbackSearch =
+    semanticModeEnabled && debouncedSemanticQuery.length > 0 ? debouncedSemanticQuery : undefined;
+  const productsQuery = trpc.products.list.useQuery({
+    page: 1,
+    perPage: 50,
+    search: literalFallbackSearch,
+  });
+
+  useEffect(() => {
+    if (!semanticModeEnabled) {
+      // Only schedule the reset if there is something to clear, so the
+      // effect does not trigger an extra render on every disable cycle.
+      if (debouncedSemanticQuery !== '') {
+        const clearHandle = window.setTimeout(() => setDebouncedSemanticQuery(''), 0);
+        return () => window.clearTimeout(clearHandle);
+      }
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      setDebouncedSemanticQuery(semanticQuery.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [semanticModeEnabled, semanticQuery, debouncedSemanticQuery]);
+
+  const semanticSearchQuery = trpc.products.semanticSearch.useQuery(
+    { query: debouncedSemanticQuery, limit: 25 },
+    { enabled: semanticModeEnabled && debouncedSemanticQuery.length > 0 }
+  );
+
+  const regenerateMutation = trpc.products.regenerateEmbeddings.useMutation({
+    onSuccess: async data => {
+      if (!data.ok) {
+        toast.warning({ title: t('semantic.regenerateUnavailable') });
+        return;
+      }
+      toast.success({
+        title: t('semantic.regenerated', { count: data.embedded }),
+      });
+      // Refresh the cached semantic query so newly embedded items rank
+      // immediately, otherwise the user has to retype to retrigger.
+      await utils.products.semanticSearch.invalidate();
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
+  });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
   const locationsQuery = trpc.locations.list.useQuery({ page: 1, perPage: 200 });
@@ -181,14 +268,42 @@ export function ProductsPage() {
     onError: onErrorToast(toast, t, { titleKey: 'products:toast.deactivateError' }),
   });
 
-  const canManage = canManageProducts(user?.role);
-  const canDelete = user?.role === 'admin';
   const products: Product[] = (productsQuery.data?.items ?? []).map(product => ({
     ...product,
     isActive: product.isActive ?? false,
     syncStatus: product.syncStatus ?? undefined,
     syncVersion: product.syncVersion ?? undefined,
   }));
+
+  // ENG-048 — when semantic mode is active and the server returned
+  // results, replace the rendered rows; the rest of the UI keeps
+  // working unchanged because the row shape matches the standard list
+  // selection plus an extra optional `similarity` field.
+  const semanticUnavailable =
+    semanticModeEnabled && semanticSearchQuery.data?.mode === 'unavailable';
+  const semanticIsActive =
+    semanticModeEnabled &&
+    debouncedSemanticQuery.length > 0 &&
+    semanticSearchQuery.data?.mode === 'semantic';
+  const semanticResults: Array<Product & { similarity?: number }> = useMemo(() => {
+    if (!semanticIsActive) return [];
+    const items = semanticSearchQuery.data?.mode === 'semantic'
+      ? semanticSearchQuery.data.results
+      : [];
+    return items.map(item => {
+      const normalized = {
+        ...item,
+        isActive: item.isActive ?? false,
+        syncStatus: item.syncStatus ?? undefined,
+        syncVersion: item.syncVersion ?? undefined,
+      } as Product;
+      return { ...normalized, similarity: item.similarity };
+    });
+  }, [semanticIsActive, semanticSearchQuery.data]);
+
+  const displayProducts: Array<Product & { similarity?: number }> = semanticIsActive
+    ? semanticResults
+    : products;
   const categories: LookupOption[] = (categoriesQuery.data?.items ?? []).map(category => ({
     id: category.id,
     name: category.name,
@@ -345,6 +460,79 @@ export function ProductsPage() {
               filename="products"
               title={t('page.kicker')}
             />
+
+            {canUseSemantic && (
+              <>
+                {/* ENG-048 — semantic toolbar: toggle, dedicated input, regen button */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={semanticEnabled}
+                    aria-label={t('semantic.toggleLabel')}
+                    title={t('semantic.toggleHint')}
+                    onClick={() => setSemanticEnabled(current => !current)}
+                    className={cn(
+                      'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                      semanticEnabled
+                        ? 'border-primary-200 bg-primary-50 text-primary-700'
+                        : 'border-line bg-card text-secondary-600 hover:bg-secondary-50'
+                    )}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t('semantic.toggleLabel')}
+                  </button>
+
+                  {semanticModeEnabled && (
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
+                      <input
+                        type="text"
+                        className="input pl-10"
+                        placeholder={t('table.searchSemantic')}
+                        value={semanticQuery}
+                        onChange={event => setSemanticQuery(event.target.value)}
+                        aria-label={t('table.searchSemantic')}
+                      />
+                    </div>
+                  )}
+
+                  {canRegenerate && (
+                    <button
+                      type="button"
+                      onClick={() => regenerateMutation.mutate()}
+                      disabled={regenerateMutation.isPending}
+                      className="btn-outline flex items-center gap-2"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          'h-4 w-4',
+                          regenerateMutation.isPending && 'animate-spin'
+                        )}
+                      />
+                      {regenerateMutation.isPending
+                        ? t('semantic.regenerating')
+                        : t('semantic.regenerate')}
+                    </button>
+                  )}
+                </div>
+
+                {semanticModeEnabled && (
+                  <p className="text-xs text-secondary-500">
+                    {semanticUnavailable
+                      ? t('semantic.unavailable')
+                      : semanticIsActive
+                        ? t('semantic.modeBadge')
+                        : t('semantic.toggleHint')}
+                  </p>
+                )}
+
+                {semanticModeEnabled && semanticSearchQuery.isFetching && (
+                  <p className="text-xs text-secondary-500">{t('semantic.searching')}</p>
+                )}
+              </>
+            )}
+
             <DataTable
               columns={columns(
                 product => {
@@ -354,13 +542,18 @@ export function ProductsPage() {
                 },
                 product => setProductToDelete(product),
                 canManage,
-                canDelete
+                canDelete,
+                semanticIsActive
               )}
-              data={products}
-              searchKey="name"
+              data={displayProducts}
+              searchKey={semanticModeEnabled ? undefined : 'name'}
               searchPlaceholder={t('table.search')}
               pageSize={10}
             />
+
+            {semanticIsActive && displayProducts.length === 0 && !semanticSearchQuery.isFetching && (
+              <p className="text-sm text-secondary-500">{t('semantic.noResults')}</p>
+            )}
           </div>
         )}
       </div>

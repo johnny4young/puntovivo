@@ -101,6 +101,31 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Quotation')).toBeInTheDocument();
   });
 
+  it('renders AI anomaly audit rows with translated action and metric summary', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'ai.anomaly.detected',
+            resourceType: 'user',
+            resourceId: 'cashier-1',
+            metadata: {
+              kind: 'refundAmount',
+              severity: 'high',
+              distance: 4.75,
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('AI anomaly detected')).toBeInTheDocument();
+    expect(screen.getByText('refundAmount · high · distance 4.75')).toBeInTheDocument();
+  });
+
   it('localizes quotation status transitions when the language changes', async () => {
     await i18next.changeLanguage('es');
 

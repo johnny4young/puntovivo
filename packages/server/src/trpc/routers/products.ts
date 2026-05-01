@@ -42,7 +42,13 @@ import {
 } from '../schemas/products.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
+import {
+  regenerateProductEmbeddings,
+  semanticSearchProducts,
+  suggestProductCategory,
+} from '../../services/ai/embeddings.js';
 import type { CreateProductInput, UpdateProductInput } from '../schemas/products.js';
+import { z } from 'zod';
 
 const productSelection = {
   id: products.id,
@@ -957,4 +963,92 @@ export const productsRouter = router({
       }),
     };
   }),
+
+  // ==========================================================================
+  // ENG-033 — semantic search + auto-categorize procedures
+  // --------------------------------------------------------------------------
+  // Semantic search runs cosine similarity over embedded product names
+  // and falls back to LIKE when AI is disabled or the tenant has no
+  // embeddings yet. Regenerate is admin-only and re-embeds the entire
+  // catalog (used after an embedding model upgrade or bulk import).
+  // SuggestCategory is invoked at product create time to pre-fill the
+  // category picker; the model is constrained to existing category ids
+  // via Zod enum so it cannot hallucinate a new category.
+  // ==========================================================================
+
+  semanticSearch: managerOrAdminProcedure
+    .input(
+      z.object({
+        query: z.string().trim().min(1).max(200),
+        limit: z.number().int().min(1).max(50).default(25),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const ranked = await semanticSearchProducts(
+        ctx.db,
+        ctx.tenantId,
+        input.query,
+        input.limit
+      );
+      // ranked === null → AI disabled or provider can't embed.
+      // The frontend should fall back to the regular list endpoint
+      // with `search=...` (LIKE-based) in that case.
+      if (ranked === null) {
+        return { mode: 'unavailable' as const, results: [] };
+      }
+      // Hydrate full product rows for the ranked ids in one shot.
+      if (ranked.length === 0) {
+        return { mode: 'semantic' as const, results: [] };
+      }
+      const ids = ranked.map(r => r.productId);
+      const rows = await ctx.db
+        .select(productSelection)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .leftJoin(providers, eq(products.providerId, providers.id))
+        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, ids)))
+        .all();
+      const byId = new Map(rows.map(r => [r.id, r]));
+      const ordered = ranked
+        .map(r => {
+          const row = byId.get(r.productId);
+          if (!row) return null;
+          return { ...row, similarity: r.similarity };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      return { mode: 'semantic' as const, results: ordered };
+    }),
+
+  regenerateEmbeddings: adminProcedure.mutation(async ({ ctx }) => {
+    const result = await regenerateProductEmbeddings(ctx.db, ctx.tenantId);
+    if (result === null) {
+      return { ok: false as const, reason: 'ai-disabled-or-empty' as const, embedded: 0 };
+    }
+    return { ok: true as const, embedded: result.embedded, model: result.model };
+  }),
+
+  suggestCategory: managerOrAdminProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(2000).optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const candidates = await ctx.db
+        .select({ id: categories.id, name: categories.name })
+        .from(categories)
+        .where(eq(categories.tenantId, ctx.tenantId))
+        .all();
+      const suggestion = await suggestProductCategory(
+        ctx.db,
+        ctx.tenantId,
+        { name: input.name, description: input.description ?? null },
+        candidates
+      );
+      if (!suggestion) return { ok: false as const, suggestion: null };
+      return { ok: true as const, suggestion };
+    }),
 });

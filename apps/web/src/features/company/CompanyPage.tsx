@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Building2 as Building, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +11,7 @@ import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
+import { cn } from '@/lib/utils';
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
@@ -175,6 +178,19 @@ function canManageCompany(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
 
+/**
+ * Tab keys are stable English identifiers stored in the URL via
+ * `?tab=...`. The visible label comes from the i18n namespace
+ * (`settings:company.tabs.<key>`). Adding a new tab: append to this
+ * tuple and add the matching localized label in en + es.
+ */
+const TAB_KEYS = ['general', 'locale', 'data', 'device', 'ai'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+
+function isTabKey(value: string | null): value is TabKey {
+  return value !== null && (TAB_KEYS as readonly string[]).includes(value);
+}
+
 export function CompanyPage() {
   const { t } = useTranslation('settings');
   const { user } = useAuth();
@@ -183,6 +199,15 @@ export function CompanyPage() {
   const companyQuery = trpc.companies.getCurrent.useQuery();
   const company = companyQuery.data ?? null;
   const canEdit = canManageCompany(user?.role);
+
+  // ENG-045 — tab state. URL-driven so deep links from elsewhere in
+  // the app (e.g. AnomalyDetectionCard's "Activa la IA en
+  // Configuración" CTA → /company?tab=ai) land directly on the
+  // intended panel without manual navigation. `replace: true` on
+  // setSearchParams keeps the back button non-noisy.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'general';
 
   const upsertMutation = trpc.companies.upsert.useMutation({
     onSuccess: async company => {
@@ -206,13 +231,32 @@ export function CompanyPage() {
     });
   };
 
+  function handleTabChange(next: TabKey): void {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === 'general') {
+      nextParams.delete('tab'); // keep the URL clean for the default
+    } else {
+      nextParams.set('tab', next);
+    }
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  const tabLabels: Record<TabKey, string> = useMemo(
+    () => ({
+      general: t('company.tabs.general'),
+      locale: t('company.tabs.locale'),
+      data: t('company.tabs.data'),
+      device: t('company.tabs.device'),
+      ai: t('company.tabs.ai'),
+    }),
+    [t]
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-secondary-900">{t('company.title')}</h1>
-        <p className="mt-1 text-sm text-secondary-500">
-          {t('company.description')}
-        </p>
+        <p className="mt-1 text-sm text-secondary-500">{t('company.description')}</p>
       </div>
 
       {companyQuery.isLoading && (
@@ -230,34 +274,121 @@ export function CompanyPage() {
           }}
         />
       )}
-      {!companyQuery.isLoading && !companyQuery.error && (
-        <div className="card p-6">
-          <CompanyForm
-            key={company?.id ?? 'new-company'}
-            company={company}
-            canEdit={canEdit}
-            isSaving={upsertMutation.isPending}
-            error={upsertMutation.error ? translateServerError(upsertMutation.error, t, t('errors:server.unknown')) : null}
-            onSubmit={onSubmit}
-          />
-        </div>
-      )}
 
       {!companyQuery.isLoading && !companyQuery.error && (
-        <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
-      )}
+        <>
+          {/* Non-admin users see only the company form + logos. The
+              tab UI is admin-only because every other tab carries
+              admin-only configuration cards. */}
+          {!canEdit && (
+            <div className="space-y-6">
+              <div className="card p-6">
+                <CompanyForm
+                  key={company?.id ?? 'new-company'}
+                  company={company}
+                  canEdit={canEdit}
+                  isSaving={upsertMutation.isPending}
+                  error={
+                    upsertMutation.error
+                      ? translateServerError(upsertMutation.error, t, t('errors:server.unknown'))
+                      : null
+                  }
+                  onSubmit={onSubmit}
+                />
+              </div>
+              <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
+            </div>
+          )}
 
-      {canEdit && (
-        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-          <CompanyLocaleSettingsCard />
-          <CompanyAISettingsCard />
-          <CompanySyncCard />
-          <CompanyAutoUpdateCard />
-          <CompanyThemeSettingsCard />
-          <CompanyTraySettingsCard />
-          <CompanyPrintSettingsCard />
-          <CompanyBackupCard />
-        </div>
+          {canEdit && (
+            <>
+              <nav
+                className="segmented-control"
+                role="tablist"
+                aria-label={t('company.tabs.ariaLabel')}
+              >
+                {TAB_KEYS.map(key => {
+                  const selected = activeTab === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      aria-controls={`company-tabpanel-${key}`}
+                      id={`company-tab-${key}`}
+                      tabIndex={selected ? 0 : -1}
+                      className={cn('segmented-tab', selected && 'segmented-tab-active')}
+                      onClick={() => handleTabChange(key)}
+                      data-testid={`company-tab-${key}`}
+                    >
+                      {tabLabels[key]}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <div
+                role="tabpanel"
+                id={`company-tabpanel-${activeTab}`}
+                aria-labelledby={`company-tab-${activeTab}`}
+                data-testid={`company-tabpanel-${activeTab}`}
+              >
+                {activeTab === 'general' && (
+                  <div className="space-y-6">
+                    <div className="card p-6">
+                      <CompanyForm
+                        key={company?.id ?? 'new-company'}
+                        company={company}
+                        canEdit={canEdit}
+                        isSaving={upsertMutation.isPending}
+                        error={
+                          upsertMutation.error
+                            ? translateServerError(
+                                upsertMutation.error,
+                                t,
+                                t('errors:server.unknown')
+                              )
+                            : null
+                        }
+                        onSubmit={onSubmit}
+                      />
+                    </div>
+                    <CompanyLogoLibraryCard company={company} canEdit={canEdit} />
+                  </div>
+                )}
+
+                {activeTab === 'locale' && (
+                  <div className="space-y-6">
+                    <CompanyLocaleSettingsCard />
+                  </div>
+                )}
+
+                {activeTab === 'data' && (
+                  <div className="space-y-6">
+                    <CompanySyncCard />
+                    <CompanyBackupCard />
+                  </div>
+                )}
+
+                {activeTab === 'device' && (
+                  <div className="grid gap-6 xl:grid-cols-2">
+                    <CompanyThemeSettingsCard />
+                    <CompanyTraySettingsCard />
+                    <CompanyPrintSettingsCard />
+                    <CompanyAutoUpdateCard />
+                  </div>
+                )}
+
+                {activeTab === 'ai' && (
+                  <div className="space-y-6">
+                    <CompanyAISettingsCard />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );

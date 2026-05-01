@@ -65,6 +65,7 @@ export interface AIProvider {
   /**
    * Optional. Only OpenAI returns a model in Phase 1 (Anthropic does
    * not embed; Ollama's embedding support is parked for ENG-040).
+   * ENG-033 activated this for OpenAI.
    */
   embeddingModel?(modelId: string): EmbeddingModelV3;
 

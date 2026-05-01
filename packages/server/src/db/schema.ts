@@ -86,6 +86,9 @@ export const auditLogActionEnum = [
   // parity with void/return/park — any state-change on an existing sale
   // leaves a row in the log.
   'sale.complete',
+  // ENG-047 — local anomaly detector persistence. Emitted when the
+  // dashboard detector surfaces a new non-snoozed alert.
+  'ai.anomaly.detected',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -767,6 +770,13 @@ export const products = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
+    // ENG-033 — semantic search support. The vector is JSON-encoded
+    // float array (`[0.123, -0.456, ...]`); ~6KB for 1536 dims with
+    // text-embedding-3-small. Null until embedded; null also means the
+    // tenant has AI disabled and we should fall back to LIKE search.
+    embedding: text('embedding'),
+    embeddingModel: text('embedding_model'),
+    embeddedAt: text('embedded_at'),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
@@ -2944,6 +2954,68 @@ export const aiAuditLogRelations = relations(aiAuditLog, ({ one }) => ({
 
 export type AIAuditLogRow = typeof aiAuditLog.$inferSelect;
 export type NewAIAuditLogRow = typeof aiAuditLog.$inferInsert;
+
+// ============================================================================
+// AI ANOMALY SNOOZES (ENG-047)
+// ============================================================================
+
+/**
+ * Snoozes an alert from `ai.anomalies.list` until `snoozedUntil`. Keyed
+ * by (tenant, kind, cashierId, evidenceRef) — a $5000 refund silenced
+ * today does not also silence a different high-ticket refund next week
+ * because their `evidenceRef` (the saleId) differs.
+ *
+ * `evidenceRef` is nullable because aggregate detectors (`voidRate`,
+ * `noSaleSessions`) flag a cashier rather than a specific event; their
+ * snooze rows carry `evidence_ref = NULL` and apply across all alerts of
+ * that kind for that cashier.
+ */
+export const aiAnomalySnoozes = sqliteTable(
+  'ai_anomaly_snoozes',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    kind: text('kind').notNull(),
+    cashierId: text('cashier_id').references(() => users.id),
+    evidenceRef: text('evidence_ref'),
+    snoozedUntil: text('snoozed_until').notNull(),
+    snoozedBy: text('snoozed_by')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason'),
+    createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_ai_anomaly_snoozes_tenant_until').on(table.tenantId, table.snoozedUntil),
+    index('idx_ai_anomaly_snoozes_lookup').on(
+      table.tenantId,
+      table.kind,
+      table.cashierId,
+      table.evidenceRef,
+      table.snoozedUntil
+    ),
+  ]
+);
+
+export const aiAnomalySnoozesRelations = relations(aiAnomalySnoozes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [aiAnomalySnoozes.tenantId],
+    references: [tenants.id],
+  }),
+  cashier: one(users, {
+    fields: [aiAnomalySnoozes.cashierId],
+    references: [users.id],
+  }),
+  snoozedByUser: one(users, {
+    fields: [aiAnomalySnoozes.snoozedBy],
+    references: [users.id],
+  }),
+}));
+
+export type AIAnomalySnoozeRow = typeof aiAnomalySnoozes.$inferSelect;
+export type NewAIAnomalySnoozeRow = typeof aiAnomalySnoozes.$inferInsert;
 
 // ============================================================================
 // TYPE EXPORTS

@@ -44,6 +44,11 @@
     },
     "cashierUnknown": "Cajero desconocido",
     "noResults": "Ninguna anomalía coincide con este filtro.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "snoozeAction": "Silenciar 7 días",
+    "snoozing": "Silenciando…",
+    "snoozeSuccessTitle": "Anomalía silenciada",
+    "snoozeSuccessDescription": "Oculta hasta {{until}}",
+    "snoozeErrorTitle": "No se pudo silenciar la anomalía"
   }
 }

@@ -20,6 +20,8 @@
  * @module trpc/routers/ai
  */
 import { TRPCError } from '@trpc/server';
+import { and, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
@@ -41,10 +43,12 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import {
   aiBreakdownInput,
   anomalyListInput,
+  anomalySnoozeInput,
   copilotChatInput,
   aiUsageInput,
   updateAISettingsInput,
 } from '../schemas/ai.js';
+import { aiAnomalySnoozes, users } from '../../db/schema.js';
 
 const settingsRouter = router({
   get: adminProcedure.query(async ({ ctx }) => {
@@ -163,6 +167,52 @@ const anomaliesRouter = router({
       });
 
       return { ...result, enabled: true, computedAt };
+    }),
+
+  /**
+   * ENG-047 — silence an anomaly for a chosen window. The dashboard
+   * tile + modal call this when the manager has investigated and
+   * confirmed an alert is legitimate. Future runs of the detector
+   * filter alerts whose `(kind, cashierId, evidenceRef)` matches an
+   * unexpired row in `ai_anomaly_snoozes`.
+   */
+  snooze: managerOrAdminProcedure
+    .input(anomalySnoozeInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Snoozing an anomaly requires an authenticated manager',
+        });
+      }
+      const now = new Date();
+      const snoozedUntil = new Date(now.getTime() + input.durationDays * 24 * 60 * 60 * 1000);
+      if (input.cashierId !== null) {
+        const cashier = await ctx.db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.id, input.cashierId), eq(users.tenantId, ctx.tenantId)))
+          .get();
+        if (!cashier) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot snooze an anomaly for a cashier outside the active tenant',
+          });
+        }
+      }
+      await ctx.db.insert(aiAnomalySnoozes).values({
+        id: nanoid(),
+        tenantId: ctx.tenantId,
+        kind: input.kind,
+        cashierId: input.cashierId,
+        evidenceRef: input.evidenceRef ?? null,
+        snoozedUntil: snoozedUntil.toISOString(),
+        snoozedBy: userId,
+        reason: input.reason ?? null,
+        createdAt: now.toISOString(),
+      });
+      return { ok: true as const, snoozedUntil: snoozedUntil.toISOString() };
     }),
 });
 

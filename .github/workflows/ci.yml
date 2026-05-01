@@ -70,25 +70,32 @@ jobs:
           if-no-files-found: warn
 
   # ============================================================================
-  # Desktop Workspace Validation (ENG-005 — multi-OS matrix)
+  # Desktop Workspace Validation (ENG-046 — ubuntu-only on push/PR)
   # ----------------------------------------------------------------------------
   # The desktop workspace hosts Electron-specific code (forge config, preload,
-  # main process). Native modules like better-sqlite3 and argon2 compile
-  # differently per platform, so a change that works on Linux can still break
-  # on macOS or Windows. This job runs ci:desktop (typecheck + lint + the
-  # node --test window-config regression) on all three runners so cross-
-  # platform regressions fail CI before they reach release.yml. Packaging
-  # (electron-forge make) still lives in release.yml because it requires
-  # signing material. No fail-fast so one OS's breakage does not mask the
-  # others.
+  # main process). The ubuntu-latest run gates the `ci:desktop` script
+  # (typecheck + lint + node --test window-config regression) on every push
+  # and PR — that catches main↔renderer boundary regressions, missing
+  # preload exports, and TypeScript breakage in the Electron sources without
+  # paying for cross-OS minutes.
+  #
+  # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
+  # actually packaging via electron-forge make) lives in the manual
+  # `.github/workflows/build-desktop.yml` workflow, triggered by an
+  # operator via `workflow_dispatch` with per-OS toggles. macOS minutes
+  # bill at 10x against the free tier, so running the matrix on every
+  # push burns the quota fast for marginal incremental signal — most
+  # bugs caught by the macOS/Windows runners are native-binding ABI
+  # mismatches that only show up when packaging, which release.yml
+  # already covers on tag.
+  #
+  # If you are about to ship a change that touches preload IPC,
+  # native modules (better-sqlite3, argon2), or platform-specific
+  # paths, run `build-desktop.yml` manually before merging.
   # ============================================================================
   desktop:
-    name: Desktop Workspace (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: Desktop Workspace
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository

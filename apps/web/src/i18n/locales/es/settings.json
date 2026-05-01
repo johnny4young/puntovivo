@@ -243,6 +243,14 @@
       "themeSettings": "Configuración de tema",
       "traySettings": "Configuración de bandeja"
     },
+    "tabs": {
+      "ariaLabel": "Secciones de configuración de empresa",
+      "general": "General",
+      "locale": "Localización",
+      "data": "Datos",
+      "device": "Dispositivo",
+      "ai": "IA"
+    },
     "submitting": "Guardando...",
     "save": "Guardar empresa",
     "toast": {

@@ -513,7 +513,9 @@ export type AuditLogAction =
   // ENG-019 — receipt reprint.
   | 'sale.reprint'
   // ENG-018c — draft completion (state change on an existing draft).
-  | 'sale.complete';
+  | 'sale.complete'
+  // ENG-047 — local anomaly detector audit persistence.
+  | 'ai.anomaly.detected';
 
 export type AuditLogResourceType =
   | 'transfer_order'

@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import {
   adminOnlyRoles,
@@ -125,13 +126,16 @@ function NavigationLink({
   item,
   collapsed,
   onNavigate,
+  badgeCount,
 }: {
   item: NavigationItem;
   collapsed: boolean;
   onNavigate: () => void;
+  badgeCount?: number;
 }) {
   const { t } = useTranslation('nav');
   const name = t(item.nameKey);
+  const showBadge = (badgeCount ?? 0) > 0;
   return (
     <NavLink
       to={item.href}
@@ -147,8 +151,30 @@ function NavigationLink({
         )
       }
     >
-      <item.icon className="h-5 w-5 shrink-0" />
-      {!collapsed && <span className="truncate">{name}</span>}
+      <span className="relative inline-flex items-center justify-center">
+        <item.icon className="h-5 w-5 shrink-0" />
+        {showBadge && (
+          <span
+            className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-danger-700 px-1 text-[0.65rem] font-semibold leading-none text-white"
+            aria-hidden="true"
+          >
+            {badgeCount! > 9 ? '9+' : badgeCount}
+          </span>
+        )}
+      </span>
+      {!collapsed && (
+        <span className="flex-1 truncate">
+          {name}
+          {showBadge && (
+            <span className="sr-only">
+              {' '}
+              ({badgeCount}
+              {' '}
+              {t('badges.unreadAlertsSr', { defaultValue: 'unread alerts' })})
+            </span>
+          )}
+        </span>
+      )}
     </NavLink>
   );
 }
@@ -163,6 +189,27 @@ function SidebarSections({
   role: UserRole | undefined;
 }) {
   const { t } = useTranslation('nav');
+  // ENG-047 — sidebar badge for high-severity anomalies on the
+  // Dashboard nav item. Only manager+ can call ai.anomalies.list (it
+  // is gated by managerOrAdminProcedure server-side); we additionally
+  // gate client-side so cashiers/viewers do not even attempt the
+  // query. The endpoint short-circuits to enabled=false + zero counts
+  // when ai.enabled is off, so an unconfigured tenant pays only one
+  // cheap settings read.
+  const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(role ?? '');
+  const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
+    {},
+    {
+      enabled: isManagerOrAdmin,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: true,
+    }
+  );
+  // Show the count on the Dashboard tile. We only surface high-severity
+  // alerts as the badge — medium ones still appear inside the dashboard
+  // tile but are quiet enough not to chase the operator across screens.
+  const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
+
   return (
     <div className="space-y-5">
       {navigationSections.map(section => {
@@ -186,6 +233,7 @@ function SidebarSections({
                   item={item}
                   collapsed={collapsed}
                   onNavigate={onNavigate}
+                  badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
                 />
               ))}
             </div>

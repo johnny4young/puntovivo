@@ -59,3 +59,16 @@ export const anomalyListInput = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
+
+/**
+ * ENG-047 — input para `ai.anomalies.snooze`. La clave del snooze es
+ * `(kind, cashierId, evidenceRef?)`; un manager elige por cuántos días
+ * silenciar el patrón (1-90).
+ */
+export const anomalySnoozeInput = z.object({
+  kind: z.enum(['ticketsPerHourSpike', 'voidRate', 'refundAmount', 'noSaleSessions']),
+  cashierId: z.string().min(1).nullable(),
+  evidenceRef: z.string().min(1).nullable().optional(),
+  durationDays: z.number().int().min(1).max(90),
+  reason: z.string().trim().min(1).max(500).optional(),
+});

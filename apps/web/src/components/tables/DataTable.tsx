@@ -181,125 +181,121 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
-        <table className="data-table">
-          <thead>
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <th
-                    key={header.id}
-                    style={{ width: header.getSize() }}
-                    className={cn(header.column.getCanSort() && 'cursor-pointer select-none')}
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div className="data-table-column-header">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <span className="ml-2">
-                            {{
-                              asc: <ChevronUp className="h-4 w-4" />,
-                              desc: <ChevronDown className="h-4 w-4" />,
-                            }[header.column.getIsSorted() as string] ?? (
-                              <ChevronsUpDown className="h-4 w-4 text-secondary-400" />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {visibleRows.length ? (
-              visibleRows.map((row, rowIndex) => {
-                // Surface the domain id on the <tr> when the row data carries
-                // one. This is cheap (read-only attribute, no React tree
-                // change) and unblocks E2E tests that need to pick a specific
-                // row deterministically — especially under parallelism where
-                // position-based selectors (.first()) race against each other.
-                const domainId = (row.original as { id?: unknown } | null | undefined)?.id;
-                return (
-                <tr
-                  key={row.id}
-                  ref={element => {
-                    rowRefs.current[rowIndex] = element;
-                  }}
-                  data-state={row.getIsSelected() && 'selected'}
-                  data-row-id={typeof domainId === 'string' ? domainId : undefined}
-                  data-app-selected={
-                    isRowSelected && isRowSelected(row.original)
-                      ? 'true'
-                      : undefined
-                  }
-                  tabIndex={rowIndex === resolvedFocusedRowIndex ? 0 : -1}
-                  aria-selected={
-                    isRowSelected
-                      ? isRowSelected(row.original)
-                      : enableRowSelection
-                        ? row.getIsSelected()
-                        : undefined
-                  }
-                  className={cn(
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset',
-                    isRowSelected &&
-                      isRowSelected(row.original) &&
-                      'bg-primary-50/70'
-                  )}
-                  onFocus={() => {
-                    setFocusedRowIndex(rowIndex);
-                    if (onRowFocusChange) {
-                      onRowFocusChange(row.original);
-                    }
-                  }}
-                  onClick={() => {
-                    // Announce focus changes on click too so parent-level
-                    // selection tracking stays in sync with mouse users.
-                    if (onRowFocusChange) {
-                      onRowFocusChange(row.original);
-                    }
-                  }}
-                  onBlur={event => {
-                    // Only clear selection when the blur target is outside
-                    // the current row; otherwise intra-row tabbing would
-                    // spuriously deselect.
-                    if (
-                      onRowFocusChange &&
-                      !event.currentTarget.contains(
-                        event.relatedTarget as Node | null
-                      )
-                    ) {
-                      // Do NOT clear on blur — the operator may Ctrl+Shift+P
-                      // after tabbing away. SalesHistoryTable clears
-                      // explicitly via click on a different row or on the
-                      // Escape key if it wants to.
-                    }
-                  }}
-                  onKeyDown={event => {
-                    handleRowKeyDown(event, rowIndex, row.getCanSelect(), () => {
-                      row.toggleSelected();
-                    });
-                  }}
-                >
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
+        <div className="data-table-scroll">
+          <table className="data-table">
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      style={{ width: header.getSize() }}
+                      className={cn(header.column.getCanSort() && 'cursor-pointer select-none')}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {header.isPlaceholder ? null : (
+                        <div className="data-table-column-header">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() && (
+                            <span className="ml-2">
+                              {{
+                                asc: <ChevronUp className="h-4 w-4" />,
+                                desc: <ChevronDown className="h-4 w-4" />,
+                              }[header.column.getIsSorted() as string] ?? (
+                                <ChevronsUpDown className="h-4 w-4 text-secondary-400" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </th>
                   ))}
                 </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={columns.length} className="h-28 text-center text-secondary-500">
-                  {t('table.noResults')}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ))}
+            </thead>
+            <tbody>
+              {visibleRows.length ? (
+                visibleRows.map((row, rowIndex) => {
+                  // Surface the domain id on the <tr> when the row data carries
+                  // one. This is cheap (read-only attribute, no React tree
+                  // change) and unblocks E2E tests that need to pick a specific
+                  // row deterministically — especially under parallelism where
+                  // position-based selectors (.first()) race against each other.
+                  const domainId = (row.original as { id?: unknown } | null | undefined)?.id;
+                  return (
+                    <tr
+                      key={row.id}
+                      ref={element => {
+                        rowRefs.current[rowIndex] = element;
+                      }}
+                      data-state={row.getIsSelected() && 'selected'}
+                      data-row-id={typeof domainId === 'string' ? domainId : undefined}
+                      data-app-selected={
+                        isRowSelected && isRowSelected(row.original) ? 'true' : undefined
+                      }
+                      tabIndex={rowIndex === resolvedFocusedRowIndex ? 0 : -1}
+                      aria-selected={
+                        isRowSelected
+                          ? isRowSelected(row.original)
+                          : enableRowSelection
+                            ? row.getIsSelected()
+                            : undefined
+                      }
+                      className={cn(
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset',
+                        isRowSelected && isRowSelected(row.original) && 'bg-primary-50/70'
+                      )}
+                      onFocus={() => {
+                        setFocusedRowIndex(rowIndex);
+                        if (onRowFocusChange) {
+                          onRowFocusChange(row.original);
+                        }
+                      }}
+                      onClick={() => {
+                        // Announce focus changes on click too so parent-level
+                        // selection tracking stays in sync with mouse users.
+                        if (onRowFocusChange) {
+                          onRowFocusChange(row.original);
+                        }
+                      }}
+                      onBlur={event => {
+                        // Only clear selection when the blur target is outside
+                        // the current row; otherwise intra-row tabbing would
+                        // spuriously deselect.
+                        if (
+                          onRowFocusChange &&
+                          !event.currentTarget.contains(event.relatedTarget as Node | null)
+                        ) {
+                          // Do NOT clear on blur — the operator may Ctrl+Shift+P
+                          // after tabbing away. SalesHistoryTable clears
+                          // explicitly via click on a different row or on the
+                          // Escape key if it wants to.
+                        }
+                      }}
+                      onKeyDown={event => {
+                        handleRowKeyDown(event, rowIndex, row.getCanSelect(), () => {
+                          row.toggleSelected();
+                        });
+                      }}
+                    >
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="h-28 text-center text-secondary-500">
+                    {t('table.noResults')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="data-table-pagination">

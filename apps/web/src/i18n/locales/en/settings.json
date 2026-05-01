@@ -243,6 +243,14 @@
       "themeSettings": "Theme Settings",
       "traySettings": "Tray Settings"
     },
+    "tabs": {
+      "ariaLabel": "Company configuration sections",
+      "general": "General",
+      "locale": "Locale",
+      "data": "Data",
+      "device": "Device",
+      "ai": "AI"
+    },
     "submitting": "Saving...",
     "save": "Save Company",
     "toast": {

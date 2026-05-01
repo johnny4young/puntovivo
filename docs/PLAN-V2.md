@@ -80,7 +80,7 @@ Phase 4.
 | `ENG-032` | AI anomaly + fraud detection (local-only z-score / isolation-forest, no LLM dependency) |
 | `ENG-033` | AI semantic product search + auto-categorization (embeddings via AI SDK + cosine index in SQLite) |
 
-Status: 3 / 4 Phase 1 tickets shipped. `ENG-030` established the AI
+Status: 4 / 4 Phase 1 tickets shipped — Phase 1 complete. `ENG-030` established the AI
 foundation; `ENG-031` added the manager/admin `/co-pilot` route with
 server-side tool calling, bounded tenant-scoped SQLite `:memory:`
 analytics snapshots, SQL guardrails, and inline SQL/table/chart UI;

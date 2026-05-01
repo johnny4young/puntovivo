@@ -7,10 +7,13 @@
  */
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert } from 'lucide-react';
+import { BellOff, ShieldAlert } from 'lucide-react';
 
 import { Modal } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenantSettings } from '@/hooks';
+import { onErrorToast } from '@/lib/mutationHelpers';
+import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 
 export type AnomalyKind =
@@ -76,12 +79,41 @@ function formatMetric(
 export function AnomalyDetailsModal({ isOpen, onClose, alerts }: AnomalyDetailsModalProps) {
   const { t } = useTranslation('aiAnomalies');
   const { formatCurrency, formatDateTime } = useTenantSettings();
+  const toast = useToast();
+  const utils = trpc.useUtils();
   const [filter, setFilter] = useState<AnomalyKind | 'all'>('all');
 
   const filteredAlerts = useMemo(
     () => (filter === 'all' ? alerts : alerts.filter(a => a.kind === filter)),
     [alerts, filter]
   );
+
+  // ENG-047 — snooze a flagged pattern for 7 days. The mutation key is
+  // (kind, cashierId, evidenceRef) so the same dollar value can later
+  // surface again from a different sale without re-triggering the
+  // silenced row. Optimistically refetches anomalies on success so the
+  // row disappears from the modal.
+  const snoozeMutation = trpc.ai.anomalies.snooze.useMutation({
+    onSuccess: result => {
+      toast.success({
+        title: t('modal.snoozeSuccessTitle'),
+        description: t('modal.snoozeSuccessDescription', {
+          until: formatDateTime(result.snoozedUntil),
+        }),
+      });
+      void utils.ai.anomalies.list.invalidate();
+    },
+    onError: onErrorToast(toast, t, { titleKey: 'aiAnomalies:modal.snoozeErrorTitle' }),
+  });
+
+  const handleSnooze = (alert: AnomalyAlertView) => {
+    snoozeMutation.mutate({
+      kind: alert.kind,
+      cashierId: alert.cashierId,
+      evidenceRef: alert.evidenceRef,
+      durationDays: 7,
+    });
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('modal.title')} size="full">
@@ -133,6 +165,9 @@ export function AnomalyDetailsModal({ isOpen, onClose, alerts }: AnomalyDetailsM
                   <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.16em] text-secondary-500">
                     {t('modal.table.occurredAt')}
                   </th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-[0.16em] text-secondary-500">
+                    <span className="sr-only">{t('modal.snoozeAction')}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60 bg-surface">
@@ -165,6 +200,20 @@ export function AnomalyDetailsModal({ isOpen, onClose, alerts }: AnomalyDetailsM
                     </td>
                     <td className="px-3 py-2.5 text-secondary-600">
                       {formatDateTime(alert.occurredAt)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <button
+                        type="button"
+                        className="btn-ghost inline-flex items-center gap-1.5 text-xs"
+                        onClick={() => handleSnooze(alert)}
+                        disabled={snoozeMutation.isPending}
+                        data-testid={`anomaly-snooze-${alert.id}`}
+                      >
+                        <BellOff className="h-3.5 w-3.5" />
+                        {snoozeMutation.isPending && snoozeMutation.variables?.kind === alert.kind
+                          ? t('modal.snoozing')
+                          : t('modal.snoozeAction')}
+                      </button>
                     </td>
                   </tr>
                 ))}

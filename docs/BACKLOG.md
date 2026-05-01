@@ -158,6 +158,16 @@ research.
   dashboard. Sized once ENG-031 ships and there's actual usage
   data to render. — 2026-04-29 (jy)
 
+- `[ai][products][ux]` Connect `products.suggestCategory` to the
+  product create/edit modal. ENG-033 ships the backend constrained
+  category suggestion and ENG-048 exposes semantic search +
+  embedding regeneration on `ProductsPage`, but no UI calls
+  `suggestCategory` yet. Expected shape: after name/description are
+  present, request a suggestion, preselect when confidence is high,
+  and show a lightweight suggestion chip when confidence is medium
+  so the operator can accept or ignore it before saving. — 2026-04-30
+  (ENG-048 review)
+
 - `[ai][infra]` Harden `services/ai/client.ts` failure-path
   `recordCall` invocation. Today the catch block runs
   `await recordCall(...)` followed by `throwServerError(...)`. If
@@ -230,41 +240,6 @@ research.
   flagging individuals far below). Captured separately because the
   v1 spike detector only catches upward outliers. — 2026-04-30 (ENG-032)
 
-- `[ai][ux]` Sidebar badge on the `Dashboard` nav item with the
-  count of high-severity anomalies. Today the only surface for
-  ENG-032 alerts is the dashboard tile itself, so an admin or
-  manager working on `/products` or `/sales` does not learn that
-  anomalies appeared until they navigate to `/dashboard`. A small
-  numeric badge on the sidebar item closes the "you have to go
-  look for it" gap without introducing email / push noise. Reuse
-  the existing `dashboardRoles` gate so cashiers and viewers do
-  not see the badge. — 2026-04-30 (ENG-032 review)
-
-- `[ai][infra]` Persist anomaly alerts to `audit_logs` with
-  `action = 'ai.anomaly.detected'` plus a JSON metadata block
-  carrying `kind`, `cashierId`, `severity`, `distance`, and
-  `evidenceRef`. Today alerts are computed on each `ai.anomalies.list`
-  call from raw transactional data and disappear once the underlying
-  events fall out of the 30-day window — no historical trace of
-  what was flagged, when, or whether anyone reviewed it. Persisting
-  to `audit_logs` gives legal/HR cover for any disciplinary action
-  taken on the strength of a flag, plus enables cross-reference
-  from `/audit-logs` filtered by the alert's `cashierId`. Be
-  careful to deduplicate so the same outlier does not write a row
-  per refetch (e.g. a content hash of `kind+cashierId+occurredAt`
-  as the dedup key). — 2026-04-30 (ENG-032 review)
-
-- `[ai][ux]` "Marcar como revisada" / snooze flow on each row of
-  `AnomalyDetailsModal`. Today an alert that the manager
-  investigated and confirmed legitimate (e.g. a $5000 refund that
-  was a real high-ticket return signed off by ownership) keeps
-  surfacing for 30 days until the underlying event ages out of the
-  window. Add a per-tenant snooze table keyed by
-  `(kind, cashierId, evidenceRef?)` with a snoozedUntil column;
-  filter snoozed entries out of `ai.anomalies.list` while the
-  snooze is active. Pairs naturally with the `audit_logs` trace
-  above — every snooze gets its own audit row attributing the
-  manager who dismissed the alert. — 2026-04-30 (ENG-032 review)
 
 ## 2. Small bugs / polish
 

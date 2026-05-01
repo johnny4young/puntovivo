@@ -113,8 +113,15 @@ describe('ai/providers/openai', () => {
   });
 
   describe('embeddingModel', () => {
-    it('stays undefined — embeddings land with ENG-033', () => {
-      expect(openaiProvider.embeddingModel).toBeUndefined();
+    // ENG-033 — OpenAI provider activated `embeddingModel(modelId)` so
+    // semantic product search and auto-categorize can consume the
+    // OpenAI embeddings endpoint via the AI SDK. Anthropic + Ollama
+    // continue to leave it undefined.
+    it('is implemented and returns a model factory (ENG-033)', () => {
+      expect(openaiProvider.embeddingModel).toBeDefined();
+      expect(typeof openaiProvider.embeddingModel).toBe('function');
+      const model = openaiProvider.embeddingModel?.('text-embedding-3-small');
+      expect(model).toBeDefined();
     });
   });
 });

@@ -57,6 +57,20 @@
       "when": 1779148800000,
       "tag": "0007_ai_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1779235200000,
+      "tag": "0008_ai_anomaly_snoozes",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1779321600000,
+      "tag": "0009_product_embeddings",
+      "breakpoints": true
     }
   ]
 }
