@@ -249,7 +249,8 @@
       "locale": "Localización",
       "data": "Datos",
       "device": "Dispositivo",
-      "ai": "IA"
+      "ai": "IA",
+      "fiscal": "Fiscal"
     },
     "submitting": "Guardando...",
     "save": "Guardar empresa",

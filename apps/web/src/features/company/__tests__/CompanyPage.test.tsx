@@ -1,9 +1,10 @@
 /**
  * ENG-045 — CompanyPage tab behavior.
  *
- * Covers the new segmented-control TAB layout that replaces the
+ * Covers the segmented-control TAB layout that replaces the
  * stacked-grid of admin-only cards. Heavy children (CompanyForm,
- * CompanyLocaleSettingsCard, CompanyAISettingsCard, …) are mocked
+ * CompanyLocaleSettingsCard, CompanyAISettingsCard, CompanyMxFiscalCard, …)
+ * are mocked
  * to keep the focus on:
  *  - admin sees the tab nav and the active panel
  *  - URL `?tab=ai` deep-links into the AI panel (used by
@@ -61,6 +62,9 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 vi.mock('../CompanyAISettingsCard', () => ({
   CompanyAISettingsCard: () => <div data-testid="card-ai">AI</div>,
 }));
+vi.mock('../CompanyMxFiscalCard', () => ({
+  CompanyMxFiscalCard: () => <div data-testid="card-fiscal">Fiscal</div>,
+}));
 vi.mock('../CompanyBackupCard', () => ({
   CompanyBackupCard: () => <div data-testid="card-backup">Backup</div>,
 }));
@@ -90,24 +94,26 @@ vi.mock('../CompanyTraySettingsCard', () => ({
 import { CompanyPage } from '../CompanyPage';
 
 describe('CompanyPage tab behavior', () => {
-  it('renders the segmented-control with five tabs and lands on General by default', () => {
+  it('renders the segmented-control with six tabs and lands on General by default', () => {
     render(<CompanyPage />);
 
-    // Tab list is present and exposes the five canonical tabs.
+    // Tab list is present and exposes the six canonical tabs.
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
     expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
 
     // General tab content visible: form fields + logo library card.
     expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
     expect(screen.getByTestId('card-logos')).toBeInTheDocument();
 
-    // AI / Locale / Data / Device cards must NOT be in the DOM yet.
+    // AI / Locale / Data / Device / Fiscal cards must NOT be in the DOM yet.
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-sync')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-theme')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal')).not.toBeInTheDocument();
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {
@@ -152,6 +158,17 @@ describe('CompanyPage tab behavior', () => {
 
     expect(screen.getByTestId('card-locale')).toBeInTheDocument();
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
+  });
+
+  it('renders the Fiscal tab with only the fiscal card', async () => {
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-fiscal'));
+
+    expect(screen.getByTestId('card-fiscal')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });
 });
 

@@ -98,6 +98,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SYNC_LOCAL_RECORD_MISSING',
   // --- ENG-034 multi-country fiscal packs ---
   'FISCAL_PACK_NOT_AVAILABLE',
+  // --- ENG-035a pack México fundación ---
+  'FISCAL_RFC_INVALID',
+  'FISCAL_REGIMEN_INVALID',
   // --- ENG-030 AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',

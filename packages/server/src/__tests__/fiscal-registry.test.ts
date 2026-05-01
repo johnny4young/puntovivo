@@ -24,7 +24,7 @@ import {
   listFiscalAdapterCountries,
 } from '../services/fiscal/registry.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
-import { MexicoNotImplementedAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
+import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
 import { ChileNotImplementedAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 
 describe('getFiscalAdapter (ENG-034)', () => {
@@ -40,15 +40,15 @@ describe('getFiscalAdapter (ENG-034)', () => {
     expect(adapter.providerId).toBe('mock-co');
   });
 
-  it('returns MexicoNotImplementedAdapter for "MX" (stub for ENG-035)', () => {
+  it('returns MexicoCFDIAdapter for "MX" (stub for ENG-035)', () => {
     const adapter = getFiscalAdapter('MX');
-    expect(adapter).toBeInstanceOf(MexicoNotImplementedAdapter);
+    expect(adapter).toBeInstanceOf(MexicoCFDIAdapter);
     expect(adapter.countryCode).toBe('MX');
     // The stub flag is a discriminant for the future admin UI.
     expect((adapter as { notImplemented?: boolean }).notImplemented).toBe(true);
     expect(
       (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBe('ENG-035');
+    ).toBe('ENG-035b');
   });
 
   it('returns ChileNotImplementedAdapter for "CL" (stub for ENG-036)', () => {
@@ -88,7 +88,7 @@ describe('listFiscalAdapterCountries (ENG-034)', () => {
     expect(byCode.get('MX')).toEqual({
       code: 'MX',
       isImplemented: false,
-      availableInTicket: 'ENG-035',
+      availableInTicket: 'ENG-035b',
     });
     expect(byCode.get('CL')).toEqual({
       code: 'CL',

@@ -64,5 +64,62 @@
     "description": "The guided onboarding flow will capture the tenant tax ID, numbering resolution, and authorization credentials.",
     "gated": "Requires an active electronic invoicing provider contract before production activation.",
     "cta": "Learn more"
+  },
+  "settings": {
+    "tabTitle": "Fiscal",
+    "tabDescription": "Country-specific fiscal configuration. The pack rendered below depends on this tenant's country code.",
+    "country": {
+      "MX": "Mexico (CFDI 4.0)",
+      "CO": "Colombia (DIAN)",
+      "CL": "Chile (SII)"
+    },
+    "readiness": {
+      "ready": "Ready",
+      "notReady": "Not ready",
+      "issuesTitle": "Pending items",
+      "issueCodes": {
+        "MISSING_RFC": "RFC issuer is missing or invalid",
+        "MISSING_RESOLUTION": "Fiscal regime is missing or not in catalog",
+        "MISSING_CERTIFICATE": "Place of issuance is missing or not 5 digits",
+        "INVALID_ENVIRONMENT": "Environment is not sandbox or production",
+        "MISSING_NIT": "Issuer NIT is missing",
+        "MISSING_RUT": "Issuer RUT is missing",
+        "PACK_NOT_AVAILABLE": "Country pack is parked"
+      }
+    },
+    "mx": {
+      "title": "Mexico — CFDI 4.0",
+      "description": "Configure issuer settings before turning on CFDI emission. Real emission lands with ENG-035b (XML modeling) and ENG-035c (PAC integration + signing).",
+      "fields": {
+        "enabled": "Enable Mexico fiscal pack",
+        "enabledHelp": "When on, sales will emit a CFDI 4.0 once ENG-035b lands. Today this flag only gates the readiness probe.",
+        "rfc": "Issuer RFC",
+        "rfcHelp": "12 characters for legal entity (PM); 13 for individual (PF).",
+        "rfcPlaceholder": "e.g. XEXX010101000",
+        "regimen": "Fiscal regime",
+        "regimenPlaceholder": "Select a regime",
+        "lugar": "Place of issuance (5-digit ZIP)",
+        "lugarPlaceholder": "e.g. 06700",
+        "environment": "Environment",
+        "environmentSandbox": "Sandbox",
+        "environmentProduction": "Production"
+      },
+      "actions": {
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "toast": {
+        "saved": "Mexico fiscal settings saved",
+        "saveError": "Could not save Mexico fiscal settings"
+      }
+    },
+    "co": {
+      "title": "Colombia — DIAN",
+      "comingSoon": "Colombia fiscal settings still live under Localization. Migration to this tab lands with ENG-035c."
+    },
+    "cl": {
+      "title": "Chile — SII",
+      "comingSoon": "Chile fiscal pack lands with ENG-036."
+    }
   }
 }
