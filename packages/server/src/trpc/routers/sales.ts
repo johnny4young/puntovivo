@@ -69,6 +69,7 @@ import {
 } from '../../services/inventory-balances.js';
 import { emitFiscalDocument } from '../../services/fiscal/orchestrator.js';
 import { getFiscalAdapter } from '../../services/fiscal/registry.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type {
   FiscalDocumentKind,
   FiscalDocumentSource,
@@ -149,6 +150,12 @@ async function safelyEmitFiscalDocument(
 ): Promise<void> {
   if (!ctx.tenantId || !ctx.user) return;
   try {
+    // ENG-034 — dispatch the country-specific fiscal adapter via the
+    // typed registry. `resolveTenantLocale` is the canonical reader
+    // for the tenant's `countryCode` (CO / MX / CL). Fresh tenants
+    // without locale settings resolve to US/USD; the registry handles
+    // unsupported country codes with its own default.
+    const fiscalLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
     await emitFiscalDocument({
       tx: ctx.db,
       tenantId: ctx.tenantId,
@@ -159,7 +166,7 @@ async function safelyEmitFiscalDocument(
       kind: args.kind,
       originalCufe: args.originalCufe,
       reasonCode: args.reasonCode,
-      adapter: getFiscalAdapter(),
+      adapter: getFiscalAdapter(fiscalLocale.countryCode),
     });
   } catch (err) {
     const log = ctx.req?.server?.log;

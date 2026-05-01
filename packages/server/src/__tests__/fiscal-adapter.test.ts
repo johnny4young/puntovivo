@@ -1,8 +1,10 @@
 /**
- * ENG-020 — `MockAdapter` tests.
+ * ENG-020 — `ColombiaMockAdapter` tests (renamed in ENG-034 from
+ * `MockAdapter` when the file moved into `services/fiscal/packs/co/`).
  *
- * The mock is the reference implementation of `FiscalAdapter` and the
- * entry point every orchestrator test routes through. Coverage:
+ * The mock is the reference implementation of `FiscalAdapter` for
+ * Colombia and the entry point every orchestrator test routes
+ * through. Coverage:
  *
  * - `issue()` produces a valid CUFE matching `computeCufe` directly.
  * - Default status is `'sent'`; the contingencyOracle hook can force
@@ -15,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { computeCufe } from '../services/fiscal/cufe.js';
-import { MockAdapter } from '../services/fiscal/mock-adapter.js';
+import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import type { FiscalAdapterIssueInput } from '../services/fiscal/adapter.js';
 
 function buildIssueInput(
@@ -75,9 +77,9 @@ function buildIssueInput(
   };
 }
 
-describe('MockAdapter.issue (ENG-020)', () => {
+describe('ColombiaMockAdapter.issue (ENG-020 + ENG-034)', () => {
   it('returns a CUFE that matches the pure computeCufe result', async () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     const input = buildIssueInput();
     const result = await adapter.issue(input);
 
@@ -98,12 +100,12 @@ describe('MockAdapter.issue (ENG-020)', () => {
     });
     expect(result.cufe).toBe(expectedCufe);
     expect(result.status).toBe('sent');
-    expect(result.providerId).toBe('mock');
+    expect(result.providerId).toBe('mock-co');
     expect(result.xmlRef).toBeNull();
   });
 
   it('routes the contingencyOracle hook to the emitted status', async () => {
-    const adapter = new MockAdapter({
+    const adapter = new ColombiaMockAdapter({
       contingencyOracle: () => 'contingency',
     });
     const result = await adapter.issue(buildIssueInput());
@@ -111,7 +113,7 @@ describe('MockAdapter.issue (ENG-020)', () => {
   });
 
   it('is deterministic across runs with the same input', async () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     const input = buildIssueInput();
     const first = await adapter.issue(input);
     const second = await adapter.issue(input);
@@ -119,7 +121,7 @@ describe('MockAdapter.issue (ENG-020)', () => {
   });
 
   it('produces distinct CUFEs when any field changes', async () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     const base = await adapter.issue(buildIssueInput());
     const mutated = await adapter.issue(
       buildIssueInput({ totalAmount: 119.01 })
@@ -128,7 +130,7 @@ describe('MockAdapter.issue (ENG-020)', () => {
   });
 
   it('voidDocument returns a distinct CUFE that does not collide with the original', async () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     const original = await adapter.issue(buildIssueInput());
     const voided = await adapter.voidDocument({
       tenantId: 'tenant-1',
@@ -137,23 +139,23 @@ describe('MockAdapter.issue (ENG-020)', () => {
     });
     expect(voided.cufe).not.toBe(original.cufe);
     expect(voided.status).toBe('sent');
-    expect(voided.providerId).toBe('mock');
+    expect(voided.providerId).toBe('mock-co');
   });
 
   it('fetchStatus reports the mock terminal state', async () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     await expect(adapter.fetchStatus('deadbeef'.repeat(12))).resolves.toBe(
       'accepted'
     );
   });
 
   it('exposes stable capability flags', () => {
-    const adapter = new MockAdapter();
+    const adapter = new ColombiaMockAdapter();
     expect(adapter.capabilities).toEqual({
       supportsVoid: true,
       supportsDebitNote: true,
       supportsFetchStatus: true,
     });
-    expect(adapter.providerId).toBe('mock');
+    expect(adapter.providerId).toBe('mock-co');
   });
 });

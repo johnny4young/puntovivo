@@ -17,7 +17,7 @@ bundle**:
 
 - Global `dian_identification_types` catalog (10 DIAN codes) + seed.
 - `fiscal_documents` / `fiscal_document_items` / `fiscal_numbering_resolutions` / `fiscal_certificates` tables with immutable buyer + line snapshot columns.
-- `services/fiscal/cufe.ts` (pure SHA-384 helper), `FiscalAdapter` interface, `MockAdapter`, `registry.ts` adapter singleton, `emitFiscalDocument` orchestrator idempotent by `(tenantId, source, sourceId, kind)`.
+- `services/fiscal/cufe.ts` (pure SHA-384 helper), `FiscalAdapter` interface, `ColombiaMockAdapter`, country-pack registry factory, `emitFiscalDocument` orchestrator idempotent by `(tenantId, source, sourceId, kind)`.
 - Hooks in `sales.create` (when `status='completed'`) / `sales.completeDraft` / `sales.void` / `sales.returnSale`, gated behind `tenants.settings.fiscal_dian_enabled`.
 - `reports.fiscal.list` + `reports.fiscal.getByCufe` admin router + `architectural-lint.test.ts` enforcing that reports never join `customers` / `products`.
 - Web UI placeholders: fiscal documents list page, fiscal reports page, habilitación wizard, and contingency indicator.
@@ -26,7 +26,61 @@ bundle**:
 a `FactureAdapter` / `HkaAdapter`, the contingency retry daemon
 with backoff, and the real habilitación flow wired to the PT
 sandbox. Everything else is in place and tested end-to-end against
-the MockAdapter.
+the `ColombiaMockAdapter`.
+
+## ENG-034 — pluggable adapter (April 2026)
+
+Promoted `services/fiscal/registry.ts` from an implicit singleton
+(`new MockAdapter()`) to a typed factory keyed by ISO 3166-1 alpha-2
+`countryCode`. The Colombia adapter moved into a country pack at
+`services/fiscal/packs/co/mock-adapter.ts` and was renamed
+`ColombiaMockAdapter` (the CUFE algorithm IS Colombia-specific —
+the old generic name was misleading). Mexico and Chile packs ship
+as `NotImplementedAdapter` stubs that throw `FISCAL_PACK_NOT_AVAILABLE`
+on `issue` / `voidDocument` / `fetchStatus` and report `validateConfig`
+issues pointing at the gating tickets (ENG-035, ENG-036).
+
+Surface added to the adapter contract:
+
+- `validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult>`
+  — pre-flight readiness check. Real adapters probe required settings
+  (NIT for CO, RFC for MX, RUT for CL, certificate, resolution,
+  environment) and report missing fields. The future fiscal-readiness
+  admin card will surface a green/red badge per country based on this.
+- `readonly countryCode: string` — every adapter declares which
+  country it serves so the orchestrator can introspect.
+- `NotImplementedFiscalAdapter` interface extends `FiscalAdapter` with
+  `notImplemented: true` + `availableInTicket: string` so the registry
+  can list parked packs without breaking the type contract.
+
+Dispatch flow inside `sales.ts::safelyEmitFiscalDocument`:
+
+```
+const fiscalLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+adapter: getFiscalAdapter(fiscalLocale.countryCode),
+```
+
+`resolveTenantLocale` is the canonical reader for the tenant's
+`countryCode` (lives in `services/tenant-locale.ts`). Its own
+fresh-tenant fallback is US/USD; the fiscal registry then maps any
+unsupported country code to its defensive default.
+
+Unknown-country fallback: the registry routes any unknown country
+(e.g. 'AR' before an Argentina pack ships) to `ColombiaMockAdapter`.
+Reasoning: the orchestrator already gates fiscal emission on
+`tenants.settings.fiscal_dian_enabled`. If an admin opts in for a
+country that is not in the matrix yet, the fallback emits a
+Colombia-shaped CUFE (wrong but non-breaking). The operator sees the
+document in `/reports/fiscal-documents` and can disable fiscal until
+the pack ships. A throw would silently fail the sale lifecycle path,
+which is worse for pilot.
+
+Discovery surface:
+`listFiscalAdapterCountries(): ReadonlyArray<{ code, isImplemented, availableInTicket? }>`
+returns one entry per registered country pack. Mirrors
+`listProviders()` from the AI provider registry so the fiscal-
+readiness card (BACKLOG follow-up) can render the same shape as
+`CompanyAISettingsCard`.
 
 ## Goal
 

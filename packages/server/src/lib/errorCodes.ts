@@ -180,6 +180,17 @@ export const SERVER_ERROR_CODES = {
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
 
+  // --- ENG-034 multi-country fiscal packs ---
+  /**
+   * Sale lifecycle attempted to dispatch a fiscal adapter for a country
+   * whose pack is still parked. Mexico (CFDI 4.0) lands with `ENG-035`,
+   * Chile (SII) with `ENG-036`. The caller in `sales.ts` already wraps
+   * `emitFiscalDocument` in a non-blocking try/catch, so this error
+   * appears in the server log warning channel rather than failing the
+   * sale itself.
+   */
+  FISCAL_PACK_NOT_AVAILABLE: 'FISCAL_PACK_NOT_AVAILABLE',
+
   // --- ENG-042 sync resolve TOCTOU close-out ---
   /**
    * `sync.resolve` refused a `local_wins` or `merged` resolution because the
