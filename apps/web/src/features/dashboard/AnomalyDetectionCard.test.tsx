@@ -10,12 +10,36 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      ai: { anomalies: { list: { invalidate: vi.fn() } } },
+    }),
     ai: {
       anomalies: {
         list: { useQuery: () => mocks.anomaliesQuery() },
+        // ENG-047 — the modal calls snooze.useMutation; tests don't
+        // exercise the mutation but the hook needs to exist on the
+        // mock so the component renders.
+        snooze: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+            variables: undefined,
+          }),
+        },
       },
     },
   },
+}));
+
+// AnomalyDetailsModal calls useToast (ENG-047 snooze flow). Wrap
+// the test surface with a noop toast mock so the component renders.
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
 }));
 
 // AnomalyDetailsModal calls useTenantSettings which requires the
@@ -66,7 +90,10 @@ describe('AnomalyDetectionCard', () => {
     });
     render(<AnomalyDetectionCard />);
     expect(screen.getByText(/AI features are turned off/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /AI settings/i })).toHaveAttribute('href', '/company');
+    expect(screen.getByRole('link', { name: /AI settings/i })).toHaveAttribute(
+      'href',
+      '/company?tab=ai'
+    );
   });
 
   it('renders the empty state when there are zero alerts', () => {

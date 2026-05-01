@@ -11,6 +11,7 @@ import { AuditLogsTable } from './AuditLogsTable';
 const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'cash_session.close',
   'inventory.adjust_stock',
+  'ai.anomaly.detected',
   'sale.void',
   'sale.return',
   'sale.price_override',

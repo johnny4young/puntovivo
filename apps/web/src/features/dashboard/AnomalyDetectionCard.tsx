@@ -94,7 +94,7 @@ export function AnomalyDetectionCard() {
           </div>
         </div>
         <p className="mt-4 text-sm text-secondary-600">{t('aiAnomalies:card.states.disabled')}</p>
-        <Link to="/company" className="btn-outline mt-4 inline-flex">
+        <Link to="/company?tab=ai" className="btn-outline mt-4 inline-flex">
           {t('aiAnomalies:card.settingsLink')}
         </Link>
       </section>

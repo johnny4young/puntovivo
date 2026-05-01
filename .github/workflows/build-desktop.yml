@@ -1,0 +1,197 @@
+name: Build Desktop (manual)
+
+# ============================================================================
+# Manual cross-OS desktop build (ENG-046)
+# ----------------------------------------------------------------------------
+# Triggered exclusively by the operator via workflow_dispatch when they want
+# to validate or produce a desktop build for a chosen subset of platforms.
+# This replaces the per-push macOS+Windows matrix that used to live in
+# `.github/workflows/ci.yml`'s `desktop` job. The push/PR CI now runs the
+# desktop validation on ubuntu-latest only (cheap; catches ~95% of
+# regressions). macOS minutes bill at 10x against the free tier, so running
+# the matrix on every push burns the quota fast for marginal incremental
+# signal.
+#
+# Modes:
+#   - validate_only: runs `npm run ci:desktop` per chosen OS (no packaging).
+#                    ~5-8 minutes per OS.
+#   - full build:    runs `make:desktop` per chosen OS and uploads the
+#                    artifacts. Unsigned (signing material lives only in
+#                    release.yml). Use this when you want to download a
+#                    binary to test platform-specific bugs locally.
+#                    ~10-20 minutes per OS.
+#
+# Reference: release.yml's `release-desktop` job uses the same matrix
+# include shape; this workflow mirrors it but without tag/upload steps.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      linux:
+        description: 'Build on ubuntu-latest (Linux)'
+        type: boolean
+        default: true
+      mac:
+        description: 'Build on macos-latest (macOS) — bills at 10x'
+        type: boolean
+        default: false
+      win:
+        description: 'Build on windows-latest (Windows)'
+        type: boolean
+        default: false
+      validate_only:
+        description: 'validate_only=true skips packaging (faster, no artifacts)'
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '22'
+
+# Per-job concurrency: cancel any in-progress run for the same actor when
+# they kick off another. Avoids stacking macOS minutes when an operator
+# triggers the workflow twice in a row by accident.
+concurrency:
+  group: build-desktop-${{ github.actor }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    if: ${{ inputs.linux }}
+    name: Build Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
+
+      - name: Validate desktop workspace
+        run: npm run ci:desktop
+
+      - name: Build server package
+        if: ${{ !inputs.validate_only }}
+        run: npm run build --workspace=@puntovivo/server
+
+      - name: Rebuild native modules
+        if: ${{ !inputs.validate_only }}
+        run: npm run rebuild --workspace=@puntovivo/desktop
+
+      - name: Build and package desktop app
+        if: ${{ !inputs.validate_only }}
+        run: npm run make:desktop --workspace=@puntovivo/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux artifacts
+        if: ${{ !inputs.validate_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-${{ github.run_id }}
+          path: apps/desktop/out/make
+          if-no-files-found: warn
+          retention-days: 7
+
+  build-mac:
+    if: ${{ inputs.mac }}
+    name: Build macOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate desktop workspace
+        run: npm run ci:desktop
+
+      - name: Build server package
+        if: ${{ !inputs.validate_only }}
+        run: npm run build --workspace=@puntovivo/server
+
+      - name: Rebuild native modules
+        if: ${{ !inputs.validate_only }}
+        run: npm run rebuild --workspace=@puntovivo/desktop
+
+      - name: Build and package desktop app
+        if: ${{ !inputs.validate_only }}
+        run: npm run make:desktop --workspace=@puntovivo/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts
+        if: ${{ !inputs.validate_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mac-${{ github.run_id }}
+          path: apps/desktop/out/make
+          if-no-files-found: warn
+          retention-days: 7
+
+  build-win:
+    if: ${{ inputs.win }}
+    name: Build Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate desktop workspace
+        run: npm run ci:desktop
+
+      - name: Build server package
+        if: ${{ !inputs.validate_only }}
+        run: npm run build --workspace=@puntovivo/server
+
+      - name: Rebuild native modules
+        if: ${{ !inputs.validate_only }}
+        run: npm run rebuild --workspace=@puntovivo/desktop
+
+      - name: Build and package desktop app
+        if: ${{ !inputs.validate_only }}
+        run: npm run make:desktop --workspace=@puntovivo/desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifacts
+        if: ${{ !inputs.validate_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-win-${{ github.run_id }}
+          path: apps/desktop/out/make
+          if-no-files-found: warn
+          retention-days: 7

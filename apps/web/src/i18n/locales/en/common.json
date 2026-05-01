@@ -61,6 +61,11 @@
       "system": "System",
       "es": "Español",
       "en": "English"
+    },
+    "short": {
+      "system": "Auto",
+      "es": "Esp",
+      "en": "Eng"
     }
   },
   "loading": {

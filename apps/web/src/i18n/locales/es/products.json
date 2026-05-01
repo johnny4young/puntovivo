@@ -6,10 +6,26 @@
     "permissionNote": "Solo administradores y gestores pueden modificar productos. Puedes revisar el catálogo.",
     "add": "Agregar producto"
   },
+  "semantic": {
+    "toggleLabel": "Semántica",
+    "toggleHint": "Coincide por significado, no por texto exacto. Cae a búsqueda literal cuando la IA está apagada.",
+    "modeBadge": "Coincidencia semántica con IA",
+    "modeLiteral": "Coincidencia de texto literal",
+    "unavailable": "La búsqueda semántica necesita la IA activada y embeddings generados. Volviendo a búsqueda literal.",
+    "searching": "Buscando...",
+    "noResults": "Ningún producto coincide con el significado de tu consulta.",
+    "regenerate": "Regenerar embeddings",
+    "regenerating": "Regenerando...",
+    "regenerated_one": "Se generó embedding de {{count}} producto. La búsqueda semántica está lista.",
+    "regenerated_other": "Se generaron embeddings de {{count}} productos. La búsqueda semántica está lista.",
+    "regenerateUnavailable": "No se puede regenerar: activa la IA en Configuración de empresa y verifica que la llave de OpenAI esté configurada.",
+    "regenerateError": "No se pudieron regenerar los embeddings"
+  },
   "table": {
     "loading": "Cargando productos...",
     "error": "No se pudieron cargar los productos",
     "search": "Buscar productos...",
+    "searchSemantic": "Buscar por significado (p. ej. lácteo bajo en grasa)",
     "product": "Producto",
     "category": "Categoría",
     "provider": "Proveedor",
@@ -21,7 +37,8 @@
     "low": "Bajo",
     "status": "Estado",
     "active": "Activo",
-    "inactive": "Inactivo"
+    "inactive": "Inactivo",
+    "match": "Coincidencia"
   },
   "form": {
     "createTitle": "Crear producto",

@@ -6,12 +6,9 @@
  * Strategy / Factory abstraction shipped in ENG-030 was designed for
  * exactly this — adding a real provider is a single file plus tests.
  *
- * Embeddings (`embeddingModel?`) intentionally stay undefined: they
- * land with ENG-033 (semantic product search + auto-categorization)
- * together with the cosine index and category schema. When ENG-033
- * arrives, register the embedding pricing rows
- * (`text-embedding-3-small`, `text-embedding-3-large`) and implement
- * `embeddingModel(modelId)` here.
+ * ENG-033 adds `embeddingModel(modelId)` and the embedding pricing
+ * rows so semantic product search can use OpenAI
+ * `text-embedding-3-small` by default.
  *
  * Pricing source: https://platform.openai.com/docs/pricing
  * Verified: 2026-04-30 via WebSearch (OpenAI does not allow direct
@@ -22,7 +19,7 @@
  * @module services/ai/providers/openai
  */
 import { openai } from '@ai-sdk/openai';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { LanguageModelV3, EmbeddingModelV3 } from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
 
@@ -55,6 +52,13 @@ const PRICING_TABLE: Readonly<Record<string, ModelPricing>> = {
   // tool-calling fidelity than gpt-4.1-mini; offered as override only.
   'gpt-4o-mini': { input: 0.15, output: 0.6, cacheRead: 0.075, cacheWrite: 0.15 },
   'gpt-4o-mini-2024-07-18': { input: 0.15, output: 0.6, cacheRead: 0.075, cacheWrite: 0.15 },
+  // ENG-033 — embedding models. text-embedding-3-small is the default
+  // (cheap, 1536 dims, multilingual including Spanish); -large
+  // available for tenants that want higher accuracy at 3x the cost.
+  // Output tokens are zero for embedding models; cost rolls through
+  // input only.
+  'text-embedding-3-small': { input: 0.02, output: 0, cacheRead: 0.02, cacheWrite: 0.02 },
+  'text-embedding-3-large': { input: 0.13, output: 0, cacheRead: 0.13, cacheWrite: 0.13 },
 };
 
 const FALLBACK_MODEL_ID = 'gpt-4.1-mini';
@@ -91,5 +95,8 @@ export const openaiProvider: AIProvider = {
     return undefined;
   },
 
-  // embeddingModel intentionally undefined — see ENG-033.
+  // ENG-033 — semantic product search + auto-categorize.
+  embeddingModel(modelId: string): EmbeddingModelV3 {
+    return openai.embedding(modelId);
+  },
 };

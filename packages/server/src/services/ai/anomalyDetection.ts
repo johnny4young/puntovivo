@@ -92,11 +92,18 @@
  *
  * @module services/ai/anomalyDetection
  */
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { auditLogs, cashSessions, sales, saleReturns, users } from '../../db/schema.js';
+import {
+  aiAnomalySnoozes,
+  auditLogs,
+  cashSessions,
+  sales,
+  saleReturns,
+  users,
+} from '../../db/schema.js';
 
 // ============================================================================
 // PUBLIC TYPES
@@ -335,11 +342,120 @@ function severityFromDistance(distance: number): AnomalySeverity | null {
 // ============================================================================
 
 /**
+ * Build the snooze lookup key for an alert. Aggregate detectors
+ * (`voidRate`, `noSaleSessions`) emit `evidenceRef = null`, so the
+ * snooze that silences them is keyed on `(kind, cashierId)` only and
+ * applies across all alerts of that kind for that cashier. Specific
+ * detectors (`refundAmount`) carry the saleId in `evidenceRef` so
+ * silencing one $5000 refund does not silence a different one.
+ */
+function snoozeKey(kind: string, cashierId: string | null, evidenceRef: string | null): string {
+  return `${kind}|${cashierId ?? ''}|${evidenceRef ?? ''}`;
+}
+
+/**
+ * ENG-047 — load the active snoozes for a tenant and return a Set of
+ * lookup keys the orchestrator uses to filter alerts. Active means
+ * `snoozed_until > now`; expired rows linger on disk (cheap) and are
+ * pruned by a future cron (BACKLOG follow-up).
+ */
+async function loadActiveSnoozeKeys(
+  db: DatabaseInstance,
+  tenantId: string,
+  now: Date
+): Promise<Set<string>> {
+  const rows = await db
+    .select({
+      kind: aiAnomalySnoozes.kind,
+      cashierId: aiAnomalySnoozes.cashierId,
+      evidenceRef: aiAnomalySnoozes.evidenceRef,
+    })
+    .from(aiAnomalySnoozes)
+    .where(
+      and(
+        eq(aiAnomalySnoozes.tenantId, tenantId),
+        gt(aiAnomalySnoozes.snoozedUntil, now.toISOString())
+      )
+    )
+    .all();
+  const keys = new Set<string>();
+  for (const r of rows) keys.add(snoozeKey(r.kind, r.cashierId, r.evidenceRef));
+  return keys;
+}
+
+/**
+ * ENG-047 — persist newly-surfaced alerts to `audit_logs`. The
+ * deterministic dedup key `kind:cashierId:occurredAt[date]:evidenceRef`
+ * means re-running the detector inside the same 24h window does not
+ * write the same row twice; a fresh outlier on the next day creates a
+ * new audit row even if the cashier and kind repeat. We use
+ * `INSERT OR IGNORE` keyed by `id` so the path is concurrency-safe.
+ *
+ * `actor_id` is required by `audit_logs`, but the detector has no
+ * operator context, so we attribute the row to the cashier whose
+ * behavior was flagged. Cashier-less alerts are skipped because there
+ * is no valid user id for the NOT NULL + FK-constrained actor column.
+ * `metadata.detectedBy = 'ai.anomaly.detector'` keeps the source
+ * machine-readable for downstream filters.
+ */
+async function persistAnomalyAuditLogs(
+  db: DatabaseInstance,
+  tenantId: string,
+  alerts: AnomalyAlert[]
+): Promise<void> {
+  if (alerts.length === 0) return;
+  const rows = alerts.map(alert => {
+    const day = alert.occurredAt.slice(0, 10); // YYYY-MM-DD bucket
+    const id = `anomaly:${alert.kind}:${alert.cashierId ?? ''}:${day}:${alert.evidenceRef ?? ''}`;
+    return {
+      id,
+      tenantId,
+      // The cashier whose behavior was flagged — when null we fall
+      // back to the snoozed_by/system column convention by using the
+      // tenant id; the audit_logs.actor_id FK to users would fail in
+      // that path, so we skip the row entirely (a cashier-less alert
+      // means an aggregate detector with no clear individual subject).
+      actorId: alert.cashierId,
+      action: 'ai.anomaly.detected',
+      resourceType: 'user',
+      resourceId: alert.cashierId ?? `tenant:${tenantId}`,
+      before: null,
+      after: null,
+      metadata: {
+        detectedBy: 'ai.anomaly.detector',
+        kind: alert.kind,
+        severity: alert.severity,
+        observed: alert.observed,
+        baselineMean: alert.baselineMean,
+        baselineStdDev: alert.baselineStdDev,
+        distance: alert.distance,
+        evidenceRef: alert.evidenceRef,
+      } as Record<string, unknown>,
+      createdAt: alert.occurredAt,
+    };
+  });
+  // Skip rows with null actorId — auditLogs.actor_id is NOT NULL.
+  const insertable = rows.filter(r => r.actorId !== null) as Array<
+    typeof rows[number] & { actorId: string }
+  >;
+  if (insertable.length === 0) return;
+  // INSERT OR IGNORE so re-runs in the same 24h bucket do not write
+  // duplicates; the deterministic id absorbs the dedup key.
+  await db.insert(auditLogs).values(insertable).onConflictDoNothing();
+}
+
+/**
  * Run all four detectors and aggregate their output. Detector queries
  * execute concurrently and fail as a unit: a data-access failure in
  * any detector rejects the request so the dashboard never shows a
  * misleading partial risk picture. Multi-tenant isolation is enforced
  * inside every query via `eq(*.tenantId, tenantId)`.
+ *
+ * ENG-047 — alerts whose `(kind, cashierId, evidenceRef)` matches an
+ * active snooze are filtered out, AND non-snoozed alerts are persisted
+ * to `audit_logs` for historical traceability + cross-reference from
+ * `/audit-logs`. The audit-log write is best-effort fire-and-forget:
+ * a failure there does not poison the response.
  *
  * @returns Sorted by descending severity then descending distance,
  *          so the most extreme alerts appear first in the dashboard.
@@ -348,14 +464,24 @@ export async function detectAnomalies(
   db: DatabaseInstance,
   input: AnomalyDetectionInput
 ): Promise<AnomalyDetectionResult> {
-  const [ticketsPerHour, voidRates, refundAmounts, noSale] = await Promise.all([
+  const now = new Date();
+  const [ticketsPerHour, voidRates, refundAmounts, noSale, snoozeKeys] = await Promise.all([
     detectTicketsPerHourSpikes(db, input),
     detectVoidRateOutliers(db, input),
     detectRefundAmountOutliers(db, input),
     detectNoSaleSessionsOutliers(db, input),
+    loadActiveSnoozeKeys(db, input.tenantId, now),
   ]);
 
-  const alerts = [...ticketsPerHour, ...voidRates, ...refundAmounts, ...noSale];
+  const allAlerts = [...ticketsPerHour, ...voidRates, ...refundAmounts, ...noSale];
+  // Filter snoozed alerts. We compare against `null` evidenceRef in
+  // the snooze key so a kind+cashier-level snooze suppresses every
+  // alert of that kind for that cashier regardless of evidenceRef.
+  const alerts = allAlerts.filter(alert => {
+    if (snoozeKeys.has(snoozeKey(alert.kind, alert.cashierId, alert.evidenceRef))) return false;
+    if (snoozeKeys.has(snoozeKey(alert.kind, alert.cashierId, null))) return false;
+    return true;
+  });
   alerts.sort((a, b) => {
     // High before medium; within the same severity, larger distance first.
     if (a.severity !== b.severity) return a.severity === 'high' ? -1 : 1;
@@ -372,6 +498,14 @@ export async function detectAnomalies(
   for (const alert of alerts) {
     severityCounts[alert.severity] += 1;
     kindCounts[alert.kind] += 1;
+  }
+
+  // Best-effort persistence — failure here logs but does not poison
+  // the response. The dedup key on `id` absorbs concurrent re-runs.
+  try {
+    await persistAnomalyAuditLogs(db, input.tenantId, alerts);
+  } catch {
+    // Intentional swallow: dashboard render must not block on audit write.
   }
 
   return { alerts, totalCount: alerts.length, severityCounts, kindCounts };

@@ -104,6 +104,14 @@ describe('DataTable', () => {
       expect(screen.getByText('$29.99')).toBeInTheDocument();
       expect(screen.getByText('50')).toBeInTheDocument();
     });
+
+    it('should wrap the table in a horizontal scroll region', () => {
+      const products = createTestProducts(3);
+
+      render(<DataTable columns={columns} data={products} />);
+
+      expect(screen.getByRole('table').parentElement).toHaveClass('data-table-scroll');
+    });
   });
 
   describe('Empty State', () => {

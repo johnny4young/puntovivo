@@ -10,6 +10,7 @@
     "loading": "Loading products...",
     "error": "Unable to load products",
     "search": "Search products...",
+    "searchSemantic": "Search by meaning (e.g. low-fat dairy)",
     "product": "Product",
     "category": "Category",
     "provider": "Provider",
@@ -21,7 +22,23 @@
     "low": "Low",
     "status": "Status",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "match": "Match"
+  },
+  "semantic": {
+    "toggleLabel": "Semantic",
+    "toggleHint": "Match by meaning, not exact text. Falls back to text search when AI is off.",
+    "modeBadge": "AI semantic match",
+    "modeLiteral": "Literal text match",
+    "unavailable": "Semantic search needs AI enabled and embeddings generated. Falling back to text search.",
+    "searching": "Searching...",
+    "noResults": "No products matched the meaning of your query.",
+    "regenerate": "Regenerate embeddings",
+    "regenerating": "Regenerating...",
+    "regenerated_one": "Embedded {{count}} product. Semantic search is ready.",
+    "regenerated_other": "Embedded {{count}} products. Semantic search is ready.",
+    "regenerateUnavailable": "Cannot regenerate: enable AI in Company settings and ensure the OpenAI key is set.",
+    "regenerateError": "Could not regenerate embeddings"
   },
   "form": {
     "createTitle": "Create Product",

@@ -35,6 +35,9 @@
     "fiscalDocuments": "Documentos fiscales",
     "fiscalReports": "Reportes fiscales"
   },
+  "badges": {
+    "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"
+  },
   "actions": {
     "collapseRail": "Contraer menú",
     "expandNavigation": "Expandir navegación",

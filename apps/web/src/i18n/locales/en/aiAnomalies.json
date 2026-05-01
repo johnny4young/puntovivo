@@ -44,6 +44,11 @@
     },
     "cashierUnknown": "Unknown cashier",
     "noResults": "No anomalies match this filter.",
-    "close": "Close"
+    "close": "Close",
+    "snoozeAction": "Snooze 7 days",
+    "snoozing": "Snoozing…",
+    "snoozeSuccessTitle": "Anomaly snoozed",
+    "snoozeSuccessDescription": "Hidden until {{until}}",
+    "snoozeErrorTitle": "Could not snooze the anomaly"
   }
 }

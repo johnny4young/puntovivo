@@ -45,7 +45,8 @@
     "sale.park": "Venta suspendida",
     "sale.resume": "Venta retomada",
     "sale.reprint": "Recibo reimpreso",
-    "sale.complete": "Borrador completado"
+    "sale.complete": "Borrador completado",
+    "ai.anomaly.detected": "Anomalía IA detectada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -82,6 +83,7 @@
     "saleReprint_one": "{{saleNumber}} — reimpresa {{count}} vez",
     "saleReprint_other": "{{saleNumber}} — reimpresa {{count}} veces",
     "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})",
-    "saleComplete": "{{saleNumber}} completada desde borrador"
+    "saleComplete": "{{saleNumber}} completada desde borrador",
+    "aiAnomaly": "{{kind}} · {{severity}} · distancia {{distance}}"
   }
 }

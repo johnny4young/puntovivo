@@ -482,5 +482,27 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  // ENG-047 — anomaly detector persistence. The row links to the
+  // cashier user and keeps metric details in metadata for audit drilldown.
+  if (entry.action === 'ai.anomaly.detected') {
+    const kind =
+      entry.metadata && typeof entry.metadata.kind === 'string'
+        ? entry.metadata.kind
+        : '?';
+    const severity =
+      entry.metadata && typeof entry.metadata.severity === 'string'
+        ? entry.metadata.severity
+        : '?';
+    const distance =
+      entry.metadata && typeof entry.metadata.distance === 'number'
+        ? entry.metadata.distance.toFixed(2)
+        : '?';
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.aiAnomaly', { kind, severity, distance })}
+      </span>
+    );
+  }
+
   return <span className="text-sm text-secondary-500">—</span>;
 }

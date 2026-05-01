@@ -35,6 +35,9 @@
     "fiscalDocuments": "Fiscal documents",
     "fiscalReports": "Fiscal reports"
   },
+  "badges": {
+    "unreadAlertsSr": "high-severity anomalies pending review"
+  },
   "actions": {
     "collapseRail": "Collapse rail",
     "expandNavigation": "Expand navigation",

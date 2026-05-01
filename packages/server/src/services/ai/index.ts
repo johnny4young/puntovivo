@@ -52,6 +52,13 @@ export {
   type AnomalySeverity,
 } from './anomalyDetection.js';
 
+export {
+  embedText,
+  regenerateProductEmbeddings,
+  semanticSearchProducts,
+  suggestProductCategory,
+} from './embeddings.js';
+
 export type {
   AICompletionInput,
   AICompletionResult,

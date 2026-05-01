@@ -45,7 +45,8 @@
     "sale.park": "Sale suspended",
     "sale.resume": "Sale resumed",
     "sale.reprint": "Receipt reprinted",
-    "sale.complete": "Draft completed"
+    "sale.complete": "Draft completed",
+    "ai.anomaly.detected": "AI anomaly detected"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -82,6 +83,7 @@
     "saleReprint_one": "{{saleNumber}} — reprinted {{count}} time",
     "saleReprint_other": "{{saleNumber}} — reprinted {{count}} times",
     "saleReprintReason": "{{saleNumber}} — reprint #{{count}} ({{reason}})",
-    "saleComplete": "{{saleNumber}} completed from draft"
+    "saleComplete": "{{saleNumber}} completed from draft",
+    "aiAnomaly": "{{kind}} · {{severity}} · distance {{distance}}"
   }
 }

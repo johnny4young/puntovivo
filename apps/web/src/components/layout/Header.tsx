@@ -1,5 +1,5 @@
-import { Bell, KeyRound, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Bell, Check, ChevronDown, KeyRound, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
@@ -12,7 +12,7 @@ import {
   resolveLocale,
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
-import { isOnline } from '@/lib/utils';
+import { cn, isOnline } from '@/lib/utils';
 
 interface HeaderProps {
   onOpenSidebar: () => void;
@@ -24,10 +24,12 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const { t, i18n } = useTranslation(['common', 'nav']);
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
     readLanguagePreference()
   );
+  const languageMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -42,25 +44,36 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     };
   }, []);
 
+  // Close language pill dropdown when the user clicks outside.
+  useEffect(() => {
+    if (!showLanguageMenu) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
+        setShowLanguageMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showLanguageMenu]);
+
   const siteOptions = sites.map(site => ({
     value: site.id,
     label: site.name,
   }));
 
-  const languageOptions = [
-    { value: 'system', label: t('common:language.options.system') },
-    { value: 'es', label: t('common:language.options.es') },
-    { value: 'en', label: t('common:language.options.en') },
-  ] satisfies Array<{ value: LanguagePreference; label: string }>;
+  // Language pill — three options, displayed inline with a tracked
+  // uppercase "IDIOMA" kicker + 3-char short value (Esp / Eng / Auto)
+  // matching the design system pill pattern. The full names live in
+  // the dropdown menu below.
+  const LANGUAGE_PREFERENCES: readonly LanguagePreference[] = ['system', 'es', 'en'];
+  const languageShort = (key: LanguagePreference) => t(`common:language.short.${key}`);
+  const languageLong = (key: LanguagePreference) => t(`common:language.options.${key}`);
 
-  const handleLanguageChange = (value: string | number | null) => {
-    if (value !== 'system' && value !== 'es' && value !== 'en') {
-      return;
-    }
-
+  const handleLanguageChange = (value: LanguagePreference) => {
     setLanguagePreference(value);
     persistLanguagePreference(value);
     void i18n.changeLanguage(resolveLocale(value));
+    setShowLanguageMenu(false);
   };
 
   return (
@@ -103,16 +116,64 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <FiscalContingencyIndicator />
 
 
-              <div className="w-[5.9rem] min-w-0 flex-none sm:w-[6.25rem]">
-                <Select
-                  options={languageOptions}
-                  value={languagePreference}
-                  onChange={handleLanguageChange}
-                  placeholder={t('common:language.placeholder')}
-                  label={t('common:language.label')}
-                  className="select-trigger"
-                  triggerLabelClassName="max-w-[3.1rem]"
-                />
+              <div className="relative self-end" ref={languageMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowLanguageMenu(current => !current)}
+                  aria-haspopup="menu"
+                  aria-expanded={showLanguageMenu}
+                  aria-label={t('common:language.label')}
+                  className="btn-outline flex items-center gap-2 px-3"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                      {t('common:language.label')}
+                    </span>
+                    <span className="text-sm font-semibold text-secondary-950">
+                      {languageShort(languagePreference)}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0 text-secondary-500 transition-transform',
+                      showLanguageMenu && 'rotate-180'
+                    )}
+                  />
+                </button>
+
+                {showLanguageMenu && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-20 mt-2 w-52 animate-pop-in rounded-2xl border border-line bg-card p-1.5 shadow-[var(--shadow-panel)]"
+                  >
+                    {LANGUAGE_PREFERENCES.map(pref => {
+                      const isSelected = pref === languagePreference;
+                      return (
+                        <button
+                          key={pref}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={isSelected}
+                          onClick={() => handleLanguageChange(pref)}
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors',
+                            isSelected
+                              ? 'bg-primary-50 font-semibold text-primary-700'
+                              : 'text-secondary-700 hover:bg-secondary-50'
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                              {languageShort(pref)}
+                            </span>
+                            <span>{languageLong(pref)}</span>
+                          </span>
+                          {isSelected && <Check className="h-4 w-4 shrink-0 text-primary-700" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="w-full min-w-[11.5rem] flex-none sm:w-[12.5rem] md:w-[14rem] xl:w-[13.5rem] 2xl:w-[15rem]">
