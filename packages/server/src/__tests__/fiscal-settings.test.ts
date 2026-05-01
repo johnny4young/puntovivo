@@ -180,7 +180,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     expect(result.notImplemented).toBe(false);
   });
 
-  it('CL devuelve readiness rojo con PACK_NOT_AVAILABLE (stub ENG-036)', async () => {
+  it('CL devuelve readiness rojo con MISSING_RUT/MISSING_RESOLUTION/MISSING_CERTIFICATE (ENG-036a)', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
@@ -189,8 +189,14 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     });
     expect(result.countryCode).toBe('CL');
     expect(result.validation.ok).toBe(false);
-    expect(result.validation.issues[0].code).toBe('PACK_NOT_AVAILABLE');
-    expect(result.availableInTicket).toBe('ENG-036');
+    const codes = result.validation.issues.map(i => i.code);
+    expect(codes).toContain('MISSING_RUT');
+    expect(codes).toContain('MISSING_RESOLUTION');
+    expect(codes).toContain('MISSING_CERTIFICATE');
+    // ENG-036a sigue notImplemented hasta que ENG-036b shipa
+    // la emisión XML real.
+    expect(result.notImplemented).toBe(true);
+    expect(result.availableInTicket).toBe('ENG-036b');
   });
 
   it('rechaza cashier con FORBIDDEN', async () => {
@@ -309,6 +315,116 @@ describe('fiscalSettings.updateMx (ENG-035a)', () => {
       enabled: false,
       rfc: null,
       regimenFiscalCode: null,
+    });
+  });
+});
+
+describe('fiscalSettings.updateCl (ENG-036a)', () => {
+  it('happy path: RUT + giro + comuna + casa matriz válidos → persiste + readiness verde', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    const result = await caller.fiscalSettings.updateCl({
+      enabled: true,
+      rut: '55555555-5',
+      giroCode: '4711',
+      comunaCode: 13101,
+      casaMatriz: 'Av Apoquindo 4500',
+      environment: 'certificacion',
+    });
+    expect(result.ok).toBe(true);
+    expect(result.settings.rut).toBe('55555555-5');
+    expect(result.settings.giroCode).toBe('4711');
+    expect(result.settings.enabled).toBe(true);
+    expect(result.validation.ok).toBe(true);
+
+    // El subsequent get refleja lo persistido.
+    const fetched = await caller.fiscalSettings.getByCountry({
+      countryCode: 'CL',
+    });
+    expect(fetched.settings).toMatchObject({
+      enabled: true,
+      rut: '55555555-5',
+      giroCode: '4711',
+      comunaCode: 13101,
+      casaMatriz: 'Av Apoquindo 4500',
+      environment: 'certificacion',
+    });
+  });
+
+  it('RUT inválido → tira FISCAL_RUT_INVALID', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    let caught: unknown;
+    try {
+      await caller.fiscalSettings.updateCl({ rut: 'BAD123' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_RUT_INVALID');
+  });
+
+  it('giro fuera del catálogo CIIU.cl → tira FISCAL_REGIMEN_INVALID', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    let caught: unknown;
+    try {
+      await caller.fiscalSettings.updateCl({ giroCode: '9999' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe(
+      'FISCAL_REGIMEN_INVALID'
+    );
+  });
+
+  it('aislamiento multi-tenant: update CL del A no toca settings del B', async () => {
+    const callerA = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    await callerA.fiscalSettings.updateCl({
+      rut: '55555555-5',
+      giroCode: '4711',
+      comunaCode: 13101,
+      casaMatriz: 'Av Apoquindo 4500',
+    });
+
+    // Tenant B sigue limpio (otro admin con mismo countryCode).
+    const db = getDatabase();
+    const adminBcl = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: adminBcl,
+      tenantId: tenantB,
+      email: 'fiscal-admin-bcl@example.com',
+      name: 'Fiscal Admin B CL',
+      passwordHash: await hash('FiscalPassBcl!'),
+      sessionVersion: 1,
+      role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const callerB = appRouter.createCaller(
+      createCtx({ tenantId: tenantB, userId: adminBcl, role: 'admin' })
+    );
+    const fetched = await callerB.fiscalSettings.getByCountry({
+      countryCode: 'CL',
+    });
+    expect(fetched.settings).toMatchObject({
+      enabled: false,
+      rut: null,
+      giroCode: null,
+      comunaCode: null,
+      casaMatriz: null,
     });
   });
 });

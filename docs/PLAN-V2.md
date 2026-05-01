@@ -229,8 +229,24 @@ tamaño + dependencias externas:
   complemento Pago 2.0. Necesita contrato PAC + sandbox SAT +
   certificados CSD de prueba (dependencias externas operativas).
 
-`ENG-036` (Pack Chile SII) sigue Pending y se puede correr en
-paralelo a cualquier slice de ENG-035.
+`ENG-036` (Pack Chile SII) también se hizo split en tres slices,
+espejo estructural de ENG-035:
+
+- **ENG-036a** (Shipped) — Fundación: validador RUT + catálogos
+  SII curados (tipoDte 7, giroComercial 26 CIIU.cl, comuna 35
+  SUBDERE) + ajustes admin + `ChileSIIAdapter` con `validateConfig`
+  real. Sin emisión XML.
+- **ENG-036b** (Pending) — Modelado XML DTE 1.0 + emisión sin
+  firmar + manejo CAF. Documento queda en `status='draft'` hasta
+  ENG-036c.
+- **ENG-036c** (Pending) — Certificación SII + firmado XAdES +
+  entrega digital obligatoria (mar-2026) + eliminación de timbre
+  impreso (1-jan-2026). Necesita certificado digital del emisor +
+  acceso al ambiente de certificación SII.
+
+Las fundaciones de ambos países (ENG-035a + ENG-036a) ya
+shippearon. ENG-035b/c y ENG-036b/c pueden correr en paralelo
+cuando sus dependencias externas resuelvan.
 
 Phase 3 and Phase 4 can run partially overlapped if a second
 contributor joins; the natural critical path is F0 → F1 → F2 → F3 → F4.

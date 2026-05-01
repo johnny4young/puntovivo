@@ -1,25 +1,29 @@
 /**
- * ENG-035a — Admin router de `fiscal.settings.*`.
+ * ENG-035a + ENG-036a — Admin router de `fiscal.settings.*`.
  *
- * Dos procedures:
+ * Tres procedures:
  *
  * - `getByCountry({ countryCode })` — devuelve la lectura
  *   normalizada del namespace `tenants.settings.fiscal.<country>`
  *   más el resultado de `validateConfig` del adapter activo. La
  *   shape del campo de settings depende del país: para MX trae
  *   `{ enabled, rfc, regimenFiscalCode, lugarExpedicion,
- *   environment }`; para CO/CL la proyección es mínima por ahora
- *   (la UI de cada país llega con su ticket — ENG-035c migra CO,
- *   ENG-036 trae CL).
+ *   environment }`; para CL trae `{ enabled, rut, giroCode,
+ *   comunaCode, casaMatriz, environment }`; CO sigue con
+ *   proyección mínima (su UI completa llega con ENG-035c).
  * - `updateMx(...)` — patch parcial sobre
- *   `tenants.settings.fiscal.mx`. Valida server-side que el RFC
- *   pase `validateRfc` y que `regimenFiscalCode` esté en el
- *   catálogo SAT antes de persistir. Re-corre `validateConfig`
- *   después del write para que la respuesta incluya el readiness
- *   actualizado — la card del frontend evita un round-trip extra.
+ *   `tenants.settings.fiscal.mx`. Valida RFC + régimen contra el
+ *   catálogo SAT.
+ * - `updateCl(...)` — patch parcial sobre
+ *   `tenants.settings.fiscal.cl`. Valida RUT (algoritmo SII) +
+ *   giro contra catálogo CIIU.cl.
  *
- * Multi-tenant: ambos procedures usan `adminProcedure` y scopean
- * por `ctx.tenantId`. Cero queries nuevas que escapen el scope.
+ * Ambos updates re-corren `validateConfig` post-write para que la
+ * respuesta lleve el readiness fresco — la card del frontend evita
+ * un round-trip extra.
+ *
+ * Multi-tenant: las tres procedures usan `adminProcedure` y
+ * scopean por `ctx.tenantId`. Cero queries que escapen el scope.
  *
  * @module trpc/routers/fiscal-settings
  */
@@ -38,8 +42,17 @@ import {
   readMxFiscalSettings,
   type MxFiscalSettings,
 } from '../../services/fiscal/packs/mx/settings.js';
+import { findGiroComercial } from '../../services/fiscal/packs/cl/catalogs/index.js';
+import { validateRut } from '../../services/fiscal/packs/cl/rut.js';
+import {
+  buildClFiscalSettingsPatch,
+  mergeClFiscalSettingsIntoTenantSettings,
+  readClFiscalSettings,
+  type ClFiscalSettings,
+} from '../../services/fiscal/packs/cl/settings.js';
 import {
   getFiscalSettingsInput,
+  updateClFiscalSettingsInput,
   updateMxFiscalSettingsInput,
 } from '../schemas/fiscalSettings.js';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -91,8 +104,26 @@ export const fiscalSettingsRouter = router({
         };
       }
 
-      // CO + CL: proyección mínima por ahora — los settings completos
-      // llegan con sus tickets (ENG-035c para CO, ENG-036 para CL).
+      if (input.countryCode === 'CL') {
+        // ENG-036a — desempaca settings CL del namespace
+        // `tenants.settings.fiscal.cl.*` para que el frontend
+        // hidrate el form sin un segundo round-trip.
+        const cl = readClFiscalSettings(tenantSettings);
+        return {
+          countryCode: 'CL' as const,
+          settings: cl,
+          validation,
+          providerId: adapter.providerId,
+          notImplemented:
+            (adapter as { notImplemented?: boolean }).notImplemented ?? false,
+          availableInTicket:
+            (adapter as { availableInTicket?: string }).availableInTicket ?? null,
+        };
+      }
+
+      // CO: proyección mínima por ahora — la UI completa llega
+      // con ENG-035c (cuando el pack CO migre al namespace
+      // country-aware).
       return {
         countryCode: input.countryCode,
         settings: null,
@@ -194,6 +225,97 @@ export const fiscalSettingsRouter = router({
       return {
         ok: true as const,
         settings: readMxFiscalSettings(nextSettings),
+        validation,
+      };
+    }),
+
+  /**
+   * ENG-036a — Patch parcial sobre `tenants.settings.fiscal.cl`.
+   * Espejo de `updateMx`: valida server-side el RUT (algoritmo
+   * SII) + el giro contra el catálogo CIIU.cl, persiste, y
+   * re-corre `validateConfig` para que la respuesta lleve el
+   * readiness fresco.
+   */
+  updateCl: adminProcedure
+    .input(updateClFiscalSettingsInput)
+    .mutation(async ({ ctx, input }) => {
+      // Validación de RUT: si vino en el patch y NO es null, debe
+      // pasar el validador SII. `null` significa "borrar" y se
+      // permite (el operador puede limpiar el campo).
+      if (input.rut !== undefined && input.rut !== null) {
+        const result = validateRut(input.rut);
+        if (!result.ok) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'FISCAL_RUT_INVALID',
+            message: result.message,
+            details: { code: result.code, field: 'fiscal.cl.rut' },
+          });
+        }
+      }
+
+      // Validación de giro: si vino en el patch y NO es null, debe
+      // existir en el catálogo CIIU.cl curado. Reusamos el code
+      // FISCAL_REGIMEN_INVALID porque cubre semánticamente "el
+      // catálogo rechazó el código de actividad económica del
+      // emisor" (mismo concepto que régimen en MX).
+      if (
+        input.giroCode !== undefined &&
+        input.giroCode !== null &&
+        !findGiroComercial(input.giroCode)
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'FISCAL_REGIMEN_INVALID',
+          message: `El giro ${input.giroCode} no existe en el catálogo CIIU.cl.`,
+          details: { code: input.giroCode, field: 'fiscal.cl.giroCode' },
+        });
+      }
+
+      // Persistencia: lee el blob actual, aplica el patch en la
+      // rama fiscal.cl, y reescribe el blob completo (preserva
+      // fiscal.mx, fiscal_dian_enabled, ai, etc.).
+      const tenantSettings = await readTenantSettings(ctx.db, ctx.tenantId);
+      const partial: Partial<ClFiscalSettings> = {};
+      if (input.enabled !== undefined) partial.enabled = input.enabled;
+      if (input.rut !== undefined) {
+        partial.rut =
+          input.rut === null
+            ? null
+            : (validateRut(input.rut) as { normalized: string }).normalized;
+      }
+      if (input.giroCode !== undefined) partial.giroCode = input.giroCode;
+      if (input.comunaCode !== undefined) partial.comunaCode = input.comunaCode;
+      if (input.casaMatriz !== undefined) {
+        partial.casaMatriz =
+          input.casaMatriz === null ? null : input.casaMatriz.trim();
+      }
+      if (input.environment !== undefined) {
+        partial.environment = input.environment;
+      }
+
+      const patch = buildClFiscalSettingsPatch(partial);
+      const nextSettings = mergeClFiscalSettingsIntoTenantSettings(
+        tenantSettings,
+        patch
+      );
+
+      await ctx.db
+        .update(tenants)
+        .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, ctx.tenantId));
+
+      // Re-corre validateConfig contra el blob recién persistido.
+      const adapter = getFiscalAdapter('CL');
+      const validation = await adapter.validateConfig({
+        tenantId: ctx.tenantId,
+        countryCode: 'CL',
+        settings: nextSettings,
+      });
+
+      return {
+        ok: true as const,
+        settings: readClFiscalSettings(nextSettings),
         validation,
       };
     }),

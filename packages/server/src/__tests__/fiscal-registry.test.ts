@@ -25,7 +25,7 @@ import {
 } from '../services/fiscal/registry.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
-import { ChileNotImplementedAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
+import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 
 describe('getFiscalAdapter (ENG-034)', () => {
   it('returns ColombiaMockAdapter when called with no argument', () => {
@@ -51,13 +51,13 @@ describe('getFiscalAdapter (ENG-034)', () => {
     ).toBe('ENG-035b');
   });
 
-  it('returns ChileNotImplementedAdapter for "CL" (stub for ENG-036)', () => {
+  it('returns ChileSIIAdapter for "CL" (stub for ENG-036b)', () => {
     const adapter = getFiscalAdapter('CL');
-    expect(adapter).toBeInstanceOf(ChileNotImplementedAdapter);
+    expect(adapter).toBeInstanceOf(ChileSIIAdapter);
     expect(adapter.countryCode).toBe('CL');
     expect(
       (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBe('ENG-036');
+    ).toBe('ENG-036b');
   });
 
   it('falls back to ColombiaMockAdapter for an unknown country code', () => {
@@ -93,7 +93,7 @@ describe('listFiscalAdapterCountries (ENG-034)', () => {
     expect(byCode.get('CL')).toEqual({
       code: 'CL',
       isImplemented: false,
-      availableInTicket: 'ENG-036',
+      availableInTicket: 'ENG-036b',
     });
   });
 });

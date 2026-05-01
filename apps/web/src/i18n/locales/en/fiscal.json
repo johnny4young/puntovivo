@@ -119,7 +119,31 @@
     },
     "cl": {
       "title": "Chile — SII",
-      "comingSoon": "Chile fiscal pack lands with ENG-036."
+      "description": "Configure issuer settings before turning on DTE emission. Real emission lands with ENG-036b (XML modeling) and ENG-036c (SII certification + signing + digital delivery).",
+      "fields": {
+        "enabled": "Enable Chile fiscal pack",
+        "enabledHelp": "When on, sales will emit a DTE once ENG-036b lands. Today this flag only gates the readiness probe.",
+        "rut": "Issuer RUT",
+        "rutHelp": "Format: body-verifier digit (e.g. 12345678-K). Verifier is 0-9 or K.",
+        "rutPlaceholder": "e.g. 76123456-0",
+        "giro": "Business activity (CIIU.cl)",
+        "giroPlaceholder": "Select an activity",
+        "comuna": "Issuance commune (SUBDERE)",
+        "comunaPlaceholder": "Select a commune",
+        "casaMatriz": "Headquarters address",
+        "casaMatrizPlaceholder": "e.g. Av Apoquindo 4500, Las Condes",
+        "environment": "Environment",
+        "environmentCertificacion": "Certification",
+        "environmentProduccion": "Production"
+      },
+      "actions": {
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "toast": {
+        "saved": "Chile fiscal settings saved",
+        "saveError": "Could not save Chile fiscal settings"
+      }
     }
   }
 }

@@ -11,4 +11,4 @@
 
 export { ColombiaMockAdapter } from './co/index.js';
 export { MexicoCFDIAdapter } from './mx/index.js';
-export { ChileNotImplementedAdapter } from './cl/index.js';
+export { ChileSIIAdapter } from './cl/index.js';

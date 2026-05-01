@@ -101,6 +101,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-035a pack México fundación ---
   'FISCAL_RFC_INVALID',
   'FISCAL_REGIMEN_INVALID',
+  // --- ENG-036a pack Chile fundación ---
+  'FISCAL_RUT_INVALID',
   // --- ENG-030 AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',

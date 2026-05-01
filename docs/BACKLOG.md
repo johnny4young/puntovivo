@@ -53,6 +53,20 @@ research.
   module gigante, DB table con seed + cron, o lazy-load on-demand.
   El mapeo entre `products.id` interno y `claveProdServ` también
   queda para ese ticket. — 2026-05-01 (jy)
+- `[fiscal][cl]` Catálogo completo de comunas chilenas (~346 entradas
+  vs las 35 curadas que ship en ENG-036a). Cuando ENG-036b modele el
+  XML DTE va a necesitar match exacto de la comuna del lugar de
+  emisión, así que ahí decidimos: TS module gigante o DB table con
+  seed inicial desde la SUBDERE + refresh manual cuando publiquen
+  cambios (raro, ~1 vez por década). — 2026-05-01 (jy)
+- `[fiscal][refactor]` Separar `FISCAL_GIRO_INVALID` de
+  `FISCAL_REGIMEN_INVALID` si el operator pide granularidad por país.
+  ENG-036a reusa el code mexicano para giros chilenos (semánticamente
+  cubre "el catálogo rechazó el código de actividad económica del
+  emisor"). El frontend mapea via i18n key, así que el nombre
+  interno no se ve; el costo del rename sería 1 error code + 1 i18n
+  key par por país. Sized cuando el operator pida diagnóstico
+  separado. — 2026-05-01 (jy)
 - `[fiscal][refactor]` Rename `tenants.settings.fiscal_dian_enabled`
   to a country-agnostic `fiscal.enabled` flag (or per-country
   `fiscal.{co,mx,cl}.enabled` if granularity matters). Today the
