@@ -16,8 +16,7 @@
  * 4. Collects the line snapshots (product name, sku, tax) by joining
  *    sale_items → products.
  * 5. Reads the tenant's resolved locale for `currencyCode` + `locale`.
- * 6. Invokes the adapter (MockAdapter in Fase A; FactureAdapter in
- *    ENG-021).
+ * 6. Invokes the country-specific adapter supplied by the caller.
  * 7. Persists `fiscal_documents` + `fiscal_document_items` inside one
  *    local transaction, advances the resolution consecutive, and
  *    returns the new row id.
@@ -70,7 +69,7 @@ export interface EmitFiscalDocumentArgs {
   /** When source is void/return, pass the original sale's fiscal doc CUFE. */
   originalCufe?: string;
   reasonCode?: string;
-  /** Adapter to use. Defaults to the MockAdapter in Fase A. */
+  /** Country-specific adapter selected by the sale lifecycle caller. */
   adapter: FiscalAdapter;
   /** Environment flag. Fase A defaults to '2' (sandbox). */
   environment?: FiscalEnvironment;

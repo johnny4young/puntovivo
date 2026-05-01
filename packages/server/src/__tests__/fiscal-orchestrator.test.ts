@@ -2,8 +2,8 @@
  * ENG-020 — `emitFiscalDocument` integration tests.
  *
  * Runs HTTP-less against the in-memory sqlite DB seeded by `createServer`.
- * Uses `MockAdapter` directly so the CUFE stays deterministic and we can
- * assert byte-for-byte equality with `computeCufe`.
+ * Uses `ColombiaMockAdapter` directly so the CUFE stays deterministic and we
+ * can assert byte-for-byte equality with `computeCufe`.
  *
  * Coverage:
  * - Feature flag off → returns null, no fiscal document row inserted.
@@ -41,7 +41,7 @@ import {
   users,
 } from '../db/schema.js';
 import { CONSUMIDOR_FINAL, computeCufe } from '../services/fiscal/cufe.js';
-import { MockAdapter } from '../services/fiscal/mock-adapter.js';
+import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { emitFiscalDocument } from '../services/fiscal/orchestrator.js';
 
 let server: PuntovivoServer;
@@ -301,12 +301,12 @@ async function seedSecondSiteResolution(
 
 describe('emitFiscalDocument (ENG-020)', () => {
   let harness: TenantHarness;
-  let adapter: MockAdapter;
+  let adapter: ColombiaMockAdapter;
 
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     harness = await seedFiscalTenant('a', /* enableFlag */ true);
-    adapter = new MockAdapter();
+    adapter = new ColombiaMockAdapter();
   });
 
   afterAll(async () => {
@@ -401,7 +401,7 @@ describe('emitFiscalDocument (ENG-020)', () => {
     expect(stored!.kind).toBe('DEE');
     expect(stored!.consecutive).toBe(1);
     expect(stored!.status).toBe('sent');
-    expect(stored!.providerId).toBe('mock');
+    expect(stored!.providerId).toBe('mock-co');
     expect(stored!.customerId).toBe(harness.customerId);
     expect(stored!.buyerName).toBe(`Customer a`);
     expect(stored!.buyerTaxId).toBe('800123456');

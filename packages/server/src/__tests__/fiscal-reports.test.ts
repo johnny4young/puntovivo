@@ -31,7 +31,7 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
-import { MockAdapter } from '../services/fiscal/mock-adapter.js';
+import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { emitFiscalDocument } from '../services/fiscal/orchestrator.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -214,7 +214,7 @@ async function seedSaleAndEmit(h: Harness, saleNumber: string): Promise<string> 
     sourceId: saleId,
     saleId,
     kind: 'DEE',
-    adapter: new MockAdapter(),
+    adapter: new ColombiaMockAdapter(),
   });
   if (!result) throw new Error('Expected fiscal document emission');
   return result.cufe;

@@ -8,6 +8,8 @@ import {
   cashMovements,
   cashSessions,
   customers,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
   inventoryMovements,
   products,
   salePayments,
@@ -16,6 +18,8 @@ import {
   sales,
   sequentials,
   sites,
+  tenantLocaleSettings,
+  tenants,
   unitXProduct,
   units,
   users,
@@ -464,6 +468,141 @@ describe('Sales tRPC Router', () => {
         discountAmount: 0,
       })
     ).rejects.toThrow(/Insufficient stock/);
+  });
+
+  it('completes a Mexico-tenant sale without inserting a fiscal document while the pack is parked', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    const now = new Date().toISOString();
+    const productId = nanoid();
+    const resolutionId = nanoid();
+
+    const previousTenant = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    const previousLocale = await db
+      .select()
+      .from(tenantLocaleSettings)
+      .where(eq(tenantLocaleSettings.tenantId, tenantId))
+      .get();
+
+    try {
+      await db
+        .update(tenants)
+        .set({
+          settings: {
+            ...(previousTenant?.settings ?? {}),
+            fiscal_dian_enabled: true,
+          },
+        })
+        .where(eq(tenants.id, tenantId))
+        .run();
+
+      await db
+        .delete(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .run();
+      await db.insert(tenantLocaleSettings).values({
+        tenantId,
+        countryCode: 'MX',
+        localeOverride: null,
+        currencyOverride: null,
+        timezoneOverride: null,
+        firstDayOfWeekOverride: null,
+        updatedAt: now,
+      });
+
+      await db.insert(fiscalNumberingResolutions).values({
+        id: resolutionId,
+        tenantId,
+        siteId,
+        kind: 'DEE',
+        resolutionNumber: '18760000001',
+        prefix: 'MXP',
+        fromNumber: 1,
+        toNumber: 10000,
+        currentNumber: 0,
+        technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+        validFrom: now,
+        validUntil: now,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: 'Mexico Parked Fiscal Product',
+        sku: `MX-PARKED-${productId.slice(0, 8)}`,
+        price: 20,
+        price2: 20,
+        price3: 20,
+        cost: 8,
+        marginPercent1: 0,
+        marginPercent2: 0,
+        marginPercent3: 0,
+        marginAmount1: 0,
+        marginAmount2: 0,
+        marginAmount3: 0,
+        taxRate: 0,
+        initialCost: 8,
+        stock: 5,
+        minStock: 0,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 1,
+        price: 20,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 20, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 20,
+        discountAmount: 0,
+      });
+
+      expect(result.status).toBe('completed');
+      const emittedDocuments = await db
+        .select()
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.sourceId, result.id))
+        .all();
+      expect(emittedDocuments).toHaveLength(0);
+    } finally {
+      await db
+        .delete(fiscalNumberingResolutions)
+        .where(eq(fiscalNumberingResolutions.id, resolutionId))
+        .run();
+      await db
+        .delete(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .run();
+      if (previousLocale) {
+        await db.insert(tenantLocaleSettings).values(previousLocale).run();
+      }
+      await db
+        .update(tenants)
+        .set({ settings: previousTenant?.settings ?? {} })
+        .where(eq(tenants.id, tenantId))
+        .run();
+    }
   });
 
   it('creates sales with fractional quantities and preserves decimal stock deductions', async () => {

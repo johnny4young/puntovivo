@@ -88,6 +88,7 @@
     "AI_PROVIDER_ERROR": "The AI provider is unreachable or returned an error. Check the provider configuration and try again.",
     "AI_COPILOT_SQL_REJECTED": "The co-pilot could not run that analysis safely. Ask for a simpler question or narrow the filters.",
     "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "That analysis covers too much data. Narrow the date range or select a site and try again.",
+    "FISCAL_PACK_NOT_AVAILABLE": "Fiscal emission for this country is not available yet. The sale was completed without a fiscal document; check back when the country pack ships.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }

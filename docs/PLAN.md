@@ -2340,6 +2340,23 @@ for a Proveedor Tecnológico contract:
 
 **Fase B gating (ENG-021)**: unchanged. When a signed PT contract lands along with sandbox credentials + DIAN certificate + validated PT POC + error-code map, the swap is literally one `setFiscalAdapter(new FactureAdapter(...))` call at boot plus the XAdES + contingency daemon work inside `FactureAdapter`. No schema, no hook, no UI changes. See [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) for the updated gate list.
 
+#### Phase 11.1 Status Update (ENG-034 shipped, May 2026)
+
+**FISCAL-CORE refactor shipped**. The singleton
+`services/fiscal/registry.ts` path from ENG-020 is now a typed
+country-pack factory keyed by `tenantLocaleSettings.countryCode`.
+Colombia moved into `services/fiscal/packs/co/` as
+`ColombiaMockAdapter`; Mexico and Chile have parked
+`NotImplementedAdapter` stubs under `packs/mx/` and `packs/cl/` that
+throw `FISCAL_PACK_NOT_AVAILABLE` until ENG-035 / ENG-036 land.
+
+The adapter contract now includes `validateConfig(input)` and
+`countryCode`. `sales.ts::safelyEmitFiscalDocument` resolves the
+tenant locale once, passes the country code into `getFiscalAdapter`,
+and keeps the sale lifecycle non-blocking through the existing
+try/catch. ENG-035 and ENG-036 can now implement country packs without
+changing the orchestrator contract.
+
 #### Phase 11 Extension: Country-Parametrizable Fiscal Rules
 
 Goal:

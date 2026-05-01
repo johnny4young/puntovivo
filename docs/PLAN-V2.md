@@ -208,9 +208,15 @@ auto-categorization), with `ENG-044` (out-of-band) already reducing
 provider risk by activating OpenAI as a live chat fallback. The
 embedding model wiring itself still lands in `ENG-033`.
 
-Within Phase 2, `ENG-034` (FISCAL-CORE refactor) blocks `ENG-035` and
-`ENG-036`. The two country packs can run in parallel once the
-interface is in place.
+Within Phase 2, `ENG-034` (FISCAL-CORE refactor) is **closed**:
+`services/fiscal/registry.ts` is now a typed factory dispatching by
+`tenantLocaleSettings.countryCode`, with Colombia migrated into
+`packs/co/` (`ColombiaMockAdapter`) and Mexico + Chile parked as
+`NotImplementedAdapter` stubs in `packs/mx/` + `packs/cl/`. The
+adapter contract gained `validateConfig` (pre-flight readiness) and
+`countryCode` (introspection). `ENG-035` and `ENG-036` are unblocked
+and can run in parallel; both land as new files implementing the
+same contract plus tests.
 
 Phase 3 and Phase 4 can run partially overlapped if a second
 contributor joins; the natural critical path is F0 → F1 → F2 → F3 → F4.

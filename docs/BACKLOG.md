@@ -31,6 +31,32 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
+- `[fiscal][refactor]` Move `services/fiscal/cufe.ts` into
+  `packs/co/cufe.ts` once ENG-021 lands the real Colombia adapter.
+  The CUFE algorithm is Colombia-specific (SHA-384 over a fixed
+  field order per Resolución DIAN 165/2023); leaving it at the root
+  of `services/fiscal/` was a deliberate scope choice in ENG-034 to
+  avoid 4 test import updates without a real driver. ENG-021 will
+  swap `ColombiaMockAdapter` for `FactureAdapter` / `HkaAdapter`
+  anyway and is the natural moment to relocate the helper. —
+  2026-05-01 (jy)
+- `[fiscal][ux]` Admin card surfacing `listFiscalAdapterCountries()`
+  readiness. The function ships in ENG-034 with no UI consumer.
+  Natural home: a small card under `/company → Datos` with one row
+  per country (CO green, MX/CL red with "lands with ENG-035 / 036"
+  hint), mirroring `CompanyAISettingsCard`'s provider-configured
+  badge. Sized when the operator first asks for multi-country
+  visibility. — 2026-05-01 (jy)
+- `[fiscal][refactor]` Rename `tenants.settings.fiscal_dian_enabled`
+  to a country-agnostic `fiscal.enabled` flag (or per-country
+  `fiscal.{co,mx,cl}.enabled` if granularity matters). Today the
+  flag name is Colombia-specific in spirit but country-agnostic in
+  semantics — ENG-034 dispatches via `countryCode` and treats the
+  flag as a master kill-switch. ENG-035 / ENG-036 will need to
+  decide whether each pack inherits the master flag or owns its own
+  per-country flag. Capture the decision when the second pack
+  lands. — 2026-05-01 (jy)
+
 - `[i18n][infra]` Migrate raw `throw new TRPCError` calls in every
   router other than `sales.ts` to `throwServerError` + a stable
   `errorCode`, so user-facing messages always render in the active

@@ -96,6 +96,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_COMPLETE_DRAFT_SUSPENDED',
   // --- ENG-042 sync resolve TOCTOU close-out ---
   'SYNC_LOCAL_RECORD_MISSING',
+  // --- ENG-034 multi-country fiscal packs ---
+  'FISCAL_PACK_NOT_AVAILABLE',
   // --- ENG-030 AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
