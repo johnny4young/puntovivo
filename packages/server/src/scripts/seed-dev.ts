@@ -39,6 +39,12 @@ function banner(line = ''): void {
 
 interface CliOptions {
   preset: 'default' | 'large';
+  /**
+   * ENG-035b — country code for the demo tenant. Default `'CO'`
+   * preserves backward compat with all existing tests + E2E. `'MX'`
+   * activates the Mexico CFDI 4.0 pack so seeded sales emit XML.
+   */
+  countryCode: 'CO' | 'MX';
   reset: boolean;
   help: boolean;
 }
@@ -48,8 +54,10 @@ function parseArgs(argv: string[]): CliOptions {
   // double-`--` forwarding through workspace barriers. Explicit CLI
   // flags still win over env.
   const presetFromEnv = process.env.SEED_PRESET;
+  const countryFromEnv = (process.env.SEED_COUNTRY ?? '').toUpperCase();
   const options: CliOptions = {
     preset: presetFromEnv === 'large' ? 'large' : 'default',
+    countryCode: countryFromEnv === 'MX' ? 'MX' : 'CO',
     reset: process.env.SEED_RESET === 'true' || process.env.SEED_RESET === '1',
     help: false,
   };
@@ -68,6 +76,14 @@ function parseArgs(argv: string[]): CliOptions {
         throw new Error(`Unknown preset: ${value}`);
       }
       options.preset = value;
+      continue;
+    }
+    if (arg.startsWith('--country=')) {
+      const value = arg.slice('--country='.length).toUpperCase();
+      if (value !== 'CO' && value !== 'MX') {
+        throw new Error(`Unknown country: ${value} (expected CO o MX)`);
+      }
+      options.countryCode = value;
       continue;
     }
     throw new Error(`Unknown flag: ${arg}`);
@@ -131,6 +147,7 @@ function printHelp(): void {
   banner('  npm run seed:dev                                  # default preset, no reset');
   banner('  SEED_PRESET=large npm run seed:dev                # bigger catalog and history');
   banner('  SEED_RESET=true npm run seed:dev                  # wipe the demo tenant first (destructive)');
+  banner('  SEED_COUNTRY=mx npm run seed:dev                  # demo tenant en Mexico (CFDI 4.0); default CO');
   banner('  SEED_TARGET=desktop npm run seed:dev              # seed the Electron userData DB instead of the repo-local one');
   banner('  SEED_PRESET=large SEED_RESET=true npm run seed:dev');
   banner('');
@@ -277,7 +294,10 @@ async function main(): Promise<void> {
     if (options.reset) {
       await resetDemoTenant(db);
     }
-    const result = await seedDevData(db, { preset: options.preset });
+    const result = await seedDevData(db, {
+      preset: options.preset,
+      countryCode: options.countryCode,
+    });
 
     banner('');
     if (!result.seeded) {

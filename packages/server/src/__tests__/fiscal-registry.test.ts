@@ -40,15 +40,17 @@ describe('getFiscalAdapter (ENG-034)', () => {
     expect(adapter.providerId).toBe('mock-co');
   });
 
-  it('returns MexicoCFDIAdapter for "MX" (stub for ENG-035)', () => {
+  it('returns MexicoCFDIAdapter for "MX" (real CFDI 4.0 emission via ENG-035b)', () => {
     const adapter = getFiscalAdapter('MX');
     expect(adapter).toBeInstanceOf(MexicoCFDIAdapter);
     expect(adapter.countryCode).toBe('MX');
-    // The stub flag is a discriminant for the future admin UI.
-    expect((adapter as { notImplemented?: boolean }).notImplemented).toBe(true);
+    // ENG-035b promotes MX from a NotImplemented stub to a real
+    // adapter — `notImplemented` flag is gone and there is no
+    // `availableInTicket` ticket gating.
+    expect((adapter as { notImplemented?: boolean }).notImplemented).toBeUndefined();
     expect(
       (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBe('ENG-035b');
+    ).toBeUndefined();
   });
 
   it('returns ChileSIIAdapter for "CL" (stub for ENG-036b)', () => {
@@ -87,8 +89,8 @@ describe('listFiscalAdapterCountries (ENG-034)', () => {
     });
     expect(byCode.get('MX')).toEqual({
       code: 'MX',
-      isImplemented: false,
-      availableInTicket: 'ENG-035b',
+      isImplemented: true,
+      availableInTicket: undefined,
     });
     expect(byCode.get('CL')).toEqual({
       code: 'CL',

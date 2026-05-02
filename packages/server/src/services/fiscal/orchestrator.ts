@@ -33,6 +33,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
+  companies,
   customers,
   cashSessions,
   dianIdentificationTypes,
@@ -228,6 +229,28 @@ interface ResolvedLine {
   lineTotal: number;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Country-aware fiscal toggles live under `settings.fiscal.<country>.enabled`.
+ * When the namespace is absent we preserve the legacy `fiscal_dian_enabled`
+ * behavior so Colombia and older tenants keep working.
+ */
+function isCountryFiscalEnabled(
+  settings: Record<string, unknown>,
+  countryCode: string
+): boolean {
+  const fiscal = settings.fiscal;
+  if (!isPlainRecord(fiscal)) return true;
+
+  const countrySettings = fiscal[countryCode.toLowerCase()];
+  if (!isPlainRecord(countrySettings)) return true;
+
+  return countrySettings.enabled !== false;
+}
+
 async function resolveLines(
   tx: DatabaseInstance,
   tenantId: string,
@@ -332,6 +355,7 @@ export async function emitFiscalDocument(
       tenantId: sales.tenantId,
       customerId: sales.customerId,
       cashSessionId: sales.cashSessionId,
+      paymentMethod: sales.paymentMethod,
       subtotal: sales.subtotal,
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,
@@ -378,6 +402,27 @@ export async function emitFiscalDocument(
   const lines = await resolveLines(tx, tenantId, saleId);
   if (lines.length === 0) return null;
 
+  // ENG-035b: surface tenant settings + emisor legal name to the
+  // adapter so country packs (MX, CL) can read their pack-specific
+  // settings without coupling to the DB layer.
+  const tenantRow = await tx
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  const tenantSettings = (tenantRow?.settings ?? {}) as Record<string, unknown>;
+  if (!isCountryFiscalEnabled(tenantSettings, adapter.countryCode)) {
+    return null;
+  }
+
+  const companyRow = await tx
+    .select({ name: companies.name })
+    .from(companies)
+    .where(eq(companies.tenantId, tenantId))
+    .limit(1)
+    .get();
+  const issuerName = companyRow?.name ?? null;
+
   const adapterLines: FiscalAdapterLine[] = lines.map(line => ({
     lineNumber: line.lineNumber,
     productName: line.productName,
@@ -405,8 +450,11 @@ export async function emitFiscalDocument(
     issueTime,
     environment: args.environment ?? '2',
     issuerNit: tenantId,
+    issuerName: issuerName ?? undefined,
+    tenantSettings,
     currencyCode: locale.currency,
     localeCode: locale.locale,
+    paymentMethod: sale.paymentMethod,
     resolution: {
       id: resolution.id,
       resolutionNumber: resolution.resolutionNumber,

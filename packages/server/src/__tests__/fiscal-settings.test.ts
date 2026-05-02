@@ -163,8 +163,12 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       'MISSING_RESOLUTION',
       'MISSING_RFC',
     ]);
-    expect(result.notImplemented).toBe(true);
-    expect(result.availableInTicket).toBe('ENG-035b');
+    // ENG-035b promovió MX de NotImplemented a real adapter — los
+    // flags `notImplemented` / `availableInTicket` ya no aplican.
+    // El readiness sigue siendo rojo porque los settings están
+    // vacíos (3 issues), pero ya no es un stub gated.
+    expect(result.notImplemented).toBe(false);
+    expect(result.availableInTicket).toBeNull();
   });
 
   it('CO devuelve readiness verde (mock siempre ok)', async () => {

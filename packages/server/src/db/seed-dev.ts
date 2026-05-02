@@ -89,6 +89,14 @@ export const DEV_USER_PASSWORD = 'Admin123!Dev';
 export interface SeedDevOptions {
   /** Dataset size. `default` = 50 products + 40 sales; `large` = 500 + 200. */
   preset?: 'default' | 'large';
+  /**
+   * Country code para el tenant demo. Default `'CO'` para preservar
+   * paridad con todos los tests + E2E existentes que asumen Colombia.
+   * `'MX'` activa el pack México (ENG-035b) — flippea `tenantLocaleSettings.countryCode`,
+   * setea el namespace `fiscal.mx.*` con valores de prueba, y deja
+   * los seed sales emitiendo CFDI 4.0 vía `MexicoCFDIAdapter`.
+   */
+  countryCode?: 'CO' | 'MX';
   /** Structured logging verbosity during the run. */
   verbose?: boolean;
 }
@@ -142,6 +150,7 @@ export async function seedDevData(
   options: SeedDevOptions = {}
 ): Promise<SeedDevResult> {
   const preset = options.preset ?? 'default';
+  const countryCode = options.countryCode ?? 'CO';
 
   const existingTenant = await db
     .select()
@@ -201,7 +210,25 @@ export async function seedDevData(
       // every sale seeded through `sales.create` also produces a
       // fiscal_documents row. Real tenants opt in via the admin
       // habilitación wizard (stubbed in Fase E as placeholder UI).
-      settings: { fiscal_dian_enabled: true },
+      // ENG-035b — cuando SEED_COUNTRY=mx, también poblamos el
+      // namespace `fiscal.mx.*` con valores de prueba para que el
+      // adapter MexicoCFDIAdapter emita CFDI 4.0 estructuralmente
+      // válido durante el smoke.
+      settings:
+        countryCode === 'MX'
+          ? {
+              fiscal_dian_enabled: true,
+              fiscal: {
+                mx: {
+                  enabled: true,
+                  rfc: 'AAA010101AAA',
+                  regimenFiscalCode: '601',
+                  lugarExpedicion: '06700',
+                  environment: 'sandbox',
+                },
+              },
+            }
+          : { fiscal_dian_enabled: true },
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -218,7 +245,9 @@ export async function seedDevData(
     .insert(tenantLocaleSettings)
     .values({
       tenantId,
-      countryCode: 'CO',
+      // ENG-035b — countryCode parametrizable. CO usa COP/dd-MM-yyyy;
+      // MX flippea a MXN/dd-MM-yyyy y dispatcha al MexicoCFDIAdapter.
+      countryCode,
       updatedAt: now,
     })
     .onConflictDoNothing()

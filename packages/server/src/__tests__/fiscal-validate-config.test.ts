@@ -270,19 +270,63 @@ describe('MexicoCFDIAdapter.validateConfig (ENG-035a)', () => {
     expect(lugarIssue?.field).toBe('fiscal.mx.lugarExpedicion');
   });
 
-  it('issue() tira FISCAL_PACK_NOT_AVAILABLE apuntando a ENG-035b', async () => {
+  // ENG-035b promovió `issue()` de stub a emisión real. La cobertura
+  // exhaustiva del happy path + edge cases vive en
+  // `fiscal-mx-adapter.test.ts`. Aquí solo verificamos que cuando los
+  // settings están incompletos (RFC ausente) el adapter levanta
+  // `FISCAL_PACK_NOT_AVAILABLE` con el mensaje guía.
+  it('issue() rechaza cuando settings MX están vacíos (sin RFC)', async () => {
     const adapter = new MexicoCFDIAdapter();
     let caught: unknown;
     try {
-      await adapter.issue();
+      await adapter.issue({
+        tenantId: 't1',
+        source: 'sale',
+        sourceId: 's1',
+        kind: 'DEE',
+        issueDate: '2026-05-01',
+        issueTime: '10:00:00Z',
+        environment: '2',
+        issuerNit: 't1',
+        currencyCode: 'MXN',
+        localeCode: 'es-MX',
+        resolution: {
+          id: 'r1',
+          resolutionNumber: 'R-001',
+          prefix: 'F',
+          technicalKey: 'k1',
+          consecutive: 1,
+          documentNumber: 'F0000000001',
+        },
+        buyer: {
+          taxId: '222222222222',
+          taxIdTypeCode: '31',
+          name: 'Consumidor final',
+          email: null,
+          address: null,
+          city: null,
+          department: null,
+          country: null,
+        },
+        subtotal: 100,
+        ivaAmount: 16,
+        incAmount: 0,
+        icaAmount: 0,
+        discountAmount: 0,
+        totalAmount: 116,
+        lines: [],
+        // tenantSettings vacío → readMxFiscalSettings devuelve defaults
+        // → adapter levanta FISCAL_PACK_NOT_AVAILABLE.
+        tenantSettings: {},
+      });
     } catch (err) {
       caught = err;
     }
     expect(caught).toBeDefined();
     const cause = (caught as {
-      cause?: { errorCode?: string; details?: { availableInTicket?: string } };
+      cause?: { errorCode?: string; details?: { missingSettings?: boolean } };
     }).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
-    expect(cause?.details?.availableInTicket).toBe('ENG-035b');
+    expect(cause?.details?.missingSettings).toBe(true);
   });
 });

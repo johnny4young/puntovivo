@@ -42,7 +42,23 @@
       "cufe": "CUFE",
       "buyer": "Buyer",
       "total": "Total",
-      "provider": "Provider"
+      "provider": "Provider",
+      "actions": "Actions"
+    }
+  },
+  "document": {
+    "xml": {
+      "title": "XML CFDI 4.0",
+      "viewButton": "View XML",
+      "documentNumber": "Folio",
+      "cufe": "CUFE",
+      "copy": "Copy",
+      "copied": "Copied",
+      "download": "Download .xml",
+      "draftHint": "Unsigned draft — the SAT digital seal and fiscal folio land with ENG-035c.",
+      "emptyState": "This document has no XML attached. Documents emitted with the Colombia mock adapter do not include XML.",
+      "xmlCopiedToast": "XML copied to clipboard",
+      "xmlCopyError": "Could not copy XML to clipboard"
     }
   },
   "contingency": {
