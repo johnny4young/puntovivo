@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileCode2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
 type FiscalStatus = 'pending' | 'sent' | 'accepted' | 'rejected' | 'contingency';
@@ -33,6 +35,13 @@ export function FiscalDocumentListPage() {
   const [kind, setKind] = useState<FiscalKind | ''>('');
   const [status, setStatus] = useState<FiscalStatus | ''>('');
   const [source, setSource] = useState<FiscalSource | ''>('');
+  // ENG-035b: documento seleccionado para mostrar el XML CFDI 4.0
+  // del adapter MX en un modal admin-only.
+  const [xmlModalDoc, setXmlModalDoc] = useState<{
+    cufe: string;
+    documentNumber: string;
+    xml: string | null;
+  } | null>(null);
 
   const queryInput = useMemo(
     () => ({
@@ -134,7 +143,10 @@ export function FiscalDocumentListPage() {
                   <th className="py-2 pr-4">{t('list.columns.buyer')}</th>
                   <th className="py-2 pr-4 text-right">{t('list.columns.total')}</th>
                   <th className="py-2 pr-4">{t('list.columns.provider')}</th>
-                  <th className="py-2">{t('list.columns.cufe')}</th>
+                  <th className="py-2 pr-4">{t('list.columns.cufe')}</th>
+                  <th className="py-2 text-right">
+                    <span className="sr-only">{t('list.columns.actions')}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -157,8 +169,27 @@ export function FiscalDocumentListPage() {
                       {formatCurrency(row.totalAmount, row.currencyCode)}
                     </td>
                     <td className="py-2 pr-4 text-secondary-700">{row.providerId}</td>
-                    <td className="py-2 font-mono text-[0.7rem] text-secondary-500">
+                    <td className="py-2 pr-4 font-mono text-[0.7rem] text-secondary-500">
                       {row.cufe.slice(0, 12)}…{row.cufe.slice(-6)}
+                    </td>
+                    <td className="py-2 text-right">
+                      {row.xmlRef ? (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs inline-flex items-center gap-1"
+                          onClick={() =>
+                            setXmlModalDoc({
+                              cufe: row.cufe,
+                              documentNumber: row.documentNumber,
+                              xml: row.xmlRef ?? null,
+                            })
+                          }
+                          aria-label={t('document.xml.viewButton')}
+                        >
+                          <FileCode2 className="h-3.5 w-3.5" aria-hidden />
+                          <span>{t('document.xml.viewButton')}</span>
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -167,6 +198,14 @@ export function FiscalDocumentListPage() {
           </div>
         )}
       </div>
+
+      <FiscalDocumentXmlModal
+        isOpen={xmlModalDoc !== null}
+        onClose={() => setXmlModalDoc(null)}
+        xml={xmlModalDoc?.xml ?? null}
+        cufe={xmlModalDoc?.cufe ?? ''}
+        documentNumber={xmlModalDoc?.documentNumber ?? ''}
+      />
     </div>
   );
 }

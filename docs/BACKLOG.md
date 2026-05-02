@@ -286,6 +286,40 @@ research.
   flagging individuals far below). Captured separately because the
   v1 spike detector only catches upward outliers. — 2026-04-30 (ENG-032)
 
+- `[fiscal][mx]` Catálogo `claveProdServ` completo (~50k entradas)
+  como `ENG-035d`. ENG-035b shippeó un subset curado de 40 códigos
+  + fallback `01010101`. El catálogo completo del SAT necesita o
+  un seed-from-CSV en una tabla DB nueva (`sat_clave_prod_serv`)
+  con índice por code + heurística más robusta, o un pull
+  periódico del API SAT con cron job. Trigger: cuando un pilot
+  con tenant MX reporta que un producto demo no encuentra match
+  específico — hoy el fallback es válido SAT pero PAC puede pedir
+  códigos más precisos para timbrado en producción. — 2026-05-01 (ENG-035b)
+
+- `[fiscal][mx]` Migración de `fiscal_documents.xml_ref` de
+  inline TEXT a object storage path. ENG-035b persiste el XML
+  directamente en la columna text (~5-10kb por documento típico).
+  Cuando ENG-035c traiga PDFs firmados + sello digital + posibles
+  representaciones impresas, los XMLs firmados promedian >50kb y
+  el SQLite text column se vuelve costoso. Modelo objetivo: una
+  tabla `fiscal_xml_storage` con `(id, fiscal_document_id, kind,
+  blob_path, hash, created_at)` apuntando a un directorio bajo
+  `userData/fiscal/<tenant>/<year>/<month>/<uuid>.xml`. Migración
+  defensiva: poblar la tabla nueva al timbrar y dejar `xml_ref`
+  como fallback hasta que todos los pilots usen el nuevo path.
+  — 2026-05-01 (ENG-035b)
+
+- `[fiscal][mx]` XSD validation real en CI contra el schema
+  oficial SAT del Anexo 20. ENG-035b verifica estructura via
+  tests unitarios exhaustivos (presencia + atributos + ordering)
+  pero no contra el XSD oficial — sin libxml2 nativo no podemos
+  hacerlo en JS puro. Modelo objetivo: integrar `xmllint` via
+  docker image en `ci:server` con un step opcional que pase los
+  XMLs generados contra el XSD oficial SAT (descargable desde
+  http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd). Trigger:
+  cuando ENG-035c necesite verificar contra schema antes de
+  enviar a PAC. — 2026-05-01 (ENG-035b)
+
 
 ## 2. Small bugs / polish
 

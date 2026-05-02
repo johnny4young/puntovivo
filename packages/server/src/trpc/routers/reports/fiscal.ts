@@ -59,6 +59,11 @@ const LIST_SELECT_COLUMNS = {
   emittedAt: fiscalDocuments.emittedAt,
   providerId: fiscalDocuments.providerId,
   retries: fiscalDocuments.retries,
+  // ENG-035b: presence-only flag (boolean) so the list UI knows
+  // whether to surface the "Ver XML" affordance per row. The XML
+  // body is fetched lazily via `reports.fiscal.getXml` to avoid
+  // shipping ~10kb per row through the list query.
+  xmlRef: fiscalDocuments.xmlRef,
 } as const;
 
 export const fiscalReportsRouter = router({

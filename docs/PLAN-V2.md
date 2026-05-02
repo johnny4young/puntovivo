@@ -222,9 +222,17 @@ tamaño + dependencias externas:
 - **ENG-035a** (Shipped) — Fundación: validador RFC + catálogos
   SAT + ajustes admin + adapter `validateConfig` real. Sin emisión
   XML.
-- **ENG-035b** (Pending) — Modelado XML CFDI 4.0 + emisión sin
-  firmar. Persiste el XML en `fiscal_documents.xml_ref`; documento
-  queda en `status='draft'`.
+- **ENG-035b** (Shipped) — Modelado XML CFDI 4.0 + emisión sin
+  firmar. Nuevo serializer `cfdi40-xml.ts` con Anexo 20 completo
+  (root + Emisor + Receptor + Conceptos + Impuestos consolidados
+  + CfdiRelacionados); nuevo catálogo curado `claveProdServ` 40
+  entradas + fallback; nuevo `mappings.ts` con helpers puros para
+  FormaPago / ClaveUnidad / ClaveProdServ / Traslado;
+  `MexicoCFDIAdapter` salió del stub y ahora retorna
+  `{cufe:uuid, status:'pending', xmlRef:<xml>}`; UI
+  `FiscalDocumentXmlModal` admin-only para copiar + descargar
+  `.xml`; nueva dep `fast-xml-parser` JS puro. Persiste el XML
+  inline en `fiscal_documents.xml_ref` con `status='pending'`.
 - **ENG-035c** (Pending) — PAC integration + firmado CSD +
   complemento Pago 2.0. Necesita contrato PAC + sandbox SAT +
   certificados CSD de prueba (dependencias externas operativas).

@@ -102,13 +102,13 @@ The main `BrowserWindow` runs with `sandbox: true`. Renderer code cannot `requir
 
 Before committing, every change must pass the per-workspace CI script that corresponds to the area touched. These are the same commands CI runs, so local failures will fail CI:
 
-| Area                                                                  | Command                                             |
-| --------------------------------------------------------------------- | --------------------------------------------------- |
-| Any React or TypeScript in `apps/web`                                 | `npm run ci:web`                                    |
-| Any Node.js / backend in `packages/server`                            | `npm run ci:server`                                 |
-| Any Electron main-process code in `apps/desktop/src/main`             | `npm run ci:desktop`                                |
-| Anything under `e2e/web/` or the login / sales / inventory flows     | `npm run test:e2e:web` (runs in CI automatically via the `e2e-web` job, but keep it green locally when you touch the suite) |
-| Anything under `e2e/electron/` or the Electron main-process bootstrap | `npm run test:e2e:electron` (local-only; prerequisite `.vite/build/` bundle — see `e2e/README.md`) |
+| Area                                                                  | Command                                                                                                                     |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Any React or TypeScript in `apps/web`                                 | `npm run ci:web`                                                                                                            |
+| Any Node.js / backend in `packages/server`                            | `npm run ci:server`                                                                                                         |
+| Any Electron main-process code in `apps/desktop/src/main`             | `npm run ci:desktop`                                                                                                        |
+| Anything under `e2e/web/` or the login / sales / inventory flows      | `npm run test:e2e:web` (runs in CI automatically via the `e2e-web` job, but keep it green locally when you touch the suite) |
+| Anything under `e2e/electron/` or the Electron main-process bootstrap | `npm run test:e2e:electron` (local-only; prerequisite `.vite/build/` bundle — see `e2e/README.md`)                          |
 
 Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
 
@@ -219,10 +219,11 @@ On top of the Conventional Commits format above:
 
 ## Plan hierarchy
 
-Four sources of planning live in this repo; know which one to read for what:
+Five sources of planning live in this repo; know which one to read for what. The full navigation index lives in [`docs/README.md`](./docs/README.md):
 
 - [`docs/PLAN.md`](./docs/PLAN.md) — **strategic**: competitive analysis, phases, fiscal engine design, LatAm expansion. Read when a ticket touches architecture, fiscal, i18n, LATAM, or multi-vertical decisions; skip for simple features.
-- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — **ticket index**: `ENG-NNN` rows with acceptance criteria and sequencing recommendation in §3b. Each row has an explicit `Status` column that drives pool discovery.
+- [`docs/PLAN-V2.md`](./docs/PLAN-V2.md) — **tactical bridge** between PLAN.md and ROADMAP §3b. Phases `ENG-025..ENG-040` by quarter (Phase 0 hardening → Phase 1 AI Wave 1 → Phase 2 multi-country fiscal → Phase 3 sync + payment rails → Phase 4 vertical + AI Wave 2). Architectural decisions closed by the 2026-Q2 audit.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — **ticket index**: `ENG-NNN` rows with acceptance criteria and sequencing recommendation in §3b. Each row has an explicit `Status` column that drives pool discovery. **When ROADMAP and PLAN disagree, ROADMAP wins.**
 - [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md) — **tactical**: iteration-level execution detail (per-commit sequencing, draft commit messages, verification matrix). This is what the agent opens next to ROADMAP when executing the next ticket.
 - [`docs/BACKLOG.md`](./docs/BACKLOG.md) — **raw capture**: unsized ideas, small bugs, spikes, parked feature requests. **Do not** pick work from here — this is the buffer before something becomes an `ENG-NNN`. When an item matures (acceptance criteria clear, sized), promote it to ROADMAP and delete the bullet here in the same commit.
 
@@ -232,13 +233,13 @@ Four sources of planning live in this repo; know which one to read for what:
 
 The `Status` column in `ROADMAP.md §3b` is the single source of truth for what to work on next. Values:
 
-| Status | Eligible for pool? | Meaning |
-|---|---|---|
-| `Pending` | ✅ yes | Never started; standard workflow. |
-| `Partial` | ✅ yes | Some sub-steps shipped; the Scope cell ends with "Remaining:" listing what's left. Execute the remaining items as the ticket scope. |
-| `Shipped` | ❌ no | Closed; Scope cell ends with "Shipped:" summary. |
-| `Gated` | ❌ no | External dependency (hardware, contract, credentials) blocks start. Do not attempt until the gate clears. |
-| `Deferred` | ❌ no | Operator explicitly postponed. Do not re-prioritize without operator signal. |
+| Status     | Eligible for pool? | Meaning                                                                                                                             |
+| ---------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `Pending`  | ✅ yes             | Never started; standard workflow.                                                                                                   |
+| `Partial`  | ✅ yes             | Some sub-steps shipped; the Scope cell ends with "Remaining:" listing what's left. Execute the remaining items as the ticket scope. |
+| `Shipped`  | ❌ no              | Closed; Scope cell ends with "Shipped:" summary.                                                                                    |
+| `Gated`    | ❌ no              | External dependency (hardware, contract, credentials) blocks start. Do not attempt until the gate clears.                           |
+| `Deferred` | ❌ no              | Operator explicitly postponed. Do not re-prioritize without operator signal.                                                        |
 
 **Rules**:
 
