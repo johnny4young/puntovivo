@@ -1,0 +1,165 @@
+# 0002 — Command Envelope
+
+> Status: Accepted
+> Date: 2026-05-02
+> Owner: ENG-051
+
+## Decision
+
+**Critical mutations require a Command Envelope on the input —
+`operationId`, `deviceId`, `idempotencyKey`, and `clientCreatedAt`.
+Non-critical CRUD does not. The list of "critical mutations" is
+closed and lives at the bottom of this ADR.**
+
+Each envelope field has a single purpose:
+
+- `operationId` — UUID v4 minted by the cashier device per click /
+  user intent. Used to correlate UI events, tRPC calls, DB
+  transactions, and outbox effects in the operation journal
+  (ENG-053). Not the same as a sale id; one operation may produce
+  multiple downstream effects.
+- `deviceId` — string FK to the `devices` table that ENG-052
+  introduces. Identifies which cashier machine fired the operation.
+  The `desktopSession` singleton (ADR-0001) registers the device id
+  at login and propagates it through tRPC headers and IPC.
+- `idempotencyKey` — string supplied by the client (or derived from
+  the operation id when the client cannot supply one). Server-side
+  storage in an `idempotency_keys` table makes retries safe: the
+  same key returns the same resource on duplicate requests, and a
+  conflicting payload under the same key is rejected with a
+  structured error.
+- `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
+  device. Used for ordering when the local store eventually syncs to
+  a central server (ENG-064) and for debugging clock-skew issues.
+  The server clock is still authoritative for `created_at` columns
+  on the row itself; `clientCreatedAt` is metadata for sync /
+  diagnostics, not a substitute.
+
+The envelope is mandatory only on operations that mutate money,
+fiscal, cash, or stock state. Read queries, preference toggles, and
+catalog management (products, customers, providers, units, vat
+rates, receipt templates, locale settings) do not require it because
+they are idempotent at the row level and do not flow through the
+outboxes.
+
+## Alternatives Rejected
+
+- **Server-derived idempotency only** — breaks retry from a cashier
+  device that lost connectivity mid-charge. The client cannot replay
+  the same logical operation without a key it owns.
+- **Trace id only (no idempotency key)** — sufficient for logs but
+  insufficient for the duplicate-prevention contract. A trace id
+  changes on every retry; an idempotency key intentionally does
+  not.
+- **No envelope at all (the current state)** — leaves race
+  conditions on double-click charge, suspend, or void, and makes
+  cross-system debugging painful (a click cannot be traced from UI
+  through tRPC to the DB transaction without grepping timestamps).
+- **Carry envelope on every procedure (including read queries and
+  catalog CRUD)** — needless ceremony. Catalog rows are protected by
+  per-row uniqueness constraints; they do not need an idempotency
+  table to be safe.
+
+## Implementation Impact
+
+- **New table** (added by ENG-052): `idempotency_keys` with
+  columns `tenant_id`, `device_id`, `idempotency_key`,
+  `operation_kind`, `request_hash`, `result_ref`, `created_at`,
+  `expires_at`. Composite unique index on
+  `(tenant_id, device_id, idempotency_key)`. Replaying a key with
+  a matching `request_hash` returns `result_ref`; a mismatched
+  hash returns a typed conflict error.
+- **New tRPC middleware** (added by ENG-052): `commandEnvelope`
+  wraps procedures listed in the closed list below. It validates
+  the envelope shape via Zod, looks up `idempotency_keys`, and
+  short-circuits with the cached `result_ref` on a hit. On a miss,
+  it writes the envelope into the operation journal (ENG-053)
+  before the application service runs.
+- **Renderer**: the React layer mints `operationId` and
+  `idempotencyKey` per user intent; the existing `useToast` /
+  command queue helpers carry them through. The Electron preload
+  injects `deviceId` and `clientCreatedAt` so the renderer cannot
+  forge either.
+- **Existing primitives reused**: `desktopSession.requireTenantId()`
+  (ENG-025) gives the tenant scope; the envelope adds the device +
+  operation dimensions on top. Audit logs gain an `operation_id`
+  column that joins back to the journal.
+
+### Closed list of critical commands
+
+The Command Envelope applies to exactly these procedures (as of
+ENG-051). Adding to this list requires a Superseder ADR or a
+follow-up amendment.
+
+**Sales lifecycle**
+
+- `sales.create`
+- `sales.completeDraft`
+- `sales.suspend`
+- `sales.resume`
+- `sales.discardDraft`
+- `sales.returnSale`
+- `sales.void`
+- `sales.getForReprint` (writes counter / audit row)
+
+**Cash sessions**
+
+- `cashSessions.open`
+- `cashSessions.close`
+- `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
+  and `replenishment`)
+
+**Inventory**
+
+- `inventory.adjustStock`
+- `transfers.create`
+- `transfers.receive`
+- `transfers.void`
+
+**Fiscal** *(in español por convención fiscal)*
+
+- `fiscal.emitDocument` *(canal interno disparado por sales lifecycle)*
+- `fiscal.cancelDocument` *(cancelación SAT explícita; ENG-035c lo ship)*
+- `fiscal.retryFromContingency` *(operator-initiated retry; ENG-057)*
+
+**Payment**
+
+- `payment.charge` (when the payment terminal adapter ships,
+  ENG-063)
+- `payment.void`
+
+**Users / security**
+
+- `users.create`
+- `users.update` (when changing `role` or `isActive`)
+- `auth.changePassword`
+
+Procedures **not** in the envelope: every read query
+(`*.list`, `*.get`, `*.search`, `*.export`), every catalog mutation
+(`products.*`, `customers.*`, `providers.*`, `units.*`, `vatRates.*`,
+`categories.*`, `locations.*`, `receiptTemplates.*`, `tenantLocale.*`),
+preference toggles (`ai.settings.update`, `fiscalSettings.*`),
+notification reads, dashboard reads, and the audit log query API.
+
+## Affected Tickets
+
+- `ENG-052` — Device registry + command envelope. Adds the
+  `devices` and `idempotency_keys` tables, the
+  `commandEnvelope` middleware, and the renderer plumbing.
+- `ENG-053` — Operation journal + outbox kernel. Reads
+  `operationId` from the envelope and writes the
+  `operation_events` / `operation_effects` / `operation_errors`
+  trail.
+- `ENG-054` — Extract `completeSale` application service.
+  First service to consume the envelope; behavior parity with
+  current `sales.create` / `completeDraft`.
+- `ENG-055` — Extract sale lifecycle services. `returnSale`,
+  `voidSale`, `completeDraft`, `discardDraft` all carry the
+  envelope.
+- `ENG-056` — Cash session aggregate boundary. The
+  `CashSessionService` consumes the envelope on every
+  cash-affecting operation.
+- `ENG-063` — Payment terminal adapter. Adds `payment.charge` and
+  `payment.void` to the closed list with envelope.
+
+Updated: 2026-05-02 (ENG-051 — initial ADR set).
