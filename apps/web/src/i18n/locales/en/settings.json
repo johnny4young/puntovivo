@@ -1,7 +1,6 @@
 {
   "providers": {
     "title": "Providers",
-    "description": "Manage suppliers, vendor contacts, city assignments, and supplied category coverage.",
     "add": "Add Provider",
     "loading": "Loading providers...",
     "error": "Unable to load providers",
@@ -69,7 +68,6 @@
   },
   "categories": {
     "title": "Categories",
-    "description": "Manage the product category hierarchy used across catalog and reporting.",
     "add": "Add Category",
     "loading": "Loading categories...",
     "error": "Unable to load categories",
@@ -113,7 +111,6 @@
   },
   "locations": {
     "title": "Locations",
-    "description": "Manage warehouse and shelf locations used by the product catalog.",
     "add": "Add Location",
     "loading": "Loading locations...",
     "error": "Unable to load locations",
@@ -220,7 +217,6 @@
   },
   "company": {
     "title": "Company",
-    "description": "Manage the business identity used across your tenant.",
     "loading": "Loading the business identity and workstation settings",
     "error": "Unable to load company settings",
     "createPrompt": "Create your company profile",
@@ -554,7 +550,6 @@
   },
   "units": {
     "title": "Units",
-    "description": "Manage measurement units used by products and sales.",
     "add": "Add Unit",
     "loading": "Loading units...",
     "error": "Unable to load units",
@@ -594,7 +589,6 @@
   },
   "vatRates": {
     "title": "VAT Rates",
-    "description": "Manage tax percentages used by products and sales.",
     "add": "Add VAT Rate",
     "loading": "Loading VAT rates...",
     "error": "Unable to load VAT rates",

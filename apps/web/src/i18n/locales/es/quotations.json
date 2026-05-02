@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Documentos pre-venta",
     "title": "Cotizaciones",
-    "description": "Gestiona cotizaciones para clientes — borrador, envío y seguimiento antes de convertir una cotización en venta.",
     "newAction": "Nueva cotización"
   },
   "history": {

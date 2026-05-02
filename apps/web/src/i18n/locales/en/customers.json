@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Customers",
-    "description": "Manage customer profiles, tax metadata, and classification details.",
     "add": "Add Customer"
   },
   "table": {
@@ -71,27 +70,22 @@
     "types": {
       "identificationTypes": {
         "singular": "Identification Type",
-        "description": "Manage the identification code catalog used by customer tax profiles.",
         "search": "Search identification types..."
       },
       "personTypes": {
         "singular": "Person Type",
-        "description": "Manage natural-person and legal-entity classifications for customers.",
         "search": "Search person types..."
       },
       "regimeTypes": {
         "singular": "Regime Type",
-        "description": "Manage tax-regime codes used in customer fiscal classification.",
         "search": "Search regime types..."
       },
       "clientTypes": {
         "singular": "Client Type",
-        "description": "Manage commercial client classifications such as retail and wholesale.",
         "search": "Search client types..."
       },
       "commercialActivities": {
         "singular": "Commercial Activity",
-        "description": "Manage business activity codes used in customer fiscal and commercial classification.",
         "search": "Search commercial activities..."
       }
     },

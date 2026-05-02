@@ -222,7 +222,6 @@ export function CategoriesPage() {
     <>
       <ResourcePage
         title={t('categories.title')}
-        description={t('categories.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"

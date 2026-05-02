@@ -524,7 +524,8 @@ export type AuditLogResourceType =
   | 'cash_session'
   | 'product'
   | 'purchase'
-  | 'user';
+  | 'user'
+  | 'cashier';
 
 export interface AuditLogEntry {
   id: string;

@@ -6,7 +6,13 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 
 interface ResourcePageProps<TData> {
   title: string;
-  description: string;
+  /**
+   * ENG-049 — descripción opcional. Las páginas estándar dejaron de
+   * renderizarla por la pasada minimalista; la prop se conserva
+   * opcional para que un caller que sí necesite contexto pueda
+   * pasarla puntualmente.
+   */
+  description?: string;
   action: ReactNode;
   columns: ColumnDef<TData>[];
   data: TData[];
@@ -40,7 +46,9 @@ export function ResourcePage<TData>({
       <div className="page-header-row">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-secondary-900">{title}</h1>
-          <p className="mt-1 text-sm text-secondary-500">{description}</p>
+          {description && (
+            <p className="mt-1 text-sm text-secondary-500">{description}</p>
+          )}
         </div>
         <div className="page-header-actions">{action}</div>
       </div>

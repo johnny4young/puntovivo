@@ -112,9 +112,7 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('brand.kicker')}</p>
             <h1 className="truncate font-display text-2xl text-secondary-950">{t('brand.title')}</h1>
-            <p className="truncate text-xs text-secondary-600">{t('brand.tagline')}</p>
           </div>
         )}
       </div>

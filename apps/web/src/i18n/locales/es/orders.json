@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Órdenes de compra",
-    "description": "Prepara pedidos a proveedores, haz seguimiento de entregas por etapas y recibe stock llegado en lotes cuando sea necesario.",
     "activeSite": "Sede activa",
     "noSite": "Sin sede seleccionada",
     "noSiteWarning": "Selecciona una sede activa antes de crear una orden de compra para usar el consecutivo correcto.",

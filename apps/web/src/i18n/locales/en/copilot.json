@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "AI analytics",
-    "title": "Co-pilot",
-    "description": "Ask operational questions and get an audited answer with the SQL, rows, and chart used to calculate it."
+    "title": "Co-pilot"
   },
   "chat": {
     "title": "Conversation",

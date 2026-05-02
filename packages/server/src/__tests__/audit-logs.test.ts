@@ -342,6 +342,35 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       ).toBe(true);
     });
 
+    it('lists legacy cashier resource rows without crashing', async () => {
+      const db = getDatabase();
+      await db.insert(auditLogs).values({
+        id: nanoid(),
+        tenantId,
+        actorId: userId,
+        action: 'ai.anomaly.detected',
+        resourceType: 'cashier',
+        resourceId: userId,
+        before: null,
+        after: null,
+        metadata: { kind: 'voidRate', severity: 'high' },
+        createdAt: new Date().toISOString(),
+      });
+
+      const caller = appRouter.createCaller(createTestContext());
+      const result = await caller.auditLogs.list({ resourceType: 'cashier' });
+
+      expect(result.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: 'ai.anomaly.detected',
+            resourceType: 'cashier',
+            resourceId: userId,
+          }),
+        ])
+      );
+    });
+
     it('filters by resourceId to retrieve the full history of one record', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const product = await createProduct(`AUD-L3-${nanoid(6)}`);

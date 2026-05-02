@@ -125,23 +125,12 @@ export function DashboardPage() {
       <section className="hero-surface p-6 sm:p-8">
         <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(17rem,20rem)] xl:items-start">
           <div className="space-y-4">
-            <div className="space-y-2.5">
-              <p className="page-kicker">{t('page.kicker')}</p>
-              <h1 className="font-display text-3xl leading-[0.95] text-balance text-secondary-950 sm:text-4xl 2xl:text-[3.25rem]">
-                {t('page.headline')}
-              </h1>
-              <p className="max-w-lg text-sm leading-6 text-secondary-600 sm:text-[0.96rem]">
-                {t('page.description')}
-              </p>
-            </div>
-
             <DashboardStatsGrid metrics={metrics} />
           </div>
 
           <div className="card-inset space-y-4 p-5">
             <div>
-              <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('page.freshness.kicker')}</p>
-              <h2 className="mt-2 text-xl font-semibold text-secondary-950">{t('page.freshness.title')}</h2>
+              <h2 className="text-xl font-semibold text-secondary-950">{t('page.freshness.title')}</h2>
               <p className="mt-2 text-sm text-secondary-600">
                 {t('page.freshness.description', { time: formatDateTime(generatedAt) })}
               </p>

@@ -105,8 +105,6 @@ const COMUNA_OPTIONS: ReadonlyArray<{ code: number; name: string }> = [
   { code: 16101, name: 'Chillán (Ñuble)' },
 ];
 
-type EnvironmentChoice = 'certificacion' | 'produccion';
-
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
@@ -204,16 +202,11 @@ export function CompanyClFiscalCard() {
   // Render principal: tenant CL. Form + readiness badge.
   return (
     <div className="card p-6 space-y-6">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <FileSignature className="h-6 w-6 text-primary-700" />
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-950">
-            {t('fiscal:settings.cl.title')}
-          </h2>
-          <p className="text-sm text-secondary-600">
-            {t('fiscal:settings.cl.description')}
-          </p>
-        </div>
+        <h2 className="text-lg font-semibold text-secondary-950">
+          {t('fiscal:settings.cl.title')}
+        </h2>
       </div>
 
       {/* Badge de readiness */}

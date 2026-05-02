@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Inventario",
-    "description": "Gestiona entradas contadas, conteos físicos y visibilidad de stock frente al catálogo activo.",
     "tabs": {
       "movements": "Movimientos",
       "stockQuery": "Consulta de stock",

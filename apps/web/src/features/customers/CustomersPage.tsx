@@ -234,7 +234,6 @@ export function CustomersPage() {
     <>
       <ResourcePage
         title={t('page.title')}
-        description={t('page.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate}>
             <Plus className="h-5 w-5" />

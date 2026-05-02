@@ -1,8 +1,6 @@
 {
   "page": {
     "title": "Products",
-    "kicker": "Products Catalog",
-    "description": "Manage catalog items, pricing tiers, and stock thresholds.",
     "permissionNote": "Only administrators and managers can modify products. You can still review the catalog.",
     "add": "Add Product"
   },

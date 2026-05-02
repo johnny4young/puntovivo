@@ -20,7 +20,7 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const { user, logout } = useAuth();
-  const { currentTenant, currentSite, isLoadingSites, sites, switchSite } = useTenant();
+  const { currentSite, isLoadingSites, sites, switchSite } = useTenant();
   const { t, i18n } = useTranslation(['common', 'nav']);
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -79,29 +79,17 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-8">
       <div className="shell-panel px-4 py-3 sm:px-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] xl:items-center 2xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              className="btn-outline btn-icon mobile-shell-toggle xl:hidden"
-              onClick={onOpenSidebar}
-              aria-label={t('auth:login.openNavigation')}
-            >
-              <Menu className="h-5.5 w-5.5 shrink-0 text-current" strokeWidth={2.35} />
-            </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="btn-outline btn-icon mobile-shell-toggle xl:hidden shrink-0"
+            onClick={onOpenSidebar}
+            aria-label={t('auth:login.openNavigation')}
+          >
+            <Menu className="h-5.5 w-5.5 shrink-0 text-current" strokeWidth={2.35} />
+          </button>
 
-            <div className="min-w-0 space-y-2">
-              <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('nav:header.kicker')}</p>
-              <div className="space-y-2">
-                <h2 className="font-display text-[clamp(1.8rem,2vw,2.3rem)] leading-[0.96] text-secondary-950">
-                  {t('nav:header.title')}
-                </h2>
-                {currentTenant && <span className="badge badge-secondary">{currentTenant.name}</span>}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-end xl:items-center">
+          <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-end xl:items-center">
             <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
               <input className="input pl-10" placeholder={t('common:quickSearch')} />

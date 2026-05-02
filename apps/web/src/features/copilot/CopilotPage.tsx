@@ -288,15 +288,9 @@ export function CopilotPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="page-kicker">{t('copilot:page.kicker')}</p>
-          <h1 className="text-2xl font-semibold text-secondary-950">
-            {t('copilot:page.title')}
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-secondary-600">
-            {t('copilot:page.description')}
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold text-secondary-950">
+          {t('copilot:page.title')}
+        </h1>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">

@@ -14,11 +14,7 @@ export function FiscalReportsPage() {
   const { t } = useTranslation('fiscal');
   return (
     <div className="space-y-6">
-      <div>
-        <p className="page-kicker">{t('reports.kicker')}</p>
-        <h1 className="text-2xl font-semibold text-secondary-900">{t('reports.title')}</h1>
-        <p className="text-sm text-secondary-600">{t('reports.description')}</p>
-      </div>
+      <h1 className="text-2xl font-semibold text-secondary-900">{t('reports.title')}</h1>
 
       <FiscalHabilitationWizard />
 

@@ -1,8 +1,5 @@
 {
   "page": {
-    "kicker": "Punto de venta",
-    "headline": "Caja diseñada para escaneo rápido y supervisión tranquila",
-    "description": "Agrega productos rápidamente, ajusta unidades y descuentos, y cobra en la sede activa con un espacio de trabajo POS compacto diseñado para la velocidad diaria.",
     "todaySales": "Ventas de hoy",
     "transactions": "Transacciones",
     "averageOrder": "Ticket promedio",

@@ -1,8 +1,6 @@
 {
   "brand": {
-    "kicker": "Consola Retail",
-    "title": "Puntovivo",
-    "tagline": "Ventas, inventario y compras en un solo espacio"
+    "title": "Puntovivo"
   },
   "sections": {
     "overview": "Resumen",
@@ -42,9 +40,5 @@
     "collapseRail": "Contraer menú",
     "expandNavigation": "Expandir navegación",
     "closeNavigation": "Cerrar navegación"
-  },
-  "header": {
-    "kicker": "Punto de Venta",
-    "title": "Espacio de trabajo"
   }
 }

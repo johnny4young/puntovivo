@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Purchases",
-    "description": "Register inbound stock, review purchase history, return received stock, and void completed purchases when required.",
     "activeSite": "Active site",
     "noSite": "No site selected",
     "noSiteWarning": "Select an active site before registering a purchase so the correct sequential is used.",

@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Operational trust",
-    "title": "Audit log",
-    "description": "Every sensitive action — sale voids, refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, and quotation delete or conversion — is recorded here, atomically with the operation that produced it."
+    "title": "Audit log"
   },
   "history": {
     "title": "Recent audit events",
@@ -55,7 +53,8 @@
     "cash_session": "Cash session",
     "product": "Product",
     "purchase": "Purchase",
-    "user": "User"
+    "user": "User",
+    "cashier": "Cashier"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

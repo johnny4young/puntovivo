@@ -419,12 +419,7 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            {t('page.description')}
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
         <button
           className="btn-primary flex items-center gap-2"
           onClick={handleOpenCreate}
@@ -458,7 +453,7 @@ export function ProductsPage() {
               data={products}
               columns={productExportColumns}
               filename="products"
-              title={t('page.kicker')}
+              title={t('page.title')}
             />
 
             {canUseSemantic && (

@@ -1,7 +1,6 @@
 {
   "providers": {
     "title": "Proveedores",
-    "description": "Gestiona proveedores, contactos, asignaciones de ciudad y cobertura de categorías.",
     "add": "Agregar proveedor",
     "loading": "Cargando proveedores...",
     "error": "No se pudieron cargar los proveedores",
@@ -69,7 +68,6 @@
   },
   "categories": {
     "title": "Categorías",
-    "description": "Gestiona la jerarquía de categorías de productos usada en el catálogo y reportes.",
     "add": "Agregar categoría",
     "loading": "Cargando categorías...",
     "error": "No se pudieron cargar las categorías",
@@ -113,7 +111,6 @@
   },
   "locations": {
     "title": "Ubicaciones",
-    "description": "Gestiona ubicaciones de bodega y estantes usadas por el catálogo de productos.",
     "add": "Agregar ubicación",
     "loading": "Cargando ubicaciones...",
     "error": "No se pudieron cargar las ubicaciones",
@@ -220,7 +217,6 @@
   },
   "company": {
     "title": "Empresa",
-    "description": "Gestiona la identidad del negocio usada en todo el tenant.",
     "loading": "Cargando identidad del negocio y configuración del puesto",
     "error": "No se pudo cargar la configuración de la empresa",
     "createPrompt": "Crea el perfil de tu empresa",
@@ -554,7 +550,6 @@
   },
   "units": {
     "title": "Unidades",
-    "description": "Gestiona las unidades de medida usadas por productos y ventas.",
     "add": "Agregar unidad",
     "loading": "Cargando unidades...",
     "error": "No se pudieron cargar las unidades",
@@ -594,7 +589,6 @@
   },
   "vatRates": {
     "title": "Tarifas IVA",
-    "description": "Gestiona los porcentajes de impuesto usados por productos y ventas.",
     "add": "Agregar tarifa IVA",
     "loading": "Cargando tarifas IVA...",
     "error": "No se pudieron cargar las tarifas IVA",

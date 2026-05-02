@@ -100,7 +100,6 @@ export function CustomerCatalogsPage() {
   const canManage = user?.role === 'admin';
 
   const singularType = t(`catalogs.types.${activeCatalog}.singular`);
-  const catalogDescription = t(`catalogs.types.${activeCatalog}.description`);
   const searchPlaceholder = t(`catalogs.types.${activeCatalog}.search`);
   const tabLabel = t(`catalogs.tabs.${activeCatalog}`);
 
@@ -231,7 +230,6 @@ export function CustomerCatalogsPage() {
 
       <ResourcePage
         title={t('catalogs.title')}
-        description={catalogDescription}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />

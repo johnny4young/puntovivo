@@ -74,16 +74,6 @@ export function SalesOverview({
     <section className="hero-surface p-5 sm:p-6 xl:p-7">
       <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22.5rem,0.92fr)] 2xl:grid-cols-[minmax(0,1.12fr)_minmax(24rem,0.88fr)]">
         <div className="space-y-5">
-          <div className="space-y-3">
-            <p className="page-kicker">{t('page.kicker')}</p>
-            <h1 className="font-display text-4xl leading-[0.94] text-balance text-secondary-950 sm:text-[3.15rem] 2xl:text-[3.4rem]">
-              {t('page.headline')}
-            </h1>
-            <p className="max-w-xl text-sm leading-6 text-secondary-600 sm:text-[0.96rem]">
-              {t('page.description')}
-            </p>
-          </div>
-
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             <div className="metric-tile">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
