@@ -3041,6 +3041,7 @@ Design docs that ship alongside already-shipped or in-flight features:
 - [`docs/HARDWARE-POS.md`](./HARDWARE-POS.md) — ESC/POS printer + cajón + scanner spec (Iter 4, gated on test lab)
 - [`docs/AI-ANOMALY-DETECTION.md`](./AI-ANOMALY-DETECTION.md) — local-only fraud detector design + LATAM context, in Spanish (**shipped** as `ENG-032`)
 - [`docs/AI-SEMANTIC-SEARCH.md`](./AI-SEMANTIC-SEARCH.md) — semantic product search + auto-categorize design, in Spanish (**shipped** as `ENG-033`)
+- [`docs/SELLABILITY.md`](./SELLABILITY.md) — Colombian retail go/no-go index for demo, pilot, and production readiness (**shipped** as `ENG-050`)
 - [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
 
 ### 18.2 Still planned

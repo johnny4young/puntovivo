@@ -18,6 +18,7 @@ is the authority on which file wins.
 | [`PLAN.md`](./PLAN.md) | **Strategic** 12-36 month vision, fiscal engine design, multi-vertical analysis, hybrid-DB architecture | Architecture / fiscal / i18n / LATAM / multi-vertical decisions. Skip for simple features. |
 | [`PLAN-V2.md`](./PLAN-V2.md) | **Tactical bridge** between PLAN.md and ROADMAP §3b — phasing of `ENG-025..ENG-040` by quarter, architectural decisions closed by 2026-Q2 audit | Cadence + sequencing of v2.0; when in flight on Phase 0..4 tickets. |
 | [`ROADMAP.md`](./ROADMAP.md) | **Ticket index** — `ENG-NNN` rows with acceptance criteria, sequencing recommendation in §3b, machine-readable `Status` column | Pool discovery for the next ticket. **§3b is the canonical Status source — when ROADMAP and PLAN disagree, ROADMAP wins.** |
+| [`SELLABILITY.md`](./SELLABILITY.md) | **Go/no-go sellability index** for Colombian retail pilots and production sales | When deciding whether Puntovivo is demo-ready, pilot-ready, or production-sellable. |
 | [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | **Per-iter execution detail** — commit sequencing, draft commit messages, verification matrix per ticket | Daily execution; agent opens this next to ROADMAP when shipping. |
 | [`BACKLOG.md`](./BACKLOG.md) | **Raw capture** — unsized ideas, small bugs, spikes, parked feature requests, follow-ups discovered mid-ticket | Idea capture before promotion to ROADMAP. **Do not pick work from here** — items mature to ROADMAP first. |
 
@@ -98,6 +99,7 @@ operator idea → BACKLOG.md (unsized)
 
 | File | Use |
 | --- | --- |
+| [`SELLABILITY.md`](./SELLABILITY.md) | Colombian retail pilot / production readiness checklist and blocker index. |
 | [`DEV-SEED.md`](./DEV-SEED.md) | Seeded users, passwords, SEED_PRESET / SEED_RESET / SEED_COUNTRY env vars. **Never invent credentials — read this.** |
 | [`LOGIN_GUIDE.md`](./LOGIN_GUIDE.md) | First-run login flow. |
 | [`ENVIRONMENT_CONFIGURATION.md`](./ENVIRONMENT_CONFIGURATION.md) | Env vars catalog. |
