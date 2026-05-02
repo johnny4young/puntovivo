@@ -265,7 +265,6 @@ export function UnitsPage() {
     <>
       <ResourcePage
         title={t('units.title')}
-        description={t('units.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"

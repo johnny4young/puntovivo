@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Facturación electrónica",
-    "title": "Documentos fiscales",
-    "description": "Cada venta, anulación y devolución preparada para reporte DIAN, con comprador, totales y líneas congeladas."
+    "title": "Documentos fiscales"
   },
   "filters": {
     "all": "Todos",
@@ -53,9 +51,7 @@
     "description": "Contingencia significa que el documento espera aceptación o requiere un reintento posterior."
   },
   "reports": {
-    "kicker": "Reportes fiscales",
     "title": "Reportes",
-    "description": "Los reportes fiscales agregados aparecerán aquí cuando las exportaciones estén habilitadas.",
     "empty": "Aún no hay reportes fiscales disponibles."
   },
   "wizard": {
@@ -89,7 +85,6 @@
     },
     "mx": {
       "title": "México — CFDI 4.0",
-      "description": "Configura los datos del emisor antes de activar la emisión de CFDI. La emisión real llega con ENG-035b (modelado XML) y ENG-035c (integración con PAC + firma).",
       "fields": {
         "enabled": "Activar pack fiscal de México",
         "enabledHelp": "Cuando esté activo, las ventas emitirán un CFDI 4.0 una vez que ENG-035b se implemente. Hoy esta opción sólo controla el diagnóstico de preparación.",
@@ -119,7 +114,6 @@
     },
     "cl": {
       "title": "Chile — SII",
-      "description": "Configura los datos del emisor antes de activar la emisión de DTE. La emisión real llega con ENG-036b (modelado XML) y ENG-036c (certificación SII + firma + entrega digital).",
       "fields": {
         "enabled": "Activar pack fiscal de Chile",
         "enabledHelp": "Cuando esté activo, las ventas emitirán un DTE una vez que ENG-036b se implemente. Hoy esta opción sólo controla el diagnóstico de preparación.",

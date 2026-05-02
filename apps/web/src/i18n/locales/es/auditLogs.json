@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Confianza operacional",
-    "title": "Registro de auditoría",
-    "description": "Cada acción sensible — anulación o reembolso de venta, precios manuales en venta, anulación de compra, cierre de caja, ajuste de stock, anulación de transferencia, cambios del ciclo de vida de usuarios y eliminación o conversión de cotización — se registra aquí, de forma atómica junto con la operación que la generó."
+    "title": "Registro de auditoría"
   },
   "history": {
     "title": "Eventos recientes",
@@ -55,7 +53,8 @@
     "cash_session": "Caja",
     "product": "Producto",
     "purchase": "Compra",
-    "user": "Usuario"
+    "user": "Usuario",
+    "cashier": "Cajero"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

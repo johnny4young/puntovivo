@@ -165,7 +165,6 @@ export function LocationsPage() {
     <>
       <ResourcePage
         title={t('locations.title')}
-        description={t('locations.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />

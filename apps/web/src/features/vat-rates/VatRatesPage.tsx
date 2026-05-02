@@ -272,7 +272,6 @@ export function VatRatesPage() {
     <>
       <ResourcePage
         title={t('vatRates.title')}
-        description={t('vatRates.description')}
         action={
           <button
             className="btn-primary flex items-center gap-2"

@@ -98,7 +98,7 @@ export function ReceiptTemplatesPage() {
     const editorIsLoading =
       mode.kind === 'edit' && (editTarget.isLoading || !initial);
 
-    // The header (page kicker, title, Back button) renders
+    // The header (title, Back button) renders
     // unconditionally so the operator can always exit the editor mode
     // even while the GET round-trip is in flight. Otherwise a slow
     // network would trap the user in a "…" card with no escape.
@@ -106,7 +106,6 @@ export function ReceiptTemplatesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="page-kicker">{t('page.kicker')}</p>
             <h1 className="text-2xl font-semibold text-secondary-900">
               {mode.kind === 'create'
                 ? t('editor.createTitle')
@@ -147,13 +146,9 @@ export function ReceiptTemplatesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="page-kicker">{t('page.kicker')}</p>
-          <h1 className="text-2xl font-semibold text-secondary-900">
-            {t('page.title')}
-          </h1>
-          <p className="text-sm text-secondary-600">{t('page.description')}</p>
-        </div>
+        <h1 className="text-2xl font-semibold text-secondary-900">
+          {t('page.title')}
+        </h1>
         <button
           type="button"
           className="btn-primary"

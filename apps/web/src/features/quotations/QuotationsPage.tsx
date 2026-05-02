@@ -40,13 +40,9 @@ export function QuotationsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="page-kicker">{t('page.kicker')}</p>
-          <h1 className="text-2xl font-semibold text-secondary-900">
-            {t('page.title')}
-          </h1>
-          <p className="text-sm text-secondary-600">{t('page.description')}</p>
-        </div>
+        <h1 className="text-2xl font-semibold text-secondary-900">
+          {t('page.title')}
+        </h1>
         <button
           type="button"
           className="btn-primary inline-flex items-center gap-2"

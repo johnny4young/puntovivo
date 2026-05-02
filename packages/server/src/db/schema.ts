@@ -101,6 +101,9 @@ export const auditLogResourceTypeEnum = [
   // ENG-007 second wave resources.
   'purchase',
   'user',
+  // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
+  // dev databases. Keep the reader tolerant so those rows stay visible.
+  'cashier',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

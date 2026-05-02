@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Electronic invoicing",
-    "title": "Fiscal documents",
-    "description": "Every sale, void, and refund prepared for DIAN reporting, with immutable buyer, totals, and line snapshots."
+    "title": "Fiscal documents"
   },
   "filters": {
     "all": "All",
@@ -53,9 +51,7 @@
     "description": "Contingency means the document is waiting for acceptance or needs a later retry."
   },
   "reports": {
-    "kicker": "Fiscal reports",
     "title": "Reports",
-    "description": "Aggregated fiscal reports will appear here once reporting exports are enabled.",
     "empty": "No fiscal reports are available yet."
   },
   "wizard": {
@@ -89,7 +85,6 @@
     },
     "mx": {
       "title": "Mexico — CFDI 4.0",
-      "description": "Configure issuer settings before turning on CFDI emission. Real emission lands with ENG-035b (XML modeling) and ENG-035c (PAC integration + signing).",
       "fields": {
         "enabled": "Enable Mexico fiscal pack",
         "enabledHelp": "When on, sales will emit a CFDI 4.0 once ENG-035b lands. Today this flag only gates the readiness probe.",
@@ -119,7 +114,6 @@
     },
     "cl": {
       "title": "Chile — SII",
-      "description": "Configure issuer settings before turning on DTE emission. Real emission lands with ENG-036b (XML modeling) and ENG-036c (SII certification + signing + digital delivery).",
       "fields": {
         "enabled": "Enable Chile fiscal pack",
         "enabledHelp": "When on, sales will emit a DTE once ENG-036b lands. Today this flag only gates the readiness probe.",

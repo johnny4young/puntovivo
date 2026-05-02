@@ -1,8 +1,5 @@
 {
   "page": {
-    "kicker": "Sales desk",
-    "headline": "Checkout built for fast scanning and calm oversight",
-    "description": "Add products quickly, adjust units and discounts, then charge the active site with a compact POS workspace built around daily speed.",
     "todaySales": "Today's sales",
     "transactions": "Transactions",
     "averageOrder": "Average order",

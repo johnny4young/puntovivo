@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Analítica IA",
-    "title": "Co-pilot",
-    "description": "Haz preguntas operativas y recibe una respuesta auditada con el SQL, las filas y el gráfico usados para calcularla."
+    "title": "Co-pilot"
   },
   "chat": {
     "title": "Conversación",

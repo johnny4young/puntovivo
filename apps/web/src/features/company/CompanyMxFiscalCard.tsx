@@ -147,16 +147,11 @@ export function CompanyMxFiscalCard() {
   // Render principal: tenant MX. Form + readiness badge.
   return (
     <div className="card p-6 space-y-6">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <FileSignature className="h-6 w-6 text-primary-700" />
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-950">
-            {t('fiscal:settings.mx.title')}
-          </h2>
-          <p className="text-sm text-secondary-600">
-            {t('fiscal:settings.mx.description')}
-          </p>
-        </div>
+        <h2 className="text-lg font-semibold text-secondary-950">
+          {t('fiscal:settings.mx.title')}
+        </h2>
       </div>
 
       {/* Badge de readiness */}

@@ -1,8 +1,6 @@
 {
   "page": {
     "title": "Productos",
-    "kicker": "Catálogo de productos",
-    "description": "Gestiona artículos del catálogo, tarifas de precios y umbrales de stock.",
     "permissionNote": "Solo administradores y gestores pueden modificar productos. Puedes revisar el catálogo.",
     "add": "Agregar producto"
   },

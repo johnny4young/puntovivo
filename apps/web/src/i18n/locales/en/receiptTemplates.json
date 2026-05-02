@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Setup",
-    "title": "Receipt templates",
-    "description": "Design the printed receipts and quotations your business issues. Templates apply across the business and every site."
+    "title": "Receipt templates"
   },
   "actions": {
     "newTemplate": "New template",

@@ -1,8 +1,6 @@
 {
   "page": {
-    "kicker": "Configuración",
-    "title": "Plantillas de recibo",
-    "description": "Diseña los recibos y cotizaciones impresos que emite tu negocio. Las plantillas aplican a toda la empresa y a todas las sedes."
+    "title": "Plantillas de recibo"
   },
   "actions": {
     "newTemplate": "Nueva plantilla",

@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Inventory",
-    "description": "Manage counted entries, physical counts, and stock visibility against the live catalog.",
     "tabs": {
       "movements": "Movements",
       "stockQuery": "Stock Query",

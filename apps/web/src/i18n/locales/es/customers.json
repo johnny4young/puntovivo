@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Clientes",
-    "description": "Gestiona perfiles de clientes, metadatos fiscales y detalles de clasificación.",
     "add": "Agregar cliente"
   },
   "table": {
@@ -71,27 +70,22 @@
     "types": {
       "identificationTypes": {
         "singular": "Tipo de identificación",
-        "description": "Gestiona el catálogo de códigos de identificación usados en los perfiles fiscales de clientes.",
         "search": "Buscar tipos de identificación..."
       },
       "personTypes": {
         "singular": "Tipo de persona",
-        "description": "Gestiona las clasificaciones de persona natural y persona jurídica para clientes.",
         "search": "Buscar tipos de persona..."
       },
       "regimeTypes": {
         "singular": "Tipo de régimen",
-        "description": "Gestiona los códigos de régimen fiscal usados en la clasificación fiscal de clientes.",
         "search": "Buscar tipos de régimen..."
       },
       "clientTypes": {
         "singular": "Tipo de cliente",
-        "description": "Gestiona las clasificaciones comerciales de clientes como minorista y mayorista.",
         "search": "Buscar tipos de cliente..."
       },
       "commercialActivities": {
         "singular": "Actividad comercial",
-        "description": "Gestiona los códigos de actividad empresarial usados en la clasificación fiscal y comercial de clientes.",
         "search": "Buscar actividades comerciales..."
       }
     },

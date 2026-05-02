@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Purchase Orders",
-    "description": "Prepare supplier orders, track staged deliveries, and receive arrived stock in batches when needed.",
     "activeSite": "Active site",
     "noSite": "No site selected",
     "noSiteWarning": "Select an active site before creating a purchase order so the correct sequential is used.",

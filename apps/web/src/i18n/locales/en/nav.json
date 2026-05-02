@@ -1,8 +1,6 @@
 {
   "brand": {
-    "kicker": "Retail Console",
-    "title": "Puntovivo",
-    "tagline": "Sales, stock, and receiving in one workspace"
+    "title": "Puntovivo"
   },
   "sections": {
     "overview": "Overview",
@@ -42,9 +40,5 @@
     "collapseRail": "Collapse rail",
     "expandNavigation": "Expand navigation",
     "closeNavigation": "Close navigation"
-  },
-  "header": {
-    "kicker": "Point Of Sale",
-    "title": "Operator workspace"
   }
 }

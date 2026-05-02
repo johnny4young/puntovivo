@@ -169,7 +169,6 @@ export function ProvidersPage() {
     <>
       <ResourcePage
         title={t('providers.title')}
-        description={t('providers.description')}
         action={
           <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
             <Plus className="h-5 w-5" />

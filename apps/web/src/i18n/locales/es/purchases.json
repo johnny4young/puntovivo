@@ -1,7 +1,6 @@
 {
   "page": {
     "title": "Compras",
-    "description": "Registra stock entrante, revisa el historial de compras, devuelve stock recibido y anula compras completadas cuando sea necesario.",
     "activeSite": "Sede activa",
     "noSite": "Sin sede seleccionada",
     "noSiteWarning": "Selecciona una sede activa antes de registrar una compra para usar el consecutivo correcto.",

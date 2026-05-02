@@ -384,12 +384,7 @@ function InventoryHeader({
   const { t } = useTranslation('inventory');
   return (
     <div className="page-header-row">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
-        <p className="mt-1 text-sm text-secondary-500">
-          {t('page.description')}
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
 
       <div className="page-header-actions">
         <div className="segmented-control">
