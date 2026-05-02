@@ -3042,6 +3042,7 @@ Design docs that ship alongside already-shipped or in-flight features:
 - [`docs/AI-ANOMALY-DETECTION.md`](./AI-ANOMALY-DETECTION.md) — local-only fraud detector design + LATAM context, in Spanish (**shipped** as `ENG-032`)
 - [`docs/AI-SEMANTIC-SEARCH.md`](./AI-SEMANTIC-SEARCH.md) — semantic product search + auto-categorize design, in Spanish (**shipped** as `ENG-033`)
 - [`docs/SELLABILITY.md`](./SELLABILITY.md) — Colombian retail go/no-go index for demo, pilot, and production readiness (**shipped** as `ENG-050`)
+- [`docs/architecture/README.md`](./architecture/README.md) + [`docs/architecture/0001-local-store-authority.md`](./architecture/0001-local-store-authority.md) + [`docs/architecture/0002-command-envelope.md`](./architecture/0002-command-envelope.md) + [`docs/architecture/0003-outbox-taxonomy.md`](./architecture/0003-outbox-taxonomy.md) + [`docs/architecture/0004-conflict-policy.md`](./architecture/0004-conflict-policy.md) — Architecture Decision Records (ADRs) locking Local Store Authority, Command Envelope, Outbox Taxonomy, and Conflict Policy before the Foundation Reset core wave (**shipped** as `ENG-051`)
 - [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
 
 ### 18.2 Still planned

@@ -55,6 +55,7 @@ operator idea → BACKLOG.md (unsized)
 | File | Use |
 | --- | --- |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Top-level Electron + Fastify + tRPC + SQLite layout. |
+| [`architecture/`](./architecture/README.md) | **Architecture Decision Records (ADRs)** — locked decisions that gate work across multiple `ENG-NNN` tickets (Local Store Authority, Command Envelope, Outbox Taxonomy, Conflict Policy). Read when designing schema or service boundaries that touch sales / fiscal / cash / sync. |
 | [`STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) | Additive evolution rules — when each stack tier graduates (Ring 1..4). |
 | [`TRPC_ARCHITECTURE.md`](./TRPC_ARCHITECTURE.md) + [`TRPC_IMPLEMENTATION_PLAN.md`](./TRPC_IMPLEMENTATION_PLAN.md) + [`TRPC_TESTING_GUIDE.md`](./TRPC_TESTING_GUIDE.md) | tRPC procedure design, schema patterns, HTTP-less testing. |
 | [`DESKTOP_RUNTIME_GUIDE.md`](./DESKTOP_RUNTIME_GUIDE.md) | Electron-specific runtime notes (sandbox, dual-binary native modules). |
