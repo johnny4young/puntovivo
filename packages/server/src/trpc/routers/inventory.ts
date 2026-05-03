@@ -18,6 +18,7 @@ import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import {
   categories,
   initialInventory,
@@ -587,7 +588,7 @@ export const inventoryRouter = router({
    * Set a product's stock to an absolute value (admin only).
    * Creates an 'adjustment' movement record.
    */
-  adjustStock: managerOrAdminProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
+  adjustStock: criticalCommandManagerOrAdminProcedure.input(adjustStockInput).mutation(async ({ ctx, input }) => {
     const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
 
     const now = new Date().toISOString();

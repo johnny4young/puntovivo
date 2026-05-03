@@ -10,6 +10,7 @@ import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import type { User, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getPasswordRequirementMessage, type PasswordRequirementKey } from '@/features/auth/passwordPolicy';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -246,7 +247,7 @@ export function UsersPage() {
     isActive: user.isActive ?? true,
   }));
 
-  const createMutation = trpc.users.create.useMutation({
+  const createMutation = useCriticalMutation('users.create', {
     onSuccess: async () => {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);
@@ -256,7 +257,7 @@ export function UsersPage() {
     onError: onErrorToast(toast, t, { titleKey: 'settings:users.toast.createError' }),
   });
 
-  const updateMutation = trpc.users.update.useMutation({
+  const updateMutation = useCriticalMutation('users.update', {
     onSuccess: async (_data, variables) => {
       await utils.users.list.invalidate();
       setIsUserModalOpen(false);

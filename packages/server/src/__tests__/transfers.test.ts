@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   categories,
   inventoryBalances,
@@ -28,13 +30,14 @@ let categoryId: string;
 let providerId: string;
 let vatRateId: string;
 let baseUnitId: string;
+let testDeviceId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
   return {
     req: {
       server: server.app,
-      headers: {},
+      headers: makeEnvelopeHeadersProxy({ getDeviceId: () => testDeviceId }),
       user: {
         userId,
         email: 'admin@localhost',
@@ -138,6 +141,17 @@ describe('Transfers tRPC Router', () => {
       createdAt: now,
       updatedAt: now,
     });
+
+    // ENG-052b — register one device for the active tenant; reused
+    // by every critical transfer mutation (`transfers.create`,
+    // `transfers.receive`, `transfers.void`).
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'transfers.test',
+    });
+    testDeviceId = registration.deviceId;
   });
 
   afterAll(async () => {

@@ -8,6 +8,7 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import type { InventoryBalanceListItem } from '@/types';
 import {
   InventoryTransferModal,
@@ -91,7 +92,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     { enabled: effectiveSiteId.length > 0 }
   );
 
-  const createTransferMutation = trpc.transfers.create.useMutation({
+  const createTransferMutation = useCriticalMutation('transfers.create', {
     onSuccess: async () => {
       await Promise.all([
         utils.inventory.listBalancesBySite.invalidate(),

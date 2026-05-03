@@ -12,8 +12,10 @@ import {
   type SaveDialogOptions,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
 import {
   createServer,
   createModuleLogger,
@@ -102,14 +104,27 @@ const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 // against that bundle path rather than the original source. Up to
 // Vite 7 the bundler preserved the original `import.meta.url`, so
 // the default fallback worked; ENG-026's bump to Vite 8 (Rolldown)
-// rewrites the URL to the bundle and the lookup misses. Anchor the
-// dev override against `app.getAppPath()` (the workspace's
-// `apps/desktop/` directory) and walk up to the server workspace's
-// own `dist/db/migrations` so the path stays correct regardless of
-// how Vite bundles main.
+// rewrites the URL to the bundle and the lookup misses. Resolve the
+// dev override from the migrations copied into `.vite/build` first,
+// then fall back through the source workspace layouts used by
+// electron-forge and direct local invocations.
+function resolveDevMigrationsPath(): string {
+  const candidates = [
+    join(app.getAppPath(), 'migrations'),
+    join(app.getAppPath(), '..', '..', '..', '..', 'packages', 'server', 'dist', 'db', 'migrations'),
+    join(app.getAppPath(), '..', '..', 'packages', 'server', 'dist', 'db', 'migrations'),
+    join(process.cwd(), 'packages', 'server', 'dist', 'db', 'migrations'),
+  ];
+
+  return (
+    candidates.find(candidate => existsSync(join(candidate, 'meta', '_journal.json'))) ??
+    candidates[0]!
+  );
+}
+
 const MIGRATIONS_PATH = app.isPackaged
   ? join(process.resourcesPath, 'migrations')
-  : join(app.getAppPath(), '..', '..', 'packages', 'server', 'dist', 'db', 'migrations');
+  : resolveDevMigrationsPath();
 
 interface DesktopDatabaseActionResult {
   success: boolean;
@@ -1769,6 +1784,31 @@ ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<Ma
   refreshTray();
   return next;
 });
+// ENG-052b — persistent device id under the user's data folder. The
+// renderer prefers this path over localStorage so a browser cache
+// wipe does not lose the device registration; the localStorage copy
+// stays as a fallback for the pure-browser build. The atomic
+// read/write helpers live in `./device-id-store.ts` so they can be
+// unit-tested without spinning up Electron.
+ipcMain.handle('device:get-id', async (): Promise<string | null> => {
+  try {
+    return await readDeviceIdFromDir(app.getPath('userData'));
+  } catch (error) {
+    mainLog.warn(
+      { err: error, dir: app.getPath('userData') },
+      'device:get-id failed reading persisted device id'
+    );
+    return null;
+  }
+});
+
+ipcMain.handle('device:set-id', async (_event, deviceId: unknown): Promise<void> => {
+  if (typeof deviceId !== 'string') {
+    throw new Error('DEVICE_SET_ID_REJECTED');
+  }
+  await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+});
+
 // ENG-025 vector 1 — session lifecycle. `session:register` is called
 // by the renderer's AuthProvider after a successful login (or after a
 // successful refresh that rotated the access token); `session:clear`

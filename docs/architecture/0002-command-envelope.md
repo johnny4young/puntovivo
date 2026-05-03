@@ -173,3 +173,12 @@ and `auth.changePassword` wrapped as the proof procedure. Web
 registration. ENG-052b will wire the remaining 17 procedures from
 the closed list above and add the `useCriticalMutation` web hook +
 Electron `device.getId/setId` preload).
+Updated: 2026-05-03 (ENG-052b — closed: 17 critical procedures
+across `sales`, `cashSessions`, `inventory`, `transfers`, `users`
+now flow through the envelope; `useCriticalMutation` generalized
+with `CriticalCommandPath` + type inference so renderer call sites
+mint a fresh envelope per call automatically; Electron preload
+exposes `electron.device.getId/setId` backed by an atomic file
+write under `app.getPath('userData')/device-id.txt`; Fastify
+`onRequest` hook hangs `requestId` + `deviceId` on `request.log`
+so non-envelope requests share request-scoped provenance).

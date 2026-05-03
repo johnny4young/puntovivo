@@ -72,6 +72,12 @@ interface DesktopElectronAPI {
     success: boolean;
     error?: string;
   }>;
+  device: DeviceAPI;
+}
+
+interface DeviceAPI {
+  getId: () => Promise<string | null>;
+  setId: (id: string) => Promise<void>;
 }
 
 interface DatabaseAPI {

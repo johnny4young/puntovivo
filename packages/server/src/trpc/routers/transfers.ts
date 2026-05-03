@@ -14,6 +14,7 @@
 import { TRPCError } from '@trpc/server';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import {
   createInventoryTransfer,
   getInventoryTransferById,
@@ -31,7 +32,7 @@ import {
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 
 export const transfersRouter = router({
-  create: managerOrAdminProcedure
+  create: criticalCommandManagerOrAdminProcedure
     .input(createTransferInput)
     .mutation(async ({ ctx, input }) => {
       return createInventoryTransfer(ctx.db, {
@@ -70,7 +71,7 @@ export const transfersRouter = router({
       return detail;
     }),
 
-  receive: managerOrAdminProcedure
+  receive: criticalCommandManagerOrAdminProcedure
     .input(receiveTransferInput)
     .mutation(async ({ ctx, input }) => {
       return receiveInventoryTransfer(ctx.db, {
@@ -82,7 +83,7 @@ export const transfersRouter = router({
       });
     }),
 
-  void: managerOrAdminProcedure
+  void: criticalCommandManagerOrAdminProcedure
     .input(voidTransferInput)
     .mutation(async ({ ctx, input }) => {
       return voidInventoryTransfer(ctx.db, {

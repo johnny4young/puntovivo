@@ -5,12 +5,16 @@ import { hash } from 'argon2';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users } from '../db/schema.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
+let testDeviceId: string;
+
 
 function getCookieValue(
   setCookieHeader: string | string[] | undefined,
@@ -61,7 +65,7 @@ function createTestContext(
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers: makeEnvelopeHeadersProxy({ getDeviceId: () => testDeviceId }),
     user: {
       userId,
       email: `${role}@localhost`,
@@ -101,6 +105,17 @@ describe('Users tRPC Router', () => {
 
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
+
+    // ENG-052b — register one device for the active tenant; reused
+    // by every critical user-management mutation (`users.create`,
+    // `users.update`).
+    const registration = await registerDeviceService(getDatabase(), {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'users.test',
+    });
+    testDeviceId = registration.deviceId;
   });
 
   afterAll(async () => {

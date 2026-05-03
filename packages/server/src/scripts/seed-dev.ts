@@ -38,7 +38,7 @@ function banner(line = ''): void {
 }
 
 interface CliOptions {
-  preset: 'default' | 'large';
+  preset: 'default' | 'large' | 'mega';
   /**
    * ENG-035b — country code for the demo tenant. Default `'CO'`
    * preserves backward compat with all existing tests + E2E. `'MX'`
@@ -56,7 +56,12 @@ function parseArgs(argv: string[]): CliOptions {
   const presetFromEnv = process.env.SEED_PRESET;
   const countryFromEnv = (process.env.SEED_COUNTRY ?? '').toUpperCase();
   const options: CliOptions = {
-    preset: presetFromEnv === 'large' ? 'large' : 'default',
+    preset:
+      presetFromEnv === 'large'
+        ? 'large'
+        : presetFromEnv === 'mega'
+          ? 'mega'
+          : 'default',
     countryCode: countryFromEnv === 'MX' ? 'MX' : 'CO',
     reset: process.env.SEED_RESET === 'true' || process.env.SEED_RESET === '1',
     help: false,
@@ -72,7 +77,7 @@ function parseArgs(argv: string[]): CliOptions {
     }
     if (arg.startsWith('--preset=')) {
       const value = arg.slice('--preset='.length);
-      if (value !== 'default' && value !== 'large') {
+      if (value !== 'default' && value !== 'large' && value !== 'mega') {
         throw new Error(`Unknown preset: ${value}`);
       }
       options.preset = value;
@@ -186,6 +191,14 @@ async function resetDemoTenant(db: Awaited<ReturnType<typeof initDatabase>>): Pr
 
   const tables = [
     'audit_logs',
+    'ai_anomaly_snoozes',
+    'ai_audit_log',
+    'idempotency_keys',
+    'devices',
+    'fiscal_document_items',
+    'fiscal_documents',
+    'fiscal_numbering_resolutions',
+    'fiscal_certificates',
     'receipt_templates',
     'sync_conflicts',
     'sync_queue',
@@ -231,8 +244,8 @@ async function resetDemoTenant(db: Awaited<ReturnType<typeof initDatabase>>): Pr
     'commercial_activities',
     'users',
     'sites',
-    'logos',
     'companies',
+    'logos',
   ];
   for (const table of tables) {
     try {

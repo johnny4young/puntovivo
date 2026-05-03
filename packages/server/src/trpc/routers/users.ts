@@ -4,6 +4,7 @@ import * as argon2 from 'argon2';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
+import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
 import { syncQueue, users } from '../../db/schema.js';
 import { clearRefreshCookie } from '../../security/authTokens.js';
 import {
@@ -61,7 +62,7 @@ export const usersRouter = router({
     };
   }),
 
-  create: adminProcedure.input(createUserInput).mutation(async ({ ctx, input }) => {
+  create: criticalCommandAdminProcedure.input(createUserInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db.select().from(users).where(eq(users.email, input.email)).get();
     if (existing) {
       throw new TRPCError({
@@ -152,7 +153,7 @@ export const usersRouter = router({
     )!;
   }),
 
-  update: adminProcedure.input(updateUserInput).mutation(async ({ ctx, input }) => {
+  update: criticalCommandAdminProcedure.input(updateUserInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
     const existing = await ctx.db
       .select()

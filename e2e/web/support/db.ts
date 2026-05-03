@@ -165,8 +165,12 @@ function getTenantAndSites(db: Database): { tenantId: string; sites: BusinessSit
     throw new Error('No tenant found in local.db');
   }
 
+  // Match the server-side fallback site selection used when no x-site-id
+  // header has been persisted yet. This keeps E2E seeded cash sessions on
+  // the same site the UI selects on first login, even when the dev seed has
+  // more than two active stores.
   const sites = db
-    .prepare('select id, name from sites where is_active = 1 order by created_at asc, id asc limit 2')
+    .prepare('select id, name from sites where is_active = 1 order by name asc, id asc limit 2')
     .all() as BusinessSite[];
 
   if (sites.length < 2) {

@@ -4,6 +4,8 @@ import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   categories,
   companies,
@@ -27,12 +29,16 @@ let providerId: string;
 let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
+let testDeviceId: string;
 
 function createTestContext(overrideSiteId: string | null = null): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: overrideSiteId ? { 'x-site-id': overrideSiteId } : {},
+    headers: makeEnvelopeHeadersProxy({
+      getDeviceId: () => testDeviceId,
+      getSiteId: () => overrideSiteId,
+    }),
     user: {
       userId,
       email: 'admin@localhost',
@@ -126,6 +132,16 @@ describe('Inventory tRPC Router', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // ENG-052b — register one device for the tenant; reused by every
+    // critical mutation (`inventory.adjustStock`, etc.).
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'inventory.test',
+    });
+    testDeviceId = registration.deviceId;
   });
 
   afterAll(async () => {

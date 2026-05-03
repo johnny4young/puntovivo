@@ -16,6 +16,7 @@ import {
 } from '../../services/cash-session.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import {
   cashSessionMovementsInput,
   cashSessionReportInput,
@@ -272,7 +273,7 @@ export const cashSessionsRouter = router({
     };
   }),
 
-  open: tenantProcedure.input(openCashSessionInput).mutation(async ({ ctx, input }) => {
+  open: criticalCommandProcedure.input(openCashSessionInput).mutation(async ({ ctx, input }) => {
     if (!ctx.siteId || !ctx.user) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -362,7 +363,7 @@ export const cashSessionsRouter = router({
     return created;
   }),
 
-  close: tenantProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
+  close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
     if (!ctx.user) {
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
@@ -511,7 +512,7 @@ export const cashSessionsRouter = router({
       .limit(input.limit);
   }),
 
-  recordMovement: tenantProcedure
+  recordMovement: criticalCommandProcedure
     .input(recordCashMovementInput)
     .mutation(async ({ ctx, input }) => {
       if (!ctx.user) {

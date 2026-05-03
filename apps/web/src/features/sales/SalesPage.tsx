@@ -47,6 +47,7 @@ import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type {
   CashMovement,
@@ -265,7 +266,7 @@ export function SalesPage() {
     [ownerKey, t, toast, utils, setIsPaymentModalOpen]
   );
 
-  const createMutation = trpc.sales.create.useMutation({
+  const createMutation = useCriticalMutation('sales.create', {
     onSuccess: async (_data, variables) => {
       // Drafts created via the Suspend orchestration skip the epilogue
       // — `handleSuspendConfirm` handles invalidation + workspace
@@ -283,7 +284,7 @@ export function SalesPage() {
   // ENG-018c — completing a resumed draft. `items` is locked server
   // side so we do not send it; the cashier can only add payments /
   // notes at this point.
-  const completeDraftMutation = trpc.sales.completeDraft.useMutation({
+  const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
     onSuccess: async result => {
       await finishSaleEpilogue(result.items.length);
     },
@@ -297,15 +298,15 @@ export function SalesPage() {
   // inside `handleSuspendConfirm` below instead of individual
   // onSuccess callbacks so the intermediate "draft created, but not
   // yet suspended" state never surfaces in the UI.
-  const suspendMutation = trpc.sales.suspend.useMutation();
-  const resumeMutation = trpc.sales.resume.useMutation();
+  const suspendMutation = useCriticalMutation('sales.suspend');
+  const resumeMutation = useCriticalMutation('sales.resume');
   // ENG-018b — used both by the SuspendedSalesPanel (which has its own
   // internal mutation) AND by the orphan-cleanup path inside
   // `handleSuspendConfirm` below. Keeping a page-level handle lets us
   // compensate if `sales.suspend` throws after `sales.create(draft)`
   // already created + stock-debited the row.
-  const discardDraftMutation = trpc.sales.discardDraft.useMutation();
-  const openCashSessionMutation = trpc.cashSessions.open.useMutation({
+  const discardDraftMutation = useCriticalMutation('sales.discardDraft');
+  const openCashSessionMutation = useCriticalMutation('cashSessions.open', {
     onSuccess: async cashSession => {
       await invalidateGroups(utils, [
         u => u.cashSessions.getActive,
@@ -326,7 +327,7 @@ export function SalesPage() {
       extra: description => setCashSessionError(description),
     }),
   });
-  const closeCashSessionMutation = trpc.cashSessions.close.useMutation({
+  const closeCashSessionMutation = useCriticalMutation('cashSessions.close', {
     onSuccess: async cashSession => {
       await invalidateGroups(utils, [
         u => u.cashSessions.getActive,
@@ -363,7 +364,7 @@ export function SalesPage() {
       extra: description => setCashSessionCloseError(description),
     }),
   });
-  const recordCashMovementMutation = trpc.cashSessions.recordMovement.useMutation({
+  const recordCashMovementMutation = useCriticalMutation('cashSessions.recordMovement', {
     onSuccess: async movement => {
       await invalidateGroups(utils, [
         u => u.cashSessions.getActive,

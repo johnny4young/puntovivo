@@ -9,6 +9,7 @@ import { printSaleReceipt } from '@/features/sales/receiptPrinter';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
 
 type ReprintReason =
@@ -46,7 +47,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const [reprintReason, setReprintReason] = useState<ReprintReason | ''>('');
   const [reprintReasonDetail, setReprintReasonDetail] = useState('');
   const [reprintError, setReprintError] = useState<string | null>(null);
-  const returnMutation = trpc.sales.returnSale.useMutation({
+  const returnMutation = useCriticalMutation('sales.returnSale', {
     onSuccess: async () => {
       await invalidateGroups(utils, [
         u => u.cashSessions.getActive,
@@ -73,7 +74,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       extra: description => setReturnError(description),
     }),
   });
-  const reprintMutation = trpc.sales.getForReprint.useMutation({
+  const reprintMutation = useCriticalMutation('sales.getForReprint', {
     onSuccess: async refreshed => {
       // Invalidate the modal query so the banner updates with the new
       // `reprintCount` and `lastReprintedAt`.
@@ -111,7 +112,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       extra: description => setReprintError(description),
     }),
   });
-  const voidMutation = trpc.sales.void.useMutation({
+  const voidMutation = useCriticalMutation('sales.void', {
     onSuccess: async () => {
       await invalidateGroups(utils, [
         u => u.cashSessions.getActive,

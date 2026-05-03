@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   cashMovements,
   cashSessions,
@@ -34,14 +36,16 @@ let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 let activeCashSessionId: string;
+let testDeviceId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {
-      'x-site-id': siteId,
-    },
+    headers: makeEnvelopeHeadersProxy({
+      getDeviceId: () => testDeviceId,
+      getSiteId: () => siteId,
+    }),
     user: {
       userId,
       email: 'admin@localhost',
@@ -72,9 +76,10 @@ function createTestContextForSite(overrideSiteId: string): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {
-      'x-site-id': overrideSiteId,
-    },
+    headers: makeEnvelopeHeadersProxy({
+      getDeviceId: () => testDeviceId,
+      getSiteId: () => overrideSiteId,
+    }),
     user: {
       userId,
       email: 'admin@localhost',
@@ -141,6 +146,17 @@ describe('Sales tRPC Router', () => {
 
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
+
+    // ENG-052b — register one device per test file. The id is reused
+    // for every critical mutation; envelopes still mint fresh per
+    // call via `freshHeaders()`.
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'sales.test',
+    });
+    testDeviceId = registration.deviceId;
 
     const caller = appRouter.createCaller(createTestContext());
     const activeCashSession = await caller.cashSessions.open({
