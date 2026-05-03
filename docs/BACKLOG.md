@@ -320,6 +320,32 @@ research.
   cuando ENG-035c necesite verificar contra schema antes de
   enviar a PAC. — 2026-05-01 (ENG-035b)
 
+- `[infra][envelope]` `ENG-052b` Wire remaining 17 critical
+  procedures with `criticalCommandProcedure` (per ADR-0002 closed
+  list). Sales lifecycle (8): `sales.create`, `sales.completeDraft`,
+  `sales.suspend`, `sales.resume`, `sales.discardDraft`,
+  `sales.returnSale`, `sales.void`, `sales.getForReprint`. Cash
+  sessions (3): `cashSessions.open`, `cashSessions.close`,
+  `cashSessions.recordMovement`. Inventory (1): `inventory.adjustStock`.
+  Transfers (3): `transfers.create`, `transfers.receive`,
+  `transfers.void`. Users (2): `users.create`, `users.update`.
+  Each wrap is a 1-line decorator change but every test file that
+  exercises these procedures (sales.test.ts, cashSessions.test.ts,
+  inventory.test.ts, transfers.test.ts, users.test.ts) needs to
+  swap `appRouter.createCaller(createTestContext())` for the
+  envelope-aware caller via `createCriticalCommandFixture` (already
+  shipped in `__tests__/utils/`). Web side: ship
+  `useCriticalMutation` hook that mints envelope per-call and
+  injects via per-request headers (today the `x-device-id` is
+  global but the envelope is not — without per-call mint the wrap
+  can't satisfy idempotency replay semantics). Electron side: add
+  preload `device.getId/setId` API + main IPC handler that
+  persists `device-id.txt` under `app.getPath('userData')`. Also
+  add a Fastify `onRequest` hook that creates a request-scoped
+  child logger so non-envelope paths still get `requestId`/`userId`/
+  `tenantId` in logs. Trigger: ENG-052a is shipped; ENG-052b is the
+  immediate follow-up. — 2026-05-02 (ENG-052a)
+
 
 ## 2. Small bugs / polish
 

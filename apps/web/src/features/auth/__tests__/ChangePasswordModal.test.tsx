@@ -11,18 +11,12 @@ const { mutateAsyncMock, logoutMock, toastSuccessMock, toastErrorMock } = vi.hoi
   toastErrorMock: vi.fn(),
 }));
 
-vi.mock('@/lib/trpc', () => ({
-  trpc: {
-    auth: {
-      changePassword: {
-        useMutation: () => ({
-          mutateAsync: mutateAsyncMock,
-          isPending: false,
-          error: null,
-        }),
-      },
-    },
-  },
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: () => ({
+    mutateAsync: mutateAsyncMock,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -88,6 +82,26 @@ describe('ChangePasswordModal', () => {
     expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
     expect(mutateAsyncMock).not.toHaveBeenCalled();
     expect(logoutMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the dialog open and does not log out when the server rejects the change', async () => {
+    mutateAsyncMock.mockRejectedValueOnce(new Error('Current password is incorrect'));
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(<ChangePasswordModal isOpen onClose={onClose} />);
+
+    await user.type(screen.getByLabelText(/current password/i), 'WrongPassword123!');
+    await user.type(screen.getByLabelText(/^new password$/i), 'NewPassword123!');
+    await user.type(screen.getByLabelText(/confirm new password/i), 'NewPassword123!');
+    await user.click(screen.getByRole('button', { name: /change password/i }));
+
+    await waitFor(() => {
+      expect(mutateAsyncMock).toHaveBeenCalledOnce();
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(logoutMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
   });
 
   it('uses translated toast copy when the active language is Spanish', async () => {

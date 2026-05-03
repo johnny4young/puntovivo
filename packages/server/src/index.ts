@@ -135,7 +135,15 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   await app.register(cors, {
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-site-id', CSRF_HEADER_NAME],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-site-id',
+      CSRF_HEADER_NAME,
+      // ENG-052 — Command Envelope (ADR-0002) headers.
+      'x-device-id',
+      'x-puntovivo-envelope',
+    ],
     credentials: true,
   });
 

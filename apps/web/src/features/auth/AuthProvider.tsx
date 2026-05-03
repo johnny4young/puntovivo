@@ -16,6 +16,7 @@ import {
   vanillaClient,
 } from '@/lib/trpc';
 import { isNetworkConnectivityError } from '@/lib/translateServerError';
+import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
@@ -112,7 +113,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // until the next successful login. Best-effort: any failure here
     // does not block the local cleanup. window.api is undefined in
     // pure-browser mode (no IPC bridge to clear).
-    void window.api?.session?.clear?.().catch(() => {});
+    void window.api?.session?.clear?.().catch(err => {
+      console.warn('Desktop session clear failed during logout:', err);
+    });
     setUser(null);
     setTenant(null);
     setError(null);
@@ -139,6 +142,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let isMounted = true;
 
     const initAuth = async () => {
+      // ENG-052 — restore the cached device id from local storage
+      // (or Electron userData) before any tRPC call runs. The cache
+      // backs `getTrpcHeaders()` synchronously so the first
+      // post-refresh request already ships `x-device-id`. Failures
+      // here are non-fatal: login() re-runs auth.registerDevice if
+      // the cache stays empty, but the operator should know the
+      // pre-login id was lost so the next session starts cleanly.
+      try {
+        await primeDeviceIdCache();
+      } catch (err) {
+        console.warn('Device id cache prime failed during AuthProvider boot:', err);
+      }
       try {
         await vanillaClient.health.check.query();
         const refreshResult = await vanillaClient.auth.refresh.mutate();
@@ -212,6 +227,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.warn('Desktop session register failed during login:', registerErr);
       }
 
+      // ENG-052 — register the device with the active tenant before
+      // any critical mutation runs. The server-issued id is cached
+      // synchronously so `getTrpcHeaders()` ships `x-device-id` on
+      // every subsequent request. Failures here only block critical
+      // mutations (catalog reads + non-critical writes still work),
+      // so we log the warning and keep the login succeeding.
+      try {
+        const existing = await readDeviceId();
+        const isElectron =
+          typeof window !== 'undefined' &&
+          Boolean((window as unknown as { electron?: unknown }).electron);
+        const kind: 'desktop' | 'web' = isElectron ? 'desktop' : 'web';
+        const friendlyName =
+          isElectron
+            ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
+            : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
+        const result = await vanillaClient.auth.registerDevice.mutate({
+          kind,
+          name: friendlyName,
+          deviceId: existing ?? undefined,
+        });
+        await storeDeviceId(result.deviceId);
+      } catch (deviceErr) {
+        console.warn('Device registration failed during login:', deviceErr);
+      }
+
       const session = mapSession(await vanillaClient.auth.me.query());
 
       persistAuthSession(session);
@@ -234,8 +275,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true);
     try {
       await vanillaClient.auth.logout.mutate();
-    } catch {
-      // Ignore errors on logout — clear local state regardless
+    } catch (err) {
+      // Ignore the error for the user-facing flow — local state is
+      // cleared in `finally` regardless — but log it so the operator
+      // can diagnose offline-logout traces. The most common cause is
+      // a network outage at logout time, which is a real condition,
+      // not a bug.
+      console.warn('auth.logout server call failed; clearing local state anyway:', err);
     } finally {
       clearLocalSession();
       setIsLoading(false);

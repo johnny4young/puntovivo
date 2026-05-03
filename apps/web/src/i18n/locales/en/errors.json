@@ -92,6 +92,10 @@
     "FISCAL_RFC_INVALID": "The Mexican issuer RFC is not valid. Check length (12 for company, 13 for individual), structure, embedded date, and homoclave.",
     "FISCAL_REGIMEN_INVALID": "The fiscal regime or business activity code is not in the catalog. Pick one of the supported codes.",
     "FISCAL_RUT_INVALID": "The Chilean issuer RUT is not valid. Check format (body-verifier digit), and that the verifier digit matches the body.",
+    "DEVICE_NOT_REGISTERED": "This device is not registered for your organization. Sign out and sign back in to reconnect the device.",
+    "MISSING_COMMAND_ENVELOPE": "This action is missing its command envelope. Reload the page and try again.",
+    "IDEMPOTENCY_KEY_CONFLICT": "This action was already processed with different data. Reload the page before retrying to avoid duplicates.",
+    "COMMAND_IN_PROGRESS": "This action is already in progress. Wait a moment and try again.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }

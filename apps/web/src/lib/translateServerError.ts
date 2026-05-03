@@ -109,6 +109,11 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'AI_PROVIDER_ERROR',
   'AI_COPILOT_SQL_REJECTED',
   'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
+  // --- ENG-052 device registry + command envelope ---
+  'DEVICE_NOT_REGISTERED',
+  'MISSING_COMMAND_ENVELOPE',
+  'IDEMPOTENCY_KEY_CONFLICT',
+  'COMMAND_IN_PROGRESS',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

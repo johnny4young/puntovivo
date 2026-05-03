@@ -276,6 +276,7 @@ describe('AuthProvider — logout flow', () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
     logoutMutateMock.mockResolvedValue(undefined);
+    window.localStorage.setItem('puntovivo:deviceId', 'registered-device-1');
 
     let auth!: ReturnType<typeof useAuth>;
     function Probe() {
@@ -293,6 +294,7 @@ describe('AuthProvider — logout flow', () => {
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
+    expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
   });
 
   it('clears local state and navigates even when the server logout call fails', async () => {

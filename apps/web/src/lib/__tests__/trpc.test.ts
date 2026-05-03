@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAccessToken,
+  createTrpcClientWithHeaders,
   createTrpcFetch,
   getTrpcHeaders,
   setAccessToken,
   setAuthSessionExpiredHandler,
 } from '../trpc';
+import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../commandEnvelope';
 
 describe('trpc auth transport', () => {
   beforeEach(() => {
@@ -26,6 +28,7 @@ describe('trpc auth transport', () => {
   afterEach(() => {
     clearAccessToken();
     setAuthSessionExpiredHandler(null);
+    vi.unstubAllGlobals();
     document.cookie =
       'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
@@ -115,5 +118,47 @@ describe('trpc auth transport', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(onSessionExpired).toHaveBeenCalledTimes(1);
     expect(getTrpcHeaders().authorization).toBeUndefined();
+  });
+
+  it('sends fixed critical command headers through a dedicated client', async () => {
+    const envelopeHeader = JSON.stringify({
+      operationId: '11111111-1111-4111-8111-111111111111',
+      idempotencyKey: 'change-password-key',
+      clientCreatedAt: '2026-05-02T00:00:00.000Z',
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            result: {
+              data: {
+                success: true,
+                message: 'Password changed successfully',
+              },
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = createTrpcClientWithHeaders({
+      [DEVICE_ID_HEADER]: 'device-test-id',
+      [COMMAND_ENVELOPE_HEADER]: envelopeHeader,
+    });
+
+    await client.auth.changePassword.mutate({
+      currentPassword: 'CurrentPassword123!',
+      newPassword: 'NewPassword123!',
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    const headers = new Headers(init?.headers);
+    expect(headers.get(DEVICE_ID_HEADER)).toBe('device-test-id');
+    expect(headers.get(COMMAND_ENVELOPE_HEADER)).toBe(envelopeHeader);
   });
 });
