@@ -20,10 +20,11 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
-  adminProcedure,
-  cashierManagerOrAdminProcedure,
-  managerOrAdminProcedure,
-} from '../middleware/roles.js';
+  criticalCommandAdminProcedure,
+  criticalCommandCashierManagerOrAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+  criticalCommandProcedure,
+} from '../middleware/criticalCommand.js';
 import {
   cashMovements,
   cashSessions,
@@ -883,7 +884,7 @@ export const salesRouter = router({
    * - Decrements product stock using normalized quantities
    * - Creates inventory movements and advances the site sequential
    */
-  create: tenantProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
+  create: criticalCommandProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
     const now = new Date().toISOString();
     const saleId = nanoid();
 
@@ -1248,7 +1249,7 @@ export const salesRouter = router({
   /**
    * Refund a completed sale and restore the related stock movements.
    */
-  returnSale: managerOrAdminProcedure.input(returnSaleInput).mutation(async ({ ctx, input }) => {
+  returnSale: criticalCommandManagerOrAdminProcedure.input(returnSaleInput).mutation(async ({ ctx, input }) => {
     const activeCashSession = await requireActiveCashSession(
       ctx.db,
       ctx.tenantId,
@@ -1557,7 +1558,7 @@ export const salesRouter = router({
   /**
    * Void a completed sale (admin only) and reverse the related stock movements.
    */
-  void: adminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
+  void: criticalCommandAdminProcedure.input(voidSaleInput).mutation(async ({ ctx, input }) => {
     // Void is an admin action that's decoupled from a cashier's register:
     // - if the original sale's cash session is still open, we reverse the cash
     //   movement against that session (keeps its expected balance consistent);
@@ -1819,7 +1820,7 @@ export const salesRouter = router({
    * - No stock impact: drafts never decrement inventory in the first
    *   place, so there is nothing to revert.
    */
-  suspend: tenantProcedure.input(suspendSaleInput).mutation(async ({ ctx, input }) => {
+  suspend: criticalCommandProcedure.input(suspendSaleInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -1893,7 +1894,7 @@ export const salesRouter = router({
    * suspended it, UNLESS the caller is a manager or admin (override).
    * Anything else returns FORBIDDEN.
    */
-  resume: tenantProcedure.input(resumeSaleInput).mutation(async ({ ctx, input }) => {
+  resume: criticalCommandProcedure.input(resumeSaleInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -2082,7 +2083,7 @@ export const salesRouter = router({
    * that never got suspended (e.g. a suspend call failed after the
    * initial `sales.create`).
    */
-  discardDraft: tenantProcedure.input(discardDraftInput).mutation(async ({ ctx, input }) => {
+  discardDraft: criticalCommandProcedure.input(discardDraftInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
       .select()
       .from(sales)
@@ -2311,7 +2312,7 @@ export const salesRouter = router({
    * - Caller must have an active cash session for their (tenant, site)
    *   pair — enforced via `requireActiveCashSession`.
    */
-  completeDraft: cashierManagerOrAdminProcedure
+  completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db
@@ -2573,7 +2574,7 @@ export const salesRouter = router({
    *   their currently-active session; manager and admin override the
    *   session check.
    */
-  getForReprint: tenantProcedure
+  getForReprint: criticalCommandProcedure
     .input(getForReprintInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db

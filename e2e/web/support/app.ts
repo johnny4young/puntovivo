@@ -136,7 +136,10 @@ export async function ensureLanguage(page: Page, language: 'en' | 'es') {
 }
 
 export async function openUserMenu(page: Page) {
-  await page.getByRole('button', { name: /e2e/i }).click();
+  await page
+    .locator('header')
+    .getByRole('button', { name: /admin|manager|cashier|viewer/i })
+    .click();
 }
 
 /**

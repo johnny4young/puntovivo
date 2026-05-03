@@ -8,7 +8,11 @@
  */
 
 import { randomBytes } from 'crypto';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, {
+  type FastifyBaseLogger,
+  type FastifyInstance,
+  type FastifyRequest,
+} from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -61,6 +65,31 @@ export interface PuntovivoServer {
   close: () => Promise<void>;
   /** Get the server URL */
   getUrl: () => string;
+}
+
+/**
+ * ENG-052b — Build the request-scoped child logger bindings used by
+ * the `onRequest` hook below. Extracted so unit tests can call it
+ * with a stub request without spinning up the full Fastify server.
+ *
+ * Pulled into module scope (not a closure inside `createServer`) so
+ * the test file can import it directly without hitting the full
+ * server lifecycle.
+ */
+export function buildRequestScopedLoggerBindings(
+  request: Pick<FastifyRequest, 'id' | 'headers'>
+): Record<string, string> {
+  const headerValue = request.headers['x-device-id'];
+  const deviceId = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  const bindings: Record<string, string> = { requestId: request.id };
+  if (typeof deviceId === 'string' && deviceId.length > 0) {
+    bindings.deviceId = deviceId;
+  }
+  return bindings;
+}
+
+function buildRequestScopedLogger(request: FastifyRequest): FastifyRequest['log'] {
+  return request.log.child(buildRequestScopedLoggerBindings(request));
 }
 
 /**
@@ -155,6 +184,17 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     sign: {
       expiresIn: '7d',
     },
+  });
+
+  // ENG-052b — request-scoped child logger so every log line emitted
+  // during a request carries `requestId` (Fastify reqId) plus the
+  // best-effort `deviceId` from the Command Envelope header. The
+  // tenant + user ids are NOT yet known here (auth runs later in the
+  // tRPC layer) — `commandEnvelope` adds them when it has the
+  // resolved context. The hook is intentionally cheap (string read +
+  // child(), no DB calls) so non-/api/ routes stay unaffected.
+  app.addHook('onRequest', async request => {
+    request.log = buildRequestScopedLogger(request);
   });
 
   app.addHook('onRequest', async (request, reply) => {

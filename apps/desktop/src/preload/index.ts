@@ -73,6 +73,22 @@ export interface ElectronAPI {
   }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
+  device: DeviceAPI;
+}
+
+/**
+ * ENG-052b — Persistent device id under the user's data folder. The
+ * id is server-issued by `auth.registerDevice`; the renderer caches
+ * it in localStorage AND mirrors it here so a localStorage clear
+ * does not lose the registration.
+ *
+ * The renderer accesses this via
+ * `(window.electron.device).getId/setId` — see
+ * `apps/web/src/lib/deviceId.ts`.
+ */
+export interface DeviceAPI {
+  getId: () => Promise<string | null>;
+  setId: (id: string) => Promise<void>;
 }
 
 /**
@@ -133,6 +149,11 @@ export interface DesktopBridgeAPI extends ElectronAPI {
   session: SessionAPI;
 }
 
+const deviceAPI: DeviceAPI = {
+  getId: () => ipcRenderer.invoke('device:get-id'),
+  setId: (id: string) => ipcRenderer.invoke('device:set-id', id),
+};
+
 // Custom APIs for renderer
 const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -152,6 +173,7 @@ const electronAPI: ElectronAPI = {
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
+  device: deviceAPI,
 };
 
 const dbAPI: DatabaseAPI = {

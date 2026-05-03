@@ -11,6 +11,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   categories,
   clientTypes,
@@ -35,7 +37,9 @@ let adminUserId: string;
 let cashierUserId: string;
 let seededCategoryId: string;
 let defaultSiteId: string;
+let testDeviceId: string | null = null;
 const testDbPath = ':memory:';
+
 
 const CUSTOMER_CATALOG_SEED = {
   identificationTypes: [{ code: 'CC', name: 'Cedula de Ciudadania' }, { code: 'NIT', name: 'NIT' }],
@@ -65,7 +69,13 @@ function createTestContext(userPayload?: {
 
   const mockReq = {
     server: server.app,
-    headers: userPayload && defaultSiteId ? { 'x-site-id': defaultSiteId } : {},
+    headers:
+      userPayload && defaultSiteId
+        ? makeEnvelopeHeadersProxy({
+            getDeviceId: () => testDeviceId,
+            getSiteId: () => defaultSiteId,
+          })
+        : {},
     user: userPayload
       ? {
           userId: userPayload.id,
@@ -186,6 +196,17 @@ describe('Collections tRPC Routers', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // ENG-052b — register one device for the synthetic tenant; reused
+    // by every critical procedure exercised in this suite (sales,
+    // cash sessions, inventory adjustments).
+    const registration = await registerDeviceService(db, {
+      tenantId: testTenantId,
+      userId: adminUserId,
+      kind: 'web',
+      name: 'collections.test',
+    });
+    testDeviceId = registration.deviceId;
 
     // Pre-seed one category for list/getById tests
     seededCategoryId = nanoid();

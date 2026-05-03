@@ -151,9 +151,19 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   const rawEnvelope = readHeader(ctx.req, COMMAND_ENVELOPE_HEADER);
   const envelope = parseEnvelope(rawEnvelope);
 
-  // Build a request-scoped child logger early so failures inside the
-  // idempotency lookup still log under the correct context.
-  const requestLog = log.child({
+  // ENG-052b — Build a request-scoped child off the Fastify request
+  // logger so every line carries `requestId` (set by the
+  // `onRequest` hook in `index.ts`) in addition to envelope-level
+  // bindings. Falling back to the module logger keeps tests that
+  // mock `req` without a Fastify-shaped logger working.
+  const baseLog =
+    typeof (ctx.req as unknown as { log?: { child: (b: Record<string, unknown>) => unknown } }).log
+      ?.child === 'function'
+      ? ((ctx.req as unknown as {
+          log: { child: (b: Record<string, unknown>) => typeof log };
+        }).log)
+      : log;
+  const requestLog = baseLog.child({
     operationId: envelope.operationId,
     operationKind,
     deviceId: device.id,

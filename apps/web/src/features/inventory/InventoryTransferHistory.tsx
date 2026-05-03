@@ -10,6 +10,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
 import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
 import { InventoryTransferDetailsModal } from './InventoryTransferDetailsModal';
@@ -54,7 +55,7 @@ export function InventoryTransferHistory() {
     ]);
   }
 
-  const voidMutation = trpc.transfers.void.useMutation({
+  const voidMutation = useCriticalMutation('transfers.void', {
     onSuccess: async () => {
       await invalidateAfterMutation();
       setConfirmingVoidId(null);
@@ -65,7 +66,7 @@ export function InventoryTransferHistory() {
     }),
   });
 
-  const receiveMutation = trpc.transfers.receive.useMutation({
+  const receiveMutation = useCriticalMutation('transfers.receive', {
     onSuccess: () => {
       // Close the modal immediately after the mutation succeeds. Invalidating
       // three read surfaces (`transfers.list`, `transfers.getById`,

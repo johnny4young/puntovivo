@@ -20,15 +20,57 @@ npm run seed:dev
 # Bigger catalog and history
 SEED_PRESET=large npm run seed:dev
 
+# MEGA: 90+ days of historical operational data + every page
+# populated for visual UI testing (ENG-052b)
+SEED_PRESET=mega npm run seed:dev
+
 # Wipe the demo tenant first and reseed (destructive)
 SEED_RESET=true npm run seed:dev
 
 # Combine
 SEED_PRESET=large SEED_RESET=true npm run seed:dev
+SEED_PRESET=mega SEED_RESET=true npm run seed:dev
 
 # Print help
 npm run seed:dev --workspace=@puntovivo/server -- --help
 ```
+
+### `mega` preset (ENG-052b)
+
+`SEED_PRESET=mega` builds on `default` and bulk-inserts 90+ days of
+historical operational data so every page has realistic content for
+visual testing. Every timestamp is computed RELATIVE to the seed
+execution time — re-running the seed any future day produces a fresh
+90-day window centered on "today". No hardcoded dates anywhere.
+
+What MEGA fills (counts will vary slightly by run):
+
+| Surface | Volume | Notes |
+|---|---|---|
+| Cash sessions | ~135 closed + 2 open | 1 per active cashier per day across 90d |
+| Sales | ~785 historical + ~6 recent via tRPC | Mix of cash / card / transfer / credit |
+| Refunds (`sales.returnSale`) | ~80 | 10% of completed sales |
+| Voids (`sales.void`) | ~45 | 5% of completed sales |
+| Suspended drafts | 12 | Distributed 0-7 days back |
+| Cash movements | ~175 | paid_in / paid_out / skim / replenishment |
+| Inventory movements | ~2500 | sale + purchase + transfer + adjustment + return |
+| Purchases | ~40 | + 2 supplier returns |
+| Transfers | ~27 | 2 in_transit, rest completed with discrepancy notes |
+| Quotations | ~55 | All 5 states (draft/sent/accepted/rejected/expired) |
+| Purchase orders | 12 | submitted / partial_received / received / voided |
+| Audit logs | ~900 | sale.create + sale.return + sale.void + others |
+| Sync queue | 5 pending | mix of attempts > 0 |
+| Sync conflicts | 4 | 2 pending + 2 resolved (different resolutions) |
+| AI audit log | 12 | mix of providers + features + 1 failure |
+| AI anomaly snoozes | 3 | per cashier or aggregate |
+| Login attempts | 8 | rate-limit observability data |
+| Logos | 1 | placeholder data URL |
+| Category × Provider links | ~16 | populates filter dropdowns |
+| Recent sales via tRPC | ~6 | exercises envelope path end-to-end |
+
+Run time: ~1-2 seconds on a modern laptop. Bulk SQL inserts dominate;
+the recent-via-tRPC pass is small by design (it's there to verify
+the live envelope path, not pump volume).
 
 The equivalent `--flag` form works when invoking the workspace
 directly (npm's argument forwarding does not cross the root-to-

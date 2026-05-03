@@ -28,6 +28,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   auditLogs,
   cashMovements,
@@ -62,6 +64,13 @@ let cashier2SessionId: string;
 let otherTenantId: string;
 let otherAdminId: string;
 
+/**
+ * ENG-052b — Per-tenant device id cache. Cross-tenant tests register
+ * a device for both tenants up-front; the proxy looks up the right
+ * one based on the tenant in the active context.
+ */
+const deviceIdByTenant: Map<string, string> = new Map();
+
 function createContext(
   userId: string,
   role: 'admin' | 'manager' | 'cashier' | 'viewer',
@@ -72,7 +81,10 @@ function createContext(
   return {
     req: {
       server: server.app,
-      headers: siteId ? { 'x-site-id': siteId } : {},
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => deviceIdByTenant.get(tenant),
+        getSiteId: () => siteId,
+      }),
       user: {
         userId,
         email: `${role}@localhost`,
@@ -214,6 +226,17 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       updatedAt: now,
     });
 
+    // ENG-052b — register the primary tenant device BEFORE
+    // `openSession()` runs, since `cashSessions.open` is now a
+    // critical procedure.
+    const primaryRegistration = await registerDeviceService(db, {
+      tenantId,
+      userId: adminId,
+      kind: 'web',
+      name: 'sales-park.test.primary',
+    });
+    deviceIdByTenant.set(tenantId, primaryRegistration.deviceId);
+
     const session1 = await openSession(cashier1Id, 'cashier');
     cashier1SessionId = session1.id;
     const session2 = await openSession(cashier2Id, 'cashier');
@@ -260,6 +283,18 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       createdAt: now,
       updatedAt: now,
     });
+
+    // ENG-052b — register a device for the second tenant so the
+    // cross-tenant isolation tests can drive critical procedures
+    // from either side. The primary tenant's device was registered
+    // earlier (before `openSession()` ran).
+    const otherRegistration = await registerDeviceService(db, {
+      tenantId: otherTenantId,
+      userId: otherAdminId,
+      kind: 'web',
+      name: 'sales-park.test.other',
+    });
+    deviceIdByTenant.set(otherTenantId, otherRegistration.deviceId);
   });
 
   afterAll(async () => {

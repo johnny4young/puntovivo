@@ -26,6 +26,7 @@ import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
 
 export interface SuspendedDraftSummary {
@@ -69,7 +70,7 @@ export function SuspendedSalesPanel({
     { enabled: isOpen, staleTime: 5_000 }
   );
 
-  const discardMutation = trpc.sales.discardDraft.useMutation({
+  const discardMutation = useCriticalMutation('sales.discardDraft', {
     onSuccess: async () => {
       await invalidateGroups(utils, [
         u => u.sales.listDrafts,

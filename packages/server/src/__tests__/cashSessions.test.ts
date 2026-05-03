@@ -4,6 +4,8 @@ import { nanoid } from 'nanoid';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   cashMovements,
   cashSessions,
@@ -23,6 +25,7 @@ let tenantId: string;
 let userId: string;
 let siteId: string;
 let baseUnitId: string;
+let testDeviceId: string;
 
 function createTestContext(
   overrides?: Partial<NonNullable<Context['user']>>
@@ -36,9 +39,10 @@ function createTestContext(
   return {
     req: {
       server: server.app,
-      headers: {
-        'x-site-id': siteId,
-      },
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => testDeviceId,
+        getSiteId: () => siteId,
+      }),
       user: {
         userId: currentUserId,
         email,
@@ -106,6 +110,18 @@ describe('Cash sessions tRPC Router', () => {
     userId = seededUser.id;
     siteId = seededSite.id;
     baseUnitId = baseUnit.id;
+
+    // ENG-052b — register one device per test file for the active
+    // tenant. The id is shared across role overrides because device
+    // validation in `commandEnvelope` is scoped to (tenantId,
+    // deviceId), not user.
+    const registration = await registerDeviceService(getDatabase(), {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'cashSessions.test',
+    });
+    testDeviceId = registration.deviceId;
   });
 
   afterAll(async () => {

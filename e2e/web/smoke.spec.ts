@@ -12,14 +12,14 @@ const adminRoutes = [
     label: 'Dashboard',
     path: '/dashboard',
     assertion: async (page) =>
-      page.getByRole('heading', { name: /Sales, register, and stock in one view|Ventas, caja e inventario/i }),
+      page.getByText(/Today's Sales|Ventas de hoy/i).first(),
   },
   {
     label: 'Sales',
     path: '/sales',
     assertion: async (page) =>
       page.getByRole('heading', {
-        name: /Checkout built for fast scanning and calm oversight|Caja pensada para escaneo rápido/i,
+        name: /Charge summary|Resumen de cobro/i,
       }),
   },
   {
@@ -153,8 +153,8 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('link', { name: 'Panel' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Ventas' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Inventario' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Espacio de trabajo' })).toBeVisible();
-    await expect(page.getByText('Punto de Venta', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ventas de hoy')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 
     await expectNoClientIssues(tracker);
   });

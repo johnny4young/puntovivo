@@ -67,6 +67,8 @@ import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { createReceiptTemplate } from '../services/receipt-templates.js';
 import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from '../lib/envelopeHeadersProxy.js';
 
 const log = createModuleLogger('seed-dev');
 
@@ -87,8 +89,18 @@ export const DEV_ADMIN_EMAIL = 'admin@demo.co';
 export const DEV_USER_PASSWORD = 'Admin123!Dev';
 
 export interface SeedDevOptions {
-  /** Dataset size. `default` = 50 products + 40 sales; `large` = 500 + 200. */
-  preset?: 'default' | 'large';
+  /**
+   * Dataset size:
+   * - `default`: 50 products + 40 sales (fast, for tests + first-boot).
+   * - `large`: 500 products + 200 sales (legacy, for catalog stress tests).
+   * - `mega` (ENG-052b): builds on `default` and adds 90+ days of
+   *   historical operational data — sales/refunds/voids, cash sessions,
+   *   purchases + returns, transfers, quotations across all 5 states,
+   *   orders, suspended drafts, sync queue, AI audit, login attempts,
+   *   logos, and a recent-3-days pass through the live tRPC critical
+   *   procedure path. Designed for visual UI testing of every page.
+   */
+  preset?: 'default' | 'large' | 'mega';
   /**
    * Country code para el tenant demo. Default `'CO'` para preservar
    * paridad con todos los tests + E2E existentes que asumen Colombia.
@@ -277,6 +289,20 @@ export async function seedDevData(
   }
   const adminUser = seedUsers.find(u => u.role === 'admin')!;
   const cashierUsers = seedUsers.filter(u => u.role === 'cashier');
+
+  // ENG-052b — register a single seed device so the historical
+  // batches below can drive critical procedures (sales, cash
+  // sessions). Real desktop / web clients register their own devices
+  // through `auth.registerDevice`; the seed-owned device stays as a
+  // permanent row attributed to the admin user, which keeps the
+  // operations log honest about who pumped the data.
+  const seedDevice = await registerDeviceService(db, {
+    tenantId,
+    userId: adminUser.id,
+    kind: 'web',
+    name: 'puntovivo-seed-dev',
+  });
+  const seedDeviceId = seedDevice.deviceId;
 
   // ----- 3. Company + Sites ----------------------------------------------
   const companyId = nanoid();
@@ -736,6 +762,7 @@ export async function seedDevData(
     productRows,
     unitIds,
     targetPerSite: target.purchasesPerSite,
+    deviceId: seedDeviceId,
   });
 
   // Cash sessions + sales per cashier/site combination. We assign each
@@ -750,6 +777,7 @@ export async function seedDevData(
     productRows,
     unitIds,
     targetPerCashier: target.salesPerCashier,
+    deviceId: seedDeviceId,
   });
 
   // Quotations (no cash session required; admin role).
@@ -761,6 +789,7 @@ export async function seedDevData(
     productRows,
     unitIds,
     target: target.quotations,
+    deviceId: seedDeviceId,
   });
 
   // Inventory transfers between the two sites (if there are at least 2).
@@ -772,6 +801,7 @@ export async function seedDevData(
           siteRows,
           productRows,
           target: target.transfers,
+          deviceId: seedDeviceId,
         })
       : 0;
 
@@ -783,7 +813,22 @@ export async function seedDevData(
     siteRows,
     productRows,
     target: target.stockAdjustments,
+    deviceId: seedDeviceId,
   });
+
+  // ENG-052b — MEGA preset: layer 90 days of historical data on top
+  // of the foundation we just built. Decoupled from the default
+  // helpers above so the small-N path stays fast for tests.
+  let megaCounts: import('./seed-mega/types.js').MegaCounts | null = null;
+  if (preset === 'mega') {
+    const { seedMegaData } = await import('./seed-mega/index.js');
+    megaCounts = await seedMegaData({
+      db,
+      tenantId,
+      companyId,
+      adminUserId: adminUser.id,
+    });
+  }
 
   const counts: SeedDevCounts = {
     users: seedUsers.length,
@@ -793,15 +838,15 @@ export async function seedDevData(
     customers: customerRows.length,
     products: productRows.length,
     receiptTemplates: Object.keys(receiptTemplateLayouts).length,
-    purchases: purchasesResult,
-    sales: salesResult.sales,
-    quotations: quotationsCount,
-    inventoryTransfers: transfersCount,
-    cashSessions: salesResult.cashSessions,
+    purchases: purchasesResult + (megaCounts?.purchases ?? 0),
+    sales: salesResult.sales + (megaCounts?.historicalSales ?? 0),
+    quotations: quotationsCount + (megaCounts?.quotations ?? 0),
+    inventoryTransfers: transfersCount + (megaCounts?.transfers ?? 0),
+    cashSessions: salesResult.cashSessions + (megaCounts?.historicalCashSessions ?? 0),
     stockAdjustments: adjustmentsCount,
   };
 
-  log.info({ counts }, 'dev seed complete');
+  log.info({ counts, megaCounts }, 'dev seed complete');
 
   return {
     seeded: true,
@@ -832,8 +877,13 @@ interface PresetTarget {
   stockAdjustments: number;
 }
 
-function buildPreset(preset: 'default' | 'large'): PresetTarget {
-  if (preset === 'large') {
+function buildPreset(preset: 'default' | 'large' | 'mega'): PresetTarget {
+  if (preset === 'large' || preset === 'mega') {
+    // `mega` reuses the `large` foundation counts; the historical
+    // depth comes from `seedMegaData()` afterward, so we don't need
+    // a 3rd preset row here. The `large` baseline gives mega 500
+    // products + 200 sales of "today" data — the historical layer
+    // bulk-inserts the 90-day backlog on top.
     return {
       defaultProductTarget: 50,
       largeProductTarget: 500,
@@ -1429,7 +1479,12 @@ async function syncProductsStockFromBalances(
 
 function buildContext(
   db: DatabaseInstance,
-  args: { user: SeedUser; tenantId: string; siteId: string | null }
+  args: {
+    user: SeedUser;
+    tenantId: string;
+    siteId: string | null;
+    deviceId?: string | null;
+  }
 ): Context {
   // We emulate the context that the Fastify layer would build at
   // request time; tRPC callers only touch a small subset (db, user,
@@ -1437,7 +1492,10 @@ function buildContext(
   return {
     req: {
       server: { db } as unknown,
-      headers: {},
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => args.deviceId,
+        getSiteId: () => args.siteId,
+      }),
       user: {
         userId: args.user.id,
         email: args.user.email,
@@ -1475,12 +1533,18 @@ async function seedPurchases(
     productRows: Array<{ id: string; sku: string; baseUnitId: string; cost: number }>;
     unitIds: Record<string, string>;
     targetPerSite: number;
+    deviceId: string;
   }
 ): Promise<number> {
   let count = 0;
   for (const site of args.siteRows) {
     const caller = appRouter.createCaller(
-      buildContext(db, { user: args.adminUser, tenantId: args.tenantId, siteId: site.id })
+      buildContext(db, {
+        user: args.adminUser,
+        tenantId: args.tenantId,
+        siteId: site.id,
+        deviceId: args.deviceId,
+      })
     );
     for (let i = 0; i < args.targetPerSite; i += 1) {
       const provider = args.providerRows[i % args.providerRows.length]!;
@@ -1525,6 +1589,7 @@ async function seedSales(
     }>;
     unitIds: Record<string, string>;
     targetPerCashier: number;
+    deviceId: string;
   }
 ): Promise<{ sales: number; cashSessions: number }> {
   // Only pick from products that have real stock to minimize stockout
@@ -1542,7 +1607,12 @@ async function seedSales(
     const cashier = args.cashierUsers[i]!;
     const site = args.siteRows[i % args.siteRows.length]!;
     const caller = appRouter.createCaller(
-      buildContext(db, { user: cashier, tenantId: args.tenantId, siteId: site.id })
+      buildContext(db, {
+        user: cashier,
+        tenantId: args.tenantId,
+        siteId: site.id,
+        deviceId: args.deviceId,
+      })
     );
     const registerName = `Caja ${cashier.email.split('@')[0]}`;
     // Split the target into two sessions: one closed (historical) and
@@ -1678,6 +1748,7 @@ async function seedQuotations(
     productRows: Array<{ id: string; sku: string; baseUnitId: string; price: number }>;
     unitIds: Record<string, string>;
     target: number;
+    deviceId: string;
   }
 ): Promise<number> {
   const caller = appRouter.createCaller(
@@ -1685,6 +1756,7 @@ async function seedQuotations(
       user: args.adminUser,
       tenantId: args.tenantId,
       siteId: args.siteRows[0]!.id,
+      deviceId: args.deviceId,
     })
   );
   let count = 0;
@@ -1740,6 +1812,7 @@ async function seedTransfers(
     siteRows: SeedDevSite[];
     productRows: Array<{ id: string; sku: string }>;
     target: number;
+    deviceId: string;
   }
 ): Promise<number> {
   const caller = appRouter.createCaller(
@@ -1747,6 +1820,7 @@ async function seedTransfers(
       user: args.adminUser,
       tenantId: args.tenantId,
       siteId: args.siteRows[0]!.id,
+      deviceId: args.deviceId,
     })
   );
   let count = 0;
@@ -1778,6 +1852,7 @@ async function seedStockAdjustments(
     siteRows: SeedDevSite[];
     productRows: Array<{ id: string; sku: string }>;
     target: number;
+    deviceId: string;
   }
 ): Promise<number> {
   let count = 0;
@@ -1789,6 +1864,7 @@ async function seedStockAdjustments(
         user: args.adminUser,
         tenantId: args.tenantId,
         siteId: site.id,
+        deviceId: args.deviceId,
       })
     );
     try {

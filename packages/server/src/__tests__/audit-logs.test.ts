@@ -3,6 +3,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   auditLogs,
   categories,
@@ -24,13 +26,14 @@ let categoryId: string;
 let providerId: string;
 let vatRateId: string;
 let baseUnitId: string;
+let testDeviceId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
   return {
     req: {
       server: server.app,
-      headers: {},
+      headers: makeEnvelopeHeadersProxy({ getDeviceId: () => testDeviceId }),
       user: {
         userId,
         email: 'admin@localhost',
@@ -146,6 +149,18 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       createdAt: now,
       updatedAt: now,
     });
+
+    // ENG-052b — register one device per test file. Audit-log tests
+    // exercise critical procedures (sale.void, sale.return,
+    // inventory.adjustStock, cashSessions.close, users.create,
+    // users.update) which now require the Command Envelope.
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'audit-logs.test',
+    });
+    testDeviceId = registration.deviceId;
   });
 
   afterAll(async () => {

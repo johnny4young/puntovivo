@@ -197,6 +197,30 @@ export function cleanupPriorRunArtifacts(
        )`
   ).run(tenantId, tenantId, ...keepUserArgs);
 
+  // Device registration happens during login. Critical mutations then
+  // reserve idempotency keys against those devices, so both must be
+  // cleared before disposable E2E users can be removed.
+  db.prepare(
+    `delete from idempotency_keys
+     where tenant_id = ?
+       and device_id in (
+         select id from devices
+         where tenant_id = ?
+           and registered_by_user_id in (
+             select id from users
+             where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+           )
+       )`
+  ).run(tenantId, tenantId, tenantId, ...keepUserArgs);
+  db.prepare(
+    `delete from devices
+     where tenant_id = ?
+       and registered_by_user_id in (
+         select id from users
+         where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+       )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
+
   // Transfer-related rows — children first so FK-driven cascades don't
   // strand rows (the schema uses `ON DELETE CASCADE` on most of them, but
   // older installs may not have the FK — explicit delete is safer).

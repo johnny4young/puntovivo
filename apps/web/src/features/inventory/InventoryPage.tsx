@@ -35,6 +35,7 @@ import {
   inventoryStockExportColumns,
 } from '@/features/inventory/inventoryExport';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
 import type {
@@ -684,7 +685,7 @@ export function InventoryPage() {
     perPage: 50,
   });
 
-  const adjustStockMutation = trpc.inventory.adjustStock.useMutation({
+  const adjustStockMutation = useCriticalMutation('inventory.adjustStock', {
     onSuccess: async () => {
       await Promise.all([
         utils.inventory.listMovements.invalidate(),

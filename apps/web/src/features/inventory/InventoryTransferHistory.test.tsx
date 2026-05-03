@@ -60,18 +60,6 @@ vi.mock('@/lib/trpc', () => ({
       list: {
         useQuery: () => listResult,
       },
-      void: {
-        useMutation: (opts: MutationOptions) => {
-          capturedMutationOpts = opts;
-          return voidMutationState;
-        },
-      },
-      receive: {
-        useMutation: (opts: MutationOptions) => {
-          capturedReceiveOpts = opts;
-          return receiveMutationState;
-        },
-      },
       getById: {
         useQuery: (input: { id: string }, opts?: { enabled?: boolean }) => {
           getByIdInvocations.push({ id: input.id, enabled: opts?.enabled ?? true });
@@ -84,6 +72,26 @@ vi.mock('@/lib/trpc', () => ({
         },
       },
     },
+  },
+}));
+
+// ENG-052b — `transfers.void` and `transfers.receive` migrated to
+// `useCriticalMutation`. Mock that hook here so tests can still
+// capture the onSuccess / onError options for assertion.
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (
+    path: 'transfers.void' | 'transfers.receive',
+    opts: MutationOptions
+  ) => {
+    if (path === 'transfers.void') {
+      capturedMutationOpts = opts;
+      return voidMutationState;
+    }
+    if (path === 'transfers.receive') {
+      capturedReceiveOpts = opts;
+      return receiveMutationState;
+    }
+    throw new Error(`Unexpected critical procedure mocked: ${path}`);
   },
 }));
 
