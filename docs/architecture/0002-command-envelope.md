@@ -25,9 +25,10 @@ Each envelope field has a single purpose:
 - `idempotencyKey` — string supplied by the client (or derived from
   the operation id when the client cannot supply one). Server-side
   storage in an `idempotency_keys` table makes retries safe: the
-  same key returns the same resource on duplicate requests, and a
-  conflicting payload under the same key is rejected with a
-  structured error.
+  first caller reserves the key before the command runs, duplicate
+  requests return the cached resource after success, concurrent
+  retries get a structured in-progress error, and a conflicting
+  payload under the same key is rejected with a structured conflict.
 - `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
   device. Used for ordering when the local store eventually syncs to
   a central server (ENG-064) and for debugging clock-skew issues.
@@ -64,17 +65,19 @@ outboxes.
 
 - **New table** (added by ENG-052): `idempotency_keys` with
   columns `tenant_id`, `device_id`, `idempotency_key`,
-  `operation_kind`, `request_hash`, `result_ref`, `created_at`,
-  `expires_at`. Composite unique index on
-  `(tenant_id, device_id, idempotency_key)`. Replaying a key with
-  a matching `request_hash` returns `result_ref`; a mismatched
-  hash returns a typed conflict error.
+  `operation_kind`, `request_hash`, `status`, `result_ref`,
+  `locked_at`, `completed_at`, `created_at`, `expires_at`.
+  Composite unique index on `(tenant_id, device_id,
+  idempotency_key, operation_kind)`. Replaying a key with a
+  matching `request_hash` returns `COMMAND_IN_PROGRESS` while
+  `status='processing'` or `result_ref` after `status='succeeded'`;
+  a mismatched hash returns a typed conflict error.
 - **New tRPC middleware** (added by ENG-052): `commandEnvelope`
   wraps procedures listed in the closed list below. It validates
-  the envelope shape via Zod, looks up `idempotency_keys`, and
-  short-circuits with the cached `result_ref` on a hit. On a miss,
-  it writes the envelope into the operation journal (ENG-053)
-  before the application service runs.
+  the envelope shape via Zod, atomically reserves `idempotency_keys`,
+  and short-circuits with the cached `result_ref` on a completed hit.
+  ENG-053 will add the operation journal around the same envelope
+  context before the application service runs.
 - **Renderer**: the React layer mints `operationId` and
   `idempotencyKey` per user intent; the existing `useToast` /
   command queue helpers carry them through. The Electron preload
@@ -163,3 +166,10 @@ notification reads, dashboard reads, and the audit log query API.
   `payment.void` to the closed list with envelope.
 
 Updated: 2026-05-02 (ENG-051 — initial ADR set).
+Updated: 2026-05-02 (ENG-052a — foundation shipped: `devices` and
+`idempotency_keys` tables, `commandEnvelope` middleware, `auth.registerDevice`,
+and `auth.changePassword` wrapped as the proof procedure. Web
+`deviceId.ts` + `commandEnvelope.ts` + AuthProvider device
+registration. ENG-052b will wire the remaining 17 procedures from
+the closed list above and add the `useCriticalMutation` web hook +
+Electron `device.getId/setId` preload).

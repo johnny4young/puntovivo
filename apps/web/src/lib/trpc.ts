@@ -8,6 +8,8 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
+import { DEVICE_ID_HEADER } from './commandEnvelope';
+import { getCachedDeviceIdSync } from './deviceId';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 const CSRF_COOKIE_NAME = 'puntovivo_csrf';
@@ -37,6 +39,7 @@ export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const siteId = getStoredSiteId();
   const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+  const deviceId = getCachedDeviceIdSync();
 
   if (accessToken) {
     headers.authorization = `Bearer ${accessToken}`;
@@ -48,6 +51,14 @@ export function getTrpcHeaders(): Record<string, string> {
 
   if (csrfToken) {
     headers[CSRF_HEADER_NAME] = csrfToken;
+  }
+
+  // ENG-052 — every request that runs after device registration
+  // ships the id; the server only enforces it on procedures wrapped
+  // with `criticalCommandProcedure` (ADR-0002), so unwrapped reads
+  // and catalog mutations stay unaffected by an unset id.
+  if (deviceId) {
+    headers[DEVICE_ID_HEADER] = deviceId;
   }
 
   return headers;
@@ -166,13 +177,24 @@ export function createTrpcFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
   };
 }
 
-export function createTrpcBatchLink() {
+type HeaderFactory = () => Record<string, string>;
+
+export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
   return httpBatchLink({
     url: `${API_URL}/api/trpc`,
     fetch: createTrpcFetch(),
     headers() {
-      return getTrpcHeaders();
+      return {
+        ...getTrpcHeaders(),
+        ...(extraHeaders?.() ?? {}),
+      };
     },
+  });
+}
+
+export function createTrpcClientWithHeaders(headers: Record<string, string>) {
+  return createTRPCClient<AppRouter>({
+    links: [createTrpcBatchLink(() => headers)],
   });
 }
 

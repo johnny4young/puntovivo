@@ -2,8 +2,8 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { useAuth } from './AuthProvider';
 import { getPasswordRequirementMessage, type PasswordRequirementKey } from './passwordPolicy';
 
@@ -31,7 +31,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   const form = useForm<ChangePasswordFormValues>({
     defaultValues,
   });
-  const changePasswordMutation = trpc.auth.changePassword.useMutation();
+  const changePasswordMutation = useCriticalMutation('auth.changePassword');
   const translatePasswordRequirement = (key: PasswordRequirementKey) =>
     t(`common:passwordPolicy.${key}`);
 
@@ -41,10 +41,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   };
 
   const handleSubmit = form.handleSubmit(async values => {
-    await changePasswordMutation.mutateAsync({
-      currentPassword: values.currentPassword,
-      newPassword: values.newPassword,
-    });
+    try {
+      await changePasswordMutation.mutateAsync({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+    } catch {
+      return;
+    }
 
     handleClose();
     toast.success({

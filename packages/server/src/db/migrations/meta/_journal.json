@@ -71,6 +71,20 @@
       "when": 1779321600000,
       "tag": "0009_product_embeddings",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1782086400000,
+      "tag": "0010_devices_and_idempotency_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1782172800000,
+      "tag": "0011_idempotency_atomic_reservation",
+      "breakpoints": true
     }
   ]
 }

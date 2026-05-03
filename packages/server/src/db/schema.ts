@@ -17,6 +17,7 @@ import { relations, sql } from 'drizzle-orm';
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
+export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
 export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
@@ -2255,6 +2256,15 @@ export const auditLogs = sqliteTable(
     before: text('before', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     after: text('after', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    /**
+     * ENG-052 — Foundation Reset wave. Carries the `operationId` from the
+     * Command Envelope (ADR-0002) when the audit row was emitted under a
+     * critical mutation. Nullable because (a) audit rows pre-dating ENG-052
+     * have no operation id, and (b) future flows may emit audit rows
+     * outside the envelope-decorated procedures. ENG-053 backfills the
+     * column for journaled operations.
+     */
+    operationId: text('operation_id'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -2265,6 +2275,7 @@ export const auditLogs = sqliteTable(
     index('idx_audit_logs_action').on(table.action),
     index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),
     index('idx_audit_logs_created_at').on(table.createdAt),
+    index('idx_audit_logs_operation_id').on(table.operationId),
   ]
 );
 
@@ -2276,6 +2287,120 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   actor: one(users, {
     fields: [auditLogs.actorId],
     references: [users.id],
+  }),
+}));
+
+// ============================================================================
+// DEVICES + IDEMPOTENCY (ENG-052 — Command Envelope foundation, ADR-0002)
+// ============================================================================
+
+/**
+ * `devices` is the formal record of every cashier machine that mutates
+ * the local store. The Electron desktop binary or the web client
+ * registers itself once via `auth.registerDevice` and persists the
+ * server-issued id locally (Electron userData file or browser
+ * localStorage). Subsequent critical mutations carry `x-device-id` so
+ * the server can verify (`tenant_id`, `device_id`) ownership server
+ * side and refuse renderer-supplied ids that no row backs.
+ *
+ * `kind` discriminates `desktop` (Electron) from `web` (browser-only,
+ * dev or self-hosted). `is_active=false` revokes the device without
+ * deleting the row so future audits can still join via
+ * `audit_logs.operation_id` → operation journal (ENG-053) → device.
+ */
+export const devices = sqliteTable(
+  'devices',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    kind: text('kind', { enum: ['desktop', 'web'] as const }).notNull(),
+    name: text('name').notNull(),
+    registeredByUserId: text('registered_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    lastSeenAt: text('last_seen_at'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_devices_tenant_active').on(table.tenantId, table.isActive),
+    index('idx_devices_tenant_last_seen').on(table.tenantId, table.lastSeenAt),
+  ]
+);
+
+export const devicesRelations = relations(devices, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [devices.tenantId],
+    references: [tenants.id],
+  }),
+  registeredBy: one(users, {
+    fields: [devices.registeredByUserId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * `idempotency_keys` reserves a critical command before the procedure
+ * runs, then caches the result after success. A replay with a matching
+ * `request_hash` returns either the cached `result_ref` or
+ * COMMAND_IN_PROGRESS while the first call is still executing; a
+ * mismatched hash raises IDEMPOTENCY_KEY_CONFLICT.
+ *
+ * Default TTL is 24 hours (cleaned by background sweep). The unique
+ * index covers the lookup hot path.
+ */
+export const idempotencyKeys = sqliteTable(
+  'idempotency_keys',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id),
+    idempotencyKey: text('idempotency_key').notNull(),
+    operationKind: text('operation_kind').notNull(),
+    requestHash: text('request_hash').notNull(),
+    status: text('status', { enum: idempotencyKeyStatusEnum })
+      .notNull()
+      .default('processing'),
+    resultRef: text('result_ref', { mode: 'json' }).$type<unknown | null>(),
+    lockedAt: text('locked_at').notNull(),
+    completedAt: text('completed_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    expiresAt: text('expires_at').notNull(),
+  },
+  table => [
+    uniqueIndex('idx_idempotency_keys_unique').on(
+      table.tenantId,
+      table.deviceId,
+      table.idempotencyKey,
+      table.operationKind
+    ),
+    index('idx_idempotency_keys_expires_at').on(table.expiresAt),
+    index('idx_idempotency_keys_status_expires_at').on(table.status, table.expiresAt),
+  ]
+);
+
+export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [idempotencyKeys.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(devices, {
+    fields: [idempotencyKeys.deviceId],
+    references: [devices.id],
   }),
 }));
 
@@ -3132,6 +3257,13 @@ export type NewQuotationItem = typeof quotationItems.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+export type Device = typeof devices.$inferSelect;
+export type NewDevice = typeof devices.$inferInsert;
+export type DeviceKind = NonNullable<Device['kind']>;
+
+export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type NewIdempotencyKey = typeof idempotencyKeys.$inferInsert;
 
 export type ReceiptTemplate = typeof receiptTemplates.$inferSelect;
 export type NewReceiptTemplate = typeof receiptTemplates.$inferInsert;

@@ -233,6 +233,38 @@ export const SERVER_ERROR_CODES = {
    */
   SYNC_LOCAL_RECORD_MISSING: 'SYNC_LOCAL_RECORD_MISSING',
 
+  // --- ENG-052 device registry + command envelope ---
+  /**
+   * The `x-device-id` header is missing, malformed, or names a device row
+   * that does not exist for the active tenant (or has been deactivated).
+   * The renderer must call `auth.registerDevice` to obtain a fresh id and
+   * persist it (Electron userData file or browser localStorage) before
+   * retrying the critical mutation.
+   */
+  DEVICE_NOT_REGISTERED: 'DEVICE_NOT_REGISTERED',
+  /**
+   * A procedure decorated with `criticalCommandProcedure` (per ADR-0002)
+   * received an empty or malformed Command Envelope header. Renderers
+   * must mint `operationId`, `idempotencyKey`, and `clientCreatedAt`
+   * before invoking critical mutations.
+   */
+  MISSING_COMMAND_ENVELOPE: 'MISSING_COMMAND_ENVELOPE',
+  /**
+   * The same `idempotencyKey` was replayed against the same procedure
+   * with a different canonical input hash. The cached result is intact;
+   * the caller must mint a new key for the new payload or resend the
+   * original payload that produced the cached result. `details` carries
+   * `{ providedHash, storedHash, operationKind }`.
+   */
+  IDEMPOTENCY_KEY_CONFLICT: 'IDEMPOTENCY_KEY_CONFLICT',
+  /**
+   * The same `idempotencyKey` + canonical input was retried while the
+   * original critical command is still running. The caller should wait
+   * for the first request to finish instead of executing the command
+   * again.
+   */
+  COMMAND_IN_PROGRESS: 'COMMAND_IN_PROGRESS',
+
   // --- ENG-030 AI foundation ---
   /**
    * AI features are turned off at the tenant level

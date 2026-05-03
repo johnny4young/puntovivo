@@ -22,6 +22,13 @@ import {
   LOGIN_RATE_LIMIT_USERNAME_MAX,
   __resetForTests as resetLoginRateLimit,
 } from '../security/loginRateLimit.js';
+import { createCriticalCommandFixture } from './utils/criticalCommandFixture.js';
+import {
+  COMMAND_ENVELOPE_HEADER,
+  DEVICE_ID_HEADER,
+} from '../trpc/schemas/envelope.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { randomUUID } from 'node:crypto';
 
 let server: PuntovivoServer;
 let testTenantId: string;
@@ -518,14 +525,27 @@ describe('Auth tRPC Router', () => {
   });
 
   describe('auth.changePassword', () => {
-    it('should change password with correct current password', async () => {
-      const ctx = createTestContext({
-        id: testUserId,
+    // ENG-052 — auth.changePassword is wrapped with
+    // criticalCommandProcedure (ADR-0002). Each createCaller test
+    // pre-registers a device and mints a fresh envelope via
+    // createCriticalCommandFixture. The HTTP-inject case at the end
+    // mints envelope headers directly.
+    async function changePasswordCallerCtx() {
+      const fx = await createCriticalCommandFixture({
+        db: getDatabase(),
+        serverApp: server.app,
+        tenantId: testTenantId,
+        userId: testUserId,
         email: 'trpctest@example.com',
         role: 'admin',
-        tenantId: testTenantId,
+        siteId: 'placeholder-site',
       });
-      const caller = appRouter.createCaller(ctx);
+      return fx;
+    }
+
+    it('should change password with correct current password', async () => {
+      const fx = await changePasswordCallerCtx();
+      const caller = appRouter.createCaller(fx.context);
 
       const result = await caller.auth.changePassword({
         currentPassword: 'TestPassword123!',
@@ -551,13 +571,8 @@ describe('Auth tRPC Router', () => {
     });
 
     it('should reject incorrect current password', async () => {
-      const ctx = createTestContext({
-        id: testUserId,
-        email: 'trpctest@example.com',
-        role: 'admin',
-        tenantId: testTenantId,
-      });
-      const caller = appRouter.createCaller(ctx);
+      const fx = await changePasswordCallerCtx();
+      const caller = appRouter.createCaller(fx.context);
 
       try {
         await caller.auth.changePassword({
@@ -572,13 +587,8 @@ describe('Auth tRPC Router', () => {
     });
 
     it('should reject weak password', async () => {
-      const ctx = createTestContext({
-        id: testUserId,
-        email: 'trpctest@example.com',
-        role: 'admin',
-        tenantId: testTenantId,
-      });
-      const caller = appRouter.createCaller(ctx);
+      const fx = await changePasswordCallerCtx();
+      const caller = appRouter.createCaller(fx.context);
 
       try {
         await caller.auth.changePassword({
@@ -594,6 +604,8 @@ describe('Auth tRPC Router', () => {
     });
 
     it('should reject unauthenticated request', async () => {
+      // Unauthenticated → fails at protectedProcedure step BEFORE the
+      // envelope middleware runs. No need to seed envelope headers.
       const caller = appRouter.createCaller(createTestContext());
 
       await expect(
@@ -611,6 +623,22 @@ describe('Auth tRPC Router', () => {
       expect(refreshCookie).toBeTruthy();
       expect(csrfCookie).toBeTruthy();
 
+      // ENG-052 — register device + mint envelope inline for the
+      // HTTP-injected request. This mirrors what the renderer does
+      // post-login.
+      const dbForDevice = getDatabase();
+      const { deviceId } = await registerDeviceService(dbForDevice, {
+        tenantId: testTenantId,
+        userId: testUserId,
+        kind: 'web',
+        name: 'http-inject-test',
+      });
+      const envelope = JSON.stringify({
+        operationId: randomUUID(),
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: new Date().toISOString(),
+      });
+
       const changeResponse = await server.app.inject({
         method: 'POST',
         url: '/api/trpc/auth.changePassword?batch=1',
@@ -621,6 +649,8 @@ describe('Auth tRPC Router', () => {
           ),
           'content-type': 'application/json',
           'x-csrf-token': csrfCookie as string,
+          [DEVICE_ID_HEADER]: deviceId,
+          [COMMAND_ENVELOPE_HEADER]: envelope,
         },
         payload: JSON.stringify({
           '0': {

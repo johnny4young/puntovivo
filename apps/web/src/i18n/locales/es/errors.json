@@ -92,6 +92,10 @@
     "FISCAL_RFC_INVALID": "El RFC del emisor mexicano no es válido. Revisa la longitud (12 para persona moral, 13 para persona física), la estructura, la fecha embebida y la homoclave.",
     "FISCAL_REGIMEN_INVALID": "El código de régimen fiscal o giro comercial no está en el catálogo. Elige uno de los códigos soportados.",
     "FISCAL_RUT_INVALID": "El RUT del emisor chileno no es válido. Revisa el formato (cuerpo-dígito verificador) y que el dígito coincida con el cuerpo.",
+    "DEVICE_NOT_REGISTERED": "Este equipo aún no está registrado para tu organización. Cierra sesión y vuelve a iniciar para reconectar el dispositivo.",
+    "MISSING_COMMAND_ENVELOPE": "Falta el sobre de comando para esta operación. Recarga la página y vuelve a intentarlo.",
+    "IDEMPOTENCY_KEY_CONFLICT": "Esta operación ya se procesó con datos diferentes. Recarga la página antes de reintentar para evitar duplicados.",
+    "COMMAND_IN_PROGRESS": "Esta operación ya está en proceso. Espera un momento y vuelve a intentarlo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

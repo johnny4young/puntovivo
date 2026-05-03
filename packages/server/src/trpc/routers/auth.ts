@@ -15,13 +15,17 @@
  */
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
+import { tenantProcedure } from '../middleware/tenant.js';
+import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import { users, tenants } from '../../db/schema.js';
 import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { registerDevice as registerDeviceService } from '../../services/devices/devicesService.js';
 import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
@@ -258,10 +262,31 @@ export const authRouter = router({
   }),
 
   /**
-   * Change password for current user
+   * Change password for current user.
+   *
+   * ENG-052 — wrapped with `criticalCommandProcedure` (ADR-0002).
+   * Caller must include the `x-device-id` header (after registering
+   * via `auth.registerDevice`) and a fresh `x-puntovivo-envelope`
+   * JSON header per request. Replays with the same idempotency key
+   * return the cached result; mismatched payload hash raises
+   * `IDEMPOTENCY_KEY_CONFLICT`.
    */
-  changePassword: protectedProcedure.input(changePasswordInput).mutation(async ({ ctx, input }) => {
+  changePassword: criticalCommandProcedure.input(changePasswordInput).mutation(async ({ ctx, input }) => {
     const { currentPassword, newPassword } = input;
+
+    // Defensive narrowing — the criticalCommandProcedure chain
+    // already requires an authenticated tenant context, but tRPC
+    // type inference loses the `ctx.user` narrowing across our
+    // envelope middleware's bespoke return shape. Cheap belt-and-
+    // suspenders so the rest of the body can dereference cleanly.
+    if (!ctx.user) {
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
+        message: 'authenticated context required',
+      });
+    }
+    const actorId = ctx.user.id;
 
     // Validate password strength
     const validation = validatePasswordStrength(newPassword);
@@ -275,7 +300,7 @@ export const authRouter = router({
     }
 
     // Get user
-    const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+    const user = await ctx.db.select().from(users).where(eq(users.id, actorId)).get();
 
     if (!user) {
       throwServerError({
@@ -306,10 +331,51 @@ export const authRouter = router({
         sessionVersion: sql`${users.sessionVersion} + 1`,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(users.id, ctx.user.id));
+      .where(eq(users.id, actorId));
 
     clearRefreshCookie(ctx.res);
 
     return { success: true, message: 'Password changed successfully' };
   }),
+
+  /**
+   * ENG-052 — Register a device with the active tenant. Idempotent
+   * when an existing active device id is supplied. Returns the
+   * server-issued (or echoed) device id; the renderer persists it
+   * locally (Electron userData file or browser localStorage) and
+   * sends it as `x-device-id` on every critical mutation.
+   *
+   * Skipped on read queries and catalog mutations (per ADR-0002);
+   * called once after `auth.login` succeeds.
+   */
+  registerDevice: tenantProcedure
+    .input(
+      z.object({
+        kind: z.enum(['desktop', 'web']),
+        name: z.string().min(1).max(120),
+        deviceId: z.string().min(8).max(64).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // tenantProcedure already narrows ctx.user via protectedProcedure;
+      // the explicit narrowing here is defensive against TS inference
+      // edge-cases when extending the auth router (mirrors the pattern
+      // used elsewhere in this file).
+      if (!ctx.user || !ctx.tenantId) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          message: 'authenticated tenant context required',
+        });
+      }
+      return registerDeviceService(ctx.db, {
+        tenantId: ctx.tenantId,
+        userId: ctx.user.id,
+        kind: input.kind,
+        name: input.name,
+        deviceId: input.deviceId,
+        metadata: input.metadata,
+      });
+    }),
 });
