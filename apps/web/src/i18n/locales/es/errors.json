@@ -96,6 +96,10 @@
     "MISSING_COMMAND_ENVELOPE": "Falta el sobre de comando para esta operación. Recarga la página y vuelve a intentarlo.",
     "IDEMPOTENCY_KEY_CONFLICT": "Esta operación ya se procesó con datos diferentes. Recarga la página antes de reintentar para evitar duplicados.",
     "COMMAND_IN_PROGRESS": "Esta operación ya está en proceso. Espera un momento y vuelve a intentarlo.",
+    "PERIPHERAL_DRIVER_INVALID": "Ese driver aún no está registrado para este tipo de periférico.",
+    "PERIPHERAL_CONFIG_INVALID": "La configuración del periférico no coincide con el driver seleccionado.",
+    "PERIPHERAL_ACTIVE_DUPLICATE": "Ya hay otro periférico activo de este tipo en esta sede.",
+    "PERIPHERAL_NOT_FOUND": "No se pudo encontrar el periférico.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

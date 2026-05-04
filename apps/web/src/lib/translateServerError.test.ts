@@ -46,6 +46,11 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('TRANSFER_INSUFFICIENT_STOCK');
   });
 
+  it('recognizes peripheral registry server error codes', () => {
+    const error = { data: { errorCode: 'PERIPHERAL_ACTIVE_DUPLICATE' } };
+    expect(extractServerErrorCode(error)).toBe('PERIPHERAL_ACTIVE_DUPLICATE');
+  });
+
   it('returns null when there is no errorCode field anywhere', () => {
     expect(extractServerErrorCode({ data: {} })).toBeNull();
     expect(extractServerErrorCode(new Error('boom'))).toBeNull();
@@ -79,6 +84,22 @@ describe('translateServerError', () => {
       fallback
     );
     expect(result).toBe('La sede origen no tiene stock suficiente.');
+  });
+
+  it('translates peripheral registry error codes from the errors namespace', () => {
+    const t = makeFakeT({
+      'errors:server.PERIPHERAL_ACTIVE_DUPLICATE':
+        'Ya hay otro periférico activo de este tipo en esta sede.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'PERIPHERAL_ACTIVE_DUPLICATE' },
+        message: 'Another active peripheral of this kind already exists.',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('Ya hay otro periférico activo de este tipo en esta sede.');
   });
 
   it('falls back to the server English message when the code is unknown', () => {

@@ -158,7 +158,11 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      terminal adapter ships.
   5. ENG-070 introduces `webhook_outbox`.
   6. ENG-060 introduces `hardware_outbox` together with the
-     peripheral registry.
+     peripheral registry. Updated 2026-05-04 (ENG-060):
+     `hardware_outbox` deferred to ENG-062 alongside the first
+     ESC/POS adapter — ENG-060's two default drivers (`system`
+     printer, `manual` payment terminal) have no async fan-out,
+     so a queue at this stage would be unused dead weight.
 - **Backward compatibility**: the existing `sync_queue` and
   `fiscal_documents.status` keep working until their migration
   ticket lands. No data loss; renames + view shims handle the

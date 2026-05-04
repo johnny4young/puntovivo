@@ -24,6 +24,7 @@ import enAISettings from './locales/en/aiSettings.json';
 import enAIAnomalies from './locales/en/aiAnomalies.json';
 import enCopilot from './locales/en/copilot.json';
 import enReceipts from './locales/en/receipts.json';
+import enPeripherals from './locales/en/peripherals.json';
 
 import esCommon from './locales/es/common.json';
 import esAuth from './locales/es/auth.json';
@@ -46,6 +47,7 @@ import esAISettings from './locales/es/aiSettings.json';
 import esAIAnomalies from './locales/es/aiAnomalies.json';
 import esCopilot from './locales/es/copilot.json';
 import esReceipts from './locales/es/receipts.json';
+import esPeripherals from './locales/es/peripherals.json';
 
 const preference = readLanguagePreference();
 const lng = resolveLocale(preference);
@@ -78,7 +80,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'receipts'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'receipts', 'peripherals'],
   resources: {
     en: {
       common: enCommon,
@@ -102,6 +104,7 @@ void i18next.use(initReactI18next).init({
       aiAnomalies: enAIAnomalies,
       copilot: enCopilot,
       receipts: enReceipts,
+      peripherals: enPeripherals,
     },
     es: {
       common: esCommon,
@@ -125,6 +128,7 @@ void i18next.use(initReactI18next).init({
       aiAnomalies: esAIAnomalies,
       copilot: esCopilot,
       receipts: esReceipts,
+      peripherals: esPeripherals,
     },
   },
   interpolation: {

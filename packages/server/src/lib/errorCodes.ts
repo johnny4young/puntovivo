@@ -176,6 +176,21 @@ export const SERVER_ERROR_CODES = {
   /** Attempt to complete a draft that is still suspended; caller must resume first. */
   SALE_COMPLETE_DRAFT_SUSPENDED: 'SALE_COMPLETE_DRAFT_SUSPENDED',
 
+  // --- ENG-060 peripherals registry ---
+  /** `peripherals.{update,setActive,test,remove}` could not find the row for the tenant. */
+  PERIPHERAL_NOT_FOUND: 'PERIPHERAL_NOT_FOUND',
+  /** Driver name not registered in the static dispatch table for the requested kind. */
+  PERIPHERAL_DRIVER_INVALID: 'PERIPHERAL_DRIVER_INVALID',
+  /** Driver-specific Zod schema rejected the supplied `config` payload. */
+  PERIPHERAL_CONFIG_INVALID: 'PERIPHERAL_CONFIG_INVALID',
+  /**
+   * Partial unique index `idx_site_peripherals_active_per_kind` blocked
+   * registering a second active peripheral of the same kind for the same
+   * site. The operator must toggle the existing one to `is_active=0`
+   * before swapping drivers (e.g. system → escpos).
+   */
+  PERIPHERAL_ACTIVE_DUPLICATE: 'PERIPHERAL_ACTIVE_DUPLICATE',
+
   // --- ENG-020 fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',

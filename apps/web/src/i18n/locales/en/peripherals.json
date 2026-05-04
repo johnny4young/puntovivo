@@ -1,0 +1,71 @@
+{
+  "title": "Peripherals",
+  "description": "Configure thermal printer, cash drawer, barcode scanner, and payment terminal per site.",
+  "siteSelector": "Site",
+  "addButton": "Add peripheral",
+  "emptyState": {
+    "title": "No peripherals registered yet",
+    "body": "Add a peripheral to make it discoverable to the registry. The current system printer continues to work without registration.",
+    "cta": "Add peripheral"
+  },
+  "kind": {
+    "printer": "Receipt printer",
+    "cash_drawer": "Cash drawer",
+    "scanner": "Barcode scanner",
+    "payment_terminal": "Payment terminal",
+    "customer_display": "Customer display"
+  },
+  "driver": {
+    "system": "System (OS print dialog)",
+    "escpos": "ESC/POS thermal",
+    "manual": "Manual entry",
+    "bold": "Bold",
+    "wompi": "Wompi",
+    "mercadopago": "Mercado Pago Point"
+  },
+  "driverHint": {
+    "escpos": "Available with ENG-062",
+    "bold": "Available with ENG-063",
+    "wompi": "Available with ENG-063",
+    "mercadopago": "Available with ENG-063"
+  },
+  "fields": {
+    "kindLabel": "Kind",
+    "driverLabel": "Driver",
+    "displayNameLabel": "Display name",
+    "displayNamePlaceholder": "Optional, for example: Front register",
+    "configLabel": "Configuration (JSON)",
+    "configPlaceholder": "{}"
+  },
+  "actions": {
+    "test": "Test",
+    "edit": "Edit",
+    "remove": "Remove",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "status": {
+    "ok": "OK",
+    "failed": "Failed",
+    "untested": "Not tested",
+    "lastTestedAt": "Last tested {{when}}"
+  },
+  "toast": {
+    "registered": "Peripheral registered",
+    "updated": "Peripheral updated",
+    "removed": "Peripheral removed",
+    "tested": "Test completed",
+    "deactivated": "Peripheral deactivated",
+    "activated": "Peripheral activated",
+    "errorTitle": "Could not save peripheral",
+    "errorBody": "Review the configuration and try again."
+  },
+  "confirmRemove": {
+    "title": "Remove peripheral",
+    "body": "Are you sure you want to remove this peripheral? Sales code falls back to defaults when the registration is missing.",
+    "confirm": "Remove",
+    "cancel": "Keep"
+  }
+}
