@@ -1,0 +1,29 @@
+{
+  "fiscal": {
+    "sectionTitle": "Fiscal proof",
+    "documentNumber": "Document",
+    "kindLabel": "Kind",
+    "statusLabel": "Status",
+    "sourceLabel": "Source",
+    "cufeLabel": "CUFE",
+    "uuidLabel": "Fiscal folio (UUID)",
+    "tedLabel": "TED",
+    "cufePlaceholder": "Pending acceptance",
+    "resolution": "Resolution",
+    "qrCaption": "Scan to verify on {{authority}}",
+    "verifyLink": "Verify on {{authority}}",
+    "viewXml": "View XML",
+    "copyCufe": "Copy CUFE",
+    "copied": "Copied",
+    "authority": {
+      "CO": "DIAN",
+      "MX": "SAT",
+      "CL": "SII"
+    },
+    "source": {
+      "sale": "Original sale",
+      "void": "Voided sale credit note",
+      "return": "Return credit note"
+    }
+  }
+}

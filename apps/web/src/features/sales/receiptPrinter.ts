@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+import type { TFunction } from 'i18next';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type {
   PaymentStatus,
@@ -6,6 +8,32 @@ import type {
   SalePayment,
   SaleStatus,
 } from '@/types';
+import type { FiscalDocumentStatus } from '@/components/fiscal/FiscalStatusBadge';
+
+/**
+ * ENG-058 — Per-fiscal-document data the receipt prints. Mirrors the
+ * shape returned by `sales.getById` / `sales.getForReprint` after the
+ * `getSaleRecord` widening.
+ */
+export interface ReceiptFiscalDocument {
+  id: string;
+  source: 'sale' | 'void' | 'return';
+  kind: 'DEE' | 'FEV' | 'NC' | 'ND';
+  cufe: string;
+  documentNumber: string;
+  status: FiscalDocumentStatus;
+  /**
+   * Country-specific QR payload string (URL for DIAN/SAT, TED for
+   * SII). Null when the doc is not in an eligible status, when the
+   * CUFE is still a `pending-<nanoid>` placeholder, or when the
+   * country pack is not yet implemented.
+   */
+  qrPayload: string | null;
+  xmlRef: string | null;
+  resolution: string | null;
+  emittedAt: string;
+  countryCode: string;
+}
 
 type ReceiptSale = {
   saleNumber: string;
@@ -23,7 +51,53 @@ type ReceiptSale = {
   // Phase 2 Tier-2 step 5 follow-on — include the tender breakdown on the
   // printed receipt when the sale was settled as a split payment.
   payments?: SalePayment[];
+  /**
+   * ENG-058 — fiscal proof block(s). Always rendered when present;
+   * the section is omitted entirely for non-fiscal sales (DIAN-disabled
+   * tenants, drafts, sales emitted before fiscal pack activation).
+   */
+  fiscalDocuments?: ReceiptFiscalDocument[];
 };
+
+function isPlaceholderCufe(cufe: string | null | undefined): boolean {
+  if (!cufe) return true;
+  return cufe.startsWith('pending-');
+}
+
+/**
+ * Mirrors `qr-builder.ts::QR_ELIGIBLE_STATUSES`. The CUFE is rendered in
+ * full ONLY when the document is in a status the provider has acknowledged
+ * (`accepted` or `sent`) AND the cufe is no longer the placeholder. Other
+ * statuses (`pending` / `contingency` / `rejected`) render the status copy
+ * after the CUFE label so the receipt never claims acceptance based on a
+ * placeholder string.
+ */
+const CUFE_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set([
+  'accepted',
+  'sent',
+]);
+
+function normalizeFiscalCountryCode(countryCode: string): string {
+  return countryCode.toUpperCase();
+}
+
+function getFiscalAuthorityLabel(t: TFunction, countryCode: string): string {
+  const normalized = normalizeFiscalCountryCode(countryCode);
+  return t(`receipts:fiscal.authority.${normalized}`, {
+    defaultValue: normalized,
+  });
+}
+
+function getFiscalIdentifierLabelKey(countryCode: string): string {
+  switch (normalizeFiscalCountryCode(countryCode)) {
+    case 'MX':
+      return 'receipts:fiscal.uuidLabel';
+    case 'CL':
+      return 'receipts:fiscal.tedLabel';
+    default:
+      return 'receipts:fiscal.cufeLabel';
+  }
+}
 
 type ReceiptHtmlOptions = {
   autoPrint: boolean;
@@ -123,11 +197,110 @@ function buildReceiptRows(items: SaleItem[]): string {
     .join('');
 }
 
-export function buildSaleReceiptHtml(
+/**
+ * ENG-058 — Render the fiscal proof block(s) for a receipt.
+ *
+ * Always prints document number + kind + status copy. Conditionally
+ * prints the full CUFE (only when status='accepted' AND the cufe is
+ * not the `pending-<nanoid>` placeholder; otherwise prints `(<status
+ * label>)`). Conditionally prints a QR PNG (only when `qrPayload`
+ * is non-null — the server's `buildFiscalQrPayload` already gates
+ * on status + placeholder).
+ *
+ * The QR PNG is generated via dynamic-imported `qrcode` so the
+ * library never lands in the main app bundle — only loaded when
+ * a fiscal sale is actually being printed.
+ *
+ * Status copy is the SINGLE SOURCE OF TRUTH for the fiscal section.
+ * The receipt never infers "Aceptado" from CUFE presence — a
+ * contingency document always says "Contingencia" prominently.
+ */
+async function buildFiscalSection(
+  docs: ReceiptFiscalDocument[]
+): Promise<string> {
+  if (!docs.length) return '';
+
+  const t = i18next.getFixedT(null, ['receipts', 'fiscal']);
+
+  // Lazy-load qrcode only when we need at least one QR.
+  const someNeedsQr = docs.some(d => d.qrPayload != null);
+  let toDataURL: ((text: string, options?: object) => Promise<string>) | null = null;
+  if (someNeedsQr) {
+    const qrcodeMod = await import('qrcode');
+    toDataURL = qrcodeMod.toDataURL;
+  }
+
+  const blocks: string[] = [];
+  for (const doc of docs) {
+    const statusLabel = t(`fiscal:status.${doc.status}`);
+    const kindLabel = t(`fiscal:kind.${doc.kind}`, { defaultValue: doc.kind });
+    const sourceLabel = t(`receipts:fiscal.source.${doc.source}`);
+    const authorityLabel = getFiscalAuthorityLabel(t, doc.countryCode);
+    const showRealCufe =
+      CUFE_ELIGIBLE_STATUSES.has(doc.status) && !isPlaceholderCufe(doc.cufe);
+    const cufeText = showRealCufe
+      ? doc.cufe
+      : `(${statusLabel})`;
+
+    let qrImg = '';
+    if (doc.qrPayload && toDataURL) {
+      try {
+        const dataUrl = await toDataURL(doc.qrPayload, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          scale: 6,
+        });
+        qrImg = `<img class="receipt-fiscal-qr" src="${dataUrl}" alt="${escapeHtml(
+          t('receipts:fiscal.qrCaption', { authority: authorityLabel })
+        )}" />`;
+      } catch {
+        // Encoding failure must NEVER block the print. Fall back to no QR;
+        // the status copy + document number stay rendered.
+        qrImg = '';
+      }
+    }
+
+    blocks.push(`
+      <section class="receipt-fiscal">
+        <div class="section-label">${escapeHtml(t('receipts:fiscal.sectionTitle'))}</div>
+        <div class="meta-grid">
+          <div class="meta-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.kindLabel'))}</span>
+            <span>${escapeHtml(kindLabel)}</span>
+          </div>
+          <div class="meta-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.documentNumber'))}</span>
+            <span>${escapeHtml(doc.documentNumber)}</span>
+          </div>
+          <div class="meta-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.statusLabel'))}</span>
+            <span class="receipt-fiscal-status">${escapeHtml(statusLabel)}</span>
+          </div>
+          <div class="meta-row receipt-fiscal-cufe-row">
+            <span class="muted">${escapeHtml(t(getFiscalIdentifierLabelKey(doc.countryCode)))}</span>
+            <span class="receipt-fiscal-cufe">${escapeHtml(cufeText)}</span>
+          </div>
+          <div class="meta-row receipt-fiscal-source-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.sourceLabel'))}</span>
+            <span>${escapeHtml(sourceLabel)}</span>
+          </div>
+        </div>
+        ${qrImg}
+      </section>
+    `);
+  }
+
+  return blocks.join('\n');
+}
+
+export async function buildSaleReceiptHtml(
   sale: ReceiptSale,
   { autoPrint }: ReceiptHtmlOptions = { autoPrint: false }
-): string {
+): Promise<string> {
   const items = sale.items ?? [];
+  const fiscalSection = sale.fiscalDocuments?.length
+    ? await buildFiscalSection(sale.fiscalDocuments)
+    : '';
   const discountAmount = sale.discountAmount ?? 0;
   const notesSection = sale.notes
     ? `
@@ -284,6 +457,33 @@ export function buildSaleReceiptHtml(
             font-size: 11px;
           }
 
+          .receipt-fiscal {
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+          }
+
+          .receipt-fiscal-status {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+          }
+
+          .receipt-fiscal-cufe {
+            font-family: "SF Mono", "Roboto Mono", "Menlo", monospace;
+            font-size: 10px;
+            word-break: break-all;
+            text-align: right;
+            max-width: 240px;
+          }
+
+          .receipt-fiscal-qr {
+            display: block;
+            margin: 12px auto 0;
+            width: 120px;
+            height: 120px;
+          }
+
           @media print {
             body {
               padding: 10px;
@@ -361,6 +561,8 @@ export function buildSaleReceiptHtml(
 
           ${buildSplitPaymentSection(sale.payments)}
 
+          ${fiscalSection}
+
           ${notesSection}
 
           <footer class="footer">
@@ -398,7 +600,8 @@ async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
 
 export async function printSaleReceipt(sale: ReceiptSale): Promise<void> {
   if (window.electron?.printReceipt) {
-    const result = await window.electron.printReceipt(buildSaleReceiptHtml(sale, { autoPrint: false }));
+    const html = await buildSaleReceiptHtml(sale, { autoPrint: false });
+    const result = await window.electron.printReceipt(html);
 
     if (!result.success) {
       throw new Error(result.error || 'Unable to print the receipt');
@@ -407,5 +610,6 @@ export async function printSaleReceipt(sale: ReceiptSale): Promise<void> {
     return;
   }
 
-  await openBrowserPrintWindow(buildSaleReceiptHtml(sale, { autoPrint: true }));
+  const html = await buildSaleReceiptHtml(sale, { autoPrint: true });
+  await openBrowserPrintWindow(html);
 }

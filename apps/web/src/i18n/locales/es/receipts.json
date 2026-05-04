@@ -1,0 +1,29 @@
+{
+  "fiscal": {
+    "sectionTitle": "Comprobante fiscal",
+    "documentNumber": "Documento",
+    "kindLabel": "Tipo",
+    "statusLabel": "Estado",
+    "sourceLabel": "Origen",
+    "cufeLabel": "CUFE",
+    "uuidLabel": "Folio fiscal (UUID)",
+    "tedLabel": "TED",
+    "cufePlaceholder": "Pendiente de aceptación",
+    "resolution": "Resolución",
+    "qrCaption": "Escanea para verificar en {{authority}}",
+    "verifyLink": "Verificar en {{authority}}",
+    "viewXml": "Ver XML",
+    "copyCufe": "Copiar CUFE",
+    "copied": "Copiado",
+    "authority": {
+      "CO": "DIAN",
+      "MX": "SAT",
+      "CL": "SII"
+    },
+    "source": {
+      "sale": "Venta original",
+      "void": "Nota crédito por anulación",
+      "return": "Nota crédito por devolución"
+    }
+  }
+}

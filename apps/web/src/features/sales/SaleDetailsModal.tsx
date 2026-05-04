@@ -5,6 +5,7 @@ import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Mod
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
+import { SaleDetailsFiscalBlock } from '@/features/sales/SaleDetailsFiscalBlock';
 import { printSaleReceipt } from '@/features/sales/receiptPrinter';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -336,6 +337,13 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
             returnError={returnError}
             voidError={voidError}
             printError={printError}
+          />
+        )}
+
+        {sale?.fiscalDocuments && sale.fiscalDocuments.length > 0 && (
+          <SaleDetailsFiscalBlock
+            fiscalDocuments={sale.fiscalDocuments}
+            isAdmin={user?.role === 'admin'}
           />
         )}
       </Modal>

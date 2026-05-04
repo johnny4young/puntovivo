@@ -25,7 +25,7 @@ import type {
   ReceiptBlock,
   ReceiptLayout,
 } from '../trpc/schemas/receiptTemplates.js';
-import type { ReceiptTemplateKind } from '../db/schema.js';
+import type { FiscalDocumentStatus, ReceiptTemplateKind } from '../db/schema.js';
 import {
   applyDatePattern,
   evaluateTemplate,
@@ -84,6 +84,23 @@ export interface RenderFiscal {
   qrUrl?: string | null;
   resolution?: string | null;
   documentNumber?: string | null;
+  /**
+   * ENG-058 — Raw fiscal document status from the outbox lifecycle
+   * (`pending`, `sent`, `accepted`, `rejected`, `contingency`). The
+   * renderer never infers acceptance from CUFE presence — when a
+   * template wants to display the status it binds `{{fiscal.status}}`
+   * (raw enum) or `{{fiscal.statusLabel}}` (locale-resolved). This
+   * is the single source of truth that protects against the
+   * "contingency documents render as accepted" failure mode.
+   */
+  status?: FiscalDocumentStatus | null;
+  /**
+   * ENG-058 — Pre-resolved i18n label for `status`. The renderer is
+   * a pure function and does not load i18n; callers (the editor
+   * preview, the future `sales.renderReceiptHtml` procedure) resolve
+   * the label via `t('fiscal:status.<status>')` and pass it in.
+   */
+  statusLabel?: string | null;
 }
 
 /**
