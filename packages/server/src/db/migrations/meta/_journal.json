@@ -99,6 +99,13 @@
       "when": 1782345600000,
       "tag": "0013_fiscal_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1782432000000,
+      "tag": "0014_site_peripherals",
+      "breakpoints": true
     }
   ]
 }

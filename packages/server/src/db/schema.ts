@@ -3314,6 +3314,119 @@ export const fiscalOutboxRelations = relations(fiscalOutbox, ({ one }) => ({
 export type FiscalOutboxRow = typeof fiscalOutbox.$inferSelect;
 export type NewFiscalOutboxRow = typeof fiscalOutbox.$inferInsert;
 
+// ============================================================================
+// SITE PERIPHERALS (ENG-060 — peripheral registry + hardware ports)
+// ============================================================================
+
+/**
+ * Closed list of peripheral kinds a site can configure. The contracts +
+ * default drivers for `printer` (system) and `payment_terminal` (manual)
+ * ship with ENG-060; ENG-061 (scanner pipeline), ENG-062 (ESC/POS + cash
+ * drawer), and ENG-063 (Bold/Wompi/MercadoPago) extend the driver matrix
+ * without touching this enum.
+ *
+ * `customer_display` is reserved for a future ticket; ENG-060 surfaces
+ * the enum value but no driver registration is permitted.
+ */
+export const peripheralKindEnum = [
+  'printer',
+  'cash_drawer',
+  'scanner',
+  'payment_terminal',
+  'customer_display',
+] as const;
+export type PeripheralKind = (typeof peripheralKindEnum)[number];
+
+/**
+ * Last test result captured on the most recent `peripherals.test`
+ * invocation. Null when never tested. The admin UI maps this to a
+ * status chip (`ok` → green, `failed` → red, null → neutral).
+ */
+export const peripheralTestResultEnum = ['ok', 'failed'] as const;
+export type PeripheralTestResult = (typeof peripheralTestResultEnum)[number];
+
+/**
+ * Per-site configuration of physical and virtual peripherals.
+ *
+ * Lookup pattern (per ADR docs/HARDWARE-POS.md): the registry resolves
+ * the active row by `(tenant_id, site_id, kind)` and dispatches to the
+ * appropriate adapter via `driver`. The partial unique index enforces
+ * "at most one active peripheral per kind per site" — toggling
+ * `is_active=0` on the previous row is the migration path when an
+ * operator swaps drivers (e.g. system → escpos).
+ */
+export const sitePeripherals = sqliteTable(
+  'site_peripherals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    kind: text('kind', { enum: peripheralKindEnum }).notNull(),
+    /**
+     * Driver discriminator — `'system'` / `'escpos'` for printers,
+     * `'manual'` / `'bold'` / `'wompi'` / `'mercadopago'` for payment
+     * terminals, etc. Each driver self-validates `config_json` via a
+     * Zod schema exported alongside its adapter class.
+     */
+    driver: text('driver').notNull(),
+    /** Driver-specific JSON config (e.g. `{channel:'tcp',host:'192.168.1.50',port:9100}` for escpos). */
+    config: text('config_json', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    /** Optional human-friendly label shown on the admin list ("Caja principal", "Cocina"). */
+    displayName: text('display_name'),
+    /** Soft activation flag; the partial unique only fires on `is_active=1`. */
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    /** ISO timestamp of the most recent `peripherals.test` invocation. */
+    lastTestedAt: text('last_tested_at'),
+    /** Result of the most recent test; null until first run. */
+    lastTestResult: text('last_test_result', { enum: peripheralTestResultEnum }),
+    /** Free-form forensics blob for the last test (errors, latency, etc.). */
+    lastTestDetails: text('last_test_details', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    // Primary lookup path for the registry resolver.
+    index('idx_site_peripherals_tenant_site_kind').on(
+      table.tenantId,
+      table.siteId,
+      table.kind
+    ),
+    // Cross-site listing for the admin index page.
+    index('idx_site_peripherals_tenant_kind').on(table.tenantId, table.kind),
+    // Partial unique: at most one ACTIVE peripheral per kind per site.
+    uniqueIndex('idx_site_peripherals_active_per_kind')
+      .on(table.tenantId, table.siteId, table.kind)
+      .where(sql`${table.isActive} = 1`),
+  ]
+);
+
+export const sitePeripheralsRelations = relations(sitePeripherals, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sitePeripherals.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [sitePeripherals.siteId],
+    references: [sites.id],
+  }),
+}));
+
+export type SitePeripheralRow = typeof sitePeripherals.$inferSelect;
+export type NewSitePeripheralRow = typeof sitePeripherals.$inferInsert;
+
 export type FiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferSelect;
 export type NewFiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferInsert;
 export type FiscalCertificate = typeof fiscalCertificates.$inferSelect;

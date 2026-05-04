@@ -1,0 +1,71 @@
+{
+  "title": "Periféricos",
+  "description": "Configura impresora térmica, cajón monedero, escáner de código de barras y datáfono por sede.",
+  "siteSelector": "Sede",
+  "addButton": "Agregar periférico",
+  "emptyState": {
+    "title": "Aún no hay periféricos registrados",
+    "body": "Agrega un periférico para que el registry lo reconozca. La impresora del sistema actual sigue funcionando aunque no esté registrada.",
+    "cta": "Agregar periférico"
+  },
+  "kind": {
+    "printer": "Impresora de recibos",
+    "cash_drawer": "Cajón monedero",
+    "scanner": "Escáner de código de barras",
+    "payment_terminal": "Datáfono",
+    "customer_display": "Pantalla del cliente"
+  },
+  "driver": {
+    "system": "Sistema (diálogo de impresión)",
+    "escpos": "ESC/POS térmica",
+    "manual": "Captura manual",
+    "bold": "Bold",
+    "wompi": "Wompi",
+    "mercadopago": "Mercado Pago Point"
+  },
+  "driverHint": {
+    "escpos": "Disponible con ENG-062",
+    "bold": "Disponible con ENG-063",
+    "wompi": "Disponible con ENG-063",
+    "mercadopago": "Disponible con ENG-063"
+  },
+  "fields": {
+    "kindLabel": "Tipo",
+    "driverLabel": "Driver",
+    "displayNameLabel": "Nombre visible",
+    "displayNamePlaceholder": "Opcional, por ejemplo: Caja principal",
+    "configLabel": "Configuración (JSON)",
+    "configPlaceholder": "{}"
+  },
+  "actions": {
+    "test": "Probar",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "activate": "Activar",
+    "deactivate": "Desactivar",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "status": {
+    "ok": "OK",
+    "failed": "Falló",
+    "untested": "Sin probar",
+    "lastTestedAt": "Última prueba {{when}}"
+  },
+  "toast": {
+    "registered": "Periférico registrado",
+    "updated": "Periférico actualizado",
+    "removed": "Periférico eliminado",
+    "tested": "Prueba completada",
+    "deactivated": "Periférico desactivado",
+    "activated": "Periférico activado",
+    "errorTitle": "No se pudo guardar el periférico",
+    "errorBody": "Revisa la configuración e inténtalo de nuevo."
+  },
+  "confirmRemove": {
+    "title": "Eliminar periférico",
+    "body": "¿Quieres eliminar este periférico? Las ventas vuelven a los valores por defecto cuando no hay registro.",
+    "confirm": "Eliminar",
+    "cancel": "Conservar"
+  }
+}

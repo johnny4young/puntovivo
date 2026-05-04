@@ -101,6 +101,9 @@ const InventoryPage = lazyPage(async () => ({
 const UsersPage = lazyPage(async () => ({
   default: (await import('@/features/users/UsersPage')).UsersPage,
 }));
+const PeripheralsPage = lazyPage(async () => ({
+  default: (await import('@/features/peripherals/PeripheralsPage')).PeripheralsPage,
+}));
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -338,6 +341,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={adminOnlyRoles}>
                   <ReceiptTemplatesPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="peripherals"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <PeripheralsPage />
                 </ShellRoute>
               }
             />

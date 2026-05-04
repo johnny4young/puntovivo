@@ -96,6 +96,10 @@
     "MISSING_COMMAND_ENVELOPE": "This action is missing its command envelope. Reload the page and try again.",
     "IDEMPOTENCY_KEY_CONFLICT": "This action was already processed with different data. Reload the page before retrying to avoid duplicates.",
     "COMMAND_IN_PROGRESS": "This action is already in progress. Wait a moment and try again.",
+    "PERIPHERAL_DRIVER_INVALID": "That driver is not registered for this peripheral type yet.",
+    "PERIPHERAL_CONFIG_INVALID": "The peripheral configuration does not match the selected driver.",
+    "PERIPHERAL_ACTIVE_DUPLICATE": "Another active peripheral of this type already exists at this site.",
+    "PERIPHERAL_NOT_FOUND": "The peripheral could not be found.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }
