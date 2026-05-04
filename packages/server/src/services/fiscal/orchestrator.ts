@@ -48,6 +48,7 @@ import {
   type FiscalDocumentKind,
   type FiscalDocumentSource,
 } from '../../db/schema.js';
+import type { PuntovivoLogger } from '../../logging/logger.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
 import type {
   FiscalAdapter,
@@ -55,6 +56,7 @@ import type {
   FiscalAdapterLine,
 } from './adapter.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from './cufe.js';
+import { getFiscalAdapter } from './registry.js';
 
 export interface EmitFiscalDocumentArgs {
   /** Database handle used for reads and the local fiscal write transaction. */
@@ -594,4 +596,75 @@ export async function emitFiscalDocument(
       status: issued.status,
     };
   });
+}
+
+/**
+ * ENG-020 / ENG-054 — best-effort fiscal emission post-transaction.
+ *
+ * The sale lifecycle tx has already committed by the time this runs;
+ * an emission failure (PT outage, missing resolution, malformed input)
+ * MUST NOT roll back the sale. The orchestrator itself is idempotent
+ * by `(tenantId, source, sourceId, kind)`, so a later retry (from the
+ * contingency daemon planned in ENG-021) picks the dropped emission
+ * back up without duplicating it.
+ *
+ * When the tenant has not opted into DIAN (feature flag off) the
+ * orchestrator returns `null` without throwing. Errors are logged
+ * but swallowed — this function never throws.
+ *
+ * Originally lived inline in `trpc/routers/sales.ts`. Moved here in
+ * ENG-054 so application services (`completeSale`, future
+ * `returnSale` / `voidSale` in ENG-055) can call it without depending
+ * on the router file.
+ *
+ * Returns the emitted fiscal document row when one was produced, null
+ * otherwise. Callers can use the return to emit a `fiscal_emit`
+ * journal effect, but must NOT make business-critical decisions on
+ * it — a null return is the normal flow for a non-DIAN tenant.
+ */
+export async function safelyEmitFiscalDocument(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  userId: string;
+  log: Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
+  source: FiscalDocumentSource;
+  sourceId: string;
+  saleId: string;
+  kind: FiscalDocumentKind;
+  originalCufe?: string;
+  reasonCode?: string;
+}): Promise<EmitFiscalDocumentResult | null> {
+  try {
+    // ENG-034 — dispatch the country-specific fiscal adapter via the
+    // typed registry. `resolveTenantLocale` is the canonical reader
+    // for the tenant's `countryCode` (CO / MX / CL). Fresh tenants
+    // without locale settings resolve to US/USD; the registry handles
+    // unsupported country codes with its own default.
+    const fiscalLocale = await resolveTenantLocale(args.db, args.tenantId);
+    const result = await emitFiscalDocument({
+      tx: args.db,
+      tenantId: args.tenantId,
+      userId: args.userId,
+      source: args.source,
+      sourceId: args.sourceId,
+      saleId: args.saleId,
+      kind: args.kind,
+      originalCufe: args.originalCufe,
+      reasonCode: args.reasonCode,
+      adapter: getFiscalAdapter(fiscalLocale.countryCode),
+    });
+    return result;
+  } catch (err) {
+    args.log.warn(
+      {
+        err,
+        tenantId: args.tenantId,
+        saleId: args.saleId,
+        source: args.source,
+        kind: args.kind,
+      },
+      'fiscal emission failed (non-blocking)'
+    );
+    return null;
+  }
 }
