@@ -191,8 +191,9 @@ export function assertCashSessionStillOpen(
 }
 
 /**
- * ENG-055 — Insert a `cash_movements` row + advance the session's
- * `expected_balance` in lockstep, scoped to the caller's transaction.
+ * ENG-055 / ENG-056 — Insert a `cash_movements` row + advance the
+ * session's `expected_balance` in lockstep, scoped to the caller's
+ * transaction.
  *
  * Returns the inserted row id on a real persistence, or `null` when the
  * call was a no-op because `amount <= 0` (a credit-tender sale, or a
@@ -202,16 +203,22 @@ export function assertCashSessionStillOpen(
  * effect's `resourceId`).
  *
  * Originally a private helper duplicated by `application/sales/completeSale.ts`
- * and `trpc/routers/sales.ts`; ENG-055 unifies the implementation here
- * so returnSale / voidSale / discardDraft can all import it.
+ * and `trpc/routers/sales.ts`; ENG-055 unified the sale-lifecycle copies.
+ * ENG-056 broadens `type` to the full `CashMovementType` enum so manual
+ * shift movements (`paid_in`, `paid_out`, `skim`, `replenishment`)
+ * routed through `application/cash-sessions/recordCashMovement` reuse the
+ * same insertion path. The signed-amount math in
+ * `getCashMovementSignedAmount` already covers all six types.
+ * `referenceId` widens to `string | null` because manual movements have
+ * no source reference (sale id) to point at.
  */
 export function insertCashMovement(args: {
   tx: DatabaseInstance;
   tenantId: string;
   sessionId: string;
-  type: 'sale' | 'refund';
+  type: CashMovementType;
   amount: number;
-  referenceId: string;
+  referenceId: string | null;
   note: string;
   createdBy: string;
   createdAt: string;

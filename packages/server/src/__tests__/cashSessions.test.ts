@@ -746,4 +746,101 @@ describe('Cash sessions tRPC Router', () => {
     expect(report.activeSessions).toEqual([]);
     expect(report.recentClosures).toEqual([]);
   });
+
+  // ENG-056 — integration cases proving the router thin wrappers
+  // enforce the cash-session boundary: no movement without a session,
+  // no movement without a site, and pendingChecks surfaces zero counts
+  // for an empty session.
+
+  it('rejects manual cash movement when no active session exists (router-level)', async () => {
+    const noSessionCashierId = nanoid();
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: noSessionCashierId,
+      tenantId,
+      email: 'no-session-cashier@example.com',
+      name: 'No Session Cashier',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: noSessionCashierId,
+        email: 'no-session-cashier@example.com',
+        role: 'cashier',
+      })
+    );
+    await expect(
+      caller.cashSessions.recordMovement({
+        type: 'paid_in',
+        amount: 5,
+        note: 'no-session integration test',
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_REQUIRED' } });
+  });
+
+  it('exposes zero pending fiscal/payment counts via pendingChecks for an empty active session', async () => {
+    const cashierId = nanoid();
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: 'pending-checks-cashier@example.com',
+      name: 'Pending Checks Cashier',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: 'pending-checks-cashier@example.com',
+        role: 'cashier',
+      })
+    );
+    await caller.cashSessions.open({
+      registerName: 'Pending Checks register',
+      openingFloat: 0,
+      denominations: [],
+    });
+    const result = await caller.cashSessions.pendingChecks();
+    expect(result.pendingFiscalDocuments).toBe(0);
+    expect(result.pendingPaymentSales).toBe(0);
+    expect(result.fiscalSamples).toEqual([]);
+    expect(result.paymentSamples).toEqual([]);
+  });
+
+  it('returns the empty pendingChecks shape when caller has no active session', async () => {
+    const cashierId = nanoid();
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId,
+      email: 'no-active-pending@example.com',
+      name: 'No Active Pending',
+      passwordHash: 'hash',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const caller = appRouter.createCaller(
+      createTestContext({
+        id: cashierId,
+        email: 'no-active-pending@example.com',
+        role: 'cashier',
+      })
+    );
+    const result = await caller.cashSessions.pendingChecks();
+    expect(result.pendingFiscalDocuments).toBe(0);
+    expect(result.pendingPaymentSales).toBe(0);
+  });
 });

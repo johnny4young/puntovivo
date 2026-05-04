@@ -1,19 +1,19 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+import { and, desc, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { cashMovements, cashSessions, sites, users } from '../../db/schema.js';
-import { throwServerError } from '../../lib/errorCodes.js';
 import {
-  getCashSessionOverShort,
-  assertOpeningFloatMatchesDenominations,
-  getClosingCountTotal,
-  getActiveCashSessionForCashier,
-  getCashMovementSignedAmount,
-  getOpenCashSessionForRegister,
-  ensureRegisterAssignmentTemplate,
+  closeCashSession,
+  getPendingChecksForSession,
+  openCashSession,
+  recordCashMovement,
+  type CashSessionContext,
+} from '../../application/cash-sessions/index.js';
+import {
   ensureRegisterAssignmentTemplatesForSite,
+  getActiveCashSessionForCashier,
   normalizeRegisterName,
 } from '../../services/cash-session.js';
+import type { Context } from '../context.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
@@ -23,11 +23,17 @@ import {
   closeCashSessionInput,
   getActiveCashSessionInput,
   openCashSessionInput,
+  pendingChecksInput,
   recordCashMovementInput,
 } from '../schemas/cashSessions.js';
-import { writeAuditLog } from '../../services/audit-logs.js';
 
 const CASH_SESSION_REVIEW_EPSILON = 0.009;
+const EMPTY_PENDING_CHECKS_RESPONSE = {
+  pendingFiscalDocuments: 0,
+  pendingPaymentSales: 0,
+  fiscalSamples: [],
+  paymentSamples: [],
+} as const;
 
 const cashSessionRecordSelection = {
   id: cashSessions.id,
@@ -118,28 +124,26 @@ async function getCashSessionAccessRecord(
     .get();
 }
 
-async function getCashMovementRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  id: string
-) {
-  return db
-    .select({
-      id: cashMovements.id,
-      tenantId: cashMovements.tenantId,
-      sessionId: cashMovements.sessionId,
-      type: cashMovements.type,
-      amount: cashMovements.amount,
-      referenceId: cashMovements.referenceId,
-      note: cashMovements.note,
-      createdBy: cashMovements.createdBy,
-      createdByName: users.name,
-      createdAt: cashMovements.createdAt,
-    })
-    .from(cashMovements)
-    .innerJoin(users, eq(cashMovements.createdBy, users.id))
-    .where(and(eq(cashMovements.id, id), eq(cashMovements.tenantId, tenantId)))
-    .get();
+/**
+ * Adapt the tRPC `Context` (which the application services treat as
+ * opaque) to the `CashSessionContext` shape consumed by the use-case
+ * services. The `commandEnvelope` middleware decorates `ctx` with
+ * `envelope`, `deviceId`, and `log` only on critical-command
+ * procedures; the cast surfaces those without leaking the unsafe
+ * access into the use-case bodies.
+ */
+function buildCashSessionContext(ctx: Context): CashSessionContext {
+  return {
+    db: ctx.db,
+    tenantId: ctx.tenantId!,
+    siteId: ctx.siteId,
+    user: { id: ctx.user!.id, role: ctx.user!.role },
+    envelope:
+      (ctx as unknown as { envelope?: { operationId: string } }).envelope ?? null,
+    deviceId:
+      (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
+    log: ctx.req?.server?.log,
+  };
 }
 
 export const cashSessionsRouter = router({
@@ -274,181 +278,26 @@ export const cashSessionsRouter = router({
   }),
 
   open: criticalCommandProcedure.input(openCashSessionInput).mutation(async ({ ctx, input }) => {
-    if (!ctx.siteId || !ctx.user) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'CASH_SESSION_SITE_REQUIRED',
-        message: 'An active site is required before opening a cash session',
-      });
-    }
-
-    const registerName = normalizeRegisterName(input.registerName);
-    assertOpeningFloatMatchesDenominations(input.openingFloat, input.denominations);
-
-    const existingCashierSession = await getActiveCashSessionForCashier(
-      ctx.db,
-      ctx.tenantId,
-      ctx.siteId,
-      ctx.user.id
-    );
-
-    if (existingCashierSession) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_CASHIER',
-        message: 'This cashier already has an open cash session for the active site',
-        details: {
-          registerName: existingCashierSession.registerName,
-          openedAt: existingCashierSession.openedAt,
-        },
-      });
-    }
-
-    const existingRegisterSession = await getOpenCashSessionForRegister(
-      ctx.db,
-      ctx.tenantId,
-      ctx.siteId,
-      registerName
-    );
-
-    if (existingRegisterSession) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER',
-        message: 'The selected register already has an open cash session',
-        details: {
-          registerName,
-          cashierId: existingRegisterSession.cashierId,
-          openedAt: existingRegisterSession.openedAt,
-        },
-      });
-    }
-
-    const now = new Date().toISOString();
-    const id = nanoid();
-
-    await ctx.db.insert(cashSessions).values({
-      id,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      cashierId: ctx.user.id,
-      registerName,
-      openingFloat: input.openingFloat,
-      openingCountDenominations: input.denominations,
-      expectedBalance: input.openingFloat,
-      actualCount: null,
-      actualCountDenominations: null,
-      overShort: null,
-      status: 'open',
-      openedAt: now,
-      closedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await ensureRegisterAssignmentTemplate(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      registerName,
-      openingFloat: input.openingFloat,
-      denominations: input.denominations,
-    });
-
-    const created = await getCashSessionRecord(ctx.db, ctx.tenantId, id);
-
+    const result = await openCashSession(buildCashSessionContext(ctx), input);
+    // Preserve legacy router contract: return the joined record shape
+    // the UI already consumes via cashSessionRecordSelection.
+    const created = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
     if (!created) {
       throw new Error('Failed to load the created cash session');
     }
-
     return created;
   }),
 
   close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
-    if (!ctx.user) {
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'CASH_SESSION_REQUIRED',
-        message: 'An authenticated user is required to close a cash session',
-      });
-    }
-
-    if (!ctx.siteId) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'CASH_SESSION_SITE_REQUIRED',
-        message: 'An active site is required before closing a cash session',
-      });
-    }
-
-    const activeSession = await getActiveCashSessionForCashier(
+    const result = await closeCashSession(buildCashSessionContext(ctx), input);
+    const closedSession = await getCashSessionRecord(
       ctx.db,
       ctx.tenantId,
-      ctx.siteId,
-      ctx.user.id
+      result.session.id
     );
-
-    if (!activeSession) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'CASH_SESSION_REQUIRED',
-        message: 'An open cash session is required before closing the register',
-      });
-    }
-
-    const actualCount = getClosingCountTotal(input.actualCount, input.denominations);
-    const overShort = getCashSessionOverShort(activeSession.expectedBalance, actualCount);
-    const closedAt = new Date().toISOString();
-    const closedBy = ctx.user.id;
-
-    // Phase 8 / Tier-2 #8 — wrap the close write + audit-log insert in one
-    // transaction so an over/short row never exists without a paired audit
-    // entry (and vice versa).
-    ctx.db.transaction(tx => {
-      tx.update(cashSessions)
-        .set({
-          actualCount,
-          actualCountDenominations: input.denominations,
-          overShort,
-          status: 'closed',
-          closedAt,
-          updatedAt: closedAt,
-        })
-        .where(eq(cashSessions.id, activeSession.id))
-        .run();
-
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: closedBy,
-        action: 'cash_session.close',
-        resourceType: 'cash_session',
-        resourceId: activeSession.id,
-        before: {
-          status: activeSession.status,
-          expectedBalance: activeSession.expectedBalance,
-          openingFloat: activeSession.openingFloat,
-        },
-        after: {
-          status: 'closed',
-          actualCount,
-          overShort,
-          closedAt,
-        },
-        metadata: {
-          // Material for trend reporting + flagging anomalous shifts.
-          // |overShort| > 0 means the cashier's count diverged from expected.
-          siteId: activeSession.siteId,
-          registerName: activeSession.registerName,
-        },
-      });
-    });
-
-    const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
-
     if (!closedSession) {
       throw new Error('Failed to load the closed cash session');
     }
-
     return closedSession;
   }),
 
@@ -512,73 +361,44 @@ export const cashSessionsRouter = router({
       .limit(input.limit);
   }),
 
-  recordMovement: criticalCommandProcedure
-    .input(recordCashMovementInput)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.user) {
-        throwServerError({
-          trpcCode: 'UNAUTHORIZED',
-          errorCode: 'CASH_SESSION_REQUIRED',
-          message: 'An authenticated user is required to record a cash movement',
-        });
-      }
+  pendingChecks: tenantProcedure.input(pendingChecksInput).query(async ({ ctx, input }) => {
+    if (!ctx.user || !ctx.siteId) {
+      return EMPTY_PENDING_CHECKS_RESPONSE;
+    }
 
-      if (!ctx.siteId) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'CASH_SESSION_SITE_REQUIRED',
-          message: 'An active site is required before recording a cash movement',
-        });
-      }
+    let sessionId = input?.sessionId;
 
+    if (sessionId) {
+      const targetSession = await getCashSessionAccessRecord(ctx.db, ctx.tenantId, sessionId);
+      const isPrivilegedUser = isPrivilegedCashSessionRole(ctx.user.role);
+      if (
+        !targetSession ||
+        targetSession.siteId !== ctx.siteId ||
+        (!isPrivilegedUser && targetSession.cashierId !== ctx.user.id)
+      ) {
+        return EMPTY_PENDING_CHECKS_RESPONSE;
+      }
+    } else {
       const activeSession = await getActiveCashSessionForCashier(
         ctx.db,
         ctx.tenantId,
         ctx.siteId,
         ctx.user.id
       );
+      sessionId = activeSession?.id;
+    }
 
-      if (!activeSession) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'CASH_SESSION_REQUIRED',
-          message: 'An open cash session is required before recording a cash movement',
-        });
-      }
+    if (!sessionId) {
+      return EMPTY_PENDING_CHECKS_RESPONSE;
+    }
 
-      const now = new Date().toISOString();
-      const movementId = nanoid();
-      const signedAmount = getCashMovementSignedAmount(input.type, input.amount);
+    return getPendingChecksForSession(ctx.db, ctx.tenantId, sessionId);
+  }),
 
-      ctx.db.transaction(tx => {
-        tx.insert(cashMovements).values({
-          id: movementId,
-          tenantId: ctx.tenantId,
-          sessionId: activeSession.id,
-          type: input.type,
-          amount: input.amount,
-          referenceId: null,
-          note: input.note,
-          createdBy: ctx.user!.id,
-          createdAt: now,
-        }).run();
-
-        tx
-          .update(cashSessions)
-          .set({
-            expectedBalance: sql`${cashSessions.expectedBalance} + ${signedAmount}`,
-            updatedAt: now,
-          })
-          .where(eq(cashSessions.id, activeSession.id))
-          .run();
-      });
-
-      const movement = await getCashMovementRecord(ctx.db, ctx.tenantId, movementId);
-
-      if (!movement) {
-        throw new Error('Failed to load the created cash movement');
-      }
-
-      return movement;
+  recordMovement: criticalCommandProcedure
+    .input(recordCashMovementInput)
+    .mutation(async ({ ctx, input }) => {
+      const result = await recordCashMovement(buildCashSessionContext(ctx), input);
+      return result.movement;
     }),
 });

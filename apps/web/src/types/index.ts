@@ -501,6 +501,9 @@ export type AuditLogAction =
   | 'sale.void'
   | 'sale.return'
   | 'cash_session.close'
+  // ENG-056 — shift-lifecycle parity (open + manual movement audits).
+  | 'cash_session.open'
+  | 'cash_session.movement'
   | 'inventory.adjust_stock'
   // ENG-007 second wave — admin-surface events.
   | 'purchase.void'
@@ -522,6 +525,9 @@ export type AuditLogResourceType =
   | 'quotation'
   | 'sale'
   | 'cash_session'
+  // ENG-056 — manual cash movements emit audit rows keyed to the
+  // cash_movements row id.
+  | 'cash_movement'
   | 'product'
   | 'purchase'
   | 'user'

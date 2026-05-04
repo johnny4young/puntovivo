@@ -50,6 +50,12 @@ export const recordCashMovementInput = z.object({
     .max(240, 'Cash movement note must be 240 characters or fewer'),
 });
 
+export const pendingChecksInput = z
+  .object({
+    sessionId: z.string().min(1).optional(),
+  })
+  .optional();
+
 export type CashSessionDenominationInput = z.infer<typeof cashSessionDenominationInput>;
 export type GetActiveCashSessionInput = z.infer<typeof getActiveCashSessionInput>;
 export type OpenCashSessionInput = z.infer<typeof openCashSessionInput>;
@@ -57,3 +63,4 @@ export type CloseCashSessionInput = z.infer<typeof closeCashSessionInput>;
 export type CashSessionMovementsInput = z.infer<typeof cashSessionMovementsInput>;
 export type CashSessionReportInput = z.infer<typeof cashSessionReportInput>;
 export type RecordCashMovementInput = z.infer<typeof recordCashMovementInput>;
+export type PendingChecksInput = z.infer<typeof pendingChecksInput>;
