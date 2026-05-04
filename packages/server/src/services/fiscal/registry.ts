@@ -52,6 +52,16 @@ const ADAPTER_FACTORIES: Record<SupportedFiscalCountry, () => FiscalAdapter> = {
 export const DEFAULT_FISCAL_COUNTRY: SupportedFiscalCountry = 'CO';
 
 /**
+ * ENG-057 — Test-only override map. Production code MUST NEVER write
+ * here; the `__` prefix + JSDoc warning + the `as never` cast on the
+ * test seam below enforce this by convention. Tests inject a stub
+ * adapter via `__setFiscalAdapterForTest('CO', stub)` so the fiscal
+ * worker reaches a controllable adapter without touching the
+ * registry singleton.
+ */
+const TEST_ADAPTER_OVERRIDES: Map<string, FiscalAdapter> = new Map();
+
+/**
  * Resolve the active fiscal adapter for a given country code. Falls
  * back to the default country (CO) when the input is unknown or
  * empty — keeps the sale lifecycle non-fatal during the rollout
@@ -60,10 +70,40 @@ export const DEFAULT_FISCAL_COUNTRY: SupportedFiscalCountry = 'CO';
 export function getFiscalAdapter(
   countryCode: string = DEFAULT_FISCAL_COUNTRY
 ): FiscalAdapter {
+  const overridden = TEST_ADAPTER_OVERRIDES.get(countryCode);
+  if (overridden) return overridden;
   const factory =
     (ADAPTER_FACTORIES as Record<string, () => FiscalAdapter>)[countryCode] ??
     ADAPTER_FACTORIES[DEFAULT_FISCAL_COUNTRY];
   return factory();
+}
+
+/**
+ * ENG-057 — TEST-ONLY adapter override seam. The double-underscore
+ * prefix marks it as never-call-from-production; integration tests
+ * use it to inject a stub adapter (typically with a `throwOracle`
+ * for outage simulation) without monkey-patching the registry.
+ *
+ * Pass `null` to clear the override and revert to the default
+ * factory for the country code.
+ */
+export function __setFiscalAdapterForTest(
+  countryCode: string,
+  adapter: FiscalAdapter | null
+): void {
+  if (adapter === null) {
+    TEST_ADAPTER_OVERRIDES.delete(countryCode);
+  } else {
+    TEST_ADAPTER_OVERRIDES.set(countryCode, adapter);
+  }
+}
+
+/**
+ * ENG-057 — TEST-ONLY: clear every override. Useful in `afterEach`
+ * to keep tests isolated.
+ */
+export function __clearFiscalAdapterOverridesForTest(): void {
+  TEST_ADAPTER_OVERRIDES.clear();
 }
 
 /**

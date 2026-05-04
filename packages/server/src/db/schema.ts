@@ -3193,6 +3193,127 @@ export const fiscalDocumentItemsRelations = relations(
   })
 );
 
+// ============================================================================
+// FISCAL OUTBOX (ENG-057 — first concrete consumer of the outbox kernel)
+// ============================================================================
+
+/**
+ * Closed list of statuses for the fiscal outbox lifecycle, per
+ * ADR-0003 §Fiscal outbox. The kernel writes `queued`, `submitting`,
+ * `accepted`, `retrying`, `dead_letter`. The fiscal worker writes
+ * `contingency` (operator-visible "we are knowingly off-line, retry
+ * pending") and `rejected` (terminal-but-not-success when the
+ * provider returns a non-recoverable rejection) before the kernel's
+ * `complete` / `fail` transition narrows again.
+ */
+export const fiscalOutboxStatusEnum = [
+  'queued',
+  'submitting',
+  'accepted',
+  'rejected',
+  'contingency',
+  'retrying',
+  'dead_letter',
+] as const;
+export type FiscalOutboxStatus = (typeof fiscalOutboxStatusEnum)[number];
+
+/**
+ * Closed list of fiscal outbox kinds. ENG-057 ships only `emit`;
+ * `cancel` (DIAN cancellation), `retry_contingency` (re-enqueue
+ * after manual operator action), and `fetch_status` (poll PT for
+ * an in-flight CUFE) land incrementally per ADR-0003 sequencing.
+ */
+export const fiscalOutboxKindEnum = ['emit'] as const;
+export type FiscalOutboxKind = (typeof fiscalOutboxKindEnum)[number];
+
+/**
+ * `fiscal_outbox` orchestrates the lifecycle of fiscal-document
+ * delivery to the country adapter. Lives next to `fiscal_documents`
+ * which remains the source of truth for each comprobante; the outbox
+ * row tracks the communication-with-provider state.
+ *
+ * The status machine + retry policy + claim_token concurrency are
+ * inherited from `lib/outbox/createOutboxKernel`. The fiscal worker
+ * (`services/fiscal/fiscal-worker.ts`) drives state transitions and
+ * mirrors the verdict back to `fiscal_documents.status` so existing
+ * consumers (close-shift pending checks, FiscalContingencyIndicator,
+ * `reports.fiscal.list`) keep working without joining this table.
+ */
+export const fiscalOutbox = sqliteTable(
+  'fiscal_outbox',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    status: text('status', { enum: fiscalOutboxStatusEnum }).notNull().default('queued'),
+    kind: text('kind', { enum: fiscalOutboxKindEnum }).notNull().default('emit'),
+    /**
+     * FK to the pre-created `fiscal_documents` row (status='pending'
+     * at enqueue time). Nullable to leave room for a future
+     * raw-enqueue path (admin batch issue) that does not pre-create.
+     * In ENG-057's flow this is always populated.
+     */
+    fiscalDocumentId: text('fiscal_document_id').references(
+      () => fiscalDocuments.id,
+      { onDelete: 'set null' }
+    ),
+    /** Snapshot of the resolved adapter providerId at enqueue. */
+    providerId: text('provider_id'),
+    /** Filled by the worker on `accepted`; redundant with `fiscal_documents.cufe`. */
+    cufe: text('cufe'),
+    /** `FiscalAdapterIssueInput` snapshot — worker MUST be able to retry without re-resolving. */
+    payload: text('payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    /** `NormalizedOutboxError` written by the kernel on `fail`. */
+    lastError: text('last_error', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    priority: real('priority').notNull().default(0),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    // Primary path for the kernel's claimNext: filter by tenant +
+    // status (queued or retrying) ordered by priority + createdAt;
+    // nextRetryAt is consulted as `IS NULL OR <= now`.
+    index('idx_fiscal_outbox_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    // Drilldown for the FiscalDocumentListPage retry button + the
+    // manual-retry router lookup by document id.
+    index('idx_fiscal_outbox_fiscal_document').on(table.fiscalDocumentId),
+    // Operations Center listing + peek.
+    index('idx_fiscal_outbox_tenant_created').on(table.tenantId, table.createdAt),
+  ]
+);
+
+export const fiscalOutboxRelations = relations(fiscalOutbox, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [fiscalOutbox.tenantId],
+    references: [tenants.id],
+  }),
+  fiscalDocument: one(fiscalDocuments, {
+    fields: [fiscalOutbox.fiscalDocumentId],
+    references: [fiscalDocuments.id],
+  }),
+}));
+
+export type FiscalOutboxRow = typeof fiscalOutbox.$inferSelect;
+export type NewFiscalOutboxRow = typeof fiscalOutbox.$inferInsert;
+
 export type FiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferSelect;
 export type NewFiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferInsert;
 export type FiscalCertificate = typeof fiscalCertificates.$inferSelect;

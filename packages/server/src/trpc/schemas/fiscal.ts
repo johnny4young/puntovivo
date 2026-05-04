@@ -47,3 +47,10 @@ export const getFiscalDocumentByCufeInput = z.object({
 });
 
 export type GetFiscalDocumentByCufeInput = z.infer<typeof getFiscalDocumentByCufeInput>;
+
+/** ENG-057 — operator-driven retry of a stuck fiscal document. */
+export const retryFiscalDocumentInput = z.object({
+  fiscalDocumentId: z.string().min(1, 'fiscalDocumentId is required'),
+});
+
+export type RetryFiscalDocumentInput = z.infer<typeof retryFiscalDocumentInput>;

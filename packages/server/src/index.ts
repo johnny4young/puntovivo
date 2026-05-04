@@ -19,6 +19,10 @@ import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
 import { createModuleLogger, rootLogger } from './logging/logger.js';
+import {
+  createFiscalWorker,
+  setDefaultFiscalWorker,
+} from './services/fiscal/fiscal-worker.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import { warmCacheFromDb } from './security/loginRateLimit.js';
@@ -59,6 +63,12 @@ export interface PuntovivoServer {
   app: FastifyInstance;
   /** The database instance */
   db: DatabaseInstance;
+  /**
+   * ENG-057 — Fiscal worker daemon registered to drain `fiscal_outbox`.
+   * Tests call `fiscalWorker.tickOnce(tenantId)` directly to drive the
+   * lifecycle synchronously without waiting for the periodic interval.
+   */
+  fiscalWorker: import('./services/fiscal/fiscal-worker.js').FiscalWorker;
   /** Start listening for requests */
   listen: () => Promise<string>;
   /** Stop the server and close database */
@@ -289,13 +299,28 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   let serverUrl = `http://${host}:${port}`;
 
+  // ENG-057 — boot the fiscal outbox worker daemon. Registered as the
+  // default singleton so `safelyEmitFiscalDocument` can fire-and-forget
+  // an immediate tick after enqueue without taking a worker reference
+  // through every call site. The periodic interval starts on `listen`
+  // (below) so test harnesses that build the server without listening
+  // do not accumulate background timers.
+  const fiscalWorker = createFiscalWorker({ db });
+  setDefaultFiscalWorker(fiscalWorker);
+  app.addHook('onClose', async () => {
+    await fiscalWorker.stop();
+    setDefaultFiscalWorker(null);
+  });
+
   const serverLog = createModuleLogger('server');
   return {
     app,
     db,
+    fiscalWorker,
     listen: async () => {
       const address = await app.listen({ port, host });
       serverUrl = address;
+      fiscalWorker.start();
       serverLog.info({ address }, 'server listening');
       return address;
     },

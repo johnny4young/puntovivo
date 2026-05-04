@@ -40,6 +40,7 @@ import {
   fiscalDocumentItems,
   fiscalDocuments,
   fiscalNumberingResolutions,
+  fiscalOutbox,
   identificationTypes,
   products,
   saleItems,
@@ -56,6 +57,7 @@ import type {
   FiscalAdapterLine,
 } from './adapter.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from './cufe.js';
+import { tickDefaultFiscalWorker } from './fiscal-worker.js';
 import { getFiscalAdapter } from './registry.js';
 
 export interface EmitFiscalDocumentArgs {
@@ -622,6 +624,401 @@ export async function emitFiscalDocument(
  * journal effect, but must NOT make business-critical decisions on
  * it — a null return is the normal flow for a non-DIAN tenant.
  */
+/**
+ * ENG-057 — Pre-create the `fiscal_documents` row + enqueue a
+ * `fiscal_outbox` row in ONE local transaction. The fiscal worker
+ * (`services/fiscal/fiscal-worker.ts`) drains the outbox, calls the
+ * adapter, and mirrors the verdict back to `fiscal_documents.status`.
+ *
+ * Behavior contract for the acceptance criterion of ENG-057:
+ *
+ * - Returns `null` when DIAN is disabled, the sale has no cash
+ *   session, no resolution, or no items — exactly the same null path
+ *   as the legacy `emitFiscalDocument`. Callers (sale lifecycle
+ *   services) tolerate null without throwing.
+ * - Idempotent on `(tenantId, source, sourceId, kind)` — replay of
+ *   the same envelope returns the existing row + outbox lookup.
+ * - The CUFE column is filled with a temporary placeholder
+ *   (`pending-<nanoid>`) at enqueue. The unique constraint on
+ *   `fiscal_documents.cufe` is satisfied by the random nanoid; the
+ *   worker overwrites with the adapter-returned CUFE on `accepted`.
+ * - The numbering consecutive is advanced inside the same tx as the
+ *   pre-create. Trade-off: a dead-lettered emission burns a
+ *   consecutive that DIAN never sees. Acceptable per ADR-0003 §Fiscal
+ *   outbox; ENG-058 may revisit with reserve-on-enqueue if pilot
+ *   data shows this is a problem.
+ *
+ * Errors thrown by this function MUST NOT propagate past the back-
+ * compat shim `safelyEmitFiscalDocument` so the sale lifecycle stays
+ * unaffected. The orchestrator's only known error path is a missing
+ * resolution / DIAN-disabled tenant, both of which already return
+ * `null` cleanly.
+ */
+export async function enqueueFiscalEmission(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  userId: string;
+  log: Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
+  source: FiscalDocumentSource;
+  sourceId: string;
+  saleId: string;
+  kind: FiscalDocumentKind;
+  originalCufe?: string;
+  reasonCode?: string;
+  environment?: FiscalEnvironment;
+}): Promise<EmitFiscalDocumentResult | null> {
+  const { db, tenantId, userId, source, sourceId, saleId, kind } = args;
+
+  if (!(await isDianEnabled(db, tenantId))) {
+    return null;
+  }
+
+  const existing = await db
+    .select({
+      id: fiscalDocuments.id,
+      cufe: fiscalDocuments.cufe,
+      documentNumber: fiscalDocuments.documentNumber,
+      status: fiscalDocuments.status,
+    })
+    .from(fiscalDocuments)
+    .where(
+      and(
+        eq(fiscalDocuments.tenantId, tenantId),
+        eq(fiscalDocuments.source, source),
+        eq(fiscalDocuments.sourceId, sourceId),
+        eq(fiscalDocuments.kind, kind)
+      )
+    )
+    .get();
+  if (existing) {
+    return existing;
+  }
+
+  const sale = await db
+    .select({
+      id: sales.id,
+      tenantId: sales.tenantId,
+      customerId: sales.customerId,
+      cashSessionId: sales.cashSessionId,
+      paymentMethod: sales.paymentMethod,
+      subtotal: sales.subtotal,
+      taxAmount: sales.taxAmount,
+      discountAmount: sales.discountAmount,
+      total: sales.total,
+    })
+    .from(sales)
+    .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
+    .get();
+  if (!sale || !sale.cashSessionId) return null;
+
+  const saleSite = await db
+    .select({ siteId: cashSessions.siteId })
+    .from(cashSessions)
+    .where(
+      and(
+        eq(cashSessions.id, sale.cashSessionId),
+        eq(cashSessions.tenantId, tenantId)
+      )
+    )
+    .get();
+  if (!saleSite) return null;
+
+  const resolution = await db
+    .select()
+    .from(fiscalNumberingResolutions)
+    .where(
+      and(
+        eq(fiscalNumberingResolutions.tenantId, tenantId),
+        eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
+        eq(fiscalNumberingResolutions.kind, kind),
+        eq(fiscalNumberingResolutions.isActive, true)
+      )
+    )
+    .get();
+  if (!resolution) return null;
+
+  const locale = await resolveTenantLocale(db, tenantId);
+  const adapter = getFiscalAdapter(locale.countryCode);
+  const buyer = await resolveBuyer(db, tenantId, sale.customerId);
+  const lines = await resolveLines(db, tenantId, saleId);
+  if (lines.length === 0) return null;
+
+  const tenantRow = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  const tenantSettings = (tenantRow?.settings ?? {}) as Record<string, unknown>;
+  if (!isCountryFiscalEnabled(tenantSettings, adapter.countryCode)) {
+    return null;
+  }
+
+  // ENG-057 — Adapter pre-flight: when the country pack reports
+  // structurally invalid configuration (missing RFC for MX, missing
+  // RUT for CL, etc.), do NOT pre-create a fiscal_documents row.
+  // This is config-error territory, not a provider outage — the
+  // operator must fix settings before any emission is attempted.
+  // The legacy `safelyEmitFiscalDocument` swallowed the adapter
+  // throw; ENG-057 surfaces the same null behavior more cleanly by
+  // calling `validateConfig` first.
+  try {
+    const validation = await adapter.validateConfig({
+      tenantId,
+      countryCode: adapter.countryCode,
+      settings: tenantSettings,
+    });
+    if (!validation.ok) {
+      args.log.debug(
+        { tenantId, countryCode: adapter.countryCode, issues: validation.issues },
+        'fiscal pack validateConfig rejected; skipping enqueue'
+      );
+      return null;
+    }
+  } catch (validationErr) {
+    args.log.warn(
+      { err: validationErr, tenantId, countryCode: adapter.countryCode },
+      'fiscal pack validateConfig threw; skipping enqueue'
+    );
+    return null;
+  }
+
+  const companyRow = await db
+    .select({ name: companies.name })
+    .from(companies)
+    .where(eq(companies.tenantId, tenantId))
+    .limit(1)
+    .get();
+  const issuerName = companyRow?.name ?? null;
+
+  const adapterLines: FiscalAdapterLine[] = lines.map(line => ({
+    lineNumber: line.lineNumber,
+    productName: line.productName,
+    productSku: line.productSku ?? null,
+    unitMeasureCode: 'EA',
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    discountAmount: line.discountAmount,
+    taxRate: line.taxRate,
+    taxAmount: line.taxAmount,
+    taxCategoryCode: '01',
+    lineTotal: line.lineTotal,
+  }));
+
+  const consecutive = resolution.currentNumber + 1;
+  const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
+  const { issueDate, issueTime } = splitIssueTimestamp(new Date());
+
+  const adapterInput: FiscalAdapterIssueInput = {
+    tenantId,
+    source,
+    sourceId,
+    kind,
+    issueDate,
+    issueTime,
+    environment: args.environment ?? '2',
+    issuerNit: tenantId,
+    issuerName: issuerName ?? undefined,
+    tenantSettings,
+    currencyCode: locale.currency,
+    localeCode: locale.locale,
+    paymentMethod: sale.paymentMethod,
+    resolution: {
+      id: resolution.id,
+      resolutionNumber: resolution.resolutionNumber,
+      prefix: resolution.prefix,
+      technicalKey: resolution.technicalKey,
+      consecutive,
+      documentNumber,
+    },
+    buyer: {
+      taxId: buyer.taxId,
+      taxIdTypeCode: buyer.taxIdTypeCode,
+      name: buyer.name,
+      email: buyer.email,
+      address: buyer.address,
+      city: buyer.city,
+      department: buyer.department,
+      country: buyer.country,
+    },
+    subtotal: sale.subtotal,
+    ivaAmount: sale.taxAmount,
+    incAmount: 0,
+    icaAmount: 0,
+    discountAmount: sale.discountAmount,
+    totalAmount: sale.total,
+    lines: adapterLines,
+    originalCufe: args.originalCufe,
+    reasonCode: args.reasonCode,
+  };
+
+  const fiscalDocumentId = nanoid();
+  // Placeholder CUFE — random unique token that satisfies the
+  // fiscal_documents.cufe UNIQUE constraint at insert time. The
+  // worker overwrites with the adapter's real CUFE on `accepted`.
+  // Format `pending-<nanoid>` is intentional so an operator
+  // inspecting raw rows can tell at a glance whether a document
+  // has been finalized.
+  const placeholderCufe = `pending-${nanoid(40)}`;
+  const now = new Date().toISOString();
+
+  return db.transaction(writeTx => {
+    const duplicate = writeTx
+      .select({
+        id: fiscalDocuments.id,
+        cufe: fiscalDocuments.cufe,
+        documentNumber: fiscalDocuments.documentNumber,
+        status: fiscalDocuments.status,
+      })
+      .from(fiscalDocuments)
+      .where(
+        and(
+          eq(fiscalDocuments.tenantId, tenantId),
+          eq(fiscalDocuments.source, source),
+          eq(fiscalDocuments.sourceId, sourceId),
+          eq(fiscalDocuments.kind, kind)
+        )
+      )
+      .get();
+    if (duplicate) {
+      return duplicate;
+    }
+
+    writeTx.insert(fiscalDocuments)
+      .values({
+        id: fiscalDocumentId,
+        tenantId,
+        source,
+        sourceId,
+        kind,
+        resolutionId: resolution.id,
+        consecutive,
+        documentNumber,
+        cufe: placeholderCufe,
+        status: 'pending',
+        customerId: buyer.customerId,
+        buyerTaxId: buyer.taxId,
+        buyerTaxIdTypeCode: buyer.taxIdTypeCode,
+        buyerName: buyer.name,
+        buyerEmail: buyer.email,
+        buyerAddress: buyer.address,
+        buyerCity: buyer.city,
+        buyerDepartment: buyer.department,
+        buyerCountry: buyer.country,
+        subtotal: sale.subtotal,
+        taxAmount: sale.taxAmount,
+        discountAmount: sale.discountAmount,
+        totalAmount: sale.total,
+        currencyCode: locale.currency,
+        localeCode: locale.locale,
+        originalCufe: args.originalCufe ?? null,
+        reasonCode: args.reasonCode ?? null,
+        providerId: adapter.providerId,
+        providerResponse: null,
+        xmlRef: null,
+        retries: 0,
+        emittedByUserId: userId,
+        emittedAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    for (const line of lines) {
+      writeTx.insert(fiscalDocumentItems)
+        .values({
+          id: nanoid(),
+          fiscalDocumentId,
+          lineNumber: line.lineNumber,
+          productId: line.productId,
+          productName: line.productName,
+          productSku: line.productSku,
+          unitMeasureCode: 'EA',
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          discountAmount: line.discountAmount,
+          taxRate: line.taxRate,
+          taxAmount: line.taxAmount,
+          taxCategoryCode: '01',
+          lineTotal: line.lineTotal,
+        })
+        .run();
+    }
+
+    const updateResult = writeTx.update(fiscalNumberingResolutions)
+      .set({ currentNumber: consecutive, updatedAt: now })
+      .where(
+        and(
+          eq(fiscalNumberingResolutions.id, resolution.id),
+          eq(fiscalNumberingResolutions.tenantId, tenantId),
+          eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
+          eq(fiscalNumberingResolutions.kind, kind)
+        )
+      )
+      .run();
+    if (updateResult.changes !== 1) {
+      throw new Error('Fiscal numbering resolution was not advanced');
+    }
+
+    // Enqueue the outbox row last so a constraint-violation roll-back
+    // on fiscal_documents (rare — the duplicate probe runs first)
+    // doesn't leave an orphan outbox row.
+    const outboxId = nanoid();
+    writeTx.insert(fiscalOutbox)
+      .values({
+        id: outboxId,
+        tenantId,
+        status: 'queued',
+        kind: 'emit',
+        fiscalDocumentId,
+        providerId: adapter.providerId,
+        cufe: null,
+        payload: {
+          countryCode: adapter.countryCode,
+          providerId: adapter.providerId,
+          fiscalDocumentId,
+          adapterInput,
+        },
+        payloadVersion: 1,
+        attempts: 0,
+        nextRetryAt: null,
+        lastError: null,
+        priority: 0,
+        claimToken: null,
+        lockedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    return {
+      id: fiscalDocumentId,
+      cufe: placeholderCufe,
+      documentNumber,
+      status: 'pending',
+    };
+  });
+}
+
+/**
+ * ENG-020 / ENG-054 / ENG-057 — best-effort fiscal emission entry
+ * point used by sale-lifecycle services. Backwards-compatible wrapper
+ * around `enqueueFiscalEmission` (ENG-057).
+ *
+ * The ENG-057 inversion: the function no longer calls the adapter
+ * synchronously. It pre-creates a `fiscal_documents` row with
+ * `status='pending'` and enqueues a `fiscal_outbox` row that the
+ * worker daemon drains. A provider outage NEVER throws past this
+ * function (the adapter call has moved out-of-band) and ALWAYS
+ * leaves a visible pending document — meeting the acceptance
+ * criterion of ENG-057.
+ *
+ * The shape of the returned object is preserved so existing callers
+ * (`completeSale.ts`, `voidSale.ts`, `returnSale.ts`) continue to
+ * read `result.id` for journal effect emission without any edits.
+ *
+ * Returns `null` when the tenant has not opted into DIAN, the sale
+ * has no cash session / resolution / items — same null surface as
+ * before.
+ */
 export async function safelyEmitFiscalDocument(args: {
   db: DatabaseInstance;
   tenantId: string;
@@ -635,24 +1032,31 @@ export async function safelyEmitFiscalDocument(args: {
   reasonCode?: string;
 }): Promise<EmitFiscalDocumentResult | null> {
   try {
-    // ENG-034 — dispatch the country-specific fiscal adapter via the
-    // typed registry. `resolveTenantLocale` is the canonical reader
-    // for the tenant's `countryCode` (CO / MX / CL). Fresh tenants
-    // without locale settings resolve to US/USD; the registry handles
-    // unsupported country codes with its own default.
-    const fiscalLocale = await resolveTenantLocale(args.db, args.tenantId);
-    const result = await emitFiscalDocument({
-      tx: args.db,
+    const result = await enqueueFiscalEmission({
+      db: args.db,
       tenantId: args.tenantId,
       userId: args.userId,
+      log: args.log,
       source: args.source,
       sourceId: args.sourceId,
       saleId: args.saleId,
       kind: args.kind,
       originalCufe: args.originalCufe,
       reasonCode: args.reasonCode,
-      adapter: getFiscalAdapter(fiscalLocale.countryCode),
     });
+    if (result) {
+      // Fire-and-forget: ask the fiscal worker to drain the new
+      // outbox row immediately so the happy-path latency stays
+      // close to the synchronous status quo. The worker's
+      // claim_token guards against double-processing if the
+      // periodic tick fires concurrently.
+      tickDefaultFiscalWorker(args.tenantId).catch(err => {
+        args.log.debug(
+          { err, tenantId: args.tenantId },
+          'immediate fiscal worker tick failed (non-blocking)'
+        );
+      });
+    }
     return result;
   } catch (err) {
     args.log.warn(

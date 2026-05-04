@@ -27,17 +27,23 @@
  */
 
 import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { router } from '../../init.js';
 import { adminProcedure } from '../../middleware/roles.js';
 import {
   fiscalDocumentItems,
   fiscalDocuments,
+  fiscalOutbox,
 } from '../../../db/schema.js';
 import {
   getFiscalDocumentByCufeInput,
   listFiscalDocumentsInput,
+  retryFiscalDocumentInput,
 } from '../../schemas/fiscal.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
+import {
+  getDefaultFiscalWorker,
+} from '../../../services/fiscal/fiscal-worker.js';
 
 /** Shape returned by `reports.fiscal.list` — one row per fiscal document. */
 const LIST_SELECT_COLUMNS = {
@@ -154,6 +160,117 @@ export const fiscalReportsRouter = router({
         header,
         lines,
       };
+    }),
+
+  /**
+   * ENG-057 — Operator-driven manual recovery for a stuck fiscal
+   * document. Three behaviors depending on the outbox row state:
+   *
+   *   - retrying / contingency: re-arm by clearing `next_retry_at`
+   *     so the next worker tick claims it immediately. Returns
+   *     `{ rearmed: true }`.
+   *   - dead_letter / rejected: enqueue a fresh outbox row carrying
+   *     the same payload, reset `fiscal_documents.status` to
+   *     `pending` so the close-shift gate sees it again. Returns
+   *     `{ rearmed: false, requeuedAs }`.
+   *   - queued / submitting / accepted: no-op. Returns
+   *     `{ rearmed: false }`.
+   *
+   * After the DB write, the procedure fires a `tickOnce` on the
+   * default fiscal worker so the operator does not wait for the
+   * next periodic tick.
+   *
+   * Admin-only. Tenant-scoped via `ctx.tenantId`.
+   */
+  retryDocument: adminProcedure
+    .input(retryFiscalDocumentInput)
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select()
+        .from(fiscalOutbox)
+        .where(
+          and(
+            eq(fiscalOutbox.tenantId, ctx.tenantId),
+            eq(fiscalOutbox.fiscalDocumentId, input.fiscalDocumentId)
+          )
+        )
+        .orderBy(desc(fiscalOutbox.updatedAt), desc(fiscalOutbox.createdAt))
+        .get();
+      if (!row) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
+          message: 'Fiscal document has no outbox row',
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+      const worker = getDefaultFiscalWorker();
+
+      if (row.status === 'retrying' || row.status === 'contingency') {
+        await ctx.db
+          .update(fiscalOutbox)
+          .set({ nextRetryAt: null, updatedAt: nowIso })
+          .where(
+            and(
+              eq(fiscalOutbox.id, row.id),
+              eq(fiscalOutbox.tenantId, ctx.tenantId)
+            )
+          );
+        // Best-effort drain. The kernel claim_token guards against
+        // concurrent ticks if the periodic interval fires here too.
+        if (worker) {
+          worker.tickOnce(ctx.tenantId).catch(() => {
+            /* swallow — tick errors are logged inside the worker */
+          });
+        }
+        return { rearmed: true as const, outboxRowId: row.id };
+      }
+
+      if (row.status === 'dead_letter' || row.status === 'rejected') {
+        const newOutboxId = nanoid();
+        await ctx.db.transaction(tx => {
+          tx.insert(fiscalOutbox)
+            .values({
+              id: newOutboxId,
+              tenantId: ctx.tenantId,
+              status: 'queued',
+              kind: row.kind,
+              fiscalDocumentId: row.fiscalDocumentId,
+              providerId: row.providerId,
+              cufe: null,
+              payload: row.payload,
+              payloadVersion: row.payloadVersion,
+              attempts: 0,
+              nextRetryAt: null,
+              lastError: null,
+              priority: -1, // ahead of regular sales
+              claimToken: null,
+              lockedAt: null,
+              createdAt: nowIso,
+              updatedAt: nowIso,
+            })
+            .run();
+          tx.update(fiscalDocuments)
+            .set({ status: 'pending', updatedAt: nowIso })
+            .where(
+              and(
+                eq(fiscalDocuments.id, input.fiscalDocumentId),
+                eq(fiscalDocuments.tenantId, ctx.tenantId)
+              )
+            )
+            .run();
+        });
+        if (worker) {
+          worker.tickOnce(ctx.tenantId).catch(() => {
+            /* swallow */
+          });
+        }
+        return { rearmed: false as const, requeuedAs: newOutboxId };
+      }
+
+      // Queued / submitting / accepted: no-op.
+      return { rearmed: false as const };
     }),
 });
 
