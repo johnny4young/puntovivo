@@ -32,8 +32,6 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
-  cashMovements,
-  cashSessions,
   customers,
   inventoryBalances,
   inventoryMovements,
@@ -50,7 +48,8 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
-  getCashMovementSignedAmount,
+  assertCashSessionStillOpen,
+  insertCashMovement,
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
@@ -353,90 +352,6 @@ async function resolveSaleItems(
   };
 }
 
-/**
- * ENG-042 TOCTOU defense for sale lifecycle transactions.
- *
- * `requireActiveCashSession(...)` runs OUTSIDE the transaction (as a
- * fast-fail UX guard, so the common no-session case never opens a
- * BEGIN). This helper re-validates the session is still open against
- * the in-transaction snapshot before any sale write touches
- * `cashSessionId`. Without it, a concurrent `cashSessions.close`
- * between the outer check and the transaction body would silently bind
- * the new sale (or refund / completion) to a now-closed shift.
- */
-function assertCashSessionStillOpen(
-  tx: Pick<DatabaseInstance, 'select'>,
-  tenantId: string,
-  cashSessionId: string
-): void {
-  const stillOpen = tx
-    .select({ id: cashSessions.id })
-    .from(cashSessions)
-    .where(
-      and(
-        eq(cashSessions.id, cashSessionId),
-        eq(cashSessions.tenantId, tenantId),
-        eq(cashSessions.status, 'open')
-      )
-    )
-    .get();
-
-  if (!stillOpen) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'CASH_SESSION_REQUIRED',
-      message:
-        'Cash session was closed between the precondition check and the transaction body',
-      details: { cashSessionId },
-    });
-  }
-}
-
-interface InsertCashMovementArgs {
-  tx: DatabaseInstance;
-  tenantId: string;
-  sessionId: string;
-  type: 'sale' | 'refund';
-  amount: number;
-  referenceId: string;
-  note: string;
-  createdBy: string;
-  createdAt: string;
-}
-
-function insertCashMovement(args: InsertCashMovementArgs): string | null {
-  if (args.amount <= 0) {
-    return null;
-  }
-
-  const id = nanoid();
-  args.tx
-    .insert(cashMovements)
-    .values({
-      id,
-      tenantId: args.tenantId,
-      sessionId: args.sessionId,
-      type: args.type,
-      amount: args.amount,
-      referenceId: args.referenceId,
-      note: args.note,
-      createdBy: args.createdBy,
-      createdAt: args.createdAt,
-    })
-    .run();
-
-  args.tx
-    .update(cashSessions)
-    .set({
-      expectedBalance: sql`${cashSessions.expectedBalance} + ${getCashMovementSignedAmount(args.type, args.amount)}`,
-      updatedAt: args.createdAt,
-    })
-    .where(eq(cashSessions.id, args.sessionId))
-    .run();
-
-  return id;
-}
-
 /* ------------------------------------------------------------------ */
 /*  Journal lookup — best-effort.                                     */
 /* ------------------------------------------------------------------ */
@@ -693,7 +608,7 @@ async function runFreshSale(
           syncVersion: sql`${products.syncVersion} + 1`,
           updatedAt: now,
         })
-        .where(eq(products.id, row.productId))
+        .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
         .run();
 
       const inventoryMovementId = nanoid();

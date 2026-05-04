@@ -188,3 +188,64 @@ export function getNormalizedSaleQuantity(quantity: number, equivalence: number)
 }
 
 export const PAYMENT_SUM_EPSILON_VALUE = PAYMENT_SUM_EPSILON;
+
+/**
+ * Concatenate a "Voided: <reason>" suffix onto an existing sale's
+ * notes string. Pure: no DB access. Returns the original notes when
+ * `reason` is empty so the column never gets a trailing separator
+ * with nothing after it.
+ *
+ * Originally inlined in `trpc/routers/sales.ts`; ENG-055 promoted to
+ * the policies module for reuse by `voidSale`.
+ */
+export function buildVoidedSaleNotes(
+  existingNotes: string | null,
+  reason: string | undefined | null
+): string | null {
+  if (!reason) {
+    return existingNotes;
+  }
+  return `${existingNotes ? `${existingNotes} | ` : ''}Voided: ${reason}`;
+}
+
+/**
+ * Concatenate a "Refunded: <reason>" suffix onto an existing sale's
+ * notes string. Pure: no DB access. Returns the original notes when
+ * `reason` is empty.
+ *
+ * Originally inlined in `trpc/routers/sales.ts`; ENG-055 promoted to
+ * the policies module for reuse by `returnSale`.
+ */
+export function buildReturnedSaleNotes(
+  existingNotes: string | null,
+  reason: string | undefined | null
+): string | null {
+  if (!reason) {
+    return existingNotes;
+  }
+  return `${existingNotes ? `${existingNotes} | ` : ''}Refunded: ${reason}`;
+}
+
+/**
+ * Compute the cash amount that was effectively persisted to the cash
+ * session for a completed sale. Used by the void / refund paths to
+ * size the reversal cash movement.
+ *
+ * - Non-cash tenders contribute zero.
+ * - Pending or refunded sales contribute zero (no cash actually
+ *   landed in the drawer for them).
+ * - Otherwise the full sale total is the persisted cash contribution.
+ */
+export function getPersistedCashContribution(sale: {
+  paymentMethod: SalePaymentMethod;
+  paymentStatus: SalePaymentStatus;
+  total: number;
+}): number {
+  if (sale.paymentMethod !== 'cash') {
+    return 0;
+  }
+  if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+    return 0;
+  }
+  return sale.total;
+}
