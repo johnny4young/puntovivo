@@ -54,6 +54,15 @@ export interface MockAdapterOptions {
   contingencyOracle?: (
     input: FiscalAdapterIssueInput
   ) => FiscalDocumentStatus | undefined;
+  /**
+   * ENG-057 — Optional hook fired before emission to simulate an
+   * outage-via-throw. The fiscal worker's normalizer maps the
+   * thrown error into a `NormalizedFiscalError`; the kernel
+   * transitions to `retrying` (recoverable) or `dead_letter`
+   * (non-recoverable). Pair with `FiscalProviderError` for typed
+   * provider rejections.
+   */
+  throwOracle?: (input: FiscalAdapterIssueInput) => Error | undefined;
   /** Stringly-typed environment flag forwarded to CUFE compute. Default '2' (sandbox). */
   environment?: FiscalEnvironment;
 }
@@ -82,6 +91,10 @@ export class ColombiaMockAdapter implements FiscalAdapter {
   }
 
   async issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult> {
+    const thrown = this.options.throwOracle?.(input);
+    if (thrown) {
+      throw thrown;
+    }
     const environment = this.options.environment ?? input.environment ?? '2';
     const cufe = computeCufe({
       documentNumber: input.resolution.documentNumber,

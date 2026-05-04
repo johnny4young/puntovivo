@@ -92,6 +92,13 @@
       "when": 1782259200000,
       "tag": "0012_operation_journal_and_outbox_kernel",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1782345600000,
+      "tag": "0013_fiscal_outbox",
+      "breakpoints": true
     }
   ]
 }
