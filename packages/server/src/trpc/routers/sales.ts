@@ -14,7 +14,7 @@
  * @module trpc/routers/sales
  */
 
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
@@ -30,18 +30,12 @@ import {
   cashSessions,
   customers,
   fiscalDocuments,
-  inventoryBalances,
   inventoryMovements,
   products,
-  salePayments,
   saleItems,
   saleReturns,
   sales,
-  sequentials,
-  sites,
   syncQueue,
-  unitXProduct,
-  units,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
@@ -59,22 +53,21 @@ import {
   updateSaleInput,
   voidSaleInput,
 } from '../schemas/sales.js';
-import type { CreateSaleInput } from '../schemas/sales.js';
 import { requireActiveCashSession } from '../../services/cash-session.js';
 import { getCashMovementSignedAmount } from '../../services/cash-session.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
-import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
-import {
-  applyInventoryBalanceDelta,
-  ensureInventoryBalancesForSite,
-} from '../../services/inventory-balances.js';
-import { emitFiscalDocument } from '../../services/fiscal/orchestrator.js';
-import { getFiscalAdapter } from '../../services/fiscal/registry.js';
-import { resolveTenantLocale } from '../../services/tenant-locale.js';
-import type {
-  FiscalDocumentKind,
-  FiscalDocumentSource,
-} from '../../db/schema.js';
+import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import { createModuleLogger } from '../../logging/logger.js';
+// ENG-054 — `sales.create` and `sales.completeDraft` orchestration now
+// lives in `application/sales/completeSale`. The router keeps the
+// other procedures (returnSale, void, suspend, resume, listDrafts,
+// discardDraft, getForReprint) inline while ENG-055 finishes the
+// extraction.
+import { completeSale } from '../../application/sales/completeSale.js';
+import { getSaleRecord } from '../../application/sales/sale-read.js';
+
+const fiscalRouterLog = createModuleLogger('routers/sales/fiscal');
 
 /**
  * ENG-042 TOCTOU defense for sale lifecycle transactions.
@@ -126,94 +119,43 @@ function assertCashSessionStillOpen(
 }
 
 /**
- * ENG-020 — best-effort fiscal emission post-transaction. The sale
- * lifecycle tx has already committed by the time this runs; an
- * emission failure (PT outage, missing resolution, malformed input)
- * MUST NOT roll back the sale. The orchestrator itself is idempotent
- * by `(tenantId, source, sourceId, kind)`, so a later retry (from the
- * contingency daemon planned in ENG-021) picks the dropped emission
- * back up without duplicating it.
- *
- * When the tenant has not opted into DIAN (feature flag off) the
- * orchestrator returns `null` without throwing. Errors are logged
- * but swallowed — this function never throws.
+ * ENG-054 — Local helper that adapts the tRPC `Context` to the
+ * `safelyEmitFiscalDocument` signature exported from
+ * `services/fiscal/orchestrator`. Keeps the four legacy callsites
+ * (returnSale, void, suspend → resume → discardDraft path) compact
+ * without leaking the orchestrator's primitive shape across the file.
  */
-async function safelyEmitFiscalDocument(
+async function safelyEmitFiscalForCtx(
   ctx: Context,
   args: {
-    source: FiscalDocumentSource;
+    source: 'sale' | 'return' | 'void';
     sourceId: string;
     saleId: string;
-    kind: FiscalDocumentKind;
+    kind: 'DEE' | 'NC' | 'ND';
     originalCufe?: string;
     reasonCode?: string;
   }
 ): Promise<void> {
   if (!ctx.tenantId || !ctx.user) return;
-  try {
-    // ENG-034 — dispatch the country-specific fiscal adapter via the
-    // typed registry. `resolveTenantLocale` is the canonical reader
-    // for the tenant's `countryCode` (CO / MX / CL). Fresh tenants
-    // without locale settings resolve to US/USD; the registry handles
-    // unsupported country codes with its own default.
-    const fiscalLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
-    await emitFiscalDocument({
-      tx: ctx.db,
-      tenantId: ctx.tenantId,
-      userId: ctx.user.id,
-      source: args.source,
-      sourceId: args.sourceId,
-      saleId: args.saleId,
-      kind: args.kind,
-      originalCufe: args.originalCufe,
-      reasonCode: args.reasonCode,
-      adapter: getFiscalAdapter(fiscalLocale.countryCode),
-    });
-  } catch (err) {
-    const log = ctx.req?.server?.log;
-    if (log) {
-      log.warn(
-        {
-          err,
-          tenantId: ctx.tenantId,
-          saleId: args.saleId,
-          source: args.source,
-          kind: args.kind,
-        },
-        'fiscal emission failed (non-blocking)'
-      );
-    }
-  }
+  await safelyEmitFiscalDocument({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    userId: ctx.user.id,
+    log: ctx.req?.server?.log ?? fiscalRouterLog,
+    source: args.source,
+    sourceId: args.sourceId,
+    saleId: args.saleId,
+    kind: args.kind,
+    originalCufe: args.originalCufe,
+    reasonCode: args.reasonCode,
+  });
 }
 
-type ResolvedSaleItem = {
-  id: string;
-  productId: string;
-  quantity: number;
-  unitPrice: number;
-  // ENG-007 — the `unit_x_product.price` at the moment this line was resolved,
-  // used by `sales.create` to detect manual price overrides and write a
-  // single `sale.price_override` audit row when a cashier deviates from the
-  // catalog.
-  referenceUnitPrice: number;
-  productName: string;
-  unitId: string;
-  unitEquivalence: number;
-  discount: number;
-  taxRate: number;
-  taxAmount: number;
-  costAtSale: number;
-  total: number;
-  normalizedQuantity: number;
-};
-
-type SaleSequentialContext = {
-  id: string;
-  prefix: string;
-  currentValue: number;
-  siteId: string;
-  siteName: string;
-};
+// ENG-054 — pure policy primitives + resolved-line / sequential
+// types moved to `application/sales/policies.ts` and
+// `application/sales/completeSale.ts`. Helpers used only by the
+// remaining router-resident procedures (returnSale, void,
+// suspend/resume/discardDraft) stay below.
 
 function getNormalizedSaleQuantity(quantity: number, equivalence: number) {
   const normalizedQuantity = quantity * equivalence;
@@ -227,47 +169,6 @@ function getNormalizedSaleQuantity(quantity: number, equivalence: number) {
   }
 
   return normalizedQuantity;
-}
-
-function getPaymentStatus({
-  amountReceived,
-  paymentMethod,
-  requestedStatus,
-  total,
-  isSplit,
-}: {
-  amountReceived: number | undefined;
-  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-  requestedStatus: 'pending' | 'paid' | 'partial' | 'refunded';
-  total: number;
-  isSplit?: boolean;
-}) {
-  // Split payments are validated up-front to sum exactly to the total, so by
-  // definition the sale is fully paid the moment we reach here. This check
-  // must precede the credit guard: credit is excluded from
-  // `splitPaymentMethodEnum` today, but if a split ever mixes credit
-  // (on-account tender in Phase 5) the split invariant still applies.
-  if (isSplit) {
-    return 'paid' as const;
-  }
-
-  if (paymentMethod === 'credit') {
-    return requestedStatus;
-  }
-
-  if (amountReceived === undefined) {
-    return requestedStatus;
-  }
-
-  if (amountReceived >= total) {
-    return 'paid' as const;
-  }
-
-  if (amountReceived > 0) {
-    return 'partial' as const;
-  }
-
-  return requestedStatus;
 }
 
 function buildVoidedSaleNotes(existingNotes: string | null, reason: string | undefined) {
@@ -286,28 +187,6 @@ function buildReturnedSaleNotes(existingNotes: string | null, reason: string | u
   return `${existingNotes ? `${existingNotes} | ` : ''}Refunded: ${reason}`;
 }
 
-function getCashCollectedAmount({
-  paymentMethod,
-  amountReceived,
-  total,
-  change,
-}: {
-  paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-  amountReceived: number | undefined;
-  total: number;
-  change: number;
-}) {
-  if (paymentMethod !== 'cash') {
-    return 0;
-  }
-
-  if (amountReceived === undefined) {
-    return total;
-  }
-
-  return Math.max(0, amountReceived - change);
-}
-
 function getPersistedCashContribution(sale: {
   paymentMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
   paymentStatus: 'pending' | 'paid' | 'partial' | 'refunded';
@@ -322,69 +201,6 @@ function getPersistedCashContribution(sale: {
   }
 
   return sale.total;
-}
-
-const PAYMENT_SUM_EPSILON = 0.005;
-
-interface ResolvedSalePayment {
-  method: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-  amount: number;
-  reference: string | null;
-}
-
-/**
- * Normalizes the two create-sale input modes into a single list of payment
- * rows the persistence layer can write verbatim:
- *
- * - Multi-tender: caller supplied `input.payments`. Validate that the sum
- *   matches the sale total within a cent of tolerance.
- * - Legacy single-tender: derive one row from `paymentMethod`, cap its
- *   amount at the total (cash tenders may receive > total — the overage is
- *   change, not a persisted tender).
- *
- * Returns the normalized list plus the dominant `paymentMethod` to echo
- * onto `sales.paymentMethod`. For split payments the dominant tender is the
- * one with the largest amount, breaking ties with the first-supplied entry.
- */
-function resolveSalePayments(args: {
-  payments: ResolvedSalePayment[] | undefined;
-  legacyMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-  amountReceived: number | undefined;
-  total: number;
-}): { rows: ResolvedSalePayment[]; dominantMethod: ResolvedSalePayment['method'] } {
-  if (args.payments && args.payments.length > 0) {
-    const sum = args.payments.reduce((acc, payment) => acc + payment.amount, 0);
-    if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_PAYMENTS_SUM_MISMATCH',
-        message: 'Sum of payments must equal the sale total',
-        details: { sum, total: args.total },
-      });
-    }
-
-    const dominant = args.payments.reduce((best, payment) =>
-      payment.amount > best.amount ? payment : best
-    );
-    return { rows: args.payments, dominantMethod: dominant.method };
-  }
-
-  // Legacy single-tender path: one payment row whose amount equals the sale
-  // total (cash overage is change, not a tender).
-  const legacyAmount = Math.min(
-    args.amountReceived ?? args.total,
-    args.total
-  );
-  return {
-    rows: [
-      {
-        method: args.legacyMethod,
-        amount: legacyAmount,
-        reference: null,
-      },
-    ],
-    dominantMethod: args.legacyMethod,
-  };
 }
 
 function insertCashMovement(args: {
@@ -435,319 +251,12 @@ function getRevenueEligibleSaleConditions(tenantId: string) {
   ] as const;
 }
 
-async function getSaleSequentialContext(
-  db: Context['db'],
-  tenantId: string,
-  siteId: string | null
-): Promise<SaleSequentialContext> {
-  const baseConditions = [
-    eq(sequentials.tenantId, tenantId),
-    eq(sequentials.documentType, 'sale'),
-    eq(sites.isActive, true),
-  ];
-
-  if (siteId) {
-    const siteScopedSequential = await db
-      .select({
-        id: sequentials.id,
-        prefix: sequentials.prefix,
-        currentValue: sequentials.currentValue,
-        siteId: sequentials.siteId,
-        siteName: sites.name,
-      })
-      .from(sequentials)
-      .innerJoin(sites, eq(sequentials.siteId, sites.id))
-      .where(and(...baseConditions, eq(sequentials.siteId, siteId)))
-      .get();
-
-    if (siteScopedSequential) {
-      return siteScopedSequential;
-    }
-  }
-
-  const fallbackSequential = await db
-    .select({
-      id: sequentials.id,
-      prefix: sequentials.prefix,
-      currentValue: sequentials.currentValue,
-      siteId: sequentials.siteId,
-      siteName: sites.name,
-    })
-    .from(sequentials)
-    .innerJoin(sites, eq(sequentials.siteId, sites.id))
-    .where(and(...baseConditions))
-    .orderBy(asc(sites.name))
-    .get();
-
-  if (!fallbackSequential) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'SALE_SEQUENTIAL_MISSING',
-      message: 'No active sale sequential is configured for the current tenant',
-    });
-  }
-
-  return fallbackSequential;
-}
-
-async function validateCustomer(
-  db: Context['db'],
-  tenantId: string,
-  customerId: string | undefined
-) {
-  if (!customerId) {
-    return;
-  }
-
-  const customer = await db
-    .select({ id: customers.id, isActive: customers.isActive })
-    .from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .get();
-
-  if (!customer || customer.isActive === false) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'SALE_CUSTOMER_INVALID',
-      message: 'Selected customer was not found or is inactive',
-    });
-  }
-}
-
-async function resolveSaleItems(
-  db: Context['db'],
-  tenantId: string,
-  siteId: string,
-  inputItems: CreateSaleInput['items']
-) {
-  const productIds = [...new Set(inputItems.map(item => item.productId))];
-  ensureInventoryBalancesForSite(db, tenantId, siteId);
-
-  const productRows = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
-    .all();
-  const productMap = new Map(productRows.map(product => [product.id, product]));
-
-  const unitAssignments = await db
-    .select({
-      productId: unitXProduct.productId,
-      unitId: unitXProduct.unitId,
-      equivalence: unitXProduct.equivalence,
-      // ENG-007 — read the per-unit catalog price so `sales.create` can
-      // detect manual price overrides (cashier entered a price that differs
-      // from the unit's catalog value).
-      price: unitXProduct.price,
-      unitName: units.name,
-      unitAbbreviation: units.abbreviation,
-      isActive: units.isActive,
-    })
-    .from(unitXProduct)
-    .innerJoin(units, eq(unitXProduct.unitId, units.id))
-    .where(inArray(unitXProduct.productId, productIds))
-    .all();
-
-  const assignmentMap = new Map(
-    unitAssignments.map(assignment => [`${assignment.productId}:${assignment.unitId}`, assignment])
-  );
-  const siteBalanceRows = await db
-    .select({
-      productId: inventoryBalances.productId,
-      onHand: inventoryBalances.onHand,
-    })
-    .from(inventoryBalances)
-    .where(
-      and(
-        eq(inventoryBalances.tenantId, tenantId),
-        eq(inventoryBalances.siteId, siteId),
-        inArray(inventoryBalances.productId, productIds)
-      )
-    )
-    .all();
-  const remainingSiteStockByProduct = new Map(
-    siteBalanceRows.map(balance => [balance.productId, balance.onHand])
-  );
-
-  let subtotal = 0;
-  let taxAmount = 0;
-
-  const rows: ResolvedSaleItem[] = [];
-
-  for (const item of inputItems) {
-    const product = productMap.get(item.productId);
-
-    if (!product || product.isActive === false) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'SALE_PRODUCT_INVALID',
-        message: `Product ${item.productId} was not found or is inactive`,
-        details: { productId: item.productId, productName: product?.name ?? item.productId },
-      });
-    }
-
-    const assignment = assignmentMap.get(`${item.productId}:${item.unitId}`);
-    if (!assignment || assignment.isActive === false) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_UNIT_INVALID',
-        message: `Unit selection is invalid for product "${product.name}"`,
-        details: { productName: product.name, unitId: item.unitId },
-      });
-    }
-
-    assertSaleQuantityAllowed(item.quantity, {
-      name: product.name,
-      sellByFraction: product.sellByFraction ?? false,
-      fractionStep: product.fractionStep,
-      fractionMinimum: product.fractionMinimum,
-    });
-
-    const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, assignment.equivalence);
-    const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
-
-    if (remainingStock < normalizedQuantity) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'SALE_INSUFFICIENT_STOCK',
-        message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
-        details: {
-          productName: product.name,
-          available: remainingStock,
-          requested: normalizedQuantity,
-        },
-      });
-    }
-
-    remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
-
-    const grossAmount = item.unitPrice * item.quantity;
-    const discountAmount = grossAmount * (item.discount / 100);
-    const lineTotal = grossAmount - discountAmount;
-    const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const lineBase = taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal;
-    const lineTax = lineTotal - lineBase;
-
-    subtotal += lineBase;
-    taxAmount += lineTax;
-
-    rows.push({
-      id: nanoid(),
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      referenceUnitPrice: assignment.price,
-      productName: product.name,
-      unitId: item.unitId,
-      unitEquivalence: assignment.equivalence,
-      discount: item.discount,
-      taxRate,
-      taxAmount: lineTax,
-      costAtSale: product.cost,
-      total: lineTotal,
-      normalizedQuantity,
-    });
-  }
-
-  return {
-    productStocks: new Map(productRows.map(product => [product.id, product.stock])),
-    subtotal,
-    taxAmount,
-    rows,
-  };
-}
-
-async function getSaleRecord(db: Context['db'], tenantId: string, saleId: string) {
-  const sale = await db
-    .select({
-      id: sales.id,
-      tenantId: sales.tenantId,
-      saleNumber: sales.saleNumber,
-      customerId: sales.customerId,
-      customerName: customers.name,
-      subtotal: sales.subtotal,
-      taxAmount: sales.taxAmount,
-      discountAmount: sales.discountAmount,
-      total: sales.total,
-      paymentMethod: sales.paymentMethod,
-      paymentStatus: sales.paymentStatus,
-      status: sales.status,
-      notes: sales.notes,
-      createdBy: sales.createdBy,
-      // ENG-018 — park-and-resume bookkeeping. Surfacing these on the
-      // read side lets the resume panel and the sale-details modal show
-      // who suspended the draft without a second round trip.
-      suspendedAt: sales.suspendedAt,
-      suspendedBy: sales.suspendedBy,
-      suspendedLabel: sales.suspendedLabel,
-      // ENG-019 — reprint counters drive the "reimpresa N veces" banner.
-      reprintCount: sales.reprintCount,
-      lastReprintedAt: sales.lastReprintedAt,
-      lastReprintedBy: sales.lastReprintedBy,
-      syncStatus: sales.syncStatus,
-      syncVersion: sales.syncVersion,
-      createdAt: sales.createdAt,
-      updatedAt: sales.updatedAt,
-      returnId: saleReturns.id,
-      returnReason: saleReturns.reason,
-      refundAmount: saleReturns.refundAmount,
-      returnedAt: saleReturns.createdAt,
-    })
-    .from(sales)
-    .leftJoin(customers, eq(sales.customerId, customers.id))
-    .leftJoin(saleReturns, eq(saleReturns.saleId, sales.id))
-    .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
-    .get();
-
-  if (!sale) {
-    throwServerError({
-      trpcCode: 'NOT_FOUND',
-      errorCode: 'SALE_NOT_FOUND',
-      message: 'Sale not found',
-    });
-  }
-
-  const items = await db
-    .select({
-      id: saleItems.id,
-      saleId: saleItems.saleId,
-      productId: saleItems.productId,
-      productName: products.name,
-      productSku: products.sku,
-      quantity: saleItems.quantity,
-      unitPrice: saleItems.unitPrice,
-      unitId: saleItems.unitId,
-      unitEquivalence: saleItems.unitEquivalence,
-      unitName: units.name,
-      unitAbbreviation: units.abbreviation,
-      discount: saleItems.discount,
-      taxRate: saleItems.taxRate,
-      taxAmount: saleItems.taxAmount,
-      costAtSale: saleItems.costAtSale,
-      total: saleItems.total,
-    })
-    .from(saleItems)
-    .leftJoin(products, eq(saleItems.productId, products.id))
-    .leftJoin(units, eq(saleItems.unitId, units.id))
-    .where(eq(saleItems.saleId, saleId))
-    .all();
-
-  // Phase 2 Tier-2 step 5 — every sale has at least one payment row now.
-  const payments = await db
-    .select({
-      id: salePayments.id,
-      method: salePayments.method,
-      amount: salePayments.amount,
-      reference: salePayments.reference,
-      createdAt: salePayments.createdAt,
-    })
-    .from(salePayments)
-    .where(eq(salePayments.saleId, saleId))
-    .orderBy(salePayments.createdAt)
-    .all();
-
-  return { ...sale, items, payments };
-}
+// ENG-054 — `getSaleSequentialContext`, `validateCustomer`, and
+// `resolveSaleItems` were moved to `application/sales/completeSale.ts`
+// because only the fresh-sale path used them. ENG-055 will move the
+// remaining legacy helpers (`assertCashSessionStillOpen`,
+// `getNormalizedSaleQuantity`, `insertCashMovement`) when it extracts
+// returnSale / voidSale / discardDraft.
 
 export const salesRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
@@ -883,309 +392,37 @@ export const salesRouter = router({
    * - Persists unit snapshots for every line
    * - Decrements product stock using normalized quantities
    * - Creates inventory movements and advances the site sequential
+   *
+   * ENG-054 — orchestration delegated to
+   * `application/sales/completeSale`. The router only adapts tRPC
+   * input to the use-case shape and returns the resulting record.
    */
   create: criticalCommandProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
-    const now = new Date().toISOString();
-    const saleId = nanoid();
-
-    await validateCustomer(ctx.db, ctx.tenantId, input.customerId);
-    const activeCashSession = await requireActiveCashSession(
-      ctx.db,
-      ctx.tenantId,
-      ctx.siteId,
-      ctx.user!.id
-    );
-
-    const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
-    const saleSiteId = activeCashSession.siteId;
-    const resolvedItems = await resolveSaleItems(
-      ctx.db,
-      ctx.tenantId,
-      saleSiteId,
-      input.items
-    );
-    const subtotal = resolvedItems.subtotal;
-    const taxAmount = resolvedItems.taxAmount;
-    const total = subtotal + taxAmount - (input.discountAmount ?? 0);
-    if (total < 0) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
-        message: 'Discount amount cannot exceed the sale total',
-      });
-    }
-    // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
-    const resolvedPayments = resolveSalePayments({
-      payments: input.payments?.map(payment => ({
-        method: payment.method,
-        amount: payment.amount,
-        reference: payment.reference ?? null,
-      })),
-      legacyMethod: input.paymentMethod,
-      amountReceived: input.amountReceived,
-      total,
-    });
-    const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
-
-    const paymentStatus = getPaymentStatus({
-      amountReceived: input.amountReceived,
-      paymentMethod: resolvedPayments.dominantMethod,
-      requestedStatus: input.paymentStatus,
-      total,
-      isSplit: isSplitPayment,
-    });
-    const change =
-      input.amountReceived !== undefined && input.amountReceived > total
-        ? input.amountReceived - total
-        : 0;
-    // Cash collected is the sum of cash-method tenders when split, or the
-    // legacy amountReceived-minus-change when single-tender.
-    const cashCollectedAmount =
-      input.status === 'completed'
-        ? isSplitPayment
-          ? resolvedPayments.rows
-              .filter(payment => payment.method === 'cash')
-              .reduce((acc, payment) => acc + payment.amount, 0)
-          : getCashCollectedAmount({
-              paymentMethod: input.paymentMethod,
-              amountReceived: input.amountReceived,
-              total,
-              change,
-            })
-        : 0;
-
-    if (
-      !isSplitPayment &&
-      input.amountReceived !== undefined &&
-      paymentStatus === 'paid' &&
-      input.amountReceived < total
-    ) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
-        message: 'Amount received cannot be less than the sale total for a paid sale',
-      });
-    }
-
-    const nextSequentialValue = sequentialContext.currentValue + 1;
-    const saleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
-    const productStockState = new Map(resolvedItems.productStocks);
-
-    ctx.db.transaction(tx => {
-      // ENG-042 TOCTOU defense: the outer requireActiveCashSession check
-      // ran before this transaction opened. better-sqlite3 single-process
-      // serialization keeps the production race window small but not zero
-      // (and ENG-037 libSQL/Turso replication will widen it). Re-verify
-      // the session is still open against the transaction snapshot so the
-      // sale is never bound to a session that closed mid-flight.
-      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
-
-      tx.update(sequentials)
-        .set({
-          currentValue: nextSequentialValue,
-          updatedAt: now,
-        })
-        .where(eq(sequentials.id, sequentialContext.id))
-        .run();
-
-      tx.insert(sales)
-        .values({
-          id: saleId,
-          tenantId: ctx.tenantId,
-          saleNumber,
-          customerId: input.customerId,
-          subtotal,
-          taxAmount,
-          discountAmount: input.discountAmount ?? 0,
-          total,
-          // Echo the dominant tender onto the legacy `paymentMethod` column so
-          // older screens that read it directly keep rendering sensibly.
-          paymentMethod: resolvedPayments.dominantMethod,
-          paymentStatus,
-          status: input.status,
-          cashSessionId: activeCashSession.id,
-          notes: input.notes,
-          createdBy: ctx.user!.id,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
-
-      // Phase 2 Tier-2 step 5 — persist one row per tender.
-      for (const payment of resolvedPayments.rows) {
-        tx.insert(salePayments)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            saleId,
-            method: payment.method,
-            amount: payment.amount,
-            reference: payment.reference,
-            syncStatus: 'pending',
-            syncVersion: 1,
-            createdAt: now,
-          })
-          .run();
-      }
-
-      for (const row of resolvedItems.rows) {
-        tx.insert(saleItems)
-          .values({
-            id: row.id,
-            saleId,
-            productId: row.productId,
-            quantity: row.quantity,
-            unitPrice: row.unitPrice,
-            unitId: row.unitId,
-            unitEquivalence: row.unitEquivalence,
-            discount: row.discount,
-            taxRate: row.taxRate,
-            taxAmount: row.taxAmount,
-            costAtSale: row.costAtSale,
-            total: row.total,
-          })
-          .run();
-
-        const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
-        const newStock = effectivePreviousStock - row.normalizedQuantity;
-
-        productStockState.set(row.productId, newStock);
-
-        tx.update(products)
-          .set({
-            stock: newStock,
-            syncStatus: 'pending',
-            syncVersion: sql`${products.syncVersion} + 1`,
-            updatedAt: now,
-          })
-          .where(eq(products.id, row.productId))
-          .run();
-
-        tx.insert(inventoryMovements)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            productId: row.productId,
-            type: 'sale',
-            quantity: row.normalizedQuantity,
-            previousStock: effectivePreviousStock,
-            newStock,
-            reference: saleId,
-            notes: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
-            createdBy: ctx.user!.id,
-            syncStatus: 'pending',
-            syncVersion: 1,
-            createdAt: now,
-          })
-          .run();
-
-        // Phase 2 API-103: debit the cash session's site so per-site balances
-        // reflect where the sale actually happened, even if the sequential
-        // had to fall back to a different site's numbering configuration.
-        // Pass the pre-sale stock snapshot so a missing row is seeded from
-        // the value that existed BEFORE this sale decremented `products.stock`.
-        applyInventoryBalanceDelta(tx, {
-          tenantId: ctx.tenantId,
-          siteId: saleSiteId,
-          productId: row.productId,
-          delta: -row.normalizedQuantity,
-          initialOnHandIfMissing: effectivePreviousStock,
-          now,
-        });
-      }
-
-      insertCashMovement({
-        tx,
+    const result = await completeSale(
+      {
+        db: ctx.db,
         tenantId: ctx.tenantId,
-        sessionId: activeCashSession.id,
-        type: 'sale',
-        amount: cashCollectedAmount,
-        referenceId: saleId,
-        note: `Sale ${saleNumber} · ${sequentialContext.siteName}`,
-        createdBy: ctx.user!.id,
-        createdAt: now,
-      });
-
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'sales',
-          entityId: saleId,
-          operation: 'create',
-          data: {
-            id: saleId,
-            saleNumber,
-            total,
-            siteId: saleSiteId,
-            cashSessionId: activeCashSession.id,
-            paymentStatus,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
-
-      // ENG-007 — detect manual price overrides. A line qualifies as an
-      // override when `unitPrice` deviates from the per-unit catalog price
-      // (`unit_x_product.price`) at the moment of sale, beyond a cent of
-      // tolerance. One audit row summarizes every overridden line on the
-      // sale so the timeline stays flat even when a cashier discounts many
-      // items in the same ticket.
-      const PRICE_OVERRIDE_EPSILON = 0.005;
-      const overrides = resolvedItems.rows
-        .filter(
-          row =>
-            Math.abs(row.unitPrice - row.referenceUnitPrice) >=
-            PRICE_OVERRIDE_EPSILON
-        )
-        .map(row => ({
-          saleItemId: row.id,
-          productId: row.productId,
-          productName: row.productName,
-          referenceUnitPrice: row.referenceUnitPrice,
-          unitPrice: row.unitPrice,
-          quantity: row.quantity,
-        }));
-
-      if (overrides.length > 0) {
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'sale.price_override',
-          resourceType: 'sale',
-          resourceId: saleId,
-          before: null,
-          after: {
-            saleNumber,
-            overrideCount: overrides.length,
-          },
-          metadata: { overrides },
-        });
+        siteId: ctx.siteId ?? '',
+        user: { id: ctx.user!.id, role: ctx.user!.role },
+        envelope: (ctx as unknown as { envelope?: { operationId: string } }).envelope ?? null,
+        deviceId:
+          (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
+        log: ctx.req?.server?.log,
+      },
+      {
+        mode: 'fresh',
+        customerId: input.customerId,
+        items: input.items,
+        payments: input.payments,
+        paymentMethod: input.paymentMethod,
+        amountReceived: input.amountReceived,
+        paymentStatus: input.paymentStatus,
+        discountAmount: input.discountAmount,
+        status: input.status,
+        notes: input.notes,
       }
-    });
-
-    const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
-
-    // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
-    // `completed`. Drafts never emit. Runs post-tx best-effort.
-    if (input.status === 'completed') {
-      await safelyEmitFiscalDocument(ctx, {
-        source: 'sale',
-        sourceId: saleId,
-        saleId,
-        kind: 'DEE',
-      });
-    }
-
-    return {
-      ...created,
-      change,
-    };
+    );
+    return result.sale;
   }),
 
   /**
@@ -1543,7 +780,7 @@ export const salesRouter = router({
         )
       )
       .get();
-    await safelyEmitFiscalDocument(ctx, {
+    await safelyEmitFiscalForCtx(ctx, {
       source: 'return',
       sourceId: refundId,
       saleId: input.id,
@@ -1793,7 +1030,7 @@ export const salesRouter = router({
         )
       )
       .get();
-    await safelyEmitFiscalDocument(ctx, {
+    await safelyEmitFiscalForCtx(ctx, {
       source: 'void',
       sourceId: input.id,
       saleId: input.id,
@@ -2315,249 +1552,34 @@ export const salesRouter = router({
   completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(sales)
-        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-        .get();
-
-      if (!existing) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'SALE_NOT_FOUND',
-          message: 'Sale not found',
-        });
-      }
-
-      if (existing.status !== 'draft') {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_DRAFT_REQUIRED',
-          message: 'Only draft sales can be completed',
-          details: { operation: 'complete', actualStatus: existing.status },
-        });
-      }
-
-      if (existing.suspendedAt) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_COMPLETE_DRAFT_SUSPENDED',
-          message:
-            'Resume the draft with sales.resume before completing it',
-          details: { saleId: input.saleId },
-        });
-      }
-
-      const actorRole = ctx.user?.role;
-      const isCreator = existing.createdBy === ctx.user!.id;
-      const canOverride = actorRole === 'manager' || actorRole === 'admin';
-
-      if (!isCreator && !canOverride) {
-        throwServerError({
-          trpcCode: 'FORBIDDEN',
-          errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-          message: 'Only the cashier who created this draft can complete it',
-          details: { operation: 'complete' },
-        });
-      }
-
-      const activeCashSession = await requireActiveCashSession(
-        ctx.db,
-        ctx.tenantId,
-        ctx.siteId,
-        ctx.user!.id
-      );
-
-      const lineItemCount = await ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(saleItems)
-        .where(eq(saleItems.saleId, input.saleId))
-        .get();
-
-      if (!lineItemCount || (lineItemCount.count ?? 0) === 0) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_WITHOUT_ITEMS',
-          message: 'Cannot complete a draft without line items',
-        });
-      }
-
-      const total = existing.total;
-
-      const resolvedPayments = resolveSalePayments({
-        payments: input.payments?.map(payment => ({
-          method: payment.method,
-          amount: payment.amount,
-          reference: payment.reference ?? null,
-        })),
-        legacyMethod: input.paymentMethod,
-        amountReceived: input.amountReceived,
-        total,
-      });
-      const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
-
-      const paymentStatus = getPaymentStatus({
-        amountReceived: input.amountReceived,
-        paymentMethod: resolvedPayments.dominantMethod,
-        requestedStatus: input.paymentStatus,
-        total,
-        isSplit: isSplitPayment,
-      });
-      const change =
-        input.amountReceived !== undefined && input.amountReceived > total
-          ? input.amountReceived - total
-          : 0;
-      const cashCollectedAmount = isSplitPayment
-        ? resolvedPayments.rows
-            .filter(payment => payment.method === 'cash')
-            .reduce((acc, payment) => acc + payment.amount, 0)
-        : getCashCollectedAmount({
-            paymentMethod: input.paymentMethod,
-            amountReceived: input.amountReceived,
-            total,
-            change,
-          });
-
-      if (
-        !isSplitPayment &&
-        input.amountReceived !== undefined &&
-        paymentStatus === 'paid' &&
-        input.amountReceived < total
-      ) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
-          message:
-            'Amount received cannot be less than the sale total for a paid sale',
-        });
-      }
-
-      const now = new Date().toISOString();
-      const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
-
-      ctx.db.transaction(tx => {
-        // ENG-042 TOCTOU defense: see sales.create for full rationale.
-        // completeDraft binds the finalized sale to activeCashSession.id;
-        // a session closed mid-flight would attach the completion to a
-        // closed shift.
-        assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
-
-        // Replace any placeholder payment rows the draft might have
-        // carried from its initial `sales.create` call with the real
-        // tenders captured at complete-time.
-        tx.delete(salePayments)
-          .where(and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId)))
-          .run();
-
-        for (const payment of resolvedPayments.rows) {
-          tx.insert(salePayments)
-            .values({
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              saleId: input.saleId,
-              method: payment.method,
-              amount: payment.amount,
-              reference: payment.reference,
-              syncStatus: 'pending',
-              syncVersion: 1,
-              createdAt: now,
-            })
-            .run();
+      // ENG-054 — orchestration delegated to
+      // `application/sales/completeSale`. The fromDraft path covers:
+      // ownership check, suspension check, draft-only invariant, line
+      // item count, payment resolution, cash session rebind, audit
+      // log emission, and post-commit fiscal emit.
+      const result = await completeSale(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId ?? '',
+          user: { id: ctx.user!.id, role: ctx.user!.role },
+          envelope:
+            (ctx as unknown as { envelope?: { operationId: string } }).envelope ?? null,
+          deviceId:
+            (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
+          log: ctx.req?.server?.log,
+        },
+        {
+          mode: 'fromDraft',
+          saleId: input.saleId,
+          payments: input.payments,
+          paymentMethod: input.paymentMethod,
+          amountReceived: input.amountReceived,
+          paymentStatus: input.paymentStatus,
+          notes: input.notes,
         }
-
-        tx.update(sales)
-          .set({
-            paymentMethod: resolvedPayments.dominantMethod,
-            paymentStatus,
-            status: 'completed',
-            // Re-bind to the active session so cash reports show the
-            // income where it physically arrived.
-            cashSessionId: activeCashSession.id,
-            notes: input.notes ?? existing.notes,
-            syncStatus: 'pending',
-            syncVersion: nextSyncVersion,
-            updatedAt: now,
-          })
-          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-          .run();
-
-        insertCashMovement({
-          tx,
-          tenantId: ctx.tenantId,
-          sessionId: activeCashSession.id,
-          type: 'sale',
-          amount: cashCollectedAmount,
-          referenceId: input.saleId,
-          note: `Sale ${existing.saleNumber} · completed from draft`,
-          createdBy: ctx.user!.id,
-          createdAt: now,
-        });
-
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: 'sales',
-            entityId: input.saleId,
-            operation: 'update',
-            data: {
-              id: input.saleId,
-              status: 'completed',
-              completedFromDraft: true,
-              total,
-              paymentStatus,
-            },
-            localVersion: nextSyncVersion,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
-
-        // Parity with void / return / park / resume / discard / reprint:
-        // every state-change on an existing sale leaves a `sale.*` audit
-        // row. `sale.complete` captures the draft → completed transition
-        // with the session rebind so auditors can trace which register
-        // actually received the cash, independent of where the draft was
-        // born.
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'sale.complete',
-          resourceType: 'sale',
-          resourceId: input.saleId,
-          before: {
-            status: 'draft',
-            cashSessionId: existing.cashSessionId,
-            paymentStatus: existing.paymentStatus,
-          },
-          after: {
-            status: 'completed',
-            cashSessionId: activeCashSession.id,
-            paymentStatus,
-            total,
-          },
-          metadata: {
-            completedFromDraft: true,
-            saleNumber: existing.saleNumber,
-            ...(input.payments && input.payments.length > 0
-              ? { tenderCount: input.payments.length }
-              : {}),
-          },
-        });
-      });
-
-      // ENG-020 — emit DIAN DEE when a draft transitions to completed.
-      // Parallels the `sales.create` hook so drafts and direct sales
-      // both produce a fiscal document on their first completion event.
-      await safelyEmitFiscalDocument(ctx, {
-        source: 'sale',
-        sourceId: input.saleId,
-        saleId: input.saleId,
-        kind: 'DEE',
-      });
-
-      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+      );
+      return result.sale;
     }),
 
   /**

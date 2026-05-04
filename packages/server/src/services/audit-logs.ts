@@ -75,12 +75,17 @@ function parseAuditLogResourceType(value: string): AuditLogResourceType {
 /**
  * Writes one audit row. MUST be called inside the caller's transaction so
  * the row and the audited action share the same atomic boundary.
+ *
+ * Returns the inserted row id so callers can correlate downstream
+ * effects (e.g. ENG-053 `operation_effects` rows of kind `audit_log`)
+ * against the audit row that was just written.
  */
-export function writeAuditLog(args: WriteAuditLogArgs): void {
+export function writeAuditLog(args: WriteAuditLogArgs): string {
+  const id = nanoid();
   args.tx
     .insert(auditLogs)
     .values({
-      id: nanoid(),
+      id,
       tenantId: args.tenantId,
       actorId: args.actorId,
       action: args.action,
@@ -92,6 +97,7 @@ export function writeAuditLog(args: WriteAuditLogArgs): void {
       createdAt: getTimestamp(),
     })
     .run();
+  return id;
 }
 
 export interface ListAuditLogsOptions {
