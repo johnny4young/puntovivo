@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, max } from 'drizzle-orm';
+import { and, asc, desc, eq, max, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import {
   cashMovementTypeEnum,
+  cashMovements,
   cashSessions,
   denominationTemplates,
   type CashSessionDenomination,
@@ -137,6 +138,141 @@ export function getCashMovementSignedAmount(type: CashMovementType, amount: numb
   }
 
   throw new Error(`Unsupported cash movement type: ${type}`);
+}
+
+/**
+ * ENG-042 / ENG-055 — TOCTOU defense for sale lifecycle transactions.
+ *
+ * `requireActiveCashSession(...)` runs OUTSIDE the transaction (as a
+ * fast-fail UX guard, so the common no-session case never opens a
+ * BEGIN). This helper re-validates the session is still open against
+ * the in-transaction snapshot before any sale write touches
+ * `cashSessionId`. Without it, a concurrent `cashSessions.close`
+ * between the outer check and the transaction body would silently
+ * bind the new sale (or refund / completion) to a now-closed shift.
+ *
+ * better-sqlite3 single-process serialization keeps the production
+ * window small but not zero, and the libSQL/Turso replication planned
+ * in ENG-037 will widen it. The defense is also structurally correct
+ * for any future runtime (Bun, Deno, multi-process) the project may
+ * adopt.
+ *
+ * Throws `CASH_SESSION_REQUIRED` (already wired in en + es locales).
+ * Originally lived inline in `trpc/routers/sales.ts` (and a private
+ * copy in `application/sales/completeSale.ts`); ENG-055 unifies the
+ * implementation here.
+ */
+export function assertCashSessionStillOpen(
+  tx: Pick<DatabaseInstance, 'select'>,
+  tenantId: string,
+  cashSessionId: string
+): void {
+  const stillOpen = tx
+    .select({ id: cashSessions.id })
+    .from(cashSessions)
+    .where(
+      and(
+        eq(cashSessions.id, cashSessionId),
+        eq(cashSessions.tenantId, tenantId),
+        eq(cashSessions.status, 'open')
+      )
+    )
+    .get();
+
+  if (!stillOpen) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CASH_SESSION_REQUIRED',
+      message:
+        'Cash session was closed between the precondition check and the transaction body',
+      details: { cashSessionId },
+    });
+  }
+}
+
+/**
+ * ENG-055 — Insert a `cash_movements` row + advance the session's
+ * `expected_balance` in lockstep, scoped to the caller's transaction.
+ *
+ * Returns the inserted row id on a real persistence, or `null` when the
+ * call was a no-op because `amount <= 0` (a credit-tender sale, or a
+ * refund whose persisted cash contribution was zero — both legitimate
+ * cases the sale lifecycle hits frequently). Use the return value to
+ * decide whether to emit a `cash_movement` journal effect (and as the
+ * effect's `resourceId`).
+ *
+ * Originally a private helper duplicated by `application/sales/completeSale.ts`
+ * and `trpc/routers/sales.ts`; ENG-055 unifies the implementation here
+ * so returnSale / voidSale / discardDraft can all import it.
+ */
+export function insertCashMovement(args: {
+  tx: DatabaseInstance;
+  tenantId: string;
+  sessionId: string;
+  type: 'sale' | 'refund';
+  amount: number;
+  referenceId: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}): string | null {
+  if (args.amount <= 0) {
+    return null;
+  }
+
+  const id = nanoid();
+  args.tx
+    .insert(cashMovements)
+    .values({
+      id,
+      tenantId: args.tenantId,
+      sessionId: args.sessionId,
+      type: args.type,
+      amount: args.amount,
+      referenceId: args.referenceId,
+      note: args.note,
+      createdBy: args.createdBy,
+      createdAt: args.createdAt,
+    })
+    .run();
+
+  args.tx
+    .update(cashSessions)
+    .set({
+      expectedBalance: sql`${cashSessions.expectedBalance} + ${getCashMovementSignedAmount(args.type, args.amount)}`,
+      updatedAt: args.createdAt,
+    })
+    .where(and(eq(cashSessions.id, args.sessionId), eq(cashSessions.tenantId, args.tenantId)))
+    .run();
+
+  return id;
+}
+
+export async function getPersistedSaleCashContribution(
+  db: DatabaseInstance,
+  args: {
+    tenantId: string;
+    saleId: string;
+    fallbackAmount: number;
+  }
+): Promise<number> {
+  const rows = await db
+    .select({ amount: cashMovements.amount })
+    .from(cashMovements)
+    .where(
+      and(
+        eq(cashMovements.tenantId, args.tenantId),
+        eq(cashMovements.referenceId, args.saleId),
+        eq(cashMovements.type, 'sale')
+      )
+    )
+    .all();
+
+  if (rows.length === 0) {
+    return args.fallbackAmount;
+  }
+
+  return rows.reduce((total, row) => total + row.amount, 0);
 }
 
 export async function getActiveCashSessionForCashier(

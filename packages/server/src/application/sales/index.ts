@@ -14,6 +14,21 @@
  */
 
 export { completeSale } from './completeSale.js';
+export type { CompleteSaleSaleRecord } from './completeSale.js';
+export {
+  returnSale,
+  type ReturnSaleInput,
+} from './returnSale.js';
+export {
+  voidSale,
+  type VoidSaleInput,
+  type VoidedSaleRecord,
+} from './voidSale.js';
+export {
+  discardDraft,
+  type DiscardDraftInput,
+  type DiscardDraftResult,
+} from './discardDraft.js';
 export type {
   CompleteSaleContext,
   CompleteSaleInput,
@@ -25,12 +40,22 @@ export type {
   SalePaymentStatus,
 } from './types.js';
 export {
+  buildReturnedSaleNotes,
+  buildVoidedSaleNotes,
   getCashCollectedAmount,
   getNormalizedSaleQuantity,
   getPaymentStatus,
+  getPersistedCashContribution,
   resolveSalePayments,
   type ResolvedSalePayments,
 } from './policies.js';
+export {
+  reverseSaleItemsStock,
+  type ReverseSaleItem,
+  type ReverseSaleItemsStockArgs,
+  type ReversalKind,
+} from './inventory-policy.js';
+export { getOriginalDeeCufe } from './fiscal-policy.js';
 export {
   emitCompleteSaleEffects,
   type JournalEffectInput,
