@@ -9,7 +9,9 @@ import { AuditLogsTable } from './AuditLogsTable';
 // quotations / transfers. Translations are keyed by the action literal so
 // adding an entry here only needs the matching i18n key.
 const ACTION_OPTIONS: readonly AuditLogAction[] = [
+  'cash_session.open',
   'cash_session.close',
+  'cash_session.movement',
   'inventory.adjust_stock',
   'ai.anomaly.detected',
   'sale.void',
@@ -30,6 +32,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'sale',
   'cash_session',
+  'cash_movement',
   'product',
   'purchase',
   'transfer_order',

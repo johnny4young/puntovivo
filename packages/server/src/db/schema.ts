@@ -31,6 +31,7 @@ export const cashMovementTypeEnum = [
   'skim',
   'replenishment',
 ] as const;
+export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order', 'quotation'] as const;
 export const quotationStatusEnum = [
@@ -64,6 +65,12 @@ export const auditLogActionEnum = [
   'sale.void',
   'sale.return',
   'cash_session.close',
+  // ENG-056 — shift-lifecycle parity. open had no audit row before; add
+  // it alongside close so the audit trail brackets every shift symmetrically.
+  // movement covers the manual paid_in / paid_out / skim / replenishment
+  // mutations routed through `application/cash-sessions/recordCashMovement`.
+  'cash_session.open',
+  'cash_session.movement',
   'inventory.adjust_stock',
   // ENG-007 second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
@@ -98,6 +105,9 @@ export const auditLogResourceTypeEnum = [
   'quotation',
   'sale',
   'cash_session',
+  // ENG-056 — manual cash movements emit cash_session.movement audit rows
+  // keyed to the inserted cash_movements row id.
+  'cash_movement',
   'product',
   // ENG-007 second wave resources.
   'purchase',
