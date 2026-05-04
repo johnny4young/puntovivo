@@ -32,6 +32,7 @@ import {
   products,
   sales,
   sites,
+  tenantLocaleSettings,
   tenants,
   unitXProduct,
   units,
@@ -58,6 +59,7 @@ import { computeCufe } from '../services/fiscal/cufe.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
+import { getSaleRecord } from '../application/sales/sale-read.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -172,6 +174,26 @@ beforeAll(async () => {
     })
     .where(eq(tenants.id, tenantId))
     .run();
+
+  // ENG-058 — pin the tenant locale to CO so the QR builder dispatches
+  // to the DIAN URL branch. Without this the resolver falls back to
+  // LOCALE_FALLBACK (US) and qrPayload always returns null.
+  const localeNow = new Date().toISOString();
+  await db
+    .insert(tenantLocaleSettings)
+    .values({
+      tenantId,
+      countryCode: 'CO',
+      localeOverride: null,
+      currencyOverride: null,
+      timezoneOverride: null,
+      firstDayOfWeekOverride: null,
+      updatedAt: localeNow,
+    })
+    .onConflictDoUpdate({
+      target: tenantLocaleSettings.tenantId,
+      set: { countryCode: 'CO', updatedAt: localeNow },
+    });
 
   // Seed numbering resolution.
   const now = new Date().toISOString();
@@ -333,6 +355,26 @@ describe('fiscal outbox — happy path', () => {
     expect(outbox?.status).toBe('accepted');
     expect(outbox?.cufe).toBe(doc?.cufe);
   });
+
+  // ENG-058 — getSaleRecord must surface the linked fiscal document
+  // with a non-null qrPayload on accepted status, so the receipt
+  // renderer can encode a scannable QR.
+  it('exposes fiscalDocuments[0].qrPayload via getSaleRecord on accepted', async () => {
+    __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+    const { saleId } = await seedProductAndSale({
+      sku: 'OB-QR-OK-' + nanoid(6),
+      productName: 'Outbox QR happy product',
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+    const record = await getSaleRecord(getDatabase(), tenantId, saleId);
+    expect(record.fiscalDocuments).toHaveLength(1);
+    const fd = record.fiscalDocuments![0];
+    expect(fd.status).toBe('accepted');
+    expect(fd.cufe).not.toMatch(/^pending-/);
+    expect(fd.qrPayload).toMatch(
+      /^https:\/\/catalogo-vpfe\.dian\.gov\.co\/document\/searchqr\?documentkey=/
+    );
+  });
 });
 
 describe('fiscal outbox — outage path (recoverable)', () => {
@@ -361,6 +403,30 @@ describe('fiscal outbox — outage path (recoverable)', () => {
       .where(eq(sales.id, saleId))
       .get();
     expect(saleRow?.status).toBe('completed');
+  });
+
+  // ENG-058 — getSaleRecord must NOT expose a scannable QR for a
+  // contingency document. The receipt renderer relies on this
+  // null-gate to skip the QR block while still printing the status
+  // copy ("Contingencia") so the customer/operator never sees a
+  // dead URL claiming "Aceptado".
+  it('returns null qrPayload via getSaleRecord on contingency', async () => {
+    __setFiscalAdapterForTest(
+      'CO',
+      new StubAdapter({ kind: 'recoverable', errorKind: 'NETWORK_TIMEOUT' })
+    );
+    const { saleId } = await seedProductAndSale({
+      sku: 'OB-QR-CONT-' + nanoid(6),
+      productName: 'Outbox QR contingency product',
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+    const record = await getSaleRecord(getDatabase(), tenantId, saleId);
+    expect(record.fiscalDocuments).toHaveLength(1);
+    const fd = record.fiscalDocuments![0];
+    expect(fd.status).toBe('contingency');
+    expect(fd.qrPayload).toBeNull();
+    // Defense in depth: the placeholder cufe MUST stay invisible to the renderer.
+    expect(fd.cufe).toMatch(/^pending-/);
   });
 });
 
