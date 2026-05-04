@@ -379,3 +379,108 @@ describe('commandEnvelope middleware: device telemetry (ENG-052)', () => {
     expect(row?.lastSeenAt).toBeTruthy();
   });
 });
+
+describe('commandEnvelope middleware: operation journal (ENG-053)', () => {
+  beforeEach(async () => {
+    await resetPassword();
+  });
+
+  it('a successful critical mutation writes one operation_events row with status=succeeded', async () => {
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const caller = makeCaller({ envelope });
+    await caller.auth.changePassword({
+      currentPassword: 'TestPassword123!',
+      newPassword: 'JournalSucceed123!',
+    });
+    const { operationEvents } = await import('../db/schema.js');
+    const event = await getDatabase()
+      .select()
+      .from(operationEvents)
+      .where(eq(operationEvents.operationId, envelope.operationId))
+      .get();
+    expect(event).toBeTruthy();
+    expect(event?.status).toBe('succeeded');
+    expect(event?.operationKind).toBe('auth.changePassword');
+    expect(event?.deviceId).toBe(deviceId);
+    expect(event?.completedAt).toBeTruthy();
+  });
+
+  it('a failed critical mutation writes operation_events status=failed plus an operation_errors row', async () => {
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const caller = makeCaller({ envelope });
+    let caught: unknown = null;
+    try {
+      await caller.auth.changePassword({
+        currentPassword: 'definitely-not-the-current-password',
+        newPassword: 'JournalFail123!',
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeTruthy();
+    const { operationEvents, operationErrors } = await import('../db/schema.js');
+    const event = await getDatabase()
+      .select()
+      .from(operationEvents)
+      .where(eq(operationEvents.operationId, envelope.operationId))
+      .get();
+    expect(event?.status).toBe('failed');
+    expect(event?.completedAt).toBeTruthy();
+    const errors = await getDatabase()
+      .select()
+      .from(operationErrors)
+      .where(eq(operationErrors.operationEventId, event!.id))
+      .all();
+    expect(errors.length).toBe(1);
+    // The proof procedure rejects bad passwords with a typed
+    // ServerErrorWithCode (INVALID_CREDENTIALS etc.); just confirm
+    // SOMETHING came through, not the specific code, since the
+    // proof procedure may evolve.
+    expect(errors[0]?.errorCode).toBeTruthy();
+    expect(errors[0]?.recoverable).toBe(false);
+  });
+
+  it('replay with the same envelope reuses the existing operation_events row', async () => {
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const caller1 = makeCaller({ envelope });
+    await caller1.auth.changePassword({
+      currentPassword: 'TestPassword123!',
+      newPassword: 'Replay123Original!',
+    });
+    const { operationEvents } = await import('../db/schema.js');
+    const firstSnapshot = await getDatabase()
+      .select()
+      .from(operationEvents)
+      .where(eq(operationEvents.operationId, envelope.operationId))
+      .all();
+    expect(firstSnapshot.length).toBe(1);
+
+    // Replay with the SAME envelope + same canonical input —
+    // commandEnvelope returns the cached result without re-running
+    // the procedure. The journal must NOT create a second event row.
+    const caller2 = makeCaller({ envelope });
+    await caller2.auth.changePassword({
+      currentPassword: 'TestPassword123!',
+      newPassword: 'Replay123Original!',
+    });
+    const secondSnapshot = await getDatabase()
+      .select()
+      .from(operationEvents)
+      .where(eq(operationEvents.operationId, envelope.operationId))
+      .all();
+    expect(secondSnapshot.length).toBe(1);
+    expect(secondSnapshot[0]?.id).toBe(firstSnapshot[0]?.id);
+  });
+});

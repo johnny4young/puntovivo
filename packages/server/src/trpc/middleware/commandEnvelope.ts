@@ -37,7 +37,12 @@ import {
   reserveKey,
 } from '../../services/idempotency/idempotencyService.js';
 import { hashCanonicalInput } from '../../services/idempotency/keyHasher.js';
-import { throwServerError } from '../../lib/errorCodes.js';
+import {
+  markOperationCompleted,
+  recordError,
+  recordOperationStart,
+} from '../../services/operation-journal/journal.js';
+import { throwServerError, ServerErrorWithCode } from '../../lib/errorCodes.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import {
   COMMAND_ENVELOPE_HEADER,
@@ -251,6 +256,29 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
       requestHash,
     });
 
+  // ENG-053 — Operation journal start row. Idempotent on
+  // (tenantId, operationId), so a retry with the same envelope
+  // (same operationId, same idempotencyKey) reuses the existing
+  // event id. Best-effort: if the journal insert fails we log and
+  // proceed — the primary work must not block on observability.
+  let journalEventId: string | null = null;
+  try {
+    const { eventId } = await recordOperationStart(ctx.db, {
+      tenantId,
+      operationId: envelope.operationId,
+      operationKind,
+      deviceId: device.id,
+      userId: user.id,
+      requestHash,
+    });
+    journalEventId = eventId;
+  } catch (journalErr) {
+    requestLog.warn(
+      { err: journalErr },
+      'recordOperationStart failed; continuing without journal correlation'
+    );
+  }
+
   // 4. Run the procedure with envelope context, then persist.
   let result: Awaited<ReturnType<typeof next>>;
   try {
@@ -264,6 +292,34 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     });
   } catch (error) {
     await failReservation();
+    // ENG-053 — Capture the failure on the journal trail. The
+    // caught error is typically a TRPCError carrying our
+    // structured ServerErrorWithCode in `cause`; extract the
+    // stable code when possible so the trail has consistent
+    // vocabulary.
+    if (journalEventId) {
+      const code = error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
+        ? error.cause.errorCode
+        : 'PROCEDURE_THREW';
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        await recordError(ctx.db, {
+          operationEventId: journalEventId,
+          errorCode: code,
+          message,
+          recoverable: false,
+          errorData: error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
+            ? error.cause.details ?? null
+            : null,
+        });
+        await markOperationCompleted(ctx.db, journalEventId, 'failed');
+      } catch (journalErr) {
+        requestLog.warn(
+          { err: journalErr, originalError: code },
+          'journal recordError/markCompleted failed during procedure throw path'
+        );
+      }
+    }
     throw error;
   }
 
@@ -271,6 +327,23 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     // Errors are NOT cached. Caller should retry with same key after
     // fixing the upstream condition.
     await failReservation();
+    if (journalEventId) {
+      try {
+        await recordError(ctx.db, {
+          operationEventId: journalEventId,
+          errorCode: 'PROCEDURE_NOT_OK',
+          message: 'Procedure returned MiddlewareResult with ok=false',
+          recoverable: false,
+          errorData: null,
+        });
+        await markOperationCompleted(ctx.db, journalEventId, 'failed');
+      } catch (journalErr) {
+        requestLog.warn(
+          { err: journalErr },
+          'journal recordError/markCompleted failed during result.ok=false path'
+        );
+      }
+    }
     return result;
   }
 
@@ -285,6 +358,16 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   });
   if (!completed) {
     requestLog.error('idempotency reservation could not be completed after procedure success');
+  }
+
+  // ENG-053 — Mark the operation as succeeded. Best-effort; the
+  // primary work is already committed by this point.
+  if (journalEventId) {
+    try {
+      await markOperationCompleted(ctx.db, journalEventId, 'succeeded');
+    } catch (journalErr) {
+      requestLog.warn({ err: journalErr }, 'markOperationCompleted(succeeded) failed');
+    }
   }
 
   // Best-effort device liveness update — log via the request-scoped

@@ -2405,6 +2405,233 @@ export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => 
 }));
 
 // ============================================================================
+// OPERATION JOURNAL + OUTBOX METADATA (ENG-053 — ADR-0001/0002/0003)
+// ============================================================================
+
+/**
+ * `operation_events` is the append-only intent log that closes the loop
+ * opened by ENG-052 — every critical mutation that flows through
+ * `commandEnvelope` reserves a row here keyed by `(tenant_id,
+ * operation_id)`. The envelope's `operationId` becomes the join key
+ * across logs, audit rows, outbox effects, and (eventually) the
+ * central server publish stream.
+ *
+ * `status` lifecycle:
+ *
+ *   started → succeeded | failed | partial
+ *
+ * `partial` exists for the future case where the procedure committed
+ * the primary work but a post-commit fan-out (e.g. fiscal emission
+ * via the future `fiscal_outbox`) failed; the original sale stays
+ * intact and the journal records the partial completion so operators
+ * can retry the missing fan-out without re-running the primary.
+ *
+ * `summary` is a small JSON blob the procedure can write at completion
+ * time (e.g. `{saleId, total, paymentMethod}`) so forensics queries
+ * don't need to re-join 10 tables to reconstruct what happened.
+ */
+export const operationEventStatusEnum = [
+  'started',
+  'succeeded',
+  'failed',
+  'partial',
+] as const;
+
+export type OperationEventStatus = (typeof operationEventStatusEnum)[number];
+
+export const operationEvents = sqliteTable(
+  'operation_events',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    operationId: text('operation_id').notNull(),
+    operationKind: text('operation_kind').notNull(),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: operationEventStatusEnum })
+      .notNull()
+      .default('started'),
+    requestHash: text('request_hash').notNull(),
+    summary: text('summary', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    startedAt: text('started_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    completedAt: text('completed_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    uniqueIndex('idx_operation_events_tenant_operation').on(
+      table.tenantId,
+      table.operationId
+    ),
+    index('idx_operation_events_status').on(table.status),
+    index('idx_operation_events_kind_status').on(table.operationKind, table.status),
+    index('idx_operation_events_device').on(table.deviceId),
+    index('idx_operation_events_user').on(table.userId),
+  ]
+);
+
+/**
+ * `operation_effects` records what side effects a single operation
+ * produced. One row per significant effect (an audit_logs row, a
+ * sync_queue emission, a fiscal_outbox enqueue, an inventory
+ * movement, etc.). Row-level details live in their dedicated tables;
+ * the effect row carries `kind` + `resource_type` + `resource_id` so
+ * the trail can join back without forcing every consumer to read the
+ * destination table.
+ *
+ * Cascade-delete with the parent event row keeps the trail tidy
+ * during the eventual journal-rotation policy (operations older than
+ * 90 days move to cold storage in a future ticket).
+ */
+export const operationEffects = sqliteTable(
+  'operation_effects',
+  {
+    id: text('id').primaryKey(),
+    operationEventId: text('operation_event_id')
+      .notNull()
+      .references(() => operationEvents.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    resourceType: text('resource_type').notNull(),
+    resourceId: text('resource_id').notNull(),
+    effectData: text('effect_data', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_operation_effects_event').on(table.operationEventId),
+    index('idx_operation_effects_event_kind').on(table.operationEventId, table.kind),
+    index('idx_operation_effects_resource').on(table.resourceType, table.resourceId),
+  ]
+);
+
+/**
+ * `operation_errors` records POST-commit failures attributed to an
+ * operation without rolling back the primary work. Example: the sale
+ * committed cleanly, but the DIAN adapter rejected the emission with
+ * a transient error. The sale row stays intact, the operation event
+ * transitions to `partial`, and a row lands here so the operator can
+ * retry from the Operations Center (ENG-065).
+ *
+ * `recoverable` distinguishes retryable failures (provider 5xx,
+ * network timeout) from permanent ones (validation rejection at the
+ * provider, malformed input). Workers consult this flag when
+ * deciding whether to schedule a retry or move straight to the
+ * dead-letter terminal.
+ */
+export const operationErrors = sqliteTable(
+  'operation_errors',
+  {
+    id: text('id').primaryKey(),
+    operationEventId: text('operation_event_id')
+      .notNull()
+      .references(() => operationEvents.id, { onDelete: 'cascade' }),
+    errorCode: text('error_code').notNull(),
+    message: text('message').notNull(),
+    recoverable: integer('recoverable', { mode: 'boolean' }).notNull().default(false),
+    errorData: text('error_data', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_operation_errors_event').on(table.operationEventId),
+    index('idx_operation_errors_code').on(table.errorCode),
+  ]
+);
+
+export const operationEventsRelations = relations(operationEvents, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [operationEvents.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(devices, {
+    fields: [operationEvents.deviceId],
+    references: [devices.id],
+  }),
+  user: one(users, {
+    fields: [operationEvents.userId],
+    references: [users.id],
+  }),
+  effects: many(operationEffects),
+  errors: many(operationErrors),
+}));
+
+export const operationEffectsRelations = relations(operationEffects, ({ one }) => ({
+  event: one(operationEvents, {
+    fields: [operationEffects.operationEventId],
+    references: [operationEvents.id],
+  }),
+}));
+
+export const operationErrorsRelations = relations(operationErrors, ({ one }) => ({
+  event: one(operationEvents, {
+    fields: [operationErrors.operationEventId],
+    references: [operationEvents.id],
+  }),
+}));
+
+/**
+ * `outbox_metadata` is the cross-outbox health table — one row per
+ * `(tenant_id, outbox_kind)`. The five concrete outboxes (sync,
+ * fiscal, payment, webhook, hardware — ADR-0003) each refresh their
+ * row periodically with `pending_count`, `oldest_pending_at`, and the
+ * last success/failure timestamps. ENG-065 (Operations Center) reads
+ * this single table to render its status panels without scanning the
+ * outbox tables themselves.
+ *
+ * The kernel at `lib/outbox/metadata.ts` owns the read/write helpers;
+ * concrete outboxes never write here directly.
+ */
+export const outboxKindEnum = [
+  'sync',
+  'fiscal',
+  'payment',
+  'webhook',
+  'hardware',
+] as const;
+
+export type OutboxKind = (typeof outboxKindEnum)[number];
+
+export const outboxMetadata = sqliteTable(
+  'outbox_metadata',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    outboxKind: text('outbox_kind', { enum: outboxKindEnum }).notNull(),
+    pendingCount: integer('pending_count').notNull().default(0),
+    lastSuccessAt: text('last_success_at'),
+    lastFailureAt: text('last_failure_at'),
+    oldestPendingAt: text('oldest_pending_at'),
+    refreshedAt: text('refreshed_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    uniqueIndex('idx_outbox_metadata_tenant_kind').on(table.tenantId, table.outboxKind),
+    index('idx_outbox_metadata_kind_pending').on(table.outboxKind, table.pendingCount),
+  ]
+);
+
+export const outboxMetadataRelations = relations(outboxMetadata, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [outboxMetadata.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// ============================================================================
 // RECEIPT TEMPLATES (Iter 2 — declarative receipt editor + pure renderer)
 // ============================================================================
 
