@@ -197,6 +197,39 @@ export function cleanupPriorRunArtifacts(
        )`
   ).run(tenantId, tenantId, ...keepUserArgs);
 
+  // ENG-053 journal rows reference both users and devices. Clear the
+  // children explicitly so older DBs without FK cascades stay cleanup-safe.
+  db.prepare(
+    `delete from operation_errors
+     where operation_event_id in (
+       select id from operation_events
+       where tenant_id = ?
+         and user_id in (
+           select id from users
+           where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+         )
+     )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
+  db.prepare(
+    `delete from operation_effects
+     where operation_event_id in (
+       select id from operation_events
+       where tenant_id = ?
+         and user_id in (
+           select id from users
+           where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+         )
+     )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
+  db.prepare(
+    `delete from operation_events
+     where tenant_id = ?
+       and user_id in (
+         select id from users
+         where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+       )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
+
   // Device registration happens during login. Critical mutations then
   // reserve idempotency keys against those devices, so both must be
   // cleared before disposable E2E users can be removed.

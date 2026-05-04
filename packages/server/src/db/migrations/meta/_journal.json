@@ -85,6 +85,13 @@
       "when": 1782172800000,
       "tag": "0011_idempotency_atomic_reservation",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1782259200000,
+      "tag": "0012_operation_journal_and_outbox_kernel",
+      "breakpoints": true
     }
   ]
 }

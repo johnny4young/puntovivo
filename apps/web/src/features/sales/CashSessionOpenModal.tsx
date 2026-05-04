@@ -27,12 +27,15 @@ interface CashSessionOpenModalProps {
 function createDefaultValues(
   defaultRegisterAssignment?: RegisterAssignment | null
 ): CashSessionOpenValues {
+  const assignmentDenominations = defaultRegisterAssignment?.denominations ?? [];
+
   return {
     registerName: defaultRegisterAssignment?.registerName ?? 'Main register',
     openingFloat: defaultRegisterAssignment?.openingFloat ?? 0,
     denominations:
-      defaultRegisterAssignment?.denominations.map(denomination => ({ ...denomination })) ??
-      createCashSessionDenominations(),
+      assignmentDenominations.length > 0
+        ? assignmentDenominations.map(denomination => ({ ...denomination }))
+        : createCashSessionDenominations(),
   };
 }
 

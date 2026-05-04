@@ -158,6 +158,34 @@ is superseded, update the row's Status column to
 
 ---
 
+## Patterns
+
+ADRs lock **what** we decided. The `patterns/` subdirectory documents
+**how** to use the building blocks those decisions introduced. Patterns
+are descriptive references for engineers who will compose the kernel
+or service primitives in future tickets — they include code examples,
+lifecycle diagrams, and a list of related tickets.
+
+When to write a pattern doc:
+
+- A subsystem (kernel, service module, or runtime contract) ships a
+  reusable primitive that more than one future ticket will compose.
+- The composition rules go beyond the brief decision text the parent
+  ADR captures — there's enough nuance ("when to use it", "code
+  examples", "common pitfalls") to deserve a dedicated page.
+
+Convention: patterns live at `architecture/patterns/<kebab-name>.md`
+(no numeric prefix; patterns are not chronological the way ADRs are).
+The frontmatter cross-links the companion ADR(s) so readers can hop
+between the decision and the implementation guide.
+
+| Pattern | Owner ticket | Companion ADR(s) | Code |
+| --- | --- | --- | --- |
+| [Operation Journal](./patterns/operation-journal.md) | ENG-053 | [ADR-0001](./0001-local-store-authority.md), [ADR-0002](./0002-command-envelope.md), [ADR-0003](./0003-outbox-taxonomy.md) | `packages/server/src/services/operation-journal/` |
+| [Outbox Kernel](./patterns/outbox-kernel.md) | ENG-053 | [ADR-0003](./0003-outbox-taxonomy.md) | `packages/server/src/lib/outbox/` |
+
+---
+
 ## Language
 
 ADRs are written in **English**, following the same convention as the

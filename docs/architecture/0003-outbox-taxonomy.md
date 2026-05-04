@@ -186,3 +186,13 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   Introduces `webhook_outbox`.
 
 Updated: 2026-05-02 (ENG-051 — initial ADR set).
+Updated: 2026-05-03 (ENG-053 — outbox kernel shipped at
+`packages/server/src/lib/outbox/`, exposing `createOutboxKernel`
+factory + `tickOutbox` worker base + `outbox_metadata` helpers.
+Operation journal triplet — `operation_events` + `operation_effects`
++ `operation_errors` — also shipped at
+`packages/server/src/services/operation-journal/`. The five
+concrete outboxes (sync / fiscal / payment / webhook / hardware)
+remain parked behind their owner tickets (ENG-064 / ENG-057 /
+ENG-063 / ENG-070 / ENG-060). Pattern docs:
+`patterns/operation-journal.md` + `patterns/outbox-kernel.md`).

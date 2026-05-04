@@ -89,4 +89,39 @@ describe('CashSessionOpenModal', () => {
     expect(screen.getByLabelText('Opening float')).toHaveValue(80);
     expect(screen.getAllByText('$80.00')).toHaveLength(2);
   });
+
+  it('falls back to the default denomination grid when a legacy assignment has no denominations', () => {
+    const registerAssignment: RegisterAssignment = {
+      id: 'register-template-empty',
+      tenantId: 'tenant-1',
+      siteId: 'site-1',
+      registerName: 'Legacy register',
+      label: 'Legacy register',
+      openingFloat: 0,
+      denominations: [],
+      sortOrder: 0,
+      isActive: true,
+      isOccupied: false,
+      activeSessionId: null,
+      activeCashierId: null,
+      activeCashierName: null,
+      openedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    render(
+      <CashSessionOpenModal
+        isOpen
+        isSaving={false}
+        error={null}
+        defaultRegisterAssignment={registerAssignment}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Register name')).toHaveValue('Legacy register');
+    expect(screen.getByLabelText('Count for denomination $1,000.00')).toBeInTheDocument();
+  });
 });

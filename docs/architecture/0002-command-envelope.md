@@ -182,3 +182,13 @@ exposes `electron.device.getId/setId` backed by an atomic file
 write under `app.getPath('userData')/device-id.txt`; Fastify
 `onRequest` hook hangs `requestId` + `deviceId` on `request.log`
 so non-envelope requests share request-scoped provenance).
+Updated: 2026-05-03 (ENG-053 — operation journal wired into
+envelope: `recordOperationStart` runs after the idempotency
+reservation and before `next()`, idempotent on
+`(tenant_id, operation_id)` so replay-cached calls reuse the
+existing event row; success path calls
+`markOperationCompleted(eventId, 'succeeded')`; throw path calls
+`recordError` + `markOperationCompleted(eventId, 'failed')` so
+post-commit failures captured without rolling back the original
+sale/cash/inventory operation. Pattern doc:
+`patterns/operation-journal.md`).
