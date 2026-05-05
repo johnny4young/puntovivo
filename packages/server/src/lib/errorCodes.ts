@@ -191,6 +191,28 @@ export const SERVER_ERROR_CODES = {
    */
   PERIPHERAL_ACTIVE_DUPLICATE: 'PERIPHERAL_ACTIVE_DUPLICATE',
 
+  // --- ENG-062 ESC/POS printer + cash drawer ---
+  /**
+   * `peripherals.printReceipt` was called for a sale that does not
+   * exist or belongs to a different tenant. Mirror of the existing
+   * sale-not-found patterns; surfaced as NOT_FOUND.
+   */
+  HARDWARE_SALE_NOT_FOUND: 'HARDWARE_SALE_NOT_FOUND',
+  /**
+   * `peripherals.kickCashDrawer` had no active drawer registered for
+   * the site. Renderer surfaces a translated info toast; this is a
+   * polite signal, NOT a hard error.
+   */
+  HARDWARE_NO_DRAWER_REGISTERED: 'HARDWARE_NO_DRAWER_REGISTERED',
+  /**
+   * The transport rejected the bytes (USB unplug / TCP unreachable /
+   * paper out / driver not implemented). Renderer falls back to the
+   * legacy system print path on receipt-print errors; this is the
+   * codes operators see for non-fallback paths (drawer kick, test
+   * pages).
+   */
+  HARDWARE_TRANSPORT_FAILED: 'HARDWARE_TRANSPORT_FAILED',
+
   // --- ENG-020 fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',

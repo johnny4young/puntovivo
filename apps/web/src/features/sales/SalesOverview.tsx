@@ -33,6 +33,11 @@ interface SalesOverviewProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
+  /** ENG-062 — manager-gated cash drawer kick. When undefined the
+   * button is hidden (cashier role or no escpos drawer registered). */
+  onKickCashDrawer?: () => void;
+  /** Whether the kick mutation is in flight. */
+  isKickingCashDrawer?: boolean;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
   productInputRef: RefObject<HTMLInputElement | null>;
 }
@@ -62,6 +67,8 @@ export function SalesOverview({
   onOpenCashSession,
   onCloseCashSession,
   onOpenMovement,
+  onKickCashDrawer,
+  isKickingCashDrawer,
   onRegisterAssignmentChange,
   productInputRef,
 }: SalesOverviewProps) {
@@ -199,6 +206,18 @@ export function SalesOverview({
                         <WalletCards className="h-4 w-4" />
                         {t('cashSession.recordMovementAction')}
                       </button>
+                      {onKickCashDrawer && (
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          onClick={onKickCashDrawer}
+                          disabled={isKickingCashDrawer === true}
+                          data-testid="sales-kick-drawer"
+                        >
+                          <WalletCards className="h-4 w-4" />
+                          {t('printer.kickDrawerCta')}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn-outline"

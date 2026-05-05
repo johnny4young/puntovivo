@@ -23,6 +23,10 @@ import {
   createFiscalWorker,
   setDefaultFiscalWorker,
 } from './services/fiscal/fiscal-worker.js';
+import {
+  createHardwareWorker,
+  setDefaultHardwareWorker,
+} from './services/peripherals/hardware-worker.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import { warmCacheFromDb } from './security/loginRateLimit.js';
@@ -69,6 +73,13 @@ export interface PuntovivoServer {
    * lifecycle synchronously without waiting for the periodic interval.
    */
   fiscalWorker: import('./services/fiscal/fiscal-worker.js').FiscalWorker;
+  /**
+   * ENG-062 — Hardware worker daemon registered to drain
+   * `hardware_outbox`. Mirrors the fiscal worker; tests inject a
+   * fast retry policy via `createHardwareWorker` directly when they
+   * need to assert dead-letter transitions in tight loops.
+   */
+  hardwareWorker: import('./services/peripherals/hardware-worker.js').HardwareWorker;
   /** Start listening for requests */
   listen: () => Promise<string>;
   /** Stop the server and close database */
@@ -312,15 +323,28 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     setDefaultFiscalWorker(null);
   });
 
+  // ENG-062 — boot the hardware outbox worker daemon parallel to the
+  // fiscal worker. Same boot/teardown pattern; the periodic interval
+  // starts on `listen` so test harnesses that build without listening
+  // never accumulate background timers.
+  const hardwareWorker = createHardwareWorker({ db });
+  setDefaultHardwareWorker(hardwareWorker);
+  app.addHook('onClose', async () => {
+    await hardwareWorker.stop();
+    setDefaultHardwareWorker(null);
+  });
+
   const serverLog = createModuleLogger('server');
   return {
     app,
     db,
     fiscalWorker,
+    hardwareWorker,
     listen: async () => {
       const address = await app.listen({ port, host });
       serverUrl = address;
       fiscalWorker.start();
+      hardwareWorker.start();
       serverLog.info({ address }, 'server listening');
       return address;
     },

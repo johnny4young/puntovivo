@@ -74,3 +74,31 @@ export const activeForSiteInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
 });
 export type ActiveForSiteInput = z.infer<typeof activeForSiteInput>;
+
+// ENG-062 — receipt print orchestrator. Takes a sale id + the
+// active site so the server can dispatch to the right printer. The
+// server resolves the sale (cross-tenant guard) and the active
+// printer peripheral, then either confirms the bytes flushed or
+// signals fallback so the renderer prints via the legacy system
+// path. Tenant-scoped so any authenticated cashier can fire after
+// a sale.
+export const printReceiptInput = z.object({
+  saleId: z.string().min(1, 'saleId is required'),
+  siteId: z.string().min(1, 'siteId is required'),
+});
+export type PrintReceiptInput = z.infer<typeof printReceiptInput>;
+
+// ENG-062 — manager-gated cash drawer kick. Idempotent on the
+// hardware side (a stale retry just re-pulses the relay).
+export const kickCashDrawerInput = z.object({
+  siteId: z.string().min(1, 'siteId is required'),
+});
+export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
+
+// ENG-062 — operator-visible peek into the hardware outbox tail.
+// Stub for ENG-065's Operations Center to consume; tenant-scoped
+// so cross-tenant rows never leak.
+export const peekHardwareOutboxInput = z.object({
+  limit: z.number().int().min(1).max(100).default(20),
+});
+export type PeekHardwareOutboxInput = z.infer<typeof peekHardwareOutboxInput>;

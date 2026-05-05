@@ -160,7 +160,9 @@ describe('peripherals.register', () => {
       await caller.peripherals.register({
         siteId,
         kind: 'printer',
-        driver: 'escpos', // ENG-062
+        // No printer driver named "starprnt" exists today; this one
+        // is a placeholder for a future Star TSP100 implementation.
+        driver: 'starprnt',
         config: {},
       });
       throw new Error('should have thrown');
@@ -338,12 +340,13 @@ describe('peripherals.update', () => {
     try {
       await caller.peripherals.update({
         id: row.id,
-        driver: 'escpos', // ENG-062
-        config: { channel: 'tcp' },
+        // No driver named "starprnt" is registered for printer kind.
+        driver: 'starprnt',
+        config: {},
       });
       throw new Error('should have thrown');
     } catch (err) {
-      // The static dispatch table has no escpos entry yet, so we
+      // The static dispatch table has no entry for this driver, so we
       // surface PERIPHERAL_DRIVER_INVALID rather than letting an
       // unimplemented driver write to the row.
       expectErrorCode(err, 'PERIPHERAL_DRIVER_INVALID');

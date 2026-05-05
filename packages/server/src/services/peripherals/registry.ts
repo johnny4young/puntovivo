@@ -40,6 +40,14 @@ import {
   KeyboardWedgeScannerAdapter,
   wedgeScannerConfigSchema,
 } from './drivers/keyboard-wedge-scanner.js';
+import {
+  EscPosReceiptPrinterAdapter,
+  escposReceiptPrinterConfigSchema,
+} from './drivers/escpos-receipt-printer.js';
+import {
+  EscPosCashDrawerAdapter,
+  escposCashDrawerConfigSchema,
+} from './drivers/escpos-cash-drawer.js';
 
 /**
  * Static dispatch table: `kind → driverId → factory`. Each factory
@@ -80,6 +88,22 @@ const DRIVER_TABLE: {
       },
       configSchema: systemReceiptPrinterConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
     },
+    // ENG-062 — ESC/POS thermal printer. Sends pre-built bytes to
+    // a USB / TCP / serial / mock channel. USB + serial are stubs
+    // that throw DRIVER_NOT_IMPLEMENTED until the native deps land
+    // in a follow-up; mock + TCP are fully wired today.
+    escpos: {
+      factory: (ctx, rawConfig) => {
+        const config = escposReceiptPrinterConfigSchema.parse(rawConfig);
+        return new EscPosReceiptPrinterAdapter(
+          ctx.tenantId,
+          ctx.siteId,
+          ctx.peripheralId,
+          config
+        );
+      },
+      configSchema: escposReceiptPrinterConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+    },
   },
   payment_terminal: {
     manual: {
@@ -112,9 +136,27 @@ const DRIVER_TABLE: {
       configSchema: wedgeScannerConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
     },
   },
-  // cash_drawer and customer_display: no drivers shipped yet.
-  // ENG-062 lands cash_drawer + customer_display via the ESC/POS
-  // adapter; ENG-063 lands Bold/Wompi/MercadoPago payment terminals.
+  cash_drawer: {
+    // ENG-062 — RJ11 cash drawer attached to an ESC/POS printer.
+    // The drawer config slot mirrors the printer's transport shape;
+    // operators typically point both at the same physical printer.
+    escpos: {
+      factory: (ctx, rawConfig) => {
+        const config = escposCashDrawerConfigSchema.parse(rawConfig);
+        return new EscPosCashDrawerAdapter(
+          ctx.tenantId,
+          ctx.siteId,
+          ctx.peripheralId,
+          config
+        );
+      },
+      configSchema: escposCashDrawerConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+    },
+  },
+  // customer_display: no drivers shipped yet. ENG-063 lands
+  // Bold/Wompi/MercadoPago payment terminals; customer_display
+  // remains a follow-up once the operator has a concrete display
+  // model to integrate.
 };
 
 /**

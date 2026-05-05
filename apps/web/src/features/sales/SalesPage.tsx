@@ -793,6 +793,40 @@ export function SalesPage() {
     { siteId: currentSite?.id ?? '' },
     { enabled: !!currentSite, staleTime: 5 * 60 * 1000 }
   );
+
+  // ENG-062 — manager-gated cash drawer kick. The button only renders
+  // when (a) the user role can kick (manager/admin), (b) an active
+  // cash drawer is registered for the site. Otherwise the prop is
+  // undefined and SalesOverview hides the button entirely.
+  const isManagerOrAdmin = user?.role === 'manager' || user?.role === 'admin';
+  const hasRegisteredDrawer = !!peripheralsForSiteQuery.data?.find(
+    r => r.kind === 'cash_drawer' && r.driver === 'escpos'
+  );
+  const kickCashDrawerMutation = trpc.peripherals.kickCashDrawer.useMutation({
+    onSuccess: result => {
+      if (result.status === 'ok') {
+        toast.success({ title: t('sales:printer.kickDrawerSuccess') });
+      } else if (result.status === 'no-drawer-registered') {
+        toast.info({ title: t('sales:printer.noDrawerRegistered') });
+      } else {
+        toast.error({
+          title: t('sales:printer.kickDrawerFailed'),
+          description: result.errorMessage ?? '',
+        });
+      }
+    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'sales:printer.kickDrawerFailed',
+    }),
+  });
+  const handleKickCashDrawer = useCallback(() => {
+    if (!currentSite) return;
+    kickCashDrawerMutation.mutate({ siteId: currentSite.id });
+  }, [currentSite, kickCashDrawerMutation]);
+  const onKickCashDrawer =
+    isManagerOrAdmin && hasRegisteredDrawer && !!currentSite
+      ? handleKickCashDrawer
+      : undefined;
   const scannerConfig: WedgeConfig = (() => {
     const row = peripheralsForSiteQuery.data?.find(
       r => r.kind === 'scanner' && r.driver === 'wedge'
@@ -926,6 +960,8 @@ export function SalesPage() {
           onOpenCashSession={handleOpenCashSessionModal}
           onCloseCashSession={handleOpenCloseCashSessionModal}
           onOpenMovement={handleOpenCashSessionMovementModal}
+          onKickCashDrawer={onKickCashDrawer}
+          isKickingCashDrawer={kickCashDrawerMutation.isPending}
           onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
           productInputRef={productInputRef}
         />

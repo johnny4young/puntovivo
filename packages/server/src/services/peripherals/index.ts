@@ -70,6 +70,16 @@ export {
   type WedgeScannerConfig,
 } from './drivers/keyboard-wedge-scanner.js';
 export {
+  EscPosReceiptPrinterAdapter,
+  escposReceiptPrinterConfigSchema,
+  type EscPosReceiptPrinterConfig,
+} from './drivers/escpos-receipt-printer.js';
+export {
+  EscPosCashDrawerAdapter,
+  escposCashDrawerConfigSchema,
+  type EscPosCashDrawerConfig,
+} from './drivers/escpos-cash-drawer.js';
+export {
   parseScan,
   parseGs1WeightOrPrice,
   validateEan13Checksum,
@@ -79,3 +89,36 @@ export {
   type ScanKind,
   type Gs1Scheme,
 } from './barcode/parser.js';
+export {
+  buildEscPosBytes,
+  buildSaleReceiptDocument,
+  encodeForCharset,
+  wrapToColumns,
+  ESCPOS_BYTES,
+  type ReceiptDocument,
+  type ReceiptLine,
+  type ReceiptAlign,
+  type EscPosCharset,
+  type SaleReceiptInput,
+  type BuildEscPosBytesOptions,
+} from './escpos/byte-builder.js';
+export {
+  resolveTransport,
+  __setEscPosTransportForTest,
+  EscPosTransportError,
+  MockEscPosTransport,
+  TcpEscPosTransport,
+  type EscPosTransport,
+  type EscPosTransportConfig,
+  type EscPosChannel,
+} from './escpos/transport.js';
+export {
+  createHardwareWorker,
+  createHardwareOutboxKernel,
+  setDefaultHardwareWorker,
+  getDefaultHardwareWorker,
+  tickDefaultHardwareWorker,
+  type HardwareWorker,
+  type CreateHardwareWorkerOptions,
+  type HardwareOutboxPayload,
+} from './hardware-worker.js';

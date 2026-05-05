@@ -40,10 +40,12 @@ const DRIVER_OPTIONS: Record<
 > = {
   printer: [
     { id: 'system', available: true },
-    { id: 'escpos', available: false },
+    // ENG-062 — ESC/POS thermal printer driver shipped.
+    { id: 'escpos', available: true },
   ],
   cash_drawer: [
-    { id: 'escpos', available: false },
+    // ENG-062 — RJ11 cash drawer via the ESC/POS printer stream.
+    { id: 'escpos', available: true },
   ],
   scanner: [
     // ENG-061 — USB HID keyboard-wedge driver shipped.

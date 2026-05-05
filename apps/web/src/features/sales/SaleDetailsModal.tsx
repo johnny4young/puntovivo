@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
@@ -6,7 +6,11 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
 import { SaleDetailsFiscalBlock } from '@/features/sales/SaleDetailsFiscalBlock';
-import { printSaleReceipt } from '@/features/sales/receiptPrinter';
+import {
+  printSaleReceipt,
+  type EscPosDispatchOutcome,
+} from '@/features/sales/receiptPrinter';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
@@ -36,6 +40,30 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
+  const { currentSite } = useTenant();
+  // ENG-062 — server-side ESC/POS dispatch. Builds the closure once
+  // and hands it to `printSaleReceipt`; the dispatcher returns
+  // `printed` (server flushed bytes), `system-fallback` (no
+  // escpos peripheral registered, take the legacy HTML path), or
+  // `fallback` (escpos attempt failed; fall back AND toast).
+  const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
+  const buildEscposDispatcher = useCallback(
+    (saleIdToPrint: string): (() => Promise<EscPosDispatchOutcome>) | undefined => {
+      if (!currentSite) return undefined;
+      const siteId = currentSite.id;
+      return async () => {
+        const result = await printReceiptMutation.mutateAsync({
+          saleId: saleIdToPrint,
+          siteId,
+        });
+        return result as EscPosDispatchOutcome;
+      };
+    },
+    [currentSite, printReceiptMutation]
+  );
+  const handleEscposFallback = useCallback(() => {
+    toast.warning({ title: t('sales:printer.escposFailedFallback') });
+  }, [t, toast]);
   const [printError, setPrintError] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isReturnConfirmOpen, setIsReturnConfirmOpen] = useState(false);
@@ -87,7 +115,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
       setIsPrinting(true);
       setPrintError(null);
       try {
-        await printSaleReceipt(refreshed);
+        await printSaleReceipt(refreshed, {
+          escposDispatcher: buildEscposDispatcher(refreshed.id),
+          onEscposFallback: handleEscposFallback,
+        });
         toast.success({ title: t('sales:reprint.toastSuccessTitle') });
       } catch (error) {
         const message =
@@ -186,7 +217,10 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setPrintError(null);
 
     try {
-      await printSaleReceipt(sale);
+      await printSaleReceipt(sale, {
+        escposDispatcher: buildEscposDispatcher(sale.id),
+        onEscposFallback: handleEscposFallback,
+      });
     } catch (error) {
       setPrintError(
         error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback')
