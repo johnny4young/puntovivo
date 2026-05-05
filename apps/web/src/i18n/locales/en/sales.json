@@ -377,5 +377,13 @@
     "toastSuccessTitle": "Receipt reprinted",
     "toastErrorTitle": "Unable to reprint receipt",
     "shortcut": "Ctrl+Shift+P"
+  },
+  "scanner": {
+    "notFound": "No product matches that barcode",
+    "lookupFailed": "Could not look up the scanned code",
+    "weightFromLabel": "Weight applied from the label",
+    "priceFromLabel": "Price applied from the label",
+    "noBaseUnit": "Product has no unit configured",
+    "resumedCartLocked": "Discard the resumed cart to add new items"
   }
 }

@@ -64,17 +64,18 @@ afterEach(async () => {
 });
 
 describe('listSupportedDrivers', () => {
-  it('returns ENG-060 default drivers (system printer + manual payment terminal)', () => {
+  it('returns ENG-060/061 default drivers (system printer, manual payment terminal, wedge scanner)', () => {
     const drivers = listSupportedDrivers();
     expect(drivers).toEqual(
       expect.arrayContaining([
         { kind: 'printer', driverId: 'system' },
         { kind: 'payment_terminal', driverId: 'manual' },
+        // ENG-061 — wedge scanner driver registered.
+        { kind: 'scanner', driverId: 'wedge' },
       ])
     );
-    // No drivers shipped for cash_drawer / scanner / customer_display in ENG-060.
+    // No drivers shipped for cash_drawer / customer_display yet.
     expect(drivers.find(d => d.kind === 'cash_drawer')).toBeUndefined();
-    expect(drivers.find(d => d.kind === 'scanner')).toBeUndefined();
     expect(drivers.find(d => d.kind === 'customer_display')).toBeUndefined();
   });
 });
@@ -255,6 +256,88 @@ describe('instantiateAdapter', () => {
     expect(row).toBeTruthy();
     const adapter = instantiateAdapter(row!);
     expect(adapter).toBeNull();
+  });
+
+  it('returns a BarcodeScannerAdapter for the wedge driver (ENG-061)', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    await db.insert(sitePeripherals).values({
+      id,
+      tenantId,
+      siteId,
+      kind: 'scanner',
+      driver: 'wedge',
+      // Defaults populate via the Zod schema; an empty {} is enough.
+      config: {},
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const row = await db
+      .select()
+      .from(sitePeripherals)
+      .where(eq(sitePeripherals.id, id))
+      .get();
+    const adapter = instantiateAdapter(row!);
+    expect(adapter).not.toBeNull();
+    expect(adapter!.kind).toBe('scanner');
+    expect(adapter!.driverId).toBe('wedge');
+    expect(adapter!.tenantId).toBe(tenantId);
+  });
+});
+
+describe('validatePeripheralConfig — wedge scanner (ENG-061)', () => {
+  it('accepts an empty config and applies defaults', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: {},
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('accepts a tuned config with custom timing', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: {
+        minLength: 8,
+        maxLength: 24,
+        interCharGapMs: 50,
+        endOfScan: 'tab',
+        prefix: '*',
+        suffix: '#',
+        gs1Scheme: 'co',
+      },
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('rejects a config with non-numeric minLength', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { minLength: 'short' as unknown as number },
+    });
+    expect(result).toMatchObject({ ok: false, code: 'PERIPHERAL_CONFIG_INVALID' });
+  });
+
+  it('rejects a config with interCharGapMs outside [10, 500]', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { interCharGapMs: 5 },
+    });
+    expect(result).toMatchObject({ ok: false, code: 'PERIPHERAL_CONFIG_INVALID' });
+  });
+
+  it('rejects a config where minLength exceeds maxLength', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { minLength: 32, maxLength: 8 },
+    });
+    expect(result).toMatchObject({ ok: false, code: 'PERIPHERAL_CONFIG_INVALID' });
   });
 });
 

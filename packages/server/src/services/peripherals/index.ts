@@ -64,3 +64,18 @@ export {
   manualPaymentTerminalConfigSchema,
   type ManualPaymentTerminalConfig,
 } from './drivers/manual-payment-terminal.js';
+export {
+  KeyboardWedgeScannerAdapter,
+  wedgeScannerConfigSchema,
+  type WedgeScannerConfig,
+} from './drivers/keyboard-wedge-scanner.js';
+export {
+  parseScan,
+  parseGs1WeightOrPrice,
+  validateEan13Checksum,
+  validateEan8Checksum,
+  validateUpcAChecksum,
+  type ParsedScan,
+  type ScanKind,
+  type Gs1Scheme,
+} from './barcode/parser.js';

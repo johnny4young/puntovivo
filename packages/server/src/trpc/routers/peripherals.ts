@@ -32,7 +32,9 @@ import type {
 } from '../../services/peripherals/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
+import { tenantProcedure } from '../middleware/tenant.js';
 import {
+  activeForSiteInput,
   listPeripheralsInput,
   registerPeripheralInput,
   removePeripheralInput,
@@ -282,6 +284,40 @@ export const peripheralsRouter = router({
           )
         );
       return { ok: true as const };
+    }),
+
+  /**
+   * ENG-061 — sales-role read of the active peripherals for a site.
+   *
+   * The SalesPage uses this to load the active scanner's timing
+   * config (`useBarcodeWedgeListener`); ENG-062 will let cashiers
+   * read printer config the same way. Returns a minimal projection
+   * (kind + driver + config) so we never expose admin-only fields
+   * like `lastTestDetails` or `displayName` to non-admin roles.
+   * `peripherals.list` (admin) stays the full-row read for the
+   * admin UI.
+   */
+  activeForSite: tenantProcedure
+    .input(activeForSiteInput)
+    .query(async ({ ctx, input }) => {
+      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      const rows = await ctx.db
+        .select({
+          kind: sitePeripherals.kind,
+          driver: sitePeripherals.driver,
+          config: sitePeripherals.config,
+        })
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.isActive, true)
+          )
+        )
+        .orderBy(asc(sitePeripherals.kind))
+        .all();
+      return rows;
     }),
 });
 

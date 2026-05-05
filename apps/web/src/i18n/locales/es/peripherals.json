@@ -19,6 +19,7 @@
     "system": "Sistema (diálogo de impresión)",
     "escpos": "ESC/POS térmica",
     "manual": "Captura manual",
+    "wedge": "Teclado HID (USB)",
     "bold": "Bold",
     "wompi": "Wompi",
     "mercadopago": "Mercado Pago Point"

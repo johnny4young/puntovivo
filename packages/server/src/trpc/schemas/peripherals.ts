@@ -65,3 +65,12 @@ export const removePeripheralInput = z.object({
   id: z.string().min(1),
 });
 export type RemovePeripheralInput = z.infer<typeof removePeripheralInput>;
+
+// ENG-061 — sales-role read of the active peripherals for a site.
+// Returns a minimal projection (kind + driver + config) so the
+// SalesPage can drive the wedge listener; admin `peripherals.list`
+// stays the canonical full-row read for the admin UI.
+export const activeForSiteInput = z.object({
+  siteId: z.string().min(1, 'siteId is required'),
+});
+export type ActiveForSiteInput = z.infer<typeof activeForSiteInput>;

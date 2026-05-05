@@ -46,7 +46,8 @@ const DRIVER_OPTIONS: Record<
     { id: 'escpos', available: false },
   ],
   scanner: [
-    { id: 'system', available: false },
+    // ENG-061 — USB HID keyboard-wedge driver shipped.
+    { id: 'wedge', available: true },
   ],
   payment_terminal: [
     { id: 'manual', available: true },
