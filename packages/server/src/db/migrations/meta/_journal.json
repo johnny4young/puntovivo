@@ -113,6 +113,13 @@
       "when": 1782518400000,
       "tag": "0015_hardware_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1782604800000,
+      "tag": "0016_sync_contract_v1",
+      "breakpoints": true
     }
   ]
 }

@@ -151,9 +151,21 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   1. ENG-053 lands the kernel + `outbox_metadata`.
   2. ENG-057 introduces `fiscal_outbox` and migrates the
      `fiscal_documents.status='contingency'` rows.
-  3. ENG-064 introduces `sync_outbox` and deprecates `sync_queue`
-     with a one-shot data migration; ENG-042's
-     `sync.listConflicts` / `resolve` adapt to the new table.
+  3. ENG-064 (Shipped 2026-05-05) introduces `sync_outbox` via
+     migration `0016_sync_contract_v1.sql` with a one-shot
+     `INSERT OR IGNORE` data migration that copies pending
+     `sync_queue` rows over. ENG-064 v1 ships the contract
+     foundation (per-entity manifest at `services/sync/contract.ts`,
+     `enqueueSync` helper, three new procedures
+     `sync.{getContract, peekOutbox, retry}`); the 19 router
+     inline writers + the existing 8 `sync.*` procedures
+     (`status / listQueue / addToQueue / removeFromQueue /
+     listConflicts / push / pull / resolve`) continue to operate
+     on `sync_queue` until ENG-064b cuts them over. ENG-042's
+     `sync.listConflicts` / `resolve` adapt at that point. The
+     legacy `sync_queue` table stays in place as a deprecated
+     read-only backstop until ENG-064b drops it after a release
+     cycle.
   4. ENG-063 introduces `payment_outbox` when the payment
      terminal adapter ships.
   5. ENG-070 introduces `webhook_outbox`.
@@ -184,8 +196,12 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   `hardware_outbox`.
 - `ENG-063` — Payment terminal adapter. Introduces
   `payment_outbox`.
-- `ENG-064` — Sync contract v1. Introduces `sync_outbox` and
-  retires `sync_queue`.
+- `ENG-064` (Shipped 2026-05-05) — Sync contract v1. Introduced
+  `sync_outbox` via migration `0016_sync_contract_v1.sql` plus the
+  per-entity manifest + `enqueueSync` helper + three new procedures
+  (`getContract` / `peekOutbox` / `retry`). The full retirement of
+  `sync_queue` (writer rewrites + existing `sync.*` procedure
+  cutover + table drop) is parked for ENG-064b.
 - `ENG-065` — Operations Center. Reads `outbox_metadata` and
   renders one panel per outbox.
 - `ENG-070` — Event-based public API + webhook foundation.
