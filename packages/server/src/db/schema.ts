@@ -3543,6 +3543,163 @@ export const hardwareOutboxRelations = relations(hardwareOutbox, ({ one }) => ({
 export type HardwareOutboxRow = typeof hardwareOutbox.$inferSelect;
 export type NewHardwareOutboxRow = typeof hardwareOutbox.$inferInsert;
 
+// ============================================================================
+// SYNC OUTBOX (ENG-064 — Sync contract v1)
+// ============================================================================
+//
+// Closes ADR-0003's promise of five purpose-specific outboxes. Mirrors the
+// kernel projection used by `fiscal_outbox` (ENG-057) and `hardware_outbox`
+// (ENG-062) PLUS adds the per-entity contract columns ADR-0002 + ADR-0004
+// lock in: payload version, command-envelope correlation
+// (idempotency_key + device_id + operation_event_id), conflict policy
+// per ADR-0004, and a soft `depends_on_operation_id` for topological
+// ordering on the consumer side.
+//
+// `sync_queue` (the original Phase-1 table) stays in place as a deprecated
+// read-only backstop. The migration in `0016_sync_contract_v1.sql`
+// copies pending rows over so the consumer doesn't lose work in flight;
+// a follow-up ticket drops `sync_queue` after a release cycle.
+
+/**
+ * Closed list of sync outbox lifecycle states. Mirror of the fiscal
+ * outbox enum but with `synced`/`conflict` instead of accepted/rejected
+ * because sync rows do not get a provider verdict — they either land
+ * on the consumer or hit a write conflict that needs resolution.
+ */
+export const syncOutboxStatusEnum = [
+  'queued',
+  'submitting',
+  'synced',
+  'conflict',
+  'retrying',
+  'dead_letter',
+] as const;
+export type SyncOutboxStatus = (typeof syncOutboxStatusEnum)[number];
+
+/**
+ * Per-entity conflict policy per ADR-0004. `manual` for high-risk
+ * entities (sales, cash, fiscal, inventory, audit) where the
+ * operator MUST resolve any divergence; `auto_lww` for catalog and
+ * preferences where last-write-wins is safe. ENG-064 v1 surfaces
+ * the marker; the actual auto-resolution branch in `sync.push` is
+ * parked for a follow-up.
+ */
+export const syncConflictPolicyEnum = ['manual', 'auto_lww'] as const;
+export type SyncConflictPolicy = (typeof syncConflictPolicyEnum)[number];
+
+/**
+ * Operation kind on the sync row. Mirrors the legacy `sync_queue`
+ * shape so the data migration is structural identity. Future:
+ * `restore` / `replay` could land here when ENG-066 chaos suite
+ * needs them.
+ */
+export const syncOperationEnum = ['create', 'update', 'delete'] as const;
+export type SyncOperation = (typeof syncOperationEnum)[number];
+
+export const syncOutbox = sqliteTable(
+  'sync_outbox',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    status: text('status', { enum: syncOutboxStatusEnum }).notNull().default('queued'),
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id').notNull(),
+    operation: text('operation', { enum: syncOperationEnum }).notNull(),
+    conflictPolicy: text('conflict_policy', { enum: syncConflictPolicyEnum })
+      .notNull()
+      .default('auto_lww'),
+    /** Snapshot of the entity row at emit time. JSON-serialized. */
+    payload: text('payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    /**
+     * Command-envelope key (ENG-052). Nullable because catalog /
+     * preferences writes are not envelope-wrapped. When present, the
+     * partial unique index `idx_sync_outbox_idempotent` collapses
+     * duplicate enqueues for retries.
+     */
+    idempotencyKey: text('idempotency_key'),
+    deviceId: text('device_id').references(() => devices.id, { onDelete: 'set null' }),
+    /**
+     * Soft FK to `operation_events.operation_id`. Carried as a string
+     * so the consumer can defer applying this row until the
+     * referenced operation is acknowledged. Null when the writer
+     * runs outside the command-envelope middleware.
+     */
+    dependsOnOperationId: text('depends_on_operation_id'),
+    /** Hard FK to `operation_events.id` for the journal trail. */
+    operationEventId: text('operation_event_id').references(() => operationEvents.id, {
+      onDelete: 'set null',
+    }),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    /** `NormalizedOutboxError` written by the kernel on `fail`. */
+    lastError: text('last_error', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    priority: real('priority').notNull().default(0),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    // Primary path for the kernel's claimNext: filter by tenant +
+    // status (queued or retrying) ordered by priority + createdAt.
+    index('idx_sync_outbox_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    // Per-entity drilldown for "what's pending for this customer
+    // record" surfaces (Operations Center).
+    index('idx_sync_outbox_entity').on(table.entityType, table.entityId),
+    // Operations Center listing + peek.
+    index('idx_sync_outbox_tenant_created').on(table.tenantId, table.createdAt),
+    // Coalesce duplicate enqueues at the queue layer when an
+    // idempotencyKey is present. Catalog writes without an
+    // idempotency key are not deduped here because they're
+    // idempotent on the consumer side anyway. The partial WHERE
+    // clause is applied in the migration SQL with `IF NOT EXISTS`;
+    // Drizzle's SQLite dialect cannot emit partial unique indexes
+    // generically.
+    uniqueIndex('idx_sync_outbox_idempotent')
+      .on(
+        table.tenantId,
+        table.entityType,
+        table.entityId,
+        table.operation,
+        table.idempotencyKey
+      )
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+  ]
+);
+
+export const syncOutboxRelations = relations(syncOutbox, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [syncOutbox.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(devices, {
+    fields: [syncOutbox.deviceId],
+    references: [devices.id],
+  }),
+  operationEvent: one(operationEvents, {
+    fields: [syncOutbox.operationEventId],
+    references: [operationEvents.id],
+  }),
+}));
+
+export type SyncOutboxRow = typeof syncOutbox.$inferSelect;
+export type NewSyncOutboxRow = typeof syncOutbox.$inferInsert;
+
 export type FiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferSelect;
 export type NewFiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferInsert;
 export type FiscalCertificate = typeof fiscalCertificates.$inferSelect;

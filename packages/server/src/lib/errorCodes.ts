@@ -213,6 +213,20 @@ export const SERVER_ERROR_CODES = {
    */
   HARDWARE_TRANSPORT_FAILED: 'HARDWARE_TRANSPORT_FAILED',
 
+  // --- ENG-064 sync contract v1 ---
+  /**
+   * `sync.retry` could not find a `sync_outbox` row for the tenant.
+   * Surfaced as NOT_FOUND so the admin UI can render a polite "this
+   * row was already drained" message.
+   */
+  SYNC_OUTBOX_NOT_FOUND: 'SYNC_OUTBOX_NOT_FOUND',
+  /**
+   * The sync outbox row exhausted `BOUNDED_EXPONENTIAL_BACKOFF`'s
+   * retry budget without success. Operator-facing for ENG-065's
+   * Operations Center surface.
+   */
+  SYNC_OUTBOX_DEAD_LETTER: 'SYNC_OUTBOX_DEAD_LETTER',
+
   // --- ENG-020 fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',

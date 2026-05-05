@@ -57,6 +57,16 @@ export const resolveSyncConflictInput = z
     }
   });
 
+// ENG-064 — sync_outbox surfaces. The 3 new procedures operate on
+// the new contract table sibling to the legacy sync_queue path.
+export const peekOutboxInput = z.object({
+  limit: z.number().int().min(1).max(100).default(20),
+});
+
+export const retryOutboxInput = z.object({
+  id: z.string().min(1, 'sync_outbox row id is required'),
+});
+
 export type ListQueueInput = z.infer<typeof listQueueInput>;
 export type AddToQueueInput = z.infer<typeof addToQueueInput>;
 export type RemoveFromQueueInput = z.infer<typeof removeFromQueueInput>;
@@ -64,3 +74,5 @@ export type ListConflictsInput = z.infer<typeof listConflictsInput>;
 export type PushSyncInput = z.infer<typeof pushSyncInput>;
 export type PullSyncInput = z.infer<typeof pullSyncInput>;
 export type ResolveSyncConflictInput = z.infer<typeof resolveSyncConflictInput>;
+export type PeekOutboxInput = z.infer<typeof peekOutboxInput>;
+export type RetryOutboxInput = z.infer<typeof retryOutboxInput>;
