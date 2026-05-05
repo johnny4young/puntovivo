@@ -1,10 +1,11 @@
 /**
- * ENG-064 — `enqueueSync` helper.
+ * ENG-064 / ENG-064b — `enqueueSync` helper.
  *
  * Single entry point for every router that needs to enqueue an
- * entity change for downstream replication. Replaces the inline
- * `db.insert(syncQueue).values({ ... })` blocks scattered across
- * 19 routers with a typed call that:
+ * entity change for downstream replication. Replaced the inline
+ * `db.insert(...).values({ ... })` blocks that ENG-064b cut over
+ * across 19 routers + 4 application services + the dev seed with
+ * a typed call that:
  *
  *   1. Resolves the per-entity `conflictPolicy` from the manifest
  *      (`services/sync/contract.ts`). Throws when the entityType is
@@ -50,16 +51,24 @@ import {
  * structural so any tRPC ctx (or a unit-test fake) can pass.
  * `envelope` and `deviceId` are populated by the
  * `commandEnvelope` middleware (ENG-052) when the procedure runs
- * inside `criticalCommandProcedure`; otherwise they're undefined.
+ * inside `criticalCommandProcedure`; otherwise they're undefined
+ * (or `null` when the application services explicitly model
+ * "envelope absent" as null instead of undefined).
+ *
+ * `idempotencyKey` is marked optional because the journal-only
+ * envelope shape from `CompleteSaleContext` carries the
+ * operationId without the idempotency key — the helper falls
+ * back to `null` and the partial unique index simply does not
+ * dedup that row.
  */
 export interface EnqueueSyncContext {
   db: DatabaseInstance;
   tenantId: string;
   envelope?: {
     operationId: string;
-    idempotencyKey: string;
-  };
-  deviceId?: string;
+    idempotencyKey?: string;
+  } | null;
+  deviceId?: string | null;
 }
 
 export interface EnqueueSyncArgs {

@@ -17,7 +17,7 @@ import {
   purchases,
   sequentials,
   sites,
-  syncQueue,
+  syncOutbox,
   unitXProduct,
   units,
   users,
@@ -1273,8 +1273,8 @@ describe('Purchases tRPC Router', () => {
 
     const queuedUpdate = await db
       .select()
-      .from(syncQueue)
-      .where(and(eq(syncQueue.entityType, 'purchases'), eq(syncQueue.entityId, created.id)))
+      .from(syncOutbox)
+      .where(and(eq(syncOutbox.entityType, 'purchases'), eq(syncOutbox.entityId, created.id)))
       .all();
     expect(queuedUpdate.some(item => item.operation === 'update')).toBe(true);
   });

@@ -237,6 +237,196 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     expect(Array.isArray(seededUsers)).toBe(true);
   });
 
+  it('preserves bridge-build sync_queue rows before dropping the legacy table', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-sync-cutover-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'bridge.db');
+    const bridgeSqlite = new Database(dbPath);
+    const expected = readExpectedMigrations();
+    const now = new Date().toISOString();
+
+    bridgeSqlite.exec(`
+      CREATE TABLE __drizzle_migrations (
+        id INTEGER PRIMARY KEY,
+        hash text NOT NULL,
+        created_at numeric
+      );
+
+      CREATE TABLE sync_queue (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        entity_type text NOT NULL,
+        entity_id text NOT NULL,
+        operation text NOT NULL,
+        data text,
+        local_version integer,
+        attempts integer,
+        last_error text,
+        created_at text NOT NULL
+      );
+
+      CREATE TABLE sync_outbox (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        status text NOT NULL DEFAULT 'queued',
+        entity_type text NOT NULL,
+        entity_id text NOT NULL,
+        operation text NOT NULL,
+        conflict_policy text NOT NULL DEFAULT 'auto_lww',
+        payload text NOT NULL,
+        payload_version integer NOT NULL DEFAULT 1,
+        attempts integer NOT NULL DEFAULT 0,
+        last_error text,
+        priority real NOT NULL DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+    `);
+
+    const insertMigration = bridgeSqlite.prepare(
+      'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)'
+    );
+    for (const migration of expected.filter(
+      entry => entry.tag !== '0017_drop_sync_queue'
+    )) {
+      insertMigration.run(migration.hash, migration.when);
+    }
+
+    bridgeSqlite
+      .prepare(
+        `INSERT INTO sync_outbox (
+          id, tenant_id, status, entity_type, entity_id, operation,
+          conflict_policy, payload, payload_version, attempts,
+          last_error, priority, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        'already-backfilled',
+        'tenant-bridge',
+        'queued',
+        'products',
+        'product-1',
+        'update',
+        'auto_lww',
+        '{"name":"already copied"}',
+        1,
+        0,
+        null,
+        0,
+        now,
+        now
+      );
+    bridgeSqlite
+      .prepare(
+        `INSERT INTO sync_outbox (
+          id, tenant_id, status, entity_type, entity_id, operation,
+          conflict_policy, payload, payload_version, attempts,
+          last_error, priority, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        'already-backfilled-purchase',
+        'tenant-bridge',
+        'queued',
+        'purchases',
+        'purchase-1',
+        'create',
+        'auto_lww',
+        '{"total":200}',
+        1,
+        0,
+        null,
+        0,
+        now,
+        now
+      );
+
+    const insertLegacyQueue = bridgeSqlite.prepare(
+      `INSERT INTO sync_queue (
+        id, tenant_id, entity_type, entity_id, operation,
+        data, local_version, attempts, last_error, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    insertLegacyQueue.run(
+      'already-backfilled',
+      'tenant-bridge',
+      'products',
+      'product-1',
+      'update',
+      '{"name":"should not overwrite"}',
+      2,
+      4,
+      'stale duplicate',
+      now
+    );
+    insertLegacyQueue.run(
+      'late-sale',
+      'tenant-bridge',
+      'sales',
+      'sale-1',
+      'create',
+      '{"total":100}',
+      7,
+      2,
+      'network unavailable',
+      now
+    );
+    bridgeSqlite.close();
+
+    await initDatabase({ dbPath, seedData: false });
+
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as {
+      $client: Database.Database;
+    };
+
+    const preservedLateRow = liveDb.$client
+      .prepare(
+        `SELECT entity_type, operation, conflict_policy, payload,
+          payload_version, attempts, last_error
+         FROM sync_outbox
+         WHERE id = ?`
+      )
+      .get('late-sale') as
+      | {
+          entity_type: string;
+          operation: string;
+          conflict_policy: string;
+          payload: string;
+          payload_version: number;
+          attempts: number;
+          last_error: string | null;
+        }
+      | undefined;
+    expect(preservedLateRow).toEqual({
+      entity_type: 'sales',
+      operation: 'create',
+      conflict_policy: 'manual',
+      payload: '{"total":100}',
+      payload_version: 7,
+      attempts: 2,
+      last_error: 'network unavailable',
+    });
+
+    const preexistingRows = liveDb.$client
+      .prepare('SELECT payload FROM sync_outbox WHERE id = ?')
+      .all('already-backfilled') as Array<{ payload: string }>;
+    expect(preexistingRows).toEqual([{ payload: '{"name":"already copied"}' }]);
+
+    const correctedPolicy = liveDb.$client
+      .prepare('SELECT conflict_policy FROM sync_outbox WHERE id = ?')
+      .get('already-backfilled-purchase') as
+      | { conflict_policy: string }
+      | undefined;
+    expect(correctedPolicy?.conflict_policy).toBe('manual');
+
+    const legacyTable = liveDb.$client
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sync_queue'")
+      .get() as { name: string } | undefined;
+    expect(legacyTable).toBeUndefined();
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+  });
+
   it('is idempotent across restarts: re-running initDatabase on the same file is a no-op', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-'));
     createdPaths.push(dir);

@@ -877,7 +877,14 @@ export interface SyncQueueItem {
   tenantId: string;
   createdAt: string;
   retryCount: number;
-  lastError?: string;
+  /**
+   * Either a plain message (legacy IndexedDB offline buffer) or a
+   * `NormalizedOutboxError` JSON object (server `sync_outbox` rows
+   * via `sync.pull` / `sync.listQueue`). The renderer formats both
+   * shapes — see `normalizeSyncLastError` in
+   * `apps/web/src/features/company/companySyncDisplay.ts`.
+   */
+  lastError?: string | Record<string, unknown> | null;
 }
 
 export interface SyncConflict {

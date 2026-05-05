@@ -1,18 +1,24 @@
 /**
- * ENG-052b — MEGA seed: sync queue + sync conflicts. Populates the
+ * ENG-052b — MEGA seed: sync outbox + sync conflicts. Populates the
  * /sync admin pages with pending entries and a mix of resolved /
  * unresolved conflicts so the conflict-resolution flow has data.
+ *
+ * ENG-064b cutover: writes directly to `sync_outbox` (the legacy
+ * `sync_queue` was dropped in migration 0017). The bulk insert path
+ * skips `enqueueSync` because there is no envelope context at seed
+ * time and the per-row `operation_events` lookup adds gratuitous
+ * round-trips for thousands of demo rows.
  *
  * @module db/seed-mega/historical-sync
  */
 
 import { nanoid } from 'nanoid';
-import { syncConflicts, syncQueue } from '../schema.js';
+import { syncConflicts, syncOutbox } from '../schema.js';
 import { laterIso, randomDaysAgoIso } from './time-helpers.js';
 import type { MegaContext, MegaTarget } from './types.js';
 
 interface CreatedHistoricalSync {
-  syncQueueRows: number;
+  syncOutboxRows: number;
   syncConflictsRows: number;
 }
 
@@ -22,24 +28,37 @@ export async function seedHistoricalSync(
 ): Promise<CreatedHistoricalSync> {
   const { db, clock, tenantId, products } = ctx;
 
-  const queueRows: Array<typeof syncQueue.$inferInsert> = [];
+  const outboxRows: Array<typeof syncOutbox.$inferInsert> = [];
   const conflictRows: Array<typeof syncConflicts.$inferInsert> = [];
 
-  // Pending sync queue rows — distributed across last 5 days, attempts > 0
-  for (let i = 0; i < target.syncQueuePending; i += 1) {
+  // Pending sync outbox rows — distributed across last 5 days, attempts > 0.
+  // `products` is in the auto_lww risk class per ADR-0004 / SYNC_CONFLICT_POLICY.
+  for (let i = 0; i < target.syncOutboxPending; i += 1) {
     const product = products[i % products.length]!;
     const createdAtIso = randomDaysAgoIso(clock, 0, 5, i);
-    queueRows.push({
+    const attempts = i % 3;
+    outboxRows.push({
       id: nanoid(),
       tenantId,
+      status: attempts > 0 ? 'retrying' : 'queued',
       entityType: 'products',
       entityId: product.id,
       operation: 'update',
-      data: { id: product.id, sku: product.sku, price: product.price + 100 },
-      localVersion: 1 + (i % 3),
-      attempts: i % 3,
-      lastError: i % 3 > 0 ? 'connectivity timeout (seed)' : null,
+      conflictPolicy: 'auto_lww',
+      payload: { id: product.id, sku: product.sku, price: product.price + 100 },
+      payloadVersion: 1,
+      idempotencyKey: null,
+      deviceId: null,
+      dependsOnOperationId: null,
+      operationEventId: null,
+      attempts,
+      nextRetryAt: null,
+      lastError: attempts > 0 ? { kind: 'NETWORK_TIMEOUT', message: 'connectivity timeout (seed)' } : null,
+      priority: 0,
+      claimToken: null,
+      lockedAt: null,
       createdAt: createdAtIso,
+      updatedAt: createdAtIso,
     });
   }
 
@@ -81,15 +100,15 @@ export async function seedHistoricalSync(
     });
   }
 
-  if (queueRows.length > 0) {
-    await db.insert(syncQueue).values(queueRows).run();
+  if (outboxRows.length > 0) {
+    await db.insert(syncOutbox).values(outboxRows).run();
   }
   if (conflictRows.length > 0) {
     await db.insert(syncConflicts).values(conflictRows).run();
   }
 
   return {
-    syncQueueRows: queueRows.length,
+    syncOutboxRows: outboxRows.length,
     syncConflictsRows: conflictRows.length,
   };
 }

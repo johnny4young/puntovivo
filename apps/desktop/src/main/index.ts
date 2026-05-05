@@ -20,9 +20,10 @@ import {
   createServer,
   createModuleLogger,
   type PuntovivoServer,
+  type SyncConflictPolicy,
   appSettings,
   syncConflicts,
-  syncQueue,
+  syncOutbox,
 } from '@puntovivo/server';
 
 // ENG-006 — three child loggers for the Electron main. `electron-main`
@@ -49,7 +50,7 @@ const RENDERER_LEVEL_MAP = {
   import('electron').WebContentsConsoleMessageEventParams['level'],
   'debug' | 'info' | 'warn' | 'error'
 >;
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   checkForAppUpdates,
   getAutoUpdateStatus,
@@ -152,7 +153,7 @@ type AllowedDesktopTable =
   | 'sale_items'
   | 'categories'
   | 'inventory_movements'
-  | 'sync_queue';
+  | 'sync_outbox';
 
 type DesktopSyncOperation = 'create' | 'update' | 'delete';
 
@@ -182,6 +183,10 @@ const THEME_PREFERENCE_KEY = 'theme_preference';
 const TRAY_SETTINGS_KEY = 'tray_settings';
 const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
 const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
+const DESKTOP_PENDING_SYNC_STATUSES = ['queued', 'submitting', 'retrying'] as const;
+const DESKTOP_PROCESSABLE_SYNC_STATUSES = ['queued', 'retrying'] as const;
+type DesktopPendingSyncStatus = (typeof DESKTOP_PENDING_SYNC_STATUSES)[number];
+type DesktopProcessableSyncStatus = (typeof DESKTOP_PROCESSABLE_SYNC_STATUSES)[number];
 const DEFAULT_RECEIPT_PRINT_SETTINGS: ReceiptPrintSettings = {
   silent: false,
   printBackground: true,
@@ -198,7 +203,7 @@ const ALLOWED_DESKTOP_TABLES = [
   'sale_items',
   'categories',
   'inventory_movements',
-  'sync_queue',
+  'sync_outbox',
 ] as const satisfies readonly AllowedDesktopTable[];
 const DIRECT_TENANT_TABLES = new Set<AllowedDesktopTable>([
   'products',
@@ -206,7 +211,7 @@ const DIRECT_TENANT_TABLES = new Set<AllowedDesktopTable>([
   'sales',
   'categories',
   'inventory_movements',
-  'sync_queue',
+  'sync_outbox',
 ]);
 const SYNC_ENTITY_TYPE_MAP: Record<string, string> = {
   product: 'products',
@@ -300,6 +305,31 @@ const SYNC_ENTITY_CONFIG = {
   users: { tableName: 'users', supportsSyncMetadata: false, touchUpdatedAt: false },
   vat_rates: { tableName: 'vat_rates', supportsSyncMetadata: false, touchUpdatedAt: false },
 } as const;
+const DESKTOP_MANUAL_SYNC_ENTITIES = new Set<string>([
+  'sales',
+  'sale_items',
+  'sale_payments',
+  'sale_returns',
+  'cash_sessions',
+  'cash_movements',
+  'fiscal_documents',
+  'fiscal_document_items',
+  'fiscal_numbering_resolutions',
+  'fiscal_certificates',
+  'inventory_movements',
+  'inventory_balances',
+  'initial_inventory',
+  'transfer_orders',
+  'transfer_order_items',
+  'stock_adjustments',
+  'audit_logs',
+  'orders',
+  'order_items',
+  'purchases',
+  'purchase_items',
+  'purchase_returns',
+  'purchase_return_items',
+]);
 const tableColumnsCache = new Map<AllowedDesktopTable, Set<string>>();
 
 function createBackupFileName(now = new Date()): string {
@@ -420,7 +450,7 @@ function getTableColumns(table: AllowedDesktopTable): Set<string> {
 }
 
 function isJsonColumn(table: AllowedDesktopTable, column: string): boolean {
-  return table === 'sync_queue' && column === 'data';
+  return table === 'sync_outbox' && (column === 'payload' || column === 'last_error');
 }
 
 function serializeColumnValue(
@@ -512,13 +542,16 @@ function mapRowToRendererRecord(
     ])
   );
 
-  if (table === 'sync_queue') {
+  if (table === 'sync_outbox') {
     const queueRow = mapped as Record<string, unknown>;
-    const payload = queueRow.data as Record<string, unknown> | undefined;
+    // Renderer historically expected `payload` + `retryCount` (matching
+    // the IndexedDB shadow shape). After the ENG-064b cutover the
+    // server columns are `payload` + `attempts` directly, so we just
+    // alias `attempts` over to `retryCount` for the renderer payload.
+    const payload = queueRow.payload as Record<string, unknown> | undefined;
     const retryCount = queueRow.attempts as number | undefined;
-    delete queueRow.data;
     delete queueRow.attempts;
-    delete queueRow.localVersion;
+    delete queueRow.payloadVersion;
 
     return {
       ...queueRow,
@@ -532,6 +565,28 @@ function mapRowToRendererRecord(
 
 function getLastSyncKey(tenantId: string): string {
   return `${LAST_SYNC_KEY_PREFIX}${tenantId}`;
+}
+
+function desktopPendingSyncWhere(tenantId?: string) {
+  const statusFilter = inArray(
+    syncOutbox.status,
+    DESKTOP_PENDING_SYNC_STATUSES as unknown as DesktopPendingSyncStatus[]
+  );
+  return tenantId ? and(eq(syncOutbox.tenantId, tenantId), statusFilter) : statusFilter;
+}
+
+function desktopProcessableSyncWhere(tenantId: string) {
+  return and(
+    eq(syncOutbox.tenantId, tenantId),
+    inArray(
+      syncOutbox.status,
+      DESKTOP_PROCESSABLE_SYNC_STATUSES as unknown as DesktopProcessableSyncStatus[]
+    )
+  );
+}
+
+function resolveDesktopConflictPolicy(entityType: string): SyncConflictPolicy {
+  return DESKTOP_MANUAL_SYNC_ENTITIES.has(entityType) ? 'manual' : 'auto_lww';
 }
 
 async function getLastSyncAt(tenantId?: string): Promise<string | null> {
@@ -591,10 +646,14 @@ async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSyncStatu
     tenantId
       ? database
           .select({ count: sql<number>`count(*)` })
-          .from(syncQueue)
-          .where(eq(syncQueue.tenantId, tenantId))
+          .from(syncOutbox)
+          .where(desktopPendingSyncWhere(tenantId))
           .get()
-      : database.select({ count: sql<number>`count(*)` }).from(syncQueue).get(),
+      : database
+          .select({ count: sql<number>`count(*)` })
+          .from(syncOutbox)
+          .where(desktopPendingSyncWhere())
+          .get(),
     tenantId
       ? database
           .select({ count: sql<number>`count(*)` })
@@ -724,13 +783,19 @@ async function incrementQueueFailure(
   queueId: string,
   message: string
 ): Promise<void> {
+  // ENG-064b: `sync_outbox.lastError` is a JSON `NormalizedOutboxError`
+  // column, not a plain text. Mirrors `markOutboxFailure` in the
+  // server router. Status flips to `retrying` so a subsequent
+  // operator retry path picks the row up.
   await getServerDatabase()
-    .update(syncQueue)
+    .update(syncOutbox)
     .set({
-      attempts: sql`${syncQueue.attempts} + 1`,
-      lastError: message,
+      status: 'retrying',
+      attempts: sql`${syncOutbox.attempts} + 1`,
+      lastError: { kind: 'UNKNOWN', message },
+      updatedAt: new Date().toISOString(),
     })
-    .where(and(eq(syncQueue.id, queueId), eq(syncQueue.tenantId, tenantId)))
+    .where(and(eq(syncOutbox.id, queueId), eq(syncOutbox.tenantId, tenantId)))
     .run();
 }
 
@@ -1035,12 +1100,16 @@ async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput): Promis
   const now = new Date().toISOString();
   const existingItems = await database
     .select()
-    .from(syncQueue)
+    .from(syncOutbox)
     .where(
       and(
-        eq(syncQueue.tenantId, input.tenantId),
-        eq(syncQueue.entityType, entityType),
-        eq(syncQueue.entityId, input.entityId)
+        eq(syncOutbox.tenantId, input.tenantId),
+        eq(syncOutbox.entityType, entityType),
+        eq(syncOutbox.entityId, input.entityId),
+        inArray(
+          syncOutbox.status,
+          DESKTOP_PENDING_SYNC_STATUSES as unknown as DesktopPendingSyncStatus[]
+        )
       )
     )
     .all();
@@ -1048,67 +1117,80 @@ async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput): Promis
   const pendingCreate = existingItems.find(item => item.operation === 'create');
   if (pendingCreate && input.operation === 'update') {
     await database
-      .update(syncQueue)
+      .update(syncOutbox)
       .set({
-        data: {
-          ...(pendingCreate.data ?? {}),
+        payload: {
+          ...((pendingCreate.payload ?? {}) as Record<string, unknown>),
           ...payload,
         },
+        conflictPolicy: resolveDesktopConflictPolicy(entityType),
         attempts: 0,
         lastError: null,
+        status: 'queued',
         createdAt: now,
+        updatedAt: now,
       })
-      .where(eq(syncQueue.id, pendingCreate.id))
+      .where(eq(syncOutbox.id, pendingCreate.id))
       .run();
     return;
   }
 
   if (pendingCreate && input.operation === 'delete') {
-    await database.delete(syncQueue).where(eq(syncQueue.id, pendingCreate.id)).run();
+    await database.delete(syncOutbox).where(eq(syncOutbox.id, pendingCreate.id)).run();
     return;
   }
 
   const pendingUpdate = existingItems.find(item => item.operation === 'update');
   if (pendingUpdate && input.operation === 'update') {
     await database
-      .update(syncQueue)
+      .update(syncOutbox)
       .set({
-        data: {
-          ...(pendingUpdate.data ?? {}),
+        payload: {
+          ...((pendingUpdate.payload ?? {}) as Record<string, unknown>),
           ...payload,
         },
+        conflictPolicy: resolveDesktopConflictPolicy(entityType),
         attempts: 0,
         lastError: null,
+        status: 'queued',
         createdAt: now,
+        updatedAt: now,
       })
-      .where(eq(syncQueue.id, pendingUpdate.id))
+      .where(eq(syncOutbox.id, pendingUpdate.id))
       .run();
     return;
   }
 
-  await database.insert(syncQueue).values({
+  // ENG-064b: write directly to `sync_outbox` from the Electron IPC
+  // bridge. Mirror ADR-0004's high-risk manual policy here because
+  // this path can enqueue sales, inventory, orders, and purchases
+  // without passing through the server-side `enqueueSync` helper.
+  await database.insert(syncOutbox).values({
     id: randomUUID(),
     tenantId: input.tenantId,
+    status: 'queued',
     entityType,
     entityId: input.entityId,
     operation: input.operation,
-    data: payload,
-    localVersion: 1,
+    conflictPolicy: resolveDesktopConflictPolicy(entityType),
+    payload,
+    payloadVersion: 1,
     attempts: 0,
     createdAt: now,
+    updatedAt: now,
   });
 }
 
 async function handleDesktopGetPendingSyncItems(tenantId: string): Promise<unknown[]> {
   const items = await getServerDatabase()
     .select()
-    .from(syncQueue)
-    .where(eq(syncQueue.tenantId, tenantId))
-    .orderBy(syncQueue.createdAt)
+    .from(syncOutbox)
+    .where(desktopPendingSyncWhere(tenantId))
+    .orderBy(syncOutbox.createdAt)
     .all();
 
   return items
-    .map(item => mapRowToRendererRecord('sync_queue', item as unknown as Record<string, unknown>))
+    .map(item => mapRowToRendererRecord('sync_outbox', item as unknown as Record<string, unknown>))
     .filter((item): item is Record<string, unknown> => item !== null);
 }
 
@@ -1116,9 +1198,9 @@ async function handleDesktopTriggerSync(tenantId: string): Promise<DesktopSyncTr
   const database = getServerDatabase();
   const items = await database
     .select()
-    .from(syncQueue)
-    .where(eq(syncQueue.tenantId, tenantId))
-    .orderBy(syncQueue.createdAt)
+    .from(syncOutbox)
+    .where(desktopProcessableSyncWhere(tenantId))
+    .orderBy(syncOutbox.createdAt)
     .all();
   const processedIds: string[] = [];
   const errors: string[] = [];
@@ -1161,7 +1243,7 @@ async function handleDesktopTriggerSync(tenantId: string): Promise<DesktopSyncTr
           tenantId,
           item.entityType,
           item.entityId,
-          (item.data ?? {}) as Record<string, unknown>,
+          (item.payload ?? {}) as Record<string, unknown>,
           {}
         );
         await incrementQueueFailure(tenantId, item.id, message);
@@ -1172,7 +1254,7 @@ async function handleDesktopTriggerSync(tenantId: string): Promise<DesktopSyncTr
       markSyncEntityAsSynced(entityType, tenantId, item.entityId, now);
     }
 
-    await database.delete(syncQueue).where(eq(syncQueue.id, item.id)).run();
+    await database.delete(syncOutbox).where(eq(syncOutbox.id, item.id)).run();
     processedIds.push(item.id);
   }
 

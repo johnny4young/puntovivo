@@ -65,7 +65,7 @@ Unlocks franchises, BI, public API, mobile.
 
 - Add a **Postgres adapter** via Drizzle (same schema source).
 - "Hybrid deployment": desktop stays offline-first authoritative; a
-  central server receives `sync_queue` diffs.
+  central server receives `sync_outbox` diffs.
 - Conflict resolution: CRDT-like by `updated_at` + tombstones, per
   `tenantId`.
 - Web admin UI (same React bundle) deployed as static site to the

@@ -15,7 +15,6 @@
  */
 
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
@@ -30,8 +29,8 @@ import {
   saleItems,
   saleReturns,
   sales,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
@@ -311,16 +310,11 @@ export const salesRouter = router({
       .set(updateData)
       .where(and(eq(sales.id, id), eq(sales.tenantId, ctx.tenantId)));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'sales',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db

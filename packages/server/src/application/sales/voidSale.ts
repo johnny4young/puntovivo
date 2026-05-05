@@ -22,7 +22,6 @@
  */
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
@@ -30,8 +29,8 @@ import {
   products,
   saleItems,
   sales,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -190,7 +189,6 @@ export async function voidSale(
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
-  const syncQueueId = nanoid();
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
     tenantId: ctx.tenantId,
     saleId: input.id,
@@ -220,20 +218,6 @@ export async function voidSale(
         syncVersion: nextSyncVersion,
       })
       .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
-      .run();
-
-    tx.insert(syncQueue)
-      .values({
-        id: syncQueueId,
-        tenantId: ctx.tenantId,
-        entityType: 'sales',
-        entityId: input.id,
-        operation: 'update',
-        data: { id: input.id, status: 'voided', reason: input.reason ?? null },
-        localVersion: nextSyncVersion,
-        attempts: 0,
-        createdAt: now,
-      })
       .run();
 
     if (voidReversibleSessionId) {
@@ -276,6 +260,13 @@ export async function voidSale(
           : {}),
       },
     });
+  });
+
+  await enqueueSync(ctx, {
+    entityType: 'sales',
+    entityId: input.id,
+    operation: 'update',
+    data: { id: input.id, status: 'voided', reason: input.reason ?? null },
   });
 
   // ENG-020 — emit DIAN credit note (NC) for the voided sale. Pulls
@@ -336,11 +327,6 @@ export async function voidSale(
         },
       });
     }
-    effects.push({
-      kind: 'sync_queue_emit',
-      resourceType: 'sync_queue',
-      resourceId: syncQueueId,
-    });
     if (auditLogId) {
       effects.push({
         kind: 'audit_log',

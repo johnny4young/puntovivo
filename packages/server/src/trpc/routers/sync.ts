@@ -1,13 +1,13 @@
 /**
  * Sync tRPC Router
  *
- * Local sync queue management and sync status.
+ * Local sync outbox management and sync status.
  *
  * Procedures (implemented):
  * - sync.status          (tenant) - Get current sync status
- * - sync.listQueue       (tenant) - List pending sync queue items
- * - sync.addToQueue      (tenant) - Add an operation to the sync queue
- * - sync.removeFromQueue (tenant) - Remove an item from the sync queue
+ * - sync.listQueue       (tenant) - List pending sync_outbox items
+ * - sync.addToQueue      (tenant) - Add an operation to the sync_outbox
+ * - sync.removeFromQueue (tenant) - Remove an item from the sync_outbox
  * - sync.listConflicts   (tenant) - List unresolved sync conflicts
  *
  * Additional procedures:
@@ -15,12 +15,17 @@
  * - sync.pull    - Return a sync snapshot
  * - sync.resolve - Resolve a sync conflict
  *
+ * ENG-064 contract v1 procedures:
+ * - sync.getContract   - Manifest negotiation for ENG-068+ multi-store sync
+ * - sync.peekOutbox    - Operations Center tail
+ * - sync.retry         - Operator-driven retry of stuck rows
+ *
  * @module trpc/routers/sync
  */
 
 import { TRPCError } from '@trpc/server';
 import type Database from 'better-sqlite3';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
@@ -29,7 +34,6 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   appSettings,
-  syncQueue,
   syncConflicts,
   syncOutbox,
 } from '../../db/schema.js';
@@ -45,8 +49,18 @@ import {
   retryOutboxInput,
 } from '../schemas/sync.js';
 import { buildSyncContractManifest } from '../../services/sync/index.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 
 const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
+
+/**
+ * Statuses that count as "still pending" — the row has not yet been
+ * accepted by the central server. `submitting` is a transient mid-push
+ * state; counting it as pending preserves the legacy semantics where
+ * any non-final row blocked closeout flows.
+ */
+const PENDING_STATUSES = ['queued', 'submitting', 'retrying'] as const;
+type PendingStatus = (typeof PENDING_STATUSES)[number];
 
 const syncEntityConfig = {
   category_x_provider: {
@@ -89,7 +103,6 @@ const syncEntityConfig = {
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
-  purchase_items: { tableName: 'purchase_items', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {
     tableName: 'purchase_return_items',
@@ -162,26 +175,37 @@ async function getSyncOverview(
   db: DatabaseInstance,
   tenantId: string
 ) {
-  const [queueCountRow, retryingCountRow, failedCountRow, oldestPendingRow, conflictCountRow, lastSyncAt] = await Promise.all([
+  const pendingFilter = and(
+    eq(syncOutbox.tenantId, tenantId),
+    inArray(syncOutbox.status, PENDING_STATUSES as unknown as PendingStatus[])
+  );
+
+  const [pendingCountRow, retryingCountRow, failedCountRow, oldestPendingRow, conflictCountRow, lastSyncAt] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)` })
-      .from(syncQueue)
-      .where(eq(syncQueue.tenantId, tenantId))
+      .from(syncOutbox)
+      .where(pendingFilter)
       .get(),
     db
       .select({ count: sql<number>`count(*)` })
-      .from(syncQueue)
-      .where(and(eq(syncQueue.tenantId, tenantId), sql`${syncQueue.attempts} > 0`))
+      .from(syncOutbox)
+      .where(and(eq(syncOutbox.tenantId, tenantId), eq(syncOutbox.status, 'retrying')))
       .get(),
     db
       .select({ count: sql<number>`count(*)` })
-      .from(syncQueue)
-      .where(and(eq(syncQueue.tenantId, tenantId), sql`${syncQueue.lastError} is not null`))
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          inArray(syncOutbox.status, ['retrying', 'dead_letter']),
+          sql`${syncOutbox.lastError} is not null`
+        )
+      )
       .get(),
     db
-      .select({ createdAt: sql<string | null>`min(${syncQueue.createdAt})` })
-      .from(syncQueue)
-      .where(eq(syncQueue.tenantId, tenantId))
+      .select({ createdAt: sql<string | null>`min(${syncOutbox.createdAt})` })
+      .from(syncOutbox)
+      .where(pendingFilter)
       .get(),
     db
       .select({ count: sql<number>`count(*)` })
@@ -191,7 +215,7 @@ async function getSyncOverview(
     getLastSyncAt(db, tenantId),
   ]);
 
-  const pendingCount = queueCountRow?.count ?? 0;
+  const pendingCount = pendingCountRow?.count ?? 0;
   const retryingCount = retryingCountRow?.count ?? 0;
   const failedCount = failedCountRow?.count ?? 0;
   const conflictsCount = conflictCountRow?.count ?? 0;
@@ -267,19 +291,27 @@ async function ensureSyncConflict(
   return conflictId;
 }
 
-async function incrementQueueFailure(
+/**
+ * Mark a `sync_outbox` row as failed: bump attempts, capture the
+ * normalized error, transition to `retrying`. Used by `sync.push`
+ * when a row hits a recoverable obstacle.
+ */
+async function markOutboxFailure(
   db: DatabaseInstance,
   tenantId: string,
-  queueId: string,
+  outboxId: string,
   message: string
 ) {
+  const now = new Date().toISOString();
   await db
-    .update(syncQueue)
+    .update(syncOutbox)
     .set({
-      attempts: sql`${syncQueue.attempts} + 1`,
-      lastError: message,
+      status: 'retrying',
+      attempts: sql`${syncOutbox.attempts} + 1`,
+      lastError: { kind: 'UNKNOWN', message },
+      updatedAt: now,
     })
-    .where(and(eq(syncQueue.id, queueId), eq(syncQueue.tenantId, tenantId)))
+    .where(and(eq(syncOutbox.id, outboxId), eq(syncOutbox.tenantId, tenantId)))
     .run();
 }
 
@@ -328,18 +360,6 @@ function findEntity(
          FROM order_items oi
          INNER JOIN orders o ON o.id = oi.order_id
          WHERE oi.id = ? AND o.tenant_id = ?
-         LIMIT 1`
-      )
-      .get(entityId, tenantId) as { id: string } | undefined;
-  }
-
-  if (config.tableName === 'purchase_items') {
-    return getSqliteClient(db)
-      .prepare(
-        `SELECT pi.id
-         FROM purchase_items pi
-         INNER JOIN purchases p ON p.id = pi.purchase_id
-         WHERE pi.id = ? AND p.tenant_id = ?
          LIMIT 1`
       )
       .get(entityId, tenantId) as { id: string } | undefined;
@@ -404,72 +424,87 @@ export const syncRouter = router({
   }),
 
   /**
-   * List pending operations from the sync queue
+   * List pending operations from the sync_outbox.
+   *
+   * The legacy response shape mapped one-to-one to `sync_queue`
+   * columns (`data`, `localVersion`). Post-cutover the projection
+   * still exposes `data` + `localVersion` (aliased from `payload` +
+   * `payloadVersion`) so the web admin keeps rendering without a
+   * shape change.
    */
   listQueue: tenantProcedure.input(listQueueInput).query(async ({ ctx, input }) => {
-    const [items, countRow] = await Promise.all([
+    const where = and(
+      eq(syncOutbox.tenantId, ctx.tenantId),
+      inArray(syncOutbox.status, PENDING_STATUSES as unknown as PendingStatus[])
+    );
+    const [rows, countRow] = await Promise.all([
       ctx.db
-        .select()
-        .from(syncQueue)
-        .where(eq(syncQueue.tenantId, ctx.tenantId))
-        .orderBy(syncQueue.createdAt)
+        .select({
+          id: syncOutbox.id,
+          tenantId: syncOutbox.tenantId,
+          entityType: syncOutbox.entityType,
+          entityId: syncOutbox.entityId,
+          operation: syncOutbox.operation,
+          data: syncOutbox.payload,
+          localVersion: syncOutbox.payloadVersion,
+          attempts: syncOutbox.attempts,
+          lastError: syncOutbox.lastError,
+          createdAt: syncOutbox.createdAt,
+        })
+        .from(syncOutbox)
+        .where(where)
+        .orderBy(syncOutbox.createdAt)
         .limit(input.limit)
         .all(),
       ctx.db
         .select({ count: sql<number>`count(*)` })
-        .from(syncQueue)
-        .where(eq(syncQueue.tenantId, ctx.tenantId))
+        .from(syncOutbox)
+        .where(where)
         .get(),
     ]);
 
-    return { items, count: countRow?.count ?? 0 };
+    return { items: rows, count: countRow?.count ?? 0 };
   }),
 
   /**
-   * Add an operation to the local sync queue
+   * Add an operation to the local sync_outbox manually. Operator
+   * recovery surface — system writers go through `enqueueSync()`.
    */
   addToQueue: tenantProcedure.input(addToQueueInput).mutation(async ({ ctx, input }) => {
-    const now = new Date().toISOString();
-    const id = nanoid();
-
-    await ctx.db.insert(syncQueue).values({
-      id,
-      tenantId: ctx.tenantId,
-      entityType: input.entityType,
+    const result = await enqueueSync(ctx, {
+      entityType: input.entityType as SyncEntityType,
       entityId: input.entityId,
       operation: input.operation,
       data: input.data ?? {},
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return {
-      id,
+      id: result.id,
       entityType: input.entityType,
       entityId: input.entityId,
       operation: input.operation,
-      createdAt: now,
+      createdAt: new Date().toISOString(),
     };
   }),
 
   /**
-   * Remove an item from the sync queue (after successful sync)
+   * Remove an item from the sync_outbox (after successful manual
+   * recovery, or to discard a stuck row outright).
    */
   removeFromQueue: tenantProcedure.input(removeFromQueueInput).mutation(async ({ ctx, input }) => {
     const item = await ctx.db
-      .select()
-      .from(syncQueue)
-      .where(and(eq(syncQueue.id, input.id), eq(syncQueue.tenantId, ctx.tenantId)))
+      .select({ id: syncOutbox.id })
+      .from(syncOutbox)
+      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
       .get();
 
     if (!item) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync queue item not found' });
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync outbox item not found' });
     }
 
     await ctx.db
-      .delete(syncQueue)
-      .where(and(eq(syncQueue.id, input.id), eq(syncQueue.tenantId, ctx.tenantId)))
+      .delete(syncOutbox)
+      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
       .run();
 
     return { success: true, id: input.id };
@@ -505,14 +540,29 @@ export const syncRouter = router({
   }),
 
   /**
-   * Process pending queue items and mark them as synced locally.
+   * Process pending sync_outbox rows and mark them as synced
+   * locally. Operator-driven; the periodic worker daemon lands in
+   * ENG-066.
    */
   push: tenantProcedure.input(pushSyncInput).mutation(async ({ ctx, input }) => {
     const items = await ctx.db
-      .select()
-      .from(syncQueue)
-      .where(eq(syncQueue.tenantId, ctx.tenantId))
-      .orderBy(syncQueue.createdAt)
+      .select({
+        id: syncOutbox.id,
+        entityType: syncOutbox.entityType,
+        entityId: syncOutbox.entityId,
+        operation: syncOutbox.operation,
+        payload: syncOutbox.payload,
+        attempts: syncOutbox.attempts,
+        priority: syncOutbox.priority,
+      })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, ctx.tenantId),
+          inArray(syncOutbox.status, ['queued', 'retrying'])
+        )
+      )
+      .orderBy(desc(syncOutbox.priority), syncOutbox.createdAt)
       .limit(input.limit)
       .all();
 
@@ -531,7 +581,7 @@ export const syncRouter = router({
 
       if (existingConflictId) {
         const message = `Pending conflict blocks ${item.entityType}:${item.entityId}`;
-        await incrementQueueFailure(ctx.db, ctx.tenantId, item.id, message);
+        await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
         conflictIds.push(existingConflictId);
         errors.push(message);
         continue;
@@ -540,7 +590,7 @@ export const syncRouter = router({
       const config = getSyncEntityConfiguration(item.entityType);
       if (!config) {
         const message = `Unsupported sync entity type: ${item.entityType}`;
-        await incrementQueueFailure(ctx.db, ctx.tenantId, item.id, message);
+        await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
         errors.push(message);
         continue;
       }
@@ -553,10 +603,10 @@ export const syncRouter = router({
             tenantId: ctx.tenantId,
             entityType: item.entityType,
             entityId: item.entityId,
-            localData: item.data ?? {},
+            localData: (item.payload ?? {}) as Record<string, unknown>,
             remoteData: {},
           });
-          await incrementQueueFailure(ctx.db, ctx.tenantId, item.id, message);
+          await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
           conflictIds.push(conflictId);
           errors.push(message);
           continue;
@@ -566,8 +616,13 @@ export const syncRouter = router({
       }
 
       await ctx.db
-        .delete(syncQueue)
-        .where(and(eq(syncQueue.id, item.id), eq(syncQueue.tenantId, ctx.tenantId)))
+        .update(syncOutbox)
+        .set({
+          status: 'synced',
+          lastError: null,
+          updatedAt: now,
+        })
+        .where(and(eq(syncOutbox.id, item.id), eq(syncOutbox.tenantId, ctx.tenantId)))
         .run();
       processedIds.push(item.id);
     }
@@ -589,16 +644,34 @@ export const syncRouter = router({
   }),
 
   /**
-   * Return a sync snapshot with pending queue items and conflicts.
+   * Return a sync snapshot with pending sync_outbox rows and
+   * conflicts. Read-only mirror of `sync.status` plus the actual row
+   * payloads.
    */
   pull: tenantProcedure.input(pullSyncInput).query(async ({ ctx, input }) => {
     const [overview, queue, conflicts] = await Promise.all([
       getSyncOverview(ctx.db, ctx.tenantId),
       ctx.db
-        .select()
-        .from(syncQueue)
-        .where(eq(syncQueue.tenantId, ctx.tenantId))
-        .orderBy(syncQueue.createdAt)
+        .select({
+          id: syncOutbox.id,
+          tenantId: syncOutbox.tenantId,
+          entityType: syncOutbox.entityType,
+          entityId: syncOutbox.entityId,
+          operation: syncOutbox.operation,
+          data: syncOutbox.payload,
+          localVersion: syncOutbox.payloadVersion,
+          attempts: syncOutbox.attempts,
+          lastError: syncOutbox.lastError,
+          createdAt: syncOutbox.createdAt,
+        })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, ctx.tenantId),
+            inArray(syncOutbox.status, PENDING_STATUSES as unknown as PendingStatus[])
+          )
+        )
+        .orderBy(syncOutbox.createdAt)
         .limit(input.queueLimit)
         .all(),
       ctx.db
@@ -621,7 +694,8 @@ export const syncRouter = router({
   }),
 
   /**
-   * Resolve a pending sync conflict and optionally requeue a local update.
+   * Resolve a pending sync conflict and optionally requeue a local
+   * update on the sync_outbox.
    */
   resolve: adminProcedure.input(resolveSyncConflictInput).mutation(async ({ ctx, input }) => {
     const conflict = await ctx.db
@@ -651,9 +725,7 @@ export const syncRouter = router({
     // have happened yet. The findEntity guard, however, moves INSIDE the
     // transaction callback below so a concurrent delete between the
     // outer check and the keepLocal / merged write can no longer leave
-    // the path resolving against stale data. better-sqlite3 transactions
-    // are connection-scoped, so calling findEntity(ctx.db, ...) from
-    // inside the callback runs against the same in-flight BEGIN.
+    // the path resolving against stale data.
     let entityConfig: (typeof syncEntityConfig)[SyncEntityType] | null = null;
     if (nextData) {
       entityConfig = getSyncEntityConfiguration(conflict.entityType);
@@ -699,33 +771,29 @@ export const syncRouter = router({
         .where(and(eq(syncConflicts.id, conflict.id), eq(syncConflicts.tenantId, ctx.tenantId)))
         .run();
 
+      // Discard any in-flight outbox rows for the same entity. Both
+      // resolution paths (`local_wins`/`merged` requeue, `remote_wins`
+      // discard) start clean.
       tx
-        .delete(syncQueue)
+        .delete(syncOutbox)
         .where(
           and(
-            eq(syncQueue.tenantId, ctx.tenantId),
-            eq(syncQueue.entityType, conflict.entityType),
-            eq(syncQueue.entityId, conflict.entityId)
+            eq(syncOutbox.tenantId, ctx.tenantId),
+            eq(syncOutbox.entityType, conflict.entityType),
+            eq(syncOutbox.entityId, conflict.entityId)
           )
         )
         .run();
-
-      if (nextData) {
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: conflict.entityType,
-            entityId: conflict.entityId,
-            operation: 'update',
-            data: nextData,
-            localVersion: 1,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
-      }
     });
+
+    if (nextData) {
+      await enqueueSync(ctx, {
+        entityType: conflict.entityType as SyncEntityType,
+        entityId: conflict.entityId,
+        operation: 'update',
+        data: nextData,
+      });
+    }
 
     const overview = await getSyncOverview(ctx.db, ctx.tenantId);
 
@@ -740,12 +808,9 @@ export const syncRouter = router({
   // ==========================================================================
   // ENG-064 — sync contract v1
   // --------------------------------------------------------------------------
-  // The 3 procedures below operate on the new `sync_outbox` table
-  // (migration 0016) sibling to the legacy `sync_queue`. ENG-064 v1
-  // ships the contract foundation; the 19 router writer rewrites +
-  // the existing `sync.*` procedure cutover from `sync_queue` to
-  // `sync_outbox` are deferred to ENG-064b. The legacy procedures
-  // above stay untouched so existing tests + writers keep working.
+  // The 3 procedures below operate on `sync_outbox` (migration 0016).
+  // ENG-064b cut the legacy procedures above over to the same table
+  // and dropped `sync_queue` in migration 0017.
   // ==========================================================================
 
   /**
@@ -756,10 +821,8 @@ export const syncRouter = router({
   getContract: managerOrAdminProcedure.query(() => buildSyncContractManifest()),
 
   /**
-   * Operator-facing peek into the new sync_outbox tail. Manager+
-   * admin gated. Stub for ENG-065's Operations Center to consume
-   * later; currently used by the ENG-064 acceptance test suite to
-   * assert the contract is populated end-to-end.
+   * Operator-facing peek into the sync_outbox tail. Manager+admin
+   * gated. Consumed by ENG-065's Operations Center.
    */
   peekOutbox: managerOrAdminProcedure
     .input(peekOutboxInput)

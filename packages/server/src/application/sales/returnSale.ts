@@ -26,8 +26,8 @@ import {
   saleItems,
   saleReturns,
   sales,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -210,7 +210,6 @@ export async function returnSale(
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
-  const syncQueueIds = { saleReturn: nanoid(), saleUpdate: nanoid() };
 
   ctx.db.transaction(tx => {
     // ENG-042 TOCTOU defense: refunds bind the cash movement to
@@ -257,43 +256,6 @@ export async function returnSale(
       .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
       .run();
 
-    tx.insert(syncQueue)
-      .values([
-        {
-          id: syncQueueIds.saleReturn,
-          tenantId: ctx.tenantId,
-          entityType: 'sale_returns',
-          entityId: refundId,
-          operation: 'create',
-          data: {
-            id: refundId,
-            saleId: input.id,
-            refundAmount: existing.total,
-            reason: input.reason ?? null,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        },
-        {
-          id: syncQueueIds.saleUpdate,
-          tenantId: ctx.tenantId,
-          entityType: 'sales',
-          entityId: input.id,
-          operation: 'update',
-          data: {
-            id: input.id,
-            paymentStatus: 'refunded',
-            reason: input.reason ?? null,
-            returnId: refundId,
-          },
-          localVersion: nextSyncVersion,
-          attempts: 0,
-          createdAt: now,
-        },
-      ])
-      .run();
-
     cashMovementId = insertCashMovement({
       tx,
       tenantId: ctx.tenantId,
@@ -332,6 +294,30 @@ export async function returnSale(
         refundCashSessionId: activeCashSession.id,
       },
     });
+  });
+
+  await enqueueSync(ctx, {
+    entityType: 'sale_returns',
+    entityId: refundId,
+    operation: 'create',
+    data: {
+      id: refundId,
+      saleId: input.id,
+      refundAmount: existing.total,
+      reason: input.reason ?? null,
+    },
+  });
+
+  await enqueueSync(ctx, {
+    entityType: 'sales',
+    entityId: input.id,
+    operation: 'update',
+    data: {
+      id: input.id,
+      paymentStatus: 'refunded',
+      reason: input.reason ?? null,
+      returnId: refundId,
+    },
   });
 
   // ENG-020 — emit DIAN credit note (NC) for the refunded sale.
@@ -393,16 +379,6 @@ export async function returnSale(
         },
       });
     }
-    effects.push({
-      kind: 'sync_queue_emit',
-      resourceType: 'sync_queue',
-      resourceId: syncQueueIds.saleReturn,
-    });
-    effects.push({
-      kind: 'sync_queue_emit',
-      resourceType: 'sync_queue',
-      resourceId: syncQueueIds.saleUpdate,
-    });
     if (auditLogId) {
       effects.push({
         kind: 'audit_log',

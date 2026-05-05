@@ -2492,7 +2492,7 @@ export const operationEvents = sqliteTable(
 /**
  * `operation_effects` records what side effects a single operation
  * produced. One row per significant effect (an audit_logs row, a
- * sync_queue emission, a fiscal_outbox enqueue, an inventory
+ * sync_outbox enqueue, a fiscal_outbox enqueue, an inventory
  * movement, etc.). Row-level details live in their dedicated tables;
  * the effect row carries `kind` + `resource_type` + `resource_id` so
  * the trail can join back without forcing every consumer to read the
@@ -2713,32 +2713,6 @@ export const receiptTemplatesRelations = relations(receiptTemplates, ({ one }) =
     relationName: 'receipt_templates_updated_by',
   }),
 }));
-
-// ============================================================================
-// SYNC QUEUE (Local operations waiting to be synced)
-// ============================================================================
-
-export const syncQueue = sqliteTable(
-  'sync_queue',
-  {
-    id: text('id').primaryKey(),
-    tenantId: text('tenant_id')
-      .notNull()
-      .references(() => tenants.id),
-    entityType: text('entity_type').notNull(), // e.g., 'products', 'sales', 'customers'
-    entityId: text('entity_id').notNull(),
-    operation: text('operation', { enum: ['create', 'update', 'delete'] as const }).notNull(),
-    data: text('data', { mode: 'json' }).$type<Record<string, unknown>>(),
-    localVersion: integer('local_version').notNull().default(1),
-    attempts: integer('attempts').notNull().default(0),
-    lastError: text('last_error'),
-    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
-  },
-  table => [
-    index('idx_sync_queue_tenant').on(table.tenantId),
-    index('idx_sync_queue_entity').on(table.entityType, table.entityId),
-  ]
-);
 
 // ============================================================================
 // SYNC CONFLICTS
@@ -3555,10 +3529,13 @@ export type NewHardwareOutboxRow = typeof hardwareOutbox.$inferInsert;
 // per ADR-0004, and a soft `depends_on_operation_id` for topological
 // ordering on the consumer side.
 //
-// `sync_queue` (the original Phase-1 table) stays in place as a deprecated
-// read-only backstop. The migration in `0016_sync_contract_v1.sql`
-// copies pending rows over so the consumer doesn't lose work in flight;
-// a follow-up ticket drops `sync_queue` after a release cycle.
+// ENG-064b cutover history: 0016_sync_contract_v1 introduced this
+// table and backfilled pending rows from the legacy `sync_queue`;
+// 0017_drop_sync_queue dropped the legacy table once every writer
+// (19 routers + 4 application services + dev seed) routed through
+// `enqueueSync()` and the eight `sync.*` procedures cut over to read
+// from `sync_outbox`. After 0017 there is a single canonical sync
+// table.
 
 /**
  * Closed list of sync outbox lifecycle states. Mirror of the fiscal
@@ -3588,10 +3565,9 @@ export const syncConflictPolicyEnum = ['manual', 'auto_lww'] as const;
 export type SyncConflictPolicy = (typeof syncConflictPolicyEnum)[number];
 
 /**
- * Operation kind on the sync row. Mirrors the legacy `sync_queue`
- * shape so the data migration is structural identity. Future:
- * `restore` / `replay` could land here when ENG-066 chaos suite
- * needs them.
+ * Operation kind on the sync row. Three-value enum: `create` /
+ * `update` / `delete`. Future: `restore` / `replay` could land
+ * here when ENG-066 chaos suite needs them.
  */
 export const syncOperationEnum = ['create', 'update', 'delete'] as const;
 export type SyncOperation = (typeof syncOperationEnum)[number];
@@ -4011,9 +3987,6 @@ export type NewIdempotencyKey = typeof idempotencyKeys.$inferInsert;
 
 export type ReceiptTemplate = typeof receiptTemplates.$inferSelect;
 export type NewReceiptTemplate = typeof receiptTemplates.$inferInsert;
-
-export type SyncQueueItem = typeof syncQueue.$inferSelect;
-export type NewSyncQueueItem = typeof syncQueue.$inferInsert;
 
 export type SyncConflict = typeof syncConflicts.$inferSelect;
 export type NewSyncConflict = typeof syncConflicts.$inferInsert;

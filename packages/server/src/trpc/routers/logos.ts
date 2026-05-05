@@ -2,7 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { companies, logos, syncQueue } from '../../db/schema.js';
+import { companies, logos } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -76,16 +77,11 @@ export const logosRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'logos',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return (await ctx.db.select().from(logos).where(eq(logos.id, id)).get())!;
@@ -124,32 +120,23 @@ export const logosRouter = router({
           })
           .where(eq(companies.id, company.id))
           .run();
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: 'companies',
-            entityId: company.id,
-            operation: 'update',
-            data: { id: company.id, logoId: id, logoUrl: nextImageUrl, updatedAt: now },
-            localVersion: 1,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
       }
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    for (const company of assignedCompanies) {
+      await enqueueSync(ctx, {
+        entityType: 'companies',
+        entityId: company.id,
+        operation: 'update',
+        data: { id: company.id, logoId: id, logoUrl: nextImageUrl, updatedAt: now },
+      });
+    }
+
+    await enqueueSync(ctx, {
       entityType: 'logos',
       entityId: id,
       operation: 'update',
       data: { id, name: nextName, imageUrl: nextImageUrl, isActive: nextIsActive, updatedAt: now },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return (await ctx.db.select().from(logos).where(eq(logos.id, id)).get())!;
@@ -173,16 +160,11 @@ export const logosRouter = router({
 
     await ctx.db.delete(logos).where(eq(logos.id, input.id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'logos',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: new Date().toISOString(),
     });
 
     return { success: true, id: input.id };

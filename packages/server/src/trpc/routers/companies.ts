@@ -2,7 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { companies, logos, syncQueue } from '../../db/schema.js';
+import { companies, logos } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -92,16 +93,11 @@ export const companiesRouter = router({
 
       await ctx.db.update(companies).set(updateData).where(eq(companies.id, existing.id));
 
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: 'companies',
         entityId: existing.id,
         operation: 'update',
         data: { id: existing.id, ...updateData },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return (
@@ -129,16 +125,11 @@ export const companiesRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'companies',
       entityId: id,
       operation: 'create',
       data: { id, ...input, logoId: resolvedLogo?.id ?? null, logoUrl: resolvedLogo?.imageUrl ?? input.logoUrl ?? null },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return (
@@ -172,16 +163,11 @@ export const companiesRouter = router({
 
     await ctx.db.update(companies).set(updateData).where(eq(companies.id, company.id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'companies',
       entityId: company.id,
       operation: 'update',
       data: { id: company.id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return (

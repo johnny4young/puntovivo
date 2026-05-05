@@ -5,7 +5,8 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
-import { syncQueue, users } from '../../db/schema.js';
+import { users } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { clearRefreshCookie } from '../../security/authTokens.js';
 import {
   createUserInput,
@@ -95,26 +96,6 @@ export const usersRouter = router({
         })
         .run();
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'users',
-          entityId: id,
-          operation: 'create',
-          data: {
-            id,
-            email: input.email,
-            name: input.name,
-            role: input.role,
-            isActive: input.isActive,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
-
       // New-account snapshot — PII stays in `after` only because `before`
       // is null for a create. Password hash is intentionally never recorded.
       writeAuditLog({
@@ -133,6 +114,19 @@ export const usersRouter = router({
         },
         metadata: null,
       });
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'users',
+      entityId: id,
+      operation: 'create',
+      data: {
+        id,
+        email: input.email,
+        name: input.name,
+        role: input.role,
+        isActive: input.isActive,
+      },
     });
 
     return (
@@ -204,20 +198,6 @@ export const usersRouter = router({
     ctx.db.transaction(tx => {
       tx.update(users).set(updateData).where(eq(users.id, id)).run();
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'users',
-          entityId: id,
-          operation: 'update',
-          data: { id, ...updateData },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
-
       if (shouldAudit) {
         writeAuditLog({
           tx,
@@ -243,6 +223,13 @@ export const usersRouter = router({
           },
         });
       }
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'users',
+      entityId: id,
+      operation: 'update',
+      data: { id, ...updateData },
     });
 
     return (
@@ -292,16 +279,11 @@ export const usersRouter = router({
         clearRefreshCookie(ctx.res);
       }
 
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: 'users',
         entityId: input.id,
         operation: 'update',
         data: { id: input.id, passwordReset: true, updatedAt: now },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return { success: true, id: input.id };

@@ -80,7 +80,7 @@ export interface MegaTarget {
   ordersCompleted: number;
   syncConflictsUnresolved: number;
   syncConflictsResolved: number;
-  syncQueuePending: number;
+  syncOutboxPending: number;
   loginAttemptsFailed: number;
   loginAttemptsSuccess: number;
   aiAuditLogEntries: number;
@@ -116,7 +116,7 @@ export const MEGA_TARGET: MegaTarget = {
   ordersCompleted: 4,
   syncConflictsUnresolved: 2,
   syncConflictsResolved: 2,
-  syncQueuePending: 5,
+  syncOutboxPending: 5,
   loginAttemptsFailed: 5,
   loginAttemptsSuccess: 3,
   aiAuditLogEntries: 12,
@@ -146,7 +146,7 @@ export interface MegaCounts {
   quotations: number;
   orders: number;
   auditLogs: number;
-  syncQueueRows: number;
+  syncOutboxRows: number;
   syncConflicts: number;
   loginAttempts: number;
   aiAuditLog: number;

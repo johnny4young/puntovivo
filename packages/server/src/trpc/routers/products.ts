@@ -26,11 +26,11 @@ import {
   products,
   productXProvider,
   providers,
-  syncQueue,
   unitXProduct,
   units,
   vatRates,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { Context } from '../context.js';
 import {
   listProductsInput,
@@ -690,10 +690,7 @@ export const productsRouter = router({
       await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
     }
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'products',
       entityId: id,
       operation: 'create',
@@ -711,9 +708,6 @@ export const productsRouter = router({
         providerAssignments: resolvedProviderAssignments,
         unitAssignments: resolvedUnitAssignments,
       },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await getProductWithRelations(ctx.db, id, ctx.tenantId);
@@ -843,10 +837,7 @@ export const productsRouter = router({
       await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
     }
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'products',
       entityId: id,
       operation: 'update',
@@ -856,9 +847,6 @@ export const productsRouter = router({
         providerAssignments: resolvedProviderAssignments,
         unitAssignments: resolvedUnitAssignments,
       },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await getProductWithRelations(ctx.db, id, ctx.tenantId);
@@ -891,16 +879,11 @@ export const productsRouter = router({
       })
       .where(eq(products.id, input.id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'products',
       entityId: input.id,
       operation: 'update',
       data: { id: input.id, isActive: false, updatedAt: now },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

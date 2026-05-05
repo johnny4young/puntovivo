@@ -17,8 +17,8 @@ import {
   countries,
   departments,
   providers,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { router } from '../init.js';
@@ -183,16 +183,11 @@ export const providersRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'providers',
       entityId: id,
       operation: 'create',
       data: { id, ...input, cityId },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await ctx.db
@@ -229,16 +224,11 @@ export const providersRouter = router({
 
     await ctx.db.update(providers).set(updateData).where(eq(providers.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'providers',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db
@@ -336,30 +326,16 @@ export const providersRouter = router({
       );
 
       const now = new Date().toISOString();
+      const addedAssignmentIds = addedCategoryIds.map(categoryId => ({
+        assignmentId: nanoid(),
+        categoryId,
+      }));
       ctx.db.transaction(tx => {
         for (const assignment of removedAssignments) {
           tx.delete(categoryXProvider).where(eq(categoryXProvider.id, assignment.id)).run();
-          tx.insert(syncQueue)
-            .values({
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              entityType: 'category_x_provider',
-              entityId: assignment.id,
-              operation: 'delete',
-              data: {
-                id: assignment.id,
-                providerId: input.providerId,
-                categoryId: assignment.categoryId,
-              },
-              localVersion: 1,
-              attempts: 0,
-              createdAt: now,
-            })
-            .run();
         }
 
-        for (const categoryId of addedCategoryIds) {
-          const assignmentId = nanoid();
+        for (const { assignmentId, categoryId } of addedAssignmentIds) {
           tx.insert(categoryXProvider)
             .values({
               id: assignmentId,
@@ -370,21 +346,30 @@ export const providersRouter = router({
               updatedAt: now,
             })
             .run();
-          tx.insert(syncQueue)
-            .values({
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              entityType: 'category_x_provider',
-              entityId: assignmentId,
-              operation: 'create',
-              data: { id: assignmentId, providerId: input.providerId, categoryId },
-              localVersion: 1,
-              attempts: 0,
-              createdAt: now,
-            })
-            .run();
         }
       });
+
+      for (const assignment of removedAssignments) {
+        await enqueueSync(ctx, {
+          entityType: 'category_x_provider',
+          entityId: assignment.id,
+          operation: 'delete',
+          data: {
+            id: assignment.id,
+            providerId: input.providerId,
+            categoryId: assignment.categoryId,
+          },
+        });
+      }
+
+      for (const { assignmentId, categoryId } of addedAssignmentIds) {
+        await enqueueSync(ctx, {
+          entityType: 'category_x_provider',
+          entityId: assignmentId,
+          operation: 'create',
+          data: { id: assignmentId, providerId: input.providerId, categoryId },
+        });
+      }
 
       return {
         success: true,
@@ -411,17 +396,11 @@ export const providersRouter = router({
 
     await ctx.db.delete(providers).where(eq(providers.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'providers',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

@@ -39,7 +39,7 @@ export {
   type SyncOperation,
   type SyncEntityType,
   type AddToQueueInput,
-} from './syncQueue';
+} from './offlineQueue';
 
 // High-level storage abstraction
 export {

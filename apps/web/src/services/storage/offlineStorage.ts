@@ -9,7 +9,7 @@ import type { SyncStatus } from '@/types';
 import { generateId } from '@/lib/utils';
 import * as indexedDB from './indexedDB';
 import { STORE_NAMES, type StoreName, type StoreTypeMap } from './indexedDB';
-import { addToQueue, type SyncEntityType } from './syncQueue';
+import { addToQueue, type SyncEntityType } from './offlineQueue';
 
 // Re-export types for consumers
 export type { StoreName, StoreTypeMap };

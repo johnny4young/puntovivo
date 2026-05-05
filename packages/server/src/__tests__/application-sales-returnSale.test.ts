@@ -199,7 +199,7 @@ afterAll(async () => {
 });
 
 describe('returnSale (happy path)', () => {
-  it('restores stock, persists sale_returns, flips paymentStatus to refunded, emits two syncQueue rows', async () => {
+  it('restores stock, persists sale_returns, flips paymentStatus to refunded, emits two sync_outbox rows', async () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Return Happy', sku: 'RT-OK', stock: 5 });
     const saleId = await seedCompletedCashSale(productId);
@@ -374,7 +374,7 @@ describe('returnSale (site routing + journal effects)', () => {
     expect(balance?.onHand).toBe(8);
   });
 
-  it('emits sale_row + sale_return_row + inventory_movement + cash_movement + 2 sync_queue_emit + audit_log when the envelope is present', async () => {
+  it('emits sale_row + sale_return_row + inventory_movement + cash_movement + 2 outbox_enqueue:sync + audit_log when the envelope is present', async () => {
     const db = getDatabase();
     const productId = await seedProduct({
       name: 'Return Journal',
@@ -419,7 +419,7 @@ describe('returnSale (site routing + journal effects)', () => {
     expect(kinds).toContain('inventory_movement');
     expect(kinds).toContain('cash_movement');
     expect(kinds).toContain('audit_log');
-    expect(kinds.filter(k => k === 'sync_queue_emit').length).toBe(2);
+    expect(kinds.filter(k => k === 'outbox_enqueue:sync').length).toBe(2);
   });
 });
 

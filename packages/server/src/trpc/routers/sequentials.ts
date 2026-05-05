@@ -4,7 +4,8 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { sequentials, sites, syncQueue } from '../../db/schema.js';
+import { sequentials, sites } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   deleteSequentialInput,
   listSequentialsInput,
@@ -77,16 +78,11 @@ export const sequentialsRouter = router({
 
       await ctx.db.update(sequentials).set(updateData).where(eq(sequentials.id, existing.id));
 
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: 'sequentials',
         entityId: existing.id,
         operation: 'update',
         data: { id: existing.id, ...updateData },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return (
@@ -106,16 +102,11 @@ export const sequentialsRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'sequentials',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return (await ctx.db.select().from(sequentials).where(eq(sequentials.id, id)).get())!;
@@ -134,17 +125,11 @@ export const sequentialsRouter = router({
 
     await ctx.db.delete(sequentials).where(eq(sequentials.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'sequentials',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

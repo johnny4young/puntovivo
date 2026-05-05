@@ -20,7 +20,8 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { categories, categoryXProvider, syncQueue } from '../../db/schema.js';
+import { categories, categoryXProvider } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   listCategoriesInput,
   getCategoryInput,
@@ -176,17 +177,11 @@ export const categoriesRouter = router({
       updatedAt: now,
     });
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'categories',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await ctx.db.select().from(categories).where(eq(categories.id, id)).get();
@@ -224,17 +219,11 @@ export const categoriesRouter = router({
 
     await ctx.db.update(categories).set(updateData).where(eq(categories.id, id));
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'categories',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db.select().from(categories).where(eq(categories.id, id)).get();
@@ -289,17 +278,11 @@ export const categoriesRouter = router({
 
     await ctx.db.delete(categories).where(eq(categories.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'categories',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };
