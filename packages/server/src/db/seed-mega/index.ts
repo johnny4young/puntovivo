@@ -206,7 +206,7 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
     quotations: quotationsResult.count,
     orders: ordersResult.count,
     auditLogs: salesResult.auditRowsCount,
-    syncQueueRows: syncResult.syncQueueRows,
+    syncOutboxRows: syncResult.syncOutboxRows,
     syncConflicts: syncResult.syncConflictsRows,
     loginAttempts: authResult.count,
     aiAuditLog: aiResult.aiAuditCount,

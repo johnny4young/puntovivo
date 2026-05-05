@@ -20,7 +20,8 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { syncQueue, units } from '../../db/schema.js';
+import { units } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   createUnitInput,
   deleteUnitInput,
@@ -95,16 +96,11 @@ export const unitsRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'units',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await ctx.db.select().from(units).where(eq(units.id, id)).get();
@@ -134,16 +130,11 @@ export const unitsRouter = router({
 
     await ctx.db.update(units).set(updateData).where(eq(units.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'units',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db.select().from(units).where(eq(units.id, id)).get();
@@ -164,17 +155,11 @@ export const unitsRouter = router({
 
     await ctx.db.delete(units).where(eq(units.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'units',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

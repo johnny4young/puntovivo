@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { products, syncConflicts, syncQueue, tenants, users } from '../db/schema.js';
+import { products, syncConflicts, syncOutbox, tenants, users } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
@@ -109,7 +109,7 @@ describe('Sync tRPC Router', () => {
     const db = getDatabase();
 
     await db.delete(syncConflicts).where(eq(syncConflicts.tenantId, testTenantId)).run();
-    await db.delete(syncQueue).where(eq(syncQueue.tenantId, testTenantId)).run();
+    await db.delete(syncOutbox).where(eq(syncOutbox.tenantId, testTenantId)).run();
   });
 
   afterAll(async () => {
@@ -282,12 +282,17 @@ describe('Sync tRPC Router', () => {
       expect(result.synced).toBeGreaterThanOrEqual(1);
       expect(result.lastSyncAt).not.toBeNull();
 
+      // ENG-064b: sync_outbox preserves rows post-push as `status='synced'`
+      // (mirrors `fiscal_outbox.status='accepted'` and
+      // `hardware_outbox.status='printed'`). The legacy `sync_queue`
+      // shape deleted the row outright; the new shape keeps it for
+      // audit / Operations Center visibility.
       const queueRow = await db
         .select()
-        .from(syncQueue)
-        .where(and(eq(syncQueue.id, queued.id), eq(syncQueue.tenantId, testTenantId)))
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId)))
         .get();
-      expect(queueRow).toBeUndefined();
+      expect(queueRow?.status).toBe('synced');
 
       const product = await db
         .select()
@@ -322,11 +327,14 @@ describe('Sync tRPC Router', () => {
       const db = getDatabase();
       const queueRow = await db
         .select()
-        .from(syncQueue)
-        .where(and(eq(syncQueue.id, queued.id), eq(syncQueue.tenantId, testTenantId)))
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId)))
         .get();
       expect(queueRow?.attempts).toBe(1);
-      expect(queueRow?.lastError).toContain('local record is missing');
+      // ENG-064b: lastError is now a JSON `NormalizedOutboxError` object
+      // ({ kind, message }) instead of a plain string.
+      const lastErrorJson = queueRow?.lastError as { kind?: string; message?: string } | null;
+      expect(lastErrorJson?.message).toContain('local record is missing');
 
       const conflictRow = await db
         .select()
@@ -356,17 +364,20 @@ describe('Sync tRPC Router', () => {
       const db = getDatabase();
       const now = new Date().toISOString();
 
-      await db.insert(syncQueue).values({
+      await db.insert(syncOutbox).values({
         id: nanoid(),
         tenantId: testTenantId,
+        status: 'retrying',
         entityType: 'products',
         entityId: nanoid(),
         operation: 'update',
-        data: { name: 'Retrying product' },
-        localVersion: 1,
+        conflictPolicy: 'auto_lww',
+        payload: { name: 'Retrying product' },
+        payloadVersion: 1,
         attempts: 2,
-        lastError: 'Remote endpoint unavailable',
+        lastError: { kind: 'UNKNOWN', message: 'Remote endpoint unavailable' },
         createdAt: now,
+        updatedAt: now,
       });
 
       const result = await caller.sync.pull({ queueLimit: 10, conflictLimit: 10 });
@@ -402,16 +413,19 @@ describe('Sync tRPC Router', () => {
         createdAt: now,
       });
 
-      await db.insert(syncQueue).values({
+      await db.insert(syncOutbox).values({
         id: nanoid(),
         tenantId: testTenantId,
+        status: 'queued',
         entityType: 'products',
         entityId,
         operation: 'update',
-        data: { id: entityId, name: 'Outdated Local Value' },
-        localVersion: 1,
+        conflictPolicy: 'auto_lww',
+        payload: { id: entityId, name: 'Outdated Local Value' },
+        payloadVersion: 1,
         attempts: 0,
         createdAt: now,
+        updatedAt: now,
       });
 
       const result = await caller.sync.resolve({
@@ -433,18 +447,18 @@ describe('Sync tRPC Router', () => {
 
       const queuedItems = await db
         .select()
-        .from(syncQueue)
+        .from(syncOutbox)
         .where(
           and(
-            eq(syncQueue.tenantId, testTenantId),
-            eq(syncQueue.entityType, 'products'),
-            eq(syncQueue.entityId, entityId)
+            eq(syncOutbox.tenantId, testTenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, entityId)
           )
         )
         .all();
       expect(queuedItems).toHaveLength(1);
       expect(queuedItems[0]?.operation).toBe('update');
-      expect(queuedItems[0]?.data).toEqual({ id: entityId, name: 'Keep Local' });
+      expect(queuedItems[0]?.payload).toEqual({ id: entityId, name: 'Keep Local' });
     });
 
     it('resolves a conflict with merged data and requeues the merged payload', async () => {
@@ -485,18 +499,18 @@ describe('Sync tRPC Router', () => {
 
       const queuedItems = await db
         .select()
-        .from(syncQueue)
+        .from(syncOutbox)
         .where(
           and(
-            eq(syncQueue.tenantId, testTenantId),
-            eq(syncQueue.entityType, 'products'),
-            eq(syncQueue.entityId, entityId)
+            eq(syncOutbox.tenantId, testTenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, entityId)
           )
         )
         .all();
       expect(queuedItems).toHaveLength(1);
       expect(queuedItems[0]?.operation).toBe('update');
-      expect(queuedItems[0]?.data).toEqual({
+      expect(queuedItems[0]?.payload).toEqual({
         id: entityId,
         name: 'Merged Name',
         price: 10,
@@ -522,16 +536,19 @@ describe('Sync tRPC Router', () => {
         createdAt: now,
       });
 
-      await db.insert(syncQueue).values({
+      await db.insert(syncOutbox).values({
         id: nanoid(),
         tenantId: testTenantId,
+        status: 'retrying',
         entityType: 'products',
         entityId,
         operation: 'update',
-        data: { id: entityId, name: 'Deleted locally' },
-        localVersion: 1,
+        conflictPolicy: 'auto_lww',
+        payload: { id: entityId, name: 'Deleted locally' },
+        payloadVersion: 1,
         attempts: 1,
         createdAt: now,
+        updatedAt: now,
       });
 
       for (const resolution of ['local_wins', 'merged'] as const) {
@@ -564,12 +581,12 @@ describe('Sync tRPC Router', () => {
 
       const queuedItems = await db
         .select()
-        .from(syncQueue)
+        .from(syncOutbox)
         .where(
           and(
-            eq(syncQueue.tenantId, testTenantId),
-            eq(syncQueue.entityType, 'products'),
-            eq(syncQueue.entityId, entityId)
+            eq(syncOutbox.tenantId, testTenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, entityId)
           )
         )
         .all();
@@ -594,16 +611,19 @@ describe('Sync tRPC Router', () => {
         createdAt: now,
       });
 
-      await db.insert(syncQueue).values({
+      await db.insert(syncOutbox).values({
         id: nanoid(),
         tenantId: testTenantId,
+        status: 'retrying',
         entityType: 'products',
         entityId,
         operation: 'update',
-        data: { id: entityId, name: 'Deleted locally' },
-        localVersion: 1,
+        conflictPolicy: 'auto_lww',
+        payload: { id: entityId, name: 'Deleted locally' },
+        payloadVersion: 1,
         attempts: 1,
         createdAt: now,
+        updatedAt: now,
       });
 
       const result = await caller.sync.resolve({
@@ -618,12 +638,12 @@ describe('Sync tRPC Router', () => {
 
       const queuedItems = await db
         .select()
-        .from(syncQueue)
+        .from(syncOutbox)
         .where(
           and(
-            eq(syncQueue.tenantId, testTenantId),
-            eq(syncQueue.entityType, 'products'),
-            eq(syncQueue.entityId, entityId)
+            eq(syncOutbox.tenantId, testTenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, entityId)
           )
         )
         .all();
@@ -653,16 +673,19 @@ describe('Sync tRPC Router', () => {
         createdAt: now,
       });
 
-      await db.insert(syncQueue).values({
+      await db.insert(syncOutbox).values({
         id: queueItemId,
         tenantId: testTenantId,
+        status: 'retrying',
         entityType: 'products',
         entityId,
         operation: 'update',
-        data: { id: entityId, name: 'Deleted locally' },
-        localVersion: 1,
+        conflictPolicy: 'auto_lww',
+        payload: { id: entityId, name: 'Deleted locally' },
+        payloadVersion: 1,
         attempts: 1,
         createdAt: now,
+        updatedAt: now,
       });
 
       // Intentionally do NOT insert a `products` row — findEntity will
@@ -697,8 +720,8 @@ describe('Sync tRPC Router', () => {
       // The queue item must also still be present.
       const queueRows = await db
         .select()
-        .from(syncQueue)
-        .where(eq(syncQueue.id, queueItemId))
+        .from(syncOutbox)
+        .where(eq(syncOutbox.id, queueItemId))
         .all();
       expect(queueRows).toHaveLength(1);
     });

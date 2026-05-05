@@ -16,11 +16,11 @@ import {
   purchases,
   sequentials,
   sites,
-  syncQueue,
   unitXProduct,
   units,
   users,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { Context } from '../context.js';
 import {
   applyInventoryBalanceDelta,
@@ -969,25 +969,19 @@ export const purchasesRouter = router({
           .run();
       }
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'purchases',
-          entityId: purchaseId,
-          operation: 'create',
-          data: {
-            id: purchaseId,
-            purchaseNumber,
-            providerId: input.providerId,
-            total,
-            siteId: purchaseSite.id,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'purchases',
+      entityId: purchaseId,
+      operation: 'create',
+      data: {
+        id: purchaseId,
+        purchaseNumber,
+        providerId: input.providerId,
+        total,
+        siteId: purchaseSite.id,
+      },
     });
 
     return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
@@ -1171,45 +1165,31 @@ export const purchasesRouter = router({
           })
           .where(eq(orders.id, input.orderId))
           .run();
+      });
 
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: 'purchases',
-            entityId: purchaseId,
-            operation: 'create',
-            data: {
-              id: purchaseId,
-              purchaseNumber,
-              providerId: orderRecord.providerId,
-              orderId: input.orderId,
-              total,
-              siteId: orderRecord.siteId,
-            },
-            localVersion: 1,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
+      await enqueueSync(ctx, {
+        entityType: 'purchases',
+        entityId: purchaseId,
+        operation: 'create',
+        data: {
+          id: purchaseId,
+          purchaseNumber,
+          providerId: orderRecord.providerId,
+          orderId: input.orderId,
+          total,
+          siteId: orderRecord.siteId,
+        },
+      });
 
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: 'orders',
-            entityId: input.orderId,
-            operation: 'update',
-            data: {
-              id: input.orderId,
-              status: nextOrderStatus,
-              receivedPurchaseId: purchaseId,
-            },
-            localVersion: nextOrderSyncVersion,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
+      await enqueueSync(ctx, {
+        entityType: 'orders',
+        entityId: input.orderId,
+        operation: 'update',
+        data: {
+          id: input.orderId,
+          status: nextOrderStatus,
+          receivedPurchaseId: purchaseId,
+        },
       });
 
       return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
@@ -1384,27 +1364,6 @@ export const purchasesRouter = router({
             })
             .run();
 
-          tx.insert(syncQueue)
-            .values({
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              entityType: 'purchase_return_items',
-              entityId: item.id,
-              operation: 'create',
-              data: {
-                id: item.id,
-                purchaseReturnId,
-                purchaseItemId: item.purchaseItemId,
-                productId: item.productId,
-                quantity: item.quantity,
-                unitId: item.unitId,
-                total: item.total,
-              },
-              localVersion: 1,
-              attempts: 0,
-              createdAt: now,
-            })
-            .run();
         }
 
         tx.update(purchases)
@@ -1418,42 +1377,47 @@ export const purchasesRouter = router({
           .where(eq(purchases.id, input.id))
           .run();
 
-        tx.insert(syncQueue)
-          .values([
-            {
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              entityType: 'purchase_returns',
-              entityId: purchaseReturnId,
-              operation: 'create',
-              data: {
-                id: purchaseReturnId,
-                purchaseId: input.id,
-                returnAmount: resolvedReturn.returnAmount,
-                reason: input.reason ?? null,
-              },
-              localVersion: 1,
-              attempts: 0,
-              createdAt: now,
-            },
-            {
-              id: nanoid(),
-              tenantId: ctx.tenantId,
-              entityType: 'purchases',
-              entityId: input.id,
-              operation: 'update',
-              data: {
-                id: input.id,
-                status: nextStatus,
-                reason: input.reason ?? null,
-                returnId: purchaseReturnId,
-              },
-              localVersion: nextSyncVersion,
-              attempts: 0,
-              createdAt: now,
-            },
-          ])
-          .run();
+      });
+
+      for (const item of resolvedReturn.rows) {
+        await enqueueSync(ctx, {
+          entityType: 'purchase_return_items',
+          entityId: item.id,
+          operation: 'create',
+          data: {
+            id: item.id,
+            purchaseReturnId,
+            purchaseItemId: item.purchaseItemId,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitId: item.unitId,
+            total: item.total,
+          },
+        });
+      }
+
+      await enqueueSync(ctx, {
+        entityType: 'purchase_returns',
+        entityId: purchaseReturnId,
+        operation: 'create',
+        data: {
+          id: purchaseReturnId,
+          purchaseId: input.id,
+          returnAmount: resolvedReturn.returnAmount,
+          reason: input.reason ?? null,
+        },
+      });
+
+      await enqueueSync(ctx, {
+        entityType: 'purchases',
+        entityId: input.id,
+        operation: 'update',
+        data: {
+          id: input.id,
+          status: nextStatus,
+          reason: input.reason ?? null,
+          returnId: purchaseReturnId,
+        },
       });
 
       return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
@@ -1605,20 +1569,6 @@ export const purchasesRouter = router({
         .where(eq(purchases.id, input.id))
         .run();
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'purchases',
-          entityId: input.id,
-          operation: 'update',
-          data: { id: input.id, status: 'voided', reason: input.reason },
-          localVersion: nextSyncVersion,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
-
       // ENG-007 — voiding a purchase reverses destination stock at the
       // receiving site and pushes the purchase row into `voided`. Audit row
       // is written inside the same transaction as the reversal so either
@@ -1641,6 +1591,13 @@ export const purchasesRouter = router({
           siteId: existing.siteId,
         },
       });
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'purchases',
+      entityId: input.id,
+      operation: 'update',
+      data: { id: input.id, status: 'voided', reason: input.reason },
     });
 
     return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);

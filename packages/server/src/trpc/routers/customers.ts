@@ -28,8 +28,8 @@ import {
   identificationTypes,
   personTypes,
   regimeTypes,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   listCustomersInput,
   getCustomerInput,
@@ -198,17 +198,11 @@ export const customersRouter = router({
       updatedAt: now,
     });
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'customers',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await ctx.db.select().from(customers).where(eq(customers.id, id)).get();
@@ -314,17 +308,11 @@ export const customersRouter = router({
 
     await ctx.db.update(customers).set(updateData).where(eq(customers.id, id));
 
-    // Add to sync queue
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'customers',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db.select().from(customers).where(eq(customers.id, id)).get();
@@ -348,17 +336,11 @@ export const customersRouter = router({
 
     await ctx.db.delete(customers).where(eq(customers.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'customers',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

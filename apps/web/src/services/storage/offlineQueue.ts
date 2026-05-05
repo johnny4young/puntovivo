@@ -1,16 +1,26 @@
 /**
- * Sync queue management for offline operations
- * Tracks pending changes that need to be synchronized with the server
+ * Offline queue management for writes performed while the network
+ * is unreachable.
+ *
+ * Independent of the server-side `sync_outbox` table — this is a
+ * client-side IndexedDB shadow buffer that holds writes locally
+ * until connectivity returns. The IndexedDB ObjectStore name
+ * (`STORE_NAMES.SYNC_QUEUE`) keeps its historical identifier so
+ * existing devices don't need a DB version bump on upgrade.
+ *
+ * ENG-064b renamed this module from `syncQueue.ts` to
+ * `offlineQueue.ts` to eliminate the name collision with the
+ * (since-dropped) server-side `sync_queue` table.
  */
 
 import type { SyncQueueItem } from '@/types';
 import { generateId } from '@/lib/utils';
 import { getAll, getById, put, deleteRecord, getByIndex, bulkPut, STORE_NAMES } from './indexedDB';
 
-// Operation types for sync queue
+// Operation types for offline queue
 export type SyncOperation = 'create' | 'update' | 'delete';
 
-// Entity types that can be synced
+// Entity types that can be queued offline
 export type SyncEntityType =
   | 'product'
   | 'customer'
@@ -19,7 +29,7 @@ export type SyncEntityType =
   | 'category'
   | 'inventory_movement';
 
-// Input for adding to sync queue
+// Input for enqueuing an offline write
 export interface AddToQueueInput {
   entityType: SyncEntityType;
   entityId: string;
@@ -32,7 +42,7 @@ export interface AddToQueueInput {
 const MAX_RETRY_COUNT = 5;
 
 /**
- * Add an operation to the sync queue
+ * Add an operation to the offline queue
  */
 export async function addToQueue(input: AddToQueueInput): Promise<SyncQueueItem> {
   const { entityType, entityId, operation, payload, tenantId } = input;

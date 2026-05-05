@@ -37,10 +37,11 @@ without forcing one physical table for everything.
 The five outboxes — and why each gets its own physical home:
 
 1. **`sync_outbox`** — entity sync to a future central server.
-   Replaces the existing `sync_queue` (ENG-064). Lifecycle:
-   `pending → in_flight → synced | conflict | error`. Retry
-   policy is defensive; conflicts route to manual resolution per
-   ADR-0004.
+   Replaced the legacy `sync_queue` in ENG-064 (table introduced)
+   + ENG-064b (writer cutover + drop of `sync_queue`). Lifecycle:
+   `queued → submitting → synced | conflict | retrying →
+   dead_letter`. Retry policy is defensive; conflicts route to
+   manual resolution per ADR-0004.
 2. **`payment_outbox`** — payment terminal effects (charge / void
    / slip print on a Bold or Wompi datáfono once ENG-063 ships).
    Lifecycle: `queued → submitted → approved | declined | timeout
@@ -116,11 +117,11 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
 ## Alternatives Rejected
 
 - **One monolithic outbox table with a `kind` discriminator** — the
-  current `sync_queue` shape. Forces every consumer to filter by
-  kind, hurts query plans on growing tables, and (worst) makes it
-  hard to apply different retry policies per stream. A stuck DIAN
-  document would share a row in the same table with a queued
-  customer-avatar update.
+  shape the legacy `sync_queue` carried. Forces every consumer to
+  filter by kind, hurts query plans on growing tables, and (worst)
+  makes it hard to apply different retry policies per stream. A
+  stuck DIAN document would share a row in the same table with a
+  queued customer-avatar update.
 - **In-memory event bus only** — does not survive process restart,
   which is the exact failure mode the outboxes exist to handle
   (Electron crash mid-sale, OS reboot, dev server kill).
@@ -151,21 +152,22 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   1. ENG-053 lands the kernel + `outbox_metadata`.
   2. ENG-057 introduces `fiscal_outbox` and migrates the
      `fiscal_documents.status='contingency'` rows.
-  3. ENG-064 (Shipped 2026-05-05) introduces `sync_outbox` via
+  3. ENG-064 (Shipped 2026-05-05) introduced `sync_outbox` via
      migration `0016_sync_contract_v1.sql` with a one-shot
-     `INSERT OR IGNORE` data migration that copies pending
-     `sync_queue` rows over. ENG-064 v1 ships the contract
-     foundation (per-entity manifest at `services/sync/contract.ts`,
+     `INSERT OR IGNORE` data migration that copied pending
+     `sync_queue` rows over, plus the contract foundation
+     (per-entity manifest at `services/sync/contract.ts`,
      `enqueueSync` helper, three new procedures
-     `sync.{getContract, peekOutbox, retry}`); the 19 router
-     inline writers + the existing 8 `sync.*` procedures
+     `sync.{getContract, peekOutbox, retry}`). ENG-064b (Shipped
+     2026-05-05) closed the cutover: the 19 router inline writers
+     + 4 application services + dev seed all route through
+     `enqueueSync`, the eight legacy `sync.*` procedures
      (`status / listQueue / addToQueue / removeFromQueue /
-     listConflicts / push / pull / resolve`) continue to operate
-     on `sync_queue` until ENG-064b cuts them over. ENG-042's
-     `sync.listConflicts` / `resolve` adapt at that point. The
-     legacy `sync_queue` table stays in place as a deprecated
-     read-only backstop until ENG-064b drops it after a release
-     cycle.
+     listConflicts / push / pull / resolve`) read/write
+     `sync_outbox`, migration `0017_drop_sync_queue.sql` removes
+     the legacy table, and the web client
+     `services/storage/syncQueue.ts` is renamed to
+     `offlineQueue.ts` to clear the file-name collision.
   4. ENG-063 introduces `payment_outbox` when the payment
      terminal adapter ships.
   5. ENG-070 introduces `webhook_outbox`.
@@ -177,10 +179,11 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      (`services/peripherals/hardware-worker.ts`) mirrors the
      fiscal worker structurally; the kernel + retry policy are
      reused from `lib/outbox/`.
-- **Backward compatibility**: the existing `sync_queue` and
-  `fiscal_documents.status` keep working until their migration
-  ticket lands. No data loss; renames + view shims handle the
-  transition.
+- **Backward compatibility**: the legacy `sync_queue` was retired
+  in ENG-064b (migration `0017_drop_sync_queue.sql`); the
+  `fiscal_documents.status` mirror is owned by `fiscal_outbox`
+  per ENG-057. No data loss along the way — the ENG-064 backfill
+  already copied pending rows before drop.
 
 ## Affected Tickets
 
@@ -199,9 +202,13 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
 - `ENG-064` (Shipped 2026-05-05) — Sync contract v1. Introduced
   `sync_outbox` via migration `0016_sync_contract_v1.sql` plus the
   per-entity manifest + `enqueueSync` helper + three new procedures
-  (`getContract` / `peekOutbox` / `retry`). The full retirement of
-  `sync_queue` (writer rewrites + existing `sync.*` procedure
-  cutover + table drop) is parked for ENG-064b.
+  (`getContract` / `peekOutbox` / `retry`).
+- `ENG-064b` (Shipped 2026-05-05) — Sync writer cutover. Routed
+  every inline writer through `enqueueSync`, cut the eight legacy
+  `sync.*` procedures over to `sync_outbox`, dropped the legacy
+  `sync_queue` table via migration `0017_drop_sync_queue.sql`, and
+  renamed the web client offline queue file to clear the name
+  collision.
 - `ENG-065` — Operations Center. Reads `outbox_metadata` and
   renders one panel per outbox.
 - `ENG-070` — Event-based public API + webhook foundation.

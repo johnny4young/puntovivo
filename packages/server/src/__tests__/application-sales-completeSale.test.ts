@@ -40,7 +40,7 @@ import {
   sales,
   sequentials,
   sites,
-  syncQueue,
+  syncOutbox,
   tenants,
   unitXProduct,
   units,
@@ -420,7 +420,7 @@ describe('completeSale (fresh path)', () => {
     });
   });
 
-  it('does not move cash, sync_queue completion, or fiscal docs when status=draft', async () => {
+  it('does not move cash, sync_outbox completion, or fiscal docs when status=draft', async () => {
     const productId = await seedProduct({
       name: 'CS Draft no fiscal',
       sku: 'CS-DRAFT-NO-FX',
@@ -643,7 +643,7 @@ describe('completeSale (fromDraft path)', () => {
 });
 
 describe('completeSale (journal effects)', () => {
-  it('emits sale_row + payment_row + inventory_movement + cash_movement + sync_queue_emit when an envelope is present', async () => {
+  it('emits sale_row + payment_row + inventory_movement + cash_movement + outbox_enqueue:sync when an envelope is present', async () => {
     const productId = await seedProduct({
       name: 'CS Journal Effects',
       sku: 'CS-JE-1',
@@ -703,7 +703,7 @@ describe('completeSale (journal effects)', () => {
     expect(effectKinds).toContain('payment_row');
     expect(effectKinds).toContain('inventory_movement');
     expect(effectKinds).toContain('cash_movement');
-    expect(effectKinds).toContain('sync_queue_emit');
+    expect(effectKinds).toContain('outbox_enqueue:sync');
 
     const saleId = (result.sale as { id: string }).id;
     const persistedPayments = await db
@@ -832,7 +832,7 @@ describe('completeSale (multi-tenant isolation)', () => {
 });
 
 describe('completeSale (post-condition snapshots)', () => {
-  it('populates one inventoryMovement and one syncQueue row per fresh sale', async () => {
+  it('populates one inventoryMovement and one sync_outbox row per fresh sale', async () => {
     const productId = await seedProduct({
       name: 'CS Snapshot',
       sku: 'CS-SNAP-1',
@@ -868,9 +868,9 @@ describe('completeSale (post-condition snapshots)', () => {
 
     const queue = await getDatabase()
       .select()
-      .from(syncQueue)
-      .where(eq(syncQueue.entityId, saleId))
-      .orderBy(desc(syncQueue.createdAt))
+      .from(syncOutbox)
+      .where(eq(syncOutbox.entityId, saleId))
+      .orderBy(desc(syncOutbox.createdAt))
       .all();
     expect(queue.length).toBeGreaterThanOrEqual(1);
   });

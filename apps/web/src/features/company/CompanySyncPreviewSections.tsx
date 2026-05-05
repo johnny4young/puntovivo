@@ -6,6 +6,7 @@ import {
   getSyncEntityLabel,
   getSyncOperationLabel,
   getSyncQueueIssueMessage,
+  normalizeSyncLastError,
 } from './companySyncDisplay';
 
 interface SyncQueueItem {
@@ -15,7 +16,7 @@ interface SyncQueueItem {
   operation: string;
   createdAt: string;
   attempts?: number;
-  lastError?: string | null;
+  lastError?: string | Record<string, unknown> | null;
 }
 
 interface SyncConflictItem {
@@ -242,7 +243,7 @@ interface SyncTechnicalDetailsProps {
   entityType: string;
   entityId: string;
   operation?: string;
-  lastError?: string | null;
+  lastError?: string | Record<string, unknown> | null;
 }
 
 function SyncTechnicalDetails({
@@ -273,12 +274,18 @@ function SyncTechnicalDetails({
             <dd className="break-all font-mono">{operation}</dd>
           </div>
         )}
-        {lastError && (
-          <div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
-            <dt className="font-medium">{t('company.sync.technicalDetails.error')}</dt>
-            <dd className="break-words font-mono">{lastError}</dd>
-          </div>
-        )}
+        {(() => {
+          const normalizedMessage = normalizeSyncLastError(lastError);
+          if (!normalizedMessage) {
+            return null;
+          }
+          return (
+            <div className="grid gap-1 sm:grid-cols-[9rem_1fr]">
+              <dt className="font-medium">{t('company.sync.technicalDetails.error')}</dt>
+              <dd className="break-words font-mono">{normalizedMessage}</dd>
+            </div>
+          );
+        })()}
       </dl>
     </details>
   );

@@ -8,8 +8,8 @@ import {
   identificationTypes,
   personTypes,
   regimeTypes,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -162,16 +162,11 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
         updatedAt: now,
       });
 
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: definition.entityType,
         entityId: id,
         operation: 'create',
         data: { id, ...input },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return ctx.db.select().from(table).where(eq(table.id, id)).get();
@@ -209,16 +204,11 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
 
       await ctx.db.update(table).set(updateData).where(eq(table.id, id));
 
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: definition.entityType,
         entityId: id,
         operation: 'update',
         data: { id, ...updateData },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return ctx.db.select().from(table).where(eq(table.id, id)).get();
@@ -240,17 +230,11 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
 
       await ctx.db.delete(table).where(eq(table.id, input.id));
 
-      const now = new Date().toISOString();
-      await ctx.db.insert(syncQueue).values({
-        id: nanoid(),
-        tenantId: ctx.tenantId,
+      await enqueueSync(ctx, {
         entityType: definition.entityType,
         entityId: input.id,
         operation: 'delete',
         data: { id: input.id },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
       });
 
       return { success: true, id: input.id };

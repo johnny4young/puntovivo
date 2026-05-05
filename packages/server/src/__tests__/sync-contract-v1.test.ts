@@ -13,11 +13,9 @@
  *      route to operator-driven resolution.
  *
  * Tests drive `enqueueSync` directly (the helper is the contract
- * surface) and read via `sync.peekOutbox`. The 19-router writer
- * rewrite + the existing `sync.*` procedure cutover from
- * `sync_queue` to `sync_outbox` are deferred to ENG-064b — the
- * existing 15 cases in `sync.test.ts` continue to exercise the
- * legacy path against `sync_queue`.
+ * surface) and read via `sync.peekOutbox`. ENG-064b cut the 19 router
+ * writers + existing `sync.*` procedures over to the same table, so
+ * `sync.test.ts` now exercises the canonical `sync_outbox` path too.
  */
 
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest';

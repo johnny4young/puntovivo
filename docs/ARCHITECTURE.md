@@ -329,7 +329,7 @@ server") is planned as part of Phase 10 / Stack Evolution (see
 For the hybrid topology:
 
 - The desktop remains offline-first authoritative for its own tenant data.
-- The central server receives `sync_queue` diffs and materializes
+- The central server receives `sync_outbox` diffs and materializes
   cross-site reports and public-API responses.
 - A single codebase (`packages/server`) serves both roles: the Drizzle
   schema is dialect-neutral in principle; the migration to libSQL + an

@@ -25,10 +25,10 @@ import {
   inventoryMovements,
   products,
   sites,
-  syncQueue,
   unitXProduct,
   units,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { Context } from '../context.js';
 import {
   listEntriesInput,
@@ -436,26 +436,20 @@ export const inventoryRouter = router({
         });
       }
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'initial_inventory',
-          entityId: entryId,
-          operation: 'create',
-          data: {
-            id: entryId,
-            productId: input.productId,
-            unitId: input.unitId,
-            mode: input.mode,
-            normalizedQuantity,
-            newStock,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'initial_inventory',
+      entityId: entryId,
+      operation: 'create',
+      data: {
+        id: entryId,
+        productId: input.productId,
+        unitId: input.unitId,
+        mode: input.mode,
+        normalizedQuantity,
+        newStock,
+      },
     });
 
     const created = await ctx.db
@@ -559,20 +553,13 @@ export const inventoryRouter = router({
         .where(eq(products.id, input.productId))
         .run();
 
-      // Add to sync queue
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'inventory_movements',
-          entityId: movementId,
-          operation: 'create',
-          data: { id: movementId, productId: input.productId, newStock },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'inventory_movements',
+      entityId: movementId,
+      operation: 'create',
+      data: { id: movementId, productId: input.productId, newStock },
     });
 
     const created = await ctx.db
@@ -688,33 +675,18 @@ export const inventoryRouter = router({
         })
         .run();
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'inventory_movements',
-          entityId: movementId,
-          operation: 'create',
-          data: { id: movementId, productId: input.productId, newStock: input.newStock },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
-
       // Phase 8 / Tier-2 #8 — only audit when the adjustment actually
       // changed stock. A no-op call (newStock === current) shouldn't
       // pollute the audit timeline. Captures the delta + resolved site so
       // a reviewer can reconstruct the operator's intent without joining
       // back to inventory_movements.
       //
-      // Scope note: the `tx.update(products) / tx.insert(inventoryMovements) /
-      // tx.insert(syncQueue)` writes ABOVE still land unconditionally when
-      // delta === 0 (writing a zero-quantity movement row). That pre-existing
-      // shape is intentionally left unchanged by this audit commit; the
-      // audit row being suppressed is a narrower, safer contract. A future
-      // step can short-circuit the whole mutation if we want "no-op means
-      // no rows written anywhere".
+      // Scope note: the `tx.update(products) / tx.insert(inventoryMovements)`
+      // writes ABOVE still land unconditionally when delta === 0 (writing a
+      // zero-quantity movement row). The sync_outbox row is enqueued
+      // post-tx unconditionally for the same reason. That pre-existing
+      // shape is intentionally left unchanged; the audit row being
+      // suppressed is a narrower, safer contract.
       if (delta !== 0) {
         writeAuditLog({
           tx,
@@ -734,6 +706,13 @@ export const inventoryRouter = router({
           },
         });
       }
+    });
+
+    await enqueueSync(ctx, {
+      entityType: 'inventory_movements',
+      entityId: movementId,
+      operation: 'create',
+      data: { id: movementId, productId: input.productId, newStock: input.newStock },
     });
 
     const updatedProduct = await ctx.db

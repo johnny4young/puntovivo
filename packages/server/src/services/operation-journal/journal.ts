@@ -82,10 +82,10 @@ export interface RecordEffectArgs {
   operationEventId: string;
   /**
    * What kind of effect this row records. Stable string vocabulary:
-   * `audit_log`, `sync_queue_emit`, `fiscal_emit`,
-   * `inventory_movement`, `cash_movement`, `sale_row`, `payment_row`,
-   * `transfer_row`, `outbox_enqueue:{kind}`, etc. The Operations
-   * Center renders effects grouped by `kind`.
+   * `audit_log`, `outbox_enqueue:{kind}` (e.g. `outbox_enqueue:sync`),
+   * `fiscal_emit`, `inventory_movement`, `cash_movement`, `sale_row`,
+   * `payment_row`, `transfer_row`, etc. The Operations Center
+   * renders effects grouped by `kind`.
    */
   kind: string;
   /** Drizzle table name of the affected row. */

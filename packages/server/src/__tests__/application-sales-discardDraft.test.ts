@@ -308,7 +308,7 @@ describe('discardDraft (no fiscal emission)', () => {
 });
 
 describe('discardDraft (journal effects)', () => {
-  it('emits sale_row + inventory_movement + sync_queue_emit + audit_log; never cash_movement or fiscal_emit', async () => {
+  it('emits sale_row + inventory_movement + outbox_enqueue:sync + audit_log; never cash_movement or fiscal_emit', async () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Discard journal', sku: 'DD-JE', stock: 5 });
     const draftId = await seedDraftSale(productId);
@@ -344,7 +344,7 @@ describe('discardDraft (journal effects)', () => {
     const kinds = effects.map(eff => eff.kind);
     expect(kinds).toContain('sale_row');
     expect(kinds).toContain('inventory_movement');
-    expect(kinds).toContain('sync_queue_emit');
+    expect(kinds).toContain('outbox_enqueue:sync');
     expect(kinds).toContain('audit_log');
     expect(kinds).not.toContain('cash_movement');
     expect(kinds).not.toContain('fiscal_emit');

@@ -120,6 +120,13 @@
       "when": 1782604800000,
       "tag": "0016_sync_contract_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1782691200000,
+      "tag": "0017_drop_sync_queue",
+      "breakpoints": true
     }
   ]
 }

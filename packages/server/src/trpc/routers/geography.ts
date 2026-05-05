@@ -2,7 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { cities, countries, departments, providers, syncQueue } from '../../db/schema.js';
+import { cities, countries, departments, providers } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -309,16 +310,11 @@ export const countriesRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'countries',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db.select().from(countries).where(eq(countries.id, id)).get();
@@ -351,16 +347,11 @@ export const countriesRouter = router({
 
     await ctx.db.update(countries).set(updateData).where(eq(countries.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'countries',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db.select().from(countries).where(eq(countries.id, id)).get();
@@ -392,17 +383,11 @@ export const countriesRouter = router({
 
     await ctx.db.delete(countries).where(eq(countries.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'countries',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };
@@ -516,16 +501,11 @@ export const departmentsRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'departments',
       entityId: id,
       operation: 'create',
       data: { id, ...input, countryId },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db
@@ -569,16 +549,11 @@ export const departmentsRouter = router({
 
     await ctx.db.update(departments).set(updateData).where(eq(departments.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'departments',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db
@@ -615,17 +590,11 @@ export const departmentsRouter = router({
 
     await ctx.db.delete(departments).where(eq(departments.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'departments',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };
@@ -752,16 +721,11 @@ export const citiesRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'cities',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db
@@ -807,16 +771,11 @@ export const citiesRouter = router({
 
     await ctx.db.update(cities).set(updateData).where(eq(cities.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'cities',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db
@@ -854,17 +813,11 @@ export const citiesRouter = router({
 
     await ctx.db.delete(cities).where(eq(cities.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'cities',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

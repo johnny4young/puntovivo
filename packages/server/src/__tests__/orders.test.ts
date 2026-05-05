@@ -10,7 +10,7 @@ import {
   providers,
   sequentials,
   sites,
-  syncQueue,
+  syncOutbox,
   unitXProduct,
   units,
   users,
@@ -222,10 +222,10 @@ describe('Orders tRPC Router', () => {
 
     const queuedEntities = await db
       .select({
-        entityType: syncQueue.entityType,
+        entityType: syncOutbox.entityType,
       })
-      .from(syncQueue)
-      .where(and(eq(syncQueue.tenantId, tenantId), eq(syncQueue.entityId, result.id)))
+      .from(syncOutbox)
+      .where(and(eq(syncOutbox.tenantId, tenantId), eq(syncOutbox.entityId, result.id)))
       .all();
     expect(queuedEntities.some(item => item.entityType === 'orders')).toBe(true);
   });
@@ -387,8 +387,8 @@ describe('Orders tRPC Router', () => {
 
     const syncUpdate = await db
       .select()
-      .from(syncQueue)
-      .where(and(eq(syncQueue.entityType, 'orders'), eq(syncQueue.entityId, created.id)))
+      .from(syncOutbox)
+      .where(and(eq(syncOutbox.entityType, 'orders'), eq(syncOutbox.entityId, created.id)))
       .all();
     expect(syncUpdate.some(item => item.operation === 'update')).toBe(true);
   });

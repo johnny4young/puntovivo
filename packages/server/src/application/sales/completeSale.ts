@@ -14,10 +14,11 @@
  *   cash movement, sync queue, and audit logs.
  * - Best-effort POST-commit hooks:
  *     * fiscal document emission via `safelyEmitFiscalDocument`,
+ *     * sync_outbox enqueue via `enqueueSync` (writes its own
+ *       `outbox_enqueue:sync` effect when an envelope is present),
  *     * journal effects (`sale_row`, `payment_row`, `inventory_movement`,
- *       `cash_movement`, `sync_queue_emit`, `audit_log`, `fiscal_emit`)
- *       written to `operation_effects` when the call carried a journal
- *       envelope.
+ *       `cash_movement`, `audit_log`, `fiscal_emit`) written to
+ *       `operation_effects` when the call carried a journal envelope.
  *
  * Behavior parity with the previous inline router code is the explicit
  * acceptance criterion (ROADMAP §3b ENG-054). The control flow,
@@ -41,10 +42,10 @@ import {
   sales,
   sequentials,
   sites,
-  syncQueue,
   unitXProduct,
   units,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -510,10 +511,9 @@ async function runFreshSale(
   // Capture the row ids that will end up in operation_effects so we
   // emit them after the commit. better-sqlite3 transactions are
   // synchronous; everything that needs an awaitable side-effect (the
-  // journal write) runs OUTSIDE the tx callback.
+  // journal write or `enqueueSync`) runs OUTSIDE the tx callback.
   let cashMovementId: string | null = null;
   let priceOverrideAuditEmitted = false;
-  let syncQueueRowId: string | null = null;
   let priceOverrideAuditId: string | null = null;
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
@@ -655,28 +655,6 @@ async function runFreshSale(
       createdAt: now,
     });
 
-    syncQueueRowId = nanoid();
-    tx.insert(syncQueue)
-      .values({
-        id: syncQueueRowId,
-        tenantId: ctx.tenantId,
-        entityType: 'sales',
-        entityId: saleId,
-        operation: 'create',
-        data: {
-          id: saleId,
-          saleNumber,
-          total,
-          siteId: saleSiteId,
-          cashSessionId: activeCashSession.id,
-          paymentStatus,
-        },
-        localVersion: 1,
-        attempts: 0,
-        createdAt: now,
-      })
-      .run();
-
     if (overrides.length > 0) {
       // ENG-007 — single audit row summarizing every overridden line.
       priceOverrideAuditId = writeAuditLog({
@@ -698,6 +676,23 @@ async function runFreshSale(
   });
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
+
+  // ENG-064b — sync_outbox emit moved POST-tx. The helper writes the
+  // operation_effects row (kind=outbox_enqueue:sync) itself when an
+  // envelope context is present.
+  await enqueueSync(ctx, {
+    entityType: 'sales',
+    entityId: saleId,
+    operation: 'create',
+    data: {
+      id: saleId,
+      saleNumber,
+      total,
+      siteId: saleSiteId,
+      cashSessionId: activeCashSession.id,
+      paymentStatus,
+    },
+  });
 
   // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.
@@ -760,13 +755,6 @@ async function runFreshSale(
           sessionId: activeCashSession.id,
           amount: cashCollectedAmount,
         },
-      });
-    }
-    if (syncQueueRowId) {
-      effects.push({
-        kind: 'sync_queue_emit',
-        resourceType: 'sync_queue',
-        resourceId: syncQueueRowId,
       });
     }
     if (priceOverrideAuditEmitted && priceOverrideAuditId) {
@@ -921,7 +909,6 @@ async function runCompleteDraft(
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
 
   let cashMovementId: string | null = null;
-  let syncQueueRowId: string | null = null;
   let completionAuditId: string | null = null;
   const paymentEffects: PersistedPaymentEffect[] = [];
 
@@ -988,27 +975,6 @@ async function runCompleteDraft(
       createdAt: now,
     });
 
-    syncQueueRowId = nanoid();
-    tx.insert(syncQueue)
-      .values({
-        id: syncQueueRowId,
-        tenantId: ctx.tenantId,
-        entityType: 'sales',
-        entityId: input.saleId,
-        operation: 'update',
-        data: {
-          id: input.saleId,
-          status: 'completed',
-          completedFromDraft: true,
-          total,
-          paymentStatus,
-        },
-        localVersion: nextSyncVersion,
-        attempts: 0,
-        createdAt: now,
-      })
-      .run();
-
     // Parity with void / return / park / resume / discard / reprint:
     // every state-change on an existing sale leaves a `sale.*` audit row.
     completionAuditId = writeAuditLog({
@@ -1037,6 +1003,22 @@ async function runCompleteDraft(
           : {}),
       },
     });
+  });
+
+  // ENG-064b — sync_outbox emit moved POST-tx (was inline `tx.insert`
+  // before the cutover). The helper writes the operation_effects row
+  // (kind=outbox_enqueue:sync) itself when the envelope is present.
+  await enqueueSync(ctx, {
+    entityType: 'sales',
+    entityId: input.saleId,
+    operation: 'update',
+    data: {
+      id: input.saleId,
+      status: 'completed',
+      completedFromDraft: true,
+      total,
+      paymentStatus,
+    },
   });
 
   // ENG-020 — emit DIAN DEE on first completion of the draft.
@@ -1091,13 +1073,6 @@ async function runCompleteDraft(
           sessionId: activeCashSession.id,
           amount: cashCollectedAmount,
         },
-      });
-    }
-    if (syncQueueRowId) {
-      effects.push({
-        kind: 'sync_queue_emit',
-        resourceType: 'sync_queue',
-        resourceId: syncQueueRowId,
       });
     }
     if (completionAuditId) {

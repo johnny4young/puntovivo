@@ -57,8 +57,8 @@ export const resolveSyncConflictInput = z
     }
   });
 
-// ENG-064 — sync_outbox surfaces. The 3 new procedures operate on
-// the new contract table sibling to the legacy sync_queue path.
+// ENG-064/064b — sync_outbox surfaces. These operator procedures use
+// the canonical sync outbox table after the legacy sync_queue cutover.
 export const peekOutboxInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });

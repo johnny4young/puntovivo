@@ -983,7 +983,7 @@ The existing repo already gives a usable base for logistics-adjacent work:
 - `inventoryMovements` already provide a movement ledger
 - `products` already support barcode, units, provider, category, VAT, and location assignment
 - `sequentials` already provide document numbering by site
-- `syncQueue` and desktop offline tooling already give a starting point for async/offline delivery updates
+- `sync_outbox` and desktop offline tooling already give a starting point for async/offline delivery updates
 
 This means inbound logistics is partially modeled.
 What is still weak is outbound logistics and transport execution.
@@ -1527,7 +1527,7 @@ For the most robust offline-first experience:
 - **Operation-Based Sync**: Instead of syncing state, sync operations (events). Each offline operation is a record. Server applies operations in order, resolves conflicts. This is the pattern most ERP sync systems use.
 - **Event Sourcing**: All state changes are events. Local and remote maintain event logs. Reconciliation merges event streams. Most architecturally clean but highest implementation cost.
 
-**Recommendation for Puntovivo**: Operation-based sync with last-write-wins default and manual conflict resolution for business-critical entities (sales, inventory adjustments). This builds naturally on the existing `syncQueue` pattern. PowerSync's per-field last-write-wins aligns well with this approach.
+**Recommendation for Puntovivo**: Operation-based sync with last-write-wins default and manual conflict resolution for business-critical entities (sales, inventory adjustments). This builds naturally on the `sync_outbox` pattern locked in by ENG-064 / ENG-064b. PowerSync's per-field last-write-wins aligns well with this approach.
 
 ## 10. Viable Architecture Options
 
@@ -3043,7 +3043,7 @@ Design docs that ship alongside already-shipped or in-flight features:
 - [`docs/AI-SEMANTIC-SEARCH.md`](./AI-SEMANTIC-SEARCH.md) — semantic product search + auto-categorize design, in Spanish (**shipped** as `ENG-033`)
 - [`docs/SELLABILITY.md`](./SELLABILITY.md) — Colombian retail go/no-go index for demo, pilot, and production readiness (**shipped** as `ENG-050`)
 - [`docs/architecture/README.md`](./architecture/README.md) + [`docs/architecture/0001-local-store-authority.md`](./architecture/0001-local-store-authority.md) + [`docs/architecture/0002-command-envelope.md`](./architecture/0002-command-envelope.md) + [`docs/architecture/0003-outbox-taxonomy.md`](./architecture/0003-outbox-taxonomy.md) + [`docs/architecture/0004-conflict-policy.md`](./architecture/0004-conflict-policy.md) — Architecture Decision Records (ADRs) locking Local Store Authority, Command Envelope, Outbox Taxonomy, and Conflict Policy before the Foundation Reset core wave (**shipped** as `ENG-051`)
-- [`docs/architecture/0005-sync-payload-contract.md`](./architecture/0005-sync-payload-contract.md) — per-entity sync payload contract + manifest + version-bump protocol locked before ENG-065 / ENG-066 / ENG-068+ build on the new `sync_outbox` shape (**shipped** as `ENG-064`)
+- [`docs/architecture/0005-sync-payload-contract.md`](./architecture/0005-sync-payload-contract.md) — per-entity sync payload contract + manifest + version-bump protocol locked before ENG-065 / ENG-066 / ENG-068+ build on the new `sync_outbox` shape (**shipped** as `ENG-064` v1; cutover + drop of legacy `sync_queue` shipped as `ENG-064b` via migration `0017_drop_sync_queue.sql`)
 - [`docs/MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md), [`docs/MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md), [`docs/FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md), [`docs/LATAM-EXPANSION.md`](./LATAM-EXPANSION.md), [`docs/LONG-TERM-VISION.md`](./LONG-TERM-VISION.md), [`docs/STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) — strategy + architecture evolution
 
 ### 18.2 Still planned

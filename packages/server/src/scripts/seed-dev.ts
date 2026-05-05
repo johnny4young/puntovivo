@@ -205,7 +205,7 @@ async function resetDemoTenant(db: Awaited<ReturnType<typeof initDatabase>>): Pr
     'fiscal_certificates',
     'receipt_templates',
     'sync_conflicts',
-    'sync_queue',
+    'sync_outbox',
     'quotation_items',
     'quotations',
     'sale_payments',

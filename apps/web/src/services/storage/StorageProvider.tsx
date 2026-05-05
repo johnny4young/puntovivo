@@ -21,7 +21,7 @@ import {
   markAsSynced,
   retryFailed,
   clearFailedOperations,
-} from './syncQueue';
+} from './offlineQueue';
 
 // Storage context state
 interface StorageState {

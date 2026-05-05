@@ -20,7 +20,8 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { syncQueue, vatRates } from '../../db/schema.js';
+import { vatRates } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   createVatRateInput,
   deleteVatRateInput,
@@ -93,16 +94,11 @@ export const vatRatesRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'vat_rates',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const created = await ctx.db.select().from(vatRates).where(eq(vatRates.id, id)).get();
@@ -132,16 +128,11 @@ export const vatRatesRouter = router({
 
     await ctx.db.update(vatRates).set(updateData).where(eq(vatRates.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'vat_rates',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     const updated = await ctx.db.select().from(vatRates).where(eq(vatRates.id, id)).get();
@@ -162,17 +153,11 @@ export const vatRatesRouter = router({
 
     await ctx.db.delete(vatRates).where(eq(vatRates.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'vat_rates',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

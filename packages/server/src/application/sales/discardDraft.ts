@@ -21,7 +21,6 @@
  */
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
@@ -29,8 +28,8 @@ import {
   products,
   saleItems,
   sales,
-  syncQueue,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -178,7 +177,6 @@ export async function discardDraft(
 
   let inventoryMovementIds: string[] = [];
   let auditLogId: string | null = null;
-  const syncQueueId = nanoid();
 
   ctx.db.transaction(tx => {
     if (hasItems) {
@@ -209,20 +207,6 @@ export async function discardDraft(
       .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
       .run();
 
-    tx.insert(syncQueue)
-      .values({
-        id: syncQueueId,
-        tenantId: ctx.tenantId,
-        entityType: 'sales',
-        entityId: input.saleId,
-        operation: 'update',
-        data: { id: input.saleId, status: 'cancelled', discarded: true },
-        localVersion: nextSyncVersion,
-        attempts: 0,
-        createdAt: now,
-      })
-      .run();
-
     auditLogId = writeAuditLog({
       tx,
       tenantId: ctx.tenantId,
@@ -241,6 +225,13 @@ export async function discardDraft(
         reversedItems: saleLineItems.length,
       },
     });
+  });
+
+  await enqueueSync(ctx, {
+    entityType: 'sales',
+    entityId: input.saleId,
+    operation: 'update',
+    data: { id: input.saleId, status: 'cancelled', discarded: true },
   });
 
   const journalEventId = await lookupJournalEventId(
@@ -267,11 +258,6 @@ export async function discardDraft(
         resourceId: movementId,
       });
     }
-    effects.push({
-      kind: 'sync_queue_emit',
-      resourceType: 'sync_queue',
-      resourceId: syncQueueId,
-    });
     if (auditLogId) {
       effects.push({
         kind: 'audit_log',

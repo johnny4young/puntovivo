@@ -1,7 +1,8 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { locationXSite, locations, products, syncQueue } from '../../db/schema.js';
+import { locationXSite, locations, products } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -130,16 +131,11 @@ export const locationsRouter = router({
       updatedAt: now,
     });
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'locations',
       entityId: id,
       operation: 'create',
       data: { id, ...input },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db.select().from(locations).where(eq(locations.id, id)).get();
@@ -174,16 +170,11 @@ export const locationsRouter = router({
 
     await ctx.db.update(locations).set(updateData).where(eq(locations.id, id));
 
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'locations',
       entityId: id,
       operation: 'update',
       data: { id, ...updateData },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return ctx.db.select().from(locations).where(eq(locations.id, id)).get();
@@ -230,17 +221,11 @@ export const locationsRouter = router({
 
     await ctx.db.delete(locations).where(eq(locations.id, input.id));
 
-    const now = new Date().toISOString();
-    await ctx.db.insert(syncQueue).values({
-      id: nanoid(),
-      tenantId: ctx.tenantId,
+    await enqueueSync(ctx, {
       entityType: 'locations',
       entityId: input.id,
       operation: 'delete',
       data: { id: input.id },
-      localVersion: 1,
-      attempts: 0,
-      createdAt: now,
     });
 
     return { success: true, id: input.id };

@@ -10,10 +10,10 @@ import {
   providers,
   sequentials,
   sites,
-  syncQueue,
   unitXProduct,
   units,
 } from '../../db/schema.js';
+import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { Context } from '../context.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedure, adminProcedure } from '../middleware/roles.js';
@@ -453,52 +453,40 @@ export const ordersRouter = router({
             total: row.total,
           })
           .run();
-
-        tx.insert(syncQueue)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            entityType: 'order_items',
-            entityId: row.id,
-            operation: 'create',
-            data: {
-              id: row.id,
-              orderId,
-              productId: row.productId,
-              quantity: row.quantity,
-              unitId: row.unitId,
-              unitEquivalence: row.unitEquivalence,
-              costPerUnit: row.costPerUnit,
-              baseUnitCost: row.baseUnitCost,
-              total: row.total,
-            },
-            localVersion: 1,
-            attempts: 0,
-            createdAt: now,
-          })
-          .run();
       }
+    });
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'orders',
-          entityId: orderId,
-          operation: 'create',
-          data: {
-            id: orderId,
-            orderNumber,
-            providerId: input.providerId,
-            siteId: sequentialContext.siteId,
-            status: 'submitted',
-            total,
-          },
-          localVersion: 1,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
+    for (const row of resolvedItems.rows) {
+      await enqueueSync(ctx, {
+        entityType: 'order_items',
+        entityId: row.id,
+        operation: 'create',
+        data: {
+          id: row.id,
+          orderId,
+          productId: row.productId,
+          quantity: row.quantity,
+          unitId: row.unitId,
+          unitEquivalence: row.unitEquivalence,
+          costPerUnit: row.costPerUnit,
+          baseUnitCost: row.baseUnitCost,
+          total: row.total,
+        },
+      });
+    }
+
+    await enqueueSync(ctx, {
+      entityType: 'orders',
+      entityId: orderId,
+      operation: 'create',
+      data: {
+        id: orderId,
+        orderNumber,
+        providerId: input.providerId,
+        siteId: sequentialContext.siteId,
+        status: 'submitted',
+        total,
+      },
     });
 
     return getOrderRecord(ctx.db, ctx.tenantId, orderId);
@@ -540,20 +528,13 @@ export const ordersRouter = router({
         })
         .where(eq(orders.id, input.id))
         .run();
+    });
 
-      tx.insert(syncQueue)
-        .values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          entityType: 'orders',
-          entityId: input.id,
-          operation: 'update',
-          data: { id: input.id, status: 'voided', reason: input.reason },
-          localVersion: nextSyncVersion,
-          attempts: 0,
-          createdAt: now,
-        })
-        .run();
+    await enqueueSync(ctx, {
+      entityType: 'orders',
+      entityId: input.id,
+      operation: 'update',
+      data: { id: input.id, status: 'voided', reason: input.reason },
     });
 
     return getOrderRecord(ctx.db, ctx.tenantId, input.id);
