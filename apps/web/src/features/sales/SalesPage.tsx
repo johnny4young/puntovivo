@@ -39,6 +39,11 @@ import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import {
+  DEFAULT_WEDGE_CONFIG,
+  useBarcodeWedgeListener,
+  type WedgeConfig,
+} from '@/features/sales/useBarcodeWedgeListener';
+import {
   selectActiveWorkspace,
   useCartWorkspaceStore,
 } from '@/features/sales/useCartWorkspaceStore';
@@ -58,6 +63,8 @@ import type {
   Provider,
   RegisterAssignment,
   Sale,
+  ProductSearchItem,
+  ProductSearchSelection,
 } from '@/types';
 
 export function SalesPage() {
@@ -772,6 +779,123 @@ export function SalesPage() {
       selectedHistorySaleId !== null
         ? handleReprintSelectedHistoryRow
         : undefined,
+  });
+
+  // ENG-061 — barcode scanner pipeline.
+  //
+  // Read the active scanner peripheral via salesRoles tRPC, drive
+  // a global keystroke buffer with `useBarcodeWedgeListener`, and
+  // route resolved scans into the cart through the same selection
+  // shape `handleProductSelect` consumes from ProductSearchDialog.
+  // GS1 weight/price-embedded labels override quantity / unitPrice
+  // server-side so the cart line reflects the weighed package.
+  const peripheralsForSiteQuery = trpc.peripherals.activeForSite.useQuery(
+    { siteId: currentSite?.id ?? '' },
+    { enabled: !!currentSite, staleTime: 5 * 60 * 1000 }
+  );
+  const scannerConfig: WedgeConfig = (() => {
+    const row = peripheralsForSiteQuery.data?.find(
+      r => r.kind === 'scanner' && r.driver === 'wedge'
+    );
+    if (!row) return DEFAULT_WEDGE_CONFIG;
+    const cfg = row.config as Partial<WedgeConfig> | null;
+    return {
+      ...DEFAULT_WEDGE_CONFIG,
+      ...(cfg ?? {}),
+    };
+  })();
+
+  const handleBarcodeScan = useCallback(
+    async (rawCode: string) => {
+      if (!currentSite) return;
+      if (isResumedCart) {
+        toast.info({ title: t('sales:scanner.resumedCartLocked') });
+        return;
+      }
+      try {
+        const result = await utils.products.lookupByBarcode.fetch({
+          barcode: rawCode,
+          gs1Scheme: scannerConfig.gs1Scheme ?? 'generic',
+        });
+        if (!result) {
+          toast.warning({ title: t('sales:scanner.notFound') });
+          return;
+        }
+        // The tRPC output carries SQLite-shaped nullable fields where the
+        // ProductSearchItem domain type expects non-null booleans. The
+        // `isActive=true` filter on the server makes the cast safe here;
+        // mirrors the projection ProductSearchDialog already does.
+        const product = result.product as unknown as ProductSearchItem;
+        const unitAssignments = product.unitAssignments ?? [];
+        const baseUnit =
+          unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
+        if (!baseUnit) {
+          toast.error({ title: t('sales:scanner.noBaseUnit') });
+          return;
+        }
+        const overridePrice =
+          typeof result.suggestedPrice === 'number'
+            ? result.suggestedPrice
+            : null;
+        const overrideQuantity =
+          typeof result.suggestedQuantity === 'number'
+            ? result.suggestedQuantity
+            : null;
+        const selection: ProductSearchSelection = {
+          product,
+          unit: baseUnit,
+          price: overridePrice ?? baseUnit.price ?? product.price,
+        };
+        const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
+        setCartItems(currentItems => {
+          const merged = mergeCartItem(currentItems, selection);
+          if (overrideQuantity !== null) {
+            return merged.map(item =>
+              item.key === itemKey
+                ? updateCartItem(item, { quantity: overrideQuantity })
+                : item
+            );
+          }
+          return merged;
+        });
+        setSelectedCartItemKey(itemKey);
+        setProductSearchQuery('');
+        setSaleError(null);
+        if (overrideQuantity !== null) {
+          toast.success({ title: t('sales:scanner.weightFromLabel') });
+        } else if (overridePrice !== null) {
+          toast.success({ title: t('sales:scanner.priceFromLabel') });
+        }
+      } catch (error) {
+        const fallback = t('sales:scanner.lookupFailed');
+        toast.error({
+          title: fallback,
+          description: translateServerError(error, t, fallback),
+        });
+      }
+    },
+    [
+      currentSite,
+      isResumedCart,
+      setCartItems,
+      setSelectedCartItemKey,
+      t,
+      toast,
+      utils,
+      scannerConfig.gs1Scheme,
+    ]
+  );
+
+  useBarcodeWedgeListener({
+    config: scannerConfig,
+    onScan: handleBarcodeScan,
+    isProductSearchOpen,
+    isPaymentModalOpen,
+    isCashSessionModalOpen:
+      isCashSessionModalOpen ||
+      isCashSessionCloseModalOpen ||
+      isCashSessionMovementModalOpen,
+    enabled: !!currentSite,
   });
 
   return (

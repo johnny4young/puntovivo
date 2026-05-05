@@ -165,7 +165,22 @@ export const searchProductsInput = z.object({
   isActive: z.boolean().optional(),
 });
 
+// ENG-061 — exact-match scanner lookup. Distinct from `searchProductsInput`
+// because the scanner pipeline needs deterministic resolution (no
+// substring false positives) plus GS1-aware decoding.
+export const lookupByBarcodeInput = z.object({
+  barcode: z.string().min(1).max(64),
+  /**
+   * `strict` (default) rejects known digit-only symbologies whose
+   * checksum fails. Unknown symbologies still attempt verbatim exact
+   * lookup so basic Code128 / short internal barcodes keep working.
+   */
+  parsePolicy: z.enum(['strict', 'permissive']).default('strict'),
+  gs1Scheme: z.enum(['none', 'generic', 'co', 'mx', 'cl']).default('generic'),
+});
+
 export type ListProductsInput = z.infer<typeof listProductsInput>;
 export type CreateProductInput = z.infer<typeof createProductInput>;
 export type UpdateProductInput = z.infer<typeof updateProductInput>;
 export type SearchProductsInput = z.infer<typeof searchProductsInput>;
+export type LookupByBarcodeInput = z.infer<typeof lookupByBarcodeInput>;

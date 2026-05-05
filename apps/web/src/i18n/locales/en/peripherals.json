@@ -19,6 +19,7 @@
     "system": "System (OS print dialog)",
     "escpos": "ESC/POS thermal",
     "manual": "Manual entry",
+    "wedge": "USB keyboard wedge",
     "bold": "Bold",
     "wompi": "Wompi",
     "mercadopago": "Mercado Pago Point"

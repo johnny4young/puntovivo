@@ -377,5 +377,13 @@
     "toastSuccessTitle": "Recibo reimpreso",
     "toastErrorTitle": "No se pudo reimprimir el recibo",
     "shortcut": "Ctrl+Shift+P"
+  },
+  "scanner": {
+    "notFound": "No encontré el producto con ese código",
+    "lookupFailed": "No se pudo consultar el código escaneado",
+    "weightFromLabel": "Peso aplicado desde la etiqueta",
+    "priceFromLabel": "Precio aplicado desde la etiqueta",
+    "noBaseUnit": "El producto no tiene unidad configurada",
+    "resumedCartLocked": "Descarta el carrito retomado para agregar productos nuevos"
   }
 }

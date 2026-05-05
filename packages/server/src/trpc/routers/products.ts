@@ -39,7 +39,9 @@ import {
   updateProductInput,
   deleteProductInput,
   searchProductsInput,
+  lookupByBarcodeInput,
 } from '../schemas/products.js';
+import { parseScan } from '../../services/peripherals/barcode/parser.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import {
@@ -963,6 +965,102 @@ export const productsRouter = router({
       }),
     };
   }),
+
+  // ==========================================================================
+  // ENG-061 — exact-match scanner lookup
+  // --------------------------------------------------------------------------
+  // The renderer's `useBarcodeWedgeListener` accumulates raw HID
+  // keystrokes; on emit it calls this procedure with the raw code.
+  // We parse server-side (`parseScan`) to validate checksum and decode
+  // GS1 prefix-2x weight/price labels, then look up the product by
+  // exact barcode match. Available to any tenant-authenticated user
+  // (cashiers must be able to scan); tenant-scoped via the explicit
+  // `eq(products.tenantId, ctx.tenantId)` filter.
+  //
+  // Returns null when the scan does not resolve so the SalesPage can
+  // surface a translated "not found" toast without an error envelope.
+  // ==========================================================================
+
+  /**
+   * Exact-match barcode lookup with GS1 weight/price awareness.
+   *
+   * Strict mode rejects checksum failures for known digit-only
+   * symbologies. Unknown symbologies fall through to exact lookup
+   * so basic Code128 / internal SKU labels still resolve.
+   */
+  lookupByBarcode: tenantProcedure
+    .input(lookupByBarcodeInput)
+    .query(async ({ ctx, input }) => {
+      const parsed = parseScan(input.barcode, { gs1Scheme: input.gs1Scheme });
+
+      // Strict policy: checksum failure on a known digit-only
+      // symbology is a hard reject. `kind: unknown` still falls
+      // through to exact-match lookup so basic Code128 / short
+      // internal barcodes work without forcing the scanner pipeline
+      // into fully permissive mode.
+      const failedKnownChecksum =
+        !parsed.checksumValid &&
+        /^\d+$/.test(parsed.code) &&
+        (parsed.code.length === 8 ||
+          parsed.code.length === 12 ||
+          parsed.code.length === 13);
+      if (
+        input.parsePolicy === 'strict' &&
+        failedKnownChecksum
+      ) {
+        return null;
+      }
+
+      // GS1 layouts carry the SKU in the first 5 digits after the role
+      // prefix; non-GS1 codes look up the verbatim string.
+      const lookupCode = parsed.lookupCode;
+
+      const item = await ctx.db
+        .select(productSelection)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .leftJoin(providers, eq(products.providerId, providers.id))
+        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .where(
+          and(
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.isActive, true),
+            eq(products.barcode, lookupCode)
+          )
+        )
+        .get();
+
+      if (!item) {
+        return null;
+      }
+
+      const assignmentsMap = await getUnitAssignmentsByProductIds(ctx.db, [item.id]);
+      const unitAssignments = assignmentsMap.get(item.id) ?? [];
+      const baseUnit = unitAssignments.find(a => a.isBase) ?? unitAssignments[0];
+
+      const product = {
+        ...item,
+        unitAssignments: unitAssignments.map(a => ({
+          ...a,
+          isBase: a.isBase ?? false,
+        })),
+        baseUnitId: baseUnit?.unitId ?? null,
+        baseUnitName: baseUnit?.unitName ?? null,
+        baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
+        baseUnitPrice: baseUnit?.price ?? item.price,
+      };
+
+      return {
+        product,
+        parsed,
+        // GS1 weight/price overrides for the cart line. Renderer uses
+        // these verbatim when present; otherwise it falls back to
+        // `quantity = 1` and the product's base unit price.
+        suggestedQuantity: parsed.weightKg ?? null,
+        suggestedPrice: parsed.priceMajor ?? null,
+      };
+    }),
 
   // ==========================================================================
   // ENG-033 — semantic search + auto-categorize procedures

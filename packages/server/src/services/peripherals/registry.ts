@@ -36,6 +36,10 @@ import {
   ManualPaymentTerminalAdapter,
   manualPaymentTerminalConfigSchema,
 } from './drivers/manual-payment-terminal.js';
+import {
+  KeyboardWedgeScannerAdapter,
+  wedgeScannerConfigSchema,
+} from './drivers/keyboard-wedge-scanner.js';
 
 /**
  * Static dispatch table: `kind → driverId → factory`. Each factory
@@ -91,10 +95,26 @@ const DRIVER_TABLE: {
       configSchema: manualPaymentTerminalConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
     },
   },
-  // cash_drawer, scanner, customer_display: no drivers shipped in
-  // ENG-060. ENG-061 (scanner pipeline), ENG-062 (cash_drawer +
-  // customer_display via escpos), ENG-063 (Bold/Wompi/MercadoPago
-  // payment terminals) extend this table.
+  scanner: {
+    // ENG-061 — USB HID keyboard wedge. The renderer
+    // (`useBarcodeWedgeListener`) does the keystroke capture; this
+    // adapter is a typed identifier carrying the timing config.
+    wedge: {
+      factory: (ctx, rawConfig) => {
+        const config = wedgeScannerConfigSchema.parse(rawConfig);
+        return new KeyboardWedgeScannerAdapter(
+          ctx.tenantId,
+          ctx.siteId,
+          ctx.peripheralId,
+          config
+        );
+      },
+      configSchema: wedgeScannerConfigSchema as unknown as ZodSchema<Record<string, unknown>>,
+    },
+  },
+  // cash_drawer and customer_display: no drivers shipped yet.
+  // ENG-062 lands cash_drawer + customer_display via the ESC/POS
+  // adapter; ENG-063 lands Bold/Wompi/MercadoPago payment terminals.
 };
 
 /**

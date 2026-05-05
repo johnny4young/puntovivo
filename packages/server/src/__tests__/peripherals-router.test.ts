@@ -350,3 +350,59 @@ describe('peripherals.update', () => {
     }
   });
 });
+
+describe('peripherals.activeForSite (ENG-061)', () => {
+  it('returns an empty array when no peripherals are registered', async () => {
+    const caller = appRouter.createCaller(buildContext('cashier'));
+    const result = await caller.peripherals.activeForSite({ siteId });
+    expect(result).toEqual([]);
+  });
+
+  it('returns a minimal projection (kind + driver + config only) for cashier role', async () => {
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    await adminCaller.peripherals.register({
+      siteId,
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { interCharGapMs: 50 },
+      displayName: 'Caja principal',
+    });
+    const cashierCaller = appRouter.createCaller(buildContext('cashier'));
+    const result = await cashierCaller.peripherals.activeForSite({ siteId });
+    expect(result).toHaveLength(1);
+    const row = result[0]!;
+    expect(row.kind).toBe('scanner');
+    expect(row.driver).toBe('wedge');
+    expect((row.config as Record<string, unknown>).interCharGapMs).toBe(50);
+    // The minimal projection MUST NOT leak admin-only fields.
+    expect(row).not.toHaveProperty('displayName');
+    expect(row).not.toHaveProperty('lastTestedAt');
+    expect(row).not.toHaveProperty('lastTestDetails');
+    expect(row).not.toHaveProperty('createdAt');
+  });
+
+  it('excludes inactive rows', async () => {
+    const adminCaller = appRouter.createCaller(buildContext('admin'));
+    const registered = await adminCaller.peripherals.register({
+      siteId,
+      kind: 'scanner',
+      driver: 'wedge',
+      config: {},
+    });
+    await adminCaller.peripherals.setActive({ id: registered.id, isActive: false });
+    const cashierCaller = appRouter.createCaller(buildContext('cashier'));
+    const result = await cashierCaller.peripherals.activeForSite({ siteId });
+    expect(result).toEqual([]);
+  });
+
+  it('throws NOT_FOUND when the siteId belongs to another tenant', async () => {
+    const cashierCaller = appRouter.createCaller(buildContext('cashier'));
+    try {
+      await cashierCaller.peripherals.activeForSite({ siteId: 'unknown-site' });
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(TRPCError);
+      expect((err as TRPCError).code).toBe('NOT_FOUND');
+    }
+  });
+});
