@@ -14,14 +14,20 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { sitePeripherals, sites, type PeripheralKind } from '../../db/schema.js';
+import {
+  hardwareOutbox,
+  sitePeripherals,
+  sites,
+  type PeripheralKind,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   instantiateAdapter,
   validatePeripheralConfig,
+  tickDefaultHardwareWorker,
 } from '../../services/peripherals/index.js';
 import type {
   CashDrawerAdapter,
@@ -30,12 +36,17 @@ import type {
   BarcodeScannerAdapter,
   TestResult,
 } from '../../services/peripherals/index.js';
+import { buildSaleReceiptDocument } from '../../services/peripherals/index.js';
+import { getSaleRecord } from '../../application/sales/sale-read.js';
 import { router } from '../init.js';
-import { adminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
   activeForSiteInput,
+  kickCashDrawerInput,
   listPeripheralsInput,
+  peekHardwareOutboxInput,
+  printReceiptInput,
   registerPeripheralInput,
   removePeripheralInput,
   setPeripheralActiveInput,
@@ -316,6 +327,231 @@ export const peripheralsRouter = router({
           )
         )
         .orderBy(asc(sitePeripherals.kind))
+        .all();
+      return rows;
+    }),
+
+  /**
+   * ENG-062 — orchestrate the receipt print after a sale completes.
+   *
+   * Server flow:
+   *   1. Resolve the sale (cross-tenant guard via getSaleRecord).
+   *   2. Read the active printer peripheral; if none OR driver=system,
+   *      return `{status:'system-fallback'}` so the renderer prints
+   *      via the legacy `window.electron.printReceipt(html)` path.
+   *   3. If driver=escpos, build the ReceiptDocument server-side and
+   *      synchronously call `adapter.print(job)`. On success →
+   *      `{status:'printed'}`. On error → enqueue a hardware_outbox
+   *      row + return `{status:'fallback', error}` so the renderer
+   *      falls back to the legacy HTML path AND surfaces a toast.
+   *
+   * `tenantProcedure` because cashiers print receipts. Cross-tenant
+   * isolation comes from `getSaleRecord(tenantId, saleId)`.
+   */
+  printReceipt: tenantProcedure
+    .input(printReceiptInput)
+    .mutation(async ({ ctx, input }) => {
+      // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
+      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+
+      // Find the active printer peripheral for the active site.
+      const printerRow = await ctx.db
+        .select()
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.kind, 'printer'),
+            eq(sitePeripherals.isActive, true)
+          )
+        )
+        .get();
+
+      if (!printerRow || printerRow.driver === 'system') {
+        return { status: 'system-fallback' as const };
+      }
+
+      // ESC/POS path: build the structured receipt document + dispatch.
+      const adapter = instantiateAdapter(printerRow);
+      if (!adapter || adapter.kind !== 'printer') {
+        return {
+          status: 'fallback' as const,
+          error: 'DRIVER_NOT_IMPLEMENTED',
+          errorMessage: 'Active printer driver is not registered',
+        };
+      }
+
+      const document = buildSaleReceiptDocument(
+        {
+          header: { tenantName: sale.tenantId },
+          saleNumber: sale.saleNumber,
+          customerName: sale.customerName ?? undefined,
+          items: sale.items.map(item => ({
+            name: item.productName ?? item.productSku ?? '—',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total,
+          })),
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          total: sale.total,
+          totalLabel: 'TOTAL',
+          formatCurrency: v => v.toFixed(2),
+        },
+        { kickDrawer: false }
+      );
+
+      const result = await (adapter as ReceiptPrinterAdapter).print({
+        kind: 'sale-receipt',
+        metadata: { document, saleId: sale.id },
+      });
+
+      if (result.status === 'ok') {
+        return { status: 'printed' as const };
+      }
+
+      // Enqueue a retry row so the worker drains it later.
+      try {
+        await ctx.db.insert(hardwareOutbox).values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          status: 'retrying',
+          kind: 'print-receipt',
+          peripheralId: printerRow.id,
+          payload: {
+            kind: 'print-receipt',
+            document,
+            saleId: sale.id,
+            siteId: input.siteId,
+          } as Record<string, unknown>,
+          attempts: 1,
+          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+          lastError: {
+            errorCode: result.error?.kind ?? 'UNKNOWN',
+            providerMessage: result.error?.message ?? 'unknown error',
+            recoverable: true,
+          } as Record<string, unknown>,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        // Fire-and-forget tick so the next periodic interval isn't
+        // the only retry chance.
+        void tickDefaultHardwareWorker(ctx.tenantId);
+      } catch (err) {
+        // Enqueue failure does not change the user-visible outcome —
+        // we already know the print failed and the renderer will
+        // fall back. Just log.
+        ctx.req.log.warn(
+          { err, saleId: input.saleId },
+          'hardware outbox enqueue failed; renderer fallback still fires'
+        );
+      }
+
+      return {
+        status: 'fallback' as const,
+        error: result.error?.kind ?? 'UNKNOWN',
+        errorMessage: result.error?.message ?? 'ESC/POS print failed',
+      };
+    }),
+
+  /**
+   * ENG-062 — manager-gated cash drawer kick. Idempotent: re-firing
+   * the pulse just relays the drawer again, harmless on every model
+   * we've tested. When no drawer is registered, we return a polite
+   * `{status:'no-drawer-registered'}` instead of throwing — the UI
+   * decides whether to surface a toast or hide the button.
+   */
+  kickCashDrawer: managerOrAdminProcedure
+    .input(kickCashDrawerInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      const drawerRow = await ctx.db
+        .select()
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.kind, 'cash_drawer'),
+            eq(sitePeripherals.isActive, true)
+          )
+        )
+        .get();
+
+      if (!drawerRow) {
+        return { status: 'no-drawer-registered' as const };
+      }
+
+      const adapter = instantiateAdapter(drawerRow);
+      if (!adapter || adapter.kind !== 'cash_drawer') {
+        return {
+          status: 'error' as const,
+          error: 'DRIVER_NOT_IMPLEMENTED',
+          errorMessage: 'Active drawer driver is not registered',
+        };
+      }
+      const result = await (adapter as CashDrawerAdapter).kick();
+      if (result.status === 'ok') {
+        return { status: 'ok' as const };
+      }
+
+      // Enqueue retry — drawer kicks are idempotent.
+      try {
+        await ctx.db.insert(hardwareOutbox).values({
+          id: nanoid(),
+          tenantId: ctx.tenantId,
+          status: 'retrying',
+          kind: 'kick-drawer',
+          peripheralId: drawerRow.id,
+          payload: { kind: 'kick-drawer', siteId: input.siteId } as Record<string, unknown>,
+          attempts: 1,
+          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+          lastError: {
+            errorCode: result.error?.kind ?? 'UNKNOWN',
+            providerMessage: result.error?.message ?? 'kick failed',
+            recoverable: true,
+          } as Record<string, unknown>,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        void tickDefaultHardwareWorker(ctx.tenantId);
+      } catch (err) {
+        ctx.req.log.warn({ err, siteId: input.siteId }, 'drawer outbox enqueue failed');
+      }
+
+      return {
+        status: 'error' as const,
+        error: result.error?.kind ?? 'UNKNOWN',
+        errorMessage: result.error?.message ?? 'Drawer kick failed',
+      };
+    }),
+
+  /**
+   * ENG-062 — operator-visible peek into the hardware outbox tail.
+   * Stub for ENG-065's Operations Center; returns a minimal
+   * projection so the UI doesn't load the full payload by default.
+   * Tenant-scoped + manager-or-admin gated.
+   */
+  peekHardwareOutbox: managerOrAdminProcedure
+    .input(peekHardwareOutboxInput)
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select({
+          id: hardwareOutbox.id,
+          kind: hardwareOutbox.kind,
+          status: hardwareOutbox.status,
+          attempts: hardwareOutbox.attempts,
+          peripheralId: hardwareOutbox.peripheralId,
+          lastError: hardwareOutbox.lastError,
+          createdAt: hardwareOutbox.createdAt,
+          updatedAt: hardwareOutbox.updatedAt,
+        })
+        .from(hardwareOutbox)
+        .where(eq(hardwareOutbox.tenantId, ctx.tenantId))
+        .orderBy(desc(hardwareOutbox.createdAt))
+        .limit(input.limit)
         .all();
       return rows;
     }),

@@ -385,5 +385,12 @@
     "priceFromLabel": "Price applied from the label",
     "noBaseUnit": "Product has no unit configured",
     "resumedCartLocked": "Discard the resumed cart to add new items"
+  },
+  "printer": {
+    "escposFailedFallback": "ESC/POS print failed; printed via the system printer",
+    "kickDrawerCta": "Open cash drawer",
+    "kickDrawerSuccess": "Cash drawer opened",
+    "kickDrawerFailed": "Could not open the cash drawer",
+    "noDrawerRegistered": "No cash drawer is registered for this site"
   }
 }

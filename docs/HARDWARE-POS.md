@@ -147,6 +147,28 @@ CREATE TABLE site_peripherals (
   test buttons: "Test print", "Open drawer", "Scan test", "Charge $0.01"
 - Status indicator in the POS topbar: green/yellow/red per peripheral
 
+## Implementation status
+
+- **ENG-060** (Shipped) — peripheral registry + 4 contracts + admin UI
+  + 2 default drivers (`system` printer, `manual` payment terminal).
+- **ENG-061** (Shipped) — barcode scanner pipeline (USB HID keyboard
+  wedge), pure parser with EAN-13/EAN-8/UPC-A checksums and GS1
+  prefix-2x weight/price labels, `useBarcodeWedgeListener` hook
+  wired on SalesPage.
+- **ENG-062** (Shipped) — ESC/POS printer driver
+  (`EscPosReceiptPrinterAdapter` at
+  `services/peripherals/drivers/escpos-receipt-printer.ts`) +
+  RJ11 cash drawer driver
+  (`EscPosCashDrawerAdapter` at
+  `services/peripherals/drivers/escpos-cash-drawer.ts`) +
+  `hardware_outbox` (migration `0015_hardware_outbox.sql`) +
+  hardware worker mirror of the fiscal worker. Mock + TCP
+  transports ship today; USB + serial transports are stubs that
+  throw `DRIVER_NOT_IMPLEMENTED` until a follow-up ticket adds the
+  native bindings against a physical hardware lab.
+- **ENG-063** (Gated) — Bold / Wompi / MercadoPago payment terminals,
+  blocked on signed PT contract + sandbox credentials.
+
 ## Testing plan
 
 - Unit: ESC/POS byte sequence builder (print, cut, drawer)

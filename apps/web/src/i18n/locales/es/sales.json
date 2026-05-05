@@ -385,5 +385,12 @@
     "priceFromLabel": "Precio aplicado desde la etiqueta",
     "noBaseUnit": "El producto no tiene unidad configurada",
     "resumedCartLocked": "Descarta el carrito retomado para agregar productos nuevos"
+  },
+  "printer": {
+    "escposFailedFallback": "La impresora ESC/POS falló; imprimimos por la del sistema",
+    "kickDrawerCta": "Abrir cajón",
+    "kickDrawerSuccess": "Cajón monedero abierto",
+    "kickDrawerFailed": "No se pudo abrir el cajón monedero",
+    "noDrawerRegistered": "No hay cajón monedero registrado para esta sede"
   }
 }

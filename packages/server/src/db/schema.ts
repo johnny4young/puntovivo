@@ -3427,6 +3427,122 @@ export const sitePeripheralsRelations = relations(sitePeripherals, ({ one }) => 
 export type SitePeripheralRow = typeof sitePeripherals.$inferSelect;
 export type NewSitePeripheralRow = typeof sitePeripherals.$inferInsert;
 
+// ============================================================================
+// HARDWARE OUTBOX (ENG-062 — ESC/POS printer + cash drawer queue)
+// ============================================================================
+//
+// Mirror of `fiscal_outbox` (ENG-057) for peripheral I/O. ENG-060 deferred
+// this table to here because the two default drivers (`system` printer +
+// `manual` payment terminal) had no async fan-out. With ENG-062's `escpos`
+// driver landing real device I/O — which can fail recoverably on USB
+// unplug, paper out, or TCP-host unreachable — the queue lets the cashier
+// keep moving while the worker retries in the background.
+//
+// Status machine + retry policy + claim_token concurrency are inherited
+// from `lib/outbox/createOutboxKernel`. The hardware worker
+// (`services/peripherals/hardware-worker.ts`) drives state transitions;
+// failed receipt prints are recoverable through the standard outbox
+// flow without re-triggering the original sale completion.
+
+/**
+ * Closed list of hardware outbox lifecycle states. Mirror of the fiscal
+ * outbox enum but with `printed` / `failed` instead of accepted / rejected
+ * because the printer doesn't issue a verdict — it either flushed bytes
+ * to the device or it didn't.
+ */
+export const hardwareOutboxStatusEnum = [
+  'queued',
+  'submitting',
+  'printed',
+  'failed',
+  'retrying',
+  'dead_letter',
+] as const;
+export type HardwareOutboxStatus = (typeof hardwareOutboxStatusEnum)[number];
+
+/**
+ * Closed list of hardware outbox kinds keyed to the `PrintJobKind` union
+ * (`services/peripherals/contracts/receipt-printer.ts`) plus the cash
+ * drawer kick. Adding a kind requires updating the worker dispatcher.
+ */
+export const hardwareOutboxKindEnum = [
+  'print-receipt',
+  'print-fiscal-dee',
+  'print-quotation',
+  'print-kitchen-ticket',
+  'kick-drawer',
+] as const;
+export type HardwareOutboxKind = (typeof hardwareOutboxKindEnum)[number];
+
+export const hardwareOutbox = sqliteTable(
+  'hardware_outbox',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    status: text('status', { enum: hardwareOutboxStatusEnum }).notNull().default('queued'),
+    kind: text('kind', { enum: hardwareOutboxKindEnum }).notNull(),
+    /**
+     * The peripheral row that owned this attempt. Nullable + ON DELETE
+     * SET NULL so we don't lose history when an admin removes a
+     * peripheral row mid-flight; the worker treats null as
+     * "peripheral was unregistered" and dead-letters.
+     */
+    peripheralId: text('peripheral_id').references(() => sitePeripherals.id, {
+      onDelete: 'set null',
+    }),
+    /** Snapshot of the print job + transport opts so the worker can retry without re-resolving. */
+    payload: text('payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    /** `NormalizedHardwareError` + transport-level details written by the kernel on `fail`. */
+    lastError: text('last_error', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    priority: real('priority').notNull().default(0),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    // Primary path for the kernel's claimNext: filter by tenant +
+    // status (queued or retrying) ordered by priority + createdAt.
+    index('idx_hardware_outbox_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    // Drilldown for "show retry history of this peripheral" + admin
+    // peripheral-detail surfaces planned for ENG-065.
+    index('idx_hardware_outbox_peripheral').on(table.peripheralId),
+    // Operations Center listing + peek.
+    index('idx_hardware_outbox_tenant_created').on(table.tenantId, table.createdAt),
+  ]
+);
+
+export const hardwareOutboxRelations = relations(hardwareOutbox, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [hardwareOutbox.tenantId],
+    references: [tenants.id],
+  }),
+  peripheral: one(sitePeripherals, {
+    fields: [hardwareOutbox.peripheralId],
+    references: [sitePeripherals.id],
+  }),
+}));
+
+export type HardwareOutboxRow = typeof hardwareOutbox.$inferSelect;
+export type NewHardwareOutboxRow = typeof hardwareOutbox.$inferInsert;
+
 export type FiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferSelect;
 export type NewFiscalNumberingResolution = typeof fiscalNumberingResolutions.$inferInsert;
 export type FiscalCertificate = typeof fiscalCertificates.$inferSelect;

@@ -64,18 +64,20 @@ afterEach(async () => {
 });
 
 describe('listSupportedDrivers', () => {
-  it('returns ENG-060/061 default drivers (system printer, manual payment terminal, wedge scanner)', () => {
+  it('returns ENG-060/061/062 default drivers (system + escpos printer, escpos drawer, wedge scanner, manual payment terminal)', () => {
     const drivers = listSupportedDrivers();
     expect(drivers).toEqual(
       expect.arrayContaining([
         { kind: 'printer', driverId: 'system' },
+        // ENG-062 — ESC/POS printer driver registered.
+        { kind: 'printer', driverId: 'escpos' },
         { kind: 'payment_terminal', driverId: 'manual' },
-        // ENG-061 — wedge scanner driver registered.
         { kind: 'scanner', driverId: 'wedge' },
+        // ENG-062 — ESC/POS cash drawer driver registered.
+        { kind: 'cash_drawer', driverId: 'escpos' },
       ])
     );
-    // No drivers shipped for cash_drawer / customer_display yet.
-    expect(drivers.find(d => d.kind === 'cash_drawer')).toBeUndefined();
+    // customer_display still has no drivers shipped.
     expect(drivers.find(d => d.kind === 'customer_display')).toBeUndefined();
   });
 });
@@ -102,15 +104,15 @@ describe('validatePeripheralConfig', () => {
   it('rejects an unknown driver for a known kind with PERIPHERAL_DRIVER_INVALID', () => {
     const result = validatePeripheralConfig({
       kind: 'printer',
-      driver: 'escpos', // not registered until ENG-062
+      driver: 'unknown-driver-id',
       config: {},
     });
     expect(result).toMatchObject({ ok: false, code: 'PERIPHERAL_DRIVER_INVALID' });
   });
 
-  it('rejects every kind with no registered driver yet (cash_drawer)', () => {
+  it('rejects every kind with no registered driver yet (customer_display)', () => {
     const result = validatePeripheralConfig({
-      kind: 'cash_drawer',
+      kind: 'customer_display',
       driver: 'escpos',
       config: {},
     });
@@ -236,13 +238,14 @@ describe('instantiateAdapter', () => {
   it('returns null when the row references an unimplemented driver', async () => {
     const db = getDatabase();
     const id = nanoid();
-    // Bypass validatePeripheralConfig to insert a row with a stale driver.
+    // Bypass validatePeripheralConfig to insert a row with a stale driver
+    // pointing at customer_display, which has no driver registered yet.
     await db.insert(sitePeripherals).values({
       id,
       tenantId,
       siteId,
-      kind: 'cash_drawer',
-      driver: 'escpos', // ENG-062
+      kind: 'customer_display',
+      driver: 'escpos',
       config: {},
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -256,6 +259,56 @@ describe('instantiateAdapter', () => {
     expect(row).toBeTruthy();
     const adapter = instantiateAdapter(row!);
     expect(adapter).toBeNull();
+  });
+
+  it('returns an EscPosReceiptPrinterAdapter for the (printer, escpos) pair (ENG-062)', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    await db.insert(sitePeripherals).values({
+      id,
+      tenantId,
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: { channel: 'mock', paperWidth: '80mm' },
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const row = await db
+      .select()
+      .from(sitePeripherals)
+      .where(eq(sitePeripherals.id, id))
+      .get();
+    const adapter = instantiateAdapter(row!);
+    expect(adapter).not.toBeNull();
+    expect(adapter!.kind).toBe('printer');
+    expect(adapter!.driverId).toBe('escpos');
+  });
+
+  it('returns an EscPosCashDrawerAdapter for the (cash_drawer, escpos) pair (ENG-062)', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    await db.insert(sitePeripherals).values({
+      id,
+      tenantId,
+      siteId,
+      kind: 'cash_drawer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    const row = await db
+      .select()
+      .from(sitePeripherals)
+      .where(eq(sitePeripherals.id, id))
+      .get();
+    const adapter = instantiateAdapter(row!);
+    expect(adapter).not.toBeNull();
+    expect(adapter!.kind).toBe('cash_drawer');
+    expect(adapter!.driverId).toBe('escpos');
   });
 
   it('returns a BarcodeScannerAdapter for the wedge driver (ENG-061)', async () => {

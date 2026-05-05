@@ -157,12 +157,14 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   4. ENG-063 introduces `payment_outbox` when the payment
      terminal adapter ships.
   5. ENG-070 introduces `webhook_outbox`.
-  6. ENG-060 introduces `hardware_outbox` together with the
-     peripheral registry. Updated 2026-05-04 (ENG-060):
-     `hardware_outbox` deferred to ENG-062 alongside the first
-     ESC/POS adapter — ENG-060's two default drivers (`system`
-     printer, `manual` payment terminal) have no async fan-out,
-     so a queue at this stage would be unused dead weight.
+  6. ENG-062 introduces `hardware_outbox` (migration
+     `0015_hardware_outbox.sql`) together with the ESC/POS printer
+     + RJ11 cash drawer adapters — the first peripheral drivers
+     with real device I/O that can fail recoverably (USB unplug,
+     paper out, TCP-host unreachable). The hardware worker
+     (`services/peripherals/hardware-worker.ts`) mirrors the
+     fiscal worker structurally; the kernel + retry policy are
+     reused from `lib/outbox/`.
 - **Backward compatibility**: the existing `sync_queue` and
   `fiscal_documents.status` keep working until their migration
   ticket lands. No data loss; renames + view shims handle the

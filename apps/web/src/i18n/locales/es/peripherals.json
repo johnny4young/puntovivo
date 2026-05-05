@@ -25,7 +25,6 @@
     "mercadopago": "Mercado Pago Point"
   },
   "driverHint": {
-    "escpos": "Disponible con ENG-062",
     "bold": "Disponible con ENG-063",
     "wompi": "Disponible con ENG-063",
     "mercadopago": "Disponible con ENG-063"
