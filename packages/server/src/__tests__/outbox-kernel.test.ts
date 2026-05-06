@@ -153,6 +153,28 @@ describe('createOutboxKernel — happy path', () => {
     expect(fromDb?.claimToken).toBeTruthy();
   });
 
+  it('claimNext returns higher-priority rows before older lower-priority rows', async () => {
+    const db = getDatabase();
+    const priorityTenantId = `${tenantId}-priority`;
+    await kernel.enqueue(db, {
+      tenantId: priorityTenantId,
+      payload: { saleId: 'low-priority', total: 1 },
+      priority: 0,
+    });
+    const high = await kernel.enqueue(db, {
+      tenantId: priorityTenantId,
+      payload: { saleId: 'high-priority', total: 2 },
+      priority: 10,
+    });
+
+    const claimed = await kernel.claimNext(db, {
+      tenantId: priorityTenantId,
+      workerId: 'w-priority',
+    });
+    expect(claimed?.id).toBe(high.id);
+    expect(claimed?.priority).toBe(10);
+  });
+
   it('complete transitions the row to succeeded', async () => {
     const db = getDatabase();
     const { id } = await kernel.enqueue(db, {
