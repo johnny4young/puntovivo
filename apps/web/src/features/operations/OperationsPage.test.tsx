@@ -1,11 +1,12 @@
 /**
- * ENG-065a — Tests for OperationsPage tab shell.
+ * ENG-065a / ENG-065b — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 3 tabs render in the role list visible to manager + admin.
+ *   - All 5 tabs render in the role list visible to manager + admin.
  *   - Default tab is `sync`.
- *   - `?tab=fiscal` and `?tab=device` deep links land on the right
- *     panel.
+ *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=inventory` deep
+ *     links land on the right panel.
+ *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
  *
  * Panel internals (data fetching) are exercised by their own
@@ -19,7 +20,10 @@ import { OperationsPage } from './OperationsPage';
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      reports: { fiscal: { list: { invalidate: vi.fn() } } },
+      reports: {
+        fiscal: { list: { invalidate: vi.fn() } },
+        inventory: { discrepancies: { invalidate: vi.fn() } },
+      },
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
@@ -35,12 +39,49 @@ vi.mock('@/lib/trpc', () => ({
         list: { useQuery: () => ({ data: { items: [] }, isLoading: false }) },
         retryDocument: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) },
       },
+      cash: {
+        reconciliation: {
+          useQuery: () => ({
+            data: {
+              summary: {
+                openSessionCount: 0,
+                closedRecentCount: 0,
+                reviewCount: 0,
+                netOverShort: 0,
+                largestDiscrepancy: 0,
+                windowDays: 30,
+              },
+              bySite: [],
+              recentDiscrepancies: [],
+            },
+            isLoading: false,
+            error: null,
+          }),
+        },
+      },
+      inventory: {
+        discrepancies: {
+          useQuery: () => ({
+            data: {
+              summary: { productsScanned: 0, discrepancyCount: 0, deltaEpsilon: 0.001 },
+              rows: [],
+            },
+            isLoading: false,
+            error: null,
+          }),
+        },
+      },
     },
     peripherals: {
       peekHardwareOutbox: {
         useQuery: () => ({ data: [], isLoading: false }),
       },
       retryHardwareOutbox: {
+        useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
+      },
+    },
+    inventory: {
+      reconcileBalances: {
         useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
       },
     },
@@ -70,11 +111,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the three tabs in order', () => {
+  it('renders the five tabs in order', () => {
     render(<OperationsPage />);
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-inventory')).toBeInTheDocument();
   });
 
   it('defaults to the sync tab', () => {
@@ -104,8 +147,26 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tabpanel-device')).toBeInTheDocument();
   });
 
-  it('falls back to the default tab when ?tab=garbage', () => {
+  it('lands on the cash panel via ?tab=cash deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=cash'] });
+    expect(screen.getByTestId('operations-tab-cash')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('operations-tabpanel-cash')).toBeInTheDocument();
+  });
+
+  it('lands on the inventory panel via ?tab=inventory deep link', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=inventory'] });
+    expect(screen.getByTestId('operations-tab-inventory')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('operations-tabpanel-inventory')).toBeInTheDocument();
+  });
+
+  it('falls back to the default tab when ?tab=garbage', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=zzznotreal'] });
     expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute(
       'aria-selected',
       'true'

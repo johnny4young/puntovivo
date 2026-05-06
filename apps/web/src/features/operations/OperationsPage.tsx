@@ -6,21 +6,25 @@ import { cn } from '@/lib/utils';
 import { SyncHealthPanel } from './SyncHealthPanel';
 import { FiscalHealthPanel } from './FiscalHealthPanel';
 import { DeviceHealthPanel } from './DeviceHealthPanel';
+import { CashHealthPanel } from './CashHealthPanel';
+import { InventoryHealthPanel } from './InventoryHealthPanel';
 
 /**
- * ENG-065a — Operations Center.
+ * ENG-065a / ENG-065b — Operations Center.
  *
  * Tabbed admin/manager surface that surfaces the three already-shipped
- * outboxes (sync, fiscal, hardware) alongside their retry affordances.
- * Cash + payment + inventory reconciliation land in ENG-065b;
+ * outboxes (sync, fiscal, hardware) plus the two reconciliation views
+ * shipped in ENG-065b (cash + inventory). Payment reconciliation
+ * lands in ENG-065d once `payment_outbox` ships from ENG-063;
  * diagnostic export lands in ENG-065c.
  *
- * Tab state is URL-driven (`?tab=sync|fiscal|device`) so deep links
- * from elsewhere in the app (e.g. an alert banner pointing at a
- * specific failure surface) land directly on the right panel without
- * manual navigation. `replace: true` keeps the back button quiet.
+ * Tab state is URL-driven (`?tab=sync|fiscal|device|cash|inventory`)
+ * so deep links from elsewhere in the app (e.g. an alert banner
+ * pointing at a specific failure surface) land directly on the right
+ * panel without manual navigation. `replace: true` keeps the back
+ * button quiet.
  */
-const TAB_KEYS = ['sync', 'fiscal', 'device'] as const;
+const TAB_KEYS = ['sync', 'fiscal', 'device', 'cash', 'inventory'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -48,6 +52,8 @@ export function OperationsPage() {
       sync: t('tabs.sync'),
       fiscal: t('tabs.fiscal'),
       device: t('tabs.device'),
+      cash: t('tabs.cash'),
+      inventory: t('tabs.inventory'),
     }),
     [t]
   );
@@ -101,6 +107,8 @@ export function OperationsPage() {
         {activeTab === 'sync' && <SyncHealthPanel />}
         {activeTab === 'fiscal' && <FiscalHealthPanel />}
         {activeTab === 'device' && <DeviceHealthPanel />}
+        {activeTab === 'cash' && <CashHealthPanel />}
+        {activeTab === 'inventory' && <InventoryHealthPanel />}
       </div>
     </div>
   );
