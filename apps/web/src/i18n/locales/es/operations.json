@@ -7,7 +7,9 @@
     "ariaLabel": "Paneles de operaciones",
     "sync": "Sincronización",
     "fiscal": "Fiscal",
-    "device": "Dispositivos"
+    "device": "Dispositivos",
+    "cash": "Caja",
+    "inventory": "Inventario"
   },
   "common": {
     "loading": "Cargando...",
@@ -103,6 +105,61 @@
       "success": "Reintento encolado",
       "error": "El reintento falló",
       "noPermission": "Solo el administrador puede reintentar trabajos de hardware."
+    }
+  },
+  "cash": {
+    "title": "Salud de caja",
+    "description": "Posición de caja a nivel de tenant: sesiones abiertas, cierres recientes y discrepancias por sede.",
+    "summary": {
+      "openSessions": "Sesiones abiertas",
+      "closedRecent": "Cerradas ({{days}} días)",
+      "netOverShort": "Neto sobre/bajo",
+      "largestDiscrepancy": "Mayor discrepancia"
+    },
+    "bySite": {
+      "title": "Resumen por sede",
+      "emptyState": "Aún no hay sedes con sesiones registradas en este tenant.",
+      "columns": {
+        "site": "Sede",
+        "openSessions": "Abiertas",
+        "netOverShort": "Neto sobre/bajo",
+        "overShortCount": "Sesiones con discrepancia"
+      }
+    },
+    "recentDiscrepancies": {
+      "title": "Cierres recientes con discrepancia",
+      "emptyState": "No hay cierres con discrepancia en la ventana actual.",
+      "columns": {
+        "site": "Sede",
+        "cashier": "Cajero",
+        "closedAt": "Cerrado",
+        "expected": "Esperado",
+        "actual": "Contado",
+        "overShort": "Sobre/Bajo"
+      }
+    }
+  },
+  "inventory": {
+    "title": "Salud de inventario",
+    "description": "Productos donde el stock cacheado no coincide con la suma de balances por sede. Usa Reconciliar para sanar la deriva.",
+    "summary": {
+      "productsScanned": "Productos analizados",
+      "discrepancyCount": "Con discrepancia"
+    },
+    "emptyState": "El inventario está consistente. Stock cacheado coincide con la suma por sede.",
+    "columns": {
+      "product": "Producto",
+      "sku": "SKU",
+      "cachedStock": "Stock cacheado",
+      "sumOfBalances": "Suma por sede",
+      "delta": "Delta",
+      "siteCount": "Sedes"
+    },
+    "reconcile": {
+      "cta": "Reconciliar balances",
+      "success": "Se reconciliaron {{count}} productos",
+      "error": "La reconciliación falló",
+      "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
     }
   }
 }

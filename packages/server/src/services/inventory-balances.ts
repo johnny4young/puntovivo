@@ -307,6 +307,74 @@ export function syncProductStockFromBalances(
 }
 
 /**
+ * ENG-065b — Read-only mirror of `reconcileProductStockFromBalances`.
+ *
+ * Detects drift between the cached `products.stock` total and
+ * `Σ(inventory_balances.on_hand)` for every product in the tenant —
+ * the same drift the reconcile mutation heals. Returns a flat row per
+ * (tenant, product) with the cached value, the recomputed sum, and
+ * the per-site span.
+ *
+ * Lives here (not in `routers/reports/`) because the architectural
+ * lint forbids the reports surface from importing `products` directly
+ * (ENG-020 fiscal immutability invariant). The router calls this
+ * helper and applies the epsilon filter + ordering + limit on the
+ * returned rows.
+ */
+export interface InventoryDiscrepancyRow {
+  productId: string;
+  productName: string;
+  productSku: string | null;
+  cachedStock: number;
+  sumOfBalances: number;
+  delta: number;
+  siteCount: number;
+}
+
+export async function listInventoryDiscrepancyCandidates(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<InventoryDiscrepancyRow[]> {
+  const sumExpr = sql<number>`COALESCE(SUM(${inventoryBalances.onHand}), 0)`;
+  const siteCountExpr = sql<number>`COUNT(${inventoryBalances.id})`;
+
+  const rows = await db
+    .select({
+      productId: products.id,
+      productName: products.name,
+      productSku: products.sku,
+      cachedStock: products.stock,
+      sumOfBalances: sumExpr,
+      siteCount: siteCountExpr,
+    })
+    .from(products)
+    .leftJoin(
+      inventoryBalances,
+      and(
+        eq(inventoryBalances.productId, products.id),
+        eq(inventoryBalances.tenantId, tenantId)
+      )
+    )
+    .where(eq(products.tenantId, tenantId))
+    .groupBy(products.id)
+    .all();
+
+  return rows.map(row => {
+    const cachedStock = Number(row.cachedStock ?? 0);
+    const sumOfBalances = Number(row.sumOfBalances ?? 0);
+    return {
+      productId: row.productId,
+      productName: row.productName,
+      productSku: row.productSku ?? null,
+      cachedStock,
+      sumOfBalances,
+      delta: cachedStock - sumOfBalances,
+      siteCount: Number(row.siteCount ?? 0),
+    };
+  });
+}
+
+/**
  * Heals historical drift by recomputing `products.stock` for every product
  * in the tenant as Σ(inventory_balances.on_hand). Intended as an
  * admin-triggered reconciliation after migrations or data imports; inside

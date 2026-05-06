@@ -7,7 +7,9 @@
     "ariaLabel": "Operations panels",
     "sync": "Sync",
     "fiscal": "Fiscal",
-    "device": "Devices"
+    "device": "Devices",
+    "cash": "Cash",
+    "inventory": "Inventory"
   },
   "common": {
     "loading": "Loading...",
@@ -103,6 +105,61 @@
       "success": "Retry queued",
       "error": "Retry failed",
       "noPermission": "Only admins can retry hardware jobs."
+    }
+  },
+  "cash": {
+    "title": "Cash Health",
+    "description": "Tenant-wide cash position: open sessions, recent closures, and discrepancies by site.",
+    "summary": {
+      "openSessions": "Open sessions",
+      "closedRecent": "Closed ({{days}} days)",
+      "netOverShort": "Net over/short",
+      "largestDiscrepancy": "Largest discrepancy"
+    },
+    "bySite": {
+      "title": "Summary by site",
+      "emptyState": "No sites have recorded cash sessions for this tenant yet.",
+      "columns": {
+        "site": "Site",
+        "openSessions": "Open",
+        "netOverShort": "Net over/short",
+        "overShortCount": "Sessions with discrepancy"
+      }
+    },
+    "recentDiscrepancies": {
+      "title": "Recent closures with discrepancy",
+      "emptyState": "No closures with discrepancy in the current window.",
+      "columns": {
+        "site": "Site",
+        "cashier": "Cashier",
+        "closedAt": "Closed",
+        "expected": "Expected",
+        "actual": "Counted",
+        "overShort": "Over/Short"
+      }
+    }
+  },
+  "inventory": {
+    "title": "Inventory Health",
+    "description": "Products where the cached stock no longer matches the sum of per-site balances. Click Reconcile to heal the drift.",
+    "summary": {
+      "productsScanned": "Products scanned",
+      "discrepancyCount": "With drift"
+    },
+    "emptyState": "Inventory is consistent. Cached stock matches the per-site sum.",
+    "columns": {
+      "product": "Product",
+      "sku": "SKU",
+      "cachedStock": "Cached stock",
+      "sumOfBalances": "Sum per site",
+      "delta": "Delta",
+      "siteCount": "Sites"
+    },
+    "reconcile": {
+      "cta": "Reconcile balances",
+      "success": "Reconciled {{count}} products",
+      "error": "Reconciliation failed",
+      "noPermission": "Only admins can reconcile cached stock."
     }
   }
 }
