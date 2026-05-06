@@ -1,11 +1,11 @@
 /**
- * ENG-065a / ENG-065b — Tests for OperationsPage tab shell.
+ * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 5 tabs render in the role list visible to manager + admin.
+ *   - All 6 tabs render in the role list visible to manager + admin.
  *   - Default tab is `sync`.
- *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=inventory` deep
- *     links land on the right panel.
+ *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=inventory`,
+ *     `?tab=diagnostics` deep links land on the right panel.
  *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
  *
@@ -71,6 +71,23 @@ vi.mock('@/lib/trpc', () => ({
           }),
         },
       },
+      diagnostics: {
+        preview: {
+          useQuery: () => ({
+            data: null,
+            error: null,
+            isFetching: false,
+            refetch: vi.fn(),
+          }),
+        },
+        export: {
+          useQuery: () => ({
+            data: null,
+            isFetching: false,
+            refetch: vi.fn(),
+          }),
+        },
+      },
     },
     peripherals: {
       peekHardwareOutbox: {
@@ -111,13 +128,14 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the five tabs in order', () => {
+  it('renders the six tabs in order', () => {
     render(<OperationsPage />);
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-inventory')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-diagnostics')).toBeInTheDocument();
   });
 
   it('defaults to the sync tab', () => {
@@ -163,6 +181,15 @@ describe('OperationsPage', () => {
       'true'
     );
     expect(screen.getByTestId('operations-tabpanel-inventory')).toBeInTheDocument();
+  });
+
+  it('lands on the diagnostics panel via ?tab=diagnostics deep link', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=diagnostics'] });
+    expect(screen.getByTestId('operations-tab-diagnostics')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('operations-tabpanel-diagnostics')).toBeInTheDocument();
   });
 
   it('falls back to the default tab when ?tab=garbage', () => {

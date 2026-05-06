@@ -9,7 +9,8 @@
     "fiscal": "Fiscal",
     "device": "Devices",
     "cash": "Cash",
-    "inventory": "Inventory"
+    "inventory": "Inventory",
+    "diagnostics": "Diagnostics"
   },
   "common": {
     "loading": "Loading...",
@@ -160,6 +161,46 @@
       "success": "Reconciled {{count}} products",
       "error": "Reconciliation failed",
       "noPermission": "Only admins can reconcile cached stock."
+    }
+  },
+  "diagnostics": {
+    "title": "Export diagnostic",
+    "description": "Download a ZIP with operation events + outboxes (sync, fiscal, hardware) filtered by date range. Useful as a support-ticket attachment.",
+    "range": {
+      "from": "From",
+      "to": "To",
+      "presetsAriaLabel": "Range presets",
+      "presets": {
+        "last7d": "Last 7 days",
+        "last30d": "Last 30 days",
+        "custom": "Custom"
+      },
+      "invalid": "The start date must be on or before the end date."
+    },
+    "preview": {
+      "cta": "Preview",
+      "willHitLimit": "Some tables reached the {{rowLimit}}-row limit. Narrow the range so nothing gets truncated.",
+      "results": {
+        "operationEvents": "Operation events",
+        "operationEffects": "Operation effects",
+        "syncOutbox": "Sync outbox",
+        "fiscalOutbox": "Fiscal outbox",
+        "hardwareOutbox": "Hardware outbox",
+        "estimatedSize": "Estimated bundle size: {{size}}"
+      }
+    },
+    "includeOutboxes": {
+      "label": "Outboxes to include",
+      "sync": "Sync",
+      "fiscal": "Fiscal",
+      "hardware": "Hardware"
+    },
+    "export": {
+      "cta": "Download ZIP",
+      "downloading": "Building ZIP...",
+      "success": "Diagnostic downloaded",
+      "error": "Could not build the ZIP",
+      "noPermission": "Only admins can export diagnostics."
     }
   }
 }

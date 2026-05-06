@@ -9,7 +9,8 @@
     "fiscal": "Fiscal",
     "device": "Dispositivos",
     "cash": "Caja",
-    "inventory": "Inventario"
+    "inventory": "Inventario",
+    "diagnostics": "Diagnóstico"
   },
   "common": {
     "loading": "Cargando...",
@@ -160,6 +161,46 @@
       "success": "Se reconciliaron {{count}} productos",
       "error": "La reconciliación falló",
       "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
+    }
+  },
+  "diagnostics": {
+    "title": "Exportar diagnóstico",
+    "description": "Descarga un ZIP con eventos de operación + outboxes (sincronización, fiscal, hardware) filtrados por rango de fechas. Útil para adjuntar a tickets de soporte.",
+    "range": {
+      "from": "Desde",
+      "to": "Hasta",
+      "presetsAriaLabel": "Atajos de rango",
+      "presets": {
+        "last7d": "Últimos 7 días",
+        "last30d": "Últimos 30 días",
+        "custom": "Personalizado"
+      },
+      "invalid": "La fecha inicial debe ser anterior o igual a la fecha final."
+    },
+    "preview": {
+      "cta": "Vista previa",
+      "willHitLimit": "Algunas tablas alcanzaron el límite de {{rowLimit}} filas. Reduce el rango para no truncar datos.",
+      "results": {
+        "operationEvents": "Eventos de operación",
+        "operationEffects": "Efectos de operación",
+        "syncOutbox": "Outbox sincronización",
+        "fiscalOutbox": "Outbox fiscal",
+        "hardwareOutbox": "Outbox hardware",
+        "estimatedSize": "Tamaño estimado del paquete: {{size}}"
+      }
+    },
+    "includeOutboxes": {
+      "label": "Outboxes a incluir",
+      "sync": "Sincronización",
+      "fiscal": "Fiscal",
+      "hardware": "Hardware"
+    },
+    "export": {
+      "cta": "Descargar ZIP",
+      "downloading": "Generando ZIP...",
+      "success": "Diagnóstico descargado",
+      "error": "No se pudo generar el ZIP",
+      "noPermission": "Solo el administrador puede exportar diagnósticos."
     }
   }
 }
