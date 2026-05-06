@@ -103,6 +103,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'FISCAL_REGIMEN_INVALID',
   // --- ENG-036a pack Chile fundación ---
   'FISCAL_RUT_INVALID',
+  // --- Fiscal document recovery ---
+  'FISCAL_DOCUMENT_NOT_FOUND',
   // --- ENG-030 AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
@@ -119,6 +121,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PERIPHERAL_DRIVER_INVALID',
   'PERIPHERAL_CONFIG_INVALID',
   'PERIPHERAL_ACTIVE_DUPLICATE',
+  'HARDWARE_OUTBOX_NOT_FOUND',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

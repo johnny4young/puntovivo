@@ -1,9 +1,10 @@
 /**
  * ENG-060 — Peripherals tRPC router.
  *
- * Admin-only CRUD over `site_peripherals`, with a `test` action that
+ * Admin-only writes over `site_peripherals`, with a `test` action that
  * stamps `last_tested_at` + `last_test_result` based on the adapter's
- * `testPrint` / `testKick` / `testScan` / `testCharge` outcome.
+ * `testPrint` / `testKick` / `testScan` / `testCharge` outcome. Read
+ * access is manager+ for the ENG-065a Operations Center.
  *
  * Tenant scoping: every procedure validates `siteId` via
  * `ensureSiteBelongsToTenant`, and every WHERE includes
@@ -49,6 +50,7 @@ import {
   printReceiptInput,
   registerPeripheralInput,
   removePeripheralInput,
+  retryHardwareOutboxInput,
   setPeripheralActiveInput,
   testPeripheralInput,
   updatePeripheralInput,
@@ -119,7 +121,7 @@ export const peripheralsRouter = router({
    * inactive both surface — the admin UI groups by kind and dims
    * inactive rows). Tenant-scoped.
    */
-  list: adminProcedure
+  list: managerOrAdminProcedure
     .input(listPeripheralsInput)
     .query(async ({ ctx, input }) => {
       await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
@@ -554,6 +556,67 @@ export const peripheralsRouter = router({
         .limit(input.limit)
         .all();
       return rows;
+    }),
+
+  /**
+   * ENG-065a — Reset a `hardware_outbox` row so the worker picks it
+   * up fresh. Operator path for "this row got stuck on a transient
+   * driver error; force a retry now". Retryable rows
+   * (`retrying` / `dead_letter` / `failed`) reset `attempts=0`,
+   * clear `lastError`, move status back to `queued`, and clear
+   * `nextRetryAt`/`claimToken`/`lockedAt`.
+   * `queued` / `submitting` / `printed` are no-ops so a drained
+   * row cannot be accidentally replayed. Admin-only — mirrors
+   * `sync.retry` and `reports.fiscal.retryDocument`.
+   */
+  retryHardwareOutbox: adminProcedure
+    .input(retryHardwareOutboxInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select({ id: hardwareOutbox.id, status: hardwareOutbox.status })
+        .from(hardwareOutbox)
+        .where(
+          and(
+            eq(hardwareOutbox.id, input.id),
+            eq(hardwareOutbox.tenantId, ctx.tenantId)
+          )
+        )
+        .get();
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'HARDWARE_OUTBOX_NOT_FOUND',
+          message: 'hardware_outbox row not found',
+        });
+      }
+      const RETRYABLE = ['retrying', 'dead_letter', 'failed'] as const;
+      const isRetryable = (RETRYABLE as readonly string[]).includes(existing.status);
+      if (!isRetryable) {
+        return { ok: true as const, id: input.id };
+      }
+      const now = new Date().toISOString();
+      await ctx.db
+        .update(hardwareOutbox)
+        .set({
+          status: 'queued',
+          attempts: 0,
+          nextRetryAt: null,
+          lastError: null,
+          claimToken: null,
+          lockedAt: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(hardwareOutbox.id, input.id),
+            eq(hardwareOutbox.tenantId, ctx.tenantId)
+          )
+        );
+      // Mirror of `sync.retry` (ENG-064): no fire-and-forget tick —
+      // the next periodic worker tick (30s default) drains the
+      // requeued row. Avoids re-failing the row immediately when
+      // the underlying transient error has not yet cleared.
+      return { ok: true as const, id: input.id };
     }),
 });
 

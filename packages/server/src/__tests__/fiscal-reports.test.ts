@@ -328,7 +328,7 @@ describe('reports.fiscal (ENG-020)', () => {
     }
   });
 
-  it('rejects non-admin callers with FORBIDDEN', async () => {
+  it('rejects cashier callers with FORBIDDEN', async () => {
     const caller = appRouter.createCaller(
       buildCtx(harnessA.tenantId, harnessA.userId, 'cashier')
     );
@@ -336,7 +336,24 @@ describe('reports.fiscal (ENG-020)', () => {
       await caller.reports.fiscal.list({ limit: 10, offset: 0 });
       throw new Error('Expected FORBIDDEN');
     } catch (err) {
-      expect(String(err)).toMatch(/FORBIDDEN|admin/i);
+      // ENG-065a: list moved from admin-only to managerOrAdmin; the
+      // role-guard message now mentions "administrators and managers"
+      // instead of "admin only", so we match against the role-name
+      // hint plus the underlying TRPC code.
+      expect(String(err)).toMatch(/TRPCError|administrators|managers/i);
     }
+  });
+
+  it('allows manager callers (ENG-065a Operations Center read access)', async () => {
+    // ENG-065a — managers can read fiscal_documents for the
+    // Operations Center Fiscal Health panel; the retry mutation
+    // (`retryDocument`) stays admin-only because it advances
+    // fiscal state.
+    const caller = appRouter.createCaller(
+      buildCtx(harnessA.tenantId, harnessA.userId, 'manager')
+    );
+    const result = await caller.reports.fiscal.list({ limit: 10, offset: 0 });
+    expect(Array.isArray(result.items)).toBe(true);
+    expect(typeof result.total).toBe('number');
   });
 });

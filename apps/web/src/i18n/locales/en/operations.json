@@ -1,0 +1,108 @@
+{
+  "header": {
+    "title": "Operations Center",
+    "subtitle": "What's pending, what failed, and what to do next — without reading logs."
+  },
+  "tabs": {
+    "ariaLabel": "Operations panels",
+    "sync": "Sync",
+    "fiscal": "Fiscal",
+    "device": "Devices"
+  },
+  "common": {
+    "loading": "Loading...",
+    "errorGeneric": "Something went wrong loading this view."
+  },
+  "fiscal": {
+    "title": "Fiscal Health",
+    "description": "Documents currently in contingency or rejected state. Retry pushes a fresh attempt to the provider.",
+    "statusFilter": {
+      "ariaLabel": "Filter fiscal documents by status",
+      "contingency": "Contingency",
+      "rejected": "Rejected",
+      "accepted": "Accepted"
+    },
+    "columns": {
+      "document": "Document",
+      "status": "Status",
+      "emittedAt": "Emitted",
+      "buyer": "Buyer",
+      "total": "Total",
+      "actions": "Actions"
+    },
+    "retry": {
+      "cta": "Retry",
+      "success": "Retry queued",
+      "error": "Retry failed",
+      "noPermission": "Only admins can retry fiscal documents.",
+      "confirmTitle": "Retry this fiscal document?",
+      "confirmMessage": "This re-arms the fiscal outbox row so the worker pushes it to the provider again."
+    },
+    "emptyState": {
+      "contingency": "No fiscal documents are currently in contingency.",
+      "rejected": "No fiscal documents are currently in rejected state.",
+      "accepted": "No accepted fiscal documents in the recent window."
+    }
+  },
+  "device": {
+    "peripherals": {
+      "title": "Registered peripherals",
+      "description": "What's wired up across your sites and how it tested last.",
+      "emptyState": "No peripherals registered yet. Add devices in Settings → Peripherals.",
+      "notTested": "Not tested",
+      "kind": {
+        "printer": "Receipt printer",
+        "cash_drawer": "Cash drawer",
+        "scanner": "Barcode scanner",
+        "payment_terminal": "Payment terminal",
+        "customer_display": "Customer display"
+      },
+      "columns": {
+        "site": "Site",
+        "driver": "Driver",
+        "displayName": "Display name",
+        "lastTest": "Last test",
+        "status": "Status"
+      },
+      "testResult": {
+        "ok": "OK",
+        "failed": "Failed",
+        "untested": "Untested"
+      }
+    },
+    "outbox": {
+      "title": "Hardware outbox",
+      "description": "Print jobs and drawer kicks that did not land. Defaults to problem rows; toggle to see all.",
+      "filter": {
+        "problemsOnly": "Show problems only",
+        "showAll": "Show all"
+      },
+      "columns": {
+        "kind": "Kind",
+        "status": "Status",
+        "attempts": "Attempts",
+        "lastError": "Last error",
+        "createdAt": "Created",
+        "actions": "Actions"
+      },
+      "status": {
+        "queued": "Queued",
+        "submitting": "Submitting",
+        "printed": "Printed",
+        "failed": "Failed",
+        "retrying": "Retrying",
+        "dead_letter": "Dead letter"
+      },
+      "emptyState": {
+        "all": "No hardware outbox rows recorded.",
+        "problems": "No hardware jobs are currently failing."
+      }
+    },
+    "retry": {
+      "cta": "Retry",
+      "success": "Retry queued",
+      "error": "Retry failed",
+      "noPermission": "Only admins can retry hardware jobs."
+    }
+  }
+}

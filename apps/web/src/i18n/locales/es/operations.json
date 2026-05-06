@@ -1,0 +1,108 @@
+{
+  "header": {
+    "title": "Centro de operaciones",
+    "subtitle": "Qué está pendiente, qué falló y qué hacer ahora — sin mirar logs."
+  },
+  "tabs": {
+    "ariaLabel": "Paneles de operaciones",
+    "sync": "Sincronización",
+    "fiscal": "Fiscal",
+    "device": "Dispositivos"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "errorGeneric": "Algo salió mal al cargar esta vista."
+  },
+  "fiscal": {
+    "title": "Salud fiscal",
+    "description": "Documentos en contingencia o rechazados. Reintentar lanza un nuevo intento al proveedor.",
+    "statusFilter": {
+      "ariaLabel": "Filtra documentos fiscales por estado",
+      "contingency": "En contingencia",
+      "rejected": "Rechazados",
+      "accepted": "Aceptados"
+    },
+    "columns": {
+      "document": "Documento",
+      "status": "Estado",
+      "emittedAt": "Emitido",
+      "buyer": "Comprador",
+      "total": "Total",
+      "actions": "Acciones"
+    },
+    "retry": {
+      "cta": "Reintentar",
+      "success": "Reintento encolado",
+      "error": "El reintento falló",
+      "noPermission": "Solo el administrador puede reintentar documentos fiscales.",
+      "confirmTitle": "¿Reintentar este documento fiscal?",
+      "confirmMessage": "Re-arma la fila del outbox fiscal para que el trabajador lo empuje al proveedor de nuevo."
+    },
+    "emptyState": {
+      "contingency": "No hay documentos fiscales en contingencia.",
+      "rejected": "No hay documentos fiscales rechazados.",
+      "accepted": "No hay documentos aceptados en la ventana reciente."
+    }
+  },
+  "device": {
+    "peripherals": {
+      "title": "Periféricos registrados",
+      "description": "Qué está conectado en tus sedes y cómo le fue en la última prueba.",
+      "emptyState": "Aún no hay periféricos registrados. Agrégalos en Configuración → Periféricos.",
+      "notTested": "Sin probar",
+      "kind": {
+        "printer": "Impresora de recibos",
+        "cash_drawer": "Cajón monedero",
+        "scanner": "Escáner de código de barras",
+        "payment_terminal": "Datáfono",
+        "customer_display": "Pantalla del cliente"
+      },
+      "columns": {
+        "site": "Sede",
+        "driver": "Driver",
+        "displayName": "Nombre",
+        "lastTest": "Última prueba",
+        "status": "Estado"
+      },
+      "testResult": {
+        "ok": "OK",
+        "failed": "Falló",
+        "untested": "Sin probar"
+      }
+    },
+    "outbox": {
+      "title": "Cola de hardware",
+      "description": "Impresiones y kicks de cajón que no aterrizaron. Por defecto muestra solo problemas; usa el botón para ver todo.",
+      "filter": {
+        "problemsOnly": "Ver solo problemas",
+        "showAll": "Ver todo"
+      },
+      "columns": {
+        "kind": "Tipo",
+        "status": "Estado",
+        "attempts": "Intentos",
+        "lastError": "Último error",
+        "createdAt": "Creado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "queued": "Encolado",
+        "submitting": "Enviando",
+        "printed": "Impreso",
+        "failed": "Falló",
+        "retrying": "Reintentando",
+        "dead_letter": "Dead letter"
+      },
+      "emptyState": {
+        "all": "No hay filas en la cola de hardware.",
+        "problems": "No hay trabajos de hardware fallando ahora."
+      }
+    },
+    "retry": {
+      "cta": "Reintentar",
+      "success": "Reintento encolado",
+      "error": "El reintento falló",
+      "noPermission": "Solo el administrador puede reintentar trabajos de hardware."
+    }
+  }
+}
