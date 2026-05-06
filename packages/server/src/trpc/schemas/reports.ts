@@ -43,3 +43,53 @@ export const inventoryDiscrepanciesInput = z
   .default({ limit: 100 });
 
 export type InventoryDiscrepanciesInput = z.infer<typeof inventoryDiscrepanciesInput>;
+
+// ─────────────────────────────────────────────────────────────────
+// reports.diagnostics.preview / reports.diagnostics.export
+// ENG-065c — Operations Center diagnostic export.
+// ─────────────────────────────────────────────────────────────────
+
+const isoDateTime = z.string().datetime({ offset: true });
+
+function isChronologicalRange(value: { fromDate: string; toDate: string }): boolean {
+  return Date.parse(value.fromDate) <= Date.parse(value.toDate);
+}
+
+/**
+ * Lock list of outboxes the export can include. Mirrors ADR-0003
+ * taxonomy. `payment` and `webhook` are reserved names for ENG-063 +
+ * ENG-070 and currently rejected — keeping them out of the literal
+ * keeps the input shape honest about what's wired today.
+ */
+export const diagnosticIncludeOutbox = z.enum(['sync', 'fiscal', 'hardware']);
+export type DiagnosticIncludeOutbox = z.infer<typeof diagnosticIncludeOutbox>;
+
+const dateRangeSchema = z
+  .object({
+    fromDate: isoDateTime,
+    toDate: isoDateTime,
+  })
+  .refine(isChronologicalRange, {
+    message: 'fromDate must be on or before toDate',
+    path: ['toDate'],
+  });
+
+export const diagnosticsPreviewInput = dateRangeSchema;
+export type DiagnosticsPreviewInput = z.infer<typeof diagnosticsPreviewInput>;
+
+export const diagnosticsExportInput = z
+  .object({
+    fromDate: isoDateTime,
+    toDate: isoDateTime,
+    /**
+     * Subset of outboxes to include in `tables.*`. Counts are always
+     * returned for every known source regardless of this filter.
+     * Omitted == include all three. Empty array == include none.
+     */
+    includeOutboxes: z.array(diagnosticIncludeOutbox).max(3).optional(),
+  })
+  .refine(isChronologicalRange, {
+    message: 'fromDate must be on or before toDate',
+    path: ['toDate'],
+  });
+export type DiagnosticsExportInput = z.infer<typeof diagnosticsExportInput>;
