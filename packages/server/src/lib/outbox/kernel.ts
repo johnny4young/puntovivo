@@ -31,7 +31,7 @@
  * @module lib/outbox/kernel
  */
 
-import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -199,7 +199,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
             or(isNull(table.nextRetryAt), lte(table.nextRetryAt, nowIso))
           )
         )
-        .orderBy(asc(table.priority), asc(table.createdAt))
+        .orderBy(desc(table.priority), asc(table.createdAt))
         .limit(1)
         .get()) as Record<string, unknown> | undefined;
 
@@ -216,7 +216,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
               or(isNull(table.nextRetryAt), lte(table.nextRetryAt, nowIso))
             )
           )
-          .orderBy(asc(table.priority), asc(table.createdAt))
+          .orderBy(desc(table.priority), asc(table.createdAt))
           .limit(1)
           .get()) as Record<string, unknown> | undefined;
       }
@@ -373,7 +373,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       const rows = (await (db.select() as any)
         .from(table)
         .where(eq(table.tenantId, args.tenantId))
-        .orderBy(asc(table.priority), asc(table.createdAt))
+        .orderBy(desc(table.priority), asc(table.createdAt))
         .limit(limit)
         .all()) as Record<string, unknown>[];
       return rows.map(rowToProjection);
