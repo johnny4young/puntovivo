@@ -212,6 +212,12 @@ export const SERVER_ERROR_CODES = {
    * pages).
    */
   HARDWARE_TRANSPORT_FAILED: 'HARDWARE_TRANSPORT_FAILED',
+  /**
+   * `peripherals.retryHardwareOutbox` (ENG-065a) could not find a
+   * `hardware_outbox` row for the tenant. Surfaced as NOT_FOUND so
+   * the Operations Center renders a polite "row not found" hint.
+   */
+  HARDWARE_OUTBOX_NOT_FOUND: 'HARDWARE_OUTBOX_NOT_FOUND',
 
   // --- ENG-064 sync contract v1 ---
   /**

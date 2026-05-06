@@ -96,9 +96,17 @@ export const kickCashDrawerInput = z.object({
 export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
 
 // ENG-062 — operator-visible peek into the hardware outbox tail.
-// Stub for ENG-065's Operations Center to consume; tenant-scoped
-// so cross-tenant rows never leak.
+// Consumed by ENG-065a's Operations Center Device Health panel;
+// tenant-scoped so cross-tenant rows never leak.
 export const peekHardwareOutboxInput = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });
 export type PeekHardwareOutboxInput = z.infer<typeof peekHardwareOutboxInput>;
+
+// ENG-065a — admin path for "this hardware row got stuck on a
+// transient error; force a retry now". Mirrors `sync.retry` and
+// `reports.fiscal.retryDocument` shape.
+export const retryHardwareOutboxInput = z.object({
+  id: z.string().min(1, 'hardware_outbox row id is required'),
+});
+export type RetryHardwareOutboxInput = z.infer<typeof retryHardwareOutboxInput>;

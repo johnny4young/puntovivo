@@ -104,6 +104,9 @@ const UsersPage = lazyPage(async () => ({
 const PeripheralsPage = lazyPage(async () => ({
   default: (await import('@/features/peripherals/PeripheralsPage')).PeripheralsPage,
 }));
+const OperationsPage = lazyPage(async () => ({
+  default: (await import('@/features/operations/OperationsPage')).OperationsPage,
+}));
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -349,6 +352,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={adminOnlyRoles}>
                   <PeripheralsPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="operations"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                  <OperationsPage />
                 </ShellRoute>
               }
             />

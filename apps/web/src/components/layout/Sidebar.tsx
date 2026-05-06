@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  Activity,
   BadgePercent,
   Building2,
   ChevronLeft,
@@ -69,6 +70,7 @@ const navigationSections = [
       { nameKey: 'items.coPilot', href: '/co-pilot', icon: Sparkles, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
       { nameKey: 'items.inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.operations', href: '/operations', icon: Activity, allowedRoles: managerOrAdminRoles },
     ],
   },
   {

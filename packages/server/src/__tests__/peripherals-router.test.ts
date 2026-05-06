@@ -1,7 +1,7 @@
 /**
  * ENG-060 — Integration tests for the `peripherals.*` admin router.
  *
- * Boots a real Fastify server + tRPC caller. Asserts admin gating,
+ * Boots a real Fastify server + tRPC caller. Asserts write gating,
  * CRUD round-trip, partial-unique enforcement, and the test action's
  * stamping of `last_tested_at` + `last_test_result`.
  */
@@ -22,7 +22,7 @@ let tenantId: string;
 let userId: string;
 let siteId: string;
 
-function buildContext(role: 'admin' | 'cashier' = 'admin'): Context {
+function buildContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   const db = getDatabase();
   return {
     req: {
@@ -110,6 +110,12 @@ describe('peripherals.* — admin gate', () => {
 describe('peripherals.list', () => {
   it('returns empty array when no peripherals registered', async () => {
     const caller = appRouter.createCaller(buildContext());
+    const rows = await caller.peripherals.list({ siteId });
+    expect(rows).toEqual([]);
+  });
+
+  it('allows manager callers for Operations Center read access', async () => {
+    const caller = appRouter.createCaller(buildContext('manager'));
     const rows = await caller.peripherals.list({ siteId });
     expect(rows).toEqual([]);
   });

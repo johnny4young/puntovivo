@@ -29,7 +29,7 @@
 import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../../init.js';
-import { adminProcedure } from '../../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   fiscalDocumentItems,
   fiscalDocuments,
@@ -74,11 +74,16 @@ const LIST_SELECT_COLUMNS = {
 
 export const fiscalReportsRouter = router({
   /**
-   * Paged list of fiscal documents for the admin Fiscal Documents page.
+   * Paged list of fiscal documents for the admin Fiscal Documents page
+   * and the ENG-065a Operations Center Fiscal Health panel.
    * Tenant-scoped via `ctx.tenantId`. Optional filters: kind, status,
    * source, date range.
+   *
+   * Read-only — manager + admin gated. The retry mutation
+   * (`retryDocument` below) stays admin-only because it advances
+   * fiscal document state.
    */
-  list: adminProcedure
+  list: managerOrAdminProcedure
     .input(listFiscalDocumentsInput)
     .query(async ({ ctx, input }) => {
       const conditions = [eq(fiscalDocuments.tenantId, ctx.tenantId)];
