@@ -140,7 +140,10 @@ describe('ModulesProvider — server response', () => {
       </ModulesProvider>
     );
     expect(screen.getByTestId('keys')).toHaveTextContent(
-      'anomaly-detection,copilot,operations-center,quotations,semantic-search'
+      // ENG-068 demo modules + ENG-069 surface modules — alphabetical
+      // because Object.keys order on the snapshot is insertion order
+      // (manifest tuple) but the test sorts before joining.
+      'anomaly-detection,copilot,customer-display,kds,mobile-waiter,operations-center,pos-touch,quotations,semantic-search'
     );
   });
 });

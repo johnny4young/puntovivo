@@ -9,6 +9,7 @@ import { AuthProvider } from '@/features/auth/AuthProvider';
 import { LocaleProvider } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesProvider, RequireModule } from '@/features/modules';
+import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
@@ -108,6 +109,35 @@ const PeripheralsPage = lazyPage(async () => ({
 }));
 const OperationsPage = lazyPage(async () => ({
   default: (await import('@/features/operations/OperationsPage')).OperationsPage,
+}));
+// ENG-069 — surface shells + placeholder pages. Each surface mounts
+// as a top-level route OUTSIDE of <MainLayout> so it owns its full
+// viewport (KDS fullscreen, customer-display second monitor, mobile
+// waiter phone-width). Real workflows plug into the existing shells
+// in ENG-039 without forking the App component.
+const TouchShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/TouchShell')).TouchShell,
+}));
+const TouchHomePlaceholder = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/TouchHomePlaceholder')).TouchHomePlaceholder,
+}));
+const KdsShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/KdsShell')).KdsShell,
+}));
+const KdsHomePlaceholder = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/KdsHomePlaceholder')).KdsHomePlaceholder,
+}));
+const CustomerDisplayShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CustomerDisplayShell')).CustomerDisplayShell,
+}));
+const CustomerDisplayHomePlaceholder = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CustomerDisplayHomePlaceholder')).CustomerDisplayHomePlaceholder,
+}));
+const MobileWaiterShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,
+}));
+const MobileWaiterHomePlaceholder = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/MobileWaiterHomePlaceholder')).MobileWaiterHomePlaceholder,
 }));
 
 function HomeRedirect() {
@@ -409,6 +439,54 @@ function App() {
                 </ShellRoute>
               }
             />
+          </Route>
+          {/* ENG-069 — surface shells. Each owns its full viewport
+              outside MainLayout so the surface chrome (KDS fullscreen
+              dark backdrop, customer-display gradient, mobile-waiter
+              phone-width container, POS Touch wider buttons) is not
+              boxed inside the desktop sidebar + Header. Each shell
+              composes ProtectedRoute + RequireModule + outlet Suspense
+              internally; the route-level wrapper catches the lazy shell
+              import before that internal boundary exists. */}
+          <Route
+            path="touch"
+            element={
+              <SurfaceShellRoute>
+                <TouchShell />
+              </SurfaceShellRoute>
+            }
+          >
+            <Route index element={<TouchHomePlaceholder />} />
+          </Route>
+          <Route
+            path="kds"
+            element={
+              <SurfaceShellRoute>
+                <KdsShell />
+              </SurfaceShellRoute>
+            }
+          >
+            <Route index element={<KdsHomePlaceholder />} />
+          </Route>
+          <Route
+            path="customer-display"
+            element={
+              <SurfaceShellRoute>
+                <CustomerDisplayShell />
+              </SurfaceShellRoute>
+            }
+          >
+            <Route index element={<CustomerDisplayHomePlaceholder />} />
+          </Route>
+          <Route
+            path="m"
+            element={
+              <SurfaceShellRoute>
+                <MobileWaiterShell />
+              </SurfaceShellRoute>
+            }
+          >
+            <Route index element={<MobileWaiterHomePlaceholder />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

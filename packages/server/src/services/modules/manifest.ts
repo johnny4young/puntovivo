@@ -47,6 +47,17 @@ export const MODULE_IDS = [
   'quotations',
   'anomaly-detection',
   'semantic-search',
+  // ENG-069 — surface modules. Each new surface (POS Touch, KDS,
+  // Customer Display, Mobile Waiter) gates behind a dedicated module
+  // id from the same kernel. POS Desktop is the implicit default and
+  // does not have a module — the existing /sales etc. routes ship as
+  // they do today. All four ship with defaultEnabled=false so existing
+  // tenants do not see new sidebar entries appear after the kernel
+  // ships; operators flip them on per tenant via /company?tab=modules.
+  'pos-touch',
+  'kds',
+  'customer-display',
+  'mobile-waiter',
 ] as const;
 
 export type ModuleId = (typeof MODULE_IDS)[number];
@@ -118,6 +129,34 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'semanticSearch',
+  },
+  // ENG-069 — surface modules default OFF so existing tenants do not
+  // see new sidebar entries appear after the kernel ships. The
+  // surfaces themselves render placeholders until ENG-039 (vertical
+  // restaurant Mexico) plugs the real workflows.
+  'pos-touch': {
+    id: 'pos-touch',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'posTouch',
+  },
+  'kds': {
+    id: 'kds',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'kds',
+  },
+  'customer-display': {
+    id: 'customer-display',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'customerDisplay',
+  },
+  'mobile-waiter': {
+    id: 'mobile-waiter',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'mobileWaiter',
   },
 };
 

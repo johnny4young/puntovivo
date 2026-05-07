@@ -48,16 +48,44 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
     expect(MODULES_SCHEMA_VERSION).toBeGreaterThanOrEqual(1);
   });
 
-  it('locks the v1 module set so deletions trigger CI failure', () => {
+  it('locks the v1 + ENG-069 surface module set so deletions trigger CI failure', () => {
     // Pin the count so a silent removal of a module from the list
-    // is caught by the regression test before it lands.
-    expect(MODULE_IDS.length).toBe(5);
+    // is caught by the regression test before it lands. The 5 demo
+    // modules from ENG-068 default ON; the 4 surface modules from
+    // ENG-069 default OFF (each new surface is opt-in per tenant).
+    expect(MODULE_IDS.length).toBe(9);
     expect(MODULE_IDS).toEqual([
       'copilot',
       'operations-center',
       'quotations',
       'anomaly-detection',
       'semantic-search',
+      'pos-touch',
+      'kds',
+      'customer-display',
+      'mobile-waiter',
+    ]);
+  });
+
+  it('ENG-068 demo modules default ON; ENG-069 surface modules default OFF', () => {
+    const onByDefault = MODULE_IDS.filter(
+      id => MODULES_MANIFEST[id].defaultEnabled === true
+    );
+    const offByDefault = MODULE_IDS.filter(
+      id => MODULES_MANIFEST[id].defaultEnabled === false
+    );
+    expect(onByDefault).toEqual([
+      'copilot',
+      'operations-center',
+      'quotations',
+      'anomaly-detection',
+      'semantic-search',
+    ]);
+    expect(offByDefault).toEqual([
+      'pos-touch',
+      'kds',
+      'customer-display',
+      'mobile-waiter',
     ]);
   });
 });
