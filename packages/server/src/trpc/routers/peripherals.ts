@@ -30,6 +30,7 @@ import {
   validatePeripheralConfig,
   tickDefaultHardwareWorker,
 } from '../../services/peripherals/index.js';
+import { enqueueHardware } from '../../services/peripherals/enqueue-hardware.js';
 import type {
   CashDrawerAdapter,
   PaymentTerminalAdapter,
@@ -415,29 +416,33 @@ export const peripheralsRouter = router({
       }
 
       // Enqueue a retry row so the worker drains it later.
+      // ENG-067b — pipe the optional input.idempotencyKey through so
+      // a tRPC retry of the same logical print attempt collapses to
+      // one row instead of stacking duplicates. Helper handles the
+      // partial-unique-idx UNIQUE conflict gracefully.
       try {
-        await ctx.db.insert(hardwareOutbox).values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          status: 'retrying',
-          kind: 'print-receipt',
-          peripheralId: printerRow.id,
-          payload: {
+        await enqueueHardware(
+          { db: ctx.db, tenantId: ctx.tenantId },
+          {
             kind: 'print-receipt',
-            document,
-            saleId: sale.id,
-            siteId: input.siteId,
-          } as Record<string, unknown>,
-          attempts: 1,
-          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
-          lastError: {
-            errorCode: result.error?.kind ?? 'UNKNOWN',
-            providerMessage: result.error?.message ?? 'unknown error',
-            recoverable: true,
-          } as Record<string, unknown>,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+            peripheralId: printerRow.id,
+            payload: {
+              kind: 'print-receipt',
+              document,
+              saleId: sale.id,
+              siteId: input.siteId,
+            },
+            status: 'retrying',
+            attempts: 1,
+            nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+            lastError: {
+              errorCode: result.error?.kind ?? 'UNKNOWN',
+              providerMessage: result.error?.message ?? 'unknown error',
+              recoverable: true,
+            },
+            idempotencyKey: input.idempotencyKey ?? null,
+          }
+        );
         // Fire-and-forget tick so the next periodic interval isn't
         // the only retry chance.
         void tickDefaultHardwareWorker(ctx.tenantId);
@@ -499,25 +504,27 @@ export const peripheralsRouter = router({
         return { status: 'ok' as const };
       }
 
-      // Enqueue retry — drawer kicks are idempotent.
+      // Enqueue retry — drawer kicks are idempotent at the relay
+      // level. ENG-067b also makes the enqueue itself idempotent
+      // when the caller passes an idempotencyKey.
       try {
-        await ctx.db.insert(hardwareOutbox).values({
-          id: nanoid(),
-          tenantId: ctx.tenantId,
-          status: 'retrying',
-          kind: 'kick-drawer',
-          peripheralId: drawerRow.id,
-          payload: { kind: 'kick-drawer', siteId: input.siteId } as Record<string, unknown>,
-          attempts: 1,
-          nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
-          lastError: {
-            errorCode: result.error?.kind ?? 'UNKNOWN',
-            providerMessage: result.error?.message ?? 'kick failed',
-            recoverable: true,
-          } as Record<string, unknown>,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        await enqueueHardware(
+          { db: ctx.db, tenantId: ctx.tenantId },
+          {
+            kind: 'kick-drawer',
+            peripheralId: drawerRow.id,
+            payload: { kind: 'kick-drawer', siteId: input.siteId },
+            status: 'retrying',
+            attempts: 1,
+            nextRetryAt: new Date(Date.now() + 60_000).toISOString(),
+            lastError: {
+              errorCode: result.error?.kind ?? 'UNKNOWN',
+              providerMessage: result.error?.message ?? 'kick failed',
+              recoverable: true,
+            },
+            idempotencyKey: input.idempotencyKey ?? null,
+          }
+        );
         void tickDefaultHardwareWorker(ctx.tenantId);
       } catch (err) {
         ctx.req.log.warn({ err, siteId: input.siteId }, 'drawer outbox enqueue failed');

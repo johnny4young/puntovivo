@@ -28,6 +28,11 @@ const displayNameSchema = z
   .min(1, 'Display name cannot be empty')
   .max(120, 'Display name must be 120 characters or fewer');
 
+const hardwareIdempotencyKeySchema = z.preprocess(
+  value => (value === '' ? undefined : value),
+  z.string().min(1).max(128).optional()
+);
+
 export const listPeripheralsInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
 });
@@ -85,6 +90,13 @@ export type ActiveForSiteInput = z.infer<typeof activeForSiteInput>;
 export const printReceiptInput = z.object({
   saleId: z.string().min(1, 'saleId is required'),
   siteId: z.string().min(1, 'siteId is required'),
+  /**
+   * ENG-067b — opt-in dedup key. The web client may pass a stable
+   * key per logical print attempt so a tRPC retry after a network
+   * blip doesn't enqueue twice. When omitted, the legacy "two
+   * clicks → two prints" path stays.
+   */
+  idempotencyKey: hardwareIdempotencyKeySchema,
 });
 export type PrintReceiptInput = z.infer<typeof printReceiptInput>;
 
@@ -92,6 +104,8 @@ export type PrintReceiptInput = z.infer<typeof printReceiptInput>;
 // hardware side (a stale retry just re-pulses the relay).
 export const kickCashDrawerInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
+  /** ENG-067b — opt-in dedup key (see printReceiptInput). */
+  idempotencyKey: hardwareIdempotencyKeySchema,
 });
 export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
 

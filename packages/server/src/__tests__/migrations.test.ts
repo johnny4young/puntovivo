@@ -281,14 +281,53 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at text NOT NULL,
         updated_at text NOT NULL
       );
+
+      -- ENG-067b — stub the hardware_outbox shape so migrations that
+      -- run AFTER 0017 (e.g. 0018's ALTER + partial unique idx) have
+      -- a target. A real bridge-build DB would have this table from
+      -- migration 0015; the in-test bridge has historically only
+      -- needed sync_outbox + sync_queue, so we add a minimal mirror
+      -- of the post-0015 schema to keep the cutover-only test
+      -- forward-compatible with new migrations.
+      CREATE TABLE hardware_outbox (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        status text NOT NULL DEFAULT 'queued',
+        kind text NOT NULL,
+        peripheral_id text,
+        payload text NOT NULL,
+        payload_version integer NOT NULL DEFAULT 1,
+        attempts integer NOT NULL DEFAULT 0,
+        next_retry_at text,
+        last_error text,
+        priority real NOT NULL DEFAULT 0,
+        claim_token text,
+        locked_at text,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
     `);
 
+    // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which
+    // migrations to run by counting rows in `__drizzle_migrations`,
+    // not by hash-matching individual entries. The legacy filter
+    // `entry.tag !== '0017_drop_sync_queue'` happened to work when
+    // 0017 was the last migration, but as soon as any migration
+    // landed after 0017 (e.g. 0018), the row count would still match
+    // the journal length and the migrator would skip 0017 entirely.
+    // The slice-by-position approach pins "everything before 0017
+    // applied" so the cutover migration AND every later migration
+    // (0018+) run against the bridge DB the test simulates.
     const insertMigration = bridgeSqlite.prepare(
       'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)'
     );
-    for (const migration of expected.filter(
-      entry => entry.tag !== '0017_drop_sync_queue'
-    )) {
+    const cutoverIdx = expected.findIndex(
+      entry => entry.tag === '0017_drop_sync_queue'
+    );
+    if (cutoverIdx === -1) {
+      throw new Error('0017_drop_sync_queue must exist in the journal');
+    }
+    for (const migration of expected.slice(0, cutoverIdx)) {
       insertMigration.run(migration.hash, migration.when);
     }
 

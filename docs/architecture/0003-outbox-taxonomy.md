@@ -225,3 +225,16 @@ concrete outboxes (sync / fiscal / payment / webhook / hardware)
 remain parked behind their owner tickets (ENG-064 / ENG-057 /
 ENG-063 / ENG-070 / ENG-060). Pattern docs:
 `patterns/operation-journal.md` + `patterns/outbox-kernel.md`).
+
+Updated: 2026-05-06 (ENG-067b — `hardware_outbox` reaches
+idempotency parity with `sync_outbox`. Migration
+`0018_hardware_outbox_idempotency.sql` adds a nullable
+`idempotency_key` column and a partial unique index
+`(tenant_id, kind, idempotency_key) WHERE idempotency_key IS
+NOT NULL`. New helper
+`packages/server/src/services/peripherals/enqueue-hardware.ts`
+mirrors `enqueueSync` semantics: same-envelope retries collapse
+to one row and return `{deduped: true}`, while null-keyed legacy
+writes stay independent. The `peripherals.printReceipt` +
+`peripherals.kickCashDrawer` fallback paths now route through
+the helper.).
