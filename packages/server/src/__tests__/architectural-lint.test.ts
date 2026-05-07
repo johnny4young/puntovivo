@@ -142,3 +142,102 @@ import {
     expect(namedImportsFromSchema(negative)).not.toContain('products');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// ENG-066 — schema-level PAN/CVV ban.
+// ─────────────────────────────────────────────────────────────────
+
+const SCHEMA_PATH = fileURLToPath(new URL('../db/schema.ts', import.meta.url));
+
+/**
+ * Anchored, lowercase column-name patterns that must never land in
+ * `db/schema.ts`. Lock the threat model's "no PAN/CVV storage"
+ * promise at the schema layer so a future writer can't silently add
+ * a `pan` or `card_number` column without CI failing loud.
+ *
+ * Add or document changes via ADR-0006.
+ */
+const FORBIDDEN_COLUMN_NAMES: ReadonlySet<string> = new Set([
+  'pan',
+  'cvv',
+  'cvc',
+  'card_number',
+  'cardnumber',
+  'primary_account_number',
+  'primaryaccountnumber',
+  'cardholder_name', // explicit storage of cardholder names is also out of scope per ADR-0006
+  'cardholdername',
+]);
+
+/**
+ * Extract every literal column name from a `text('<name>', ...)`,
+ * `integer('<name>', ...)`, `real('<name>', ...)` declaration.
+ * Drizzle's column DSL ALWAYS passes the on-disk column name as the
+ * first string argument, so a regex over the file finds them all
+ * without an AST parser.
+ */
+function columnLiteralsFromSchema(source: string): string[] {
+  const columnRe = /\b(?:text|integer|real|blob|numeric)\s*\(\s*['"]([a-zA-Z0-9_]+)['"]/g;
+  const out: string[] = [];
+  for (const match of source.matchAll(columnRe)) {
+    if (match[1]) out.push(match[1]);
+  }
+  return out;
+}
+
+describe('architectural lint — no PAN/CVV columns (ENG-066)', () => {
+  it('schema.ts does not declare any column with a forbidden card-data name', () => {
+    const source = readFileSync(SCHEMA_PATH, 'utf8');
+    const literals = columnLiteralsFromSchema(source);
+    const offenders = literals.filter(name =>
+      FORBIDDEN_COLUMN_NAMES.has(name.toLowerCase())
+    );
+    if (offenders.length > 0) {
+      throw new Error(
+        [
+          `Architectural invariant violated (ENG-066 / ADR-0006):`,
+          ``,
+          `  Column names matching the PAN / CVV / cardholder list MUST`,
+          `  NOT land in db/schema.ts. Puntovivo POS does not store`,
+          `  card data; payment integrations carry token references only.`,
+          ``,
+          `  See docs/architecture/0006-local-data-security.md for the`,
+          `  threat model + the contract for payment_outbox payloads.`,
+          ``,
+          `Offending columns:`,
+          ...offenders.map(name => `  - ${name}`),
+        ].join('\n')
+      );
+    }
+    expect(offenders).toHaveLength(0);
+  });
+
+  it('column extractor flags a synthetic forbidden column AND ignores benign ones', () => {
+    // Positive case: forbidden literal lands → extractor surfaces it.
+    const positive = `
+const sale_payments = sqliteTable('sale_payments', {
+  id: text('id').primaryKey(),
+  pan: text('pan'),
+});
+`;
+    const positiveLiterals = columnLiteralsFromSchema(positive);
+    expect(positiveLiterals).toContain('pan');
+    expect(
+      positiveLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))
+    ).toBe(true);
+
+    // Negative case: lookalike benign column names pass.
+    const negative = `
+const sale_payments = sqliteTable('sale_payments', {
+  id: text('id').primaryKey(),
+  panel_layout: text('panel_layout'),
+  pancake_count: integer('pancake_count'),
+  reference: text('reference'),
+});
+`;
+    const negativeLiterals = columnLiteralsFromSchema(negative);
+    expect(
+      negativeLiterals.some(n => FORBIDDEN_COLUMN_NAMES.has(n.toLowerCase()))
+    ).toBe(false);
+  });
+});

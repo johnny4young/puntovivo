@@ -51,6 +51,7 @@ Files are named `NNNN-kebab-case-title.md` with a four-digit prefix:
 0003-outbox-taxonomy.md
 0004-conflict-policy.md
 0005-sync-payload-contract.md
+0006-local-data-security.md
 ```
 
 The number is **chronological and immutable**. Once an ADR ships, never
@@ -153,6 +154,7 @@ Updated: <list grows by appending here, never removing>.
 | [ADR-0003](./0003-outbox-taxonomy.md) | Outbox Taxonomy | Accepted | ENG-051 |
 | [ADR-0004](./0004-conflict-policy.md) | Conflict Policy | Accepted | ENG-051 |
 | [ADR-0005](./0005-sync-payload-contract.md) | Sync Payload Contract v1 | Accepted | ENG-064 |
+| [ADR-0006](./0006-local-data-security.md) | Local data security: backup, restore, and the "no PAN/CVV" invariant | Accepted | ENG-066 |
 
 When you ship an ADR, append a row here in the same commit. When an ADR
 is superseded, update the row's Status column to

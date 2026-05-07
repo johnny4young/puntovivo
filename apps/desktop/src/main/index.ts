@@ -13,9 +13,16 @@ import {
 } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { access, copyFile, mkdir, rm } from 'node:fs/promises';
+import { access, copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
+import { DEVICE_ID_FILENAME, readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
+import {
+  createBackupBundle,
+  createBackupFileName as createBackupZipFileName,
+  extractBackupBundle,
+  assertSqliteIntegrity,
+} from './backup/backup-bundle.js';
 import {
   createServer,
   createModuleLogger,
@@ -131,6 +138,11 @@ interface DesktopDatabaseActionResult {
   success: boolean;
   cancelled: boolean;
   path?: string;
+  /**
+   * ENG-066 — bytes of the produced backup ZIP. Existing renderer callers
+   * can ignore it; future toasts/diagnostics may surface it.
+   */
+  sizeBytes?: number;
   error?: string;
 }
 
@@ -332,9 +344,14 @@ const DESKTOP_MANUAL_SYNC_ENTITIES = new Set<string>([
 ]);
 const tableColumnsCache = new Map<AllowedDesktopTable, Set<string>>();
 
-function createBackupFileName(now = new Date()): string {
-  const timestamp = now.toISOString().replace(/[:.]/g, '-');
-  return `puntovivo-backup-${timestamp}.db`;
+/**
+ * Resolves to `${userData}/device-id.txt`. Backup bundles include
+ * this file so device identity travels with the data: a full-disk
+ * failure can restore the device on new hardware AS the same logical
+ * device from the server's perspective (per ADR-0001 + ADR-0006).
+ */
+function getDeviceIdPath(): string {
+  return join(app.getPath('userData'), DEVICE_ID_FILENAME);
 }
 
 async function ensureParentDirectoryExists(filePath: string): Promise<void> {
@@ -1688,11 +1705,11 @@ function createWindow(): void {
 async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
   const saveDialogOptions: SaveDialogOptions = {
     title: t('backup.createDialogTitle'),
-    defaultPath: join(app.getPath('documents'), createBackupFileName()),
+    defaultPath: join(app.getPath('documents'), createBackupZipFileName()),
     filters: [
       {
         name: t('backup.fileFilterName'),
-        extensions: ['db', 'sqlite', 'sqlite3'],
+        extensions: ['zip'],
       },
     ],
   };
@@ -1708,16 +1725,32 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
   }
 
   try {
-    await runWithServerRestart(async () => {
+    // ENG-066 — atomic backup via SQLite online backup API. The
+    // server is stopped first so the backup bundle is consistent
+    // with operator expectations even though `db.backup()` is safe
+    // under concurrent writes.
+    const result = await runWithServerRestart(async () => {
       await access(DB_PATH);
       await ensureParentDirectoryExists(filePath);
-      await copyFile(DB_PATH, filePath);
+      const deviceIdPath = getDeviceIdPath();
+      return createBackupBundle({
+        dbPath: DB_PATH,
+        deviceIdPath,
+        outZipPath: filePath,
+        manifest: { appVersion: app.getVersion() },
+      });
     });
+
+    backupLog.info(
+      { zipPath: result.zipPath, zipBytes: result.zipBytes },
+      'backup created'
+    );
 
     return {
       success: true,
       cancelled: false,
-      path: filePath,
+      path: result.zipPath,
+      sizeBytes: result.zipBytes,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.createFailed');
@@ -1737,7 +1770,8 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
     filters: [
       {
         name: t('backup.fileFilterName'),
-        extensions: ['db', 'sqlite', 'sqlite3'],
+        // Accept legacy raw `.db` AND the new ZIP bundle.
+        extensions: ['zip', 'db', 'sqlite', 'sqlite3'],
       },
     ],
   };
@@ -1753,16 +1787,46 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
     };
   }
 
+  // ENG-066 — VALIDATE the bundle BEFORE the swap. The integrity
+  // check + format detection happens against an extracted staging
+  // copy, so a corrupted file never touches the live DB.
+  const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
   try {
+    await access(selectedBackupPath);
+
+    const extracted = await extractBackupBundle(selectedBackupPath, stagingDir);
+    await assertSqliteIntegrity(extracted.dbPath);
+
     await runWithServerRestart(
       async () => {
-        await access(selectedBackupPath);
         await ensureParentDirectoryExists(DB_PATH);
         await removeSqliteSidecars(DB_PATH);
-        await copyFile(selectedBackupPath, DB_PATH);
+        await copyFile(extracted.dbPath, DB_PATH);
         await removeSqliteSidecars(DB_PATH);
+
+        // ENG-066 — preserve the bundled device identity when present;
+        // legacy raw `.db` restores keep the destination identity
+        // since the bundle didn't carry one.
+        if (extracted.deviceIdPath) {
+          try {
+            const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
+            if (deviceId) {
+              await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+            }
+          } catch (err) {
+            backupLog.warn(
+              { err },
+              'restore: failed to preserve device-id from bundle; keeping destination identity'
+            );
+          }
+        }
       },
       { reloadWindow: true }
+    );
+
+    backupLog.info(
+      { source: selectedBackupPath, format: extracted.format },
+      'backup restored'
     );
 
     return {
@@ -1772,14 +1836,20 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.restoreFailed');
-    backupLog.error({ err: error }, 'failed to restore backup');
+    backupLog.error(
+      { err: error, source: selectedBackupPath },
+      'failed to restore backup'
+    );
     return {
       success: false,
       cancelled: false,
       error: message,
     };
+  } finally {
+    await rm(stagingDir, { recursive: true, force: true });
   }
 }
+
 
 // Initialize the application
 app.whenReady().then(async () => {

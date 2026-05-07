@@ -28,10 +28,25 @@ const displayNameSchema = z
   .min(1, 'Display name cannot be empty')
   .max(120, 'Display name must be 120 characters or fewer');
 
-const hardwareIdempotencyKeySchema = z.preprocess(
-  value => (value === '' ? undefined : value),
-  z.string().min(1).max(128).optional()
-);
+// ENG-067b — opt-in dedup key for `peripherals.printReceipt` /
+// `kickCashDrawer`. Empty-string from a UI form normalizes to
+// `undefined` at the boundary so callers don't have to special-case
+// "user hasn't typed anything yet".
+//
+// Two `.optional()`s are required:
+//   - INNER (`z.string().min(...).optional()`): so the preprocess
+//     return value of `undefined` (when input was '') type-checks
+//     against the inner schema.
+//   - OUTER (`.optional()` after preprocess): so the field is
+//     optional at the object level — without it, `z.preprocess` makes
+//     the field required with type `unknown` and breaks every
+//     existing call site that omits the key.
+const hardwareIdempotencyKeySchema = z
+  .preprocess(
+    value => (value === '' ? undefined : value),
+    z.string().min(1).max(128).optional()
+  )
+  .optional();
 
 export const listPeripheralsInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
