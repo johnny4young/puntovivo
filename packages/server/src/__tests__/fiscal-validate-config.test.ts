@@ -152,20 +152,63 @@ describe('ChileSIIAdapter.validateConfig (ENG-036a)', () => {
     expect(comunaIssue).toBeDefined();
   });
 
-  it('issue() tira FISCAL_PACK_NOT_AVAILABLE apuntando a ENG-036b', async () => {
+  it('issue() con settings vacíos tira FISCAL_PACK_NOT_AVAILABLE (ENG-036b shipped real emission)', async () => {
+    // ENG-036b lifted the unconditional stub: issue() now serializes
+    // a real DTE 1.0 XML draft when settings + chileAllocation are
+    // populated. With empty settings the adapter still surfaces
+    // FISCAL_PACK_NOT_AVAILABLE so the orchestrator skips emission.
     const adapter = new ChileSIIAdapter();
     let caught: unknown;
     try {
-      await adapter.issue();
+      await adapter.issue({
+        tenantId: 't1',
+        source: 'sale',
+        sourceId: 's1',
+        kind: 'DEE',
+        issueDate: '2026-05-07',
+        issueTime: '10:00:00',
+        environment: '2',
+        issuerNit: 't1',
+        currencyCode: 'CLP',
+        localeCode: 'es-CL',
+        resolution: {
+          id: 'r1',
+          resolutionNumber: 'R-001',
+          prefix: 'B',
+          technicalKey: 't',
+          consecutive: 1,
+          documentNumber: 'B0000000001',
+        },
+        buyer: {
+          taxId: '222222222222',
+          taxIdTypeCode: 'NIT',
+          name: 'Consumidor final',
+          email: null,
+          address: null,
+          city: null,
+          department: null,
+          country: 'CL',
+        },
+        subtotal: 0,
+        ivaAmount: 0,
+        incAmount: 0,
+        icaAmount: 0,
+        discountAmount: 0,
+        totalAmount: 0,
+        lines: [],
+        // tenantSettings missing → adapter falls back to defaults
+        // (enabled=false) and trips the FISCAL_PACK_NOT_AVAILABLE
+        // branch before the allocation check.
+      });
     } catch (err) {
       caught = err;
     }
     expect(caught).toBeDefined();
     const cause = (caught as {
-      cause?: { errorCode?: string; details?: { availableInTicket?: string } };
+      cause?: { errorCode?: string; details?: { countryCode?: string } };
     }).cause;
     expect(cause?.errorCode).toBe('FISCAL_PACK_NOT_AVAILABLE');
-    expect(cause?.details?.availableInTicket).toBe('ENG-036b');
+    expect(cause?.details?.countryCode).toBe('CL');
   });
 });
 

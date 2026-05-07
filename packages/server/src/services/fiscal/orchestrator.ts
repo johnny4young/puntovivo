@@ -58,6 +58,8 @@ import type {
 } from './adapter.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from './cufe.js';
 import { tickDefaultFiscalWorker } from './fiscal-worker.js';
+import { allocateNextFolio } from './packs/cl/caf-allocator.js';
+import { mapInternalKindToTipoDte } from './packs/cl/mappings.js';
 import { getFiscalAdapter } from './registry.js';
 
 export interface EmitFiscalDocumentArgs {
@@ -881,6 +883,30 @@ export async function enqueueFiscalEmission(args: {
       .get();
     if (duplicate) {
       return duplicate;
+    }
+
+    // ENG-036b — Chile: pre-allocate the next CAF folio inside this
+    // write transaction so the cursor advance + the fiscal_documents
+    // insert + the outbox enqueue commit atomically. The orchestrator
+    // resolves tipoDte from (source, buyerHasRut) and embeds the
+    // allocation in the outbox payload — the worker passes it to
+    // adapter.issue() without re-querying the DB. If the allocator
+    // throws (CAF_NOT_AVAILABLE / CAF_EXHAUSTED), the surrounding tx
+    // rolls back: no folio burned, no fiscal_documents row created,
+    // no outbox row enqueued.
+    if (adapter.countryCode === 'CL') {
+      const buyerHasRut =
+        !!buyer.taxId && buyer.taxId !== CONSUMIDOR_FINAL.taxId;
+      const tipoDte = mapInternalKindToTipoDte(source, buyerHasRut);
+      const allocation = allocateNextFolio(writeTx, { tenantId, tipoDte });
+      adapterInput.chileAllocation = {
+        cafId: allocation.cafId,
+        folio: allocation.folio,
+        tipoDte: allocation.tipoDte,
+        rutEmisor: allocation.rutEmisor,
+        rawCafXml: allocation.rawCafXml,
+        rangeRemaining: allocation.rangeRemaining,
+      };
     }
 
     writeTx.insert(fiscalDocuments)

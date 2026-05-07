@@ -197,10 +197,12 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     expect(codes).toContain('MISSING_RUT');
     expect(codes).toContain('MISSING_RESOLUTION');
     expect(codes).toContain('MISSING_CERTIFICATE');
-    // ENG-036a sigue notImplemented hasta que ENG-036b shipa
-    // la emisión XML real.
-    expect(result.notImplemented).toBe(true);
-    expect(result.availableInTicket).toBe('ENG-036b');
+    // ENG-036b lifted the notImplemented stub: the adapter now
+    // serializes valid DTE 1.0 XML drafts. ENG-036c is what remains
+    // (XAdES signature + SII transmission), but the top-level
+    // availableInTicket marker is gone now.
+    expect(result.notImplemented).toBe(false);
+    expect(result.availableInTicket).toBeNull();
   });
 
   it('rechaza cashier con FORBIDDEN', async () => {

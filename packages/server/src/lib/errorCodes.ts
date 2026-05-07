@@ -370,6 +370,25 @@ export const SERVER_ERROR_CODES = {
    * refine against the manifest.
    */
   MODULE_UNKNOWN: 'MODULE_UNKNOWN',
+  /**
+   * ENG-036b — Pack Chile DTE 1.0. The orchestrator tried to emit a
+   * fiscal document for a CL tenant but no active CAF (Código de
+   * Autorización de Folios) exists for the resolved (tenantId, tipoDte).
+   * The operator must register a CAF from the SII portal before any
+   * emission of that document type can proceed.
+   *
+   * Cause carries `{ tenantId, tipoDte }`.
+   */
+  CAF_NOT_AVAILABLE: 'CAF_NOT_AVAILABLE',
+  /**
+   * ENG-036b — Pack Chile DTE 1.0. The active CAF's folio cursor has
+   * exceeded `folio_hasta`; the allocator atomically flipped the row
+   * to `status='exhausted'`. The operator must register the next CAF
+   * range from the SII portal. SII forbids reusing exhausted folios.
+   *
+   * Cause carries `{ tenantId, tipoDte, cafId, folioHasta }`.
+   */
+  CAF_EXHAUSTED: 'CAF_EXHAUSTED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

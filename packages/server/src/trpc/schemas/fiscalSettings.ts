@@ -61,6 +61,19 @@ export const updateClFiscalSettingsInput = z.object({
   environment: z.enum(['certificacion', 'produccion']).optional(),
 });
 
+/**
+ * ENG-036b — Input para `fiscal.settings.getActiveCaf`. Surface
+ * read-only que la admin tab consume para mostrar el estado del CAF
+ * activo (folios disponibles, rango). El countryCode debe ser 'CL';
+ * si llega otro código el router responde con null para mantener la
+ * forma estable.
+ */
+export const getActiveCafInput = z.object({
+  countryCode: fiscalCountryCodeEnum,
+  /** SII TipoDTE — '33' factura, '39' boleta, etc. */
+  tipoDte: z.string().min(2).max(3),
+});
+
 export type GetFiscalSettingsInput = z.infer<typeof getFiscalSettingsInput>;
 export type UpdateMxFiscalSettingsInput = z.infer<
   typeof updateMxFiscalSettingsInput
@@ -68,3 +81,4 @@ export type UpdateMxFiscalSettingsInput = z.infer<
 export type UpdateClFiscalSettingsInput = z.infer<
   typeof updateClFiscalSettingsInput
 >;
+export type GetActiveCafInput = z.infer<typeof getActiveCafInput>;

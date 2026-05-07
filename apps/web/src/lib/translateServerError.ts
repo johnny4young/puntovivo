@@ -125,6 +125,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-068 module activation kernel ---
   'MODULE_NOT_ACTIVATED',
   'MODULE_UNKNOWN',
+  // --- ENG-036b Chile DTE CAF ---
+  'CAF_NOT_AVAILABLE',
+  'CAF_EXHAUSTED',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

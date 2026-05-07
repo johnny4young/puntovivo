@@ -244,17 +244,28 @@ espejo estructural de ENG-035:
   SII curados (tipoDte 7, giroComercial 26 CIIU.cl, comuna 35
   SUBDERE) + ajustes admin + `ChileSIIAdapter` con `validateConfig`
   real. Sin emisión XML.
-- **ENG-036b** (Pending) — Modelado XML DTE 1.0 + emisión sin
-  firmar + manejo CAF. Documento queda en `status='draft'` hasta
-  ENG-036c.
+- **ENG-036b** (Shipped) — Modelado XML DTE 1.0 + emisión sin
+  firmar + manejo CAF. Nueva migración `0019_fiscal_cafs.sql` con
+  partial unique idx `(tenant_id, tipo_dte) WHERE status='active'`;
+  servicio `caf-allocator.ts` atómico (avanza cursor + flippea
+  exhausted en último folio); nuevo serializer `dte10-xml.ts`
+  (~450 LOC, espejo de cfdi40-xml.ts) emite DTE 1.0 con namespace
+  SII v1.0 + Encabezado/IdDoc/Emisor/Receptor/Totales + Detalle +
+  Referencia para NC + TED.DD completo (RE/TD/F/FE/RR/RSR/MNT/IT1/
+  CAF<DA>/TSTED) y FRMT placeholder. ChileSIIAdapter.issue() real
+  retorna `{cufe='sii-cl:<RUT>:<TipoDTE>:<F>', status='pending',
+  xmlRef=string}`. Documento persiste en `fiscal_documents.xml_ref`
+  con `status='pending'` hasta ENG-036c.
 - **ENG-036c** (Pending) — Certificación SII + firmado XAdES +
   entrega digital obligatoria (mar-2026) + eliminación de timbre
   impreso (1-jan-2026). Necesita certificado digital del emisor +
   acceso al ambiente de certificación SII.
 
-Las fundaciones de ambos países (ENG-035a + ENG-036a) ya
-shippearon. ENG-035b/c y ENG-036b/c pueden correr en paralelo
-cuando sus dependencias externas resuelvan.
+Las fundaciones de ambos países (ENG-035a + ENG-036a) y los slices
+de modelado XML (ENG-035b + ENG-036b) ya shippearon. ENG-035c y
+ENG-036c quedan parqueados por dependencias externas (contrato
+PAC SAT para MX, certificado del emisor + sandbox certificación
+SII para CL).
 
 Phase 3 and Phase 4 can run partially overlapped if a second
 contributor joins; the natural critical path is F0 → F1 → F2 → F3 → F4.

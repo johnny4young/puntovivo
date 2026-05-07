@@ -132,7 +132,7 @@
       "title": "Chile — SII",
       "fields": {
         "enabled": "Activar pack fiscal de Chile",
-        "enabledHelp": "Cuando esté activo, las ventas emitirán un DTE una vez que ENG-036b se implemente. Hoy esta opción sólo controla el diagnóstico de preparación.",
+        "enabledHelp": "Cuando esté activo, las ventas completadas emiten borradores DTE sin firmar cuando la empresa tiene un CAF activo. La firma y el envío al SII llegan con ENG-036c.",
         "rut": "RUT del emisor",
         "rutHelp": "Formato: cuerpo-dígito verificador (p. ej. 12345678-K). El dígito es 0-9 o K.",
         "rutPlaceholder": "p. ej. 76123456-0",
@@ -153,6 +153,16 @@
       "toast": {
         "saved": "Ajustes fiscales de Chile guardados",
         "saveError": "No se pudieron guardar los ajustes fiscales de Chile"
+      },
+      "caf": {
+        "title": "CAF activo",
+        "description": "El SII autoriza la emisión de boletas/facturas en rangos de folios. Carga un CAF desde el portal SII para empezar a emitir DTE.",
+        "empty": "Sin CAF activo. Sube uno desde el portal SII (próximamente con ENG-036c).",
+        "tipoDteLabel": "Tipo DTE",
+        "rangeLabel": "Rango",
+        "range": "Folios {{from}} a {{to}}",
+        "remaining_one": "{{count}} folio disponible",
+        "remaining_other": "{{count}} folios disponibles"
       }
     }
   }
