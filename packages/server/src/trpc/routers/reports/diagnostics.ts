@@ -43,6 +43,7 @@ import {
   diagnosticsPreviewInput,
   type DiagnosticIncludeOutbox,
 } from '../../schemas/reports.js';
+import { sanitizeRows } from '../../../services/diagnostics/sanitize.js';
 
 /**
  * Hard cap per table at export time. Empirically a 7-day window for a
@@ -425,6 +426,26 @@ export const diagnosticsReportsRouter = router({
       if (includeHardware && counts.hardware_outbox > ROW_LIMIT)
         warnings.push('rowLimitHit:hardware_outbox');
 
+      // ENG-066 — sanitize JSON-shaped fields before serialization.
+      // The sanitizer recurses into each row's JSON column and
+      // replaces sensitive keys (password / token / jwt / apiKey /
+      // pan / cvv / certificate / ...) with [REDACTED]. The bundle's
+      // manifest tells the operator which keys were redacted per
+      // source so the bundle is auditable AND auto-sanitized.
+      const sanitizedEvents = sanitizeRows(events, ['summary']);
+      const sanitizedEffects = sanitizeRows(effects, ['effectData']);
+      const sanitizedSync = sanitizeRows(sync, ['payload', 'lastError']);
+      const sanitizedFiscal = sanitizeRows(fiscal, ['payload', 'lastError']);
+      const sanitizedHardware = sanitizeRows(hardware, ['payload', 'lastError']);
+
+      const redactedKeysByTable: Record<string, string[]> = {
+        operation_events: [...sanitizedEvents.redactedKeys].sort(),
+        operation_effects: [...sanitizedEffects.redactedKeys].sort(),
+        sync_outbox: [...sanitizedSync.redactedKeys].sort(),
+        fiscal_outbox: [...sanitizedFiscal.redactedKeys].sort(),
+        hardware_outbox: [...sanitizedHardware.redactedKeys].sort(),
+      };
+
       return {
         manifest: {
           schemaVersion: SCHEMA_VERSION,
@@ -437,13 +458,19 @@ export const diagnosticsReportsRouter = router({
           includedOutboxes: includeAll
             ? (['sync', 'fiscal', 'hardware'] as const)
             : (includeOutboxes ?? []),
+          // ENG-066 — redaction surface so the bundle is self-auditable.
+          // `sanitized: true` is a stable flag; `redactedKeysByTable`
+          // is per-source so a reviewer can quickly answer
+          // "did this bundle leak something?".
+          sanitized: true as const,
+          redactedKeysByTable,
         },
         tables: {
-          operation_events: events,
-          operation_effects: effects,
-          sync_outbox: sync,
-          fiscal_outbox: fiscal,
-          hardware_outbox: hardware,
+          operation_events: sanitizedEvents.rows,
+          operation_effects: sanitizedEffects.rows,
+          sync_outbox: sanitizedSync.rows,
+          fiscal_outbox: sanitizedFiscal.rows,
+          hardware_outbox: sanitizedHardware.rows,
         },
       };
     }),
