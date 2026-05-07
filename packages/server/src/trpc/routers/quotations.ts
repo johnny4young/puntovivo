@@ -16,7 +16,14 @@
 
 import { TRPCError } from '@trpc/server';
 import { router } from '../init.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
+
+// ENG-068 — every procedure in `quotations.*` is gated behind the
+// `quotations` module. When the module is off, the renderer hides
+// the `/quotations` route + nav item AND every server call returns
+// FORBIDDEN with `MODULE_NOT_ACTIVATED`. The role floor stays at
+// manager+ — admin overrides still work as before.
+const gatedManagerOrAdmin = managerOrAdminProcedureWithModule('quotations');
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 import {
   createQuotation,
@@ -34,7 +41,7 @@ import {
 } from '../schemas/quotations.js';
 
 export const quotationsRouter = router({
-  create: managerOrAdminProcedure
+  create: gatedManagerOrAdmin
     .input(createQuotationInput)
     .mutation(async ({ ctx, input }) => {
       const siteId = input.siteId ?? ctx.siteId;
@@ -61,7 +68,7 @@ export const quotationsRouter = router({
       });
     }),
 
-  list: managerOrAdminProcedure
+  list: gatedManagerOrAdmin
     .input(listQuotationsInput)
     .query(({ ctx, input }) => {
       const items = listQuotations(ctx.db, ctx.tenantId, {
@@ -72,7 +79,7 @@ export const quotationsRouter = router({
       return { items };
     }),
 
-  getById: managerOrAdminProcedure
+  getById: gatedManagerOrAdmin
     .input(getQuotationInput)
     .query(({ ctx, input }) => {
       const detail = getQuotationById(ctx.db, ctx.tenantId, input.id);
@@ -90,7 +97,7 @@ export const quotationsRouter = router({
       return detail;
     }),
 
-  updateStatus: managerOrAdminProcedure
+  updateStatus: gatedManagerOrAdmin
     .input(updateQuotationStatusInput)
     .mutation(async ({ ctx, input }) => {
       return updateQuotationStatus(ctx.db, {
@@ -101,7 +108,7 @@ export const quotationsRouter = router({
       });
     }),
 
-  delete: managerOrAdminProcedure
+  delete: gatedManagerOrAdmin
     .input(deleteQuotationInput)
     .mutation(async ({ ctx, input }) => {
       return deleteQuotation(ctx.db, {

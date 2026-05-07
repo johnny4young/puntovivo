@@ -11,6 +11,7 @@ import {
 import { AnomalyDetectionCard } from '@/features/dashboard/AnomalyDetectionCard';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { managerOrAdminRoles } from '@/features/auth/roleAccess';
+import { useIsModuleActive } from '@/features/modules';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useTenantSettings } from '@/hooks';
 import { trpc } from '@/lib/trpc';
@@ -45,12 +46,12 @@ export function DashboardPage() {
   const { formatCurrency, formatDate, formatDateTime } = useTenantSettings();
   const { t } = useTranslation('dashboard');
   const { user } = useAuth();
-  // ENG-032: anomaly detection is manager+ only — viewer role still
-  // sees the dashboard but the AI anomaly tile stays hidden because
-  // `ai.anomalies.list` is gated by `managerOrAdminProcedure` and we
-  // do not want to render a card that always 403s for them.
+  const anomalyModuleActive = useIsModuleActive('anomaly-detection');
+  // ENG-032 + ENG-068: anomaly detection is manager+ AND module-gated.
+  // Do not render a card that would always call a gated procedure and
+  // return MODULE_NOT_ACTIVATED/role FORBIDDEN for the current user.
   const showAnomalyCard = user
-    ? (managerOrAdminRoles as readonly string[]).includes(user.role)
+    ? (managerOrAdminRoles as readonly string[]).includes(user.role) && anomalyModuleActive
     : false;
   const dashboardQuery = trpc.dashboard.summary.useQuery();
 

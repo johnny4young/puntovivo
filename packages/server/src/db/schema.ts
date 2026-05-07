@@ -97,6 +97,10 @@ export const auditLogActionEnum = [
   // ENG-047 — local anomaly detector persistence. Emitted when the
   // dashboard detector surfaces a new non-snoozed alert.
   'ai.anomaly.detected',
+  // ENG-068 — module activation kernel. Admin toggles a tenant
+  // module on/off via `modules.setActive`; metadata carries
+  // `{moduleId, wasExplicit, defaultEnabled}` for activation history.
+  'module.toggle',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -115,6 +119,9 @@ export const auditLogResourceTypeEnum = [
   // ENG-047 wrote anomaly rows keyed to the flagged cashier in early
   // dev databases. Keep the reader tolerant so those rows stay visible.
   'cashier',
+  // ENG-068 — module activation kernel. `module.toggle` audit rows
+  // key on the module id (one row per module per tenant per toggle).
+  'tenant_module',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

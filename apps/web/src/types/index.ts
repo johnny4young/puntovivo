@@ -518,7 +518,9 @@ export type AuditLogAction =
   // ENG-018c — draft completion (state change on an existing draft).
   | 'sale.complete'
   // ENG-047 — local anomaly detector audit persistence.
-  | 'ai.anomaly.detected';
+  | 'ai.anomaly.detected'
+  // ENG-068 — module activation kernel toggle audit row.
+  | 'module.toggle';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -531,7 +533,9 @@ export type AuditLogResourceType =
   | 'product'
   | 'purchase'
   | 'user'
-  | 'cashier';
+  | 'cashier'
+  // ENG-068 — module activation kernel resource type.
+  | 'tenant_module';
 
 export interface AuditLogEntry {
   id: string;

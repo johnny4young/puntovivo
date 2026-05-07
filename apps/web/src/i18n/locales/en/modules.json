@@ -1,0 +1,41 @@
+{
+  "section": {
+    "title": "Modules",
+    "description": "Activate or deactivate functional modules for this tenant. Disabled modules hide their pages and reject server calls without deleting any data."
+  },
+  "toggle": {
+    "enable": "Activate",
+    "disable": "Deactivate",
+    "loading": "Loading current state…",
+    "saving": "Saving…",
+    "successEnabled": "Module activated",
+    "successDisabled": "Module deactivated",
+    "error": "We could not change the module state",
+    "noPermission": "Only the administrator can change module activation",
+    "default": "Default",
+    "explicit": "Custom"
+  },
+  "notActivated": "This feature is not active for your tenant",
+  "items": {
+    "copilot": {
+      "label": "Co-pilot",
+      "description": "Tenant-scoped conversational analytics. When off, the /co-pilot page hides and the chat endpoint rejects calls."
+    },
+    "operationsCenter": {
+      "label": "Operations Center",
+      "description": "Cross-site operational diagnostics — fiscal health, cash, inventory drift, support bundles. When off, the /operations page hides."
+    },
+    "quotations": {
+      "label": "Quotations",
+      "description": "Manager flow to draft, send and convert quotations. When off, the /quotations page hides and every quotations.* call returns FORBIDDEN."
+    },
+    "anomalyDetection": {
+      "label": "Anomaly Detection",
+      "description": "Local anomaly detector for void rate, refund amount, ticket spikes and no-sale sessions. When off, the dashboard tile hides."
+    },
+    "semanticSearch": {
+      "label": "Semantic Search",
+      "description": "Embedding-powered product search and category suggestion. When off, the sparkles toggle on Products hides and the embedding endpoints reject calls."
+    }
+  }
+}

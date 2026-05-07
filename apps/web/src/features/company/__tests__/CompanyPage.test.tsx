@@ -105,32 +105,39 @@ vi.mock('../CompanyThemeSettingsCard', () => ({
 vi.mock('../CompanyTraySettingsCard', () => ({
   CompanyTraySettingsCard: () => <div data-testid="card-tray">Tray</div>,
 }));
+vi.mock('../CompanyModulesCard', () => ({
+  CompanyModulesCard: () => <div data-testid="card-modules">Modules</div>,
+}));
 
 // Import after mocks so the page picks up the stubbed children.
 import { CompanyPage } from '../CompanyPage';
 
 describe('CompanyPage tab behavior', () => {
-  it('renders the segmented-control with six tabs and lands on General by default', () => {
+  it('renders the segmented-control with seven tabs and lands on General by default', () => {
     render(<CompanyPage />);
 
-    // Tab list is present and exposes the six canonical tabs.
+    // Tab list is present and exposes the seven canonical tabs
+    // (general, locale, data, device, ai, fiscal, modules — the
+    // last one shipped with ENG-068).
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
     expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('company-tab-modules')).toHaveAttribute('aria-selected', 'false');
 
     // General tab content visible: form fields + logo library card.
     expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
     expect(screen.getByTestId('card-logos')).toBeInTheDocument();
 
-    // AI / Locale / Data / Device / Fiscal cards must NOT be in the DOM yet.
+    // AI / Locale / Data / Device / Fiscal / Modules cards must NOT be in the DOM yet.
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-sync')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-theme')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-modules')).not.toBeInTheDocument();
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {

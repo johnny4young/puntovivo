@@ -122,6 +122,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PERIPHERAL_CONFIG_INVALID',
   'PERIPHERAL_ACTIVE_DUPLICATE',
   'HARDWARE_OUTBOX_NOT_FOUND',
+  // --- ENG-068 module activation kernel ---
+  'MODULE_NOT_ACTIVATED',
+  'MODULE_UNKNOWN',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

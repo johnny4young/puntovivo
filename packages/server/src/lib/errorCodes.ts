@@ -353,6 +353,23 @@ export const SERVER_ERROR_CODES = {
    * The caller must provide a narrower date/site context before retrying.
    */
   AI_COPILOT_QUERY_LIMIT_EXCEEDED: 'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
+
+  // --- module activation kernel (ENG-068) ---
+  /**
+   * The caller hit a procedure that requires a tenant module that
+   * is currently deactivated. Distinct from a role-based FORBIDDEN
+   * so the renderer can show a "feature not available for your
+   * plan" toast instead of an authentication / authorization toast.
+   *
+   * Cause carries `{ moduleId: ModuleId }`.
+   */
+  MODULE_NOT_ACTIVATED: 'MODULE_NOT_ACTIVATED',
+  /**
+   * Caller passed an unknown module id to `modules.setActive`.
+   * Indicates a stale client; the input list is enforced via Zod
+   * refine against the manifest.
+   */
+  MODULE_UNKNOWN: 'MODULE_UNKNOWN',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

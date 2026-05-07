@@ -24,7 +24,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { adminProcedure } from '../middleware/roles.js';
+import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
 import {
   ANALYSIS_WINDOW_DAYS,
   byBreakdown,
@@ -90,7 +91,10 @@ const settingsRouter = router({
 });
 
 const copilotRouter = router({
-  chat: managerOrAdminProcedure
+  // ENG-068 — gated behind the `copilot` module. The role check
+  // (managerOrAdmin) still applies; a manager whose tenant has the
+  // module deactivated sees FORBIDDEN with `MODULE_NOT_ACTIVATED`.
+  chat: managerOrAdminProcedureWithModule('copilot')
     .input(copilotChatInput)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id ?? null;
@@ -125,7 +129,11 @@ const copilotRouter = router({
  *     `ANALYSIS_WINDOW_DAYS` (30) days ending at `now`.
  */
 const anomaliesRouter = router({
-  list: managerOrAdminProcedure
+  // ENG-068 — gated behind the `anomaly-detection` module. Tenant
+  // can hide the dashboard tile + drill-down modal without disabling
+  // the broader `ai.enabled` flag (e.g. AI Wave 1 chat stays on, but
+  // anomaly tile hides for tenants on a basic plan).
+  list: managerOrAdminProcedureWithModule('anomaly-detection')
     .input(anomalyListInput)
     .query(async ({ ctx, input }) => {
       const settings = await resolveAISettings(ctx.db, ctx.tenantId);
@@ -176,7 +184,9 @@ const anomaliesRouter = router({
    * filter alerts whose `(kind, cashierId, evidenceRef)` matches an
    * unexpired row in `ai_anomaly_snoozes`.
    */
-  snooze: managerOrAdminProcedure
+  // ENG-068 — same module gate as `list`. Snooze is meaningless when
+  // the surface that would surface the alerts is hidden.
+  snooze: managerOrAdminProcedureWithModule('anomaly-detection')
     .input(anomalySnoozeInput)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;

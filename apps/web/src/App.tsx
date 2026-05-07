@@ -8,6 +8,7 @@ import {
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { LocaleProvider } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
+import { ModulesProvider, RequireModule } from '@/features/modules';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { UserRole } from '@/types';
+import type { ClientModuleId } from '@/features/modules';
 
 function lazyPage<T extends ComponentType>(loader: () => Promise<{ default: T }>) {
   return lazy(loader);
@@ -133,25 +135,44 @@ function LoginRoute({ children }: { children: ReactNode }) {
 
 function ShellRoute({
   allowedRoles,
+  allowedModule,
   children,
 }: {
   allowedRoles?: readonly UserRole[];
+  /**
+   * ENG-068 — when set, the route renders only when the module is
+   * active for the active tenant. When the module is off, the route
+   * redirects to `/dashboard` (the closest universally-allowed
+   * destination) so a stale URL or a manager who flipped the module
+   * mid-session is never trapped on a blank route.
+   */
+  allowedModule?: ClientModuleId;
   children: ReactNode;
 }) {
   const { t } = useTranslation('common');
 
+  const inner = (
+    <Suspense
+      fallback={
+        <PageLoadingState
+          title={t('loading.pageTitle')}
+          description={t('loading.pageDescription')}
+        />
+      }
+    >
+      {children}
+    </Suspense>
+  );
+
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
-      <Suspense
-        fallback={
-          <PageLoadingState
-            title={t('loading.pageTitle')}
-            description={t('loading.pageDescription')}
-          />
-        }
-      >
-        {children}
-      </Suspense>
+      {allowedModule ? (
+        <RequireModule id={allowedModule} fallback={<Navigate to="/dashboard" replace />}>
+          {inner}
+        </RequireModule>
+      ) : (
+        inner
+      )}
     </ProtectedRoute>
   );
 }
@@ -160,6 +181,7 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
+        <ModulesProvider>
         <LocaleProvider>
         <Routes>
           <Route
@@ -190,7 +212,7 @@ function App() {
             <Route
               path="co-pilot"
               element={
-                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="copilot">
                   <CopilotPage />
                 </ShellRoute>
               }
@@ -302,7 +324,7 @@ function App() {
             <Route
               path="quotations"
               element={
-                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="quotations">
                   <QuotationsPage />
                 </ShellRoute>
               }
@@ -358,7 +380,7 @@ function App() {
             <Route
               path="operations"
               element={
-                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="operations-center">
                   <OperationsPage />
                 </ShellRoute>
               }
@@ -391,6 +413,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </LocaleProvider>
+        </ModulesProvider>
       </TenantProvider>
     </AuthProvider>
   );

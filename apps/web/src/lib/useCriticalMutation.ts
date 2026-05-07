@@ -44,7 +44,12 @@ export type CriticalCommandPath =
   | 'transfers.void'
   | 'users.create'
   | 'users.update'
-  | 'auth.changePassword';
+  | 'auth.changePassword'
+  // ENG-068 — module activation toggle. Server-side wraps with
+  // `criticalCommandAdminProcedure` so the client must mint an
+  // envelope + ship the device id; the audit row carries the
+  // operationId for after-the-fact traceability.
+  | 'modules.setActive';
 
 /**
  * Split a `'ns.proc'` path into its `[ns, proc]` tuple at the type

@@ -155,6 +155,7 @@ Updated: <list grows by appending here, never removing>.
 | [ADR-0004](./0004-conflict-policy.md) | Conflict Policy | Accepted | ENG-051 |
 | [ADR-0005](./0005-sync-payload-contract.md) | Sync Payload Contract v1 | Accepted | ENG-064 |
 | [ADR-0006](./0006-local-data-security.md) | Local data security: backup, restore, and the "no PAN/CVV" invariant | Accepted | ENG-066 |
+| [ADR-0007](./0007-module-activation.md) | Module activation kernel | Accepted | ENG-068 |
 
 When you ship an ADR, append a row here in the same commit. When an ADR
 is superseded, update the row's Status column to

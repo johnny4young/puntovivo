@@ -19,6 +19,7 @@ import {
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
@@ -169,7 +170,8 @@ export function ProductsPage() {
   const canManage = canManageProducts(user?.role);
   const canDelete = user?.role === 'admin';
   const canRegenerate = user?.role === 'admin';
-  const canUseSemantic = canManage;
+  const semanticModuleActive = useIsModuleActive('semantic-search');
+  const canUseSemantic = canManage && semanticModuleActive;
 
   // ENG-048 — semantic search UI surface. The toggle flips between the
   // existing client-side text filter (DataTable's internal globalFilter

@@ -46,7 +46,8 @@
     "sale.resume": "Venta retomada",
     "sale.reprint": "Recibo reimpreso",
     "sale.complete": "Borrador completado",
-    "ai.anomaly.detected": "Anomalía IA detectada"
+    "ai.anomaly.detected": "Anomalía IA detectada",
+    "module.toggle": "Módulo actualizado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -57,7 +58,8 @@
     "product": "Producto",
     "purchase": "Compra",
     "user": "Usuario",
-    "cashier": "Cajero"
+    "cashier": "Cajero",
+    "tenant_module": "Módulo del inquilino"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
