@@ -553,6 +553,26 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
+  it('renders the module activation action and resource labels', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'module.toggle',
+            resourceType: 'tenant_module',
+            resourceId: 'copilot',
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Module toggled')).toBeInTheDocument();
+    expect(screen.getByText('Tenant module')).toBeInTheDocument();
+  });
+
   it('falls back to actorEmail when actorName is null, and to actorId when both are null', () => {
     render(
       <AuditLogsTable

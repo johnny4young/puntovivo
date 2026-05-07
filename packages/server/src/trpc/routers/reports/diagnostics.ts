@@ -30,7 +30,7 @@
 
 import { and, count, eq, gte, lte, sql } from 'drizzle-orm';
 import { router } from '../../init.js';
-import { adminProcedure } from '../../middleware/roles.js';
+import { adminProcedureWithModule } from '../../middleware/modules.js';
 import {
   fiscalOutbox,
   hardwareOutbox,
@@ -63,6 +63,14 @@ const ROW_LIMIT = 10_000;
 const EVENT_AVG_SIZE_BYTES = 200;
 
 const SCHEMA_VERSION = 1;
+
+// ENG-068 — `reports.diagnostics.*` is the unique operations-center
+// procedure: cash / inventory / fiscal sub-routers feed dedicated
+// non-Operations Center surfaces too, so gating them would break the
+// Cash, Inventory, and Fiscal Documents pages. Diagnostics is the one
+// surface that ONLY exists inside the Operations Center, so it is the
+// procedure-level marker for the operations-center module gate.
+const gatedAdmin = adminProcedureWithModule('operations-center');
 
 /**
  * Names locked by ADR-0003. Returned in `manifest.counts` with `0`
@@ -97,7 +105,7 @@ export const diagnosticsReportsRouter = router({
    * synchronously — the heaviest query is `SELECT COUNT(*)` per table
    * which is cheap on the kernel-stamped `created_at` index path.
    */
-  preview: adminProcedure
+  preview: gatedAdmin
     .input(diagnosticsPreviewInput)
     .query(async ({ ctx, input }) => {
       const { fromDate, toDate } = input;
@@ -246,7 +254,7 @@ export const diagnosticsReportsRouter = router({
    * ROW_LIMIT; the manifest carries `warnings` for any source that
    * hit the cap so the operator knows to narrow the range.
    */
-  export: adminProcedure
+  export: gatedAdmin
     .input(diagnosticsExportInput)
     .query(async ({ ctx, input }) => {
       const { fromDate, toDate, includeOutboxes } = input;

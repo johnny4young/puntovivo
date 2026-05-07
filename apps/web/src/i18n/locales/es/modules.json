@@ -1,0 +1,41 @@
+{
+  "section": {
+    "title": "Módulos",
+    "description": "Activa o desactiva módulos funcionales para este inquilino. Los módulos desactivados ocultan sus pantallas y rechazan llamadas al servidor, sin borrar datos."
+  },
+  "toggle": {
+    "enable": "Activar",
+    "disable": "Desactivar",
+    "loading": "Cargando el estado actual…",
+    "saving": "Guardando…",
+    "successEnabled": "Módulo activado",
+    "successDisabled": "Módulo desactivado",
+    "error": "No pudimos cambiar el estado del módulo",
+    "noPermission": "Solo el administrador puede cambiar la activación de módulos",
+    "default": "Por defecto",
+    "explicit": "Personalizado"
+  },
+  "notActivated": "Esta función no está activa para tu inquilino",
+  "items": {
+    "copilot": {
+      "label": "Co-piloto",
+      "description": "Analíticas conversacionales con alcance al inquilino. Cuando está desactivado, la página /co-pilot se oculta y el chat rechaza llamadas."
+    },
+    "operationsCenter": {
+      "label": "Centro de Operaciones",
+      "description": "Diagnósticos operativos entre sedes: salud fiscal, caja, desviaciones de inventario y paquetes de soporte. Cuando está desactivado, la página /operations se oculta."
+    },
+    "quotations": {
+      "label": "Cotizaciones",
+      "description": "Flujo de gerencia para borrar, enviar y convertir cotizaciones. Cuando está desactivado, /quotations se oculta y cada llamada a quotations.* devuelve FORBIDDEN."
+    },
+    "anomalyDetection": {
+      "label": "Detección de anomalías",
+      "description": "Detector local de tasa de anulación, montos de devolución, picos de tickets y sesiones sin venta. Cuando está desactivado, la tarjeta del tablero se oculta."
+    },
+    "semanticSearch": {
+      "label": "Búsqueda semántica",
+      "description": "Búsqueda de productos por embeddings y sugerencia de categoría. Cuando está desactivado, el botón de chispas en Productos se oculta y los endpoints rechazan llamadas."
+    }
+  }
+}

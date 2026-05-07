@@ -40,6 +40,11 @@ import {
   managerOrAdminRoles,
   salesRoles,
 } from '@/features/auth/roleAccess';
+import {
+  CLIENT_MODULE_DEFAULTS,
+  useModulesSnapshot,
+  type ClientModuleId,
+} from '@/features/modules';
 import type { UserRole } from '@/types';
 
 interface SidebarProps {
@@ -55,6 +60,13 @@ type NavigationItem = {
   href: string;
   icon: typeof LayoutDashboard;
   allowedRoles: readonly UserRole[];
+  /**
+   * ENG-068 — when set, the nav item only renders for tenants with
+   * the module active. The route itself also gates server-side, so a
+   * stale renderer that calls a deactivated module surface returns
+   * FORBIDDEN with `MODULE_NOT_ACTIVATED`.
+   */
+  requiredModule?: ClientModuleId;
 };
 
 type NavigationSection = {
@@ -67,10 +79,10 @@ const navigationSections = [
     titleKey: 'sections.overview',
     items: [
       { nameKey: 'items.dashboard', href: '/dashboard', icon: LayoutDashboard, allowedRoles: dashboardRoles },
-      { nameKey: 'items.coPilot', href: '/co-pilot', icon: Sparkles, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.coPilot', href: '/co-pilot', icon: Sparkles, allowedRoles: managerOrAdminRoles, requiredModule: 'copilot' },
       { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
       { nameKey: 'items.inventory', href: '/inventory', icon: Warehouse, allowedRoles: managerOrAdminRoles },
-      { nameKey: 'items.operations', href: '/operations', icon: Activity, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.operations', href: '/operations', icon: Activity, allowedRoles: managerOrAdminRoles, requiredModule: 'operations-center' },
     ],
   },
   {
@@ -78,7 +90,7 @@ const navigationSections = [
     items: [
       { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
-      { nameKey: 'items.quotations', href: '/quotations', icon: FileText, allowedRoles: managerOrAdminRoles },
+      { nameKey: 'items.quotations', href: '/quotations', icon: FileText, allowedRoles: managerOrAdminRoles, requiredModule: 'quotations' },
       { nameKey: 'items.customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
@@ -191,6 +203,12 @@ function SidebarSections({
   role: UserRole | undefined;
 }) {
   const { t } = useTranslation('nav');
+  // ENG-068 — read the effective module map once per render. Items
+  // with `requiredModule` are filtered out when the module is off,
+  // mirroring how `RequireModule` hides routes. Defaults apply while
+  // the query is loading so the sidebar doesn't flash hidden entries
+  // on cold boot.
+  const { modules } = useModulesSnapshot();
   // ENG-047 — sidebar badge for high-severity anomalies on the
   // Dashboard nav item. Only manager+ can call ai.anomalies.list (it
   // is gated by managerOrAdminProcedure server-side); we additionally
@@ -198,11 +216,16 @@ function SidebarSections({
   // query. The endpoint short-circuits to enabled=false + zero counts
   // when ai.enabled is off, so an unconfigured tenant pays only one
   // cheap settings read.
+  // ENG-068 — also short-circuit when the `anomaly-detection` module
+  // is off so the disabled badge query doesn't fire against a gated
+  // procedure (it would FORBIDDEN-out and surface as a console toast
+  // for no operator benefit).
   const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(role ?? '');
+  const anomalyModuleActive = modules['anomaly-detection'] ?? CLIENT_MODULE_DEFAULTS['anomaly-detection'];
   const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
     {},
     {
-      enabled: isManagerOrAdmin,
+      enabled: isManagerOrAdmin && anomalyModuleActive,
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: true,
     }
@@ -215,7 +238,15 @@ function SidebarSections({
   return (
     <div className="space-y-5">
       {navigationSections.map(section => {
-        const visibleItems = section.items.filter(item => canAccessRole(role, item.allowedRoles));
+        const visibleItems = section.items.filter(item => {
+          if (!canAccessRole(role, item.allowedRoles)) {
+            return false;
+          }
+          if (item.requiredModule && !modules[item.requiredModule]) {
+            return false;
+          }
+          return true;
+        });
 
         if (visibleItems.length === 0) {
           return null;

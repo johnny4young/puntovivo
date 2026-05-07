@@ -95,6 +95,8 @@
     "FISCAL_DOCUMENT_NOT_FOUND": "The fiscal document or its retry row could not be found.",
     "DEVICE_NOT_REGISTERED": "This device is not registered for your organization. Sign out and sign back in to reconnect the device.",
     "MISSING_COMMAND_ENVELOPE": "This action is missing its command envelope. Reload the page and try again.",
+    "MODULE_NOT_ACTIVATED": "This module is not active for your tenant. Ask the administrator to enable it from the Modules tab.",
+    "MODULE_UNKNOWN": "That module is not registered in this version. Reload the page so the catalog can refresh.",
     "IDEMPOTENCY_KEY_CONFLICT": "This action was already processed with different data. Reload the page before retrying to avoid duplicates.",
     "COMMAND_IN_PROGRESS": "This action is already in progress. Wait a moment and try again.",
     "PERIPHERAL_DRIVER_INVALID": "That driver is not registered for this peripheral type yet.",

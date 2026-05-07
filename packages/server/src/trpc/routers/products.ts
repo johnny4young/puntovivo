@@ -21,6 +21,10 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  adminProcedureWithModule,
+  managerOrAdminProcedureWithModule,
+} from '../middleware/modules.js';
+import {
   categories,
   locations,
   products,
@@ -1057,7 +1061,10 @@ export const productsRouter = router({
   // via Zod enum so it cannot hallucinate a new category.
   // ==========================================================================
 
-  semanticSearch: managerOrAdminProcedure
+  // ENG-068 — gated behind the `semantic-search` module. Tenants on
+  // a basic plan keep the regular LIKE search; the toggle
+  // (sparkles) on ProductsPage hides when the module is off.
+  semanticSearch: managerOrAdminProcedureWithModule('semantic-search')
     .input(
       z.object({
         query: z.string().trim().min(1).max(200),
@@ -1102,7 +1109,9 @@ export const productsRouter = router({
       return { mode: 'semantic' as const, results: ordered };
     }),
 
-  regenerateEmbeddings: adminProcedure.mutation(async ({ ctx }) => {
+  // ENG-068 — gated behind `semantic-search`. Regenerating
+  // embeddings only matters when the search surface is active.
+  regenerateEmbeddings: adminProcedureWithModule('semantic-search').mutation(async ({ ctx }) => {
     const result = await regenerateProductEmbeddings(ctx.db, ctx.tenantId);
     if (result === null) {
       return { ok: false as const, reason: 'ai-disabled-or-empty' as const, embedded: 0 };
@@ -1110,7 +1119,11 @@ export const productsRouter = router({
     return { ok: true as const, embedded: result.embedded, model: result.model };
   }),
 
-  suggestCategory: managerOrAdminProcedure
+  // ENG-068 — gated behind `semantic-search`. The category-suggest
+  // path uses the same embedding pipeline; tying the gates together
+  // keeps the operator's mental model simple ("turn on smart search,
+  // get all the smart-search features").
+  suggestCategory: managerOrAdminProcedureWithModule('semantic-search')
     .input(
       z.object({
         name: z.string().trim().min(1).max(200),

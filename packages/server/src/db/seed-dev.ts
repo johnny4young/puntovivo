@@ -226,6 +226,10 @@ export async function seedDevData(
       // namespace `fiscal.mx.*` con valores de prueba para que el
       // adapter MexicoCFDIAdapter emita CFDI 4.0 estructuralmente
       // válido durante el smoke.
+      // ENG-068 — every demo module starts ON for the demo tenant so
+      // the existing UI tabs continue to look the same to the
+      // operator. The admin tab `/company?tab=modules` is the lever to
+      // flip them OFF for SaaS-style activation experiments.
       settings:
         countryCode === 'MX'
           ? {
@@ -239,8 +243,24 @@ export async function seedDevData(
                   environment: 'sandbox',
                 },
               },
+              modules: {
+                copilot: true,
+                'operations-center': true,
+                quotations: true,
+                'anomaly-detection': true,
+                'semantic-search': true,
+              },
             }
-          : { fiscal_dian_enabled: true },
+          : {
+              fiscal_dian_enabled: true,
+              modules: {
+                copilot: true,
+                'operations-center': true,
+                quotations: true,
+                'anomaly-detection': true,
+                'semantic-search': true,
+              },
+            },
       isActive: true,
       createdAt: now,
       updatedAt: now,

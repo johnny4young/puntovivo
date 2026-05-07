@@ -246,7 +246,8 @@
       "data": "Data",
       "device": "Device",
       "ai": "AI",
-      "fiscal": "Fiscal"
+      "fiscal": "Fiscal",
+      "modules": "Modules"
     },
     "submitting": "Saving...",
     "save": "Save Company",

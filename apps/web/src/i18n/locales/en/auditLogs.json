@@ -46,7 +46,8 @@
     "sale.resume": "Sale resumed",
     "sale.reprint": "Receipt reprinted",
     "sale.complete": "Draft completed",
-    "ai.anomaly.detected": "AI anomaly detected"
+    "ai.anomaly.detected": "AI anomaly detected",
+    "module.toggle": "Module toggled"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -57,7 +58,8 @@
     "product": "Product",
     "purchase": "Purchase",
     "user": "User",
-    "cashier": "Cashier"
+    "cashier": "Cashier",
+    "tenant_module": "Tenant module"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
