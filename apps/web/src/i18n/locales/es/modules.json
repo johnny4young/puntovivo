@@ -36,6 +36,22 @@
     "semanticSearch": {
       "label": "Búsqueda semántica",
       "description": "Búsqueda de productos por embeddings y sugerencia de categoría. Cuando está desactivado, el botón de chispas en Productos se oculta y los endpoints rechazan llamadas."
+    },
+    "posTouch": {
+      "label": "Superficie POS Táctil",
+      "description": "Diseño táctil del POS para tabletas. Cuando está activo, el menú lateral muestra la entrada y /touch carga la superficie. ENG-039 plug-and-plays el flujo real de venta."
+    },
+    "kds": {
+      "label": "Superficie KDS",
+      "description": "Pantalla de cocina a pantalla completa para el equipo de cocina. Cuando está activo, /kds queda accesible y /sales sigue intacto. ENG-039 plug-and-plays la cola de pedidos."
+    },
+    "customerDisplay": {
+      "label": "Pantalla cliente",
+      "description": "Espejo del carrito en segunda pantalla orientado al cliente. Cuando está activo, /customer-display queda accesible. ENG-039 plug-and-plays el render del carrito."
+    },
+    "mobileWaiter": {
+      "label": "Móvil mesero",
+      "description": "Diseño con ancho de teléfono para que el mesero tome pedidos en la mesa. Cuando está activo, /m queda accesible. ENG-039 plug-and-plays el flujo de mesas."
     }
   }
 }

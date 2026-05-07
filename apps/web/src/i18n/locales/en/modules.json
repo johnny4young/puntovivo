@@ -36,6 +36,22 @@
     "semanticSearch": {
       "label": "Semantic Search",
       "description": "Embedding-powered product search and category suggestion. When off, the sparkles toggle on Products hides and the embedding endpoints reject calls."
+    },
+    "posTouch": {
+      "label": "POS Touch surface",
+      "description": "Touch-optimized POS layout for tablets. When on, the sidebar entry appears and /touch loads the surface. ENG-039 plugs the real sales flow into the existing shell."
+    },
+    "kds": {
+      "label": "KDS surface",
+      "description": "Fullscreen Kitchen Display Screen for kitchen staff. When on, /kds becomes reachable while /sales stays intact. ENG-039 plugs the real ticket queue."
+    },
+    "customerDisplay": {
+      "label": "Customer Display",
+      "description": "Second-monitor cart mirror facing the customer. When on, /customer-display becomes reachable. ENG-039 plugs the real cart render."
+    },
+    "mobileWaiter": {
+      "label": "Mobile Waiter",
+      "description": "Phone-width layout for waitstaff taking orders at the table. When on, /m becomes reachable. ENG-039 plugs the real table flow."
     }
   }
 }

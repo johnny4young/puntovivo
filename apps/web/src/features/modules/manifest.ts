@@ -19,6 +19,14 @@ export const CLIENT_MODULE_IDS = [
   'quotations',
   'anomaly-detection',
   'semantic-search',
+  // ENG-069 — surface modules. Each ships defaultEnabled=false so the
+  // renderer never flashes a new sidebar entry on cold boot for
+  // existing tenants. Operators flip them on per tenant via
+  // /company?tab=modules.
+  'pos-touch',
+  'kds',
+  'customer-display',
+  'mobile-waiter',
 ] as const;
 
 export type ClientModuleId = (typeof CLIENT_MODULE_IDS)[number];
@@ -35,6 +43,11 @@ export const CLIENT_MODULE_DEFAULTS: Record<ClientModuleId, boolean> = {
   quotations: true,
   'anomaly-detection': true,
   'semantic-search': true,
+  // ENG-069 — surface modules opt-in.
+  'pos-touch': false,
+  'kds': false,
+  'customer-display': false,
+  'mobile-waiter': false,
 };
 
 export function isClientModuleId(value: string): value is ClientModuleId {

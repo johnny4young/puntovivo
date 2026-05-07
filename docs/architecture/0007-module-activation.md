@@ -154,3 +154,46 @@ have never been toggled see no behavior change after the kernel lands.
   cut.
 
 Updated: 2026-05-07 — initial entry.
+
+## Surfaces (ENG-069)
+
+ENG-069 lifted the surface-as-module pattern this ADR named in the
+"Affected Tickets" section above. The kernel did not need a structural
+extension — a "surface" is just a render target gated by the same
+module manifold + the existing `<RequireModule>` + role guard
+composition.
+
+Concretely:
+
+- New manifest `packages/server/src/services/surfaces/manifest.ts` —
+  `SURFACE_IDS` tuple + `SURFACES_MANIFEST` record. POS Desktop is
+  the implicit default (`moduleId: null`); the four new surfaces
+  (POS Touch, KDS, Customer Display, Mobile Waiter) each carry a
+  `moduleId` from the modules manifest. The cross-manifest invariant
+  (`every non-null moduleId references a real ModuleId`) is checked
+  at module load time via `assertSurfaceManifestIntegrity()` and
+  pinned by a Vitest case.
+- Modules manifest gained 4 new ids — `pos-touch`, `kds`,
+  `customer-display`, `mobile-waiter` — all `defaultEnabled: false`
+  so existing tenants do not see new sidebar entries appear after the
+  kernel ships. Operators flip them on per tenant via
+  `/company?tab=modules`.
+- New tRPC `surfaces.list` (managerOrAdmin) joins the manifest with
+  the resolved module state so a future surfaces admin tab (or the
+  renderer's `useSurfacesSnapshot()` hook) does not need a second
+  `modules.list` round-trip.
+- Renderer mirror at `apps/web/src/features/surfaces/manifest.ts`
+  plus 4 layout shell components — each composes
+  `<ProtectedRoute>` + `<RequireModule fallback={<Navigate to="/dashboard" />}>`
+  + `<Suspense>` around `<Outlet />`. Routes mount as top-level in
+  `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
+  viewport (KDS fullscreen black backdrop, customer-display gradient,
+  mobile-waiter phone-width container, POS Touch wider chrome).
+- ENG-039 (vertical restaurant Mexico) plugs real workflows into the
+  existing shells without forking the App component. The shells +
+  manifest are the seam; the placeholders ship as stubs.
+
+The surface-as-module pattern adds zero new architectural primitives —
+it composes ENG-068's module guard + role guard + lazy route exactly
+the same way the existing demo modules do. Documented here so future
+contributors find the pattern + the manifests in one place.

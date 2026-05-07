@@ -4,6 +4,7 @@ import {
   Activity,
   BadgePercent,
   Building2,
+  ChefHat,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -23,9 +24,12 @@ import {
   ShieldCheck,
   ShoppingBasket,
   ShoppingCart,
+  Smartphone,
   Sparkles,
   Store,
+  Tablet,
   Truck,
+  Tv,
   Users,
   Warehouse,
   X,
@@ -96,6 +100,20 @@ const navigationSections = [
       { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
+    ],
+  },
+  {
+    // ENG-069 — surface entries. Each gates behind a default-OFF
+    // module so existing tenants do not see new entries appear after
+    // the kernel ships. When all 4 modules are off the entire
+    // section title hides because `visibleItems.length === 0` (the
+    // existing filter from ENG-068's section guard).
+    titleKey: 'sections.surfaces',
+    items: [
+      { nameKey: 'items.posTouch', href: '/touch', icon: Tablet, allowedRoles: salesRoles, requiredModule: 'pos-touch' },
+      { nameKey: 'items.kds', href: '/kds', icon: ChefHat, allowedRoles: salesRoles, requiredModule: 'kds' },
+      { nameKey: 'items.customerDisplay', href: '/customer-display', icon: Tv, allowedRoles: salesRoles, requiredModule: 'customer-display' },
+      { nameKey: 'items.mobileWaiter', href: '/m', icon: Smartphone, allowedRoles: salesRoles, requiredModule: 'mobile-waiter' },
     ],
   },
   {

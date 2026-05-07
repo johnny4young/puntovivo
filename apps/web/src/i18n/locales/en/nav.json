@@ -5,7 +5,8 @@
   "sections": {
     "overview": "Overview",
     "flow": "Flow",
-    "setup": "Setup"
+    "setup": "Setup",
+    "surfaces": "Surfaces"
   },
   "items": {
     "dashboard": "Dashboard",
@@ -33,7 +34,11 @@
     "peripherals": "Peripherals",
     "auditLogs": "Audit log",
     "fiscalDocuments": "Fiscal documents",
-    "fiscalReports": "Fiscal reports"
+    "fiscalReports": "Fiscal reports",
+    "posTouch": "POS Touch",
+    "kds": "KDS",
+    "customerDisplay": "Customer Display",
+    "mobileWaiter": "Mobile Waiter"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"

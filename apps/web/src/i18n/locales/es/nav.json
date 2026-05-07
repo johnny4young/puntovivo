@@ -5,7 +5,8 @@
   "sections": {
     "overview": "Resumen",
     "flow": "Operaciones",
-    "setup": "Configuración"
+    "setup": "Configuración",
+    "surfaces": "Superficies"
   },
   "items": {
     "dashboard": "Panel",
@@ -33,7 +34,11 @@
     "peripherals": "Periféricos",
     "auditLogs": "Auditoría",
     "fiscalDocuments": "Documentos fiscales",
-    "fiscalReports": "Reportes fiscales"
+    "fiscalReports": "Reportes fiscales",
+    "posTouch": "POS Táctil",
+    "kds": "KDS",
+    "customerDisplay": "Pantalla cliente",
+    "mobileWaiter": "Móvil mesero"
   },
   "badges": {
     "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"
