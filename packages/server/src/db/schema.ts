@@ -3480,6 +3480,14 @@ export const hardwareOutbox = sqliteTable(
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
+    /**
+     * ENG-067b — envelope-derived dedup key. Nullable so legacy
+     * callers without an envelope keep producing independent rows.
+     * The partial unique index in 0018 only guards rows where this
+     * is non-null. Set by `enqueueHardware` from the input
+     * `idempotencyKey`; left null when the caller doesn't pass one.
+     */
+    idempotencyKey: text('idempotency_key'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -3500,6 +3508,10 @@ export const hardwareOutbox = sqliteTable(
     index('idx_hardware_outbox_peripheral').on(table.peripheralId),
     // Operations Center listing + peek.
     index('idx_hardware_outbox_tenant_created').on(table.tenantId, table.createdAt),
+    // ENG-067b — partial unique idempotency idx is hand-appended in
+    // 0018_hardware_outbox_idempotency.sql since SQLite's Drizzle
+    // dialect cannot emit `WHERE idempotency_key IS NOT NULL` from
+    // the table builder. Mirror of the sync_outbox pattern.
   ]
 );
 

@@ -34,6 +34,7 @@ import {
   users,
 } from '../db/schema.js';
 import { enqueueSync } from '../services/sync/enqueue.js';
+import { enqueueHardware } from '../services/peripherals/enqueue-hardware.js';
 
 let server: PuntovivoServer;
 
@@ -149,99 +150,89 @@ describe('chaos: duplicate retry across outboxes (ENG-067)', () => {
     });
   });
 
-  describe('hardware_outbox has NO schema-level idempotency today', () => {
+  describe('hardware_outbox idempotent retry collapses to one row (ENG-067b)', () => {
     /**
-     * Documents the current contract so a future tightening (adding a
-     * partial unique idx + envelope-keyed dedup) flips the assertion
-     * and the test stays meaningful.
+     * ENG-067 documented the gap: two enqueues with the same envelope
+     * produced TWO rows in `hardware_outbox`. ENG-067b closed it by
+     * adding a nullable `idempotency_key` column + partial unique idx
+     * `(tenant_id, kind, idempotency_key) WHERE idempotency_key IS
+     * NOT NULL` and routing both inline insert sites through
+     * `enqueueHardware()`.
      *
-     * The risk this gap creates: a worker process that crashes after
-     * ESCPos transmission but before status flip can lead to a printed
-     * receipt that doesn't get marked `printed`. A second worker boot
-     * picks the row up via stale-claim sweep and re-prints it. ENG-067b
-     * (potential follow-up) would close this by giving the enqueue path
-     * a `(tenantId, idempotencyKey)` partial unique idx.
+     * The test now PROVES the dedup contract: same envelope → one
+     * row, second call returns `{deduped: true}`. The legacy "no key
+     * provided → two rows" path stays under cover by the
+     * `enqueue-hardware.test.ts > inserts a fresh row when
+     * idempotencyKey is omitted` case, so this chaos test focuses
+     * specifically on the with-key path.
      */
-    it('two enqueues with the same envelope produce TWO rows (gap documented)', async () => {
+    it('two enqueues with the same envelope key collapse to ONE row', async () => {
       const db = getDatabase();
       const h = await seedHarness('hw');
       const sharedKey = `chaos-hw-${nanoid()}`;
-      const samePayload = {
-        kind: 'print-receipt' as const,
-        idempotencyKey: sharedKey,
-      };
 
-      const id1 = nanoid();
-      const id2 = nanoid();
-      await db.insert(hardwareOutbox).values({
-        id: id1,
-        tenantId: h.tenantId,
-        status: 'queued',
-        kind: 'print-receipt',
-        payload: samePayload,
-        payloadVersion: 1,
-        attempts: 0,
-        priority: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      await db.insert(hardwareOutbox).values({
-        id: id2,
-        tenantId: h.tenantId,
-        status: 'queued',
-        kind: 'print-receipt',
-        payload: samePayload,
-        payloadVersion: 1,
-        attempts: 0,
-        priority: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      const r1 = await enqueueHardware(
+        { db, tenantId: h.tenantId },
+        {
+          kind: 'print-receipt',
+          peripheralId: null,
+          payload: { kind: 'print-receipt', attempt: 1 },
+          idempotencyKey: sharedKey,
+        }
+      );
+      const r2 = await enqueueHardware(
+        { db, tenantId: h.tenantId },
+        {
+          kind: 'print-receipt',
+          peripheralId: null,
+          payload: { kind: 'print-receipt', attempt: 2 },
+          idempotencyKey: sharedKey,
+        }
+      );
+
+      expect(r1.deduped).toBe(false);
+      expect(r2.deduped).toBe(true);
+      expect(r2.id).toBe(r1.id);
 
       const rows = await db
         .select({ id: hardwareOutbox.id })
         .from(hardwareOutbox)
         .where(eq(hardwareOutbox.tenantId, h.tenantId))
         .all();
-      // Today: two rows. If a future migration adds dedup, this expectation
-      // flips to `toHaveLength(1)` and that flip is the right break point.
-      expect(rows).toHaveLength(2);
-      expect(rows.map(r => r.id).sort()).toEqual([id1, id2].sort());
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.id).toBe(r1.id);
     });
   });
 
   describe('cross-tenant safety on hardware_outbox', () => {
-    it('same key on tenants A and B always produces two rows (no leakage)', async () => {
+    it('same envelope key on tenants A and B produces two independent rows', async () => {
       const db = getDatabase();
       const a = await seedHarness('hw-cta');
       const b = await seedHarness('hw-ctb');
       const sharedKey = `chaos-cross-${nanoid()}`;
-      const samePayload = { kind: 'print-receipt' as const, idempotencyKey: sharedKey };
 
-      await db.insert(hardwareOutbox).values({
-        id: nanoid(),
-        tenantId: a.tenantId,
-        status: 'queued',
-        kind: 'print-receipt',
-        payload: samePayload,
-        payloadVersion: 1,
-        attempts: 0,
-        priority: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      await db.insert(hardwareOutbox).values({
-        id: nanoid(),
-        tenantId: b.tenantId,
-        status: 'queued',
-        kind: 'print-receipt',
-        payload: samePayload,
-        payloadVersion: 1,
-        attempts: 0,
-        priority: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      const ra = await enqueueHardware(
+        { db, tenantId: a.tenantId },
+        {
+          kind: 'print-receipt',
+          peripheralId: null,
+          payload: { kind: 'print-receipt' },
+          idempotencyKey: sharedKey,
+        }
+      );
+      const rb = await enqueueHardware(
+        { db, tenantId: b.tenantId },
+        {
+          kind: 'print-receipt',
+          peripheralId: null,
+          payload: { kind: 'print-receipt' },
+          idempotencyKey: sharedKey,
+        }
+      );
+
+      expect(ra.deduped).toBe(false);
+      expect(rb.deduped).toBe(false);
+      expect(ra.id).not.toBe(rb.id);
 
       const rowsA = await db
         .select({ id: hardwareOutbox.id })
