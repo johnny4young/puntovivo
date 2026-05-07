@@ -53,13 +53,17 @@ describe('getFiscalAdapter (ENG-034)', () => {
     ).toBeUndefined();
   });
 
-  it('returns ChileSIIAdapter for "CL" (stub for ENG-036b)', () => {
+  it('returns ChileSIIAdapter for "CL" (real DTE 1.0 emission shipped in ENG-036b)', () => {
     const adapter = getFiscalAdapter('CL');
     expect(adapter).toBeInstanceOf(ChileSIIAdapter);
     expect(adapter.countryCode).toBe('CL');
+    // ENG-036b lifted the notImplemented stub; the adapter is now a
+    // full FiscalAdapter implementation. ENG-036c adds SII transmission
+    // and real signing, but the top-level availableInTicket marker is
+    // gone now that the adapter serializes valid DTE XML drafts.
     expect(
       (adapter as { availableInTicket?: string }).availableInTicket
-    ).toBe('ENG-036b');
+    ).toBeUndefined();
   });
 
   it('falls back to ColombiaMockAdapter for an unknown country code', () => {
@@ -92,10 +96,15 @@ describe('listFiscalAdapterCountries (ENG-034)', () => {
       isImplemented: true,
       availableInTicket: undefined,
     });
+    // ENG-036b — Chile is now implemented for unsigned DTE 1.0 emission.
+    // The remaining gap (signing + SII transmission) lives on the adapter
+    // methods (voidDocument throws ENG-036c) but the top-level marker is
+    // unset because the registry's `isImplemented` flag covers "any of the
+    // emission API actually works" — and issue() does.
     expect(byCode.get('CL')).toEqual({
       code: 'CL',
-      isImplemented: false,
-      availableInTicket: 'ENG-036b',
+      isImplemented: true,
+      availableInTicket: undefined,
     });
   });
 });

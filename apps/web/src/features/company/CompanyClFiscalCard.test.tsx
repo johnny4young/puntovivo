@@ -100,6 +100,16 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
+      // ENG-036b — read-only CAF lookup. Default to "no active CAF" so
+      // the existing tests render the empty branch; tests that need a
+      // populated CAF override `mockCafResponse` before render.
+      getActiveCaf: {
+        useQuery: () => ({
+          data: { caf: null },
+          isLoading: false,
+          error: null,
+        }),
+      },
       updateCl: {
         useMutation: (options: { onSuccess?: unknown; onError?: unknown }) => ({
           mutate: (...args: unknown[]) => updateMutate(options, ...args),

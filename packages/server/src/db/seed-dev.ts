@@ -44,6 +44,7 @@ import {
   countries,
   customers,
   departments,
+  fiscalCafs,
   fiscalCertificates,
   fiscalNumberingResolutions,
   identificationTypes,
@@ -107,8 +108,14 @@ export interface SeedDevOptions {
    * `'MX'` activa el pack México (ENG-035b) — flippea `tenantLocaleSettings.countryCode`,
    * setea el namespace `fiscal.mx.*` con valores de prueba, y deja
    * los seed sales emitiendo CFDI 4.0 vía `MexicoCFDIAdapter`.
+   * `'CL'` activa el pack Chile (ENG-036b) — flippea
+   * `tenantLocaleSettings.countryCode` a CL, currency a CLP, setea
+   * el namespace `fiscal.cl.*` con valores de prueba, e inserta
+   * CAFs fixture para TipoDTE 33, 39 y 61 (folios 1..100) para que
+   * `sales.create` / returns / voids puedan emitir DTE estructural
+   * sin firmar a través del `ChileSIIAdapter`.
    */
-  countryCode?: 'CO' | 'MX';
+  countryCode?: 'CO' | 'MX' | 'CL';
   /** Structured logging verbosity during the run. */
   verbose?: boolean;
 }
@@ -230,37 +237,10 @@ export async function seedDevData(
       // the existing UI tabs continue to look the same to the
       // operator. The admin tab `/company?tab=modules` is the lever to
       // flip them OFF for SaaS-style activation experiments.
-      settings:
-        countryCode === 'MX'
-          ? {
-              fiscal_dian_enabled: true,
-              fiscal: {
-                mx: {
-                  enabled: true,
-                  rfc: 'AAA010101AAA',
-                  regimenFiscalCode: '601',
-                  lugarExpedicion: '06700',
-                  environment: 'sandbox',
-                },
-              },
-              modules: {
-                copilot: true,
-                'operations-center': true,
-                quotations: true,
-                'anomaly-detection': true,
-                'semantic-search': true,
-              },
-            }
-          : {
-              fiscal_dian_enabled: true,
-              modules: {
-                copilot: true,
-                'operations-center': true,
-                quotations: true,
-                'anomaly-detection': true,
-                'semantic-search': true,
-              },
-            },
+      // ENG-036b — SEED_COUNTRY=cl pobla `fiscal.cl.*` con valores
+      // de prueba; el dev seed CL también inserta CAFs fixture para
+      // los TipoDTE que el mapping actual puede producir (33/39/61).
+      settings: buildTenantSettings(countryCode),
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -279,11 +259,41 @@ export async function seedDevData(
       tenantId,
       // ENG-035b — countryCode parametrizable. CO usa COP/dd-MM-yyyy;
       // MX flippea a MXN/dd-MM-yyyy y dispatcha al MexicoCFDIAdapter.
+      // ENG-036b — CL flippea a CLP/dd-MM-yyyy y dispatcha al
+      // ChileSIIAdapter.
       countryCode,
       updatedAt: now,
     })
     .onConflictDoNothing()
     .run();
+
+  // ENG-036b — Chile dev seed: register fixture CAFs for the
+  // TipoDTE values the current mapping can produce (33 factura,
+  // 39 boleta, 61 nota crédito). The rawXml is a structurally valid
+  // CAF skeleton with a synthetic <DA> block; ENG-036c will replace
+  // the fixture with a real CAF parser + the upload UI so operators
+  // can register CAFs from the SII portal through the admin tab.
+  if (countryCode === 'CL') {
+    for (const tipoDte of ['33', '39', '61'] as const) {
+      await db
+        .insert(fiscalCafs)
+        .values({
+          id: nanoid(),
+          tenantId,
+          tipoDte,
+          rutEmisor: '76123456-0',
+          folioDesde: 1,
+          folioHasta: 100,
+          currentFolio: 1,
+          fechaAutorizacion: '2026-01-01',
+          rawXml: buildClFixtureCafXml(tipoDte),
+          status: 'active',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+    }
+  }
 
   // ----- 2. Users ---------------------------------------------------------
   const seedUsers = DEV_USER_PROFILES.map(profile => ({
@@ -895,6 +905,85 @@ interface PresetTarget {
   quotations: number;
   transfers: number;
   stockAdjustments: number;
+}
+
+/**
+ * Build the `tenants.settings` JSON blob for the demo tenant
+ * depending on `SEED_COUNTRY`. Three branches:
+ *
+ *   - 'CO' (default): fiscal_dian_enabled flag + the 5 demo modules
+ *     ON. Existing CO tests + smokes assume this shape.
+ *   - 'MX': fiscal_dian_enabled flag + `fiscal.mx.*` namespace with
+ *     test RFC + régimen + lugar de expedición + sandbox env (so
+ *     MexicoCFDIAdapter can emit CFDI 4.0 drafts) + 5 modules.
+ *   - 'CL': fiscal_dian_enabled flag + `fiscal.cl.*` namespace with
+ *     test RUT + giro CIIU.cl + comuna SUBDERE + casa matriz +
+ *     certificacion env (so ChileSIIAdapter can emit DTE 1.0 drafts)
+ *     + 5 modules. The matching fixture `fiscal_cafs` rows are
+ *     inserted by `seedDevData` after this blob is written; without
+ *     them the allocator throws `CAF_NOT_AVAILABLE` on the first sale.
+ */
+function buildTenantSettings(countryCode: 'CO' | 'MX' | 'CL'): Record<string, unknown> {
+  const modules = {
+    copilot: true,
+    'operations-center': true,
+    quotations: true,
+    'anomaly-detection': true,
+    'semantic-search': true,
+  };
+  if (countryCode === 'MX') {
+    return {
+      fiscal_dian_enabled: true,
+      fiscal: {
+        mx: {
+          enabled: true,
+          rfc: 'AAA010101AAA',
+          regimenFiscalCode: '601',
+          lugarExpedicion: '06700',
+          environment: 'sandbox',
+        },
+      },
+      modules,
+    };
+  }
+  if (countryCode === 'CL') {
+    return {
+      fiscal_dian_enabled: true,
+      fiscal: {
+        cl: {
+          enabled: true,
+          rut: '76123456-0',
+          giroCode: '4711',
+          comunaCode: 13101,
+          casaMatriz: 'Av. Principal 123, Santiago',
+          environment: 'certificacion',
+        },
+      },
+      modules,
+    };
+  }
+  return {
+    fiscal_dian_enabled: true,
+    modules,
+  };
+}
+
+function buildClFixtureCafXml(tipoDte: '33' | '39' | '61'): string {
+  return `<?xml version="1.0"?>
+<AUTORIZACION>
+  <CAF version="1.0">
+    <DA>
+      <RE>76123456-0</RE>
+      <RS>EMPRESA DEMO SA</RS>
+      <TD>${tipoDte}</TD>
+      <RNG><D>1</D><H>100</H></RNG>
+      <FA>2026-01-01</FA>
+      <RSAPK><M>FIXTURE</M><E>Aw==</E></RSAPK>
+      <IDK>100</IDK>
+    </DA>
+    <FRMA algoritmo="SHA1withRSA">FIXTURE</FRMA>
+  </CAF>
+</AUTORIZACION>`;
 }
 
 function buildPreset(preset: 'default' | 'large' | 'mega'): PresetTarget {

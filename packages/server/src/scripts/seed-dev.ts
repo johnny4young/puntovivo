@@ -40,11 +40,13 @@ function banner(line = ''): void {
 interface CliOptions {
   preset: 'default' | 'large' | 'mega';
   /**
-   * ENG-035b — country code for the demo tenant. Default `'CO'`
-   * preserves backward compat with all existing tests + E2E. `'MX'`
-   * activates the Mexico CFDI 4.0 pack so seeded sales emit XML.
+   * ENG-035b / ENG-036b — country code for the demo tenant. Default
+   * `'CO'` preserves backward compat with all existing tests + E2E.
+   * `'MX'` activates the Mexico CFDI 4.0 pack so seeded sales emit
+   * XML; `'CL'` activates the Chile DTE 1.0 pack + inserts fixture
+   * CAFs (TipoDTE 33/39/61, folios 1..100) so seeded sales emit DTE drafts.
    */
-  countryCode: 'CO' | 'MX';
+  countryCode: 'CO' | 'MX' | 'CL';
   reset: boolean;
   help: boolean;
 }
@@ -62,7 +64,8 @@ function parseArgs(argv: string[]): CliOptions {
         : presetFromEnv === 'mega'
           ? 'mega'
           : 'default',
-    countryCode: countryFromEnv === 'MX' ? 'MX' : 'CO',
+    countryCode:
+      countryFromEnv === 'MX' ? 'MX' : countryFromEnv === 'CL' ? 'CL' : 'CO',
     reset: process.env.SEED_RESET === 'true' || process.env.SEED_RESET === '1',
     help: false,
   };
@@ -85,8 +88,8 @@ function parseArgs(argv: string[]): CliOptions {
     }
     if (arg.startsWith('--country=')) {
       const value = arg.slice('--country='.length).toUpperCase();
-      if (value !== 'CO' && value !== 'MX') {
-        throw new Error(`Unknown country: ${value} (expected CO o MX)`);
+      if (value !== 'CO' && value !== 'MX' && value !== 'CL') {
+        throw new Error(`Unknown country: ${value} (expected CO, MX o CL)`);
       }
       options.countryCode = value;
       continue;
@@ -153,6 +156,7 @@ function printHelp(): void {
   banner('  SEED_PRESET=large npm run seed:dev                # bigger catalog and history');
   banner('  SEED_RESET=true npm run seed:dev                  # wipe the demo tenant first (destructive)');
   banner('  SEED_COUNTRY=mx npm run seed:dev                  # demo tenant en Mexico (CFDI 4.0); default CO');
+  banner('  SEED_COUNTRY=cl npm run seed:dev                  # demo tenant en Chile (DTE 1.0)');
   banner('  SEED_TARGET=desktop npm run seed:dev              # seed the Electron userData DB instead of the repo-local one');
   banner('  SEED_PRESET=large SEED_RESET=true npm run seed:dev');
   banner('');
@@ -197,6 +201,11 @@ async function resetDemoTenant(db: Awaited<ReturnType<typeof initDatabase>>): Pr
     'operation_effects',
     'operation_events',
     'outbox_metadata',
+    'hardware_outbox',
+    'site_peripherals',
+    'fiscal_outbox',
+    'fiscal_cafs',
+    'tenant_locale_settings',
     'idempotency_keys',
     'devices',
     'fiscal_document_items',

@@ -4021,3 +4021,66 @@ export type NewCountryCatalogRow = typeof countryCatalog.$inferInsert;
 
 export type TenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferSelect;
 export type NewTenantLocaleSettingsRow = typeof tenantLocaleSettings.$inferInsert;
+
+// ============================================================================
+// FISCAL CAFS (ENG-036b — Pack Chile DTE 1.0 — Códigos de Autorización
+// de Folios). The SII issues a signed XML CAF that authorizes a tenant
+// to emit a TipoDTE in a folio range; this table stores the per-tenant
+// metadata + raw CAF XML so the allocator can advance the folio cursor
+// atomically with the fiscal_documents insert. Mexico's CFDI 4.0 model
+// has no equivalent. ENG-036c adds the upload UI + RSA signature parse.
+// ============================================================================
+
+export const fiscalCafStatusEnum = ['active', 'exhausted', 'revoked'] as const;
+export type FiscalCafStatus = (typeof fiscalCafStatusEnum)[number];
+
+export const fiscalCafs = sqliteTable(
+  'fiscal_cafs',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    /**
+     * SII TipoDTE — '33' factura electrónica, '39' boleta electrónica,
+     * '61' nota crédito, etc. See `services/fiscal/packs/cl/catalogs/tipoDte.ts`
+     * for the curated set ENG-036a shipped.
+     */
+    tipoDte: text('tipo_dte').notNull(),
+    /** RUT emisor — soft-FK to `tenants.settings.fiscal.cl.rut` at ingestion. */
+    rutEmisor: text('rut_emisor').notNull(),
+    folioDesde: integer('folio_desde').notNull(),
+    folioHasta: integer('folio_hasta').notNull(),
+    /**
+     * Cursor: next folio to allocate. Starts at folio_desde; advances
+     * by one per emission until > folio_hasta → status='exhausted'.
+     */
+    currentFolio: integer('current_folio').notNull(),
+    fechaAutorizacion: text('fecha_autorizacion').notNull(),
+    /** Raw CAF XML preserved for ENG-036c TED RSA signing. */
+    rawXml: text('raw_xml').notNull(),
+    status: text('status', { enum: fiscalCafStatusEnum }).notNull().default('active'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  table => [
+    // Primary lookup: the active CAF for a (tenant, tipoDte) pair.
+    // Partial unique idx — one active CAF per pair, enforced at the
+    // schema level. Exhausted/revoked rows free the slot.
+    uniqueIndex('idx_fiscal_cafs_active')
+      .on(table.tenantId, table.tipoDte)
+      .where(sql`${table.status} = 'active'`),
+    // Admin listing of all CAFs (active + historical) for a tenant.
+    index('idx_fiscal_cafs_tenant').on(table.tenantId, table.status),
+  ]
+);
+
+export const fiscalCafsRelations = relations(fiscalCafs, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [fiscalCafs.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type FiscalCafRow = typeof fiscalCafs.$inferSelect;
+export type NewFiscalCafRow = typeof fiscalCafs.$inferInsert;

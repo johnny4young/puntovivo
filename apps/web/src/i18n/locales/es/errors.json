@@ -97,6 +97,8 @@
     "MISSING_COMMAND_ENVELOPE": "Falta el sobre de comando para esta operación. Recarga la página y vuelve a intentarlo.",
     "MODULE_NOT_ACTIVATED": "Este módulo no está activo para tu inquilino. Pide al administrador que lo active desde la pestaña Módulos.",
     "MODULE_UNKNOWN": "Ese módulo no está registrado en esta versión. Recarga la página para que el catálogo se actualice.",
+    "CAF_NOT_AVAILABLE": "Tu inquilino no tiene un CAF activo para este tipo de documento. Contacta al administrador para registrar uno.",
+    "CAF_EXHAUSTED": "Se agotaron los folios del CAF activo. Registra el siguiente CAF para seguir emitiendo.",
     "IDEMPOTENCY_KEY_CONFLICT": "Esta operación ya se procesó con datos diferentes. Recarga la página antes de reintentar para evitar duplicados.",
     "COMMAND_IN_PROGRESS": "Esta operación ya está en proceso. Espera un momento y vuelve a intentarlo.",
     "PERIPHERAL_DRIVER_INVALID": "Ese driver aún no está registrado para este tipo de periférico.",

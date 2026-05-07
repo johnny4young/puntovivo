@@ -24,3 +24,25 @@ export {
   findGiroComercial,
   findComuna,
 } from './catalogs/index.js';
+// ENG-036b — DTE 1.0 emission surface.
+export {
+  allocateNextFolio,
+  peekActiveCaf,
+  type ChileFolioAllocation,
+  type PeekActiveCafResult,
+} from './caf-allocator.js';
+export {
+  serializeDte10,
+  prettyPrintDte,
+  type SerializedDte10,
+} from './dte10-xml.js';
+export {
+  computeDteTotals,
+  mapInternalKindToTipoDte,
+  mapPaymentMethodToFmaPago,
+  mapUnitToUnmdItem,
+  roundClp,
+  TASA_IVA_CL,
+  type DteTotals,
+  type FmaPago,
+} from './mappings.js';

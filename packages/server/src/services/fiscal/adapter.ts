@@ -113,6 +113,28 @@ export interface FiscalAdapterIssueInput {
    * pattern; `ColombiaMockAdapter` ignores it.
    */
   tenantSettings?: Record<string, unknown>;
+  /**
+   * ENG-036b — Pre-allocated Chile CAF folio. The orchestrator
+   * detects `adapter.countryCode === 'CL'`, runs the CAF allocator
+   * inside its write transaction, and embeds the result here so the
+   * `ChileSIIAdapter` can serialize the DTE without re-reading the
+   * DB. The allocator's atomic cursor advance commits with the rest
+   * of the orchestrator's work — if the orchestrator's tx rolls back
+   * (dedup hit, downstream insert failure), the folio is NOT burned.
+   *
+   * Mexico + Colombia adapters ignore this field. The shape is
+   * declared as a plain JSON-serializable record so it survives the
+   * `fiscal_outbox.payload` round-trip; the actual `ChileFolioAllocation`
+   * type lives in `services/fiscal/packs/cl/caf-allocator.ts`.
+   */
+  chileAllocation?: {
+    cafId: string;
+    folio: number;
+    tipoDte: string;
+    rutEmisor: string;
+    rawCafXml: string;
+    rangeRemaining: number;
+  };
 }
 
 /** Result the orchestrator persists into `fiscal_documents`. */

@@ -132,7 +132,7 @@
       "title": "Chile — SII",
       "fields": {
         "enabled": "Enable Chile fiscal pack",
-        "enabledHelp": "When on, sales will emit a DTE once ENG-036b lands. Today this flag only gates the readiness probe.",
+        "enabledHelp": "When on, completed sales emit unsigned DTE drafts when the company has an active CAF. Signing and SII submission land with ENG-036c.",
         "rut": "Issuer RUT",
         "rutHelp": "Format: body-verifier digit (e.g. 12345678-K). Verifier is 0-9 or K.",
         "rutPlaceholder": "e.g. 76123456-0",
@@ -153,6 +153,16 @@
       "toast": {
         "saved": "Chile fiscal settings saved",
         "saveError": "Could not save Chile fiscal settings"
+      },
+      "caf": {
+        "title": "Active CAF",
+        "description": "The SII authorizes invoice/receipt emission in folio ranges. Upload a CAF from the SII portal to start emitting DTEs.",
+        "empty": "No active CAF. Upload one from the SII portal (coming with ENG-036c).",
+        "tipoDteLabel": "Document type",
+        "rangeLabel": "Range",
+        "range": "Folios {{from}} to {{to}}",
+        "remaining_one": "{{count}} folio remaining",
+        "remaining_other": "{{count}} folios remaining"
       }
     }
   }

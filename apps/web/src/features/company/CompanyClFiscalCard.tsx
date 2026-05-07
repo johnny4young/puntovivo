@@ -7,11 +7,10 @@
  * los issues que el adapter CL reporta cuando faltan campos
  * (RUT, giro CIIU.cl, comuna SUBDERE, casa matriz, ambiente).
  *
- * La emisión real de DTE 1.0 sigue parqueada hasta ENG-036b
- * (modelado XML) + ENG-036c (certificación SII + firma + entrega
- * digital). Esta card cubre sólo la captura de configuración + el
- * probe de readiness — espejo del shape de `CompanyMxFiscalCard`
- * (ENG-035a).
+ * La emisión DTE 1.0 sin firmar shippea con ENG-036b; certificación
+ * SII + firma + entrega digital quedan parqueadas para ENG-036c.
+ * Esta card cubre captura de configuración, readiness y el estado
+ * read-only del CAF activo — espejo del shape de `CompanyMxFiscalCard`.
  *
  * El dispatch entre cards (CO / MX / CL) vive en `CompanyPage.tsx`;
  * esta card asume que se renderiza únicamente cuando el tenant es
@@ -131,6 +130,15 @@ export function CompanyClFiscalCard() {
 
   const settingsQuery = trpc.fiscalSettings.getByCountry.useQuery(
     { countryCode: 'CL' },
+    { enabled: tenantCountry === 'CL' }
+  );
+
+  // ENG-036b — Read-only CAF state for the active boleta (TipoDTE 39)
+  // range. The admin tab surfaces the available folio cursor so the
+  // operator can plan ahead before a CAF runs out. CAF upload UI lands
+  // with ENG-036c; for now operators register CAFs via SQL or dev-seed.
+  const cafQuery = trpc.fiscalSettings.getActiveCaf.useQuery(
+    { countryCode: 'CL', tipoDte: '39' },
     { enabled: tenantCountry === 'CL' }
   );
 
@@ -377,6 +385,54 @@ export function CompanyClFiscalCard() {
           </button>
         </div>
       </form>
+
+      {/* ENG-036b — CAF readiness indicator (read-only). */}
+      <section
+        className="rounded-xl border border-secondary-100 p-4 space-y-2"
+        data-testid="cl-caf-section"
+      >
+        <h3 className="text-sm font-semibold text-secondary-900">
+          {t('fiscal:settings.cl.caf.title')}
+        </h3>
+        <p className="text-xs text-secondary-600">
+          {t('fiscal:settings.cl.caf.description')}
+        </p>
+        {cafQuery.data?.caf ? (
+          <dl
+            className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2"
+            data-testid="cl-caf-active"
+          >
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+                {t('fiscal:settings.cl.caf.tipoDteLabel')}
+              </dt>
+              <dd className="text-secondary-900">{cafQuery.data.caf.tipoDte}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+                {t('fiscal:settings.cl.caf.rangeLabel')}
+              </dt>
+              <dd className="text-secondary-900">
+                {t('fiscal:settings.cl.caf.range', {
+                  from: cafQuery.data.caf.folioDesde,
+                  to: cafQuery.data.caf.folioHasta,
+                })}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dd className="text-secondary-700">
+                {t('fiscal:settings.cl.caf.remaining', {
+                  count: cafQuery.data.caf.rangeRemaining,
+                })}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-sm text-secondary-700" data-testid="cl-caf-empty">
+            {t('fiscal:settings.cl.caf.empty')}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

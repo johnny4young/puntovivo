@@ -50,7 +50,9 @@ import {
   readClFiscalSettings,
   type ClFiscalSettings,
 } from '../../services/fiscal/packs/cl/settings.js';
+import { peekActiveCaf } from '../../services/fiscal/packs/cl/caf-allocator.js';
 import {
+  getActiveCafInput,
   getFiscalSettingsInput,
   updateClFiscalSettingsInput,
   updateMxFiscalSettingsInput,
@@ -318,5 +320,21 @@ export const fiscalSettingsRouter = router({
         settings: readClFiscalSettings(nextSettings),
         validation,
       };
+    }),
+
+  /**
+   * ENG-036b — Read-only CAF lookup. Surface the admin tab consumes
+   * to render "folios disponibles" without mutating cursor state.
+   * Returns null when the country is not CL (or the country has no
+   * CAF concept) — keeps the response shape stable across countries.
+   */
+  getActiveCaf: adminProcedure
+    .input(getActiveCafInput)
+    .query(({ ctx, input }) => {
+      if (input.countryCode !== 'CL') {
+        return { caf: null };
+      }
+      const caf = peekActiveCaf(ctx.db, ctx.tenantId, input.tipoDte);
+      return { caf };
     }),
 });

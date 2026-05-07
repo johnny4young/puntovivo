@@ -97,6 +97,8 @@
     "MISSING_COMMAND_ENVELOPE": "This action is missing its command envelope. Reload the page and try again.",
     "MODULE_NOT_ACTIVATED": "This module is not active for your tenant. Ask the administrator to enable it from the Modules tab.",
     "MODULE_UNKNOWN": "That module is not registered in this version. Reload the page so the catalog can refresh.",
+    "CAF_NOT_AVAILABLE": "Your tenant has no active CAF for this document type. Contact the administrator to register one.",
+    "CAF_EXHAUSTED": "The active CAF's folios are exhausted. Register the next CAF to keep issuing.",
     "IDEMPOTENCY_KEY_CONFLICT": "This action was already processed with different data. Reload the page before retrying to avoid duplicates.",
     "COMMAND_IN_PROGRESS": "This action is already in progress. Wait a moment and try again.",
     "PERIPHERAL_DRIVER_INVALID": "That driver is not registered for this peripheral type yet.",

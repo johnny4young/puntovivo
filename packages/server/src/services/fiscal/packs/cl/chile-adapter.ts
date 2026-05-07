@@ -1,35 +1,37 @@
 /**
- * ENG-036a — Pack fiscal de Chile (`ChileSIIAdapter`).
+ * ENG-036a / ENG-036b — Pack fiscal de Chile (`ChileSIIAdapter`).
  *
- * Renombrado desde el stub `ChileNotImplementedAdapter` (ENG-034)
- * a un adapter con `validateConfig` real. La emisión de DTE
- * (Documento Tributario Electrónico) + integración con SII +
- * firmado XAdES + entrega digital siguen parqueados —
- * `issue` / `voidDocument` / `fetchStatus` siguen tirando
- * `FISCAL_PACK_NOT_AVAILABLE` con el mensaje apuntando a
- * `ENG-036b` (modelado XML DTE) / `ENG-036c` (certificación SII +
- * firma + entrega digital).
+ * **ENG-036a (shipped)**: validación de configuración. El adapter
+ * lee los settings `tenants.settings.fiscal.cl.*` y reporta
+ * problemas accionables (RUT, giro, comuna, casa matriz, ambiente).
  *
- * El adapter sigue implementando `NotImplementedFiscalAdapter`
- * porque la emisión real no shipa todavía; `availableInTicket` se
- * actualiza a `'ENG-036b'` para que `listFiscalAdapterCountries()`
- * y la futura card de readiness reflejen la frontera correcta.
+ * **ENG-036b (este ticket)**: emisión real de XML DTE 1.0
+ * estructuralmente válido. El adapter sale del stub
+ * `NotImplementedFiscalAdapter` y pasa a implementar el contract
+ * `FiscalAdapter` directamente. `issue()` devuelve un resultado con
+ * `cufe = sii-cl:<RUT>:<TipoDTE>:<F>` (determinístico),
+ * `status = 'pending'`, y `xmlRef = string XML`. Sin firmado XAdES
+ * ni transmisión a SII — eso queda para ENG-036c.
  *
- * `validateConfig` ahora hace una probe real:
+ * **ENG-036c (parqueado)**: certificación SII + firmado XAdES (TED
+ * RSA + envoltura del Documento) + entrega digital + retry daemon +
+ * cancelación SII.
  *
- * - `MISSING_RUT` cuando el RUT está vacío o falla `validateRut`.
- * - `MISSING_RESOLUTION` cuando el giro no está capturado o no
- *   existe en el catálogo CIIU.cl curado (mapeo semántico: el
- *   giro chileno equivale al régimen mexicano para efectos del
- *   probe; reusamos el code del enum compartido).
- * - `MISSING_CERTIFICATE` cuando la casa matriz está vacía o
- *   cuando la comuna no es válida — el SII pide ambos como dato
- *   de identificación del emisor; los agrupamos bajo este code
- *   porque cuando ENG-036c agregue el certificado digital del
- *   emisor (CSD-equivalente chileno), el probe va a usar el
- *   mismo code.
- * - `INVALID_ENVIRONMENT` cuando el ambiente no es `'certificacion'`
- *   ni `'produccion'`.
+ * El adapter NO accede a la DB. La pre-allocación del folio CAF
+ * vive en el orchestrator: cuando `adapter.countryCode === 'CL'`,
+ * el orchestrator corre `allocateNextFolio` dentro de su write
+ * transaction y embebe el resultado en `input.chileAllocation`.
+ * Esto mantiene la atomicidad (folio + fiscal_documents insert
+ * commitean juntos) sin acoplar el adapter al DB.
+ *
+ * `voidDocument()` (anulación SII explícita) sigue tirando
+ * `FISCAL_PACK_NOT_AVAILABLE` apuntando a ENG-036c — la anulación
+ * SII requiere el endpoint API + cert. El sale.void del POS pasa
+ * por `issue()` con source='void' kind='ND' y se trata como NC con
+ * Referencia.CodRef='1'.
+ *
+ * `fetchStatus()` retorna 'pending' — sin SII no hay status real
+ * para reportar. ENG-036c lo enchufa al daemon de status polling.
  *
  * @module services/fiscal/packs/cl/chile-adapter
  */
@@ -37,27 +39,30 @@
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
 import { throwServerError } from '../../../../lib/errorCodes.js';
 import type {
+  FiscalAdapter,
   FiscalAdapterCapabilities,
   FiscalAdapterConfig,
+  FiscalAdapterIssueInput,
   FiscalAdapterIssueResult,
   FiscalAdapterValidationIssue,
   FiscalAdapterValidationResult,
-  NotImplementedFiscalAdapter,
+  FiscalAdapterVoidInput,
 } from '../../adapter.js';
 import { findGiroComercial, findComuna } from './catalogs/index.js';
+import { serializeDte10 } from './dte10-xml.js';
 import { validateRut } from './rut.js';
 import { readClFiscalSettings } from './settings.js';
 
 /**
- * Ticket que cierra la emisión real (XML DTE 1.0 sin firmar).
- * ENG-036c agrega encima la integración SII + firmado XAdES +
- * entrega digital + retry daemon.
+ * Ticket que cierra la certificación SII + XAdES + entrega digital +
+ * cancelación SII. La emisión XML estructural ya shipa con ENG-036b.
  */
-const CL_AVAILABLE_IN = 'ENG-036b';
+const CL_CERTIFICACION_GATED_BY = 'ENG-036c';
 const CL_PROVIDER_ID = 'sii-cl';
 
 const CL_CAPABILITIES: FiscalAdapterCapabilities = {
-  // Las tres capabilities siguen apagadas hasta ENG-036c.
+  // ENG-036b: emisión implementada. voidDocument explícito (anulación
+  // SII) sigue parqueado. fetchStatus retorna 'pending' siempre.
   supportsVoid: false,
   supportsDebitNote: false,
   supportsFetchStatus: false,
@@ -79,11 +84,9 @@ const CL_VALIDATION_MESSAGES = {
   INVALID_ENVIRONMENT: 'El ambiente debe ser certificacion o produccion.',
 } as const;
 
-export class ChileSIIAdapter implements NotImplementedFiscalAdapter {
+export class ChileSIIAdapter implements FiscalAdapter {
   readonly providerId = CL_PROVIDER_ID;
   readonly countryCode = 'CL';
-  readonly notImplemented = true as const;
-  readonly availableInTicket = CL_AVAILABLE_IN;
   readonly capabilities = CL_CAPABILITIES;
 
   async validateConfig(
@@ -176,36 +179,120 @@ export class ChileSIIAdapter implements NotImplementedFiscalAdapter {
     return { ok: issues.length === 0, issues };
   }
 
-  // -------------------------------------------------------------
-  // Emisión real: parqueada hasta ENG-036b/c. Cualquier llamada
-  // levanta FISCAL_PACK_NOT_AVAILABLE con el mensaje localizable
-  // que el web traduce vía errors:server.FISCAL_PACK_NOT_AVAILABLE.
-  // -------------------------------------------------------------
+  /**
+   * Emite un DTE 1.0 estructuralmente válido. Sin firma digital ni
+   * transmisión SII — eso llega con ENG-036c.
+   *
+   * Lee los settings CL desde `input.tenantSettings` (poblado por el
+   * orchestrator). Lee la pre-allocación del folio CAF desde
+   * `input.chileAllocation` (poblado por el orchestrator dentro de
+   * su write transaction). Si los settings no están listos o el
+   * allocation falta, levanta `FISCAL_PACK_NOT_AVAILABLE` con guía
+   * para el operador.
+   */
+  async issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult> {
+    const settings = readClFiscalSettings(input.tenantSettings ?? null);
 
-  async issue(): Promise<FiscalAdapterIssueResult> {
+    if (
+      !settings.enabled ||
+      !settings.rut ||
+      !settings.giroCode ||
+      !settings.comunaCode ||
+      !settings.casaMatriz
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
+        message:
+          'Activa el pack fiscal CL y captura RUT, giro, comuna y casa matriz en /company → Fiscal antes de emitir.',
+        details: {
+          countryCode: 'CL',
+          disabled: !settings.enabled,
+          missingSettings:
+            !settings.rut ||
+            !settings.giroCode ||
+            !settings.comunaCode ||
+            !settings.casaMatriz,
+        },
+      });
+    }
+
+    if (!input.chileAllocation) {
+      // Defensive: in production the orchestrator MUST allocate the
+      // folio before calling this adapter. Surfacing this as a
+      // dedicated error gives the operator + ticket-tracker a clean
+      // signal instead of a generic XML serialization failure.
+      throwServerError({
+        trpcCode: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
+        message:
+          'CL fiscal emission requires a pre-allocated CAF folio in input.chileAllocation. Orchestrator must populate before adapter call.',
+        details: { countryCode: 'CL' },
+      });
+    }
+
+    const emisorName = input.issuerName ?? settings.rut;
+    const serialized = serializeDte10(
+      input,
+      settings,
+      emisorName,
+      input.chileAllocation
+    );
+
+    // CUFE shape: `sii-cl:<RUT>:<TipoDTE>:<F>`. Determinístico,
+    // colisión imposible cross-tenant porque RUT es único por
+    // emisor + folio único por (RUT, TipoDTE). El SII no asigna
+    // UUIDs como SAT — el documento se identifica por la tupla
+    // (emisor, tipoDTE, folio).
+    const cufe = `sii-cl:${serialized.emisorRut}:${serialized.tipoDte}:${serialized.folio}`;
+
+    return {
+      cufe,
+      status: 'pending' satisfies FiscalDocumentStatus,
+      providerId: this.providerId,
+      providerResponse: {
+        kind: 'unsigned-draft',
+        cafId: input.chileAllocation.cafId,
+        folio: serialized.folio,
+        tipoDte: serialized.tipoDte,
+        rangeRemaining: input.chileAllocation.rangeRemaining,
+        emisorRut: serialized.emisorRut,
+        receptorRut: serialized.receptorRut,
+        mntTotal: serialized.mntTotal,
+        xmlSize: serialized.xml.length,
+      },
+      xmlRef: serialized.xml,
+    };
+  }
+
+  /**
+   * Anulación SII explícita — operación API separada en el SII, NO
+   * la misma cosa que un sale.void en el lifecycle del POS. ENG-036c
+   * traerá el endpoint SII para anular; por ahora levanta
+   * `FISCAL_PACK_NOT_AVAILABLE`.
+   *
+   * Importante: el `sales.void` del POS NO llama esta función. El
+   * orchestrator dispatcha sale.void → adapter.issue() con
+   * source='void', y el serializer trata el caso como NC con
+   * Referencia.CodRef='1' (anula documento de referencia). La
+   * anulación SII real es una operación administrativa que el
+   * operador inicia desde la UI fiscal-documents y va por un flow
+   * separado.
+   */
+  async voidDocument(_input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
-      message: `La emisión SII de Chile llega con ${CL_AVAILABLE_IN}.`,
-      details: { countryCode: 'CL', availableInTicket: CL_AVAILABLE_IN },
+      message: `La anulación SII de Chile llega con ${CL_CERTIFICACION_GATED_BY}.`,
+      details: { countryCode: 'CL', availableInTicket: CL_CERTIFICACION_GATED_BY },
     });
   }
 
-  async voidDocument(): Promise<FiscalAdapterIssueResult> {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
-      message: `La emisión SII de Chile llega con ${CL_AVAILABLE_IN}.`,
-      details: { countryCode: 'CL', availableInTicket: CL_AVAILABLE_IN },
-    });
-  }
-
-  async fetchStatus(): Promise<FiscalDocumentStatus> {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
-      message: `La emisión SII de Chile llega con ${CL_AVAILABLE_IN}.`,
-      details: { countryCode: 'CL', availableInTicket: CL_AVAILABLE_IN },
-    });
+  /**
+   * Sin SII no hay status real para reportar. ENG-036c lo enchufa al
+   * daemon de status polling con el endpoint del SII.
+   */
+  async fetchStatus(_cufe: string): Promise<FiscalDocumentStatus> {
+    return 'pending';
   }
 }
