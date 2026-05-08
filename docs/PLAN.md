@@ -2107,6 +2107,8 @@ Test tickets:
 
 ### Phase 10: Hybrid Database Runtime
 
+> **§10.0 Status Update (2026-05-08, ENG-037)**: A spike on libSQL/Turso embedded replicas as a candidate substrate landed at [`SPIKE-LIBSQL-TURSO.md`](./SPIKE-LIBSQL-TURSO.md). Recommendation is **Defer (revisit after Phase 4)** — legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001 Local Store Authority, current Turso Sync is still a beta surface whose documented conflict model is Last-Push-Wins rather than Puntovivo's manual lane for high-risk POS entities, and the native package story does not yet prove a simpler Electron 41 / Node 22 runtime than `better-sqlite3`. The recommended Phase 3+ shape is the bespoke `sync_outbox` pipeline (ENG-064 + ENG-064b shipped) plus a separate cloud-backup destination — not Turso replicas. The Postgres-dialect tickets below (DB-901..905, etc.) remain a future option but are not the natural next step. See spike §2 for reopen triggers.
+
 Goal:
 - allow SQLite local runtime plus PostgreSQL-compatible remote truth
 

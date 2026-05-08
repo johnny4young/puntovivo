@@ -110,7 +110,7 @@ queue once Mexico + Chile are in sandbox-validated state.
 
 | Ticket | Scope summary |
 | --- | --- |
-| `ENG-037` | libSQL/Turso embedded replicas spike (1-week investigation + 3-4 week implementation if greenlit) — closes the multi-site sync gap referenced in PLAN.md §10 without migrating off SQLite |
+| `ENG-037` | libSQL/Turso embedded replicas spike (1-week investigation + 3-4 week implementation if greenlit) — closes the multi-site sync gap referenced in PLAN.md §10 without migrating off SQLite. **Shipped 2026-05-08** as spike report at `docs/SPIKE-LIBSQL-TURSO.md`. Recommendation: **Defer (revisit after Phase 4)** — legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001, current Turso Sync is still a beta surface whose documented conflict model is Last-Push-Wins, and the native package story does not yet prove a simpler Electron / Node runtime than `better-sqlite3`. Reopen triggers in spike §2; implementation acceptance preserved in spike §12. |
 | `ENG-038` | LATAM payment rails (Wompi + Bold + ePayco + Mercado Pago + Nequi/Daviplata) with AI-assisted nightly reconciliation |
 
 ### Phase 4 — Vertical specialization + AI Wave 2 (Q4 2027)
@@ -156,7 +156,7 @@ matrix is the actionable subset.
 | Bun runtime for the server | **No** | Fastify on Bun still has open issues (`fastify/fastify#5981`); Bun 1.2+ is production-ready in general but not specifically for Fastify. |
 | Rust + Axum for hot procedures | **No** | An embedded POS is not throughput-bound. Marginal win, large cost. |
 | Drizzle vs Prisma 7 vs Kysely | **Stay on Drizzle** | Drizzle crossed Prisma in weekly DLs in 2025; PlanetScale acquired the core team in March 2026. Decision aged well. Use Kysely punctually for complex CTEs. |
-| libSQL/Turso embedded replicas | **Yes, prototype in F3** | The 2025 SQLite renaissance is real. Turso's embedded replica pattern fits POS exactly: local-first reads + cloud sync. Closes the multi-site gap without migrating off SQLite. |
+| libSQL/Turso embedded replicas | **No, defer after Phase 4** | ENG-037 closed this as a spike on 2026-05-08. Legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001 Local Store Authority, current Turso Sync is still beta with Last-Push-Wins conflict handling, and the native package story does not yet prove a simpler Electron/Node runtime than `better-sqlite3`. Revisit only if the ENG-037 reopen triggers fire. |
 | Edge runtime (Workers / Deno Deploy) | **No** | Local-first IS the moat. Moving to edge invalidates the privacy + latency story. |
 | OSS the FISCAL-CORE engine | **Consider after F2** | Releasing the engine + a country-pack template under Apache-2 (with proprietary packs) attracts integrator developers. Decision after `ENG-035` + `ENG-036` ship — model: Strapi / Supabase / Cal.com. Captured in BACKLOG. |
 

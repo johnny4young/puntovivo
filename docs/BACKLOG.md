@@ -369,7 +369,7 @@ and want to batch them into one sprint.
 Time-boxed exploration to decide something. Not implementation work.
 Outcome is a recommendation or an ADR, not shipped feature code.
 
-- _(none captured yet — candidates to capture here: libSQL migration feasibility, Turso replication latency vs SQLite local-first, Playwright Electron runner for E2E coverage, pt-BR locale bundle effort estimate)_
+- _(none captured yet — candidates to capture here: Playwright Electron runner for E2E coverage, pt-BR locale bundle effort estimate. Note: libSQL/Turso feasibility was promoted to ENG-037 and shipped as a Defer-recommendation spike at `docs/SPIKE-LIBSQL-TURSO.md` on 2026-05-08.)_
 
 ## 4. Parked feature requests
 
