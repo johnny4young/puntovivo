@@ -7,11 +7,17 @@
 ## Decision
 
 **The Electron desktop binary on each cashier machine is the canonical
-source of truth for operational data — sales, sale payments, sale
-returns, cash sessions, cash movements, inventory movements,
-inventory balances, fiscal documents, and audit logs. A future
-central server consumes events from the local store; it never writes
-directly into those tables.**
+source of truth for operational data in the default `device_local`
+runtime mode — sales, sale payments, sale returns, cash sessions, cash
+movements, inventory movements, inventory balances, fiscal documents,
+and audit logs. A future central server consumes events from the local
+store; it never writes directly into those tables.**
+
+ADR-0008 amends this decision for multi-register stores by naming the
+more general **Authority Node** abstraction. In `device_local`, the
+cashier machine is the Authority Node. In `site_hub`, a Store Hub owns
+the site SQLite file and hub clients are terminals, not authoritative
+writers.
 
 The embedded Fastify server runs **in-process** inside the Electron
 main process (`apps/desktop/src/main/` imports `@puntovivo/server`

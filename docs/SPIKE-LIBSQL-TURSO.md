@@ -3,7 +3,7 @@
 > Status: **Spike report — complete.** Recommendation: Defer; implementation remains gated on a future reopen trigger in §2.
 > Owner: ENG-037.
 > Date: 2026-05-08.
-> Related ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract), 0006 (Local Data Security).
+> Related ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract), 0006 (Local Data Security), 0008 (Authority Node Runtime Modes).
 > Related plans: [PLAN.md §10 Hybrid Database Runtime](./PLAN.md), [PLAN-V2.md §2 Phase 3](./PLAN-V2.md).
 > Related code: [`packages/server/src/services/sync/contract.ts`](../packages/server/src/services/sync/contract.ts), [`packages/server/src/services/sync/enqueue.ts`](../packages/server/src/services/sync/enqueue.ts), [`packages/server/src/db/schema.ts`](../packages/server/src/db/schema.ts) (`sync_outbox` table).
 
@@ -21,8 +21,8 @@ Three findings drive the recommendation:
 1. **Turso's default architectural model conflicts with ADR-0001
    (Local Store Authority).** The default Turso topology is
    cloud-primary: writes flow to the cloud, the local replica
-   serves reads. Puntovivo's POS is the inverse — the cashier's
-   local SQLite is the canonical truth, and the cloud is the
+   serves reads. Puntovivo's POS is the inverse — the Authority
+   Node's local SQLite is the canonical truth, and the cloud is the
    eventual consumer. Adopting Turso "as advertised" would invert
    the moat.
 2. **Current Turso Sync still does not match Puntovivo's
@@ -155,9 +155,10 @@ foundation in May 2026. The relevant moving parts:
   production. Phase 3 (PLAN-V2) commissions that consumer.
 - **No cloud backup.** ENG-066 ships local-disk backups; off-box
   archival is operator-driven.
-- **No multi-site read substrate.** A second cashier in the same
-  store reads from a different SQLite file and must wait for sync
-  through the central server (when it lands).
+- **No Store Hub mode yet.** A second cashier in the same store either
+  runs a separate `device_local` SQLite file today or needs the
+  `site_hub` / `hub_client` Authority Node wave (`ENG-071..ENG-075`)
+  before it can share one site database over LAN.
 
 These are real gaps, but they are **commissioning gaps** of the
 central server side of Phase 3 — not gaps in the local-first
@@ -308,15 +309,14 @@ at the DB level (matches ADR-0001's per-tenant authority promise);
 
 ## 6. The architectural tension with ADR-0001
 
-ADR-0001 establishes the cashier-device-local SQLite as the
-canonical source of truth for operational data. Quoted:
+ADR-0001 establishes the default `device_local` SQLite as the
+canonical source of truth for operational data, and ADR-0008
+generalizes that rule as Authority Node runtime modes. ADR-0001
+now says:
 
 > The Electron desktop binary on each cashier machine is the
-> canonical source of truth for operational data — sales, sale
-> payments, sale returns, cash sessions, cash movements,
-> inventory movements, inventory balances, fiscal documents, and
-> audit logs. A future central server consumes events from the
-> local store; it never writes directly into those tables.
+> canonical source of truth for operational data in the default
+> `device_local` runtime mode.
 
 Compare against Turso's default model (§5.1). In a
 cloud-primary topology, the cloud writes to the shared
@@ -716,6 +716,7 @@ with a status update on this report.
 - Internal: ADR-0004 Conflict Policy — `docs/architecture/0004-conflict-policy.md`
 - Internal: ADR-0005 Sync Payload Contract — `docs/architecture/0005-sync-payload-contract.md`
 - Internal: ADR-0006 Local Data Security — `docs/architecture/0006-local-data-security.md`
+- Internal: ADR-0008 Authority Node Runtime Modes — `docs/architecture/0008-authority-node-runtime-modes.md`
 - Internal: PLAN.md §10 Hybrid Database Runtime
 - Internal: PLAN-V2.md §2 Phase 3 Multi-channel + local-first sync
 - Internal: AGENTS.md "Native module rebuild" + "Architecture landmine: embedded backend"

@@ -56,6 +56,7 @@ operator idea → BACKLOG.md (unsized)
 | --- | --- |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Top-level Electron + Fastify + tRPC + SQLite layout. |
 | [`architecture/`](./architecture/README.md) | **Architecture Decision Records (ADRs)** — locked decisions that gate work across multiple `ENG-NNN` tickets (Local Store Authority, Command Envelope, Outbox Taxonomy, Conflict Policy). Read when designing schema or service boundaries that touch sales / fiscal / cash / sync. |
+| [`AUTHORITY-NODE.md`](./AUTHORITY-NODE.md) | Runtime-mode architecture for `device_local`, `site_hub`, and `hub_client`. Read before touching LAN Store Hub, device registration, central-server ingestion, or local authority semantics. |
 | [`STACK-EVOLUTION.md`](./STACK-EVOLUTION.md) | Additive evolution rules — when each stack tier graduates (Ring 1..4). |
 | [`SPIKE-LIBSQL-TURSO.md`](./SPIKE-LIBSQL-TURSO.md) | **Spike outcome** for ENG-037 — libSQL/Turso embedded replicas evaluated as a Phase 3 sync substrate. Recommendation: Defer. Read when reopening the Phase 10 hybrid-DB question or when an operator-pilot reports a `sync_outbox` shortcoming. |
 | [`TRPC_ARCHITECTURE.md`](./TRPC_ARCHITECTURE.md) + [`TRPC_IMPLEMENTATION_PLAN.md`](./TRPC_IMPLEMENTATION_PLAN.md) + [`TRPC_TESTING_GUIDE.md`](./TRPC_TESTING_GUIDE.md) | tRPC procedure design, schema patterns, HTTP-less testing. |
