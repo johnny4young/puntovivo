@@ -54,9 +54,13 @@ import {
   operationEffects,
   operationErrors,
   operationEvents,
+  tenants,
   type OperationEventStatus,
 } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { enqueueWebhook } from '../events/enqueue-webhook.js';
+import { projectOperationEvent } from '../events/projector.js';
+import { isModuleActiveInSettings } from '../modules/manifest.js';
 
 const log = createModuleLogger('operation-journal');
 
@@ -164,6 +168,25 @@ export async function recordOperationStart(
 }
 
 /**
+ * Attach or replace the operation summary before the middleware marks
+ * the operation as succeeded. Critical command middleware creates the
+ * row before the procedure body runs, so use-case services fill this
+ * once they know the persisted resource ids and totals needed by
+ * downstream projectors.
+ */
+export async function updateOperationSummary(
+  db: DatabaseInstance,
+  operationEventId: string,
+  summary: Record<string, unknown>
+): Promise<void> {
+  await db
+    .update(operationEvents)
+    .set({ summary })
+    .where(eq(operationEvents.id, operationEventId))
+    .run();
+}
+
+/**
  * Record a single effect produced by an operation. Safe to call
  * multiple times per operation. The FK to `operation_events` is
  * enforced at the schema level — passing an unknown
@@ -263,6 +286,73 @@ export async function markOperationCompleted(
     .set({ status, completedAt: nowIso })
     .where(eq(operationEvents.id, eventId))
     .run();
+
+  // ENG-070 — Public events projection. Best-effort hook: only fires
+  // on succeeded transitions, only when the tenant has the
+  // `events-api` module ON, only enqueues when the projector returns
+  // a valid event. Never throws past the hook — a webhook projection
+  // failure must NEVER fail the original commit.
+  if (status === 'succeeded') {
+    try {
+      await projectAndEnqueueWebhook(db, eventId);
+    } catch (err) {
+      log.warn({ err, eventId }, 'webhook projection hook failed (non-blocking)');
+    }
+  }
+}
+
+/**
+ * ENG-070 — Internal helper: read the freshly-completed
+ * operation_events row, project it to a public event, and enqueue
+ * into webhook_outbox if the tenant has events-api active.
+ *
+ * Pure best-effort: every short-circuit returns silently so the
+ * caller's commit is never blocked. The function lives in the
+ * journal module so the import cycle stays shallow (events imports
+ * journal types; journal imports events helpers).
+ */
+async function projectAndEnqueueWebhook(
+  db: DatabaseInstance,
+  eventId: string
+): Promise<void> {
+  const op = await db
+    .select()
+    .from(operationEvents)
+    .where(eq(operationEvents.id, eventId))
+    .get();
+  if (!op) {
+    return;
+  }
+
+  const projected = projectOperationEvent({ op });
+  if (!projected) {
+    return;
+  }
+
+  // Read the tenant's settings to decide whether events-api is on.
+  // Single indexed read on the tenants PK; sub-millisecond.
+  const tenant = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, op.tenantId))
+    .get();
+  if (!tenant) {
+    return;
+  }
+  if (!isModuleActiveInSettings(tenant.settings, 'events-api')) {
+    return;
+  }
+
+  // Synchronous enqueue inside a fresh tx. The partial unique idx
+  // collapses duplicate envelope replays (same operationId → same
+  // idempotency key → same row).
+  db.transaction(tx => {
+    enqueueWebhook(tx, {
+      tenantId: op.tenantId,
+      event: projected,
+      idempotencyKey: op.operationId,
+    });
+  });
 }
 
 /**

@@ -27,6 +27,11 @@ export const CLIENT_MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  // ENG-070 — public events foundation. Default OFF; admins flip on
+  // when they want the tenant's critical commands to populate
+  // webhook_outbox. v1 ships the contract + projector + outbox; the
+  // HTTP delivery worker arrives in ENG-070b.
+  'events-api',
 ] as const;
 
 export type ClientModuleId = (typeof CLIENT_MODULE_IDS)[number];
@@ -48,6 +53,8 @@ export const CLIENT_MODULE_DEFAULTS: Record<ClientModuleId, boolean> = {
   'kds': false,
   'customer-display': false,
   'mobile-waiter': false,
+  // ENG-070 — public events module opt-in.
+  'events-api': false,
 };
 
 export function isClientModuleId(value: string): value is ClientModuleId {

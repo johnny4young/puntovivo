@@ -52,6 +52,10 @@
     "mobileWaiter": {
       "label": "Mobile Waiter",
       "description": "Phone-width layout for waitstaff taking orders at the table. When on, /m becomes reachable. ENG-039 plugs the real table flow."
+    },
+    "eventsApi": {
+      "label": "Public events API",
+      "description": "Publish public events (sale.completed, sale.refunded, inventory.adjusted, cash_session.closed, fiscal_document.accepted) to the webhook queue so a future central server or integration partner can subscribe. When off, no webhook rows are created."
     }
   }
 }

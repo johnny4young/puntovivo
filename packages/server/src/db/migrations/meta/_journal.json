@@ -141,6 +141,13 @@
       "when": 1782864000000,
       "tag": "0019_fiscal_cafs",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1782950400000,
+      "tag": "0020_webhook_outbox",
+      "breakpoints": true
     }
   ]
 }

@@ -23,12 +23,14 @@ import {
   categories,
   initialInventory,
   inventoryMovements,
+  operationEvents,
   products,
   sites,
   unitXProduct,
   units,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import type { Context } from '../context.js';
 import {
   listEntriesInput,
@@ -78,6 +80,50 @@ async function ensureTenantSite(db: Context['db'], tenantId: string, siteId: str
   }
 
   return site;
+}
+
+async function lookupInventoryJournalEventId(
+  db: Context['db'],
+  tenantId: string,
+  operationId: string | undefined
+): Promise<string | null> {
+  if (!operationId) {
+    return null;
+  }
+  const row = await db
+    .select({ id: operationEvents.id })
+    .from(operationEvents)
+    .where(
+      and(
+        eq(operationEvents.tenantId, tenantId),
+        eq(operationEvents.operationId, operationId)
+      )
+    )
+    .get();
+  return row?.id ?? null;
+}
+
+async function safeUpdateInventoryAdjustedSummary(
+  ctx: Context,
+  journalEventId: string,
+  summary: {
+    productId: string;
+    siteId: string;
+    quantityBefore: number;
+    quantityAfter: number;
+    delta: number;
+    locationId: string | null;
+    reasonCode: string | null;
+  }
+): Promise<void> {
+  try {
+    await updateOperationSummary(ctx.db, journalEventId, summary);
+  } catch (err) {
+    ctx.req?.server?.log?.warn(
+      { err, journalEventId },
+      'operation summary update failed (non-blocking)'
+    );
+  }
 }
 
 async function getProductUnitAssignment(
@@ -582,6 +628,7 @@ export const inventoryRouter = router({
     const movementId = nanoid();
     const delta = input.newStock - product.stock;
     const quantity = Math.abs(delta);
+    let resolvedAdjustmentSiteId: string | null = null;
 
     // Validate the explicit siteId (if provided) belongs to the tenant and is
     // active. We do this outside the transaction because the check is a pure
@@ -610,6 +657,7 @@ export const inventoryRouter = router({
       // reused below for the migration-rule seed decision.
       const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
       const resolvedSiteId = input.siteId ?? ctx.siteId ?? primarySiteId;
+      resolvedAdjustmentSiteId = resolvedSiteId;
 
       // When adjusting a non-primary site, first snapshot the primary site
       // with the PRE-adjustment aggregate so a later read still shows the
@@ -714,6 +762,23 @@ export const inventoryRouter = router({
       operation: 'create',
       data: { id: movementId, productId: input.productId, newStock: input.newStock },
     });
+
+    const journalEventId = await lookupInventoryJournalEventId(
+      ctx.db,
+      ctx.tenantId,
+      (ctx as unknown as { envelope?: { operationId: string } }).envelope?.operationId
+    );
+    if (journalEventId && resolvedAdjustmentSiteId) {
+      await safeUpdateInventoryAdjustedSummary(ctx, journalEventId, {
+        productId: input.productId,
+        siteId: resolvedAdjustmentSiteId,
+        locationId: null,
+        quantityBefore: product.stock,
+        quantityAfter: input.newStock,
+        delta,
+        reasonCode: input.notes ?? null,
+      });
+    }
 
     const updatedProduct = await ctx.db
       .select()

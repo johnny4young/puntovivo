@@ -52,6 +52,10 @@
     "mobileWaiter": {
       "label": "Móvil mesero",
       "description": "Diseño con ancho de teléfono para que el mesero tome pedidos en la mesa. Cuando está activo, /m queda accesible. ENG-039 plug-and-plays el flujo de mesas."
+    },
+    "eventsApi": {
+      "label": "API pública de eventos",
+      "description": "Publica eventos públicos (sale.completed, sale.refunded, inventory.adjusted, cash_session.closed, fiscal_document.accepted) en la cola de webhooks para que un futuro servidor central o un integrador externo se suscriba. Cuando está desactivado, no se crean registros de webhook."
     }
   }
 }

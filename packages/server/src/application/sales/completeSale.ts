@@ -36,6 +36,7 @@ import {
   customers,
   inventoryBalances,
   inventoryMovements,
+  operationEvents,
   products,
   salePayments,
   saleItems,
@@ -60,6 +61,8 @@ import {
   ensureInventoryBalancesForSite,
 } from '../../services/inventory-balances.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   getCashCollectedAmount,
   getNormalizedSaleQuantity,
@@ -76,7 +79,6 @@ import type {
   CompleteSaleResult,
   CompleteSaleTender,
 } from './types.js';
-import { operationEvents } from '../../db/schema.js';
 
 const fallbackLog = createModuleLogger('application/sales/completeSale');
 
@@ -376,6 +378,38 @@ async function lookupJournalEventId(
     )
     .get();
   return row?.id ?? null;
+}
+
+async function safeUpdateSaleCompletedSummary(
+  ctx: CompleteSaleContext,
+  log: CompleteSaleLogger,
+  journalEventId: string,
+  summary: {
+    saleId: string;
+    saleNumber: string;
+    siteId: string;
+    cashSessionId: string;
+    customerId: string | null | undefined;
+    subtotal: number;
+    taxAmount: number;
+    discountAmount: number;
+    total: number;
+    paymentMethod: string;
+  }
+): Promise<void> {
+  try {
+    const locale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+    await updateOperationSummary(ctx.db, journalEventId, {
+      ...summary,
+      customerId: summary.customerId ?? null,
+      currencyCode: locale.currency,
+    });
+  } catch (err) {
+    log.warn(
+      { err, journalEventId },
+      'operation summary update failed (non-blocking)'
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -718,6 +752,21 @@ async function runFreshSale(
     ctx.envelope?.operationId
   );
   if (journalEventId) {
+    if (input.status === 'completed') {
+      await safeUpdateSaleCompletedSummary(ctx, log, journalEventId, {
+        saleId,
+        saleNumber,
+        siteId: saleSiteId,
+        cashSessionId: activeCashSession.id,
+        customerId: input.customerId,
+        subtotal,
+        taxAmount,
+        discountAmount: input.discountAmount ?? 0,
+        total,
+        paymentMethod: resolvedPayments.dominantMethod,
+      });
+    }
+
     const effects: JournalEffectInput[] = [];
     effects.push({
       kind: 'sale_row',
@@ -1042,6 +1091,19 @@ async function runCompleteDraft(
     ctx.envelope?.operationId
   );
   if (journalEventId) {
+    await safeUpdateSaleCompletedSummary(ctx, log, journalEventId, {
+      saleId: input.saleId,
+      saleNumber: existing.saleNumber,
+      siteId: activeCashSession.siteId,
+      cashSessionId: activeCashSession.id,
+      customerId: completed.customerId,
+      subtotal: completed.subtotal,
+      taxAmount: completed.taxAmount,
+      discountAmount: completed.discountAmount,
+      total: completed.total,
+      paymentMethod: resolvedPayments.dominantMethod,
+    });
+
     const effects: JournalEffectInput[] = [];
     effects.push({
       kind: 'sale_row',
