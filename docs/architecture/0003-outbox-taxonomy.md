@@ -170,7 +170,20 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      `offlineQueue.ts` to clear the file-name collision.
   4. ENG-063 introduces `payment_outbox` when the payment
      terminal adapter ships.
-  5. ENG-070 introduces `webhook_outbox`.
+  5. ENG-070 introduces `webhook_outbox` (migration
+     `0020_webhook_outbox.sql`, **shipped 2026-05-08**) — the 5th
+     and last outbox in the taxonomy. Kernel-projection shape
+     (status/attempts/next_retry_at/claim_token/locked_at) +
+     partial unique idx
+     `(tenant_id, event_type, idempotency_key) WHERE idempotency_key IS NOT NULL`
+     mirrors ENG-067b's `hardware_outbox.idempotency_key` shape so
+     envelope replays collapse to one row. v1 ships ONLY the
+     enqueue path (operation-journal hook + fiscal-worker hook for
+     `fiscal_document.accepted`); the HTTP delivery worker that
+     drains the outbox lands in ENG-070b. The 5-keyset
+     `manifest.counts` shape ENG-065c locked stays unchanged — the
+     diagnostic export now surfaces real `webhook_outbox` rows
+     instead of the placeholder `0`.
   6. ENG-062 introduces `hardware_outbox` (migration
      `0015_hardware_outbox.sql`) together with the ESC/POS printer
      + RJ11 cash drawer adapters — the first peripheral drivers

@@ -40,7 +40,11 @@ import {
   tenants,
   type FiscalOutboxStatus,
 } from '../../db/schema.js';
-import type { FiscalAdapterIssueInput } from './adapter.js';
+import type {
+  FiscalAdapter,
+  FiscalAdapterIssueInput,
+  FiscalAdapterIssueResult,
+} from './adapter.js';
 import {
   BOUNDED_EXPONENTIAL_BACKOFF,
   createOutboxKernel,
@@ -55,7 +59,9 @@ import { createModuleLogger, type PuntovivoLogger } from '../../logging/logger.j
 import { normalizeFiscalError } from './error-normalizer.js';
 import { toOutboxError } from './errors.js';
 import { getFiscalAdapter } from './registry.js';
-import type { FiscalAdapter } from './adapter.js';
+import { enqueueWebhook } from '../events/enqueue-webhook.js';
+import { projectFiscalDocumentAccepted } from '../events/projector.js';
+import { isModuleActiveInSettings } from '../modules/manifest.js';
 
 const fallbackLog = createModuleLogger('services/fiscal/fiscal-worker');
 
@@ -242,6 +248,15 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
           )
         );
 
+      if (issued.status === 'accepted') {
+        await maybeEnqueueFiscalAcceptedEvent({
+          row,
+          payload,
+          issued,
+          acceptedAt: nowIso,
+        });
+      }
+
       return { ok: true };
     } catch (err) {
       const normalized = normalizeFiscalError(err, adapter.providerId);
@@ -262,6 +277,56 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
         );
 
       return { ok: false, error: toOutboxError(normalized) };
+    }
+  }
+
+  async function maybeEnqueueFiscalAcceptedEvent(args: {
+    row: OutboxRow<FiscalOutboxPayload, FiscalOutboxStatus>;
+    payload: FiscalOutboxPayload;
+    issued: FiscalAdapterIssueResult;
+    acceptedAt: string;
+  }): Promise<void> {
+    const { row, payload, issued, acceptedAt } = args;
+    try {
+      const tenant = await db
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, row.tenantId))
+        .get();
+      if (!tenant || !isModuleActiveInSettings(tenant.settings, 'events-api')) {
+        return;
+      }
+
+      const event = projectFiscalDocumentAccepted({
+        tenantId: row.tenantId,
+        operationEventId: null,
+        payload: {
+          fiscalDocumentId: payload.fiscalDocumentId,
+          cufe: issued.cufe,
+          documentNumber: payload.adapterInput.resolution.documentNumber,
+          source: payload.adapterInput.source,
+          sourceId: payload.adapterInput.sourceId,
+          countryCode: payload.countryCode,
+          providerId: issued.providerId,
+          acceptedAt,
+        },
+      });
+      if (!event) {
+        return;
+      }
+
+      db.transaction(tx => {
+        enqueueWebhook(tx, {
+          tenantId: row.tenantId,
+          event,
+          idempotencyKey: payload.fiscalDocumentId,
+        });
+      });
+    } catch (err) {
+      log.warn(
+        { err, tenantId: row.tenantId, fiscalDocumentId: payload.fiscalDocumentId },
+        'fiscal accepted webhook enqueue failed (non-blocking)'
+      );
     }
   }
 

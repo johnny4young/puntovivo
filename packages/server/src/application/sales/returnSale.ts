@@ -49,8 +49,11 @@ import {
   type JournalEffectInput,
 } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type {
   CompleteSaleContext,
+  CompleteSaleLogger,
   CompleteSaleResult,
 } from './types.js';
 import type { CompleteSaleSaleRecord } from './completeSale.js';
@@ -76,6 +79,33 @@ async function lookupJournalEventId(
     )
     .get();
   return row?.id ?? null;
+}
+
+async function safeUpdateSaleRefundedSummary(
+  ctx: CompleteSaleContext,
+  log: CompleteSaleLogger,
+  journalEventId: string,
+  summary: {
+    saleReturnId: string;
+    originalSaleId: string;
+    siteId: string;
+    cashSessionId: string;
+    refundedAmount: number;
+    reasonCode: string | null;
+  }
+): Promise<void> {
+  try {
+    const locale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+    await updateOperationSummary(ctx.db, journalEventId, {
+      ...summary,
+      currencyCode: locale.currency,
+    });
+  } catch (err) {
+    log.warn(
+      { err, journalEventId },
+      'operation summary update failed (non-blocking)'
+    );
+  }
 }
 
 export interface ReturnSaleInput {
@@ -344,6 +374,15 @@ export async function returnSale(
     ctx.envelope?.operationId
   );
   if (journalEventId) {
+    await safeUpdateSaleRefundedSummary(ctx, log, journalEventId, {
+      saleReturnId: refundId,
+      originalSaleId: input.id,
+      siteId: originalSaleSiteId ?? activeCashSession.siteId,
+      cashSessionId: activeCashSession.id,
+      refundedAmount: existing.total,
+      reasonCode: input.reason ?? null,
+    });
+
     const effects: JournalEffectInput[] = [];
     effects.push({
       kind: 'sale_row',

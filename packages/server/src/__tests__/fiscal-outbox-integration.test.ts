@@ -37,6 +37,7 @@ import {
   unitXProduct,
   units,
   users,
+  webhookOutbox,
 } from '../db/schema.js';
 import {
   __clearFiscalAdapterOverridesForTest,
@@ -254,6 +255,33 @@ afterEach(() => {
   __clearFiscalAdapterOverridesForTest();
 });
 
+async function setEventsApiActive(enabled: boolean): Promise<void> {
+  const db = getDatabase();
+  const row = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  const settings =
+    row?.settings && typeof row.settings === 'object'
+      ? (row.settings as Record<string, unknown>)
+      : {};
+  const modules =
+    settings.modules && typeof settings.modules === 'object'
+      ? (settings.modules as Record<string, unknown>)
+      : {};
+  await db
+    .update(tenants)
+    .set({
+      settings: {
+        ...settings,
+        modules: { ...modules, 'events-api': enabled },
+      },
+    })
+    .where(eq(tenants.id, tenantId))
+    .run();
+}
+
 async function seedProductAndSale(args: {
   sku: string;
   productName: string;
@@ -354,6 +382,44 @@ describe('fiscal outbox — happy path', () => {
     expect(outbox).toBeTruthy();
     expect(outbox?.status).toBe('accepted');
     expect(outbox?.cufe).toBe(doc?.cufe);
+  });
+
+  it('enqueues fiscal_document.accepted when events-api is ON', async () => {
+    await setEventsApiActive(true);
+    try {
+      __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+      const { saleId } = await seedProductAndSale({
+        sku: 'OB-EVENT-FISCAL-' + nanoid(6),
+        productName: 'Outbox fiscal event product',
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      const { doc } = await readFiscalDocAndOutbox(saleId);
+      expect(doc?.status).toBe('accepted');
+
+      const rows = await getDatabase()
+        .select()
+        .from(webhookOutbox)
+        .where(
+          and(
+            eq(webhookOutbox.tenantId, tenantId),
+            eq(webhookOutbox.eventType, 'fiscal_document.accepted')
+          )
+        )
+        .all();
+      const row = rows.find(item => item.idempotencyKey === doc?.id);
+      expect(row).toBeTruthy();
+      expect(row?.payload).toMatchObject({
+        fiscalDocumentId: doc?.id,
+        cufe: doc?.cufe,
+        documentNumber: doc?.documentNumber,
+        source: 'sale',
+        sourceId: saleId,
+        countryCode: 'CO',
+        providerId: 'mock-co',
+      });
+    } finally {
+      await setEventsApiActive(false);
+    }
   });
 
   // ENG-058 — getSaleRecord must surface the linked fiscal document

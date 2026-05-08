@@ -197,3 +197,62 @@ The surface-as-module pattern adds zero new architectural primitives —
 it composes ENG-068's module guard + role guard + lazy route exactly
 the same way the existing demo modules do. Documented here so future
 contributors find the pattern + the manifests in one place.
+
+## Public events (ENG-070)
+
+ENG-070 lifted the event-as-module pattern this ADR named in the
+"Affected Tickets" section above. Events are the second non-route
+consumer of the manifold (the first being feature toggles like
+`copilot`); like surfaces, the kernel did not need a structural
+extension — events compose the same module guard the procedures use.
+
+Concretely:
+
+- New manifest `packages/server/src/services/events/manifest.ts` —
+  `PUBLIC_EVENT_TYPES` tuple closing the 5 events ENG-070 v1 ships
+  (`sale.completed`, `sale.refunded`, `inventory.adjusted`,
+  `cash_session.closed`, `fiscal_document.accepted`) + a Zod payload
+  schema per event under `Record<PublicEventType, z.ZodSchema>` for
+  compile-time exhaustiveness. `PUBLIC_EVENTS_VERSION = 1` is bumped
+  only on breaking contract changes.
+- New module id `events-api` in MODULES_MANIFEST,
+  `defaultEnabled: false`. Existing tenants do NOT start emitting
+  webhook events on the kernel ship — operators opt-in per tenant
+  via `/company?tab=modules`. The journal hook reads the module
+  state via `isModuleActiveInSettings(blob, 'events-api')`
+  (single indexed select on `tenants.id`) and short-circuits when
+  off, so the cost of having the module installed but not active
+  is sub-millisecond.
+- Pure projector `services/events/projector.ts::projectOperationEvent(op)`
+  maps an `operation_events` row (status='succeeded') to a
+  `PublicEvent` or null. Mapping table:
+  `sales.create`/`sales.completeDraft` → `sale.completed`;
+  `sales.returnSale` → `sale.refunded`;
+  `inventory.adjustStock` → `inventory.adjusted`;
+  `cashSessions.close` → `cash_session.closed`. The fifth event
+  `fiscal_document.accepted` is special-cased through
+  `projectFiscalDocumentAccepted` because the trigger is a worker
+  UPDATE rather than a critical-command success.
+- New `webhook_outbox` table — see ADR-0003 for the kernel-projection
+  shape + the partial unique idx that collapses envelope replays.
+- Hook in `markOperationCompleted` runs the projector + enqueue
+  best-effort: a webhook projection failure NEVER blocks the
+  original commit. The wrapper try/catch logs the failure but lets
+  the journal transition land cleanly.
+- New tRPC `events.{getContract, peekOutbox}` (managerOrAdmin)
+  read-only — `getContract` exposes the manifest + per-field metadata
+  for integrators who need to discover the contract; `peekOutbox`
+  returns the tail of `webhook_outbox` ordered by priority + age
+  for forensics + the future Operations Center events tab.
+- HTTP delivery worker (POST to subscriber URLs + retry policy +
+  signing + dead-letter handling) + the subscriber URL config UI
+  are deliberately out of scope for ENG-070 v1; ENG-070b lands the
+  delivery side. ENG-070 v1's deliverable is the kernel — exactly
+  what the AC asks for ("design public events ... for the future
+  central server").
+
+The event-as-module pattern, like the surface-as-module pattern,
+composes ENG-068's module guard against a non-route consumer. Future
+integrations (a webhook subscriber config UI, ENG-039's restaurant
+events, ENG-038's payment-rail events) extend the same manifest
+without touching the kernel.

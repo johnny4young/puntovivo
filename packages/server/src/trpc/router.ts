@@ -44,6 +44,7 @@ import { fiscalSettingsRouter } from './routers/fiscal-settings.js';
 import { peripheralsRouter } from './routers/peripherals.js';
 import { modulesRouter } from './routers/modules.js';
 import { surfacesRouter } from './routers/surfaces.js';
+import { eventsRouter } from './routers/events.js';
 
 export const appRouter = router({
   health: router({
@@ -94,6 +95,7 @@ export const appRouter = router({
   peripherals: peripheralsRouter,
   modules: modulesRouter,
   surfaces: surfacesRouter,
+  events: eventsRouter,
 });
 
 export type AppRouter = typeof appRouter;

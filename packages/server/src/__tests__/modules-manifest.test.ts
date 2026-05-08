@@ -18,6 +18,7 @@ import {
   MODULES_MANIFEST,
   MODULES_SCHEMA_VERSION,
   buildModulesBlob,
+  isModuleActiveInSettings,
   isModuleId,
   resolveModulesState,
   visibleDescriptors,
@@ -48,12 +49,14 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
     expect(MODULES_SCHEMA_VERSION).toBeGreaterThanOrEqual(1);
   });
 
-  it('locks the v1 + ENG-069 surface module set so deletions trigger CI failure', () => {
+  it('locks the v1 + ENG-069 surfaces + ENG-070 events module set so deletions trigger CI failure', () => {
     // Pin the count so a silent removal of a module from the list
     // is caught by the regression test before it lands. The 5 demo
     // modules from ENG-068 default ON; the 4 surface modules from
-    // ENG-069 default OFF (each new surface is opt-in per tenant).
-    expect(MODULE_IDS.length).toBe(9);
+    // ENG-069 default OFF; the events-api module from ENG-070 also
+    // default OFF (each new surface or integration is opt-in per
+    // tenant).
+    expect(MODULE_IDS.length).toBe(10);
     expect(MODULE_IDS).toEqual([
       'copilot',
       'operations-center',
@@ -64,10 +67,11 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      'events-api',
     ]);
   });
 
-  it('ENG-068 demo modules default ON; ENG-069 surface modules default OFF', () => {
+  it('ENG-068 demo modules default ON; ENG-069 surfaces + ENG-070 events default OFF', () => {
     const onByDefault = MODULE_IDS.filter(
       id => MODULES_MANIFEST[id].defaultEnabled === true
     );
@@ -86,6 +90,7 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      'events-api',
     ]);
   });
 });
@@ -236,5 +241,59 @@ describe('buildModulesBlob (ENG-068)', () => {
     for (const id of MODULE_IDS) {
       expect(blob[id]).toBe(MODULES_MANIFEST[id].defaultEnabled);
     }
+  });
+});
+
+describe('isModuleActiveInSettings (ENG-070)', () => {
+  it('returns the manifest default for null / undefined settings', () => {
+    expect(isModuleActiveInSettings(null, 'events-api')).toBe(false);
+    expect(isModuleActiveInSettings(undefined, 'events-api')).toBe(false);
+    expect(isModuleActiveInSettings(null, 'copilot')).toBe(true);
+  });
+
+  it('returns the explicit boolean when the blob carries one', () => {
+    expect(
+      isModuleActiveInSettings(
+        { modules: { 'events-api': true } },
+        'events-api'
+      )
+    ).toBe(true);
+    expect(
+      isModuleActiveInSettings(
+        { modules: { 'events-api': false } },
+        'events-api'
+      )
+    ).toBe(false);
+  });
+
+  it('falls back to default when modules key is missing or non-object', () => {
+    expect(
+      isModuleActiveInSettings({ otherKey: 1 }, 'events-api')
+    ).toBe(false);
+    expect(
+      isModuleActiveInSettings({ modules: 'oops' }, 'events-api')
+    ).toBe(false);
+  });
+
+  it('falls back to default when the module entry is non-boolean', () => {
+    expect(
+      isModuleActiveInSettings(
+        { modules: { 'events-api': 'true' /* string, not bool */ } },
+        'events-api'
+      )
+    ).toBe(false);
+  });
+
+  it('respects each module independently', () => {
+    const settings = {
+      modules: {
+        copilot: false,
+        'events-api': true,
+      },
+    };
+    expect(isModuleActiveInSettings(settings, 'copilot')).toBe(false);
+    expect(isModuleActiveInSettings(settings, 'events-api')).toBe(true);
+    // Default for an untouched module.
+    expect(isModuleActiveInSettings(settings, 'quotations')).toBe(true);
   });
 });

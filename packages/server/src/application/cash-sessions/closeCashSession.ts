@@ -38,6 +38,8 @@ import {
   getClosingCountTotal,
 } from '../../services/cash-session.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   emitCashSessionEffects,
   lookupCashSessionJournalEventId,
@@ -46,6 +48,7 @@ import {
 import { getPendingChecksForSession } from './pending-checks.js';
 import type {
   CashSessionContext,
+  CashSessionLogger,
   CloseCashSessionInput,
   CloseCashSessionResult,
 } from './types.js';
@@ -53,6 +56,33 @@ import type {
 const fallbackLog = createModuleLogger('application/cash-sessions/closeCashSession');
 
 export type ClosedCashSessionRow = typeof cashSessions.$inferSelect;
+
+async function safeUpdateCashSessionClosedSummary(
+  ctx: CashSessionContext,
+  log: CashSessionLogger,
+  journalEventId: string,
+  summary: {
+    cashSessionId: string;
+    siteId: string;
+    expectedCashBalance: number;
+    countedCashBalance: number;
+    overShortAmount: number;
+    openedAt: string;
+  }
+): Promise<void> {
+  try {
+    const locale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+    await updateOperationSummary(ctx.db, journalEventId, {
+      ...summary,
+      currencyCode: locale.currency,
+    });
+  } catch (err) {
+    log.warn(
+      { err, journalEventId },
+      'operation summary update failed (non-blocking)'
+    );
+  }
+}
 
 export async function closeCashSession(
   ctx: CashSessionContext,
@@ -182,6 +212,15 @@ export async function closeCashSession(
     ctx.envelope?.operationId
   );
   if (journalEventId) {
+    await safeUpdateCashSessionClosedSummary(ctx, log, journalEventId, {
+      cashSessionId: activeSession.id,
+      siteId: activeSession.siteId,
+      expectedCashBalance: activeSession.expectedBalance,
+      countedCashBalance: actualCount,
+      overShortAmount: overShort,
+      openedAt: activeSession.openedAt,
+    });
+
     const effects: CashSessionJournalEffectInput[] = [
       {
         kind: 'session_close',

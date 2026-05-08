@@ -4084,3 +4084,101 @@ export const fiscalCafsRelations = relations(fiscalCafs, ({ one }) => ({
 
 export type FiscalCafRow = typeof fiscalCafs.$inferSelect;
 export type NewFiscalCafRow = typeof fiscalCafs.$inferInsert;
+
+// ============================================================================
+// WEBHOOK OUTBOX (ENG-070 — public events foundation, 5th outbox per
+// ADR-0003). The operation-journal projector + the fiscal worker
+// emit rows here when a public event is published. The HTTP delivery
+// worker that drains them lands in ENG-070b.
+// ============================================================================
+
+export const webhookOutboxStatusEnum = [
+  'queued',
+  'submitting',
+  'delivered',
+  'failed',
+  'retrying',
+  'dead_letter',
+] as const;
+export type WebhookOutboxStatus = (typeof webhookOutboxStatusEnum)[number];
+
+export const webhookOutbox = sqliteTable(
+  'webhook_outbox',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    /** Public event type from `services/events/manifest.PUBLIC_EVENT_TYPES`. */
+    eventType: text('event_type').notNull(),
+    /** Schema version of the payload — ENG-070 v1 ships version 1. */
+    eventVersion: integer('event_version').notNull().default(1),
+    /**
+     * Soft-FK to the `operation_events` row that triggered this
+     * webhook event. Nullable because the `fiscal_document.accepted`
+     * branch fires from the fiscal worker and may not carry an
+     * operation_id (the accept happens out-of-band of the original
+     * sale's command envelope).
+     */
+    operationEventId: text('operation_event_id').references(
+      () => operationEvents.id,
+      { onDelete: 'set null' }
+    ),
+    /** Public-contract payload (validated by the manifest's Zod schema before insert). */
+    payload: text('payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    status: text('status', { enum: webhookOutboxStatusEnum })
+      .notNull()
+      .default('queued'),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    /** Normalized error written by the kernel on `fail`. */
+    lastError: text('last_error', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    priority: real('priority').notNull().default(0),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    /**
+     * Envelope-keyed idempotency. Mirrors ENG-067b's
+     * `hardware_outbox.idempotency_key` shape: a duplicate enqueue
+     * with the same key collapses to one row via the partial unique
+     * idx; rows with NULL stay independent (admin-triggered replays).
+     */
+    idempotencyKey: text('idempotency_key'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  table => [
+    // Primary path for the future kernel claimNext: filter by tenant +
+    // status (queued or retrying) + nextRetryAt window.
+    index('idx_webhook_outbox_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    // Operations Center listing + peek.
+    index('idx_webhook_outbox_tenant_created').on(table.tenantId, table.createdAt),
+    // Partial unique idx for envelope-keyed idempotency. SQLite +
+    // Drizzle support partial indexes via the `where` chained call.
+    uniqueIndex('idx_webhook_outbox_idempotent')
+      .on(table.tenantId, table.eventType, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+  ]
+);
+
+export const webhookOutboxRelations = relations(webhookOutbox, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [webhookOutbox.tenantId],
+    references: [tenants.id],
+  }),
+  operationEvent: one(operationEvents, {
+    fields: [webhookOutbox.operationEventId],
+    references: [operationEvents.id],
+  }),
+}));
+
+export type WebhookOutboxRow = typeof webhookOutbox.$inferSelect;
+export type NewWebhookOutboxRow = typeof webhookOutbox.$inferInsert;

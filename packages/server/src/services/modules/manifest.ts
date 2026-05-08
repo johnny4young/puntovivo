@@ -58,6 +58,13 @@ export const MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  // ENG-070 — Public events foundation. When the module is ON, every
+  // succeeded critical command projects through `services/events`
+  // and lands in `webhook_outbox`. ENG-070b adds the HTTP delivery
+  // worker that drains the outbox to subscriber URLs. Default OFF so
+  // existing tenants do not start emitting webhooks on the kernel
+  // ship — operators opt-in per tenant via /company?tab=modules.
+  'events-api',
 ] as const;
 
 export type ModuleId = (typeof MODULE_IDS)[number];
@@ -158,6 +165,16 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     adminVisibilityRole: 'admin',
     i18nKey: 'mobileWaiter',
   },
+  // ENG-070 — Public events module. Default OFF so existing tenants
+  // do not start emitting webhooks on ship; operators opt-in per
+  // tenant via /company?tab=modules. ENG-070b lands the HTTP delivery
+  // worker; v1 ships only the kernel (contract + projector + outbox).
+  'events-api': {
+    id: 'events-api',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'eventsApi',
+  },
 };
 
 const MODULE_ID_SET: ReadonlySet<string> = new Set(MODULE_IDS);
@@ -226,4 +243,35 @@ export function buildModulesBlob(
     out[id] = partial[id] ?? MODULES_MANIFEST[id].defaultEnabled;
   }
   return out;
+}
+
+/**
+ * Resolve the active state of a single module from a tenant's full
+ * settings blob (the JSON column). Convenience for hot paths
+ * (operation-journal hook, fiscal worker) that don't need the
+ * complete state map. Falls back to the manifest default when the
+ * blob doesn't carry an explicit boolean for the id.
+ */
+export function isModuleActiveInSettings(
+  tenantSettings: unknown,
+  moduleId: ModuleId
+): boolean {
+  if (
+    tenantSettings === null ||
+    typeof tenantSettings !== 'object' ||
+    Array.isArray(tenantSettings)
+  ) {
+    return MODULES_MANIFEST[moduleId].defaultEnabled;
+  }
+  const blob = tenantSettings as Record<string, unknown>;
+  const modules = blob.modules;
+  if (
+    modules === null ||
+    typeof modules !== 'object' ||
+    Array.isArray(modules)
+  ) {
+    return MODULES_MANIFEST[moduleId].defaultEnabled;
+  }
+  const stored = (modules as Record<string, unknown>)[moduleId];
+  return typeof stored === 'boolean' ? stored : MODULES_MANIFEST[moduleId].defaultEnabled;
 }
