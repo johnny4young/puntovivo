@@ -157,6 +157,7 @@ matrix is the actionable subset.
 | Rust + Axum for hot procedures | **No** | An embedded POS is not throughput-bound. Marginal win, large cost. |
 | Drizzle vs Prisma 7 vs Kysely | **Stay on Drizzle** | Drizzle crossed Prisma in weekly DLs in 2025; PlanetScale acquired the core team in March 2026. Decision aged well. Use Kysely punctually for complex CTEs. |
 | libSQL/Turso embedded replicas | **No, defer after Phase 4** | ENG-037 closed this as a spike on 2026-05-08. Legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001 Local Store Authority, current Turso Sync is still beta with Last-Push-Wins conflict handling, and the native package story does not yet prove a simpler Electron/Node runtime than `better-sqlite3`. Revisit only if the ENG-037 reopen triggers fire. |
+| Authority Node / Store Hub Mode | **Yes, add early** | Keep `device_local` as the default, but add explicit `site_hub` and `hub_client` support before multi-register stores are considered sellable. This preserves the local-first moat while allowing one site hub to centralize 10 cashier terminals on the LAN. See ADR-0008 and `docs/AUTHORITY-NODE.md`. |
 | Edge runtime (Workers / Deno Deploy) | **No** | Local-first IS the moat. Moving to edge invalidates the privacy + latency story. |
 | OSS the FISCAL-CORE engine | **Consider after F2** | Releasing the engine + a country-pack template under Apache-2 (with proprietary packs) attracts integrator developers. Decision after `ENG-035` + `ENG-036` ship — model: Strapi / Supabase / Cal.com. Captured in BACKLOG. |
 

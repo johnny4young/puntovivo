@@ -35,6 +35,7 @@ A Colombian retail pilot is allowed only when all items below are true:
 | Hardware printing | ESC/POS printer and RJ11 drawer work, with system-printer fallback. | **Not ready** | `ENG-060`, `ENG-062`. |
 | Payment terminal | Manual payment works; provider terminal has clear adapter and failure policy. | **Partial** | `ENG-063` when sandbox and hardware are available. |
 | Recovery | Operator can see sync/fiscal/cash/payment/device health and export diagnostics. | **Partial** | `ENG-065`, `ENG-067`. |
+| Multi-register LAN | One store can run several cashier terminals against a single local Authority Node. | **Not ready** | `ENG-071`..`ENG-075`. |
 
 ## Production-Ready Criteria
 
@@ -63,6 +64,7 @@ Production sales require everything in Pilot-ready plus:
 | Payment terminal | Payments | Provider choice, sandbox credentials, physical terminal. | `ENG-063` |
 | Store diagnostics | Operations | No external gate. | `ENG-065`, `ENG-067` |
 | Local security | Desktop + Security | Key-storage decision per OS. | `ENG-066` |
+| Multi-register Store Hub | Runtime | No external gate for initial LAN hub/client support; satellite offline fallback is deferred. | `ENG-071`..`ENG-075` |
 
 ## Operational Store Checklist
 
@@ -77,6 +79,9 @@ Before a pilot day starts, the operator should be able to confirm:
 - Fiscal readiness is green or explicitly in contingency mode.
 - Sync queue has no stale conflicts.
 - Backup location and restore procedure are known.
+- Authority mode is known: `device_local` for one register, or
+  `site_hub` with paired `hub_client` terminals for multi-register
+  stores once `ENG-071`..`ENG-075` ship.
 - Cashier can complete one sale, suspend one sale, resume it, return it,
   void it with manager/admin permission, and reprint the receipt.
 
@@ -92,3 +97,6 @@ Sellability work is tracked in `ROADMAP.md` as:
 - `ENG-064..ENG-067`: sync, recovery, operations, backup, and chaos tests.
 - `ENG-068..ENG-070`: expansion architecture after the retail core is
   safe enough.
+- `ENG-071..ENG-075`: Authority Node / Store Hub Mode for multi-register
+  stores; `ENG-076` remains deferred until a pilot proves hub clients
+  need satellite offline writes.
