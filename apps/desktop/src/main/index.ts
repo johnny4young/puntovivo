@@ -404,6 +404,10 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
     verbose: isDev,
     migrationsFolder: MIGRATIONS_PATH,
     runtime,
+    // ENG-073 — surface the installed Electron app version on
+    // /api/health so the Operations Center Authority tab (ENG-075)
+    // can render it without a separate IPC round-trip.
+    appVersion: app.getVersion(),
   });
 
   await nextServer.listen();
