@@ -352,6 +352,12 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(result.willHitLimit).toBe(false);
     expect(result.estimatedSizeBytes).toBe(0);
     expect(result.rowLimit).toBe(__TEST_ROW_LIMIT);
+    // ENG-072 — runtime metadata is surfaced on every preview so an
+    // admin can confirm the boot mode without downloading the bundle.
+    expect(result.runtime.authorityMode).toBe('device_local');
+    expect(typeof result.runtime.bindHost).toBe('string');
+    expect(typeof result.runtime.bindPort).toBe('number');
+    expect(result.runtime.allowedLanOrigins).toEqual([]);
   });
 
   it('preview narrows by date range and reports per-source counts', async () => {
@@ -423,6 +429,14 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(result.tables.sync_outbox).toHaveLength(4);
     expect(result.tables.fiscal_outbox).toHaveLength(2);
     expect(result.tables.hardware_outbox).toHaveLength(1);
+    // ENG-072 — runtime metadata is captured into the export manifest
+    // so support tickets carry the boot identity of the box that
+    // produced the bundle. The default test runtime is `device_local`
+    // because none of the test harness boots set the env override.
+    expect(result.manifest.runtime.authorityMode).toBe('device_local');
+    expect(typeof result.manifest.runtime.bindHost).toBe('string');
+    expect(typeof result.manifest.runtime.bindPort).toBe('number');
+    expect(result.manifest.runtime.hubUrl).toBeNull();
   });
 
   it('respects includeOutboxes filter while keeping counts honest', async () => {

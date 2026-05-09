@@ -138,6 +138,19 @@ Initial defaults:
 }
 ```
 
+**Shipped via ENG-072 (2026-05-08)**: the resolver lives at
+[`packages/server/src/config/runtime.ts`](../packages/server/src/config/runtime.ts).
+Both [`packages/server/src/standalone.ts`](../packages/server/src/standalone.ts)
+and [`apps/desktop/src/main/index.ts`](../apps/desktop/src/main/index.ts)
+call `resolveRuntimeConfig({ env: process.env })` at boot. Env vars
+documented in [`docs/ENVIRONMENT_CONFIGURATION.md`](./ENVIRONMENT_CONFIGURATION.md).
+The diagnostics export bundle (ENG-065c) carries a `manifest.runtime`
+object with the resolved config so a support ticket reveals the
+boot identity. Behavior for `site_hub` LAN bind + `hub_client`
+tRPC base URL switch lands in ENG-073 and ENG-074 respectively;
+the resolver returns the values, it does not yet enforce LAN bind
+nor switch the renderer transport.
+
 ## Packaging Options
 
 The first implementation should reuse the current server package:

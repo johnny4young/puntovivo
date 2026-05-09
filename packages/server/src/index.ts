@@ -18,6 +18,10 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
+import {
+  setActiveRuntimeConfig,
+  type RuntimeConfig,
+} from './config/runtime.js';
 import { createModuleLogger, rootLogger } from './logging/logger.js';
 import {
   createFiscalWorker,
@@ -60,6 +64,14 @@ export interface ServerOptions {
    * `extraResource`, not inside the Vite output.
    */
   migrationsFolder?: string;
+  /**
+   * ENG-072 — resolved Authority Node runtime config. Standalone and
+   * Electron callers resolve this via `resolveRuntimeConfig` and pass
+   * it in. When omitted (typical in tests), `createServer` synthesizes
+   * a `device_local` runtime from `host`/`port` so existing tests stay
+   * unchanged.
+   */
+  runtime?: RuntimeConfig;
 }
 
 export interface PuntovivoServer {
@@ -130,7 +142,29 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       'http://127.0.0.1:5173',
     ],
     migrationsFolder,
+    runtime,
   } = options;
+
+  // ENG-072 — resolve the Authority Node runtime config. Explicit
+  // option wins; otherwise synthesize a `device_local` runtime from
+  // the host/port options so callers that predate the runtime field
+  // (existing tests, internal tooling) keep working without change.
+  const resolvedRuntime: RuntimeConfig = runtime ?? {
+    authorityMode: 'device_local',
+    bindHost: host,
+    bindPort: port,
+    hubUrl: null,
+    siteId: null,
+    deviceId: null,
+    allowedLanOrigins: [],
+  };
+  setActiveRuntimeConfig(resolvedRuntime);
+  // Honor the runtime config's bind host/port over the legacy options
+  // when an explicit runtime is supplied. Tests passing only host/port
+  // hit the synthesized runtime branch above, so this assignment is a
+  // no-op for them.
+  const bindHost = runtime ? resolvedRuntime.bindHost : host;
+  const bindPort = runtime ? resolvedRuntime.bindPort : port;
 
   // Initialize database
   const db = await initDatabase({
@@ -308,7 +342,12 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     };
   });
 
-  let serverUrl = `http://${host}:${port}`;
+  // ENG-072 — initialize from the resolved bind host/port so the
+  // pre-listen `getUrl()` matches what the server will bind to. The
+  // legacy options destructure (`host`, `port`) only matches when the
+  // caller did NOT pass an explicit `runtime`; when they did, the
+  // runtime config is the source of truth.
+  let serverUrl = `http://${bindHost}:${bindPort}`;
 
   // ENG-057 — boot the fiscal outbox worker daemon. Registered as the
   // default singleton so `safelyEmitFiscalDocument` can fire-and-forget
@@ -341,11 +380,41 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     fiscalWorker,
     hardwareWorker,
     listen: async () => {
-      const address = await app.listen({ port, host });
+      const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
+      // ENG-072 — when callers pass `port: 0` / `bindPort: 0` to let
+      // the OS assign a random port, the resolved runtime captured
+      // before listen reads `bindPort: 0`. After listen the actual
+      // port is known via Fastify's address — refresh the singleton
+      // so `getActiveRuntimeConfig()` (read by the diagnostics
+      // manifest) reflects the listening port instead of the
+      // requested-zero placeholder.
+      const actualAddress = app.server.address();
+      if (
+        actualAddress &&
+        typeof actualAddress === 'object' &&
+        typeof actualAddress.port === 'number'
+      ) {
+        const refreshed: RuntimeConfig = {
+          ...resolvedRuntime,
+          bindPort: actualAddress.port,
+        };
+        setActiveRuntimeConfig(refreshed);
+      }
       fiscalWorker.start();
       hardwareWorker.start();
-      serverLog.info({ address }, 'server listening');
+      serverLog.info(
+        {
+          address,
+          authorityMode: resolvedRuntime.authorityMode,
+          bindHost: resolvedRuntime.bindHost,
+          bindPort:
+            actualAddress && typeof actualAddress === 'object'
+              ? actualAddress.port
+              : resolvedRuntime.bindPort,
+        },
+        'server listening'
+      );
       return address;
     },
     close: async () => {
@@ -390,3 +459,17 @@ export {
   rootLogger,
   type PuntovivoLogger,
 } from './logging/logger.js';
+// ENG-072 — Authority Node runtime config. The Electron main process
+// resolves the config from env (or its own future config file) before
+// calling `createServer({ ..., runtime })`.
+export {
+  resolveRuntimeConfig,
+  getRuntimeDefaults,
+  getActiveRuntimeConfig,
+  setActiveRuntimeConfig,
+  clearActiveRuntimeConfig,
+  VALID_AUTHORITY_MODES,
+  type AuthorityMode,
+  type RuntimeConfig,
+  type ResolveRuntimeConfigOptions,
+} from './config/runtime.js';

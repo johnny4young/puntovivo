@@ -26,7 +26,9 @@ import {
 import {
   createServer,
   createModuleLogger,
+  resolveRuntimeConfig,
   type PuntovivoServer,
+  type RuntimeConfig,
   type SyncConflictPolicy,
   appSettings,
   syncConflicts,
@@ -99,8 +101,12 @@ let currentTraySettings: TraySettings = {
   closeToTray: false,
 };
 
-// Server configuration
-const SERVER_PORT = 8090;
+// Server configuration. ENG-072 — port/host are resolved through the
+// shared Authority Node runtime config so the embedded server picks
+// up `PUNTOVIVO_*` env overrides (operator boots a Store Hub by
+// exporting `PUNTOVIVO_AUTHORITY_MODE=site_hub` etc., even when
+// launching from Electron). Defaults match the historical hardcoded
+// `127.0.0.1:8090` so a fresh install boots identically to today.
 const DB_PATH = join(app.getPath('userData'), 'data', 'local.db');
 const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 
@@ -374,14 +380,30 @@ async function removeSqliteSidecars(dbPath: string): Promise<void> {
 }
 
 async function startEmbeddedServer(): Promise<PuntovivoServer> {
-  mainLog.info({ dbPath: DB_PATH }, 'starting embedded server');
+  // ENG-072 — Resolve the Authority Node runtime config from env
+  // before booting. Defaults reproduce the historical hardcoded
+  // `device_local + 127.0.0.1 + 8090` shape, so a fresh install
+  // boots identically. Failures are fatal here; the resolver throws
+  // a clear message that bubbles up through Electron's startup error
+  // handling instead of silently sliding into defaults.
+  const runtime: RuntimeConfig = resolveRuntimeConfig({ env: process.env });
+  mainLog.info(
+    {
+      dbPath: DB_PATH,
+      authorityMode: runtime.authorityMode,
+      bindHost: runtime.bindHost,
+      bindPort: runtime.bindPort,
+    },
+    'starting embedded server'
+  );
 
   const nextServer = await createServer({
     dbPath: DB_PATH,
-    port: SERVER_PORT,
-    host: '127.0.0.1',
+    port: runtime.bindPort,
+    host: runtime.bindHost,
     verbose: isDev,
     migrationsFolder: MIGRATIONS_PATH,
+    runtime,
   });
 
   await nextServer.listen();
@@ -1904,7 +1926,10 @@ app.on('will-quit', () => {
 // IPC Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
-ipcMain.handle('get-server-url', () => server?.getUrl() || `http://127.0.0.1:${SERVER_PORT}`);
+// The fallback string is only returned before the embedded server has
+// started. ENG-072 — once the server is up, `getUrl()` returns the
+// real bind address resolved from the Authority Node runtime config.
+ipcMain.handle('get-server-url', () => server?.getUrl() || 'http://127.0.0.1:8090');
 ipcMain.handle('get-auto-update-status', () => getAutoUpdateStatus());
 ipcMain.handle('check-for-app-updates', () => checkForAppUpdates());
 ipcMain.handle('restart-to-apply-app-update', () => restartToApplyAppUpdate());
