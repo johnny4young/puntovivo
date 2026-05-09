@@ -77,6 +77,11 @@ async function main(): Promise<void> {
       jwtSecret,
       verbose,
       runtime,
+      // ENG-073 — Node populates `npm_package_version` when launched
+      // via `npm run start` / `npm run dev`. Falls through to
+      // `'unknown'` inside createServer when this is undefined (e.g.
+      // a direct `node dist/standalone.js` invocation).
+      appVersion: process.env.npm_package_version,
     });
 
     // Handle graceful shutdown. Signals are operational events, so they

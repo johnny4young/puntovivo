@@ -22,6 +22,11 @@ import {
   setActiveRuntimeConfig,
   type RuntimeConfig,
 } from './config/runtime.js';
+import {
+  countActiveDevices,
+  fingerprintDbPath,
+  getCurrentSchemaVersion,
+} from './lib/runtimeMetadata.js';
 import { createModuleLogger, rootLogger } from './logging/logger.js';
 import {
   createFiscalWorker,
@@ -72,6 +77,13 @@ export interface ServerOptions {
    * unchanged.
    */
   runtime?: RuntimeConfig;
+  /**
+   * ENG-073 — installed app version surfaced on `/api/health`.
+   * Standalone reads from `process.env.npm_package_version`; Electron
+   * passes `app.getVersion()`. Defaults to `'unknown'` when omitted
+   * so tests do not need to wire it.
+   */
+  appVersion?: string;
 }
 
 export interface PuntovivoServer {
@@ -125,6 +137,64 @@ function buildRequestScopedLogger(request: FastifyRequest): FastifyRequest['log'
   return request.log.child(buildRequestScopedLoggerBindings(request));
 }
 
+const SITE_HUB_JWT_SECRET_MIN_LENGTH = 32;
+const SITE_HUB_JWT_SECRET_MIN_UNIQUE_CHARS = 8;
+const BLOCKED_JWT_SECRET_PLACEHOLDERS = [
+  'admin',
+  'changeme',
+  'development',
+  'devsecret',
+  'jwtsecret',
+  'localhost',
+  'password',
+  'puntovivo',
+  'secret',
+  'testsecret',
+  'testsecretnonempty',
+  'testsecretmustbenonempty',
+  '12345678901234567890123456789012',
+] as const;
+
+function normalizeJwtSecretForPolicy(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isPlaceholderJwtSecret(value: string): boolean {
+  const normalized = normalizeJwtSecretForPolicy(value);
+  if (normalized.length === 0) return true;
+
+  return BLOCKED_JWT_SECRET_PLACEHOLDERS.some(placeholder => {
+    if (normalized === placeholder) return true;
+    const repeated = placeholder.repeat(
+      Math.ceil(normalized.length / placeholder.length)
+    );
+    return repeated.slice(0, normalized.length) === normalized;
+  });
+}
+
+function getSiteHubJwtSecretPolicyFailures(secret: string | undefined): string[] {
+  if (secret === undefined || secret.length === 0) return ['JWT_SECRET'];
+
+  const failures: string[] = [];
+  if (secret.length < SITE_HUB_JWT_SECRET_MIN_LENGTH) {
+    failures.push(`minimum ${SITE_HUB_JWT_SECRET_MIN_LENGTH} characters`);
+  }
+  if (new Set(secret).size < SITE_HUB_JWT_SECRET_MIN_UNIQUE_CHARS) {
+    failures.push(
+      `at least ${SITE_HUB_JWT_SECRET_MIN_UNIQUE_CHARS} unique characters`
+    );
+  }
+  if (isPlaceholderJwtSecret(secret)) {
+    failures.push('not a common placeholder');
+  }
+  return failures;
+}
+
+function describeSiteHubJwtSecretRequirement(failures: string[]): string {
+  if (failures.length === 1 && failures[0] === 'JWT_SECRET') return 'JWT_SECRET';
+  return `strong JWT_SECRET (${failures.join('; ')})`;
+}
+
 /**
  * Create and configure the Puntovivo server
  */
@@ -133,7 +203,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     dbPath,
     port = 8090,
     host = '127.0.0.1',
-    jwtSecret = generateSecret(),
+    jwtSecret: explicitJwtSecret,
     verbose = false,
     corsOrigins = [
       'http://localhost:3000',
@@ -143,7 +213,21 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     ],
     migrationsFolder,
     runtime,
+    appVersion = 'unknown',
   } = options;
+
+  // ENG-073 — track whether the operator explicitly supplied the
+  // JWT secret. Auto-generated secrets reset on every restart, which
+  // is fine on a single device_local cashier (the operator just logs
+  // back in once after a desktop relaunch) but unacceptable on a
+  // site_hub (every cashier in the store loses their session). The
+  // LAN guard below uses this flag to refuse a misconfigured hub
+  // boot.
+  const normalizedExplicitJwtSecret =
+    typeof explicitJwtSecret === 'string' ? explicitJwtSecret.trim() : undefined;
+  const jwtSecretWasExplicit =
+    normalizedExplicitJwtSecret !== undefined && normalizedExplicitJwtSecret.length > 0;
+  const jwtSecret = jwtSecretWasExplicit ? normalizedExplicitJwtSecret : generateSecret();
 
   // ENG-072 — resolve the Authority Node runtime config. Explicit
   // option wins; otherwise synthesize a `device_local` runtime from
@@ -165,6 +249,49 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // no-op for them.
   const bindHost = runtime ? resolvedRuntime.bindHost : host;
   const bindPort = runtime ? resolvedRuntime.bindPort : port;
+
+  // ENG-073 — Store Hub LAN bind hardening. When the operator opts
+  // into `site_hub` mode the embedded Fastify becomes reachable to
+  // every cashier terminal on the LAN, which widens the trust
+  // surface beyond the loopback default. Refuse the boot when:
+  //   - JWT_SECRET was not supplied explicitly OR does not meet the
+  //     Store Hub strength policy (auto-generated or weak secrets
+  //     reset/break cashier sessions or make LAN tokens guessable), OR
+  //   - allowedLanOrigins is empty (no operator-defined CORS
+  //     surface; we never accept arbitrary origins on a hub).
+  // device_local and hub_client modes skip this check — the former
+  // is loopback-only, the latter only consumes a remote hub and
+  // does not accept LAN traffic on its own.
+  if (resolvedRuntime.authorityMode === 'site_hub') {
+    const missing: string[] = [];
+    const jwtSecretFailures = getSiteHubJwtSecretPolicyFailures(
+      jwtSecretWasExplicit ? jwtSecret : undefined
+    );
+    if (jwtSecretFailures.length > 0) {
+      missing.push(describeSiteHubJwtSecretRequirement(jwtSecretFailures));
+    }
+    if (resolvedRuntime.allowedLanOrigins.length === 0) {
+      missing.push('PUNTOVIVO_ALLOWED_LAN_ORIGINS');
+    }
+    if (missing.length > 0) {
+      throw new Error(
+        `[runtime-config] site_hub mode requires explicit ` +
+          `${missing.join(' and ')}. ` +
+          `See docs/AUTHORITY-NODE.md > Store Hub Mode for the operator setup.`
+      );
+    }
+  }
+
+  // ENG-073 — extend the CORS allow-list with operator-configured
+  // LAN origins when in site_hub mode. The default dev origins stay
+  // intact so an operator setting up a hub can still load the
+  // renderer from `localhost:3000` while bringing the LAN
+  // configuration online. device_local and hub_client modes leave
+  // the list untouched.
+  const effectiveCorsOrigins =
+    resolvedRuntime.authorityMode === 'site_hub'
+      ? Array.from(new Set([...corsOrigins, ...resolvedRuntime.allowedLanOrigins]))
+      : corsOrigins;
 
   // Initialize database
   const db = await initDatabase({
@@ -217,7 +344,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   // Register CORS
   await app.register(cors, {
-    origin: corsOrigins,
+    origin: effectiveCorsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -329,8 +456,19 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     },
   });
 
+  // ENG-073 — fingerprint the dbPath once at boot. The endpoint
+  // re-reads schema version + active device count on every request
+  // (cheap point queries), but the fingerprint is deterministic so
+  // there is no need to recompute it.
+  const dbPathFingerprint = fingerprintDbPath(dbPath);
+
   // Keep the legacy health endpoint as a compatibility surface while
   // `health.check` on `/api/trpc` remains the canonical health procedure.
+  // ENG-073 extends the body with Authority Node identity fields so
+  // an operator running `curl /api/health` against a hub can verify
+  // the boot mode + active device count + DB lineage without logging
+  // in. None of the new fields carry secrets — the dbPath fingerprint
+  // is a SHA-256 truncation, not the raw path.
   app.get('/api/health', async (_request, reply) => {
     reply.header('x-puntovivo-compat', 'legacy-health');
     return {
@@ -339,6 +477,11 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       compatibility: true,
       canonicalProcedure: 'health.check',
       canonicalPath: '/api/trpc/health.check',
+      authorityMode: resolvedRuntime.authorityMode,
+      appVersion,
+      dbSchemaVersion: getCurrentSchemaVersion(db),
+      dbPathFingerprint,
+      activeDeviceCount: countActiveDevices(db),
     };
   });
 

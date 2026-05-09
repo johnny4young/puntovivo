@@ -151,6 +151,111 @@ tRPC base URL switch lands in ENG-073 and ENG-074 respectively;
 the resolver returns the values, it does not yet enforce LAN bind
 nor switch the renderer transport.
 
+## Store Hub Mode (operator setup, ENG-073)
+
+When the operator opts a machine into Store Hub mode the embedded
+Fastify becomes reachable to every cashier terminal on the LAN.
+That widens the trust surface beyond the loopback default, so the
+boot path now refuses to come up unless two operator-controlled
+guarantees are in place.
+
+### Required environment
+
+```bash
+# Authority Node mode + bind surface
+PUNTOVIVO_AUTHORITY_MODE=site_hub
+PUNTOVIVO_BIND_HOST=0.0.0.0           # or a specific LAN IP
+PUNTOVIVO_BIND_PORT=8090
+
+# Hardening — both required, both checked at boot
+JWT_SECRET=<32+ char random secret, persisted across restarts>
+PUNTOVIVO_ALLOWED_LAN_ORIGINS=http://192.168.1.10:3000,http://192.168.1.11:3000
+```
+
+The boot refusal contract:
+
+| Missing piece | Boot result |
+| --- | --- |
+| `JWT_SECRET` (missing, shorter than 32 chars, too little character variety, or placeholder) | Throws with the failed strength rule + a pointer back to this section. |
+| `PUNTOVIVO_ALLOWED_LAN_ORIGINS` (no operator-defined CORS surface) | Same. |
+| Both | Single error names both pieces. |
+| Both supplied | Server boots and accepts only the listed LAN origins. |
+
+The strength check is deliberately simple and operator-readable:
+trimmed length at least 32 characters, at least 8 unique
+characters, and not a common placeholder such as `secret`,
+`change-me`, `password`, or a numeric sequence. A generated
+32-byte hex or base64 value is the intended production shape.
+
+`device_local` and `hub_client` modes skip this check — the former
+is loopback-only, the latter only consumes a remote hub.
+
+### CORS / CSRF
+
+Origins are exact-match strings. Wildcards (`http://192.168.*`)
+are intentionally rejected: the configured allow-list is the audit
+surface. CSRF stays cookie+header so the existing same-origin
+protection keeps working with `credentials: true` cross-origin.
+
+### Out of scope
+
+- **TLS termination**: the embedded Fastify binds plain HTTP. Run
+  a reverse proxy (nginx, Caddy, or the operator's existing
+  edge) on the hub box if you want HTTPS over the LAN.
+- **Cross-LAN access**: the bind list trusts the LAN broadcast
+  domain. Multi-VLAN reachability is a network-engineering
+  concern, not an Authority Node concern.
+- **Per-tenant active-device count on `/api/health`**: ENG-073
+  surfaces a hub-wide aggregate. The per-tenant Operations Center
+  Authority tab lands with ENG-075.
+
+### Known gap — cross-origin auth cookies (resolved by ENG-074)
+
+The CSRF and refresh cookies set by `packages/server/src/security/csrf.ts`
+and the auth flow use `SameSite=Lax`. With `Lax`, browsers do not
+send those cookies on cross-origin sub-resource requests, so a
+cashier terminal at `http://192.168.1.50:3000` POSTing to
+`http://192.168.1.1:8090/api/trpc/...` will not transmit the
+session cookies even with `credentials: 'include'`. ENG-073 ships
+the hub bind hardening + LAN CORS surface, but **does not** flip
+the cookie SameSite policy — the hub-client renderer plumbing
+that needs the cross-origin cookie path lands in ENG-074, where
+the SameSite decision (likely `None; Secure` gated on a
+configured LAN origin match) belongs together with the renderer's
+tRPC base URL switch and reachability UI.
+
+Operationally this means: a hub box configured per the steps
+above accepts LAN traffic at the network layer, but a cashier
+terminal will only complete a real sale once ENG-074 ships. Until
+then, exercise the hub via tools that do not depend on the
+cookie path (curl with `Authorization` headers, tests via
+`server.app.inject`).
+
+### Health surface
+
+`GET /api/health` (unauthenticated, Kubernetes-style) returns:
+
+```json
+{
+  "status": "ok",
+  "timestamp": "...",
+  "compatibility": true,
+  "canonicalProcedure": "health.check",
+  "canonicalPath": "/api/trpc/health.check",
+  "authorityMode": "device_local | site_hub | hub_client",
+  "appVersion": "1.x.y",
+  "dbSchemaVersion": <applied migration count from __drizzle_migrations>,
+  "dbPathFingerprint": "<12-char SHA-256 of dbPath, never the raw path>",
+  "activeDeviceCount": <devices.is_active=1 across tenants>
+}
+```
+
+None of the new fields carry secrets. Operators can `curl
+http://hub:8090/api/health` from any machine on the configured
+LAN to verify which mode the hub is running, what schema
+version is deployed, and how many devices are currently
+registered.
+
 ## Packaging Options
 
 The first implementation should reuse the current server package:
