@@ -77,6 +77,18 @@ export interface ElectronAPI {
     receiptHtml: string
   ) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
+  runtime?: RuntimeAPI;
+}
+
+export interface RendererRuntimeConfig {
+  authorityMode: 'device_local' | 'site_hub' | 'hub_client';
+  hubUrl: string | null;
+  siteId: string | null;
+  deviceId: string | null;
+}
+
+export interface RuntimeAPI {
+  getConfigSync: () => RendererRuntimeConfig;
 }
 
 /**

@@ -19,6 +19,7 @@
     "shortcuts": "Shortcuts",
     "shortcutsHint": "`Alt+P` search, `Alt+C` quantity, `Alt+D` discount, `Alt+U` unit in dialog",
     "chargeSale": "Charge sale",
+    "hubGatedHint": "Sale completion is paused until the store hub is reachable again. Verify the hub is on and connected.",
     "addProduct": "Add product",
     "activeSite": "Active site",
     "activeSiteHint": "The selected site controls sequential numbering and stock validation.",

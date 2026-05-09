@@ -25,7 +25,7 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 | `PUNTOVIVO_AUTHORITY_MODE` | `device_local` | Authority Node mode per ADR-0008. One of `device_local`, `site_hub`, `hub_client`. Invalid values fail the boot. |
 | `PUNTOVIVO_BIND_HOST` | `127.0.0.1` | Bind host for the embedded Fastify server. Takes precedence over `HOST`. |
 | `PUNTOVIVO_BIND_PORT` | `8090` | Bind port for the embedded Fastify server. Takes precedence over `PORT`. |
-| `PUNTOVIVO_HUB_URL` | unset | Hub URL when `PUNTOVIVO_AUTHORITY_MODE=hub_client`. Reserved for ENG-074 (the renderer plumbing lands there). |
+| `PUNTOVIVO_HUB_URL` | unset | Hub URL when `PUNTOVIVO_AUTHORITY_MODE=hub_client`. ENG-074 — Electron main exposes this to the renderer via the `runtime:get-config` sync IPC; `apps/web/src/lib/trpc.ts` resolves the tRPC base to this URL at module init. Required in `hub_client` mode (without it the resolver falls back to the `VITE_API_URL` default and the terminal silently talks to whatever `http://localhost:8090` resolves to). |
 | `PUNTOVIVO_SITE_ID` | unset | Operator-supplied site identifier; null falls back to a DB lookup. |
 | `PUNTOVIVO_DEVICE_ID` | unset | Operator-supplied device identifier; null falls back to `device-id.txt`. |
 | `PUNTOVIVO_ALLOWED_LAN_ORIGINS` | unset | Comma-separated CORS origins accepted in `site_hub` mode. Reserved for ENG-073. |

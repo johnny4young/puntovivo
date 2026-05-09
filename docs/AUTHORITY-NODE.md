@@ -209,7 +209,7 @@ protection keeps working with `credentials: true` cross-origin.
   surfaces a hub-wide aggregate. The per-tenant Operations Center
   Authority tab lands with ENG-075.
 
-### Known gap — cross-origin auth cookies (resolved by ENG-074)
+### Known gap — cross-origin refresh cookies (deferred after ENG-074)
 
 The CSRF and refresh cookies set by `packages/server/src/security/csrf.ts`
 and the auth flow use `SameSite=Lax`. With `Lax`, browsers do not
@@ -217,19 +217,16 @@ send those cookies on cross-origin sub-resource requests, so a
 cashier terminal at `http://192.168.1.50:3000` POSTing to
 `http://192.168.1.1:8090/api/trpc/...` will not transmit the
 session cookies even with `credentials: 'include'`. ENG-073 ships
-the hub bind hardening + LAN CORS surface, but **does not** flip
-the cookie SameSite policy — the hub-client renderer plumbing
-that needs the cross-origin cookie path lands in ENG-074, where
-the SameSite decision (likely `None; Secure` gated on a
-configured LAN origin match) belongs together with the renderer's
-tRPC base URL switch and reachability UI.
+the hub bind hardening + LAN CORS surface, and ENG-074 ships the
+renderer tRPC base URL switch + reachability UI, but neither ticket
+flips the cookie SameSite policy.
 
-Operationally this means: a hub box configured per the steps
-above accepts LAN traffic at the network layer, but a cashier
-terminal will only complete a real sale once ENG-074 ships. Until
-then, exercise the hub via tools that do not depend on the
-cookie path (curl with `Authorization` headers, tests via
-`server.app.inject`).
+Operationally this means: a hub-client cashier can work against the
+hub with the Bearer access token issued at login, but the
+cross-origin refresh cookie remains unavailable. Cashiers re-login
+when that access token expires (7 days today). A future iter must
+choose either `SameSite=None; Secure` (which requires HTTPS on the
+hub origin) or a Bearer-only refresh path.
 
 ### Health surface
 
@@ -255,6 +252,84 @@ http://hub:8090/api/health` from any machine on the configured
 LAN to verify which mode the hub is running, what schema
 version is deployed, and how many devices are currently
 registered.
+
+## Hub Client Mode (operator setup, ENG-074)
+
+A `hub_client` terminal is a cashier device whose renderer points
+at a remote Store Hub instead of an embedded backend. It is NOT an
+Authority Node — it only originates commands; the hub persists and
+emits all operational outbox rows.
+
+### Required environment
+
+```bash
+# Authority Node mode + hub URL
+PUNTOVIVO_AUTHORITY_MODE=hub_client
+PUNTOVIVO_HUB_URL=http://192.168.1.1:8090
+
+# Optional identifiers (otherwise device-id.txt is the source)
+PUNTOVIVO_DEVICE_ID=caja-2
+PUNTOVIVO_SITE_ID=sede-norte
+```
+
+The Electron main process reads these via `resolveRuntimeConfig`,
+caches the result, and exposes it to the renderer through a
+synchronous IPC channel (`runtime:get-config`). The renderer's
+`apps/web/src/lib/runtimeConfigClient.ts` resolves the config at
+module init so `apps/web/src/lib/trpc.ts` can pick the right base
+URL before the tRPC client is constructed.
+
+### Reachability + checkout gate
+
+The renderer's `useHubReachability` hook polls `${hubUrl}/api/health`
+every 30 seconds with a 5-second abort timeout. When the hub
+returns a non-2xx response (or the request errors out), the
+`OfflineStatusBanner` switches to the "Store hub unreachable"
+variant and three checkout entry points (`SalesCheckoutPanel`,
+`SalesMobileCheckoutBar`, `SalesOverview`) disable their primary
+action button. The hook is a no-op outside `hub_client` mode so
+device_local installs see zero overhead.
+
+The poll cadence and the abort timeout are constants today; the
+ENG-074b follow-up may surface env-var overrides if a pilot
+demands tuning.
+
+### Device registration
+
+After login, `AuthProvider` calls `auth.registerDevice` with
+`kind: 'hub_client'` so the hub's `devices` table records the
+terminal as a hub client. The `kind` enum extends from
+`['desktop', 'web']` to `['desktop', 'web', 'hub_client']` — no
+schema migration is required because the column is plain text and
+the constraint is TS-only. The Operations Center Authority tab
+(ENG-075) reads `kind` to render which devices are full local
+installs versus hub-bound terminals.
+
+### Known gaps and follow-ups
+
+**Cookie SameSite refresh (deferred)**: the existing CSRF and
+refresh cookies are set with `SameSite=Lax`, so cross-origin LAN
+requests from a `hub_client` terminal cannot transmit them. The
+practical effect is that the access token (7-day lifetime) is the
+de-facto session length: hub-client cashiers re-login when the
+token expires. This was documented as a "Known gap" in the
+ENG-073 ship and the same constraint applies here. Fixing
+requires either flipping the cookie attributes to `SameSite=None;
+Secure` (which forces HTTPS on the hub box) or moving to a
+Bearer-only refresh path. Captured for a future iter.
+
+**Client-local hardware bridge (`ENG-074b`)**: a `hub_client`
+terminal with a USB / serial printer attached cannot print
+locally yet — the hub-side `peripherals.printReceipt` procedure
+returns ESC/POS bytes for server-managed transport, but no
+renderer-side IPC dispatches them through the local printer.
+ROADMAP §3b row `ENG-074b` covers the implementation: a procedure
+variant that returns bytes for local dispatch, a new
+`apps/desktop/src/main/peripherals/local-bridge.ts`, and a new
+preload IPC channel. The hard guarantee from ADR-0008 rule 6 —
+"the bridge never writes sales, cash, inventory, fiscal, journal,
+or outbox tables" — is preserved trivially in v1 because no
+local execution exists at all yet.
 
 ## Packaging Options
 

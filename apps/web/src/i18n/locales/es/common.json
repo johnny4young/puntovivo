@@ -117,6 +117,8 @@
     "conflictsDesc_one": "{{count}} conflicto debe resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
     "conflictsDesc_other": "{{count}} conflictos deben resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
     "attentionTitle": "La sincronización necesita atención",
+    "hubUnreachableTitle": "El hub de la tienda no responde",
+    "hubUnreachableDesc": "Tu terminal no puede comunicarse con el hub de la tienda. Verifica que la computadora del hub esté encendida y conectada a la red. La finalización de ventas queda pausada hasta que vuelva la conexión.",
     "pendingTitle": "Cambios pendientes esperando sincronización",
     "pendingDesc_one": "{{count}} cambio pendiente se sincronizará automáticamente.",
     "pendingDesc_other": "{{count}} cambios pendientes se sincronizarán automáticamente.",

@@ -26,6 +26,13 @@ interface SalesMobileCheckoutBarProps {
   onNewSale?: () => void;
   suspendedDraftsCount?: number;
   onToggleSuspendedPanel?: () => void;
+  /**
+   * ENG-074 — same hub-reachability gate as `SalesCheckoutPanel`. The
+   * mobile bar mirrors the desktop panel's behavior so a `hub_client`
+   * terminal on a phone or tablet cannot bypass the gate by routing
+   * checkout through the mobile-width primary action.
+   */
+  hubReachable?: boolean;
 }
 
 export function SalesMobileCheckoutBar({
@@ -43,9 +50,14 @@ export function SalesMobileCheckoutBar({
   onNewSale,
   suspendedDraftsCount = 0,
   onToggleSuspendedPanel,
+  hubReachable,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
   const hasDraftItems = draftSummary.itemCount > 0;
+  // ENG-074 — mirror the SalesCheckoutPanel gate so a hub_client
+  // terminal on a phone or tablet cannot bypass the hub-unreachable
+  // state by triggering checkout from the mobile bar.
+  const isHubGated = hubReachable === false;
   const primaryAction = cashSession
     ? hasDraftItems
       ? onCharge
@@ -56,11 +68,13 @@ export function SalesMobileCheckoutBar({
       ? t('checkout.chargeSale')
       : t('cashSession.closeAction')
     : t('cashSession.openAction');
-  const primaryActionDisabled = cashSession
-    ? hasDraftItems
-      ? !canCharge
-      : !canCloseCashSession
-    : !canOpenCashSession;
+  const primaryActionDisabled = isHubGated
+    ? true
+    : cashSession
+      ? hasDraftItems
+        ? !canCharge
+        : !canCloseCashSession
+      : !canOpenCashSession;
   const showParkActions = Boolean(onSuspend || onNewSale || onToggleSuspendedPanel);
 
   return (

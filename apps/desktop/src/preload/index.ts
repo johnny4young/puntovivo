@@ -74,6 +74,27 @@ export interface ElectronAPI {
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
+  runtime: RuntimeAPI;
+}
+
+/**
+ * ENG-074 — Authority Node runtime config exposed to the renderer
+ * synchronously so `apps/web/src/lib/trpc.ts` can resolve the tRPC
+ * base URL at module init (the alternative — async fetch — would
+ * race against the first tRPC call). The shape mirrors the server's
+ * `RuntimeConfig` projection used by /api/health, minus the bind
+ * surface (the renderer never needs `bindHost` / `bindPort` because
+ * it talks to the URL it was told to talk to, not to its own bind).
+ */
+export interface RendererRuntimeConfig {
+  authorityMode: 'device_local' | 'site_hub' | 'hub_client';
+  hubUrl: string | null;
+  siteId: string | null;
+  deviceId: string | null;
+}
+
+export interface RuntimeAPI {
+  getConfigSync: () => RendererRuntimeConfig;
 }
 
 /**
@@ -154,6 +175,15 @@ const deviceAPI: DeviceAPI = {
   setId: (id: string) => ipcRenderer.invoke('device:set-id', id),
 };
 
+// ENG-074 — sync IPC for runtime config so the renderer's tRPC client
+// can pick the right base URL at module init. The handler in main is
+// `ipcMain.on('runtime:get-config', e => e.returnValue = config)`,
+// resolved once at boot and cached.
+const runtimeAPI: RuntimeAPI = {
+  getConfigSync: () =>
+    ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
+};
+
 // Custom APIs for renderer
 const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -174,6 +204,7 @@ const electronAPI: ElectronAPI = {
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,
+  runtime: runtimeAPI,
 };
 
 const dbAPI: DatabaseAPI = {

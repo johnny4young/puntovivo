@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users, tenants, loginAttempts } from '../db/schema.js';
+import { users, tenants, loginAttempts, devices } from '../db/schema.js';
 import { hash, verify } from 'argon2';
 import { nanoid } from 'nanoid';
 import { and, eq } from 'drizzle-orm';
@@ -929,6 +929,77 @@ describe('Auth tRPC Router', () => {
         remoteAddress: freshIp,
       });
       expect(freshResponse.statusCode).toBe(200);
+    });
+  });
+
+  describe('auth.registerDevice (ENG-074 hub_client kind)', () => {
+    it('accepts kind=hub_client for cashier terminals pointing at a remote hub', async () => {
+      const { accessToken } = await loginOverHttp();
+      const csrfResponse = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/health.check',
+      });
+      const csrfCookie = getCookieValue(csrfResponse.headers['set-cookie'], 'puntovivo_csrf');
+
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.registerDevice?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          cookie: `puntovivo_csrf=${csrfCookie}`,
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: JSON.stringify({
+          '0': {
+            kind: 'hub_client',
+            name: 'caja-2-test',
+          },
+        }),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as Array<{
+        result?: { data?: { deviceId?: string; registeredAt?: string } };
+      }>;
+      // Service returns `{deviceId, registeredAt}`; verify the row
+      // was created with kind=hub_client by reading back via the DB.
+      expect(typeof body[0]?.result?.data?.deviceId).toBe('string');
+      const createdDeviceId = body[0]!.result!.data!.deviceId!;
+      const dbRow = getDatabase()
+        .select({ kind: devices.kind })
+        .from(devices)
+        .where(eq(devices.id, createdDeviceId))
+        .get();
+      expect(dbRow?.kind).toBe('hub_client');
+    });
+
+    it('rejects unknown kind values via zod', async () => {
+      const { accessToken } = await loginOverHttp();
+      const csrfResponse = await server.app.inject({
+        method: 'GET',
+        url: '/api/trpc/health.check',
+      });
+      const csrfCookie = getCookieValue(csrfResponse.headers['set-cookie'], 'puntovivo_csrf');
+
+      const response = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.registerDevice?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          cookie: `puntovivo_csrf=${csrfCookie}`,
+          'content-type': 'application/json',
+          'x-csrf-token': csrfCookie as string,
+        },
+        payload: JSON.stringify({
+          '0': {
+            kind: 'cluster_node',
+            name: 'invalid-test',
+          },
+        }),
+      });
+
+      expect(response.statusCode).toBe(400);
     });
   });
 });

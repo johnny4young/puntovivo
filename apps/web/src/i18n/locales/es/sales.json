@@ -19,6 +19,7 @@
     "shortcuts": "Atajos",
     "shortcutsHint": "`Alt+P` buscar, `Alt+C` cantidad, `Alt+D` descuento, `Alt+U` unidad en diálogo",
     "chargeSale": "Cobrar venta",
+    "hubGatedHint": "La finalización de la venta queda pausada hasta que el hub de la tienda vuelva a estar accesible. Verifica que el hub esté encendido y conectado.",
     "addProduct": "Agregar producto",
     "activeSite": "Sede activa",
     "activeSiteHint": "La sede seleccionada controla la numeración consecutiva y la validación de stock.",

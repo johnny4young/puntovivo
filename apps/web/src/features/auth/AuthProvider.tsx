@@ -17,6 +17,7 @@ import {
 } from '@/lib/trpc';
 import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
+import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { getDefaultRouteForRole } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
@@ -238,11 +239,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const isElectron =
           typeof window !== 'undefined' &&
           Boolean((window as unknown as { electron?: unknown }).electron);
-        const kind: 'desktop' | 'web' = isElectron ? 'desktop' : 'web';
+        // ENG-074 — discriminate hub_client terminals so the
+        // Operations Center Authority tab (ENG-075) can render
+        // which devices are hub clients vs full local installs.
+        // Reading the runtime config is cheap (cached at module
+        // init) and a no-op for the pure-web build (returns
+        // device_local).
+        const runtimeMode = getRuntimeConfigSync().authorityMode;
+        const kind: 'desktop' | 'web' | 'hub_client' = isElectron
+          ? runtimeMode === 'hub_client'
+            ? 'hub_client'
+            : 'desktop'
+          : 'web';
         const friendlyName =
-          isElectron
-            ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
-            : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
+          kind === 'hub_client'
+            ? `puntovivo-hub-client-${navigator.platform || 'unknown'}`
+            : isElectron
+              ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
+              : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
         const result = await vanillaClient.auth.registerDevice.mutate({
           kind,
           name: friendlyName,
