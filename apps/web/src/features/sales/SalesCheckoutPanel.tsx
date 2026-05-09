@@ -42,6 +42,15 @@ interface SalesCheckoutPanelProps {
    */
   suspendedDraftsCount?: number;
   onToggleSuspendedPanel?: () => void;
+  /**
+   * ENG-074 — when the renderer runs in `hub_client` mode and the
+   * Store Hub is unreachable, this prop is set to `false` to
+   * gate every operational primary action (charge sale, open
+   * cash session). `undefined` keeps the historical behavior for
+   * `device_local` installs (the parent never wires the prop in
+   * that mode). `true` is the explicit reachable signal.
+   */
+  hubReachable?: boolean;
 }
 
 export function SalesCheckoutPanel({
@@ -65,11 +74,22 @@ export function SalesCheckoutPanel({
   onNewSale,
   suspendedDraftsCount = 0,
   onToggleSuspendedPanel,
+  hubReachable,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
+  // ENG-074 — when the parent passes `hubReachable === false`, every
+  // operational primary action is gated. The renderer never reaches
+  // this branch in `device_local` mode because the parent does not
+  // wire the prop there. `undefined` and `true` are both treated as
+  // "do not gate" so existing flows are unchanged.
+  const isHubGated = hubReachable === false;
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
-  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+  const primaryActionDisabled = isHubGated
+    ? true
+    : cashSession
+      ? !canCharge
+      : !canOpenCashSession;
   const showSuspendControls = Boolean(onSuspend || onNewSale);
   const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
 
@@ -195,10 +215,20 @@ export function SalesCheckoutPanel({
           className="btn-primary hidden w-full justify-center xl:inline-flex"
           onClick={primaryAction}
           disabled={primaryActionDisabled}
+          data-testid="checkout-primary-action"
         >
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}
         </button>
+
+        {isHubGated && (
+          <p
+            className="hidden text-xs text-danger-600 xl:block"
+            data-testid="checkout-hub-gate-hint"
+          >
+            {t('checkout.hubGatedHint')}
+          </p>
+        )}
 
         {showSuspendControls && (
           <div className="hidden gap-2 xl:flex" data-testid="checkout-park-controls">

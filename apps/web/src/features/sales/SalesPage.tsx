@@ -18,6 +18,7 @@ import {
 } from '@/features/sales/CashSessionOpenModal';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
+import { useHubReachability } from '@/hooks/useHubReachability';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
@@ -73,6 +74,15 @@ export function SalesPage() {
   const toast = useToast();
   const { currentTenant, currentSite } = useTenant();
   const { user } = useAuth();
+  // ENG-074 — `useHubReachability` is a no-op outside `hub_client`
+  // mode. In hub_client mode, `reachable === false` flips the
+  // checkout primary action to disabled via the panel's gate prop.
+  // `null` (initial state before the first poll) and `true` both
+  // pass through as "reachable enough"; only an explicit `false`
+  // gates.
+  const hubReachability = useHubReachability();
+  const hubReachable =
+    hubReachability.reachable === null ? undefined : hubReachability.reachable;
 
   // ENG-018b — cart items and the keyboard-selected row now live in
   // the shared `useCartWorkspaceStore`. SalesPage reads the active
@@ -964,6 +974,7 @@ export function SalesPage() {
           isKickingCashDrawer={kickCashDrawerMutation.isPending}
           onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
           productInputRef={productInputRef}
+          hubReachable={hubReachable}
         />
 
         {isResumedCart && activeWorkspace?.serverSaleNumber && (
@@ -1096,6 +1107,7 @@ export function SalesPage() {
             onNewSale={handleNewSale}
             suspendedDraftsCount={suspendedDraftsCount}
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
+            hubReachable={hubReachable}
           />
         </section>
 
@@ -1127,6 +1139,7 @@ export function SalesPage() {
         onNewSale={handleNewSale}
         suspendedDraftsCount={suspendedDraftsCount}
         onToggleSuspendedPanel={handleToggleSuspendedPanel}
+        hubReachable={hubReachable}
       />
       {isProductSearchOpen && (
         <ProductSearchDialog

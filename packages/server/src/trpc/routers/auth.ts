@@ -351,7 +351,10 @@ export const authRouter = router({
   registerDevice: tenantProcedure
     .input(
       z.object({
-        kind: z.enum(['desktop', 'web']),
+        // ENG-074 — `hub_client` discriminates a cashier terminal
+        // whose renderer points at a remote Store Hub. Stays in
+        // lockstep with the `devices.kind` enum in db/schema.ts.
+        kind: z.enum(['desktop', 'web', 'hub_client']),
         name: z.string().min(1).max(120),
         deviceId: z.string().min(8).max(64).optional(),
         metadata: z.record(z.string(), z.unknown()).optional(),

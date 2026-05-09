@@ -10,8 +10,14 @@ import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
 import { DEVICE_ID_HEADER } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
+import { resolveApiBaseUrl } from './runtimeConfigClient';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+// ENG-074 — `API_URL` is resolved through the runtime config client
+// at module init. In `hub_client` mode the renderer points at the
+// remote Store Hub URL (synchronous Electron IPC); otherwise it
+// stays on the historical `VITE_API_URL` default. Computed once
+// because the runtime config is immutable per ADR-0008.
+const API_URL = resolveApiBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:8090');
 const CSRF_COOKIE_NAME = 'puntovivo_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const REFRESH_PATH = `${API_URL}/api/trpc/auth.refresh?batch=1`;

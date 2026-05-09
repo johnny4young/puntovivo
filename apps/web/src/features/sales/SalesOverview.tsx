@@ -40,6 +40,13 @@ interface SalesOverviewProps {
   isKickingCashDrawer?: boolean;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
   productInputRef: RefObject<HTMLInputElement | null>;
+  /**
+   * ENG-074 — same hub-reachability gate as `SalesCheckoutPanel` and
+   * `SalesMobileCheckoutBar`. Mirrors the disabled-when-unreachable
+   * behavior so a `hub_client` terminal cannot bypass the gate by
+   * triggering checkout from the overview hero.
+   */
+  hubReachable?: boolean;
 }
 
 export function SalesOverview({
@@ -71,11 +78,20 @@ export function SalesOverview({
   isKickingCashDrawer,
   onRegisterAssignmentChange,
   productInputRef,
+  hubReachable,
 }: SalesOverviewProps) {
   const { t } = useTranslation('sales');
+  // ENG-074 — mirror the SalesCheckoutPanel + SalesMobileCheckoutBar
+  // gate so the overview hero's primary action also disables when
+  // the hub is unreachable in hub_client mode.
+  const isHubGated = hubReachable === false;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
-  const primaryActionDisabled = cashSession ? !canCharge : !canOpenCashSession;
+  const primaryActionDisabled = isHubGated
+    ? true
+    : cashSession
+      ? !canCharge
+      : !canOpenCashSession;
 
   return (
     <section className="hero-surface p-5 sm:p-6 xl:p-7">

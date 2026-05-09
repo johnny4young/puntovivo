@@ -2332,7 +2332,14 @@ export const devices = sqliteTable(
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    kind: text('kind', { enum: ['desktop', 'web'] as const }).notNull(),
+    // ENG-074 — `hub_client` discriminates a cashier terminal whose
+    // renderer points at a remote Store Hub instead of an embedded
+    // backend. Per ADR-0008, hub clients are NOT Authority Nodes —
+    // they only originate commands. The kind flows from the renderer
+    // via auth.registerDevice; the column is plain text so adding the
+    // value needs no migration. Removing a value later would require a
+    // data migration.
+    kind: text('kind', { enum: ['desktop', 'web', 'hub_client'] as const }).notNull(),
     name: text('name').notNull(),
     registeredByUserId: text('registered_by_user_id')
       .notNull()

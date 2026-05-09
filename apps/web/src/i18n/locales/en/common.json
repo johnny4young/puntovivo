@@ -117,6 +117,8 @@
     "conflictsDesc_one": "{{count}} conflict needs to be resolved before all queued changes can sync cleanly.",
     "conflictsDesc_other": "{{count}} conflicts need to be resolved before all queued changes can sync cleanly.",
     "attentionTitle": "Sync needs attention",
+    "hubUnreachableTitle": "Store hub unreachable",
+    "hubUnreachableDesc": "Your terminal cannot reach the store hub. Verify the hub computer is on and connected to the network. Sales completion is paused until the connection returns.",
     "pendingTitle": "Pending changes waiting to sync",
     "pendingDesc_one": "{{count}} queued change will sync automatically.",
     "pendingDesc_other": "{{count}} queued changes will sync automatically.",

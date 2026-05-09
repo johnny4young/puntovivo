@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/hooks';
+import { useHubReachability } from '@/hooks/useHubReachability';
 import { cn, formatDateTime } from '@/lib/utils';
 
 function getBannerCopy(
@@ -55,14 +56,32 @@ export function OfflineStatusBanner() {
   const { t } = useTranslation('common');
   const { isOnline, lastSync, pendingItems, conflicts, isSyncing, error, triggerSync } =
     useOfflineSync();
-  const shouldShow = !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
+  // ENG-074 — for hub_client terminals, the hub being unreachable
+  // is a stronger signal than the existing offline / pending /
+  // conflicts states. The reachability hook is a no-op outside
+  // hub_client mode so device_local installs see the historical
+  // banner behavior unchanged.
+  const hub = useHubReachability();
+  const isHubUnreachable = hub.reachable === false;
+
+  const shouldShow =
+    isHubUnreachable || !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
 
   if (!shouldShow) {
     return null;
   }
 
-  const bannerCopy = getBannerCopy(t, { isOnline, pendingItems, conflicts, error });
-  const canRetry = isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
+  const bannerCopy = isHubUnreachable
+    ? ({
+        title: t('offline.hubUnreachableTitle'),
+        description: t('offline.hubUnreachableDesc'),
+        tone: 'danger',
+      } as const)
+    : getBannerCopy(t, { isOnline, pendingItems, conflicts, error });
+  // ENG-074 — the retry button is for the local sync queue, not the
+  // hub. When the hub is unreachable, hide the button (the user has
+  // nothing to retry — they need the hub box to come back online).
+  const canRetry = !isHubUnreachable && isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
 
   return (
     <div className="px-4 pb-1 pt-3 sm:px-6 xl:px-8">
