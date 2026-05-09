@@ -8,8 +8,15 @@
  *   npm run start      - Production
  *
  * Environment variables:
- *   PORT               - Server port (default: 8090)
- *   HOST               - Server host (default: 127.0.0.1)
+ *   PUNTOVIVO_AUTHORITY_MODE   - device_local | site_hub | hub_client (default: device_local; ENG-072)
+ *   PUNTOVIVO_BIND_HOST        - Bind host (preferred; falls back to HOST). Default: 127.0.0.1
+ *   PUNTOVIVO_BIND_PORT        - Bind port (preferred; falls back to PORT). Default: 8090
+ *   PUNTOVIVO_HUB_URL          - Hub URL when authorityMode=hub_client (ENG-074 plumbing)
+ *   PUNTOVIVO_SITE_ID          - Operator-supplied site identifier
+ *   PUNTOVIVO_DEVICE_ID        - Operator-supplied device identifier
+ *   PUNTOVIVO_ALLOWED_LAN_ORIGINS - CSV of CORS origins for site_hub LAN bind (ENG-073)
+ *   PORT               - Legacy alias for PUNTOVIVO_BIND_PORT (default: 8090)
+ *   HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
  *   DATABASE_URL       - SQLite database path (default: ./data/local.db)
  *   JWT_SECRET         - JWT signing secret (auto-generated if not set)
  *   VERBOSE            - Enable verbose logging (default: false)
@@ -29,6 +36,7 @@
 import './loadEnv.js';
 
 import { createServer, createModuleLogger } from './index.js';
+import { resolveRuntimeConfig } from './config/runtime.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -46,8 +54,11 @@ function banner(line: string = ''): void {
 }
 
 async function main(): Promise<void> {
-  const port = parseInt(process.env.PORT || '8090', 10);
-  const host = process.env.HOST || '127.0.0.1';
+  // ENG-072 — Resolve the Authority Node runtime config first. The
+  // resolver throws on invalid env (bad mode, bad port) so a
+  // misconfigured boot dies here with an actionable message instead
+  // of silently sliding into defaults.
+  const runtime = resolveRuntimeConfig({ env: process.env });
   const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
   const jwtSecret = process.env.JWT_SECRET;
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
@@ -61,10 +72,11 @@ async function main(): Promise<void> {
   try {
     const server = await createServer({
       dbPath,
-      port,
-      host,
+      port: runtime.bindPort,
+      host: runtime.bindHost,
       jwtSecret,
       verbose,
+      runtime,
     });
 
     // Handle graceful shutdown. Signals are operational events, so they
@@ -85,6 +97,7 @@ async function main(): Promise<void> {
     banner();
     banner(`[Server] ✓ Server started at ${address}`);
     banner(`[Server] ✓ Database: ${dbPath}`);
+    banner(`[Server] ✓ Authority mode: ${runtime.authorityMode}`);
     banner();
     banner('  API Surfaces:');
     banner(`  - tRPC:        ${address}/api/trpc`);

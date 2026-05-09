@@ -44,6 +44,7 @@ import {
   type DiagnosticIncludeOutbox,
 } from '../../schemas/reports.js';
 import { sanitizeRows } from '../../../services/diagnostics/sanitize.js';
+import { getActiveRuntimeConfig, type RuntimeConfig } from '../../../config/runtime.js';
 
 /**
  * Hard cap per table at export time. Empirically a 7-day window for a
@@ -96,6 +97,39 @@ function isDefaultIncludeAll(
   include: readonly DiagnosticIncludeOutbox[] | undefined
 ): boolean {
   return include === undefined;
+}
+
+/**
+ * ENG-072 — runtime metadata projection for the diagnostics manifest.
+ * Mirrors the AUTHORITY-NODE.md `RuntimeConfig` shape but stays
+ * additive (existing manifest fields untouched, schemaVersion still
+ * 1) so the export bundle stays consumable by today's tooling. The
+ * runtime config carries no secrets — `hubUrl` and `siteId` /
+ * `deviceId` are operator-supplied identifiers, not credentials —
+ * so the sanitizer needs no extension.
+ */
+function projectRuntimeForManifest(runtime: RuntimeConfig): {
+  authorityMode: RuntimeConfig['authorityMode'];
+  bindHost: string;
+  bindPort: number;
+  hubUrl: string | null;
+  siteId: string | null;
+  deviceId: string | null;
+  allowedLanOrigins: string[];
+} {
+  return {
+    authorityMode: runtime.authorityMode,
+    bindHost: runtime.bindHost,
+    bindPort: runtime.bindPort,
+    hubUrl: runtime.hubUrl,
+    siteId: runtime.siteId,
+    deviceId: runtime.deviceId,
+    // Included so an admin debugging a CORS / LAN-bind issue in
+    // ENG-073 `site_hub` mode sees the configured origin set in the
+    // bundle. Empty array in the default `device_local` case is
+    // informative ("no LAN origins configured"), not a leak.
+    allowedLanOrigins: runtime.allowedLanOrigins,
+  };
 }
 
 export const diagnosticsReportsRouter = router({
@@ -245,6 +279,10 @@ export const diagnosticsReportsRouter = router({
         rowLimit: ROW_LIMIT,
         willHitLimit,
         schemaVersion: SCHEMA_VERSION,
+        // ENG-072 — surface the Authority Node runtime metadata so an
+        // admin can verify the boot mode without downloading the
+        // bundle.
+        runtime: projectRuntimeForManifest(getActiveRuntimeConfig()),
       };
     }),
 
@@ -472,6 +510,11 @@ export const diagnosticsReportsRouter = router({
           // "did this bundle leak something?".
           sanitized: true as const,
           redactedKeysByTable,
+          // ENG-072 — Authority Node runtime metadata captured at the
+          // time of export. Additive to the manifest; the existing
+          // schemaVersion=1 stays valid because consumers tolerate
+          // unknown top-level keys per ADR-0003 evolution discipline.
+          runtime: projectRuntimeForManifest(getActiveRuntimeConfig()),
         },
         tables: {
           operation_events: sanitizedEvents.rows,
