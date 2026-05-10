@@ -78,6 +78,7 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
+  peripherals?: PeripheralsAPI;
 }
 
 export interface RendererRuntimeConfig {
@@ -89,6 +90,30 @@ export interface RendererRuntimeConfig {
 
 export interface RuntimeAPI {
   getConfigSync: () => RendererRuntimeConfig;
+}
+
+/**
+ * ENG-074b — local hardware bridge for hub_client terminals. The
+ * renderer fetches ESC/POS bytes from the hub via tRPC and pipes
+ * them here so the Electron main process writes them to the
+ * locally-attached printer / drawer. Per ADR-0008 rule 6 the bridge
+ * NEVER touches operational tables.
+ */
+export interface LocalEscPosTransportHint {
+  channel: 'usb' | 'tcp' | 'serial' | 'mock';
+  host?: string | null;
+  port?: number | null;
+  vendorId?: number | null;
+  productId?: number | null;
+  devicePath?: string | null;
+  timeoutMs?: number | null;
+}
+
+export interface PeripheralsAPI {
+  dispatchLocalEscpos: (payload: {
+    bytes: number[];
+    transport: LocalEscPosTransportHint;
+  }) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
 }
 
 /**

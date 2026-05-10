@@ -318,18 +318,34 @@ requires either flipping the cookie attributes to `SameSite=None;
 Secure` (which forces HTTPS on the hub box) or moving to a
 Bearer-only refresh path. Captured for a future iter.
 
-**Client-local hardware bridge (`ENG-074b`)**: a `hub_client`
-terminal with a USB / serial printer attached cannot print
-locally yet — the hub-side `peripherals.printReceipt` procedure
-returns ESC/POS bytes for server-managed transport, but no
-renderer-side IPC dispatches them through the local printer.
-ROADMAP §3b row `ENG-074b` covers the implementation: a procedure
-variant that returns bytes for local dispatch, a new
-`apps/desktop/src/main/peripherals/local-bridge.ts`, and a new
-preload IPC channel. The hard guarantee from ADR-0008 rule 6 —
-"the bridge never writes sales, cash, inventory, fiscal, journal,
-or outbox tables" — is preserved trivially in v1 because no
-local execution exists at all yet.
+**Client-local hardware bridge (`ENG-074b`) — Shipped 2026-05-09**.
+A `hub_client` terminal with a USB / TCP / serial printer attached
+now dispatches receipts and drawer kicks locally. Two new read-only
+hub procedures (`peripherals.buildReceiptBytes`,
+`peripherals.buildDrawerKickBytes`) return the ESC/POS bytes plus
+a `transportHint` mirrored from the hub-side
+`site_peripherals.config_json`. The renderer in `hub_client` mode
+pipes those bytes through `window.electron.peripherals.dispatchLocalEscpos`
+(new IPC channel `peripherals:dispatch-local-escpos`) which the
+Electron main module `apps/desktop/src/main/peripherals/local-bridge.ts`
+hands to `resolveTransport` from `@puntovivo/server` and writes
+synchronously. The dispatcher returns `{success, error?, errorCode?}`
+so the renderer surfaces the existing `onEscposFallback` toast on
+failure (USB unplug, TCP refused, USB/serial driver stub
+`DRIVER_NOT_IMPLEMENTED`). The hard guarantee from ADR-0008 rule 6
+— "the bridge never writes sales, cash, inventory, fiscal, journal,
+or outbox tables" — is preserved by construction: the bridge module
+has zero database imports (an architectural lint test pins this by
+substring-scanning the source) and the new server procedures are
+`.query`-typed reads that count as zero `hardware_outbox` writes
+across calls (asserted by the `peripherals-build-bytes.test.ts`
+invariant pin). USB and serial transports remain stubs
+(`DRIVER_NOT_IMPLEMENTED`) until a hardware lab session activates
+them; the bridge fails gracefully, the legacy HTML print path runs.
+The renderer fork lives in `apps/web/src/features/sales/receiptPrinter.ts`
+(`createEscposReceiptDispatcher` + `dispatchDrawerKick`) so
+`SaleDetailsModal` and `SalesPage` consume one routing decision
+regardless of authority mode.
 
 ## Packaging Options
 

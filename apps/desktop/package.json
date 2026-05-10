@@ -20,7 +20,7 @@
     "make:desktop": "npm run prepare:server && npm run electron:ensure:binary && npm run build --workspace=@puntovivo/web && electron-forge make",
     "publish:desktop": "electron-forge publish",
     "lint": "eslint .",
-    "test": "node --test --experimental-strip-types \"src/main/__tests__/**/*.test.ts\"",
+    "test": "node --test --experimental-strip-types \"src/main/**/*.test.ts\"",
     "format": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:fix": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "typecheck": "tsc --noEmit",

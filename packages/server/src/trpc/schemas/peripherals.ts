@@ -124,6 +124,24 @@ export const kickCashDrawerInput = z.object({
 });
 export type KickCashDrawerInput = z.infer<typeof kickCashDrawerInput>;
 
+// ENG-074b — read-only "give me the bytes" inputs for the
+// hub_client local hardware bridge. Same shape as printReceipt /
+// kickCashDrawer minus the idempotency key (these procedures
+// never write `hardware_outbox` so dedup is moot). Per
+// ADR-0008 rule 6 the bridge runs on the terminal that owns the
+// physical printer; the server only resolves the active
+// peripheral and serializes the bytes.
+export const buildReceiptBytesInput = z.object({
+  saleId: z.string().min(1, 'saleId is required'),
+  siteId: z.string().min(1, 'siteId is required'),
+});
+export type BuildReceiptBytesInput = z.infer<typeof buildReceiptBytesInput>;
+
+export const buildDrawerKickBytesInput = z.object({
+  siteId: z.string().min(1, 'siteId is required'),
+});
+export type BuildDrawerKickBytesInput = z.infer<typeof buildDrawerKickBytesInput>;
+
 // ENG-062 — operator-visible peek into the hardware outbox tail.
 // Consumed by ENG-065a's Operations Center Device Health panel;
 // tenant-scoped so cross-tenant rows never leak.
