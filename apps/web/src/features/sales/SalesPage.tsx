@@ -49,6 +49,11 @@ import {
   useCartWorkspaceStore,
 } from '@/features/sales/useCartWorkspaceStore';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import {
+  dispatchDrawerKick,
+  type DrawerKickOutcome,
+  type HubDrawerBytesPayload,
+} from '@/features/sales/receiptPrinter';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -812,8 +817,13 @@ export function SalesPage() {
   const hasRegisteredDrawer = !!peripheralsForSiteQuery.data?.find(
     r => r.kind === 'cash_drawer' && r.driver === 'escpos'
   );
-  const kickCashDrawerMutation = trpc.peripherals.kickCashDrawer.useMutation({
-    onSuccess: result => {
+  const kickCashDrawerMutation = trpc.peripherals.kickCashDrawer.useMutation();
+  // `useMutation()` returns a fresh object on every render, so depend
+  // only on the stable `mutateAsync` reference — keeps the kick
+  // handler identity stable without breaking exhaustive-deps.
+  const kickCashDrawerMutateAsync = kickCashDrawerMutation.mutateAsync;
+  const handleDrawerKickOutcome = useCallback(
+    (result: DrawerKickOutcome) => {
       if (result.status === 'ok') {
         toast.success({ title: t('sales:printer.kickDrawerSuccess') });
       } else if (result.status === 'no-drawer-registered') {
@@ -821,18 +831,48 @@ export function SalesPage() {
       } else {
         toast.error({
           title: t('sales:printer.kickDrawerFailed'),
-          description: result.errorMessage ?? '',
+          description: result.errorMessage ?? result.error ?? '',
         });
       }
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'sales:printer.kickDrawerFailed',
-    }),
-  });
-  const handleKickCashDrawer = useCallback(() => {
+    [t, toast]
+  );
+  // ENG-062 + ENG-074b — `dispatchDrawerKick` collapses the
+  // device_local / site_hub / hub_client decision into a single
+  // outcome the UI can toast on. In hub_client mode it asks the hub
+  // for `peripherals.buildDrawerKickBytes` and pipes the bytes
+  // through the local hardware bridge; otherwise it routes to the
+  // existing server-managed `kickCashDrawer` mutation.
+  const handleKickCashDrawer = useCallback(async () => {
     if (!currentSite) return;
-    kickCashDrawerMutation.mutate({ siteId: currentSite.id });
-  }, [currentSite, kickCashDrawerMutation]);
+    const siteId = currentSite.id;
+    try {
+      const result = await dispatchDrawerKick({
+        serverKick: async () => {
+          const r = await kickCashDrawerMutateAsync({ siteId });
+          return r as DrawerKickOutcome;
+        },
+        fetchHubDrawerBytes: async () => {
+          const r = await utils.peripherals.buildDrawerKickBytes.fetch({ siteId });
+          return r as HubDrawerBytesPayload;
+        },
+      });
+      handleDrawerKickOutcome(result);
+    } catch (err) {
+      const description = translateServerError(err, t, t('errors:server.unknown'));
+      toast.error({
+        title: t('sales:printer.kickDrawerFailed'),
+        description,
+      });
+    }
+  }, [
+    currentSite,
+    handleDrawerKickOutcome,
+    kickCashDrawerMutateAsync,
+    t,
+    toast,
+    utils,
+  ]);
   const onKickCashDrawer =
     isManagerOrAdmin && hasRegisteredDrawer && !!currentSite
       ? handleKickCashDrawer

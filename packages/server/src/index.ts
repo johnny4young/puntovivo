@@ -616,3 +616,18 @@ export {
   type RuntimeConfig,
   type ResolveRuntimeConfigOptions,
 } from './config/runtime.js';
+// ENG-074b — ESC/POS transport resolver. The Electron main imports
+// this so the hub_client local hardware bridge can dispatch bytes
+// returned from `peripherals.buildReceiptBytes` /
+// `buildDrawerKickBytes` through the locally-attached printer
+// without touching any DB. Per ADR-0008 rule 6 the bridge module
+// MUST stay free of operational-table writes.
+export {
+  resolveTransport,
+  EscPosTransportError,
+  MockEscPosTransport,
+  __setEscPosTransportForTest,
+  type EscPosChannel,
+  type EscPosTransport,
+  type EscPosTransportConfig,
+} from './services/peripherals/escpos/transport.js';

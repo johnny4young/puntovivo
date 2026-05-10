@@ -75,6 +75,32 @@ export interface ElectronAPI {
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
   runtime: RuntimeAPI;
+  peripherals: PeripheralsAPI;
+}
+
+/**
+ * ENG-074b — Hub-client local hardware bridge API. The renderer in
+ * `authorityMode === 'hub_client'` fetches ESC/POS bytes from the
+ * hub and pipes them here so the main process can write them to the
+ * locally-attached printer / drawer. Per ADR-0008 rule 6 the bridge
+ * NEVER touches operational tables; the IPC payload is just bytes
+ * + transport hint.
+ */
+export interface LocalEscPosTransportHint {
+  channel: 'usb' | 'tcp' | 'serial' | 'mock';
+  host?: string | null;
+  port?: number | null;
+  vendorId?: number | null;
+  productId?: number | null;
+  devicePath?: string | null;
+  timeoutMs?: number | null;
+}
+
+export interface PeripheralsAPI {
+  dispatchLocalEscpos: (payload: {
+    bytes: number[];
+    transport: LocalEscPosTransportHint;
+  }) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
 }
 
 /**
@@ -184,6 +210,16 @@ const runtimeAPI: RuntimeAPI = {
     ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
 };
 
+// ENG-074b — Hub-client local hardware bridge API. Async IPC; the
+// main side calls `dispatchLocalEscpos` from the local-bridge
+// module which writes the bytes to the resolved transport. Returns
+// {success, error?, errorCode?} so the renderer can surface a
+// translatable toast on failure.
+const peripheralsAPI: PeripheralsAPI = {
+  dispatchLocalEscpos: payload =>
+    ipcRenderer.invoke('peripherals:dispatch-local-escpos', payload),
+};
+
 // Custom APIs for renderer
 const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -205,6 +241,7 @@ const electronAPI: ElectronAPI = {
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,
   runtime: runtimeAPI,
+  peripherals: peripheralsAPI,
 };
 
 const dbAPI: DatabaseAPI = {

@@ -7,8 +7,10 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
 import { SaleDetailsFiscalBlock } from '@/features/sales/SaleDetailsFiscalBlock';
 import {
+  createEscposReceiptDispatcher,
   printSaleReceipt,
   type EscPosDispatchOutcome,
+  type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
@@ -41,25 +43,41 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
-  // ENG-062 — server-side ESC/POS dispatch. Builds the closure once
-  // and hands it to `printSaleReceipt`; the dispatcher returns
-  // `printed` (server flushed bytes), `system-fallback` (no
-  // escpos peripheral registered, take the legacy HTML path), or
-  // `fallback` (escpos attempt failed; fall back AND toast).
+  // ENG-062 + ENG-074b — ESC/POS dispatch decision is collapsed into
+  // `createEscposReceiptDispatcher`. In `device_local` / `site_hub`
+  // it calls `peripherals.printReceipt` (server-side flush); in
+  // `hub_client` it asks the hub for the bytes via
+  // `peripherals.buildReceiptBytes` and pipes them through the
+  // local hardware bridge (`window.electron.peripherals.dispatchLocalEscpos`).
+  // Either way the dispatcher returns `printed` / `system-fallback`
+  // / `fallback` so this caller stays agnostic to the runtime mode.
   const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
+  // `useMutation()` returns a fresh object on every render, so depend
+  // only on the stable `mutateAsync` reference — keeps the dispatcher
+  // identity stable across renders without breaking exhaustive-deps.
+  const printReceiptMutateAsync = printReceiptMutation.mutateAsync;
   const buildEscposDispatcher = useCallback(
     (saleIdToPrint: string): (() => Promise<EscPosDispatchOutcome>) | undefined => {
       if (!currentSite) return undefined;
       const siteId = currentSite.id;
-      return async () => {
-        const result = await printReceiptMutation.mutateAsync({
-          saleId: saleIdToPrint,
-          siteId,
-        });
-        return result as EscPosDispatchOutcome;
-      };
+      return createEscposReceiptDispatcher({
+        serverPrint: async () => {
+          const result = await printReceiptMutateAsync({
+            saleId: saleIdToPrint,
+            siteId,
+          });
+          return result as EscPosDispatchOutcome;
+        },
+        fetchHubReceiptBytes: async () => {
+          const result = await utils.peripherals.buildReceiptBytes.fetch({
+            saleId: saleIdToPrint,
+            siteId,
+          });
+          return result as HubReceiptBytesPayload;
+        },
+      });
     },
-    [currentSite, printReceiptMutation]
+    [currentSite, printReceiptMutateAsync, utils]
   );
   const handleEscposFallback = useCallback(() => {
     toast.warning({ title: t('sales:printer.escposFailedFallback') });

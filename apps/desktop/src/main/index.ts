@@ -1950,6 +1950,18 @@ const cachedRendererRuntimeConfig = (() => {
 ipcMain.on('runtime:get-config', event => {
   event.returnValue = cachedRendererRuntimeConfig;
 });
+
+// ENG-074b — Hub-client local hardware bridge IPC. The renderer in
+// hub_client mode fetches ESC/POS bytes from the hub via
+// `peripherals.buildReceiptBytes` / `buildDrawerKickBytes` and
+// pipes them through this handler. The dispatcher reuses the
+// server's `resolveTransport` helper but never opens a DB
+// connection — see local-bridge.ts for the ADR-0008 rule 6
+// invariant.
+ipcMain.handle('peripherals:dispatch-local-escpos', async (_event, payload) => {
+  const { dispatchLocalEscpos } = await import('./peripherals/local-bridge.js');
+  return dispatchLocalEscpos(payload);
+});
 // The fallback string is only returned before the embedded server has
 // started. ENG-072 — once the server is up, `getUrl()` returns the
 // real bind address resolved from the Authority Node runtime config.

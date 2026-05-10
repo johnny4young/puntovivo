@@ -22,6 +22,7 @@ import {
   hardwareOutbox,
   sitePeripherals,
   sites,
+  tenants,
   type PeripheralKind,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -39,12 +40,22 @@ import type {
   TestResult,
 } from '../../services/peripherals/index.js';
 import { buildSaleReceiptDocument } from '../../services/peripherals/index.js';
+import {
+  ESCPOS_BYTES,
+  buildEscPosBytes,
+  type EscPosCharset,
+  type ReceiptDocument,
+} from '../../services/peripherals/escpos/byte-builder.js';
+import { escposReceiptPrinterConfigSchema } from '../../services/peripherals/drivers/escpos-receipt-printer.js';
+import { escposCashDrawerConfigSchema } from '../../services/peripherals/drivers/escpos-cash-drawer.js';
 import { getSaleRecord } from '../../application/sales/sale-read.js';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
   activeForSiteInput,
+  buildDrawerKickBytesInput,
+  buildReceiptBytesInput,
   kickCashDrawerInput,
   listPeripheralsInput,
   peekHardwareOutboxInput,
@@ -386,9 +397,14 @@ export const peripheralsRouter = router({
         };
       }
 
+      const tenantRow = await ctx.db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
       const document = buildSaleReceiptDocument(
         {
-          header: { tenantName: sale.tenantId },
+          header: { tenantName: tenantRow?.name ?? sale.tenantId },
           saleNumber: sale.saleNumber,
           customerName: sale.customerName ?? undefined,
           items: sale.items.map(item => ({
@@ -534,6 +550,180 @@ export const peripheralsRouter = router({
         status: 'error' as const,
         error: result.error?.kind ?? 'UNKNOWN',
         errorMessage: result.error?.message ?? 'Drawer kick failed',
+      };
+    }),
+
+  /**
+   * ENG-074b — read-only "give me the bytes" for the hub_client
+   * local hardware bridge.
+   *
+   * Composes the same `ReceiptDocument` `printReceipt` would build,
+   * runs `buildEscPosBytes(doc, opts)` against the active escpos
+   * peripheral's config, and returns the bytes + the transport
+   * hint so the calling Electron main can dispatch through its own
+   * locally-attached printer.
+   *
+   * Per ADR-0008 rule 6 the procedure NEVER writes operational
+   * tables: no `hardware_outbox` enqueue, no `adapter.print()`
+   * call. The dispatcher on the terminal is the side effect; the
+   * server only provides bytes.
+   *
+   * Tenant-scoped via `getSaleRecord(tenantId, saleId)` plus
+   * `ensureSiteBelongsToTenant`. Same role gate as `printReceipt`
+   * (`tenantProcedure` — cashier+).
+   */
+  buildReceiptBytes: tenantProcedure
+    .input(buildReceiptBytesInput)
+    .query(async ({ ctx, input }) => {
+      // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
+      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+
+      const printerRow = await ctx.db
+        .select()
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.kind, 'printer'),
+            eq(sitePeripherals.isActive, true)
+          )
+        )
+        .get();
+
+      // No active escpos peripheral → renderer falls back to the
+      // legacy HTML print path. Return an empty payload that the
+      // bridge consumer can interpret as `system-fallback`.
+      if (!printerRow || printerRow.driver !== 'escpos') {
+        return {
+          status: 'system-fallback' as const,
+          bytes: [] as number[],
+          paperWidth: null,
+          characterSet: null,
+          transportHint: null,
+        };
+      }
+
+      const parsed = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
+      if (!parsed.success) {
+        return {
+          status: 'system-fallback' as const,
+          bytes: [] as number[],
+          paperWidth: null,
+          characterSet: null,
+          transportHint: null,
+        };
+      }
+
+      const config = parsed.data;
+      const tenantRow = await ctx.db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
+      const baseDocument = buildSaleReceiptDocument(
+        {
+          header: { tenantName: tenantRow?.name ?? sale.tenantId },
+          saleNumber: sale.saleNumber,
+          customerName: sale.customerName ?? undefined,
+          items: sale.items.map(item => ({
+            name: item.productName ?? item.productSku ?? '—',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total,
+          })),
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          total: sale.total,
+          totalLabel: 'TOTAL',
+          formatCurrency: v => v.toFixed(2),
+        },
+        { kickDrawer: false }
+      );
+
+      const document: ReceiptDocument = {
+        ...baseDocument,
+        kickDrawer: config.kickDrawerAfterReceipt,
+      };
+
+      const bytes = buildEscPosBytes(document, {
+        paperWidth: config.paperWidth,
+        characterSet: config.characterSet as EscPosCharset,
+      });
+
+      return {
+        status: 'ready' as const,
+        bytes: Array.from(bytes),
+        paperWidth: config.paperWidth,
+        characterSet: config.characterSet,
+        transportHint: {
+          channel: config.channel,
+          host: config.host ?? null,
+          port: config.port ?? null,
+          vendorId: config.vendorId ?? null,
+          productId: config.productId ?? null,
+          devicePath: config.devicePath ?? null,
+          timeoutMs: config.timeoutMs ?? null,
+        },
+      };
+    }),
+
+  /**
+   * ENG-074b — read-only drawer-kick bytes for the hub_client
+   * local hardware bridge. Same shape contract as
+   * `buildReceiptBytes`: returns `ESCPOS_BYTES.DRAWER_KICK` plus
+   * the transport hint of the active escpos cash_drawer
+   * peripheral. Manager+ gate mirrors `kickCashDrawer`.
+   */
+  buildDrawerKickBytes: managerOrAdminProcedure
+    .input(buildDrawerKickBytesInput)
+    .query(async ({ ctx, input }) => {
+      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+
+      const drawerRow = await ctx.db
+        .select()
+        .from(sitePeripherals)
+        .where(
+          and(
+            eq(sitePeripherals.tenantId, ctx.tenantId),
+            eq(sitePeripherals.siteId, input.siteId),
+            eq(sitePeripherals.kind, 'cash_drawer'),
+            eq(sitePeripherals.isActive, true)
+          )
+        )
+        .get();
+
+      if (!drawerRow || drawerRow.driver !== 'escpos') {
+        return {
+          status: 'no-drawer-registered' as const,
+          bytes: [] as number[],
+          transportHint: null,
+        };
+      }
+
+      const parsed = escposCashDrawerConfigSchema.safeParse(drawerRow.config);
+      if (!parsed.success) {
+        return {
+          status: 'no-drawer-registered' as const,
+          bytes: [] as number[],
+          transportHint: null,
+        };
+      }
+
+      const config = parsed.data;
+      return {
+        status: 'ready' as const,
+        bytes: Array.from(ESCPOS_BYTES.DRAWER_KICK),
+        transportHint: {
+          channel: config.channel,
+          host: config.host ?? null,
+          port: config.port ?? null,
+          vendorId: config.vendorId ?? null,
+          productId: config.productId ?? null,
+          devicePath: config.devicePath ?? null,
+          timeoutMs: config.timeoutMs ?? null,
+        },
       };
     }),
 
