@@ -522,6 +522,61 @@ describe('Auth tRPC Router', () => {
 
       expect(response.statusCode).toBe(200);
     });
+
+    it('should issue and clear refresh cookies with secure attributes on forwarded https requests', async () => {
+      const loginResponse = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.login?batch=1',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-proto': 'https',
+        },
+        payload: JSON.stringify({
+          '0': {
+            email: 'trpctest@example.com',
+            password: 'TestPassword123!',
+          },
+        }),
+      });
+
+      const setCookie = loginResponse.headers['set-cookie'];
+      const cookieHeaders = Array.isArray(setCookie) ? setCookie : [setCookie ?? ''];
+      const refreshCookie = cookieHeaders.find(header =>
+        header.startsWith('puntovivo_refresh=')
+      );
+      const csrfCookie = getCookieValue(setCookie, 'puntovivo_csrf');
+      const accessToken = loginResponse.json()[0]?.result?.data?.token as
+        | string
+        | undefined;
+
+      expect(refreshCookie).toContain('Secure');
+      expect(accessToken).toBeTruthy();
+      expect(csrfCookie).toBeTruthy();
+
+      const logoutResponse = await server.app.inject({
+        method: 'POST',
+        url: '/api/trpc/auth.logout?batch=1',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          cookie: `puntovivo_csrf=${csrfCookie}`,
+          'content-type': 'application/json',
+          'x-forwarded-proto': 'https',
+        },
+        payload: '{}',
+      });
+
+      const logoutSetCookie = logoutResponse.headers['set-cookie'];
+      const logoutCookieHeaders = Array.isArray(logoutSetCookie)
+        ? logoutSetCookie
+        : [logoutSetCookie ?? ''];
+      const clearedRefreshCookie = logoutCookieHeaders.find(header =>
+        header.startsWith('puntovivo_refresh=')
+      );
+
+      expect(logoutResponse.statusCode).toBe(200);
+      expect(clearedRefreshCookie).toContain('Max-Age=0');
+      expect(clearedRefreshCookie).toContain('Secure');
+    });
   });
 
   describe('auth.changePassword', () => {

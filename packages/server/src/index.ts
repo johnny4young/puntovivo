@@ -7,7 +7,7 @@
  * @module server
  */
 
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import Fastify, {
   type FastifyBaseLogger,
   type FastifyInstance,
@@ -41,6 +41,7 @@ import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import { warmCacheFromDb } from './security/loginRateLimit.js';
 import {
   CSRF_HEADER_NAME,
+  csrfTokensMatch,
   ensureCsrfCookie,
   getCsrfHeader,
   isUnsafeMethod,
@@ -139,6 +140,10 @@ function buildRequestScopedLogger(request: FastifyRequest): FastifyRequest['log'
 
 const SITE_HUB_JWT_SECRET_MIN_LENGTH = 32;
 const SITE_HUB_JWT_SECRET_MIN_UNIQUE_CHARS = 8;
+export const SERVER_KEEP_ALIVE_TIMEOUT_MS = 5_000;
+export const SERVER_HEADERS_TIMEOUT_MS = 10_000;
+export const SERVER_REQUEST_TIMEOUT_MS = 30_000;
+export const SERVER_SOCKET_TIMEOUT_MS = 35_000;
 const BLOCKED_JWT_SECRET_PLACEHOLDERS = [
   'admin',
   'changeme',
@@ -341,6 +346,10 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       maxParamLength: 1024,
     },
   });
+  app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
+  app.server.headersTimeout = SERVER_HEADERS_TIMEOUT_MS;
+  app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
+  app.server.setTimeout(SERVER_SOCKET_TIMEOUT_MS);
 
   // Register CORS
   await app.register(cors, {
@@ -392,7 +401,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     }
 
     const csrfHeader = getCsrfHeader(request);
-    if (csrfHeader === csrfToken) {
+    if (csrfTokensMatch(csrfHeader, csrfToken)) {
       return;
     }
 

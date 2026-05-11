@@ -17,7 +17,7 @@
  * @module hooks/useHubReachability
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 
 const DEFAULT_INTERVAL_MS = 30_000;
@@ -65,27 +65,28 @@ export function useHubReachability(
 ): HubReachabilityState {
   const cfg = getRuntimeConfigSync();
   const isHubClient = cfg.authorityMode === 'hub_client' && Boolean(cfg.hubUrl);
+  const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const healthUrl = isHubClient && cfg.hubUrl
+    ? `${cfg.hubUrl.replace(/\/+$/, '')}/api/health`
+    : null;
   const [state, setState] = useState<HubReachabilityState>(DEFAULT_STATE);
-  const cancelledRef = useRef(false);
 
   useEffect(() => {
-    if (!isHubClient || !cfg.hubUrl) {
+    if (!healthUrl) {
       return;
     }
 
-    const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const fetchImpl = options.fetchImpl ?? fetch;
-    const healthUrl = `${cfg.hubUrl.replace(/\/+$/, '')}/api/health`;
-
-    cancelledRef.current = false;
+    const pollUrl = healthUrl;
+    let cancelled = false;
 
     async function pollOnce(): Promise<void> {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       const startedAt = new Date().toISOString();
       try {
-        const response = await fetchImpl(healthUrl, {
+        const response = await fetchImpl(pollUrl, {
           method: 'GET',
           signal: controller.signal,
           // Hub /api/health is unauthenticated per ENG-073, but we
@@ -93,7 +94,7 @@ export function useHubReachability(
           // origin and are not needed for this status check.
           credentials: 'omit',
         });
-        if (cancelledRef.current) return;
+        if (cancelled) return;
         if (response.ok) {
           setState({
             reachable: true,
@@ -108,7 +109,7 @@ export function useHubReachability(
           });
         }
       } catch (err) {
-        if (cancelledRef.current) return;
+        if (cancelled) return;
         const message =
           err instanceof Error
             ? err.name === 'AbortError'
@@ -133,14 +134,10 @@ export function useHubReachability(
     }, intervalMs);
 
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
       clearInterval(interval);
     };
-    // The runtime config is module-init-stable (ADR-0008); the deps
-    // here are the test-only overrides + the derived isHubClient
-    // flag.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHubClient, options.intervalMs, options.timeoutMs, options.fetchImpl]);
+  }, [fetchImpl, healthUrl, intervalMs, timeoutMs]);
 
   return state;
 }

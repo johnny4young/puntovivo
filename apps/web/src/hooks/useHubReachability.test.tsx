@@ -159,4 +159,37 @@ describe('useHubReachability', () => {
     // No further calls after unmount.
     expect(fetchSpy.mock.calls.length).toBeLessThanOrEqual(callsBeforeUnmount + 1);
   });
+
+  it('ignores stale poll results after the fetch dependency changes', async () => {
+    setBridge('hub_client', 'http://hub.local:8090');
+    let resolveFirstPoll: ((response: Response) => void) | undefined;
+    const staleFetch = vi.fn().mockImplementation(() => {
+      return new Promise<Response>(resolve => {
+        resolveFirstPoll = resolve;
+      });
+    });
+    const freshFetch = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
+
+    const { result, rerender } = renderHook(
+      ({ fetchImpl }: { fetchImpl: typeof fetch }) =>
+        useHubReachability({
+          intervalMs: 60_000,
+          timeoutMs: 1_000,
+          fetchImpl,
+        }),
+      { initialProps: { fetchImpl: staleFetch as typeof fetch } }
+    );
+
+    await waitFor(() => expect(staleFetch).toHaveBeenCalled());
+    rerender({ fetchImpl: freshFetch as typeof fetch });
+    await waitFor(() => expect(result.current.lastError).toBe('HTTP 503'));
+
+    act(() => {
+      resolveFirstPoll?.(new Response('{}', { status: 200 }));
+    });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(result.current.reachable).toBe(false);
+    expect(result.current.lastError).toBe('HTTP 503');
+  });
 });
