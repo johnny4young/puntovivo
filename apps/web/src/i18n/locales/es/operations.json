@@ -10,7 +10,8 @@
     "device": "Dispositivos",
     "cash": "Caja",
     "inventory": "Inventario",
-    "diagnostics": "Diagnóstico"
+    "diagnostics": "Diagnóstico",
+    "authority": "Autoridad"
   },
   "common": {
     "loading": "Cargando...",
@@ -161,6 +162,66 @@
       "success": "Se reconciliaron {{count}} productos",
       "error": "La reconciliación falló",
       "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
+    }
+  },
+  "authority": {
+    "hub": {
+      "title": "Salud de autoridad",
+      "description": "Modo de runtime, esquema y dispositivos conectados.",
+      "mode": "Modo",
+      "schema": "Esquema",
+      "activeDevices": "Dispositivos activos",
+      "pendingCodes": "Códigos pendientes"
+    },
+    "modes": {
+      "device_local": "Dispositivo local",
+      "site_hub": "Hub de tienda",
+      "hub_client": "Cliente del hub"
+    },
+    "roles": {
+      "authority_node": "Nodo de autoridad",
+      "hub_client": "Cliente del hub",
+      "web_client": "Cliente web"
+    },
+    "health": {
+      "online": "En línea",
+      "stale": "Sin latido reciente",
+      "revoked": "Revocado"
+    },
+    "pairing": {
+      "title": "Código de emparejamiento",
+      "description": "Genera un código de un solo uso para un terminal hub-client.",
+      "site": "Sede emparejada",
+      "deviceName": "Nombre del dispositivo",
+      "ttl": "Minutos",
+      "cta": "Generar",
+      "created": "Código listo",
+      "error": "No se pudo crear el código",
+      "copied": "Código copiado",
+      "copy": "Copiar",
+      "latest": "Último código",
+      "expiresAt": "Expira {{value}}",
+      "noPermission": "Solo el administrador puede crear códigos de emparejamiento."
+    },
+    "devices": {
+      "title": "Dispositivos registrados",
+      "description": "Nodos de autoridad, clientes web y terminales hub-client registrados para este tenant.",
+      "refresh": "Actualizar",
+      "empty": "Aún no hay dispositivos registrados.",
+      "revoke": "Revocar",
+      "revokeSuccess": "Dispositivo revocado",
+      "revokeError": "No se pudo revocar el dispositivo",
+      "noPermission": "Solo el administrador puede revocar clientes del hub.",
+      "confirmRevoke": "¿Revocar {{name}}?",
+      "columns": {
+        "name": "Dispositivo",
+        "role": "Rol",
+        "site": "Sede",
+        "health": "Salud",
+        "lastSeen": "Último latido",
+        "version": "Versión",
+        "actions": "Acciones"
+      }
     }
   },
   "diagnostics": {

@@ -306,6 +306,22 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at text NOT NULL,
         updated_at text NOT NULL
       );
+
+      -- ENG-075 — stub the devices table shape from migration 0010 so
+      -- later topology metadata migrations have their real bridge-build
+      -- target while this test stays focused on sync_queue preservation.
+      CREATE TABLE devices (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        kind text NOT NULL,
+        name text NOT NULL,
+        registered_by_user_id text NOT NULL,
+        last_seen_at text,
+        is_active integer DEFAULT 1 NOT NULL,
+        metadata text,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
     `);
 
     // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which

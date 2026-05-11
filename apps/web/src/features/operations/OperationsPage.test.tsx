@@ -2,10 +2,10 @@
  * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 6 tabs render in the role list visible to manager + admin.
+ *   - All 7 tabs render in the role list visible to manager + admin.
  *   - Default tab is `sync`.
  *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=inventory`,
- *     `?tab=diagnostics` deep links land on the right panel.
+ *     `?tab=diagnostics`, `?tab=authority` deep links land on the right panel.
  *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
  *
@@ -25,6 +25,7 @@ vi.mock('@/lib/trpc', () => ({
         inventory: { discrepancies: { invalidate: vi.fn() } },
       },
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
+      authority: { status: { invalidate: vi.fn() } },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
       cb({ peripherals: { list: () => ({ data: [], isLoading: false }) } }),
@@ -97,6 +98,49 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
       },
     },
+    authority: {
+      status: {
+        useQuery: () => ({
+          data: {
+            runtime: {
+              authorityMode: 'device_local',
+              hubUrl: null,
+              siteId: null,
+              deviceId: null,
+              bindHost: '127.0.0.1',
+              bindPort: 8090,
+              allowedLanOrigins: [],
+            },
+            hub: {
+              dbSchemaVersion: 21,
+              activeDeviceCount: 0,
+              tenantActiveDeviceCount: 0,
+            },
+            summary: {
+              total: 0,
+              online: 0,
+              stale: 0,
+              revoked: 0,
+              hubClients: 0,
+              authorityNodes: 0,
+              webClients: 0,
+            },
+            devices: [],
+            pairingCodes: [],
+          },
+          isLoading: false,
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+      createPairingCode: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+      },
+      revokeDevice: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+      },
+    },
     inventory: {
       reconcileBalances: {
         useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
@@ -128,7 +172,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the six tabs in order', () => {
+  it('renders the seven tabs in order', () => {
     render(<OperationsPage />);
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
@@ -136,6 +180,7 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-inventory')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-diagnostics')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-authority')).toBeInTheDocument();
   });
 
   it('defaults to the sync tab', () => {
@@ -190,6 +235,15 @@ describe('OperationsPage', () => {
       'true'
     );
     expect(screen.getByTestId('operations-tabpanel-diagnostics')).toBeInTheDocument();
+  });
+
+  it('lands on the authority panel via ?tab=authority deep link', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=authority'] });
+    expect(screen.getByTestId('operations-tab-authority')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('operations-tabpanel-authority')).toBeInTheDocument();
   });
 
   it('falls back to the default tab when ?tab=garbage', () => {

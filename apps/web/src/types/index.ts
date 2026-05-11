@@ -520,7 +520,9 @@ export type AuditLogAction =
   // ENG-047 — local anomaly detector audit persistence.
   | 'ai.anomaly.detected'
   // ENG-068 — module activation kernel toggle audit row.
-  | 'module.toggle';
+  | 'module.toggle'
+  // ENG-075 — hub-client terminal revocation.
+  | 'device.revoke';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -535,7 +537,9 @@ export type AuditLogResourceType =
   | 'user'
   | 'cashier'
   // ENG-068 — module activation kernel resource type.
-  | 'tenant_module';
+  | 'tenant_module'
+  // ENG-075 — hub-client terminal registry lifecycle.
+  | 'device';
 
 export interface AuditLogEntry {
   id: string;

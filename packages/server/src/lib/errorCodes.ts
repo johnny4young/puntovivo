@@ -299,6 +299,12 @@ export const SERVER_ERROR_CODES = {
    * retrying the critical mutation.
    */
   DEVICE_NOT_REGISTERED: 'DEVICE_NOT_REGISTERED',
+  // --- ENG-075 Authority Node pairing + health ---
+  AUTHORITY_SITE_NOT_FOUND: 'AUTHORITY_SITE_NOT_FOUND',
+  AUTHORITY_PAIRING_CODE_INVALID: 'AUTHORITY_PAIRING_CODE_INVALID',
+  AUTHORITY_PAIRING_CODE_EXPIRED: 'AUTHORITY_PAIRING_CODE_EXPIRED',
+  AUTHORITY_PAIRING_CODE_USED: 'AUTHORITY_PAIRING_CODE_USED',
+  AUTHORITY_DEVICE_NOT_REVOKABLE: 'AUTHORITY_DEVICE_NOT_REVOKABLE',
   /**
    * A procedure decorated with `criticalCommandProcedure` (per ADR-0002)
    * received an empty or malformed Command Envelope header. Renderers

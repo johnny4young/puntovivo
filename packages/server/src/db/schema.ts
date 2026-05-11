@@ -33,6 +33,21 @@ export const cashMovementTypeEnum = [
 ] as const;
 export type CashMovementType = (typeof cashMovementTypeEnum)[number];
 export const userRoleEnum = ['admin', 'manager', 'cashier', 'viewer'] as const;
+export const deviceAuthorityRoleEnum = [
+  'authority_node',
+  'hub_client',
+  'web_client',
+] as const;
+export type DeviceAuthorityRole = (typeof deviceAuthorityRoleEnum)[number];
+
+export const devicePairingCodeStatusEnum = [
+  'pending',
+  'claimed',
+  'expired',
+  'revoked',
+] as const;
+export type DevicePairingCodeStatus = (typeof devicePairingCodeStatusEnum)[number];
+
 export const sequentialDocumentTypeEnum = ['sale', 'purchase', 'order', 'quotation'] as const;
 export const quotationStatusEnum = [
   'draft',
@@ -101,6 +116,9 @@ export const auditLogActionEnum = [
   // module on/off via `modules.setActive`; metadata carries
   // `{moduleId, wasExplicit, defaultEnabled}` for activation history.
   'module.toggle',
+  // ENG-075 — Authority Node operability. Admin revokes a hub-client
+  // terminal from the Operations Center Authority tab.
+  'device.revoke',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -122,6 +140,8 @@ export const auditLogResourceTypeEnum = [
   // ENG-068 — module activation kernel. `module.toggle` audit rows
   // key on the module id (one row per module per tenant per toggle).
   'tenant_module',
+  // ENG-075 — hub-client terminal registry lifecycle.
+  'device',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
@@ -2345,6 +2365,14 @@ export const devices = sqliteTable(
       .notNull()
       .references(() => users.id),
     lastSeenAt: text('last_seen_at'),
+    // ENG-075 — explicit Authority Node topology metadata. Existing
+    // rows may be null; projection code derives a fallback from `kind`.
+    authorityRole: text('authority_role', { enum: deviceAuthorityRoleEnum }),
+    pairedSiteId: text('paired_site_id').references(() => sites.id, {
+      onDelete: 'set null',
+    }),
+    appVersion: text('app_version'),
+    dbSchemaVersion: integer('db_schema_version'),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
     metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     createdAt: text('created_at')
@@ -2357,6 +2385,8 @@ export const devices = sqliteTable(
   table => [
     index('idx_devices_tenant_active').on(table.tenantId, table.isActive),
     index('idx_devices_tenant_last_seen').on(table.tenantId, table.lastSeenAt),
+    index('idx_devices_tenant_authority_role').on(table.tenantId, table.authorityRole),
+    index('idx_devices_tenant_paired_site').on(table.tenantId, table.pairedSiteId),
   ]
 );
 
@@ -2368,6 +2398,67 @@ export const devicesRelations = relations(devices, ({ one }) => ({
   registeredBy: one(users, {
     fields: [devices.registeredByUserId],
     references: [users.id],
+  }),
+  pairedSite: one(sites, {
+    fields: [devices.pairedSiteId],
+    references: [sites.id],
+  }),
+}));
+
+export const devicePairingCodes = sqliteTable(
+  'device_pairing_codes',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    deviceName: text('device_name'),
+    status: text('status', { enum: devicePairingCodeStatusEnum })
+      .notNull()
+      .default('pending'),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    claimedByDeviceId: text('claimed_by_device_id').references(() => devices.id, {
+      onDelete: 'set null',
+    }),
+    expiresAt: text('expires_at').notNull(),
+    claimedAt: text('claimed_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    uniqueIndex('idx_device_pairing_codes_hash').on(table.codeHash),
+    index('idx_device_pairing_codes_tenant_status').on(table.tenantId, table.status),
+    index('idx_device_pairing_codes_tenant_site').on(table.tenantId, table.siteId),
+    index('idx_device_pairing_codes_claimed_device').on(table.claimedByDeviceId),
+  ]
+);
+
+export const devicePairingCodesRelations = relations(devicePairingCodes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [devicePairingCodes.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [devicePairingCodes.siteId],
+    references: [sites.id],
+  }),
+  createdBy: one(users, {
+    fields: [devicePairingCodes.createdByUserId],
+    references: [users.id],
+  }),
+  claimedByDevice: one(devices, {
+    fields: [devicePairingCodes.claimedByDeviceId],
+    references: [devices.id],
   }),
 }));
 

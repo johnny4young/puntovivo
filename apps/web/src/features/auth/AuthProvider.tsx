@@ -245,7 +245,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Reading the runtime config is cheap (cached at module
         // init) and a no-op for the pure-web build (returns
         // device_local).
-        const runtimeMode = getRuntimeConfigSync().authorityMode;
+        const runtimeConfig = getRuntimeConfigSync();
+        const runtimeMode = runtimeConfig.authorityMode;
         const kind: 'desktop' | 'web' | 'hub_client' = isElectron
           ? runtimeMode === 'hub_client'
             ? 'hub_client'
@@ -257,10 +258,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
             : isElectron
               ? `puntovivo-desktop-${navigator.platform || 'unknown'}`
               : `puntovivo-web-${navigator.platform || navigator.userAgent.slice(0, 40)}`;
+        const appVersion = isElectron
+          ? await window.api?.getAppVersion?.().catch(() => null)
+          : null;
         const result = await vanillaClient.auth.registerDevice.mutate({
           kind,
           name: friendlyName,
           deviceId: existing ?? undefined,
+          siteId: runtimeConfig.siteId ?? undefined,
+          appVersion,
+          metadata: {
+            authorityMode: runtimeMode,
+            platform: navigator.platform || null,
+            ...(isElectron ? {} : { userAgent: navigator.userAgent }),
+          },
         });
         await storeDeviceId(result.deviceId);
       } catch (deviceErr) {

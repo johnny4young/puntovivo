@@ -504,5 +504,17 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  if (entry.action === 'device.revoke') {
+    const name =
+      entry.before && typeof entry.before.name === 'string'
+        ? entry.before.name
+        : entry.resourceId;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.deviceRevoke', { name })}
+      </span>
+    );
+  }
+
   return <span className="text-sm text-secondary-500">—</span>;
 }

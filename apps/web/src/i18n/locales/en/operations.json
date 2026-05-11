@@ -10,7 +10,8 @@
     "device": "Devices",
     "cash": "Cash",
     "inventory": "Inventory",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "authority": "Authority"
   },
   "common": {
     "loading": "Loading...",
@@ -161,6 +162,66 @@
       "success": "Reconciled {{count}} products",
       "error": "Reconciliation failed",
       "noPermission": "Only admins can reconcile cached stock."
+    }
+  },
+  "authority": {
+    "hub": {
+      "title": "Authority health",
+      "description": "Current runtime mode, schema, and connected device count.",
+      "mode": "Mode",
+      "schema": "Schema",
+      "activeDevices": "Active devices",
+      "pendingCodes": "Pending codes"
+    },
+    "modes": {
+      "device_local": "Device local",
+      "site_hub": "Store hub",
+      "hub_client": "Hub client"
+    },
+    "roles": {
+      "authority_node": "Authority node",
+      "hub_client": "Hub client",
+      "web_client": "Web client"
+    },
+    "health": {
+      "online": "Online",
+      "stale": "Stale",
+      "revoked": "Revoked"
+    },
+    "pairing": {
+      "title": "Pairing code",
+      "description": "Generate a one-time code for a hub-client terminal.",
+      "site": "Paired site",
+      "deviceName": "Device name",
+      "ttl": "Minutes",
+      "cta": "Generate",
+      "created": "Pairing code ready",
+      "error": "Could not create pairing code",
+      "copied": "Pairing code copied",
+      "copy": "Copy",
+      "latest": "Latest code",
+      "expiresAt": "Expires {{value}}",
+      "noPermission": "Only admins can create pairing codes."
+    },
+    "devices": {
+      "title": "Registered devices",
+      "description": "Authority nodes, web clients, and hub-client terminals registered for this tenant.",
+      "refresh": "Refresh",
+      "empty": "No devices registered yet.",
+      "revoke": "Revoke",
+      "revokeSuccess": "Device revoked",
+      "revokeError": "Could not revoke device",
+      "noPermission": "Only admins can revoke hub clients.",
+      "confirmRevoke": "Revoke {{name}}?",
+      "columns": {
+        "name": "Device",
+        "role": "Role",
+        "site": "Site",
+        "health": "Health",
+        "lastSeen": "Last seen",
+        "version": "Version",
+        "actions": "Actions"
+      }
     }
   },
   "diagnostics": {

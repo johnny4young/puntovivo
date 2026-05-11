@@ -9,6 +9,7 @@ import { DeviceHealthPanel } from './DeviceHealthPanel';
 import { CashHealthPanel } from './CashHealthPanel';
 import { InventoryHealthPanel } from './InventoryHealthPanel';
 import { DiagnosticExportPanel } from './DiagnosticExportPanel';
+import { AuthorityHealthPanel } from './AuthorityHealthPanel';
 
 /**
  * ENG-065a / ENG-065b / ENG-065c — Operations Center.
@@ -19,13 +20,22 @@ import { DiagnosticExportPanel } from './DiagnosticExportPanel';
  * shipped in ENG-065c. Payment reconciliation lands in ENG-065d once
  * `payment_outbox` ships from ENG-063.
  *
- * Tab state is URL-driven (`?tab=sync|fiscal|device|cash|inventory|diagnostics`)
+ * Tab state is URL-driven
+ * (`?tab=sync|fiscal|device|cash|inventory|diagnostics|authority`)
  * so deep links from elsewhere in the app (e.g. an alert banner
  * pointing at a specific failure surface) land directly on the right
  * panel without manual navigation. `replace: true` keeps the back
  * button quiet.
  */
-const TAB_KEYS = ['sync', 'fiscal', 'device', 'cash', 'inventory', 'diagnostics'] as const;
+const TAB_KEYS = [
+  'sync',
+  'fiscal',
+  'device',
+  'cash',
+  'inventory',
+  'diagnostics',
+  'authority',
+] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -56,6 +66,7 @@ export function OperationsPage() {
       cash: t('tabs.cash'),
       inventory: t('tabs.inventory'),
       diagnostics: t('tabs.diagnostics'),
+      authority: t('tabs.authority'),
     }),
     [t]
   );
@@ -112,6 +123,7 @@ export function OperationsPage() {
         {activeTab === 'cash' && <CashHealthPanel />}
         {activeTab === 'inventory' && <InventoryHealthPanel />}
         {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
+        {activeTab === 'authority' && <AuthorityHealthPanel />}
       </div>
     </div>
   );

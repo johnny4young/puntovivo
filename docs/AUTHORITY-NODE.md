@@ -206,8 +206,8 @@ protection keeps working with `credentials: true` cross-origin.
   domain. Multi-VLAN reachability is a network-engineering
   concern, not an Authority Node concern.
 - **Per-tenant active-device count on `/api/health`**: ENG-073
-  surfaces a hub-wide aggregate. The per-tenant Operations Center
-  Authority tab lands with ENG-075.
+  surfaces a hub-wide aggregate. ENG-075 ships the tenant-scoped
+  count inside the authenticated Operations Center Authority tab.
 
 ### Known gap — cross-origin refresh cookies (deferred after ENG-074)
 
@@ -301,9 +301,15 @@ After login, `AuthProvider` calls `auth.registerDevice` with
 terminal as a hub client. The `kind` enum extends from
 `['desktop', 'web']` to `['desktop', 'web', 'hub_client']` — no
 schema migration is required because the column is plain text and
-the constraint is TS-only. The Operations Center Authority tab
-(ENG-075) reads `kind` to render which devices are full local
-installs versus hub-bound terminals.
+the constraint is TS-only.
+
+**ENG-075 shipped 2026-05-11**: `auth.registerDevice` also records
+the resolved `authorityMode`, paired `siteId` (when present), app
+version and DB schema version. The `devices` table now has explicit
+Authority topology columns (`authority_role`, `paired_site_id`,
+`app_version`, `db_schema_version`) so the Operations Center can
+separate full local installs, the Store Hub Authority Node and
+hub-client terminals without guessing from `kind` alone.
 
 ### Known gaps and follow-ups
 
@@ -346,6 +352,33 @@ The renderer fork lives in `apps/web/src/features/sales/receiptPrinter.ts`
 (`createEscposReceiptDispatcher` + `dispatchDrawerKick`) so
 `SaleDetailsModal` and `SalesPage` consume one routing decision
 regardless of authority mode.
+
+## Pairing and Authority Health (ENG-075)
+
+Hub deployments are now operable from the Operations Center:
+
+- Admins create short-lived pairing codes from
+  `/operations?tab=authority`. The code is shown once to the
+  operator, stored only as a SHA-256 hash scoped to the tenant, and
+  expires after the configured TTL (default 10 minutes, max 60).
+- Hub clients claim a code during `auth.registerDevice` by sending
+  `pairingCode`. The claim path validates tenant + site scope, requires
+  `kind: 'hub_client'`, and updates the pairing row with
+  `status='claimed'` using a `status='pending'` guard so the code cannot
+  be reassigned after the first successful claim.
+- The Authority tab shows runtime mode, DB schema version, active
+  device count, pending pairing-code count, per-device role, paired
+  site, last seen, app version and derived health status
+  (`online`, `stale`, `revoked`).
+- Admins can revoke hub-client terminals from the same tab. The server
+  deactivates the device and writes an audit row with
+  `action='device.revoke'` and `resourceType='device'`.
+- Diagnostics preview/export include the same `authorityTopology`
+  projection so a support bundle contains the Store Hub topology
+  without querying the UI separately.
+
+The Authority tab is read-only for managers except status inspection.
+Pairing-code creation and hub-client revocation remain admin-only.
 
 ## Packaging Options
 
@@ -434,6 +467,11 @@ Acceptance:
 - Operations Center has an Authority tab showing hub status and client
   terminals.
 - Admin can revoke a hub client.
+
+Shipped 2026-05-11 with migration `0021_authority_device_pairing.sql`,
+the `authority` tRPC router, diagnostics `authorityTopology`, localized
+Operations Center UI, audit action `device.revoke`, and live
+`/operations?tab=authority` smoke coverage.
 
 ### ENG-076 - Satellite offline fallback spike
 
