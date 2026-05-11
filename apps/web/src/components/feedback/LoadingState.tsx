@@ -8,6 +8,8 @@ interface FullscreenLoadingStateProps {
   description: string;
 }
 
+const PAGE_LOADING_FIELD_KEYS = ['name', 'tax-id', 'email', 'phone', 'address', 'notes'] as const;
+
 export function PageLoadingState({ title, description }: PageLoadingStateProps) {
   return (
     <div className="space-y-6">
@@ -19,8 +21,8 @@ export function PageLoadingState({ title, description }: PageLoadingStateProps) 
       <div className="space-y-6">
         <div className="card animate-pulse p-6">
           <div className="grid gap-4 md:grid-cols-2">
-            {Array.from({ length: 6 }, (_, index) => (
-              <div key={index} className="space-y-2">
+            {PAGE_LOADING_FIELD_KEYS.map(key => (
+              <div key={key} className="space-y-2">
                 <div className="h-4 w-24 rounded bg-secondary-100" />
                 <div className="h-11 rounded-xl bg-secondary-100" />
               </div>

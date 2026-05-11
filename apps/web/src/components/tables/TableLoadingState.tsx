@@ -3,6 +3,14 @@ interface TableLoadingStateProps {
   rowCount?: number;
 }
 
+const TABLE_HEADER_SKELETON_KEYS = ['primary', 'secondary', 'status', 'actions'] as const;
+const TABLE_HEADER_SKELETON_WIDTHS: Record<(typeof TABLE_HEADER_SKELETON_KEYS)[number], string> = {
+  primary: 'h-4 w-20',
+  secondary: 'h-4 w-24',
+  status: 'h-4 w-16',
+  actions: 'h-4 w-20',
+};
+
 function SkeletonLine({ className }: { className: string }) {
   return (
     <div
@@ -16,6 +24,8 @@ export function TableLoadingState({
   message,
   rowCount = 8,
 }: TableLoadingStateProps) {
+  const rowKeys = Array.from({ length: rowCount }, (_, index) => `row-${index + 1}`);
+
   return (
     <div className="space-y-4" role="status" aria-live="polite" aria-label={message}>
       <span className="sr-only">{message}</span>
@@ -31,16 +41,15 @@ export function TableLoadingState({
       <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
         <div className="border-b border-line/70 bg-surface-2/80 px-4 py-3">
           <div className="grid grid-cols-4 gap-4">
-            <SkeletonLine className="h-4 w-20" />
-            <SkeletonLine className="h-4 w-24" />
-            <SkeletonLine className="h-4 w-16" />
-            <SkeletonLine className="h-4 w-20" />
+            {TABLE_HEADER_SKELETON_KEYS.map(key => (
+              <SkeletonLine key={key} className={TABLE_HEADER_SKELETON_WIDTHS[key]} />
+            ))}
           </div>
         </div>
 
         <div className="divide-y divide-line/70 bg-card/85">
-          {Array.from({ length: rowCount }, (_, index) => (
-            <div key={index} className="grid grid-cols-4 gap-4 px-4 py-4">
+          {rowKeys.map(key => (
+            <div key={key} className="grid grid-cols-4 gap-4 px-4 py-4">
               <SkeletonLine className="h-4 w-4/5" />
               <SkeletonLine className="h-4 w-3/5" />
               <SkeletonLine className="h-4 w-2/5" />

@@ -59,6 +59,9 @@ const statToneClasses: Record<DashboardStatMetric['tone'], string> = {
   ink: 'bg-secondary-100 text-secondary-800',
 };
 
+const DASHBOARD_STAT_SKELETON_KEYS = ['sales', 'revenue', 'inventory', 'stock'] as const;
+const DASHBOARD_LIST_SKELETON_KEYS = ['first', 'second', 'third', 'fourth'] as const;
+
 function StatCard({ title, value, label, icon: Icon, tone }: StatCardProps) {
   return (
     <div className="metric-tile p-4 sm:p-5">
@@ -89,8 +92,8 @@ export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
           <div className="animate-shimmer h-14 max-w-xl rounded-3xl" />
           <div className="animate-shimmer h-5 max-w-2xl rounded-2xl" />
           <div className="grid gap-4 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="metric-tile">
+            {DASHBOARD_STAT_SKELETON_KEYS.map(key => (
+              <div key={key} className="metric-tile">
                 <div className="animate-shimmer h-11 w-11 rounded-[18px]" />
                 <div className="animate-shimmer mt-6 h-4 w-20 rounded-full" />
                 <div className="animate-shimmer mt-3 h-9 w-32 rounded-2xl" />
@@ -109,8 +112,8 @@ export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
         <div className="card p-6">
           <div className="animate-shimmer h-5 w-40 rounded-full" />
           <div className="mt-6 space-y-3">
-            {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="animate-shimmer h-20 rounded-[22px]" />
+            {DASHBOARD_LIST_SKELETON_KEYS.map(key => (
+              <div key={key} className="animate-shimmer h-20 rounded-[22px]" />
             ))}
           </div>
         </div>

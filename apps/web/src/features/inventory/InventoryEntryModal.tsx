@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import type { InitialInventoryMode, ProductSearchSelection } from '@/types';
@@ -44,9 +44,9 @@ export function InventoryEntryModal({
   });
 
   const handleSubmit = form.handleSubmit(onSubmit);
-  const quantity = form.watch('quantity');
-  const mode = form.watch('mode');
-  const normalizedQuantity = quantity * (selection?.unit.equivalence ?? 0);
+  const quantity = useWatch({ control: form.control, name: 'quantity' });
+  const mode = useWatch({ control: form.control, name: 'mode' });
+  const normalizedQuantity = (Number(quantity) || 0) * (selection?.unit.equivalence ?? 0);
 
   const modalTitle = selection
     ? mode === 'initial'

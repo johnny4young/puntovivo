@@ -114,7 +114,10 @@ export function CategoriesPage() {
   });
 
   const canManage = user?.role === 'admin';
-  const categories = (categoriesQuery.data?.items ?? []) as Category[];
+  const categories = useMemo(
+    () => (categoriesQuery.data?.items ?? []) as Category[],
+    [categoriesQuery.data?.items]
+  );
 
   const rows = useMemo(() => buildCategoryTreeRows(categories), [categories]);
   const parentOptions = useMemo(

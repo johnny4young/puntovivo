@@ -37,6 +37,7 @@ import './loadEnv.js';
 
 import { createServer, createModuleLogger } from './index.js';
 import { resolveRuntimeConfig } from './config/runtime.js';
+import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -84,17 +85,26 @@ async function main(): Promise<void> {
       appVersion: process.env.npm_package_version,
     });
 
-    // Handle graceful shutdown. Signals are operational events, so they
-    // flow through the structured log stream.
-    const shutdown = async (signal: string) => {
-      log.info({ signal }, 'shutdown requested');
-      await server.close();
-      log.info('shutdown complete');
-      process.exit(0);
-    };
+    const shutdown = createGracefulShutdownHandler({
+      close: server.close,
+      log,
+      exit: code => process.exit(code),
+    });
 
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => {
+      void shutdown('SIGINT');
+    });
+    process.on('SIGTERM', () => {
+      void shutdown('SIGTERM');
+    });
+    process.on('unhandledRejection', reason => {
+      log.fatal({ err: reason }, 'unhandled rejection');
+      void shutdown('unhandledRejection');
+    });
+    process.on('uncaughtException', err => {
+      log.fatal({ err }, 'uncaught exception');
+      void shutdown('uncaughtException');
+    });
 
     // Start server
     const address = await server.listen();
