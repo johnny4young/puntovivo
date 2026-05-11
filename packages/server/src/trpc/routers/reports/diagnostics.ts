@@ -45,6 +45,7 @@ import {
 } from '../../schemas/reports.js';
 import { sanitizeRows } from '../../../services/diagnostics/sanitize.js';
 import { getActiveRuntimeConfig, type RuntimeConfig } from '../../../config/runtime.js';
+import { getAuthorityTopology } from '../../../services/devices/authority.js';
 
 /**
  * Hard cap per table at export time. Empirically a 7-day window for a
@@ -65,12 +66,10 @@ const EVENT_AVG_SIZE_BYTES = 200;
 
 const SCHEMA_VERSION = 1;
 
-// ENG-068 — `reports.diagnostics.*` is the unique operations-center
-// procedure: cash / inventory / fiscal sub-routers feed dedicated
-// non-Operations Center surfaces too, so gating them would break the
-// Cash, Inventory, and Fiscal Documents pages. Diagnostics is the one
-// surface that ONLY exists inside the Operations Center, so it is the
-// procedure-level marker for the operations-center module gate.
+// ENG-068 — `reports.diagnostics.*` exists only inside the Operations
+// Center, so it is module-gated. Cash / inventory / fiscal sub-routers
+// feed dedicated non-Operations Center surfaces too, so gating them
+// would break the Cash, Inventory, and Fiscal Documents pages.
 const gatedAdmin = adminProcedureWithModule('operations-center');
 
 /**
@@ -272,6 +271,9 @@ export const diagnosticsReportsRouter = router({
         Number(hardwareSizeRow?.value ?? 0) +
         (counts.operation_events + counts.operation_effects) * EVENT_AVG_SIZE_BYTES;
 
+      const runtime = getActiveRuntimeConfig();
+      const authorityTopology = await getAuthorityTopology(ctx.db, ctx.tenantId, runtime);
+
       return {
         range: { fromDate, toDate },
         counts,
@@ -282,7 +284,8 @@ export const diagnosticsReportsRouter = router({
         // ENG-072 — surface the Authority Node runtime metadata so an
         // admin can verify the boot mode without downloading the
         // bundle.
-        runtime: projectRuntimeForManifest(getActiveRuntimeConfig()),
+        runtime: projectRuntimeForManifest(runtime),
+        authorityTopology,
       };
     }),
 
@@ -492,6 +495,9 @@ export const diagnosticsReportsRouter = router({
         hardware_outbox: [...sanitizedHardware.redactedKeys].sort(),
       };
 
+      const runtime = getActiveRuntimeConfig();
+      const authorityTopology = await getAuthorityTopology(ctx.db, ctx.tenantId, runtime);
+
       return {
         manifest: {
           schemaVersion: SCHEMA_VERSION,
@@ -514,7 +520,8 @@ export const diagnosticsReportsRouter = router({
           // time of export. Additive to the manifest; the existing
           // schemaVersion=1 stays valid because consumers tolerate
           // unknown top-level keys per ADR-0003 evolution discipline.
-          runtime: projectRuntimeForManifest(getActiveRuntimeConfig()),
+          runtime: projectRuntimeForManifest(runtime),
+          authorityTopology,
         },
         tables: {
           operation_events: sanitizedEvents.rows,

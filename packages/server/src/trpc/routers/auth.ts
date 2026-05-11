@@ -27,6 +27,12 @@ import { loginInput, changePasswordInput, validatePasswordStrength } from '../sc
 import { throwServerError } from '../../lib/errorCodes.js';
 import { registerDevice as registerDeviceService } from '../../services/devices/devicesService.js';
 import {
+  assertTenantSite,
+  claimPairingCodeForDevice,
+  inferAuthorityRole,
+} from '../../services/devices/authority.js';
+import { getCurrentSchemaVersion } from '../../lib/runtimeMetadata.js';
+import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
   signAccessToken,
@@ -346,6 +352,10 @@ export const authRouter = router({
         kind: z.enum(['desktop', 'web', 'hub_client']),
         name: z.string().min(1).max(120),
         deviceId: z.string().min(8).max(64).optional(),
+        siteId: z.string().min(1).optional(),
+        pairingCode: z.string().min(4).max(32).optional(),
+        appVersion: z.string().min(1).max(80).nullable().optional(),
+        dbSchemaVersion: z.number().int().nonnegative().nullable().optional(),
         metadata: z.record(z.string(), z.unknown()).optional(),
       })
     )
@@ -361,13 +371,28 @@ export const authRouter = router({
           message: 'authenticated tenant context required',
         });
       }
-      return registerDeviceService(ctx.db, {
+      if (input.siteId) {
+        await assertTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      }
+      const result = await registerDeviceService(ctx.db, {
         tenantId: ctx.tenantId,
         userId: ctx.user.id,
         kind: input.kind,
         name: input.name,
         deviceId: input.deviceId,
+        authorityRole: inferAuthorityRole(input.kind),
+        pairedSiteId: input.siteId ?? null,
+        appVersion: input.appVersion ?? null,
+        dbSchemaVersion: input.dbSchemaVersion ?? getCurrentSchemaVersion(ctx.db),
         metadata: input.metadata,
       });
+      if (input.pairingCode) {
+        await claimPairingCodeForDevice(ctx.db, {
+          tenantId: ctx.tenantId,
+          code: input.pairingCode,
+          deviceId: result.deviceId,
+        });
+      }
+      return result;
     }),
 });

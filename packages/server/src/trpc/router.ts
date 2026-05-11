@@ -45,6 +45,7 @@ import { peripheralsRouter } from './routers/peripherals.js';
 import { modulesRouter } from './routers/modules.js';
 import { surfacesRouter } from './routers/surfaces.js';
 import { eventsRouter } from './routers/events.js';
+import { authorityRouter } from './routers/authority.js';
 
 export const appRouter = router({
   health: router({
@@ -96,6 +97,7 @@ export const appRouter = router({
   modules: modulesRouter,
   surfaces: surfacesRouter,
   events: eventsRouter,
+  authority: authorityRouter,
 });
 
 export type AppRouter = typeof appRouter;

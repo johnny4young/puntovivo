@@ -7,7 +7,7 @@
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
     "loading": "Loading audit events…",
     "error": "Unable to load audit events",
-    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, and quotation changes show up here.",
+    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, hub-client revocations, and quotation changes show up here.",
     "search": "Search by resource id…",
     "exportTitle": "Export audit log",
     "columns": {
@@ -47,7 +47,8 @@
     "sale.reprint": "Receipt reprinted",
     "sale.complete": "Draft completed",
     "ai.anomaly.detected": "AI anomaly detected",
-    "module.toggle": "Module toggled"
+    "module.toggle": "Module toggled",
+    "device.revoke": "Device revoked"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -59,7 +60,8 @@
     "purchase": "Purchase",
     "user": "User",
     "cashier": "Cashier",
-    "tenant_module": "Tenant module"
+    "tenant_module": "Tenant module",
+    "device": "Device"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
@@ -88,6 +90,7 @@
     "saleReprint_other": "{{saleNumber}} — reprinted {{count}} times",
     "saleReprintReason": "{{saleNumber}} — reprint #{{count}} ({{reason}})",
     "saleComplete": "{{saleNumber}} completed from draft",
-    "aiAnomaly": "{{kind}} · {{severity}} · distance {{distance}}"
+    "aiAnomaly": "{{kind}} · {{severity}} · distance {{distance}}",
+    "deviceRevoke": "{{name}} revoked"
   }
 }

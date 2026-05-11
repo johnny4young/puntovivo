@@ -358,6 +358,10 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(typeof result.runtime.bindHost).toBe('string');
     expect(typeof result.runtime.bindPort).toBe('number');
     expect(result.runtime.allowedLanOrigins).toEqual([]);
+    expect(result.authorityTopology.runtime.authorityMode).toBe('device_local');
+    expect(result.authorityTopology.devices.every(device => device.id !== harnessA.deviceId)).toBe(
+      true
+    );
   });
 
   it('preview narrows by date range and reports per-source counts', async () => {
@@ -437,6 +441,12 @@ describe('reports.diagnostics (ENG-065c)', () => {
     expect(typeof result.manifest.runtime.bindHost).toBe('string');
     expect(typeof result.manifest.runtime.bindPort).toBe('number');
     expect(result.manifest.runtime.hubUrl).toBeNull();
+    expect(result.manifest.authorityTopology.runtime.authorityMode).toBe('device_local');
+    expect(result.manifest.authorityTopology.devices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: harnessA.deviceId, authorityRole: 'web_client' }),
+      ])
+    );
   });
 
   it('respects includeOutboxes filter while keeping counts honest', async () => {

@@ -16,8 +16,13 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { devices, type DeviceKind } from '../../db/schema.js';
+import {
+  devices,
+  type DeviceAuthorityRole,
+  type DeviceKind,
+} from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { inferAuthorityRole } from './authority.js';
 
 const log = createModuleLogger('devices');
 
@@ -30,6 +35,10 @@ export interface RegisterDeviceInput {
   deviceId?: string;
   /** Free-form JSON metadata (OS, browser UA, install path, etc.). */
   metadata?: Record<string, unknown>;
+  authorityRole?: DeviceAuthorityRole;
+  pairedSiteId?: string | null;
+  appVersion?: string | null;
+  dbSchemaVersion?: number | null;
 }
 
 export interface RegisteredDevice {
@@ -52,6 +61,7 @@ export async function registerDevice(
   now: Date = new Date()
 ): Promise<RegisteredDevice> {
   const nowIso = now.toISOString();
+  const authorityRole = input.authorityRole ?? inferAuthorityRole(input.kind);
 
   if (input.deviceId) {
     const existing = await db
@@ -62,9 +72,22 @@ export async function registerDevice(
 
     if (existing && existing.isActive) {
       // Idempotent: same caller, same id, active → just bump last_seen.
+      const updateData: Partial<typeof devices.$inferInsert> = {
+        kind: input.kind,
+        name: input.name,
+        authorityRole,
+        appVersion: input.appVersion ?? null,
+        dbSchemaVersion: input.dbSchemaVersion ?? null,
+        metadata: input.metadata ?? null,
+        lastSeenAt: nowIso,
+        updatedAt: nowIso,
+      };
+      if (input.pairedSiteId !== undefined) {
+        updateData.pairedSiteId = input.pairedSiteId;
+      }
       await db
         .update(devices)
-        .set({ lastSeenAt: nowIso, updatedAt: nowIso })
+        .set(updateData)
         .where(and(eq(devices.tenantId, input.tenantId), eq(devices.id, input.deviceId)));
       return { deviceId: existing.id, registeredAt: nowIso };
     }
@@ -78,6 +101,10 @@ export async function registerDevice(
     name: input.name,
     registeredByUserId: input.userId,
     lastSeenAt: nowIso,
+    authorityRole,
+    pairedSiteId: input.pairedSiteId ?? null,
+    appVersion: input.appVersion ?? null,
+    dbSchemaVersion: input.dbSchemaVersion ?? null,
     isActive: true,
     metadata: input.metadata ?? null,
     createdAt: nowIso,

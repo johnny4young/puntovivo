@@ -7,7 +7,7 @@
     "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
     "loading": "Cargando eventos de auditoría…",
     "error": "No se pudieron cargar los eventos de auditoría",
-    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, anulaciones de compra, cierres de caja, ajustes de stock, anulaciones de transferencias, cambios del ciclo de vida de usuarios y cambios en cotizaciones aparecerán aquí.",
+    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, anulaciones de compra, cierres de caja, ajustes de stock, anulaciones de transferencias, cambios del ciclo de vida de usuarios, revocaciones de terminales hub-client y cambios en cotizaciones aparecerán aquí.",
     "search": "Buscar por id del recurso…",
     "exportTitle": "Exportar registro de auditoría",
     "columns": {
@@ -47,7 +47,8 @@
     "sale.reprint": "Recibo reimpreso",
     "sale.complete": "Borrador completado",
     "ai.anomaly.detected": "Anomalía IA detectada",
-    "module.toggle": "Módulo actualizado"
+    "module.toggle": "Módulo actualizado",
+    "device.revoke": "Dispositivo revocado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -59,7 +60,8 @@
     "purchase": "Compra",
     "user": "Usuario",
     "cashier": "Cajero",
-    "tenant_module": "Módulo del inquilino"
+    "tenant_module": "Módulo del inquilino",
+    "device": "Dispositivo"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
@@ -88,6 +90,7 @@
     "saleReprint_other": "{{saleNumber}} — reimpresa {{count}} veces",
     "saleReprintReason": "{{saleNumber}} — reimpresión #{{count}} ({{reason}})",
     "saleComplete": "{{saleNumber}} completada desde borrador",
-    "aiAnomaly": "{{kind}} · {{severity}} · distancia {{distance}}"
+    "aiAnomaly": "{{kind}} · {{severity}} · distancia {{distance}}",
+    "deviceRevoke": "{{name}} revocado"
   }
 }
