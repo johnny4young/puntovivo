@@ -818,3 +818,85 @@ describe('ai.anomalies.list', () => {
     expect(result.alerts).toEqual([]);
   });
 });
+
+describe('ai.extractInvoiceLines (ENG-040a)', () => {
+  it('rejects a cashier caller with FORBIDDEN', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.extractInvoiceLines({
+        imageBase64: 'aGVsbG8=',
+        mimeType: 'image/png',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe('FORBIDDEN');
+  });
+
+  it('rejects with AI_DISABLED when the tenant has not opted in', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: false });
+    let caught: unknown;
+    try {
+      await caller.ai.extractInvoiceLines({
+        imageBase64: 'aGVsbG8=',
+        mimeType: 'image/png',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('AI_DISABLED');
+  });
+
+  it('strips a data:image/...;base64, URL prefix before reaching the service', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager', siteId })
+    );
+    await appRouter
+      .createCaller(createCtx({ tenantId, userId: adminId, role: 'admin', siteId }))
+      .ai.settings.update({ enabled: true, monthlyBudgetUsd: 10 });
+    let caught: unknown;
+    try {
+      await caller.ai.extractInvoiceLines({
+        imageBase64: 'data:image/png;base64,aGVsbG8=',
+        mimeType: 'image/png',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    // We expect the configured provider to be missing its API key in
+    // the test environment, so the call surfaces AI_PROVIDER_ERROR
+    // (not a Zod parse error caused by the data-URL prefix).
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
+  });
+
+  it('rejects an unsupported mime type via Zod', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.extractInvoiceLines({
+        imageBase64: 'aGVsbG8=',
+        // @ts-expect-error — intentional invalid mime to exercise the Zod enum guard
+        mimeType: 'image/gif',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).code).toBe('BAD_REQUEST');
+  });
+});

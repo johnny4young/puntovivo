@@ -99,4 +99,11 @@ export const openaiProvider: AIProvider = {
   embeddingModel(modelId: string): EmbeddingModelV3 {
     return openai.embedding(modelId);
   },
+
+  // ENG-040a — gpt-4o family + gpt-4.1 family + gpt-4o-mini accept
+  // image content in user messages. Capability hint advertised so the
+  // service layer can short-circuit when a future provider lacks it.
+  visionModel(modelId: string): LanguageModelV3 {
+    return openai(modelId);
+  },
 };

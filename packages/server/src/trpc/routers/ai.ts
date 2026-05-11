@@ -24,7 +24,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { router } from '../init.js';
-import { adminProcedure } from '../middleware/roles.js';
+import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
 import {
   ANALYSIS_WINDOW_DAYS,
@@ -39,6 +39,7 @@ import {
   runCopilotChat,
   writeAISettings,
 } from '../../services/ai/index.js';
+import { extractInvoiceFromImage } from '../../services/ai/vision/index.js';
 import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
@@ -49,6 +50,7 @@ import {
   aiUsageInput,
   updateAISettingsInput,
 } from '../schemas/ai.js';
+import { extractInvoiceLinesInput } from '../schemas/ai-vision.js';
 import { aiAnomalySnoozes, users } from '../../db/schema.js';
 
 const settingsRouter = router({
@@ -245,6 +247,39 @@ export const aiRouter = router({
         from: input.from ? new Date(input.from) : undefined,
         to: input.to ? new Date(input.to) : undefined,
       });
+    }),
+
+  /**
+   * ENG-040a — Provider-invoice OCR. Manager/admin uploads an invoice
+   * photo; the configured vision provider extracts a structured
+   * projection (supplier, lines, totals) used by the Purchases page to
+   * pre-fill the cart. Slice 1 returns the projection only; line-to-
+   * product mapping lands in slice 1b.
+   */
+  extractInvoiceLines: managerOrAdminProcedure
+    .input(extractInvoiceLinesInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id ?? null;
+      const result = await extractInvoiceFromImage(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+        },
+        {
+          imageBase64: input.imageBase64,
+          mimeType: input.mimeType,
+        }
+      );
+      return {
+        invoice: result.invoice,
+        costUsd: result.costUsd,
+        durationMs: result.durationMs,
+        provider: result.provider,
+        model: result.model,
+        auditLogId: result.auditLogId,
+      };
     }),
 
   /**

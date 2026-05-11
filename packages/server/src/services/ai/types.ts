@@ -6,7 +6,12 @@
 import type { AIProviderId } from './providers/types.js';
 
 /** Stable feature label persisted in `ai_audit_log.feature`. */
-export type AIFeature = 'completeTest' | 'copilot' | 'autoCategorize' | 'embeddings';
+export type AIFeature =
+  | 'completeTest'
+  | 'copilot'
+  | 'autoCategorize'
+  | 'embeddings'
+  | 'invoiceOcr';
 
 export interface AICompletionInput {
   feature: AIFeature;

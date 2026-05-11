@@ -118,7 +118,7 @@ queue once Mexico + Chile are in sandbox-validated state.
 | Ticket | Scope summary |
 | --- | --- |
 | `ENG-039` | Vertical restaurant Mexico (tables, KDS, tips, modifiers + CFDI MX) — vector against SoftRestaurant's legacy stack |
-| `ENG-040` | AI Wave 2 — provider-invoice OCR (vision) + voice ordering (Whisper transcript through `generateObject`) |
+| `ENG-040` | AI Wave 2 — provider-invoice OCR (vision) + voice ordering (Whisper transcript through `generateObject`). **Partial 2026-05-11**: slice 1 (ENG-040a) shipped the vision pipeline — AIProvider `visionModel?` for Anthropic + OpenAI, `services/ai/vision/invoice-ocr.ts`, `ai.extractInvoiceLines` (managerOrAdmin), three new error codes, and a read-only `<InvoiceOcrPreviewModal>` on `PurchasesPage`. Line-to-product mapping, voice/Whisper slice (ENG-040b), Ollama vision activation, and the ≥80% accuracy benchmark on a 10-invoice fixture remain. |
 
 Local Ollama provider lands here as the second provider option for
 `ENG-030` if the operator pulls it in.

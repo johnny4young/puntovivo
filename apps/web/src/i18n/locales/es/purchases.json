@@ -14,6 +14,7 @@
     "description": "Ajusta cantidades recibidas y costos antes de actualizar el stock.",
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
+    "openOcr": "Escanear factura",
     "register": "Registrar compra",
     "purchaseTotal": "Total de la compra",
     "provider": "Proveedor",
@@ -47,6 +48,36 @@
     "success": "Compra registrada",
     "successDetail": "artículo(s) agregados al stock",
     "error": "No se pudo registrar la compra"
+  },
+  "ocr": {
+    "title": "OCR de factura",
+    "description": "Sube una foto de la factura del proveedor. La IA leerá datos del proveedor, líneas y totales para que los transcribas en la compra.",
+    "uploadCta": "Subir foto de la factura",
+    "processing": "Leyendo la factura...",
+    "error": "No se pudieron extraer los datos de la factura",
+    "footnote": "Vista solo lectura. Revisa y agrega los productos manualmente por ahora. La correspondencia línea-a-producto llega en un slice posterior.",
+    "errors": {
+      "unsupportedType": "Usa una imagen JPG, PNG o WebP.",
+      "tooLarge": "La imagen supera el límite de 5 MB. Vuelve a exportarla en una resolución más baja.",
+      "readFailed": "No se pudo leer el archivo de imagen"
+    },
+    "fields": {
+      "supplierName": "Proveedor",
+      "supplierTaxId": "Identificación tributaria",
+      "invoiceNumber": "Número de factura",
+      "invoiceDate": "Fecha de la factura"
+    },
+    "lines": {
+      "description": "Descripción",
+      "quantity": "Cant.",
+      "unitPrice": "Precio unitario",
+      "totalLine": "Total línea"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "taxAmount": "Impuesto",
+      "total": "Total"
+    }
   },
   "table": {
     "purchaseNumber": "Recibo #",

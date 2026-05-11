@@ -36,6 +36,7 @@ import {
   createHardwareWorker,
   setDefaultHardwareWorker,
 } from './services/peripherals/hardware-worker.js';
+import { INVOICE_OCR_MAX_BYTES } from './services/ai/vision/invoice-ocr.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import { warmCacheFromDb } from './security/loginRateLimit.js';
@@ -144,6 +145,7 @@ export const SERVER_KEEP_ALIVE_TIMEOUT_MS = 5_000;
 export const SERVER_HEADERS_TIMEOUT_MS = 10_000;
 export const SERVER_REQUEST_TIMEOUT_MS = 30_000;
 export const SERVER_SOCKET_TIMEOUT_MS = 35_000;
+export const SERVER_BODY_LIMIT_BYTES = Math.ceil(INVOICE_OCR_MAX_BYTES * 1.4) + 32 * 1024;
 const BLOCKED_JWT_SECRET_PLACEHOLDERS = [
   'admin',
   'changeme',
@@ -339,6 +341,11 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     : { logger: false as const };
   const app = Fastify({
     ...fastifyLoggerOption,
+    // ENG-040a uploads invoice photos through tRPC. The OCR service caps
+    // decoded images at 5 MB; JSON/base64 transport needs ~4/3 overhead
+    // plus a small data-URL prefix allowance, otherwise Fastify rejects
+    // valid OCR inputs before Zod can return the localized error code.
+    bodyLimit: SERVER_BODY_LIMIT_BYTES,
     // tRPC batch URLs encode comma-separated procedure names as a single route param.
     // The default limit (100) is too short for multi-procedure batches on this router.
     // Use routerOptions per Fastify v5 API (top-level maxParamLength is deprecated).

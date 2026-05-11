@@ -79,6 +79,15 @@ export const anthropicProvider: AIProvider = {
     return anthropic(modelId);
   },
 
+  // ENG-040a — every Claude 3+ language model supports image content in
+  // user messages, so the vision factory routes through the same SDK
+  // entry point as `languageModel`. Capability advertised so the UI +
+  // service layer can gate on `provider.visionModel` rather than
+  // guessing per provider id.
+  visionModel(modelId: string): LanguageModelV3 {
+    return anthropic(modelId);
+  },
+
   cacheControlForSystemPrompt(): Record<string, unknown> {
     // Anthropic ephemeral cache: 5-minute TTL, ~90% cost reduction on
     // the cached portion of subsequent calls. The provider applies

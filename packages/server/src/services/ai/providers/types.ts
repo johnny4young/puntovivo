@@ -70,6 +70,17 @@ export interface AIProvider {
   embeddingModel?(modelId: string): EmbeddingModelV3;
 
   /**
+   * Optional. Vision-capable language model for multimodal `image +
+   * text` inputs consumed by `generateObject` / `generateText`. Anthropic
+   * and OpenAI vision-capable models route through the existing
+   * `languageModel` factory; this method is a capability signal — if
+   * the provider does not implement it, `ai.extractInvoiceLines`
+   * returns `AI_VISION_NOT_AVAILABLE`. ENG-040a activated this for
+   * Anthropic + OpenAI; Ollama follows in ENG-040b.
+   */
+  visionModel?(modelId: string): LanguageModelV3;
+
+  /**
    * Provider-specific options that must be spread into
    * `generateText({ providerOptions })` to enable system-prompt
    * caching. Anthropic returns

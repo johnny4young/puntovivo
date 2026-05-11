@@ -360,6 +360,27 @@ export const SERVER_ERROR_CODES = {
    */
   AI_COPILOT_QUERY_LIMIT_EXCEEDED: 'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
 
+  // --- ENG-040a AI Wave 2 vision slice ---
+  /**
+   * The tenant's configured AI provider does not implement a vision
+   * model (e.g. Ollama stub). The caller should switch providers or
+   * disable the surface that triggered the OCR call.
+   */
+  AI_VISION_NOT_AVAILABLE: 'AI_VISION_NOT_AVAILABLE',
+  /**
+   * The vision model returned a response that did not match the
+   * required invoice schema. The renderer should let the operator
+   * retry with a clearer photo or transcribe the invoice manually.
+   * `details.cause` carries the raw error message for diagnostics.
+   */
+  AI_VISION_PARSE_FAILED: 'AI_VISION_PARSE_FAILED',
+  /**
+   * The uploaded invoice image exceeds the per-call byte budget
+   * (`INVOICE_OCR_MAX_BYTES`, 5 MB raw after base64 decode). The
+   * renderer should re-encode or downscale before retrying.
+   */
+  AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
+
   // --- module activation kernel (ENG-068) ---
   /**
    * The caller hit a procedure that requires a tenant module that

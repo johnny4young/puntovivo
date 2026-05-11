@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { PackagePlus, Search } from 'lucide-react';
+import { PackagePlus, ScanLine, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { InvoiceOcrPreviewModal } from '@/features/purchases/InvoiceOcrPreviewModal';
 import { PurchaseCartTable } from '@/features/purchases/PurchaseCartTable';
 import { PurchasesCheckoutPanel } from '@/features/purchases/PurchasesCheckoutPanel';
 import { PurchaseDetailsModal } from '@/features/purchases/PurchaseDetailsModal';
@@ -39,6 +40,7 @@ export function PurchasesPage() {
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
+  const [isInvoiceOcrOpen, setIsInvoiceOcrOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [finalizeModalKey, setFinalizeModalKey] = useState(0);
   const [selectedPurchaseDialog, setSelectedPurchaseDialog] = useState<PurchaseDialogState | null>(
@@ -162,6 +164,17 @@ export function PurchasesPage() {
               <Search className="h-4 w-4" />
               {t('checkout.addProduct')}
             </button>
+            {canManageReturns && (
+              <button
+                type="button"
+                className="btn-outline flex items-center gap-2"
+                onClick={() => setIsInvoiceOcrOpen(true)}
+                data-testid="purchases-open-ocr"
+              >
+                <ScanLine className="h-4 w-4" />
+                {t('checkout.openOcr')}
+              </button>
+            )}
             <button
               className="btn-primary flex items-center gap-2"
               onClick={handleOpenFinalizeModal}
@@ -282,6 +295,11 @@ export function PurchasesPage() {
         isOpen={selectedPurchaseDialog !== null}
         initialMode={selectedPurchaseDialog?.initialMode ?? 'details'}
         onClose={() => setSelectedPurchaseDialog(null)}
+      />
+
+      <InvoiceOcrPreviewModal
+        isOpen={isInvoiceOcrOpen}
+        onClose={() => setIsInvoiceOcrOpen(false)}
       />
     </>
   );
