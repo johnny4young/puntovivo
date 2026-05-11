@@ -57,6 +57,22 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
+function buildRowIdentity(row: CopilotRow, columns: string[]): string {
+  return columns
+    .map(column => `${column}:${String(row[column] ?? '')}`)
+    .join('|');
+}
+
+function buildRowKeys(rows: CopilotRow[], columns: string[]): string[] {
+  const counts = new Map<string, number>();
+  return rows.map(row => {
+    const identity = buildRowIdentity(row, columns);
+    const count = counts.get(identity) ?? 0;
+    counts.set(identity, count + 1);
+    return count === 0 ? identity : `${identity}#${count + 1}`;
+  });
+}
+
 function ChatMessage({ message }: { message: UIMessage }) {
   const text = messageText(message);
   if (!text) {
@@ -154,6 +170,7 @@ function ResultTable({
       </div>
     );
   }
+  const rowKeys = buildRowKeys(result.rows, result.columns);
 
   return (
     <section className="card overflow-hidden">
@@ -180,7 +197,7 @@ function ResultTable({
           </thead>
           <tbody className="divide-y divide-line/60 bg-surface">
             {result.rows.map((row: CopilotRow, index) => (
-              <tr key={index}>
+              <tr key={rowKeys[index]}>
                 {result.columns.map(column => (
                   <td
                     key={column}

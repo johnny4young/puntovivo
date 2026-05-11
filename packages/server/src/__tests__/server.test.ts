@@ -8,7 +8,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer, type PuntovivoServer } from '../index.js';
+import {
+  createServer,
+  SERVER_HEADERS_TIMEOUT_MS,
+  SERVER_KEEP_ALIVE_TIMEOUT_MS,
+  SERVER_REQUEST_TIMEOUT_MS,
+  SERVER_SOCKET_TIMEOUT_MS,
+  type PuntovivoServer,
+} from '../index.js';
 
 let server: PuntovivoServer;
 
@@ -96,6 +103,18 @@ describe('tRPC batch URL routing', () => {
   });
 });
 
+describe('HTTP transport hardening', () => {
+  it('configures bounded socket, header, request, and keep-alive timeouts', () => {
+    expect(server.app.server.keepAliveTimeout).toBe(SERVER_KEEP_ALIVE_TIMEOUT_MS);
+    expect(server.app.server.headersTimeout).toBe(SERVER_HEADERS_TIMEOUT_MS);
+    expect(server.app.server.requestTimeout).toBe(SERVER_REQUEST_TIMEOUT_MS);
+    expect(server.app.server.timeout).toBe(SERVER_SOCKET_TIMEOUT_MS);
+    expect(server.app.server.headersTimeout).toBeGreaterThan(
+      server.app.server.keepAliveTimeout
+    );
+  });
+});
+
 describe('CSRF protection', () => {
   it('blocks unsafe methods without a CSRF token when a refresh cookie is present', async () => {
     const response = await server.app.inject({
@@ -137,5 +156,24 @@ describe('CSRF protection', () => {
     // 403 from CSRF would mean our logic is wrong; expect tRPC to handle it.
     // tRPC maps UNAUTHORIZED to HTTP 401, which confirms the handler was reached.
     expect(response.statusCode).not.toBe(403);
+  });
+
+  it('rejects unsafe methods when the csrf cookie is malformed even if the header mirrors it', async () => {
+    const response = await server.app.inject({
+      method: 'POST',
+      url: '/api/trpc/auth.refresh?batch=1',
+      headers: {
+        cookie: 'puntovivo_refresh=some-refresh-token; puntovivo_csrf=attacker-token',
+        'content-type': 'application/json',
+        'x-csrf-token': 'attacker-token',
+      },
+      payload: '{}',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: 'CSRF_VALIDATION_FAILED',
+      message: 'Missing or invalid CSRF token',
+    });
   });
 });

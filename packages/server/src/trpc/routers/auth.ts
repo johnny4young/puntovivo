@@ -39,20 +39,9 @@ import {
   registerFailure as registerLoginFailure,
   registerSuccess as registerLoginSuccess,
 } from '../../security/loginRateLimit.js';
+import { shouldUseSecureCookies } from '../../security/cookies.js';
 
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
-
-function shouldUseSecureCookies(request: {
-  headers: Record<string, unknown>;
-  protocol?: string;
-}): boolean {
-  const forwardedProto = request.headers['x-forwarded-proto'];
-  const normalizedForwardedProto = Array.isArray(forwardedProto)
-    ? forwardedProto[0]
-    : forwardedProto;
-
-  return request.protocol === 'https' || normalizedForwardedProto === 'https';
-}
 
 function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
   if (typeof reply.setCookie !== 'function') {
@@ -184,7 +173,7 @@ export const authRouter = router({
       .update(users)
       .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
       .where(eq(users.id, ctx.user.id));
-    clearRefreshCookie(ctx.res);
+    clearRefreshCookie(ctx.req, ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
 
@@ -333,7 +322,7 @@ export const authRouter = router({
       })
       .where(eq(users.id, actorId));
 
-    clearRefreshCookie(ctx.res);
+    clearRefreshCookie(ctx.req, ctx.res);
 
     return { success: true, message: 'Password changed successfully' };
   }),

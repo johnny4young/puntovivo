@@ -276,7 +276,7 @@ export const usersRouter = router({
         .where(eq(users.id, input.id));
 
       if (input.id === ctx.user!.id) {
-        clearRefreshCookie(ctx.res);
+        clearRefreshCookie(ctx.req, ctx.res);
       }
 
       await enqueueSync(ctx, {

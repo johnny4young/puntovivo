@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { tenants, users } from '../db/schema.js';
+import { shouldUseSecureCookies } from './cookies.js';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 const ACCESS_TOKEN_TTL = '15m';
@@ -142,7 +143,7 @@ export function verifyRefreshToken(request: FastifyRequest): Promise<AuthTokenPa
   );
 }
 
-export function clearRefreshCookie(reply: FastifyReply): void {
+export function clearRefreshCookie(request: FastifyRequest, reply: FastifyReply): void {
   if (typeof reply.clearCookie !== 'function') {
     return;
   }
@@ -150,6 +151,7 @@ export function clearRefreshCookie(reply: FastifyReply): void {
   reply.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
     sameSite: 'lax',
+    secure: shouldUseSecureCookies(request),
     path: '/',
   });
 }
