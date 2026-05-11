@@ -70,7 +70,13 @@ function productCanonicalText(product: {
   return parts.join(' — ');
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
+/**
+ * Cosine similarity between two equal-length numeric vectors. Exposed
+ * because the invoice line matcher (`vision/invoice-line-matcher.ts`)
+ * needs the same math as semantic search; keeping it in one place
+ * means we cannot drift the implementations.
+ */
+export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;
   let na = 0;
@@ -131,18 +137,18 @@ export async function embedText(
 }
 
 /**
- * Embed many product texts in one call. Used by the batch
- * `regenerateEmbeddings` admin op so a 1k-product tenant doesn't pay
- * 1k round-trips. OpenAI's `embedMany` accepts up to 2048 inputs per
- * call; we chunk defensively at 256 to stay well below that and to
- * avoid spending more than ~$0.001 per chunk under
+ * Embed many texts in one call. Public surface so vision callers
+ * (`invoice-line-matcher.ts`) can reuse the same provider resolution
+ * + chunking the batch regenerate path uses. OpenAI's `embedMany`
+ * accepts up to 2048 inputs per call; we chunk defensively at 256 to
+ * stay well below that and to bound the spend per chunk under
  * `text-embedding-3-small` ($0.02 / 1M tokens).
  */
-async function embedManyTexts(
+export async function embedTexts(
   db: DatabaseInstance,
   tenantId: string,
   values: string[]
-): Promise<{ embeddings: number[][]; model: string } | null> {
+): Promise<{ embeddings: number[][]; model: string; providerId: string } | null> {
   const resolved = await resolveEmbeddingProvider(db, tenantId);
   if (!resolved) return null;
   const { provider } = resolved;
@@ -155,8 +161,39 @@ async function embedManyTexts(
     const result = await embedMany({ model, values: slice });
     for (const v of result.embeddings) embeddings.push(Array.from(v));
   }
-  return { embeddings, model: modelId };
+  return { embeddings, model: modelId, providerId: provider.id };
 }
+
+/**
+ * Load every embedded product row for a tenant. Used both by
+ * `semanticSearchProducts` (single query) and the invoice line matcher
+ * (batch). Centralised here so the parse path + tenant scoping live in
+ * one place; embed count + scan cost are kept under 100ms for tenants
+ * up to ~50k products.
+ */
+export async function loadTenantProductEmbeddings(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<Array<{ productId: string; embedding: number[] }>> {
+  const rows = await db
+    .select({ id: products.id, embedding: products.embedding })
+    .from(products)
+    .where(eq(products.tenantId, tenantId))
+    .all();
+  const out: Array<{ productId: string; embedding: number[] }> = [];
+  for (const row of rows) {
+    const parsed = parseEmbedding(row.embedding);
+    if (!parsed) continue;
+    out.push({ productId: row.id, embedding: parsed });
+  }
+  return out;
+}
+
+/**
+ * Cosine floor used across every semantic surface. Exported so vision
+ * matchers + future surfaces stay aligned on a single tuning knob.
+ */
+export const SEMANTIC_SIMILARITY_FLOOR = SIMILARITY_FLOOR;
 
 /**
  * Search products by semantic similarity. Returns top-K rows ordered
@@ -172,26 +209,15 @@ export async function semanticSearchProducts(
   const queryEmbedding = await embedText(db, tenantId, query);
   if (!queryEmbedding) return null;
 
-  // Stream all embedded rows for the tenant. For ≤ 50k rows this is
-  // a sub-100ms scan in better-sqlite3; beyond that we'd need an
-  // index extension (BACKLOG follow-up).
-  const rows = await db
-    .select({ id: products.id, embedding: products.embedding })
-    .from(products)
-    .where(eq(products.tenantId, tenantId))
-    .all();
+  const embedded = await loadTenantProductEmbeddings(db, tenantId);
+  if (embedded.length === 0) return null;
 
   const scored: Array<{ productId: string; similarity: number }> = [];
-  let embeddedRows = 0;
-  for (const row of rows) {
-    const stored = parseEmbedding(row.embedding);
-    if (!stored) continue;
-    embeddedRows += 1;
-    const similarity = cosineSimilarity(queryEmbedding.embedding, stored);
+  for (const row of embedded) {
+    const similarity = cosineSimilarity(queryEmbedding.embedding, row.embedding);
     if (similarity < SIMILARITY_FLOOR) continue;
-    scored.push({ productId: row.id, similarity });
+    scored.push({ productId: row.productId, similarity });
   }
-  if (embeddedRows === 0) return null;
   scored.sort((a, b) => b.similarity - a.similarity);
   return scored.slice(0, Math.max(1, Math.min(limit, 100)));
 }
@@ -220,7 +246,7 @@ export async function regenerateProductEmbeddings(
   if (rows.length === 0) return null;
 
   const texts = rows.map(productCanonicalText);
-  const result = await embedManyTexts(db, tenantId, texts);
+  const result = await embedTexts(db, tenantId, texts);
   if (!result) return null;
 
   const now = new Date().toISOString();

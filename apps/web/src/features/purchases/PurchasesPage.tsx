@@ -99,6 +99,28 @@ export function PurchasesPage() {
     setPurchaseError(null);
   };
 
+  const handleOcrMatchedLines = (items: PurchaseCartItem[]) => {
+    if (items.length === 0) return;
+    setCartItems(currentItems => {
+      const next = [...currentItems];
+      for (const incoming of items) {
+        const existingIndex = next.findIndex(item => item.key === incoming.key);
+        if (existingIndex === -1) {
+          next.push(incoming);
+        } else {
+          // Combine quantities so a second scan of the same supplier
+          // does not erase the operator's prior cart edits.
+          next[existingIndex] = {
+            ...next[existingIndex],
+            quantity: next[existingIndex]!.quantity + incoming.quantity,
+          };
+        }
+      }
+      return next;
+    });
+    setPurchaseError(null);
+  };
+
   const handleQuantityChange = (itemKey: string, quantity: number) => {
     setCartItems(currentItems =>
       currentItems.map(item =>
@@ -300,6 +322,7 @@ export function PurchasesPage() {
       <InvoiceOcrPreviewModal
         isOpen={isInvoiceOcrOpen}
         onClose={() => setIsInvoiceOcrOpen(false)}
+        onMatchedLinesReady={handleOcrMatchedLines}
       />
     </>
   );

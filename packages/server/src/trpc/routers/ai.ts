@@ -39,7 +39,10 @@ import {
   runCopilotChat,
   writeAISettings,
 } from '../../services/ai/index.js';
-import { extractInvoiceFromImage } from '../../services/ai/vision/index.js';
+import {
+  extractInvoiceFromImage,
+  matchInvoiceLinesToProducts,
+} from '../../services/ai/vision/index.js';
 import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
@@ -50,7 +53,7 @@ import {
   aiUsageInput,
   updateAISettingsInput,
 } from '../schemas/ai.js';
-import { extractInvoiceLinesInput } from '../schemas/ai-vision.js';
+import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../schemas/ai-vision.js';
 import { aiAnomalySnoozes, users } from '../../db/schema.js';
 
 const settingsRouter = router({
@@ -280,6 +283,31 @@ export const aiRouter = router({
         model: result.model,
         auditLogId: result.auditLogId,
       };
+    }),
+
+  /**
+   * ENG-040 slice 1b — match OCR-extracted invoice lines to existing
+   * products. Returns top-1 product per line above the shared cosine
+   * floor; lines below land as `product: null` so the modal can fall
+   * back to the manual picker. Gated behind the `semantic-search`
+   * module (mirrors `products.semanticSearch`); when AI is disabled or
+   * the tenant has no embeddings yet the procedure returns
+   * `mode: 'unavailable'` instead of throwing, so the modal can render
+   * a helpful hint instead of an error toast.
+   */
+  matchInvoiceLines: managerOrAdminProcedureWithModule('semantic-search')
+    .input(matchInvoiceLinesInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id ?? null;
+      return matchInvoiceLinesToProducts(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+        },
+        input.lines
+      );
     }),
 
   /**

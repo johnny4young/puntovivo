@@ -19,3 +19,12 @@ export {
   type InvoiceOcrResult,
   type VisionProviderFactory,
 } from './invoice-ocr.js';
+
+export {
+  matchInvoiceLinesToProducts,
+  type InvoiceLineForMatching,
+  type InvoiceLineMatch,
+  type InvoiceLineMatcherContext,
+  type InvoiceLineMatcherResult,
+  type MatchedProductSummary,
+} from './invoice-line-matcher.js';
