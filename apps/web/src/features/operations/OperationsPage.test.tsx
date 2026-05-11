@@ -2,10 +2,11 @@
  * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 7 tabs render in the role list visible to manager + admin.
+ *   - All 8 tabs render in the role list visible to manager + admin.
  *   - Default tab is `sync`.
- *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=inventory`,
- *     `?tab=diagnostics`, `?tab=authority` deep links land on the right panel.
+ *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=payments`,
+ *     `?tab=inventory`, `?tab=diagnostics`, `?tab=authority` deep links
+ *     land on the right panel.
  *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
  *
@@ -90,6 +91,32 @@ vi.mock('@/lib/trpc', () => ({
         },
       },
     },
+    payments: {
+      reconciliation: {
+        useQuery: () => ({
+          data: {
+            summary: {
+              windowDays: 30,
+              tendersScanned: 0,
+              outboxRows: 0,
+              matched: 0,
+              mismatches: 0,
+              missingProviderReferences: 0,
+              providerIssues: 0,
+              totalTenderAmount: 0,
+              unmatchedAmount: 0,
+            },
+            byRail: [],
+            mismatches: [],
+          },
+          isLoading: false,
+          error: null,
+        }),
+      },
+      peekOutbox: {
+        useQuery: () => ({ data: [], isLoading: false, error: null }),
+      },
+    },
     peripherals: {
       peekHardwareOutbox: {
         useQuery: () => ({ data: [], isLoading: false }),
@@ -172,12 +199,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the seven tabs in order', () => {
+  it('renders the eight tabs in order', () => {
     render(<OperationsPage />);
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-cash')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-payments')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-inventory')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-diagnostics')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-authority')).toBeInTheDocument();
@@ -185,46 +213,37 @@ describe('OperationsPage', () => {
 
   it('defaults to the sync tab', () => {
     render(<OperationsPage />);
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-sync')).toBeInTheDocument();
   });
 
   it('lands on the fiscal panel via ?tab=fiscal deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=fiscal'] });
-    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-fiscal')).toBeInTheDocument();
   });
 
   it('lands on the device panel via ?tab=device deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=device'] });
-    expect(screen.getByTestId('operations-tab-device')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-device')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-device')).toBeInTheDocument();
   });
 
   it('lands on the cash panel via ?tab=cash deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=cash'] });
-    expect(screen.getByTestId('operations-tab-cash')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-cash')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-cash')).toBeInTheDocument();
+  });
+
+  it('lands on the payments panel via ?tab=payments deep link', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=payments'] });
+    expect(screen.getByTestId('operations-tab-payments')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tabpanel-payments')).toBeInTheDocument();
   });
 
   it('lands on the inventory panel via ?tab=inventory deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=inventory'] });
-    expect(screen.getByTestId('operations-tab-inventory')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-inventory')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-inventory')).toBeInTheDocument();
   });
 
@@ -239,46 +258,29 @@ describe('OperationsPage', () => {
 
   it('lands on the authority panel via ?tab=authority deep link', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=authority'] });
-    expect(screen.getByTestId('operations-tab-authority')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-authority')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('operations-tabpanel-authority')).toBeInTheDocument();
   });
 
   it('falls back to the default tab when ?tab=garbage', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=zzznotreal'] });
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
   });
 
   it('switches tabs on click and updates aria-selected', () => {
     render(<OperationsPage />);
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
 
     fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
 
-    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute(
-      'aria-selected',
-      'false'
-    );
+    expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('operations-tabpanel-fiscal')).toBeInTheDocument();
   });
 
   it('renders the localized header copy', () => {
     render(<OperationsPage />);
     // Default i18n in tests is English; the header should say "Operations Center".
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /Operations Center/i
-    );
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Operations Center/i);
   });
 });

@@ -1823,6 +1823,127 @@ export const salePaymentsRelations = relations(salePayments, ({ one }) => ({
 }));
 
 // ============================================================================
+// PAYMENT OUTBOX (ENG-038 — LATAM payment rails foundation)
+// ============================================================================
+
+/**
+ * Closed list of payment rails Puntovivo models in ENG-038. Real
+ * provider credentials and terminal SDK handshakes remain follow-up
+ * work; this enum locks the public rail ids used by the outbox,
+ * registry and Operations Center reconciliation tab.
+ */
+export const paymentRailIdEnum = [
+  'wompi',
+  'bold',
+  'epayco',
+  'mercado_pago',
+  'nequi',
+  'daviplata',
+] as const;
+export type PaymentRailId = (typeof paymentRailIdEnum)[number];
+
+/**
+ * Kernel-compatible lifecycle for provider side effects. A row starts
+ * queued, the future worker moves it through submitting, and provider
+ * verdicts settle into approved / declined / timeout / retrying /
+ * settled / dead_letter.
+ */
+export const paymentOutboxStatusEnum = [
+  'queued',
+  'submitting',
+  'approved',
+  'declined',
+  'timeout',
+  'retrying',
+  'settled',
+  'dead_letter',
+] as const;
+export type PaymentOutboxStatus = (typeof paymentOutboxStatusEnum)[number];
+
+export const paymentOutboxKindEnum = ['charge', 'refund', 'get_status'] as const;
+export type PaymentOutboxKind = (typeof paymentOutboxKindEnum)[number];
+
+export const paymentOutbox = sqliteTable(
+  'payment_outbox',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    /**
+     * Optional link to the POS tender being reconciled. Nullable so
+     * imported provider statements can land before the matching tender
+     * is identified by the reconciliation pass.
+     */
+    salePaymentId: text('sale_payment_id').references(() => salePayments.id, {
+      onDelete: 'set null',
+    }),
+    railId: text('rail_id', { enum: paymentRailIdEnum }).notNull(),
+    kind: text('kind', { enum: paymentOutboxKindEnum }).notNull().default('charge'),
+    status: text('status', { enum: paymentOutboxStatusEnum }).notNull().default('queued'),
+    amount: real('amount').notNull(),
+    currencyCode: text('currency_code').notNull().default('COP'),
+    /** POS-side reference, usually sale number or tender reference. */
+    reference: text('reference').notNull(),
+    /** Provider transaction id / payment intent id when the rail returns one. */
+    providerTransactionId: text('provider_transaction_id'),
+    /** Rail-specific request/response snapshot; must never contain PAN / CVV. */
+    payload: text('payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    lastError: text('last_error', { mode: 'json' })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    priority: real('priority').notNull().default(0),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    /**
+     * Envelope-derived idempotency key. Mirrors hardware/webhook
+     * outbox semantics: duplicate rows with the same key collapse via
+     * the partial unique index below; NULL keys stay independent.
+     */
+    idempotencyKey: text('idempotency_key'),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_payment_outbox_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    index('idx_payment_outbox_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_payment_outbox_sale_payment').on(table.salePaymentId),
+    index('idx_payment_outbox_rail_status').on(table.tenantId, table.railId, table.status),
+    uniqueIndex('idx_payment_outbox_idempotent')
+      .on(table.tenantId, table.railId, table.kind, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+  ]
+);
+
+export const paymentOutboxRelations = relations(paymentOutbox, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [paymentOutbox.tenantId],
+    references: [tenants.id],
+  }),
+  salePayment: one(salePayments, {
+    fields: [paymentOutbox.salePaymentId],
+    references: [salePayments.id],
+  }),
+}));
+
+export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
+export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
+
+// ============================================================================
 // SALE RETURNS
 // ============================================================================
 
@@ -4069,6 +4190,9 @@ export type NewSaleItem = typeof saleItems.$inferInsert;
 
 export type SalePayment = typeof salePayments.$inferSelect;
 export type NewSalePayment = typeof salePayments.$inferInsert;
+
+export type PaymentOutbox = typeof paymentOutbox.$inferSelect;
+export type NewPaymentOutbox = typeof paymentOutbox.$inferInsert;
 
 export type SaleReturn = typeof saleReturns.$inferSelect;
 export type NewSaleReturn = typeof saleReturns.$inferInsert;
