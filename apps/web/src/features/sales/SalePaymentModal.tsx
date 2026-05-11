@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -68,12 +68,14 @@ export function SalePaymentModal({
     name: 'tenders',
   });
 
-  const paymentMethod = form.watch('paymentMethod');
-  const amountReceived = form.watch('amountReceived');
-  const tenders = form.watch('tenders');
+  const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash';
+  const amountReceived = useWatch({ control: form.control, name: 'amountReceived' });
+  const watchedTenders = useWatch({ control: form.control, name: 'tenders' });
+  const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
+  const amountReceivedValue = Number(amountReceived) || 0;
   const isCash = paymentMethod === 'cash';
-  const change = isCash ? Math.max(0, amountReceived - total) : 0;
-  const outstanding = Math.max(0, total - (amountReceived || 0));
+  const change = isCash ? Math.max(0, amountReceivedValue - total) : 0;
+  const outstanding = Math.max(0, total - amountReceivedValue);
 
   const tenderSum = useMemo(
     () => sumBy(tenders, tender => Number(tender.amount) || 0),
@@ -204,7 +206,7 @@ export function SalePaymentModal({
             <div className="surface-panel-muted text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-secondary-500">{t('payment.amountReceived')}</span>
-                <span className="font-medium text-secondary-900">{formatCurrency(amountReceived || 0)}</span>
+                <span className="font-medium text-secondary-900">{formatCurrency(amountReceivedValue)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-secondary-500">{isCash ? t('payment.change') : t('payment.balance')}</span>

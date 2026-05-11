@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { MapPinned, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -37,19 +37,24 @@ export function SiteLocationAssignmentsModal({
     },
   });
   const [search, setSearch] = useState('');
-  const selectedIds = new Set(form.watch('locationIds'));
+  const watchedLocationIds = useWatch({ control: form.control, name: 'locationIds' });
+  const selectedIds = useMemo(() => new Set(watchedLocationIds ?? []), [watchedLocationIds]);
   const normalizedSearch = search.trim().toLowerCase();
-  const filteredLocations = locations.filter(location => {
-    if (normalizedSearch.length === 0) {
-      return true;
-    }
+  const filteredLocations = useMemo(
+    () =>
+      locations.filter(location => {
+        if (normalizedSearch.length === 0) {
+          return true;
+        }
 
-    return (
-      location.name.toLowerCase().includes(normalizedSearch) ||
-      location.code.toLowerCase().includes(normalizedSearch) ||
-      (location.description ?? '').toLowerCase().includes(normalizedSearch)
-    );
-  });
+        return (
+          location.name.toLowerCase().includes(normalizedSearch) ||
+          location.code.toLowerCase().includes(normalizedSearch) ||
+          (location.description ?? '').toLowerCase().includes(normalizedSearch)
+        );
+      }),
+    [locations, normalizedSearch]
+  );
 
   const toggleLocation = (locationId: string) => {
     const nextIds = selectedIds.has(locationId)

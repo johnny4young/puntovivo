@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { FolderTree, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -68,7 +68,8 @@ export function ProviderCategoryAssignmentsModal({
     },
   });
   const [search, setSearch] = useState('');
-  const selectedIds = new Set(form.watch('categoryIds'));
+  const watchedCategoryIds = useWatch({ control: form.control, name: 'categoryIds' });
+  const selectedIds = useMemo(() => new Set(watchedCategoryIds ?? []), [watchedCategoryIds]);
   const categoryRows = useMemo(() => buildCategoryRows(categories), [categories]);
   const normalizedSearch = search.trim().toLowerCase();
   const filteredCategories = useMemo(

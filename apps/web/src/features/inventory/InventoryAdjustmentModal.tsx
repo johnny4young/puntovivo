@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
@@ -48,9 +48,9 @@ export function InventoryAdjustmentModal({
   });
 
   const handleSubmit = form.handleSubmit(onSubmit);
-  const nextStock = form.watch('newStock');
+  const nextStock = useWatch({ control: form.control, name: 'newStock' });
   const currentStock = product?.stock ?? 0;
-  const delta = nextStock - currentStock;
+  const delta = (Number(nextStock) || 0) - currentStock;
 
   return (
     <Modal
