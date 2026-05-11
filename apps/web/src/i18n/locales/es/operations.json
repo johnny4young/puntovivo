@@ -9,6 +9,7 @@
     "fiscal": "Fiscal",
     "device": "Dispositivos",
     "cash": "Caja",
+    "payments": "Pagos",
     "inventory": "Inventario",
     "diagnostics": "Diagnóstico",
     "authority": "Autoridad"
@@ -138,6 +139,81 @@
         "expected": "Esperado",
         "actual": "Contado",
         "overShort": "Sobre/Bajo"
+      }
+    }
+  },
+  "payments": {
+    "title": "Salud de pagos",
+    "description": "Reconciliación de pagos con tarjeta, transferencia y billeteras entre Wompi, Bold, ePayco, Mercado Pago, Nequi y Daviplata.",
+    "summary": {
+      "tendersScanned": "Pagos analizados",
+      "matched": "Emparejados",
+      "mismatches": "Diferencias",
+      "unmatchedAmount": "Monto por revisar"
+    },
+    "rails": {
+      "wompi": "Wompi",
+      "bold": "Bold",
+      "epayco": "ePayco",
+      "mercado_pago": "Mercado Pago",
+      "nequi": "Nequi",
+      "daviplata": "Daviplata"
+    },
+    "kind": {
+      "charge": "Cobro",
+      "refund": "Devolución",
+      "get_status": "Consulta de estado"
+    },
+    "status": {
+      "missing": "Faltante",
+      "queued": "Encolado",
+      "submitting": "Enviando",
+      "approved": "Aprobado",
+      "declined": "Rechazado",
+      "timeout": "Timeout",
+      "retrying": "Reintentando",
+      "settled": "Liquidado",
+      "dead_letter": "Dead letter"
+    },
+    "byRail": {
+      "title": "Resumen por rail",
+      "outboxRows": "Filas en outbox",
+      "amount": "Monto"
+    },
+    "mismatches": {
+      "title": "Ítems por revisar",
+      "emptyState": "No hay diferencias de pagos en la ventana actual.",
+      "columns": {
+        "type": "Tipo",
+        "rail": "Rail",
+        "reference": "Referencia",
+        "amount": "Monto",
+        "status": "Estado",
+        "action": "Siguiente acción"
+      },
+      "type": {
+        "missing_provider_reference": "Fila de proveedor faltante",
+        "provider_issue": "Problema del proveedor",
+        "amount_mismatch": "Monto no coincide",
+        "orphan_provider_row": "Fila de proveedor sin vínculo"
+      },
+      "action": {
+        "queue_charge": "Encola el cobro",
+        "review_provider": "Revisa la respuesta del proveedor",
+        "adjust_amount": "Ajusta o divide el pago",
+        "link_tender": "Vincula un pago del POS"
+      }
+    },
+    "outbox": {
+      "title": "Outbox de pagos",
+      "emptyState": "No hay filas en el outbox de pagos.",
+      "columns": {
+        "rail": "Rail",
+        "kind": "Tipo",
+        "status": "Estado",
+        "attempts": "Intentos",
+        "lastError": "Último error",
+        "createdAt": "Creado"
       }
     }
   },

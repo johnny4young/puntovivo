@@ -2606,6 +2606,13 @@ Test tickets:
 
 ## 13. Colombia Payment Ecosystem
 
+**Status update (2026-05-11)**: ENG-038 slice 1 has shipped the
+software-rail foundation: stable ids for Wompi, Bold, ePayco, Mercado
+Pago, Nequi and Daviplata, deterministic `PaymentRailAdapter`
+implementations, `payment_outbox`, and a read-only Operations Center
+payments panel. Real provider credentials, API workers, imported
+settlement statements and nightly matching-threshold proof remain open.
+
 ### 13.1 Payment Gateways and Processors
 
 | Gateway | Focus | Supported Methods | Node.js SDK | POS/In-Person | Pricing (approx.) |

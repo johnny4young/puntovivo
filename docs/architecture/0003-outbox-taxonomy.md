@@ -42,12 +42,16 @@ The five outboxes — and why each gets its own physical home:
    `queued → submitting → synced | conflict | retrying →
    dead_letter`. Retry policy is defensive; conflicts route to
    manual resolution per ADR-0004.
-2. **`payment_outbox`** — payment terminal effects (charge / void
-   / slip print on a Bold or Wompi datáfono once ENG-063 ships).
-   Lifecycle: `queued → submitted → approved | declined | timeout
-   | retrying → settled`. Failed payments do not roll back the
-   sale; the outbox surfaces them in the Operations Center
-   (ENG-065).
+2. **`payment_outbox`** — software payment rail effects
+   (charge / refund / status check for Wompi, Bold, ePayco,
+   Mercado Pago, Nequi and Daviplata) plus future terminal effects.
+   ENG-038 slice 1 introduced the table and read-only reconciliation
+   surface; real provider workers and terminal device handshakes land
+   in later payment slices. Lifecycle: `queued → submitting →
+   approved | declined | timeout | retrying | settled |
+   dead_letter`. Failed payments do not roll back the sale; the
+   outbox surfaces them in the Operations Center (ENG-065d /
+   ENG-038).
 3. **`webhook_outbox`** — public webhook delivery to integrators.
    Backed by ENG-070's event-based public API. Lifecycle:
    `queued → delivering → delivered | failed | dead_letter`.
@@ -168,8 +172,12 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      the legacy table, and the web client
      `services/storage/syncQueue.ts` is renamed to
      `offlineQueue.ts` to clear the file-name collision.
-  4. ENG-063 introduces `payment_outbox` when the payment
-     terminal adapter ships.
+  4. ENG-038 slice 1 (Shipped 2026-05-11) introduced
+     `payment_outbox` via migration `0022_payment_outbox.sql` with
+     the kernel projection plus rail id, provider transaction id,
+     sale-payment linkage and partial idempotency index. ENG-063 and
+     later ENG-038 slices add live terminal/provider workers on top of
+     this table.
   5. ENG-070 introduces `webhook_outbox` (migration
      `0020_webhook_outbox.sql`, **shipped 2026-05-08**) — the 5th
      and last outbox in the taxonomy. Kernel-projection shape
@@ -210,8 +218,11 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   rejected` rendering on the receipt.
 - `ENG-060` — Peripheral registry + hardware ports. Introduces
   `hardware_outbox`.
-- `ENG-063` — Payment terminal adapter. Introduces
-  `payment_outbox`.
+- `ENG-038` (Partial 2026-05-11) — LATAM payment rails. Introduced
+  `payment_outbox`, the deterministic rail contract and Operations
+  payment reconciliation baseline.
+- `ENG-063` — Payment terminal adapter. Adds terminal-specific live
+  provider/device workers on top of `payment_outbox`.
 - `ENG-064` (Shipped 2026-05-05) — Sync contract v1. Introduced
   `sync_outbox` via migration `0016_sync_contract_v1.sql` plus the
   per-entity manifest + `enqueueSync` helper + three new procedures

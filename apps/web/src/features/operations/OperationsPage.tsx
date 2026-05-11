@@ -7,6 +7,7 @@ import { SyncHealthPanel } from './SyncHealthPanel';
 import { FiscalHealthPanel } from './FiscalHealthPanel';
 import { DeviceHealthPanel } from './DeviceHealthPanel';
 import { CashHealthPanel } from './CashHealthPanel';
+import { PaymentHealthPanel } from './PaymentHealthPanel';
 import { InventoryHealthPanel } from './InventoryHealthPanel';
 import { DiagnosticExportPanel } from './DiagnosticExportPanel';
 import { AuthorityHealthPanel } from './AuthorityHealthPanel';
@@ -17,11 +18,11 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  * Tabbed admin/manager surface that surfaces the three already-shipped
  * outboxes (sync, fiscal, hardware) plus the two reconciliation views
  * shipped in ENG-065b (cash + inventory) and the diagnostic export
- * shipped in ENG-065c. Payment reconciliation lands in ENG-065d once
- * `payment_outbox` ships from ENG-063.
+ * shipped in ENG-065c, the authority-node panel (ENG-075) and the
+ * payment reconciliation foundation (ENG-038).
  *
  * Tab state is URL-driven
- * (`?tab=sync|fiscal|device|cash|inventory|diagnostics|authority`)
+ * (`?tab=sync|fiscal|device|cash|payments|inventory|diagnostics|authority`)
  * so deep links from elsewhere in the app (e.g. an alert banner
  * pointing at a specific failure surface) land directly on the right
  * panel without manual navigation. `replace: true` keeps the back
@@ -32,6 +33,7 @@ const TAB_KEYS = [
   'fiscal',
   'device',
   'cash',
+  'payments',
   'inventory',
   'diagnostics',
   'authority',
@@ -64,6 +66,7 @@ export function OperationsPage() {
       fiscal: t('tabs.fiscal'),
       device: t('tabs.device'),
       cash: t('tabs.cash'),
+      payments: t('tabs.payments'),
       inventory: t('tabs.inventory'),
       diagnostics: t('tabs.diagnostics'),
       authority: t('tabs.authority'),
@@ -78,18 +81,12 @@ export function OperationsPage() {
           <Activity className="h-5 w-5 text-primary-700" />
         </div>
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-secondary-900">
-            {t('header.title')}
-          </h1>
+          <h1 className="text-2xl font-bold text-secondary-900">{t('header.title')}</h1>
           <p className="text-sm text-secondary-500">{t('header.subtitle')}</p>
         </div>
       </header>
 
-      <nav
-        className="segmented-control"
-        role="tablist"
-        aria-label={t('tabs.ariaLabel')}
-      >
+      <nav className="segmented-control" role="tablist" aria-label={t('tabs.ariaLabel')}>
         {TAB_KEYS.map(key => {
           const selected = activeTab === key;
           return (
@@ -121,6 +118,7 @@ export function OperationsPage() {
         {activeTab === 'fiscal' && <FiscalHealthPanel />}
         {activeTab === 'device' && <DeviceHealthPanel />}
         {activeTab === 'cash' && <CashHealthPanel />}
+        {activeTab === 'payments' && <PaymentHealthPanel />}
         {activeTab === 'inventory' && <InventoryHealthPanel />}
         {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
         {activeTab === 'authority' && <AuthorityHealthPanel />}

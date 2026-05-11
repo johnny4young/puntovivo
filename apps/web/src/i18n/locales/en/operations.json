@@ -9,6 +9,7 @@
     "fiscal": "Fiscal",
     "device": "Devices",
     "cash": "Cash",
+    "payments": "Payments",
     "inventory": "Inventory",
     "diagnostics": "Diagnostics",
     "authority": "Authority"
@@ -138,6 +139,81 @@
         "expected": "Expected",
         "actual": "Counted",
         "overShort": "Over/Short"
+      }
+    }
+  },
+  "payments": {
+    "title": "Payment Health",
+    "description": "Reconciliation for card, transfer and wallet tenders across Wompi, Bold, ePayco, Mercado Pago, Nequi and Daviplata.",
+    "summary": {
+      "tendersScanned": "Tenders scanned",
+      "matched": "Matched",
+      "mismatches": "Mismatches",
+      "unmatchedAmount": "Amount to review"
+    },
+    "rails": {
+      "wompi": "Wompi",
+      "bold": "Bold",
+      "epayco": "ePayco",
+      "mercado_pago": "Mercado Pago",
+      "nequi": "Nequi",
+      "daviplata": "Daviplata"
+    },
+    "kind": {
+      "charge": "Charge",
+      "refund": "Refund",
+      "get_status": "Status check"
+    },
+    "status": {
+      "missing": "Missing",
+      "queued": "Queued",
+      "submitting": "Submitting",
+      "approved": "Approved",
+      "declined": "Declined",
+      "timeout": "Timeout",
+      "retrying": "Retrying",
+      "settled": "Settled",
+      "dead_letter": "Dead letter"
+    },
+    "byRail": {
+      "title": "Rail summary",
+      "outboxRows": "Outbox rows",
+      "amount": "Amount"
+    },
+    "mismatches": {
+      "title": "Items to review",
+      "emptyState": "No payment mismatches in the current window.",
+      "columns": {
+        "type": "Type",
+        "rail": "Rail",
+        "reference": "Reference",
+        "amount": "Amount",
+        "status": "Status",
+        "action": "Next action"
+      },
+      "type": {
+        "missing_provider_reference": "Missing provider row",
+        "provider_issue": "Provider issue",
+        "amount_mismatch": "Amount mismatch",
+        "orphan_provider_row": "Unlinked provider row"
+      },
+      "action": {
+        "queue_charge": "Queue the charge",
+        "review_provider": "Review the provider response",
+        "adjust_amount": "Adjust or split the tender",
+        "link_tender": "Link to a POS tender"
+      }
+    },
+    "outbox": {
+      "title": "Payment outbox",
+      "emptyState": "No payment outbox rows recorded.",
+      "columns": {
+        "rail": "Rail",
+        "kind": "Kind",
+        "status": "Status",
+        "attempts": "Attempts",
+        "lastError": "Last error",
+        "createdAt": "Created"
       }
     }
   },
