@@ -111,6 +111,10 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'AI_PROVIDER_ERROR',
   'AI_COPILOT_SQL_REJECTED',
   'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
+  // --- ENG-040a AI Wave 2 vision ---
+  'AI_VISION_NOT_AVAILABLE',
+  'AI_VISION_PARSE_FAILED',
+  'AI_VISION_IMAGE_TOO_LARGE',
   // --- ENG-052 device registry + command envelope ---
   'DEVICE_NOT_REGISTERED',
   // --- ENG-075 Authority Node pairing + health ---

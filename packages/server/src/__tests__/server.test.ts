@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   createServer,
+  SERVER_BODY_LIMIT_BYTES,
   SERVER_HEADERS_TIMEOUT_MS,
   SERVER_KEEP_ALIVE_TIMEOUT_MS,
   SERVER_REQUEST_TIMEOUT_MS,
@@ -104,6 +105,10 @@ describe('tRPC batch URL routing', () => {
 });
 
 describe('HTTP transport hardening', () => {
+  it('allows the documented OCR image payload size through HTTP', () => {
+    expect(server.app.initialConfig.bodyLimit).toBe(SERVER_BODY_LIMIT_BYTES);
+  });
+
   it('configures bounded socket, header, request, and keep-alive timeouts', () => {
     expect(server.app.server.keepAliveTimeout).toBe(SERVER_KEEP_ALIVE_TIMEOUT_MS);
     expect(server.app.server.headersTimeout).toBe(SERVER_HEADERS_TIMEOUT_MS);

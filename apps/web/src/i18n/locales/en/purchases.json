@@ -14,6 +14,7 @@
     "description": "Adjust received quantities and costs before updating stock.",
     "addProduct": "Add Product",
     "clear": "Clear",
+    "openOcr": "Scan Invoice",
     "register": "Register Purchase",
     "purchaseTotal": "Purchase total",
     "provider": "Provider",
@@ -47,6 +48,36 @@
     "success": "Purchase registered",
     "successDetail": "item(s) added to stock",
     "error": "Unable to register purchase"
+  },
+  "ocr": {
+    "title": "Invoice OCR",
+    "description": "Upload a photo of the provider invoice. The AI will read supplier details, line items and totals so you can transcribe them into the purchase.",
+    "uploadCta": "Upload invoice photo",
+    "processing": "Reading the invoice...",
+    "error": "Could not extract invoice data",
+    "footnote": "Read-only preview. Review and add products manually for now. Line-to-product mapping ships in a follow-up slice.",
+    "errors": {
+      "unsupportedType": "Use a JPG, PNG or WebP image.",
+      "tooLarge": "Image exceeds the 5 MB limit. Re-export it at a lower resolution.",
+      "readFailed": "Could not read the image file"
+    },
+    "fields": {
+      "supplierName": "Supplier",
+      "supplierTaxId": "Tax ID",
+      "invoiceNumber": "Invoice number",
+      "invoiceDate": "Invoice date"
+    },
+    "lines": {
+      "description": "Description",
+      "quantity": "Qty",
+      "unitPrice": "Unit price",
+      "totalLine": "Line total"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "taxAmount": "Tax",
+      "total": "Total"
+    }
   },
   "table": {
     "purchaseNumber": "Purchase #",

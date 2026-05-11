@@ -42,6 +42,12 @@ export const ollamaProvider: NotImplementedProvider = {
     refuse();
   },
 
+  // ENG-040a — vision capability deliberately UNDEFINED for the Ollama
+  // stub. The `extractInvoiceFromImage` service tests
+  // `typeof provider.visionModel === 'function'` and surfaces the
+  // documented `AI_VISION_NOT_AVAILABLE` for the operator. Live local-
+  // vision wiring lands with ENG-040b alongside the Whisper voice slice.
+
   cacheControlForSystemPrompt(): undefined {
     return undefined;
   },
