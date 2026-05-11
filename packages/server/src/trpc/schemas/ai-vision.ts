@@ -1,5 +1,6 @@
 /**
- * ENG-040a — Schemas for `ai.extractInvoiceLines`.
+ * ENG-040a + slice 1b — Schemas for `ai.extractInvoiceLines` and
+ * `ai.matchInvoiceLines`.
  *
  * @module trpc/schemas/ai-vision
  */
@@ -32,3 +33,26 @@ export const extractInvoiceLinesInput = z.object({
   mimeType: z.enum(INVOICE_OCR_MIME_TYPES),
 });
 export type ExtractInvoiceLinesInput = z.infer<typeof extractInvoiceLinesInput>;
+
+/**
+ * ENG-040 slice 1b — input for `ai.matchInvoiceLines`. The shape
+ * mirrors `InvoiceOcrLineSchema` so the modal can pass the OCR output
+ * verbatim. Description is bounded at 500 chars to prevent abuse — a
+ * realistic invoice line is well under 200.
+ */
+export const matchInvoiceLinesInput = z.object({
+  lines: z
+    .array(
+      z.object({
+        description: z.string().trim().min(1).max(500),
+        quantity: z.number().nullable(),
+        unitPrice: z.number().nullable(),
+        totalLine: z.number().nullable(),
+      })
+    )
+    // 200 lines covers any realistic provider invoice; the ceiling is
+    // a defense-in-depth bound so a malformed OCR response cannot
+    // trigger a multi-MB embedding batch.
+    .max(200),
+});
+export type MatchInvoiceLinesInput = z.infer<typeof matchInvoiceLinesInput>;

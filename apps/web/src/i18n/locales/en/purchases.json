@@ -55,7 +55,7 @@
     "uploadCta": "Upload invoice photo",
     "processing": "Reading the invoice...",
     "error": "Could not extract invoice data",
-    "footnote": "Read-only preview. Review and add products manually for now. Line-to-product mapping ships in a follow-up slice.",
+    "footnote": "Review the extracted lines, match each one to a product in your catalog, and then add the matches to a draft purchase.",
     "errors": {
       "unsupportedType": "Use a JPG, PNG or WebP image.",
       "tooLarge": "Image exceeds the 5 MB limit. Re-export it at a lower resolution.",
@@ -77,6 +77,21 @@
       "subtotal": "Subtotal",
       "taxAmount": "Tax",
       "total": "Total"
+    },
+    "match": {
+      "cta": "Match products",
+      "loading": "Matching invoice lines to products...",
+      "retryCta": "Retry matching",
+      "suggestedColumn": "Suggested product",
+      "confidence": "{{percent}}% match",
+      "unmatchedPill": "No match — add manually",
+      "createPurchaseCta": "Create purchase with matches",
+      "unavailable": "Enable Semantic search and regenerate product embeddings to match invoice lines automatically.",
+      "toastMatched_one": "{{count}} matched line added to the draft.",
+      "toastMatched_other": "{{count}} matched lines added to the draft.",
+      "toastUnmatched_one": "{{count}} line still needs to be added manually with Search product.",
+      "toastUnmatched_other": "{{count}} lines still need to be added manually with Search product.",
+      "moduleHint": "Activate the Semantic search module to match invoice lines to products."
     }
   },
   "table": {

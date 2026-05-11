@@ -55,7 +55,7 @@
     "uploadCta": "Subir foto de la factura",
     "processing": "Leyendo la factura...",
     "error": "No se pudieron extraer los datos de la factura",
-    "footnote": "Vista solo lectura. Revisa y agrega los productos manualmente por ahora. La correspondencia línea-a-producto llega en un slice posterior.",
+    "footnote": "Revisa las líneas extraídas, asocia cada una con un producto del catálogo y luego agrega las coincidencias a una compra en borrador.",
     "errors": {
       "unsupportedType": "Usa una imagen JPG, PNG o WebP.",
       "tooLarge": "La imagen supera el límite de 5 MB. Vuelve a exportarla en una resolución más baja.",
@@ -77,6 +77,21 @@
       "subtotal": "Subtotal",
       "taxAmount": "Impuesto",
       "total": "Total"
+    },
+    "match": {
+      "cta": "Asociar productos",
+      "loading": "Asociando líneas con productos...",
+      "retryCta": "Reintentar asociación",
+      "suggestedColumn": "Producto sugerido",
+      "confidence": "{{percent}}% de coincidencia",
+      "unmatchedPill": "Sin coincidencia — agrega manualmente",
+      "createPurchaseCta": "Crear compra con coincidencias",
+      "unavailable": "Activa la Búsqueda semántica y regenera los embeddings de productos para asociar las líneas automáticamente.",
+      "toastMatched_one": "{{count}} línea asociada agregada al borrador.",
+      "toastMatched_other": "{{count}} líneas asociadas agregadas al borrador.",
+      "toastUnmatched_one": "{{count}} línea queda pendiente: agrégala manualmente con Buscar producto.",
+      "toastUnmatched_other": "{{count}} líneas quedan pendientes: agrégalas manualmente con Buscar producto.",
+      "moduleHint": "Activa el módulo Búsqueda semántica para asociar líneas de factura con productos."
     }
   },
   "table": {
