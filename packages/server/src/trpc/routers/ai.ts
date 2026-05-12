@@ -80,6 +80,14 @@ const settingsRouter = router({
       // Reject before-the-fact selection of a notImplemented provider
       // so the admin sees a meaningful error rather than a confusing
       // "looks fine" → "first call fails" UX.
+      //
+      // ENG-040b slice 1 — currently every registered provider is
+      // implemented (Anthropic + OpenAI + Ollama), so this branch is
+      // dead in CI. Keep the guard in place because the registry
+      // contract still permits `NotImplementedProvider` entries; the
+      // next provider that lands as a stub (e.g. a future Google /
+      // Mistral integration) gets a regression-coverage assertion
+      // re-added in `ai-router.test.ts` at the same time as it lands.
       if (input.providerId) {
         const candidate = getProvider(input.providerId);
         if (isNotImplemented(candidate)) {

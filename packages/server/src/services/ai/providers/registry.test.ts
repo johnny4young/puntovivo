@@ -1,7 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { TRPCError } from '@trpc/server';
-
-import { ServerErrorWithCode } from '../../../lib/errorCodes.js';
 
 import { anthropicProvider } from './anthropic.js';
 import {
@@ -40,10 +37,15 @@ describe('ai/providers/registry', () => {
       expect(isNotImplemented(provider)).toBe(false);
     });
 
-    it('returns the ollama stub flagged as notImplemented', () => {
+    // ENG-040b slice 1 — Ollama provider activated. The
+    // `isNotImplemented` flag flips to `false`; the registry can no
+    // longer represent a stub provider here. A future stub (e.g. a
+    // brand-new provider id) would land its own assertion when that
+    // happens.
+    it('returns the ollama instance flagged as implemented (ENG-040b)', () => {
       const provider = getProvider('ollama');
       expect(provider.id).toBe('ollama');
-      expect(isNotImplemented(provider)).toBe(true);
+      expect(isNotImplemented(provider)).toBe(false);
     });
   });
 
@@ -54,39 +56,15 @@ describe('ai/providers/registry', () => {
       expect(list.map(entry => entry.id)).toEqual(['anthropic', 'openai', 'ollama']);
     });
 
-    it('flags anthropic and openai as implemented; ollama parked for ENG-040', () => {
+    it('flags every registered provider as implemented after ENG-040b', () => {
       const list = listProviders();
       const byId = Object.fromEntries(list.map(entry => [entry.id, entry] as const));
       expect(byId.anthropic.isImplemented).toBe(true);
       expect(byId.anthropic.availableInTicket).toBeUndefined();
       expect(byId.openai.isImplemented).toBe(true);
       expect(byId.openai.availableInTicket).toBeUndefined();
-      expect(byId.ollama.isImplemented).toBe(false);
-      expect(byId.ollama.availableInTicket).toBe('ENG-040');
-    });
-  });
-
-  describe('notImplemented stubs', () => {
-    it('throws AI_PROVIDER_ERROR with the ticket hint when languageModel is called', () => {
-      // Ollama is the only remaining notImplemented provider after
-      // ENG-044 turned OpenAI on. Tested here so the rejection flow is
-      // pinned regardless of which provider stays parked.
-      const provider = getProvider('ollama');
-      let caught: unknown;
-      try {
-        provider.languageModel('llama3.2');
-      } catch (error) {
-        caught = error;
-      }
-      expect(caught).toBeInstanceOf(TRPCError);
-      const cause = (caught as TRPCError).cause;
-      expect(cause).toBeInstanceOf(ServerErrorWithCode);
-      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
-      expect((caught as TRPCError).message).toContain('ENG-040');
-    });
-
-    it('reports isConfigured() === false for the ollama stub', () => {
-      expect(getProvider('ollama').isConfigured()).toBe(false);
+      expect(byId.ollama.isImplemented).toBe(true);
+      expect(byId.ollama.availableInTicket).toBeUndefined();
     });
   });
 });

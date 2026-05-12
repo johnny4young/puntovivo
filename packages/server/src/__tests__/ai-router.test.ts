@@ -226,8 +226,9 @@ describe('ai.settings.get', () => {
     expect(byId.anthropic.isImplemented).toBe(true);
     expect(byId.openai.isImplemented).toBe(true);
     expect(byId.openai.availableInTicket).toBeUndefined();
-    expect(byId.ollama.isImplemented).toBe(false);
-    expect(byId.ollama.availableInTicket).toBe('ENG-040');
+    // ENG-040b slice 1 — Ollama activated.
+    expect(byId.ollama.isImplemented).toBe(true);
+    expect(byId.ollama.availableInTicket).toBeUndefined();
   });
 
   it('rejects cashier callers with FORBIDDEN', async () => {
@@ -283,24 +284,28 @@ describe('ai.settings.update', () => {
     expect((caught as TRPCError).code).toBe('BAD_REQUEST');
   });
 
-  it('rejects providerId pointing at a notImplemented stub', async () => {
-    // ENG-044 turned OpenAI on; Ollama remains the parked stub for
-    // ENG-040. Switching the assertion to ollama keeps the rejection
-    // flow under test without relying on a now-implemented provider.
+  it('rejects unknown providerId values via the Zod enum', async () => {
+    // ENG-040b slice 1 — Ollama is now implemented, so no parked stub
+    // remains in the registry. The notImplemented-rejection branch in
+    // the router (it throws AI_PROVIDER_ERROR with the ticket hint)
+    // stays in place for any future stub but cannot be exercised here.
+    // Zod's enum validation on providerId still rejects unknown ids
+    // with BAD_REQUEST — pin that boundary as the active gate.
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
     let caught: unknown;
     try {
-      await caller.ai.settings.update({ providerId: 'ollama' });
+      await caller.ai.settings.update({
+        // @ts-expect-error — deliberately bypass the typed input to
+        // exercise the Zod enum refusal at runtime.
+        providerId: 'totally-not-a-provider',
+      });
     } catch (error) {
       caught = error;
     }
     expect(caught).toBeInstanceOf(TRPCError);
-    const cause = (caught as TRPCError).cause;
-    expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
-    expect((caught as TRPCError).message).toContain('ENG-040');
+    expect((caught as TRPCError).code).toBe('BAD_REQUEST');
   });
 
   it('does not leak settings between tenants', async () => {

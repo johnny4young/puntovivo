@@ -7,9 +7,9 @@
  * validate the env-var + provider round-trip without waiting for
  * ENG-031 (co-pilot) or ENG-033 (semantic search) to land.
  *
- * Provider selector renders all registered providers. Anthropic and
- * OpenAI are enabled as implemented providers; parked stubs keep a
- * `(disponible con ENG-NNN)` hint so the admin sees the roadmap.
+ * Provider selector renders all registered providers. Implemented
+ * providers are selectable; parked stubs keep a `(disponible con
+ * ENG-NNN)` hint so the admin sees the roadmap.
  */
 import { useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
