@@ -7,8 +7,8 @@
  * when the literal string isn't a substring) and pre-fills the fiscal
  * category at product create time using a small generative call. Both
  * features sit BEHIND `tenants.settings.ai.enabled` and require a
- * configured embedding-capable provider — today only OpenAI ships
- * with `embeddingModel`. Anthropic does not embed, so a tenant on
+ * configured embedding-capable provider. OpenAI and Ollama ship
+ * with `embeddingModel`; Anthropic does not embed, so a tenant on
  * Anthropic falls back to LIKE search (no embedding write happens).
  *
  * ## Storage
@@ -130,7 +130,11 @@ export async function embedText(
   const resolved = await resolveEmbeddingProvider(db, tenantId);
   if (!resolved) return null;
   const { provider } = resolved;
-  const modelId = DEFAULT_EMBEDDING_MODEL;
+  // ENG-040b slice 2 — per-provider embedding default. OpenAI ships
+  // `text-embedding-3-small`, Ollama ships `nomic-embed-text`. Falls
+  // back to the legacy constant when a future provider implements
+  // `embeddingModel` but doesn't advertise a default.
+  const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
   const model = provider.embeddingModel!(modelId);
   const result = await embed({ model, value: text });
   return { embedding: Array.from(result.embedding), model: modelId };
@@ -152,7 +156,9 @@ export async function embedTexts(
   const resolved = await resolveEmbeddingProvider(db, tenantId);
   if (!resolved) return null;
   const { provider } = resolved;
-  const modelId = DEFAULT_EMBEDDING_MODEL;
+  // ENG-040b slice 2 — per-provider embedding default. OpenAI ships
+  // `text-embedding-3-small`, Ollama ships `nomic-embed-text`.
+  const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
   const model = provider.embeddingModel!(modelId);
   const embeddings: number[][] = [];
   const CHUNK = 256;

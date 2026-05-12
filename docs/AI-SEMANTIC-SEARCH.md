@@ -20,9 +20,11 @@ fiscal apropiada con un nivel de confianza, ahorrando al admin la
 tarea de elegir manualmente entre catálogos largos.
 
 Ambas features están **detrás del flag `ai.enabled`** y requieren un
-proveedor con soporte de embeddings — hoy solo **OpenAI** ship con
-`embeddingModel`. Anthropic no embebe; un tenant en Anthropic cae
-de regreso a la búsqueda LIKE sin error.
+proveedor con soporte de embeddings. **OpenAI** ship con
+`text-embedding-3-small`; **Ollama** ship con `nomic-embed-text`
+desde `ENG-040b slice 2`, para un flujo local/offline después de
+descargar el modelo y regenerar el catálogo. Anthropic no embebe; un
+tenant en Anthropic cae de regreso a la búsqueda LIKE sin error.
 
 ## Por qué se implementó — casos de uso LATAM
 
@@ -63,11 +65,13 @@ UI que expone el toggle.
 
 Cada producto carga tres columnas nuevas (migración `0009`):
 
-- `embedding TEXT` — array JSON con 1536 floats (~6 KB) producido por
-  `text-embedding-3-small` de OpenAI.
+- `embedding TEXT` — array JSON con floats producido por el modelo
+  activo (`text-embedding-3-small` de OpenAI usa 1536 dims;
+  `nomic-embed-text` de Ollama usa 768 dims).
 - `embedding_model TEXT` — id del modelo que generó el vector
-  (`text-embedding-3-small` por default). Si en el futuro upgrade
-  a `text-embedding-3-large`, el cambio se detecta y se re-embebe.
+  (`text-embedding-3-small` u `nomic-embed-text` por default según
+  proveedor). Si el tenant cambia de proveedor/modelo, debe
+  regenerar embeddings para evitar mezclar dimensiones.
 - `embedded_at TEXT` — timestamp ISO de la última vez que se generó.
 
 Las tres son nullables — un producto sin embedding cae a búsqueda
@@ -101,9 +105,10 @@ basado en el threshold (recomendado: aceptar > 0.7, sugerir entre
 
 ## Dimensiones
 
-- 1536 dims × 4 bytes/float = ~6 KB por producto serializado como
-  JSON. 1000 productos = ~6 MB. SQLite embebido lo maneja sin
-  problema.
+- OpenAI `text-embedding-3-small`: 1536 dims × 4 bytes/float =
+  ~6 KB por producto serializado como JSON. Ollama
+  `nomic-embed-text`: 768 dims, aproximadamente la mitad. SQLite
+  embebido lo maneja sin problema para catálogos típicos.
 - Costo de embedding: $0.02 por 1M de tokens input bajo
   `text-embedding-3-small`. Un nombre + descripción típico son
   ~30-80 tokens; embedber 1000 productos cuesta ~$0.0016. Re-embed
@@ -138,6 +143,10 @@ products.suggestCategory({ name, description? })
 - Tenant en Anthropic puro: `embeddingModel` no existe en el
   provider → `semanticSearch` retorna `unavailable` y
   `regenerateEmbeddings` / `suggestCategory` retornan `ok=false`.
+- Tenant en Ollama sin `nomic-embed-text` descargado: el provider está
+  configurado, pero la primera llamada real falla en el daemon local.
+  Ejecuta `ollama pull nomic-embed-text` y luego usa
+  `Regenerar embeddings`.
 - Tenant con cero productos: `regenerateEmbeddings` retorna
   `embedded: 0` sin error.
 - Tenant con productos pero sin embeddings todavía:
@@ -181,3 +190,6 @@ products.suggestCategory({ name, description? })
 - **2026-04-30 (ENG-048)** — `ProductsPage` conecta el flujo de
   búsqueda semántica y regeneración de embeddings. La UI de
   auto-categorización queda como follow-up.
+- **2026-05-12 (ENG-040b slice 2)** — Ollama activa embeddings con
+  `nomic-embed-text`; el resolver usa el default de cada proveedor
+  para que la búsqueda semántica pueda correr offline.
