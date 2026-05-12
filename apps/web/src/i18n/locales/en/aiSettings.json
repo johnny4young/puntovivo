@@ -20,13 +20,32 @@
     "saveAction": "Save AI settings",
     "savingAction": "Saving…",
     "testAction": "Test connection",
-    "testingAction": "Testing…"
+    "testingAction": "Testing…",
+    "transcribeAction": "Test transcription",
+    "transcribeStopAction": "Stop recording",
+    "transcribeStartingAction": "Starting…",
+    "transcribingAction": "Transcribing…",
+    "transcribeRecordingHint": "Recording… {{seconds}}s of 30s max",
+    "transcribeAiDisabledHint": "Turn on AI features before testing transcription.",
+    "transcribeProviderMissingHint": "Configure the active provider before testing transcription.",
+    "transcribeUnavailableHint": "Your provider doesn't support transcription. Switch to OpenAI in this card.",
+    "transcribePermissionHint": "Microphone access was denied. Allow the mic in your browser settings and try again.",
+    "transcribeNoMicHint": "No microphone detected. Plug one in and reload the page.",
+    "transcribeUnsupportedHint": "Your browser doesn't support audio recording. Try the desktop app or a recent Chrome / Edge / Firefox / Safari.",
+    "transcriptResultLabel": "Transcription result",
+    "transcriptLanguageLabel": "Detected language",
+    "transcriptDurationLabel": "Audio duration",
+    "transcriptDurationValue": "{{seconds}}s",
+    "transcriptCostLabel": "Call cost",
+    "transcribeClearAction": "Clear result"
   },
   "toast": {
     "saveSuccessTitle": "AI settings saved",
     "saveErrorTitle": "Could not save AI settings",
     "testSuccessTitle": "AI provider connected",
     "testSuccessDescription": "Model {{model}} replied in {{durationMs}} ms ({{cost}})",
-    "testErrorTitle": "AI test call failed"
+    "testErrorTitle": "AI test call failed",
+    "transcribeSuccessTitle": "Transcription succeeded",
+    "transcribeErrorTitle": "Transcription failed"
   }
 }
