@@ -119,6 +119,31 @@ async function resolveEmbeddingProvider(db: DatabaseInstance, tenantId: string) 
 }
 
 /**
+ * Resolve the embedding model id that an embed-capable provider would
+ * use for this tenant right now — without firing a network call.
+ * Reads `provider.defaultEmbeddingModelId` (ENG-040b slice 2) and
+ * falls back to the legacy `DEFAULT_EMBEDDING_MODEL` when a future
+ * provider implements `embeddingModel` but does not advertise a
+ * default. Returns null when AI is disabled / the provider does not
+ * embed / the provider is not configured, mirroring
+ * `resolveEmbeddingProvider`'s gating.
+ *
+ * Used by `products.embeddingHealth` (ENG-040 drift banner) to
+ * compare each row's stored `products.embedding_model` against the
+ * canonical id the next regenerate would write back — so the
+ * comparison stays consistent with what `embedText` / `embedTexts`
+ * actually pass to the SDK at runtime.
+ */
+export async function resolveActiveEmbeddingModelId(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<string | null> {
+  const resolved = await resolveEmbeddingProvider(db, tenantId);
+  if (!resolved) return null;
+  return resolved.provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
+}
+
+/**
  * Embed a single text string. Used by the semantic search path to
  * convert the user's query into a vector before the cosine pass.
  */
@@ -130,10 +155,6 @@ export async function embedText(
   const resolved = await resolveEmbeddingProvider(db, tenantId);
   if (!resolved) return null;
   const { provider } = resolved;
-  // ENG-040b slice 2 — per-provider embedding default. OpenAI ships
-  // `text-embedding-3-small`, Ollama ships `nomic-embed-text`. Falls
-  // back to the legacy constant when a future provider implements
-  // `embeddingModel` but doesn't advertise a default.
   const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
   const model = provider.embeddingModel!(modelId);
   const result = await embed({ model, value: text });
@@ -156,8 +177,6 @@ export async function embedTexts(
   const resolved = await resolveEmbeddingProvider(db, tenantId);
   if (!resolved) return null;
   const { provider } = resolved;
-  // ENG-040b slice 2 — per-provider embedding default. OpenAI ships
-  // `text-embedding-3-small`, Ollama ships `nomic-embed-text`.
   const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
   const model = provider.embeddingModel!(modelId);
   const embeddings: number[][] = [];

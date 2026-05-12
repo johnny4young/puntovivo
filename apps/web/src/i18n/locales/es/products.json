@@ -19,6 +19,14 @@
     "regenerateUnavailable": "No se puede regenerar: activa la IA en Configuración de empresa y verifica que la llave de OpenAI esté configurada.",
     "regenerateError": "No se pudieron regenerar los embeddings"
   },
+  "embeddingDrift": {
+    "title": "Embeddings desactualizados",
+    "description": "Después de cambiar de proveedor de IA, algunos productos siguen con vectores del modelo anterior, así que la búsqueda semántica los salta sin avisar. Regenera para que vuelvan a aparecer.",
+    "regenerateCta": "Regenerar embeddings",
+    "regenerating": "Regenerando...",
+    "sampleModelsHint_one": "{{count}} producto con el modelo {{models}}",
+    "sampleModelsHint_other": "{{count}} productos con el modelo {{models}}"
+  },
   "table": {
     "loading": "Cargando productos...",
     "error": "No se pudieron cargar los productos",

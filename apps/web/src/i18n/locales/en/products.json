@@ -38,6 +38,14 @@
     "regenerateUnavailable": "Cannot regenerate: enable AI in Company settings and ensure the OpenAI key is set.",
     "regenerateError": "Could not regenerate embeddings"
   },
+  "embeddingDrift": {
+    "title": "Embeddings out of date",
+    "description": "After switching AI providers some products still carry vectors from the previous embedding model, so semantic search will skip them silently. Regenerate to bring them back into results.",
+    "regenerateCta": "Regenerate embeddings",
+    "regenerating": "Regenerating...",
+    "sampleModelsHint_one": "{{count}} product on the {{models}} model",
+    "sampleModelsHint_other": "{{count}} products on the {{models}} model"
+  },
   "form": {
     "createTitle": "Create Product",
     "editTitle": "Edit Product",
