@@ -43,6 +43,7 @@ import {
   extractInvoiceFromImage,
   matchInvoiceLinesToProducts,
 } from '../../services/ai/vision/index.js';
+import { transcribeAudio } from '../../services/ai/voice/index.js';
 import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
@@ -54,6 +55,7 @@ import {
   updateAISettingsInput,
 } from '../schemas/ai.js';
 import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../schemas/ai-vision.js';
+import { transcribeAudioInput } from '../schemas/ai-voice.js';
 import { aiAnomalySnoozes, users } from '../../db/schema.js';
 
 const settingsRouter = router({
@@ -316,6 +318,46 @@ export const aiRouter = router({
         },
         input.lines
       );
+    }),
+
+  /**
+   * ENG-040c slice 1 — Whisper-style audio transcription. Manager /
+   * admin uploads a short audio clip; the configured transcription
+   * provider returns the transcript + detected language. Slice 1 ships
+   * the raw transcription only; cart-command parsing + audio capture
+   * UI land in slice 2 / 3.
+   *
+   * Role gate matches `extractInvoiceLines` — cashier callers receive
+   * `FORBIDDEN`. Audio over 10 MB raw is rejected at the service
+   * layer; providers that lack a `transcriptionModel` (Anthropic /
+   * Ollama today) surface `AI_VOICE_NOT_AVAILABLE`.
+   */
+  transcribeAudio: managerOrAdminProcedure
+    .input(transcribeAudioInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id ?? null;
+      const result = await transcribeAudio(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+        },
+        {
+          audioBase64: input.audioBase64,
+          mimeType: input.mimeType,
+        }
+      );
+      return {
+        transcript: result.transcript,
+        language: result.language,
+        audioDurationSeconds: result.audioDurationSeconds,
+        costUsd: result.costUsd,
+        durationMs: result.durationMs,
+        provider: result.provider,
+        model: result.model,
+        auditLogId: result.auditLogId,
+      };
     }),
 
   /**
