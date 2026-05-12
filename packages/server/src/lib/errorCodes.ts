@@ -381,6 +381,27 @@ export const SERVER_ERROR_CODES = {
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
 
+  // --- ENG-040c slice 1 — voice / Whisper transcription ---
+  /**
+   * The tenant's configured AI provider does not implement a
+   * transcription model (Anthropic + Ollama today). The caller should
+   * switch providers or disable the surface that triggered the
+   * transcription call.
+   */
+  AI_VOICE_NOT_AVAILABLE: 'AI_VOICE_NOT_AVAILABLE',
+  /**
+   * The transcription model returned an empty / malformed response.
+   * The renderer should let the operator re-record. `details.cause`
+   * carries the raw error message for diagnostics.
+   */
+  AI_VOICE_PARSE_FAILED: 'AI_VOICE_PARSE_FAILED',
+  /**
+   * The uploaded audio payload exceeds the per-call byte budget
+   * (`VOICE_TRANSCRIBE_MAX_BYTES`, 10 MB raw after base64 decode).
+   * The renderer should trim the recording before retrying.
+   */
+  AI_VOICE_AUDIO_TOO_LARGE: 'AI_VOICE_AUDIO_TOO_LARGE',
+
   // --- module activation kernel (ENG-068) ---
   /**
    * The caller hit a procedure that requires a tenant module that

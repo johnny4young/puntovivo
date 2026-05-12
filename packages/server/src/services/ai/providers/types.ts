@@ -12,7 +12,11 @@
  *
  * @module services/ai/providers/types
  */
-import type { LanguageModelV3, EmbeddingModelV3 } from '@ai-sdk/provider';
+import type {
+  LanguageModelV3,
+  EmbeddingModelV3,
+  TranscriptionModelV3,
+} from '@ai-sdk/provider';
 
 /** Identifier for the configured AI provider. */
 export type AIProviderId = 'anthropic' | 'openai' | 'ollama';
@@ -90,6 +94,37 @@ export interface AIProvider {
    * Anthropic + OpenAI; Ollama follows in ENG-040b.
    */
   visionModel?(modelId: string): LanguageModelV3;
+
+  /**
+   * Optional. ENG-040c slice 1 — Whisper-style audio transcription.
+   * Provider returns a `TranscriptionModelV3` consumed by the AI SDK
+   * `experimental_transcribe({ model, audio })`. OpenAI activates
+   * `whisper-1` and the `gpt-4o-transcribe` family; Anthropic + Ollama
+   * leave this undefined so `services/ai/voice/transcribe.ts` surfaces
+   * `AI_VOICE_NOT_AVAILABLE` instead of a generic
+   * `AI_PROVIDER_ERROR` when those tenants try to transcribe.
+   */
+  transcriptionModel?(modelId: string): TranscriptionModelV3;
+
+  /**
+   * Optional. The canonical transcription model id this provider ships
+   * with. Read by `services/ai/voice/transcribe.ts` so each provider's
+   * default flows through without a hardcoded OpenAI-only constant.
+   * Providers that don't implement `transcriptionModel` leave this
+   * undefined.
+   */
+  readonly defaultTranscriptionModelId?: string;
+
+  /**
+   * Optional. Per-minute USD pricing for transcription models. Whisper
+   * bills by audio duration, not tokens, so the token-based
+   * `ProviderPricing.calculateCostUsd` does not fit. The voice service
+   * reads this table directly. Providers that don't implement
+   * `transcriptionModel` leave this undefined; providers that do leave
+   * it undefined for a specific model id fall back to the
+   * provider's default model price.
+   */
+  readonly transcriptionPricing?: Readonly<Record<string, { perMinuteUsd: number }>>;
 
   /**
    * Provider-specific options that must be spread into

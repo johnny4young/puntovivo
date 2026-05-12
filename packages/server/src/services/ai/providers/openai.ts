@@ -19,9 +19,30 @@
  * @module services/ai/providers/openai
  */
 import { openai } from '@ai-sdk/openai';
-import type { LanguageModelV3, EmbeddingModelV3 } from '@ai-sdk/provider';
+import type {
+  LanguageModelV3,
+  EmbeddingModelV3,
+  TranscriptionModelV3,
+} from '@ai-sdk/provider';
 
 import type { AIProvider, ModelPricing, ProviderPricing, TokenUsage } from './types.js';
+
+/**
+ * ENG-040c slice 1 — Whisper transcription pricing (USD per minute of
+ * audio). Verified 2026-05-12 via WebSearch — `whisper-1` is
+ * $0.006/min, the `gpt-4o-mini-transcribe` family is $0.003/min audio
+ * input + token output (we track audio cost only; output-token cost
+ * stays in PRICING_TABLE for any caller that switches to a model that
+ * also generates text), and `gpt-4o-transcribe` is $0.006/min.
+ */
+const TRANSCRIPTION_PRICING: Readonly<Record<string, { perMinuteUsd: number }>> = {
+  'whisper-1': { perMinuteUsd: 0.006 },
+  'gpt-4o-mini-transcribe': { perMinuteUsd: 0.003 },
+  'gpt-4o-transcribe': { perMinuteUsd: 0.006 },
+  'gpt-4o-transcribe-diarize': { perMinuteUsd: 0.006 },
+};
+
+const FALLBACK_TRANSCRIPTION_MODEL_ID = 'whisper-1';
 
 /**
  * USD per 1M tokens. Default ships as `gpt-4.1-mini` — sweet spot
@@ -110,5 +131,18 @@ export const openaiProvider: AIProvider = {
   // service layer can short-circuit when a future provider lacks it.
   visionModel(modelId: string): LanguageModelV3 {
     return openai(modelId);
+  },
+
+  // ENG-040c slice 1 — Whisper-style audio transcription routed
+  // through `openai.transcription(modelId)`. `whisper-1` ships as the
+  // default because it is the cheapest ($0.006/min) and historically
+  // the most stable; operators wanting the `gpt-4o-transcribe`
+  // accuracy uplift override via the AI Settings card. Provider
+  // returns a `TranscriptionModelV3` consumed by the AI SDK
+  // `experimental_transcribe({ model, audio })`.
+  defaultTranscriptionModelId: FALLBACK_TRANSCRIPTION_MODEL_ID,
+  transcriptionPricing: TRANSCRIPTION_PRICING,
+  transcriptionModel(modelId: string): TranscriptionModelV3 {
+    return openai.transcription(modelId);
   },
 };

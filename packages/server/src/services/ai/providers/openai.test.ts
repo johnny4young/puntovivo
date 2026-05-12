@@ -129,4 +129,32 @@ describe('ai/providers/openai', () => {
       expect(openaiProvider.defaultEmbeddingModelId).toBe('text-embedding-3-small');
     });
   });
+
+  describe('transcriptionModel (ENG-040c slice 1)', () => {
+    it('is implemented and returns a TranscriptionModelV3 factory', () => {
+      expect(openaiProvider.transcriptionModel).toBeDefined();
+      expect(typeof openaiProvider.transcriptionModel).toBe('function');
+      const model = openaiProvider.transcriptionModel?.('whisper-1');
+      expect(model).toBeDefined();
+    });
+
+    it('advertises whisper-1 as the canonical transcription model id', () => {
+      expect(openaiProvider.defaultTranscriptionModelId).toBe('whisper-1');
+    });
+
+    it('publishes per-minute pricing for the supported Whisper variants', () => {
+      const pricing = openaiProvider.transcriptionPricing;
+      expect(pricing).toBeDefined();
+      expect(pricing?.['whisper-1']?.perMinuteUsd).toBe(0.006);
+      expect(pricing?.['gpt-4o-mini-transcribe']?.perMinuteUsd).toBe(0.003);
+      expect(pricing?.['gpt-4o-transcribe']?.perMinuteUsd).toBe(0.006);
+    });
+
+    it('60s of whisper-1 audio costs $0.006', () => {
+      const perMinute = openaiProvider.transcriptionPricing?.['whisper-1']?.perMinuteUsd ?? 0;
+      const audioSeconds = 60;
+      const cost = (audioSeconds / 60) * perMinute;
+      expect(cost).toBeCloseTo(0.006, 6);
+    });
+  });
 });
