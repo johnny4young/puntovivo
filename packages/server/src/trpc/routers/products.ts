@@ -50,6 +50,7 @@ import { normalizeProductPricing } from '../../services/pricing.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import {
   regenerateProductEmbeddings,
+  resolveActiveEmbeddingModelId,
   semanticSearchProducts,
   suggestProductCategory,
 } from '../../services/ai/embeddings.js';
@@ -1118,6 +1119,102 @@ export const productsRouter = router({
     }
     return { ok: true as const, embedded: result.embedded, model: result.model };
   }),
+
+  // ENG-040 — embedding model drift detection. Drives the admin
+  // banner on ProductsPage that nudges the operator to regenerate
+  // after switching AI providers (OpenAI 1536-d ↔ Ollama 768-d).
+  // The dimension mismatch silently collapses semantic search
+  // result counts because `cosineSimilarity` returns 0 for vectors
+  // of different lengths and the 0.30 floor filters them out; this
+  // query gives the operator the signal that's otherwise invisible.
+  //
+  // Returned `mode='unavailable'` when AI is off / the provider
+  // doesn't embed — the banner stays hidden in that case because
+  // there's no active baseline to compare against. `staleCount`
+  // counts rows whose `embedding_model` differs from the active
+  // model id (NULL embedding rows are unembedded, not stale).
+  embeddingHealth: managerOrAdminProcedureWithModule('semantic-search').query(
+    async ({ ctx }) => {
+      const activeModelId = await resolveActiveEmbeddingModelId(
+        ctx.db,
+        ctx.tenantId
+      );
+
+      // One scan over the tenant's products with conditional aggregates.
+      // `lastEmbeddedAt` is the most recent embedded_at across embedded
+      // rows; null when no row has ever been embedded.
+      // `count(case when ... then 1 end)` returns 0 on an empty tenant
+      // (SQLite's count() skips NULL); `sum(case when ... then 1 else 0
+      // end)` would return NULL there and surface as a misleading
+      // `sql<number>` shape even though the consumer coerces it. Same
+      // pattern matches the reports.fiscal aggregate helpers.
+      const [counts] = await ctx.db
+        .select({
+          totalProducts: sql<number>`count(*)`,
+          embeddedCount: sql<number>`count(case when ${products.embedding} is not null then 1 end)`,
+          staleCount: activeModelId
+            ? sql<number>`count(case when ${products.embedding} is not null and coalesce(${products.embeddingModel}, '') <> ${activeModelId} then 1 end)`
+            : sql<number>`0`,
+          lastEmbeddedAt: sql<string | null>`max(${products.embeddedAt})`,
+        })
+        .from(products)
+        .where(eq(products.tenantId, ctx.tenantId))
+        .all();
+
+      const totalProducts = Number(counts?.totalProducts ?? 0);
+      const embeddedCount = Number(counts?.embeddedCount ?? 0);
+      const staleCount = Number(counts?.staleCount ?? 0);
+      const unembeddedCount = Math.max(0, totalProducts - embeddedCount);
+      const lastEmbeddedAt = counts?.lastEmbeddedAt ?? null;
+
+      // Surface a small sample of the distinct stale model ids so the
+      // banner copy can hint "this catalog has rows from text-embedding-3-small"
+      // at a glance. Capped at 3; cheap follow-up SELECT only fires when
+      // drift is actually present.
+      let staleSampleModelIds: string[] = [];
+      if (activeModelId && staleCount > 0) {
+        const sampleRows = await ctx.db
+          .selectDistinct({ embeddingModel: products.embeddingModel })
+          .from(products)
+          .where(
+            and(
+              eq(products.tenantId, ctx.tenantId),
+              sql`${products.embedding} is not null`,
+              sql`coalesce(${products.embeddingModel}, '') <> ${activeModelId}`
+            )
+          )
+          .limit(3)
+          .all();
+        staleSampleModelIds = sampleRows
+          .map(r => r.embeddingModel)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+      }
+
+      if (activeModelId === null) {
+        return {
+          mode: 'unavailable' as const,
+          activeModelId: null,
+          totalProducts,
+          embeddedCount,
+          unembeddedCount,
+          staleCount: 0,
+          staleSampleModelIds: [],
+          lastEmbeddedAt,
+        };
+      }
+
+      return {
+        mode: 'available' as const,
+        activeModelId,
+        totalProducts,
+        embeddedCount,
+        unembeddedCount,
+        staleCount,
+        staleSampleModelIds,
+        lastEmbeddedAt,
+      };
+    }
+  ),
 
   // ENG-068 — gated behind `semantic-search`. The category-suggest
   // path uses the same embedding pipeline; tying the gates together

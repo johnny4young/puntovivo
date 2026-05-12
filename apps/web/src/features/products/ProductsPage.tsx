@@ -16,6 +16,7 @@ import {
   type ProductFormValues,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
+import { EmbeddingDriftBanner } from '@/features/products/EmbeddingDriftBanner';
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -215,6 +216,15 @@ export function ProductsPage() {
     { enabled: semanticModeEnabled && debouncedSemanticQuery.length > 0 }
   );
 
+  // ENG-040 — drift health drives the warning banner above the
+  // toolbar. Gated on the same module + role surface as the rest of
+  // the semantic toolbar so non-activated tenants don't fire the
+  // query at all; the server also rejects with MODULE_NOT_ACTIVATED
+  // if it ever sneaks through.
+  const embeddingHealthQuery = trpc.products.embeddingHealth.useQuery(undefined, {
+    enabled: canUseSemantic,
+  });
+
   const regenerateMutation = trpc.products.regenerateEmbeddings.useMutation({
     onSuccess: async data => {
       if (!data.ok) {
@@ -224,9 +234,12 @@ export function ProductsPage() {
       toast.success({
         title: t('semantic.regenerated', { count: data.embedded }),
       });
-      // Refresh the cached semantic query so newly embedded items rank
-      // immediately, otherwise the user has to retype to retrigger.
-      await utils.products.semanticSearch.invalidate();
+      // Refresh both semantic search results and the drift banner, so the
+      // existing toolbar CTA clears the same health signal as the banner CTA.
+      await Promise.all([
+        utils.products.embeddingHealth.invalidate(),
+        utils.products.semanticSearch.invalidate(),
+      ]);
     },
     onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
   });
@@ -437,6 +450,8 @@ export function ProductsPage() {
           {t('page.permissionNote')}
         </div>
       )}
+
+      {canUseSemantic && <EmbeddingDriftBanner data={embeddingHealthQuery.data} />}
 
       <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}

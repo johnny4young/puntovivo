@@ -6,7 +6,7 @@
  * semantic toolbar and keep the query disabled in that state.
  */
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -14,11 +14,15 @@ const {
   useIsModuleActiveMock,
   semanticSearchUseQueryMock,
   regenerateMutateMock,
+  semanticSearchInvalidateMock,
+  embeddingHealthInvalidateMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
   semanticSearchUseQueryMock: vi.fn(),
   regenerateMutateMock: vi.fn(),
+  semanticSearchInvalidateMock: vi.fn(),
+  embeddingHealthInvalidateMock: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -61,7 +65,8 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       products: {
         list: { invalidate: vi.fn() },
-        semanticSearch: { invalidate: vi.fn() },
+        semanticSearch: { invalidate: semanticSearchInvalidateMock },
+        embeddingHealth: { invalidate: embeddingHealthInvalidateMock },
       },
     }),
     products: {
@@ -71,8 +76,17 @@ vi.mock('@/lib/trpc', () => ({
       semanticSearch: {
         useQuery: semanticSearchUseQueryMock,
       },
+      embeddingHealth: {
+        useQuery: () => ({ data: null, isLoading: false }),
+      },
       regenerateEmbeddings: {
-        useMutation: () => ({ mutate: regenerateMutateMock, isPending: false }),
+        useMutation: (options?: { onSuccess?: (data: { ok: true; embedded: number }) => void }) => ({
+          mutate: () => {
+            regenerateMutateMock();
+            options?.onSuccess?.({ ok: true, embedded: 3 });
+          },
+          isPending: false,
+        }),
       },
       getById: {
         useQuery: () => ({ data: null }),
@@ -123,6 +137,8 @@ describe('ProductsPage semantic-search module gate', () => {
     useIsModuleActiveMock.mockReset();
     semanticSearchUseQueryMock.mockReset();
     regenerateMutateMock.mockReset();
+    semanticSearchInvalidateMock.mockReset();
+    embeddingHealthInvalidateMock.mockReset();
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'manager' },
     });
@@ -166,7 +182,7 @@ describe('ProductsPage semantic-search module gate', () => {
     );
   });
 
-  it('keeps regenerate embeddings available only to admins when module is active', () => {
+  it('keeps regenerate embeddings available only to admins when module is active', async () => {
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'admin' },
     });
@@ -176,5 +192,9 @@ describe('ProductsPage semantic-search module gate', () => {
     fireEvent.click(screen.getByRole('button', { name: /regenerate|regenerar/i }));
 
     expect(regenerateMutateMock).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(semanticSearchInvalidateMock).toHaveBeenCalled();
+      expect(embeddingHealthInvalidateMock).toHaveBeenCalled();
+    });
   });
 });
