@@ -231,6 +231,47 @@ describe('ai.settings.get', () => {
     expect(byId.ollama.availableInTicket).toBeUndefined();
   });
 
+  it('reports transcriptionAvailable=false for the default Anthropic tenant (ENG-040c slice 2)', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    const result = await caller.ai.settings.get();
+    // Anthropic provider does not expose `transcriptionModel`, so the
+    // capability hint must be false — the AI settings UI uses this
+    // to disable the Test transcription button.
+    expect(result.transcriptionAvailable).toBe(false);
+  });
+
+  it('reports transcriptionAvailable=true once the tenant switches to OpenAI (ENG-040c slice 2)', async () => {
+    const db = getDatabase();
+    const row = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    const settings = (row?.settings as Record<string, unknown>) ?? {};
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          ...settings,
+          ai: {
+            enabled: true,
+            monthlyBudgetUsd: 100,
+            providerId: 'openai',
+            modelId: null,
+          },
+        },
+      })
+      .where(eq(tenants.id, tenantId));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    const result = await caller.ai.settings.get();
+    expect(result.transcriptionAvailable).toBe(true);
+  });
+
   it('rejects cashier callers with FORBIDDEN', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })

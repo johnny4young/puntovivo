@@ -20,13 +20,32 @@
     "saveAction": "Guardar configuración de IA",
     "savingAction": "Guardando…",
     "testAction": "Probar conexión",
-    "testingAction": "Probando…"
+    "testingAction": "Probando…",
+    "transcribeAction": "Probar transcripción",
+    "transcribeStopAction": "Detener grabación",
+    "transcribeStartingAction": "Iniciando…",
+    "transcribingAction": "Transcribiendo…",
+    "transcribeRecordingHint": "Grabando… {{seconds}}s de 30s máx",
+    "transcribeAiDisabledHint": "Activa las funciones de IA antes de probar la transcripción.",
+    "transcribeProviderMissingHint": "Configura el proveedor activo antes de probar la transcripción.",
+    "transcribeUnavailableHint": "Tu proveedor no admite transcripción. Cambia a OpenAI en esta tarjeta.",
+    "transcribePermissionHint": "Se denegó el acceso al micrófono. Permite el micrófono en la configuración de tu navegador e intenta de nuevo.",
+    "transcribeNoMicHint": "No se detectó un micrófono. Conecta uno y recarga la página.",
+    "transcribeUnsupportedHint": "Tu navegador no admite grabación de audio. Usa la app de escritorio o un Chrome / Edge / Firefox / Safari reciente.",
+    "transcriptResultLabel": "Resultado de la transcripción",
+    "transcriptLanguageLabel": "Idioma detectado",
+    "transcriptDurationLabel": "Duración del audio",
+    "transcriptDurationValue": "{{seconds}}s",
+    "transcriptCostLabel": "Costo de la llamada",
+    "transcribeClearAction": "Borrar resultado"
   },
   "toast": {
     "saveSuccessTitle": "Configuración de IA guardada",
     "saveErrorTitle": "No se pudo guardar la configuración de IA",
     "testSuccessTitle": "Proveedor de IA conectado",
     "testSuccessDescription": "El modelo {{model}} respondió en {{durationMs}} ms ({{cost}})",
-    "testErrorTitle": "La prueba de IA falló"
+    "testErrorTitle": "La prueba de IA falló",
+    "transcribeSuccessTitle": "Transcripción exitosa",
+    "transcribeErrorTitle": "La transcripción falló"
   }
 }

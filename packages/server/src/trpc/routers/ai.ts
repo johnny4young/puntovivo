@@ -73,6 +73,12 @@ const settingsRouter = router({
       providerConfigured: provider.isConfigured(),
       currentMonthSpendUsd: spend,
       availableProviders: listProviders(),
+      // ENG-040c slice 2 — capability hint for the AI settings UI.
+      // True when the active provider implements Whisper-style audio
+      // transcription (OpenAI today). The "Probar transcripción"
+      // button reads this so it can disable + tooltip on Anthropic /
+      // Ollama tenants without firing a server round-trip.
+      transcriptionAvailable: typeof provider.transcriptionModel === 'function',
     };
   }),
 

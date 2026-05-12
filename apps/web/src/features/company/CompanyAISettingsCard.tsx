@@ -11,14 +11,35 @@
  * providers are selectable; parked stubs keep a `(disponible con
  * ENG-NNN)` hint so the admin sees the roadmap.
  */
-import { useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Mic, MicOff, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
+
+import { blobToBase64 } from './blobToBase64';
+import {
+  MAX_TEST_RECORDING_MS,
+  VOICE_RECORDER_MIME_TYPES,
+  useVoiceRecorder,
+  type VoiceRecorderMimeType,
+} from './useVoiceRecorder';
+
+interface TranscriptionResult {
+  transcript: string;
+  language: string | null;
+  audioDurationSeconds: number;
+  costUsd: number;
+}
+
+/** Server whitelist mirror — used to validate the MediaRecorder's
+ *  chosen MIME before forwarding to the mutation. The hook already
+ *  picks from this list, but the explicit narrow keeps the tRPC
+ *  enum input typed. */
+const SERVER_MIME_LIST: ReadonlyArray<VoiceRecorderMimeType> = VOICE_RECORDER_MIME_TYPES;
 
 export function CompanyAISettingsCard() {
   const { t } = useTranslation(['aiSettings', 'errors', 'common']);
@@ -72,6 +93,105 @@ export function CompanyAISettingsCard() {
     }),
   });
 
+  // ENG-040c slice 2 — transcription affordance state.
+  const [transcriptionResult, setTranscriptionResult] =
+    useState<TranscriptionResult | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+
+  const transcribeMutation = trpc.ai.transcribeAudio.useMutation({
+    onSuccess: result => {
+      setTranscriptionResult({
+        transcript: result.transcript,
+        language: result.language,
+        audioDurationSeconds: result.audioDurationSeconds,
+        costUsd: result.costUsd,
+      });
+      toast.success({ title: t('aiSettings:toast.transcribeSuccessTitle') });
+      void utils.ai.settings.get.invalidate();
+    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'aiSettings:toast.transcribeErrorTitle',
+    }),
+  });
+
+  const forwardBlob = useCallback(
+    async (blob: Blob): Promise<void> => {
+      try {
+        const { base64, mimeType } = await blobToBase64(blob);
+        const validatedMime = SERVER_MIME_LIST.find(m => m === mimeType);
+        if (!validatedMime) {
+          toast.error({
+            title: t('aiSettings:toast.transcribeErrorTitle'),
+            description: t('aiSettings:card.transcribeUnsupportedHint'),
+          });
+          return;
+        }
+        transcribeMutation.mutate({ audioBase64: base64, mimeType: validatedMime });
+      } catch (err) {
+        toast.error({
+          title: t('aiSettings:toast.transcribeErrorTitle'),
+          description: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    [t, toast, transcribeMutation]
+  );
+
+  const handleAutoStop = useCallback(
+    (blob: Blob) => {
+      setRecordingSeconds(0);
+      void forwardBlob(blob);
+    },
+    [forwardBlob]
+  );
+
+  const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop });
+
+  // Countdown ticker — runs only while recording, no cleanup state
+  // reset because the click handlers reset `recordingSeconds` to 0
+  // at the boundary transitions. Returning a no-op cleanup when
+  // recording=false keeps the effect free of cascading set-state
+  // calls.
+  useEffect(() => {
+    if (!recorder.recording) return;
+    const interval = window.setInterval(() => {
+      setRecordingSeconds(prev => Math.min(prev + 1, MAX_TEST_RECORDING_MS / 1000));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [recorder.recording]);
+
+  function handleClearTranscript(): void {
+    setTranscriptionResult(null);
+    setRecordingSeconds(0);
+    recorder.reset();
+  }
+
+  async function handleTranscribeToggle(): Promise<void> {
+    if (recorder.recording) {
+      try {
+        const blob = await recorder.stop();
+        setRecordingSeconds(0);
+        await forwardBlob(blob);
+      } catch (err) {
+        setRecordingSeconds(0);
+        toast.error({
+          title: t('aiSettings:toast.transcribeErrorTitle'),
+          description: err instanceof Error ? err.message : String(err),
+        });
+      }
+      return;
+    }
+    setTranscriptionResult(null);
+    setRecordingSeconds(0);
+    try {
+      await recorder.start();
+    } catch {
+      // `recorder.error` already carries the classified failure; the
+      // hint UI renders it. Swallow the throw so the click handler
+      // doesn't surface a generic toast on top of the hint.
+    }
+  }
+
   const data = settingsQuery.data;
   const availableProviders = useMemo(
     () => data?.availableProviders ?? [],
@@ -99,6 +219,33 @@ export function CompanyAISettingsCard() {
     testMutation.isPending ||
     !data?.providerConfigured ||
     !enabled;
+
+  // ENG-040c slice 2 — Test transcription gating. Disabled when AI is
+  // off, provider isn't configured, the active provider lacks the
+  // transcription capability, the browser lacks MediaRecorder
+  // support, or a transcription is already in flight.
+  const transcriptionAvailable = data?.transcriptionAvailable ?? false;
+  const transcriptionGateHint = (() => {
+    if (!recorder.supported) return t('aiSettings:card.transcribeUnsupportedHint');
+    if (!enabled) return t('aiSettings:card.transcribeAiDisabledHint');
+    if (!data?.providerConfigured) {
+      return t('aiSettings:card.transcribeProviderMissingHint');
+    }
+    if (!transcriptionAvailable) return t('aiSettings:card.transcribeUnavailableHint');
+    if (recorder.error?.kind === 'permission-denied') {
+      return t('aiSettings:card.transcribePermissionHint');
+    }
+    if (recorder.error?.kind === 'no-microphone') {
+      return t('aiSettings:card.transcribeNoMicHint');
+    }
+    return null;
+  })();
+  const transcribeDisabled =
+    !recorder.supported ||
+    !transcriptionAvailable ||
+    !data?.providerConfigured ||
+    !enabled ||
+    transcribeMutation.isPending;
 
   function handleSave(): void {
     if (saveDisabled) return;
@@ -270,7 +417,129 @@ export function CompanyAISettingsCard() {
             ? t('aiSettings:card.testingAction')
             : t('aiSettings:card.testAction')}
         </button>
+        <button
+          type="button"
+          className="btn-outline flex items-center gap-2"
+          onClick={() => {
+            void handleTranscribeToggle();
+          }}
+          // `transcribeDisabled` includes the in-flight pending guard,
+          // but the recording branch needs the button enabled to allow
+          // the cashier to stop. Disable unconditionally while the
+          // mutation is pending so a double-stop click doesn't fire a
+          // second `transcribeAudio` call against the same blob.
+          disabled={
+            (transcribeDisabled && !recorder.recording) ||
+            transcribeMutation.isPending
+          }
+          aria-pressed={recorder.recording}
+          title={transcriptionGateHint ?? undefined}
+          data-testid="ai-transcribe-button"
+        >
+          {recorder.recording ? (
+            <MicOff className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Mic className="h-4 w-4" aria-hidden="true" />
+          )}
+          <span>
+            {transcribeMutation.isPending
+              ? t('aiSettings:card.transcribingAction')
+              : recorder.recording
+                ? t('aiSettings:card.transcribeStopAction')
+                : t('aiSettings:card.transcribeAction')}
+          </span>
+        </button>
       </div>
+
+      {transcriptionGateHint !== null && !recorder.recording && (
+        <p
+          className="text-xs text-warning-700"
+          data-testid="ai-transcribe-hint"
+        >
+          {transcriptionGateHint}
+        </p>
+      )}
+
+      {/* Mount the live region unconditionally — ARIA only announces
+        changes inside a region that was already attached. When the
+        region toggles in/out of the DOM, screen readers miss the
+        initial recording-started transition. */}
+      <p
+        aria-live="polite"
+        aria-atomic="true"
+        className="text-xs text-secondary-600"
+        data-testid="ai-transcribe-countdown"
+      >
+        {recorder.recording
+          ? t('aiSettings:card.transcribeRecordingHint', {
+              seconds: recordingSeconds,
+            })
+          : ''}
+      </p>
+
+      {transcriptionResult !== null && (
+        <div
+          className="surface-panel-muted space-y-3 text-sm text-secondary-700"
+          data-testid="ai-transcript-panel"
+        >
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+              {t('aiSettings:card.transcriptResultLabel')}
+            </p>
+            <p
+              className="mt-1 whitespace-pre-wrap break-words text-secondary-900"
+              data-testid="ai-transcript-text"
+            >
+              {transcriptionResult.transcript}
+            </p>
+          </div>
+          <dl className="grid grid-cols-1 gap-2 text-xs text-secondary-600 sm:grid-cols-3">
+            <div>
+              <dt className="font-medium text-secondary-500">
+                {t('aiSettings:card.transcriptLanguageLabel')}
+              </dt>
+              <dd
+                className="mt-0.5 text-secondary-800"
+                data-testid="ai-transcript-language"
+              >
+                {transcriptionResult.language ?? '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-secondary-500">
+                {t('aiSettings:card.transcriptDurationLabel')}
+              </dt>
+              <dd
+                className="mt-0.5 text-secondary-800"
+                data-testid="ai-transcript-duration"
+              >
+                {t('aiSettings:card.transcriptDurationValue', {
+                  seconds: transcriptionResult.audioDurationSeconds.toFixed(1),
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-secondary-500">
+                {t('aiSettings:card.transcriptCostLabel')}
+              </dt>
+              <dd
+                className="mt-0.5 text-secondary-800"
+                data-testid="ai-transcript-cost"
+              >
+                {formatCurrency(transcriptionResult.costUsd, 'USD')}
+              </dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            className="text-xs text-primary-700 hover:underline"
+            onClick={handleClearTranscript}
+            data-testid="ai-transcript-clear"
+          >
+            {t('aiSettings:card.transcribeClearAction')}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
