@@ -237,5 +237,73 @@ describe('SENSITIVE_KEYS lock — anti-regression', () => {
     expect(__TEST_SENSITIVE_KEYS.has('cardnumber')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('certificate')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('clientsecret')).toBe(true);
+
+    // ENG-038 slice 2 — payment provider credential fields land
+    // under tenants.settings.payments.<railId>.credentials.* and
+    // must redact in the diagnostic bundle. Locks the additions.
+    expect(__TEST_SENSITIVE_KEYS.has('merchantid')).toBe(true);
+    expect(__TEST_SENSITIVE_KEYS.has('customerid')).toBe(true);
+    expect(__TEST_SENSITIVE_KEYS.has('pkey')).toBe(true);
+  });
+
+  it('redacts every payment credential field name when nested under tenants.settings.payments.*', () => {
+    // Smoke against a realistic nested payload that mirrors how
+    // the credentials live in `tenants.settings`. Every sensitive
+    // descriptor key must collapse to [REDACTED], while neighbor
+    // metadata (countryFocus, enabled) passes through.
+    const { clean } = sanitizePayload({
+      payments: {
+        wompi: {
+          credentials: {
+            publicKey: 'pub_test_abc',
+            privateKey: 'prv_test_xyz',
+          },
+        },
+        bold: {
+          credentials: {
+            apiKey: 'bold_api',
+            secret: 'bold_secret',
+            merchantId: 'bold_merchant',
+          },
+        },
+        epayco: {
+          credentials: {
+            customerId: 'epc_customer',
+            publicKey: 'epc_pub',
+            privateKey: 'epc_priv',
+            pKey: 'epc_pkey',
+          },
+        },
+        mercado_pago: {
+          credentials: { accessToken: 'MP_TOKEN_999' },
+        },
+        nequi: {
+          credentials: { apiKey: 'nq_api', merchantId: 'nq_merchant' },
+        },
+      },
+    });
+    const payments = (clean as Record<string, Record<string, Record<string, Record<string, string>>>>).payments;
+    expect(payments.wompi?.credentials).toEqual({
+      publicKey: REDACTED_PLACEHOLDER,
+      privateKey: REDACTED_PLACEHOLDER,
+    });
+    expect(payments.bold?.credentials).toEqual({
+      apiKey: REDACTED_PLACEHOLDER,
+      secret: REDACTED_PLACEHOLDER,
+      merchantId: REDACTED_PLACEHOLDER,
+    });
+    expect(payments.epayco?.credentials).toEqual({
+      customerId: REDACTED_PLACEHOLDER,
+      publicKey: REDACTED_PLACEHOLDER,
+      privateKey: REDACTED_PLACEHOLDER,
+      pKey: REDACTED_PLACEHOLDER,
+    });
+    expect(payments.mercado_pago?.credentials).toEqual({
+      accessToken: REDACTED_PLACEHOLDER,
+    });
+    expect(payments.nequi?.credentials).toEqual({
+      apiKey: REDACTED_PLACEHOLDER,
+      merchantId: REDACTED_PLACEHOLDER,
+    });
   });
 });

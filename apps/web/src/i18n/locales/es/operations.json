@@ -215,6 +215,58 @@
         "lastError": "Último error",
         "createdAt": "Creado"
       }
+    },
+    "settings": {
+      "title": "Credenciales de proveedores de pago",
+      "description": "Guarda las credenciales sandbox o de producción que cada rail necesita para enviar cobros reales. La integración en vivo llega en un slice posterior; por ahora los rails siguen deterministas hasta que se conecte un worker.",
+      "liveBadge": "Integración en vivo",
+      "stubBadge": "Stub determinista",
+      "readiness": {
+        "ready": "Listo",
+        "notReady": "Faltan credenciales",
+        "missingFields": "Campos faltantes: {{fields}}"
+      },
+      "form": {
+        "save": "Guardar credenciales",
+        "saving": "Guardando...",
+        "savedToast": "Credenciales guardadas para {{rail}}",
+        "saveErrorToast": "No se pudieron guardar las credenciales de pago",
+        "showSecret": "Mostrar",
+        "hideSecret": "Ocultar",
+        "clearField": "Limpiar",
+        "storedHint": "Valor guardado oculto. Escribe para sobreescribir o limpia para eliminar.",
+        "emptyHint": "Aún no hay valor guardado."
+      },
+      "fields": {
+        "publicKey": "Llave pública",
+        "privateKey": "Llave privada",
+        "apiKey": "API key",
+        "secret": "Secret",
+        "merchantId": "ID de comercio",
+        "customerId": "ID de cliente",
+        "pKey": "P_KEY",
+        "accessToken": "Access token"
+      },
+      "rails": {
+        "wompi": {
+          "description": "Las credenciales sandbox y de producción están en tu panel de Wompi."
+        },
+        "bold": {
+          "description": "Toma el API key, el secret y el merchant id del portal Bold."
+        },
+        "epayco": {
+          "description": "ePayco expone credenciales cliente (pública y P_KEY) y servidor (privada)."
+        },
+        "mercado_pago": {
+          "description": "Usa el access token del panel de desarrolladores de Mercado Pago para el país correcto."
+        },
+        "nequi": {
+          "description": "Bancolombia entrega el API key y el merchant id de Nequi en el onboarding."
+        },
+        "daviplata": {
+          "description": "Davivienda entrega el API key y el merchant id de Daviplata en el onboarding."
+        }
+      }
     }
   },
   "inventory": {

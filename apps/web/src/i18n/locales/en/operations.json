@@ -215,6 +215,58 @@
         "lastError": "Last error",
         "createdAt": "Created"
       }
+    },
+    "settings": {
+      "title": "Payment provider credentials",
+      "description": "Store the sandbox or production credentials each rail needs to dispatch real charges. Live integration ships in a later slice; today the rails stay deterministic until a worker swaps in.",
+      "liveBadge": "Live integration",
+      "stubBadge": "Deterministic stub",
+      "readiness": {
+        "ready": "Ready",
+        "notReady": "Missing credentials",
+        "missingFields": "Missing fields: {{fields}}"
+      },
+      "form": {
+        "save": "Save credentials",
+        "saving": "Saving...",
+        "savedToast": "Credentials saved for {{rail}}",
+        "saveErrorToast": "Could not save payment credentials",
+        "showSecret": "Show",
+        "hideSecret": "Hide",
+        "clearField": "Clear",
+        "storedHint": "Stored value masked. Type to overwrite or clear to remove.",
+        "emptyHint": "No value stored yet."
+      },
+      "fields": {
+        "publicKey": "Public key",
+        "privateKey": "Private key",
+        "apiKey": "API key",
+        "secret": "Secret",
+        "merchantId": "Merchant ID",
+        "customerId": "Customer ID",
+        "pKey": "P_KEY",
+        "accessToken": "Access token"
+      },
+      "rails": {
+        "wompi": {
+          "description": "Sandbox + production credentials live in your Wompi dashboard."
+        },
+        "bold": {
+          "description": "Find the API key, secret and merchant id in the Bold merchant portal."
+        },
+        "epayco": {
+          "description": "ePayco surfaces both client-side (public, P_KEY) and server-side (private) credentials."
+        },
+        "mercado_pago": {
+          "description": "Use the access token from your Mercado Pago developer dashboard for the right country."
+        },
+        "nequi": {
+          "description": "Bancolombia issues the Nequi API key and merchant id during onboarding."
+        },
+        "daviplata": {
+          "description": "Davivienda issues the Daviplata API key and merchant id during onboarding."
+        }
+      }
     }
   },
   "inventory": {

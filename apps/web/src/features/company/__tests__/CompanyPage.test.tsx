@@ -113,17 +113,18 @@ vi.mock('../CompanyModulesCard', () => ({
 import { CompanyPage } from '../CompanyPage';
 
 describe('CompanyPage tab behavior', () => {
-  it('renders the segmented-control with seven tabs and lands on General by default', () => {
+  it('renders the segmented-control with the canonical tabs and lands on General by default', () => {
     render(<CompanyPage />);
 
-    // Tab list is present and exposes the seven canonical tabs
-    // (general, locale, data, device, ai, fiscal, modules — the
-    // last one shipped with ENG-068).
+    // Tab list is present and exposes the canonical tabs
+    // (general, locale, data, device, ai, fiscal, payments, modules —
+    // `payments` shipped with ENG-038 slice 2, `modules` with ENG-068).
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(7);
+    expect(tabs).toHaveLength(8);
     expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('company-tab-payments')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-modules')).toHaveAttribute('aria-selected', 'false');
 
     // General tab content visible: form fields + logo library card.
