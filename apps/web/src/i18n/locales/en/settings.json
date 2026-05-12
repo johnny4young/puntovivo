@@ -247,6 +247,7 @@
       "device": "Device",
       "ai": "AI",
       "fiscal": "Fiscal",
+      "payments": "Payments",
       "modules": "Modules"
     },
     "submitting": "Saving...",

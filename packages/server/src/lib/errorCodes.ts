@@ -416,6 +416,18 @@ export const SERVER_ERROR_CODES = {
    * Cause carries `{ tenantId, tipoDte, cafId, folioHasta }`.
    */
   CAF_EXHAUSTED: 'CAF_EXHAUSTED',
+  /**
+   * ENG-038 slice 2 — payment provider credential settings. The admin
+   * tried to save a credential map for a rail but included a field key
+   * that the rail does not declare in
+   * `services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL`. Tirado
+   * por `paymentSettings.updateRail` antes de cualquier persistencia
+   * para evitar que campos no declarados aterricen en el blob de
+   * settings.
+   *
+   * Cause carries `{ railId, unknownKey }`.
+   */
+  PAYMENT_CREDENTIAL_UNKNOWN_FIELD: 'PAYMENT_CREDENTIAL_UNKNOWN_FIELD',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

@@ -129,3 +129,74 @@ export function buildPaymentRailsContract(): PaymentRailsContract {
 export function isPaymentRailId(value: string): value is PaymentRailId {
   return (PAYMENT_RAIL_IDS as readonly string[]).includes(value);
 }
+
+/**
+ * ENG-038 slice 2 — per-rail credential descriptor.
+ *
+ * Declares the exact fields a rail needs from the operator before the
+ * future worker slice can dispatch a real charge. The admin UI iterates
+ * this list to render the form; the adapter's `validateConfig` iterates
+ * the same list to compute readiness; the persistence layer iterates
+ * it to enforce that no undeclared field sneaks into
+ * `tenants.settings.payments.<railId>.credentials.*`.
+ *
+ * `sensitive: true` flags fields the UI must render as password inputs
+ * and the response layer must mask (only last 3 characters visible). Every
+ * sensitive key name listed here MUST be covered by the diagnostic
+ * sanitizer's `SENSITIVE_KEYS` set in `services/diagnostics/sanitize.ts`
+ * so the export bundle redacts it automatically (audited in the
+ * companion sanitize test).
+ */
+export interface PaymentCredentialFieldDescriptor {
+  readonly key: string;
+  /** i18n key suffix; resolves under `operations.payments.settings.fields.<key>`. */
+  readonly labelKey: string;
+  readonly required: boolean;
+  readonly sensitive: boolean;
+}
+
+export const CREDENTIAL_FIELDS_BY_RAIL: Record<
+  PaymentRailId,
+  readonly PaymentCredentialFieldDescriptor[]
+> = {
+  wompi: [
+    { key: 'publicKey', labelKey: 'publicKey', required: true, sensitive: true },
+    { key: 'privateKey', labelKey: 'privateKey', required: true, sensitive: true },
+  ],
+  bold: [
+    { key: 'apiKey', labelKey: 'apiKey', required: true, sensitive: true },
+    { key: 'secret', labelKey: 'secret', required: true, sensitive: true },
+    { key: 'merchantId', labelKey: 'merchantId', required: true, sensitive: true },
+  ],
+  epayco: [
+    { key: 'customerId', labelKey: 'customerId', required: true, sensitive: true },
+    { key: 'publicKey', labelKey: 'publicKey', required: true, sensitive: true },
+    { key: 'privateKey', labelKey: 'privateKey', required: true, sensitive: true },
+    { key: 'pKey', labelKey: 'pKey', required: true, sensitive: true },
+  ],
+  mercado_pago: [
+    { key: 'accessToken', labelKey: 'accessToken', required: true, sensitive: true },
+  ],
+  nequi: [
+    { key: 'apiKey', labelKey: 'apiKey', required: true, sensitive: true },
+    { key: 'merchantId', labelKey: 'merchantId', required: true, sensitive: true },
+  ],
+  daviplata: [
+    { key: 'apiKey', labelKey: 'apiKey', required: true, sensitive: true },
+    { key: 'merchantId', labelKey: 'merchantId', required: true, sensitive: true },
+  ],
+};
+
+/** Convenience: declared field keys for a rail. */
+export function getCredentialFieldKeys(railId: PaymentRailId): readonly string[] {
+  return CREDENTIAL_FIELDS_BY_RAIL[railId].map(field => field.key);
+}
+
+/** Convenience: required credential keys for a rail (subset of declared). */
+export function getRequiredCredentialFieldKeys(
+  railId: PaymentRailId
+): readonly string[] {
+  return CREDENTIAL_FIELDS_BY_RAIL[railId]
+    .filter(field => field.required)
+    .map(field => field.key);
+}

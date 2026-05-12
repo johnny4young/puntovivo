@@ -16,6 +16,7 @@ import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
+import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
@@ -187,7 +188,16 @@ function canManageCompany(role: UserRole | undefined): boolean {
  * (`settings:company.tabs.<key>`). Adding a new tab: append to this
  * tuple and add the matching localized label in en + es.
  */
-const TAB_KEYS = ['general', 'locale', 'data', 'device', 'ai', 'fiscal', 'modules'] as const;
+const TAB_KEYS = [
+  'general',
+  'locale',
+  'data',
+  'device',
+  'ai',
+  'fiscal',
+  'payments',
+  'modules',
+] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -257,6 +267,7 @@ export function CompanyPage() {
       device: t('company.tabs.device'),
       ai: t('company.tabs.ai'),
       fiscal: t('company.tabs.fiscal'),
+      payments: t('company.tabs.payments'),
       modules: t('company.tabs.modules'),
     }),
     [t]
@@ -396,6 +407,12 @@ export function CompanyPage() {
                 {activeTab === 'modules' && (
                   <div className="space-y-6">
                     <CompanyModulesCard />
+                  </div>
+                )}
+
+                {activeTab === 'payments' && (
+                  <div className="space-y-6">
+                    <CompanyPaymentsCard />
                   </div>
                 )}
 

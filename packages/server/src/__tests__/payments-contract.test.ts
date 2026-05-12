@@ -6,7 +6,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PAYMENT_RAIL_IDS } from '../services/payments/manifest.js';
+import {
+  CREDENTIAL_FIELDS_BY_RAIL,
+  PAYMENT_RAIL_IDS,
+  PAYMENT_RAILS_MANIFEST,
+} from '../services/payments/manifest.js';
 import {
   buildPaymentRailsContract,
   getPaymentRailAdapter,
@@ -88,5 +92,85 @@ describe('deterministic payment rail adapters (ENG-038)', () => {
       status: 'timeout',
       raw: { deterministic: true, railId: 'mercado_pago' },
     });
+  });
+});
+
+describe('validateConfig (ENG-038 slice 2)', () => {
+  it('declares credential field descriptors for every manifest rail', () => {
+    for (const railId of PAYMENT_RAIL_IDS) {
+      const descriptors = CREDENTIAL_FIELDS_BY_RAIL[railId];
+      expect(descriptors).toBeDefined();
+      expect(descriptors.length).toBeGreaterThan(0);
+      // requiresExternalCredentials in the manifest stays consistent
+      // with the descriptor: every rail that needs credentials has
+      // at least one required field, and vice-versa.
+      const requiresCreds =
+        PAYMENT_RAILS_MANIFEST[railId].capabilities.requiresExternalCredentials;
+      const hasRequired = descriptors.some(field => field.required);
+      expect(hasRequired).toBe(requiresCreds);
+    }
+  });
+
+  it('reports every required credential as missing when settings are empty', async () => {
+    for (const railId of PAYMENT_RAIL_IDS) {
+      const adapter = getPaymentRailAdapter(railId);
+      expect(adapter.validateConfig).toBeDefined();
+      const result = await adapter.validateConfig!({
+        tenantId: 'tenant-1',
+        settings: {},
+      });
+      expect(result.ok).toBe(false);
+      const required = CREDENTIAL_FIELDS_BY_RAIL[railId].filter(
+        field => field.required
+      );
+      expect(result.issues.length).toBe(required.length);
+      for (const issue of result.issues) {
+        expect(issue.code).toBe('PAYMENT_CREDENTIAL_MISSING');
+      }
+    }
+  });
+
+  it('flips to ok=true once every required credential has a non-empty value', async () => {
+    const adapter = getPaymentRailAdapter('bold');
+    const result = await adapter.validateConfig!({
+      tenantId: 'tenant-1',
+      settings: {
+        payments: {
+          bold: {
+            credentials: {
+              apiKey: 'k',
+              secret: 's',
+              merchantId: 'm',
+            },
+          },
+        },
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it('treats whitespace and empty string as missing', async () => {
+    const adapter = getPaymentRailAdapter('mercado_pago');
+    const emptyResult = await adapter.validateConfig!({
+      tenantId: 'tenant-1',
+      settings: {
+        payments: { mercado_pago: { credentials: { accessToken: '' } } },
+      },
+    });
+    expect(emptyResult.ok).toBe(false);
+    expect(emptyResult.issues[0]?.field).toBe('accessToken');
+
+    // A pre-existing settings blob with a whitespace-only value
+    // (e.g. paste-from-clipboard with stray spaces) must surface
+    // the same missing-field signal so the operator can fix it.
+    const whitespaceResult = await adapter.validateConfig!({
+      tenantId: 'tenant-1',
+      settings: {
+        payments: { mercado_pago: { credentials: { accessToken: '   ' } } },
+      },
+    });
+    expect(whitespaceResult.ok).toBe(false);
+    expect(whitespaceResult.issues[0]?.field).toBe('accessToken');
   });
 });

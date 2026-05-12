@@ -83,6 +83,15 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   'paymenttoken',
   'capturetoken',
   'authorizationcode',
+  // ENG-038 slice 2 — payment provider credential fields. The
+  // descriptor in services/payments/manifest.ts::CREDENTIAL_FIELDS_BY_RAIL
+  // marks all of these `sensitive: true`. Anchored matching keeps
+  // `merchantid` from colliding with legit business keys like
+  // `customerid` (already covered by `clientid` semantically but
+  // listed verbatim for grep-friendliness).
+  'merchantid',
+  'customerid',
+  'pkey',
 ]);
 
 /**
