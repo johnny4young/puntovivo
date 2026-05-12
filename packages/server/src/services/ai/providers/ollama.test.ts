@@ -19,7 +19,8 @@
  *    builders (so the existing vision-capability check in
  *    `extractInvoiceFromImage` passes).
  *  - `cacheControlForSystemPrompt()` returns `undefined`.
- *  - `embeddingModel` stays undefined (separate follow-up).
+ *  - `embeddingModel` returns the Ollama embedding factory and
+ *    advertises `nomic-embed-text` as the provider default.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -158,8 +159,30 @@ describe('ai/providers/ollama (ENG-040b slice 1)', () => {
   });
 
   describe('embeddingModel', () => {
-    it('stays undefined — Ollama embeddings parked for a follow-up slice', () => {
-      expect(ollamaProvider.embeddingModel).toBeUndefined();
+    // ENG-040b slice 2 — Ollama embeddings activated via
+    // `ollama-ai-provider-v2.embedding(modelId)`. The factory itself
+    // doesn't hit the network until `embedMany({ model, ... })` runs,
+    // so the unit assertion is limited to the contract shape.
+    it('is implemented and returns a model factory (ENG-040b slice 2)', () => {
+      expect(ollamaProvider.embeddingModel).toBeDefined();
+      expect(typeof ollamaProvider.embeddingModel).toBe('function');
+      const model = ollamaProvider.embeddingModel?.('nomic-embed-text');
+      expect(model).toBeDefined();
+      expect(model).not.toBeNull();
+    });
+
+    it('advertises nomic-embed-text as the canonical embedding model id', () => {
+      // Cross-check against the test-internals constant so a future
+      // change to `FALLBACK_EMBEDDING_MODEL_ID` (e.g. switching the
+      // default to `mxbai-embed-large`) flips this assertion in one
+      // place instead of letting the hard-coded literal silently
+      // diverge from the provider object.
+      expect(ollamaProvider.defaultEmbeddingModelId).toBe(
+        __ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID
+      );
+      expect(__ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID).toBe(
+        'nomic-embed-text'
+      );
     });
   });
 });

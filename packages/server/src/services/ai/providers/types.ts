@@ -63,11 +63,22 @@ export interface AIProvider {
   languageModel(modelId: string): LanguageModelV3;
 
   /**
-   * Optional. Only OpenAI returns a model in Phase 1 (Anthropic does
-   * not embed; Ollama's embedding support is parked for ENG-040).
-   * ENG-033 activated this for OpenAI.
+   * Optional. ENG-033 activated this for OpenAI (`text-embedding-3-small`);
+   * ENG-040b slice 2 added Ollama (`nomic-embed-text`). Anthropic does
+   * not embed and leaves this undefined so semantic-search callers
+   * fall back to LIKE.
    */
   embeddingModel?(modelId: string): EmbeddingModelV3;
+
+  /**
+   * Optional. The canonical embedding model id this provider ships
+   * with. Read by `services/ai/embeddings.ts::embedTexts` and
+   * `embedText` so each provider's default flows through without a
+   * hardcoded OpenAI-only constant in the resolver. Providers that
+   * don't implement `embeddingModel` (Anthropic today) leave this
+   * undefined.
+   */
+  readonly defaultEmbeddingModelId?: string;
 
   /**
    * Optional. Vision-capable language model for multimodal `image +

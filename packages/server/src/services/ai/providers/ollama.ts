@@ -27,15 +27,16 @@
  * surfaces a provider-side error at call time, which the service layer
  * maps to `AI_PROVIDER_ERROR`.
  *
- * Embeddings are NOT implemented here. Ollama embedding models
- * (`nomic-embed-text`, `mxbai-embed-large`, ...) are a separate
- * follow-up; ENG-033 semantic search stays OpenAI-only until that
- * lands.
+ * ENG-040b slice 2 also exposes Ollama embeddings via
+ * `createOllama({ baseURL }).embedding(modelId)`. The default model is
+ * `nomic-embed-text`, so ENG-033 semantic search can run fully offline
+ * once the operator has pulled that model and regenerated catalog
+ * embeddings.
  *
  * @module services/ai/providers/ollama
  */
 import { createOllama } from 'ollama-ai-provider-v2';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 
 import type { AIProvider, ProviderPricing, TokenUsage } from './types.js';
 
@@ -44,6 +45,35 @@ const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /** Recommended chat default. Operators can override per-tenant. */
 const FALLBACK_MODEL_ID = 'llama3.2';
+
+/**
+ * ENG-040b slice 2 — canonical Ollama embedding model. `nomic-embed-text`
+ * is the smallest acceptable default (~270 MB on disk, 768 dimensions,
+ * multilingual including Spanish). Operators that want larger embeddings
+ * need a follow-up tenant-level embedding-model override; common
+ * alternatives are `mxbai-embed-large` (1024-d) and `bge-m3` (1024-d).
+ *
+ * Note: 768-d Ollama embeddings are NOT compatible with the 1536-d
+ * OpenAI `text-embedding-3-small` vectors that may already exist in
+ * `products.embedding`. The shared `cosineSimilarity` returns 0 for
+ * mismatched dimensions, so the worst-case scenario is **incomplete
+ * results, not wrong matches** — every product row embedded under
+ * the previous provider falls below the 0.30 similarity floor and
+ * silently disappears from the result set. The
+ * `products.semanticSearch` procedure still returns
+ * `mode: 'semantic'` in that mixed-catalog state because at least
+ * one row is embedded; the operator sees a thinner-than-expected
+ * result list rather than a hard error.
+ *
+ * After switching providers the operator must click "Regenerate
+ * embeddings" on the products page to re-embed the catalog under
+ * the new model. Same constraint as switching between OpenAI's
+ * small + large embedding models. A future ENG could compare
+ * `products.embeddingModel` against the active provider's default
+ * and surface a "catalog needs re-embedding" admin banner; out of
+ * scope for this slice.
+ */
+const FALLBACK_EMBEDDING_MODEL_ID = 'nomic-embed-text';
 
 const FREE_PRICING: ProviderPricing = {
   models: {},
@@ -71,6 +101,7 @@ function buildClient() {
 export const ollamaProvider: AIProvider = {
   id: 'ollama',
   defaultModelId: FALLBACK_MODEL_ID,
+  defaultEmbeddingModelId: FALLBACK_EMBEDDING_MODEL_ID,
   pricing: FREE_PRICING,
 
   isConfigured(): boolean {
@@ -95,6 +126,21 @@ export const ollamaProvider: AIProvider = {
     return buildClient()(modelId);
   },
 
+  // ENG-040b slice 2 — embeddings capability advertised. Routes through
+  // `createOllama({ baseURL }).embedding(modelId)` (the SDK's primary
+  // embedding factory; `textEmbedding` / `textEmbeddingModel` are
+  // deprecated aliases). Same `EmbeddingModelV3` contract OpenAI
+  // returns, so the provider-agnostic call site in
+  // `services/ai/embeddings.ts::embedTexts` does not branch.
+  //
+  // The operator pulls a model once with `ollama pull nomic-embed-text`
+  // (or any other supported embedding model — see
+  // `FALLBACK_EMBEDDING_MODEL_ID` JSDoc for the dimension-drift
+  // caveat).
+  embeddingModel(modelId: string): EmbeddingModelV3 {
+    return buildClient().embedding(modelId);
+  },
+
   cacheControlForSystemPrompt(): undefined {
     // Ollama does not advertise a prompt-cache control surface today;
     // pricing is zero anyway so caching is purely a latency knob and
@@ -104,9 +150,10 @@ export const ollamaProvider: AIProvider = {
 };
 
 /** Test helpers — exported so unit tests can verify the URL resolver
- *  + default model id without spinning up the SDK. */
+ *  + default model ids without spinning up the SDK. */
 export const __ollamaInternals = {
   resolveBaseUrl,
   DEFAULT_OLLAMA_BASE_URL,
   FALLBACK_MODEL_ID,
+  FALLBACK_EMBEDDING_MODEL_ID,
 };

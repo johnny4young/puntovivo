@@ -79,6 +79,11 @@ const PRICING: ProviderPricing = {
 export const openaiProvider: AIProvider = {
   id: 'openai',
   defaultModelId: FALLBACK_MODEL_ID,
+  // ENG-040b slice 2 — per-provider default for the embedding pipeline
+  // resolver (services/ai/embeddings.ts::embedTexts). Matches the
+  // hardcoded `DEFAULT_EMBEDDING_MODEL` ENG-033 shipped, just sourced
+  // from the provider so Ollama can advertise its own default.
+  defaultEmbeddingModelId: 'text-embedding-3-small',
   pricing: PRICING,
 
   isConfigured(): boolean {
