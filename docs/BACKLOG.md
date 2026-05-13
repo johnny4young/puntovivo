@@ -225,21 +225,6 @@ research.
   this is a "two failures in a row" path that has not been observed
   in practice. — 2026-04-29 (jy)
 
-- `[ai][perf]` Anthropic prompt-cache hit rate likely zero on the
-  co-pilot. `services/ai/copilot.ts::buildSystemPrompt` embeds the
-  resolved analytics window (`from`/`to` ISO timestamps) and the
-  active `siteId` directly into the system string, then sets
-  `providerOptions.anthropic.cacheControl: { type: 'ephemeral' }`.
-  Because the window defaults to "last 90 days from now", the
-  timestamp changes on every call, so the cache key never matches
-  the previous request. The ENG-030 cost-reduction claim ("~90% cost
-  reduction on repeated system prompts") therefore does not apply
-  to copilot calls in practice. Fix candidates: (a) keep the system
-  prompt static and pass the window/site as a tool input, (b) round
-  `to` to the day boundary so consecutive same-day calls share the
-  cache, (c) keep the dynamic prompt as a tail message and cache
-  only the static instructions. — 2026-04-29 (review)
-
 - `[ai][testing]` Co-pilot WITH/CTE end-to-end execution is unproven.
   `validateReadOnlySQL` is unit-tested against a `WITH daily AS (...)
   SELECT * FROM daily` example, but no test calls `runReadOnlySQL`
