@@ -1,0 +1,11 @@
+{
+  "supplierName": "MINIMARKET LA ESQUINA",
+  "supplierTaxId": "77.665.443-2",
+  "invoiceNumber": "5821",
+  "currencyCode": "CLP",
+  "lines": [
+    { "description": "Coca-Cola 1.5L", "quantity": 1, "unitPrice": 1950, "totalLine": 1950 },
+    { "description": "Papas fritas Lays 150g", "quantity": 2, "unitPrice": 1290, "totalLine": 2580 },
+    { "description": "Cigarrillos Pall Mall", "quantity": 1, "unitPrice": 3900, "totalLine": 3900 }
+  ]
+}

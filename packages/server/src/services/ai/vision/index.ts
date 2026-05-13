@@ -28,3 +28,18 @@ export {
   type InvoiceLineMatcherResult,
   type MatchedProductSummary,
 } from './invoice-line-matcher.js';
+
+export {
+  BENCHMARK_DEFAULT_THRESHOLD,
+  DESCRIPTION_SIMILARITY_THRESHOLD,
+  UNIT_PRICE_TOLERANCE,
+  aggregateBenchmark,
+  descriptionSimilarity,
+  isLineMatch,
+  normalizeDescription,
+  scoreFixture,
+  type BenchmarkAggregate,
+  type BenchmarkResult,
+  type FixtureGroundTruth,
+  type FixtureScore,
+} from './benchmark-scoring.js';

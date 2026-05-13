@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>08 minimart cl</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lucida Console', monospace; background: #ffffff; color: #1a1a1a; padding: 20px; width: 350px; }
+  h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
+  p.sub { text-align: center; font-size: 11px; color: #444; margin-bottom: 3px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  .line { display: grid; grid-template-columns: 1fr auto; font-size: 12px; padding: 3px 0; }
+  .line .meta { color: #666; font-size: 10.5px; margin-top: 1px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>MINIMARKET LA ESQUINA</h1>
+  <p class="sub">RUT: 77.665.443-2</p>
+  <p class="sub">Av. Vicuña Mackenna 4400, Macul</p>
+  <p class="sub">Boleta 5821</p>
+  <p class="sub">13/05/2026 18:22</p>
+  <hr class="dash" />
+  <div class="line"><div>Coca-Cola 1.5L<div class="meta">1 × 1.950</div></div><div>1.950</div></div>
+  <div class="line"><div>Papas fritas Lays 150g<div class="meta">2 × 1.290</div></div><div>2.580</div></div>
+  <div class="line"><div>Cigarrillos Pall Mall<div class="meta">1 × 3.900</div></div><div>3.900</div></div>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row bold"><span>TOTAL CLP</span><span>$ 8.430</span></div>
+  </div>
+</body>
+</html>

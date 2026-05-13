@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>09 wholesale co</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #ffffff; color: #111; padding: 22px; width: 460px; }
+  h1 { font-size: 17px; text-align: center; margin-bottom: 4px; }
+  p.sub { text-align: center; font-size: 11px; color: #333; margin-bottom: 3px; }
+  hr.solid { border: none; border-top: 1px solid #000; margin: 8px 0; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  table { width: 100%; font-size: 11px; }
+  th { padding: 3px 0; border-bottom: 1px solid #000; text-align: left; font-size: 11px; }
+  td { padding: 3px 0; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 42%; }
+  td.code { width: 12%; font-size: 10px; color: #555; }
+  td.qty { width: 10%; }
+  td.unit { width: 16%; }
+  td.total { width: 20%; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>DISTRIBUCIONES VALLE S.A.S</h1>
+  <p class="sub">NIT: 901.778.221-4</p>
+  <p class="sub">Cl 15 # 24-88, Cali</p>
+  <p class="sub">Factura electrónica: FV-2026-018744</p>
+  <p class="sub">CUFE: 8a72f01b...c4 (resumido)</p>
+  <p class="sub">2026-05-07</p>
+  <hr class="solid" />
+  <table>
+    <thead>
+      <tr><th>Producto</th><th>SKU</th><th class="qty">Cant</th><th class="unit">V.U.</th><th class="total">V.Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Azúcar Riopaila 1kg</td><td class="code">A-001</td><td class="qty">12</td><td class="unit">4.300</td><td class="total">51.600</td></tr>
+      <tr><td class="desc">Café Águila Roja 500g</td><td class="code">C-014</td><td class="qty">6</td><td class="unit">21.500</td><td class="total">129.000</td></tr>
+      <tr><td class="desc">Atún Van Camps 170g</td><td class="code">T-008</td><td class="qty">24</td><td class="unit">5.200</td><td class="total">124.800</td></tr>
+      <tr><td class="desc">Fríjoles La Constancia 500g</td><td class="code">F-022</td><td class="qty">10</td><td class="unit">3.900</td><td class="total">39.000</td></tr>
+      <tr><td class="desc">Pasta Doria 250g</td><td class="code">P-031</td><td class="qty">18</td><td class="unit">2.800</td><td class="total">50.400</td></tr>
+      <tr><td class="desc">Galletas Saltinas 200g</td><td class="code">G-009</td><td class="qty">15</td><td class="unit">3.500</td><td class="total">52.500</td></tr>
+      <tr><td class="desc">Chocolate Corona barra</td><td class="code">CH-12</td><td class="qty">20</td><td class="unit">4.800</td><td class="total">96.000</td></tr>
+      <tr><td class="desc">Sal refisal 1kg</td><td class="code">S-002</td><td class="qty">8</td><td class="unit">2.300</td><td class="total">18.400</td></tr>
+      <tr><td class="desc">Mayonesa Fruco 410g</td><td class="code">M-019</td><td class="qty">10</td><td class="unit">8.900</td><td class="total">89.000</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 650.700</span></div>
+    <div class="row"><span>IVA 19%</span><span>$ 123.633</span></div>
+    <div class="row bold"><span>TOTAL COP</span><span>$ 774.333</span></div>
+  </div>
+</body>
+</html>

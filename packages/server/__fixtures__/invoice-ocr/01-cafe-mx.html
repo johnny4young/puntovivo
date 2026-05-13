@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>01 cafe mx</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Menlo, Consolas, monospace; background: #ffffff; color: #111; padding: 24px; width: 360px; }
+  h1 { font-size: 18px; text-align: center; letter-spacing: 1px; margin-bottom: 4px; }
+  p.sub { text-align: center; font-size: 12px; color: #444; margin-bottom: 4px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 10px 0; }
+  table { width: 100%; font-size: 12px; }
+  th, td { padding: 3px 0; text-align: left; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 50%; }
+  td.qty { width: 12%; }
+  td.unit { width: 18%; }
+  td.total { width: 20%; }
+  .totals { margin-top: 10px; font-size: 12px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .totals .row.bold { font-weight: bold; font-size: 13px; border-top: 1px solid #222; padding-top: 6px; margin-top: 4px; }
+  .footer { text-align: center; font-size: 11px; margin-top: 16px; color: #555; }
+</style>
+</head>
+<body>
+  <h1>CAFETERÍA EL OLINALÁ</h1>
+  <p class="sub">RFC: COL250131XY8</p>
+  <p class="sub">Av. Reforma 1234, CDMX</p>
+  <p class="sub">Folio: A-0247</p>
+  <p class="sub">Fecha: 2026-05-12</p>
+  <hr class="dash" />
+  <table>
+    <thead>
+      <tr><th class="desc">Producto</th><th class="qty">Cant</th><th class="unit">P.U.</th><th class="total">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Café americano grande</td><td class="qty">2</td><td class="unit">45.00</td><td class="total">90.00</td></tr>
+      <tr><td class="desc">Concha de vainilla</td><td class="qty">3</td><td class="unit">22.00</td><td class="total">66.00</td></tr>
+      <tr><td class="desc">Jugo de naranja natural</td><td class="qty">1</td><td class="unit">38.00</td><td class="total">38.00</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$194.00</span></div>
+    <div class="row"><span>IVA 16%</span><span>$31.04</span></div>
+    <div class="row bold"><span>TOTAL MXN</span><span>$225.04</span></div>
+  </div>
+  <p class="footer">¡Gracias por su preferencia!</p>
+</body>
+</html>

@@ -52,7 +52,8 @@
   "ocr": {
     "title": "Invoice OCR",
     "description": "Upload a photo of the provider invoice. The AI will read supplier details, line items and totals so you can transcribe them into the purchase.",
-    "uploadCta": "Upload invoice photo",
+    "uploadFileCta": "Upload file",
+    "takePhotoCta": "Take photo",
     "processing": "Reading the invoice...",
     "error": "Could not extract invoice data",
     "footnote": "Review the extracted lines, match each one to a product in your catalog, and then add the matches to a draft purchase.",

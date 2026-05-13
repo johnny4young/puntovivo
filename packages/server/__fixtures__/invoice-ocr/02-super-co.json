@@ -1,0 +1,15 @@
+{
+  "supplierName": "SUPERMERCADOS EL ÉXITO",
+  "supplierTaxId": "900.123.456-7",
+  "invoiceNumber": "SP-018472",
+  "currencyCode": "COP",
+  "lines": [
+    { "description": "Arroz Diana 500g", "quantity": 2, "unitPrice": 3200, "totalLine": 6400 },
+    { "description": "Aceite Premier 1L", "quantity": 1, "unitPrice": 12900, "totalLine": 12900 },
+    { "description": "Leche Alpina entera 1L", "quantity": 3, "unitPrice": 4500, "totalLine": 13500 },
+    { "description": "Huevos AA x 30", "quantity": 1, "unitPrice": 18900, "totalLine": 18900 },
+    { "description": "Plátano maduro x lb", "quantity": 4, "unitPrice": 800, "totalLine": 3200 },
+    { "description": "Detergente Fab 1kg", "quantity": 1, "unitPrice": 15500, "totalLine": 15500 },
+    { "description": "Pollo entero kg", "quantity": 2, "unitPrice": 9800, "totalLine": 19600 }
+  ]
+}

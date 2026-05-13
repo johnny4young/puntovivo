@@ -1,0 +1,10 @@
+{
+  "supplierName": "TIENDA DON JESÚS",
+  "supplierTaxId": "TDJ970505QQ4",
+  "invoiceNumber": "0089",
+  "currencyCode": "MXN",
+  "lines": [
+    { "description": "Cerveza Corona 355ml", "quantity": 6, "unitPrice": 22.00, "totalLine": 132.00 },
+    { "description": "Botana Sabritas chica", "quantity": 2, "unitPrice": 18.00, "totalLine": 36.00 }
+  ]
+}

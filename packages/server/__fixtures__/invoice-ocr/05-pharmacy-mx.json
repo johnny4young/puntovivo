@@ -1,0 +1,13 @@
+{
+  "supplierName": "FARMACIA GUADALUPE",
+  "supplierTaxId": "FGU010912R39",
+  "invoiceNumber": "TK-7724",
+  "currencyCode": "MXN",
+  "lines": [
+    { "description": "Paracetamol 500mg c/20", "quantity": 2, "unitPrice": 38.50, "totalLine": 77.00 },
+    { "description": "Tafil 0.25mg c/30", "quantity": 1, "unitPrice": 219.00, "totalLine": 219.00 },
+    { "description": "Vitamina C 1g c/10", "quantity": 1, "unitPrice": 115.00, "totalLine": 115.00 },
+    { "description": "Suero oral 500ml", "quantity": 3, "unitPrice": 18.00, "totalLine": 54.00 },
+    { "description": "Termómetro digital", "quantity": 1, "unitPrice": 189.00, "totalLine": 189.00 }
+  ]
+}

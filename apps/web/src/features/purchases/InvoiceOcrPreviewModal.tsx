@@ -12,7 +12,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ScanLine, Sparkles, ShoppingCart, Upload } from 'lucide-react';
+import { Camera, Loader2, ScanLine, Sparkles, ShoppingCart, Upload } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useIsModuleActive } from '@/features/modules';
@@ -74,6 +74,7 @@ export function InvoiceOcrPreviewModal({
   const toast = useToast();
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<ExtractInvoiceResponse | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -264,7 +265,7 @@ export function InvoiceOcrPreviewModal({
       <div className="space-y-4">
         <p className="text-sm text-secondary-600">{t('purchases:ocr.description')}</p>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col flex-wrap gap-2 sm:flex-row sm:items-center">
           <input
             ref={fileInputRef}
             type="file"
@@ -273,11 +274,34 @@ export function InvoiceOcrPreviewModal({
             onChange={handleFileChange}
             data-testid="ocr-file-input"
           />
+          {/*
+            ENG-040d — separate camera input with `capture="environment"`.
+            On mobile / tablet browsers this opens the rear camera
+            directly; on desktop it falls back to the standard file
+            picker, so the CTA stays useful everywhere without a
+            fragile media-query gate.
+
+            `accept` shares the explicit MIME whitelist with the file
+            input so iOS Safari (which can return `image/heic` from the
+            rear camera) filters at the chooser instead of letting an
+            unsupported file land in `handleFileChange` and surface a
+            generic validation error.
+          */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept={ACCEPTED_TYPES.join(',')}
+            capture="environment"
+            className="hidden"
+            onChange={handleFileChange}
+            data-testid="ocr-camera-input"
+          />
           <button
             type="button"
             className="btn-primary flex items-center gap-2"
             onClick={() => fileInputRef.current?.click()}
             disabled={isWorking || isMatching}
+            aria-label={t('purchases:ocr.uploadFileCta')}
             data-testid="ocr-upload-button"
           >
             {isWorking ? (
@@ -285,7 +309,18 @@ export function InvoiceOcrPreviewModal({
             ) : (
               <Upload className="h-4 w-4" />
             )}
-            {t('purchases:ocr.uploadCta')}
+            {t('purchases:ocr.uploadFileCta')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-2"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={isWorking || isMatching}
+            aria-label={t('purchases:ocr.takePhotoCta')}
+            data-testid="ocr-camera-button"
+          >
+            <Camera className="h-4 w-4" />
+            {t('purchases:ocr.takePhotoCta')}
           </button>
           {fileName && (
             <p className="text-sm text-secondary-500" data-testid="ocr-filename">

@@ -1,0 +1,12 @@
+{
+  "supplierName": "DROGUERÍA LA REBAJA",
+  "supplierTaxId": "811.022.345-2",
+  "invoiceNumber": "DR-31247",
+  "currencyCode": "COP",
+  "lines": [
+    { "description": "Acetaminofén 500 mg x 20", "quantity": 2, "unitPrice": 3800, "totalLine": 7600 },
+    { "description": "Ibuprofeno 400 mg x 10", "quantity": 1, "unitPrice": 5200, "totalLine": 5200 },
+    { "description": "Sales de rehidratación oral", "quantity": 3, "unitPrice": 2500, "totalLine": 7500 },
+    { "description": "Crema antimicótica 30 g", "quantity": 1, "unitPrice": 14900, "totalLine": 14900 }
+  ]
+}

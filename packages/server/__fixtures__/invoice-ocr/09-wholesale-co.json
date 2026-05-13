@@ -1,0 +1,17 @@
+{
+  "supplierName": "DISTRIBUCIONES VALLE S.A.S",
+  "supplierTaxId": "901.778.221-4",
+  "invoiceNumber": "FV-2026-018744",
+  "currencyCode": "COP",
+  "lines": [
+    { "description": "Azúcar Riopaila 1kg", "quantity": 12, "unitPrice": 4300, "totalLine": 51600 },
+    { "description": "Café Águila Roja 500g", "quantity": 6, "unitPrice": 21500, "totalLine": 129000 },
+    { "description": "Atún Van Camps 170g", "quantity": 24, "unitPrice": 5200, "totalLine": 124800 },
+    { "description": "Fríjoles La Constancia 500g", "quantity": 10, "unitPrice": 3900, "totalLine": 39000 },
+    { "description": "Pasta Doria 250g", "quantity": 18, "unitPrice": 2800, "totalLine": 50400 },
+    { "description": "Galletas Saltinas 200g", "quantity": 15, "unitPrice": 3500, "totalLine": 52500 },
+    { "description": "Chocolate Corona barra", "quantity": 20, "unitPrice": 4800, "totalLine": 96000 },
+    { "description": "Sal refisal 1kg", "quantity": 8, "unitPrice": 2300, "totalLine": 18400 },
+    { "description": "Mayonesa Fruco 410g", "quantity": 10, "unitPrice": 8900, "totalLine": 89000 }
+  ]
+}

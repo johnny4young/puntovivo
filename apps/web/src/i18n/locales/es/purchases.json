@@ -52,7 +52,8 @@
   "ocr": {
     "title": "OCR de factura",
     "description": "Sube una foto de la factura del proveedor. La IA leerá datos del proveedor, líneas y totales para que los transcribas en la compra.",
-    "uploadCta": "Subir foto de la factura",
+    "uploadFileCta": "Subir archivo",
+    "takePhotoCta": "Tomar foto",
     "processing": "Leyendo la factura...",
     "error": "No se pudieron extraer los datos de la factura",
     "footnote": "Revisa las líneas extraídas, asocia cada una con un producto del catálogo y luego agrega las coincidencias a una compra en borrador.",

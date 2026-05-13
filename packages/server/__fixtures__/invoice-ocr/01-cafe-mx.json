@@ -1,0 +1,11 @@
+{
+  "supplierName": "CAFETERÍA EL OLINALÁ",
+  "supplierTaxId": "COL250131XY8",
+  "invoiceNumber": "A-0247",
+  "currencyCode": "MXN",
+  "lines": [
+    { "description": "Café americano grande", "quantity": 2, "unitPrice": 45.00, "totalLine": 90.00 },
+    { "description": "Concha de vainilla", "quantity": 3, "unitPrice": 22.00, "totalLine": 66.00 },
+    { "description": "Jugo de naranja natural", "quantity": 1, "unitPrice": 38.00, "totalLine": 38.00 }
+  ]
+}

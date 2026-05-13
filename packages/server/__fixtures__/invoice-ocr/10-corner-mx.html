@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>10 corner mx</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Andale Mono', monospace; background: #f7f6ef; color: #4a4a4a; padding: 18px; width: 320px; font-size: 10px; }
+  h1 { font-size: 12px; text-align: center; margin-bottom: 2px; color: #555; letter-spacing: 0.5px; }
+  p.sub { text-align: center; font-size: 9px; color: #6a6a6a; margin-bottom: 2px; }
+  hr.dash { border: none; border-top: 1px dashed #999; margin: 6px 0; }
+  .line { display: grid; grid-template-columns: 1fr auto; font-size: 10px; padding: 2px 0; color: #4a4a4a; }
+  .line .meta { color: #888; font-size: 9px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 10px; color: #5a5a5a; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #888; padding-top: 4px; margin-top: 4px; font-size: 11px; color: #333; }
+</style>
+</head>
+<body>
+  <h1>TIENDA DON JESÚS</h1>
+  <p class="sub">RFC: TDJ970505QQ4</p>
+  <p class="sub">Calle Hidalgo 56, Puebla</p>
+  <p class="sub">Nota 0089</p>
+  <p class="sub">2026-05-13</p>
+  <hr class="dash" />
+  <div class="line"><div>Cerveza Corona 355ml<div class="meta">6 × 22</div></div><div>132.00</div></div>
+  <div class="line"><div>Botana Sabritas chica<div class="meta">2 × 18</div></div><div>36.00</div></div>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 144.83</span></div>
+    <div class="row"><span>IVA 16%</span><span>$ 23.17</span></div>
+    <div class="row bold"><span>TOTAL MXN</span><span>$ 168.00</span></div>
+  </div>
+</body>
+</html>

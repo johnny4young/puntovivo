@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>06 farmacia co</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #ffffff; color: #1a1a1a; padding: 22px; width: 400px; }
+  h1 { font-size: 16px; text-align: center; margin-bottom: 4px; }
+  p.sub { text-align: center; font-size: 11px; color: #333; margin-bottom: 3px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  table { width: 100%; font-size: 11px; }
+  th { padding: 3px 0; border-bottom: 1px solid #000; text-align: left; }
+  td { padding: 3px 0; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 52%; }
+  td.qty { width: 10%; }
+  td.unit { width: 18%; }
+  td.total { width: 20%; }
+  .discount { color: #b00; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>DROGUERÍA LA REBAJA</h1>
+  <p class="sub">NIT: 811.022.345-2 / RUT: 02-811022345</p>
+  <p class="sub">Cl 70 # 52-29, Barranquilla</p>
+  <p class="sub">Factura: DR-31247</p>
+  <p class="sub">12 May 2026</p>
+  <hr class="dash" />
+  <table>
+    <thead>
+      <tr><th>Producto</th><th class="qty">Cant</th><th class="unit">V.U.</th><th class="total">V.Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Acetaminofén 500 mg x 20</td><td class="qty">2</td><td class="unit">3.800</td><td class="total">7.600</td></tr>
+      <tr><td class="desc">Ibuprofeno 400 mg x 10</td><td class="qty">1</td><td class="unit">5.200</td><td class="total">5.200</td></tr>
+      <tr><td class="desc">Sales de rehidratación oral</td><td class="qty">3</td><td class="unit">2.500</td><td class="total">7.500</td></tr>
+      <tr><td class="desc">Crema antimicótica 30 g</td><td class="qty">1</td><td class="unit">14.900</td><td class="total">14.900</td></tr>
+      <tr><td class="desc discount">DESCUENTO promoción 10%</td><td class="qty"></td><td class="unit"></td><td class="total discount">-3.520</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 31.680</span></div>
+    <div class="row"><span>IVA 0% (POS plan)</span><span>$ 0</span></div>
+    <div class="row bold"><span>TOTAL COP</span><span>$ 31.680</span></div>
+  </div>
+</body>
+</html>
