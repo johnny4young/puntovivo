@@ -119,6 +119,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'AI_VOICE_NOT_AVAILABLE',
   'AI_VOICE_PARSE_FAILED',
   'AI_VOICE_AUDIO_TOO_LARGE',
+  // --- ENG-040c slice 3 voice cart commands ---
+  'AI_VOICE_COMMAND_UNRECOGNIZED',
   // --- ENG-052 device registry + command envelope ---
   'DEVICE_NOT_REGISTERED',
   // --- ENG-075 Authority Node pairing + health ---

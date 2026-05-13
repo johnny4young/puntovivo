@@ -20,7 +20,7 @@
  * consumer keeps full control over button labels, countdowns, and
  * transcript display.
  *
- * @module features/company/useVoiceRecorder
+ * @module features/voice/useVoiceRecorder
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 

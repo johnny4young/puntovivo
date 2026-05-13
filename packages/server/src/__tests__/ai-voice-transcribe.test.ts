@@ -372,24 +372,37 @@ describe('ai.transcribeAudio (ENG-040c slice 1)', () => {
     expect(transcribeMock).not.toHaveBeenCalled();
   });
 
-  it('rejects cashier callers with FORBIDDEN', async () => {
-    const { tenantId, cashierId } = await seedTenant('forbidden', { aiEnabled: true });
+  it('allows cashier callers (ENG-040c slice 3 widened the gate)', async () => {
+    const { tenantId, cashierId } = await seedTenant('cashier-allowed', { aiEnabled: true });
+
+    transcribeMock.mockResolvedValue({
+      text: 'agrega una coca',
+      language: 'es',
+      durationInSeconds: 2,
+      segments: [],
+      warnings: [],
+      responses: [],
+      providerMetadata: {},
+    });
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: cashierId, role: 'cashier' })
     );
-    let caught: unknown;
-    try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toBeInstanceOf(TRPCError);
-    expect((caught as TRPCError).code).toBe('FORBIDDEN');
-    expect(transcribeMock).not.toHaveBeenCalled();
+    const result = await caller.ai.transcribeAudio({
+      audioBase64: base64OfDecodedBytes(1024),
+      mimeType: 'audio/webm',
+    });
+    expect(result.transcript).toBe('agrega una coca');
+
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    // The audit row carries the cashier user id so the operator can
+    // attribute calls when budget telemetry surfaces them.
+    expect(audit[0]?.userId).toBe(cashierId);
   });
 
   it('ignores tenant settings.modelId (language model override) and stays on the transcription default', async () => {

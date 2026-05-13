@@ -401,6 +401,15 @@ export const SERVER_ERROR_CODES = {
    * The renderer should trim the recording before retrying.
    */
   AI_VOICE_AUDIO_TOO_LARGE: 'AI_VOICE_AUDIO_TOO_LARGE',
+  /**
+   * ENG-040c slice 3 — the cart-command parser couldn't extract any
+   * actions from the transcript (either empty input or the cashier
+   * said something that wasn't an "agregar producto" command). The
+   * common path returns `mode='unrecognized'` instead so the modal
+   * can render the reason inline; this code only fires when the
+   * server explicitly throws (empty/oversize transcript guard).
+   */
+  AI_VOICE_COMMAND_UNRECOGNIZED: 'AI_VOICE_COMMAND_UNRECOGNIZED',
 
   // --- module activation kernel (ENG-068) ---
   /**

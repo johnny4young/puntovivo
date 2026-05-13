@@ -94,6 +94,7 @@
     "AI_VOICE_NOT_AVAILABLE": "The current AI provider does not support voice transcription. Switch the provider in Company → AI settings.",
     "AI_VOICE_PARSE_FAILED": "The model could not understand the audio. Try recording again in a quieter spot.",
     "AI_VOICE_AUDIO_TOO_LARGE": "The audio file is too large. Use a clip under 10 MB.",
+    "AI_VOICE_COMMAND_UNRECOGNIZED": "I couldn't understand the command. Try recording again with a clear product and quantity.",
     "FISCAL_PACK_NOT_AVAILABLE": "Fiscal emission for this country is not available yet. The sale was completed without a fiscal document; check back when the country pack ships.",
     "FISCAL_RFC_INVALID": "The Mexican issuer RFC is not valid. Check length (12 for company, 13 for individual), structure, embedded date, and homoclave.",
     "FISCAL_REGIMEN_INVALID": "The fiscal regime or business activity code is not in the catalog. Pick one of the supported codes.",
