@@ -204,16 +204,6 @@ research.
   dashboard. Sized once ENG-031 ships and there's actual usage
   data to render. — 2026-04-29 (jy)
 
-- `[ai][products][ux]` Connect `products.suggestCategory` to the
-  product create/edit modal. ENG-033 ships the backend constrained
-  category suggestion and ENG-048 exposes semantic search +
-  embedding regeneration on `ProductsPage`, but no UI calls
-  `suggestCategory` yet. Expected shape: after name/description are
-  present, request a suggestion, preselect when confidence is high,
-  and show a lightweight suggestion chip when confidence is medium
-  so the operator can accept or ignore it before saving. — 2026-04-30
-  (ENG-048 review)
-
 - `[ai][infra]` Harden `services/ai/client.ts` failure-path
   `recordCall` invocation. Today the catch block runs
   `await recordCall(...)` followed by `throwServerError(...)`. If

@@ -46,6 +46,13 @@
     "sampleModelsHint_one": "{{count}} product on the {{models}} model",
     "sampleModelsHint_other": "{{count}} products on the {{models}} model"
   },
+  "suggestCategory": {
+    "autoSelectedBadge": "Suggested by AI",
+    "chipApplyCta": "Apply suggestion",
+    "chipDismissAria": "Dismiss suggestion",
+    "chipLabel": "{{name}} · {{percent}}% confidence",
+    "chipPrefix": "Suggested"
+  },
   "form": {
     "createTitle": "Create Product",
     "editTitle": "Edit Product",
