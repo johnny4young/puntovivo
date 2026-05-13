@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>04 hardware pe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Andale Mono', monospace; background: #ffffff; color: #111; padding: 22px; width: 410px; }
+  h1 { font-size: 17px; text-align: center; margin-bottom: 4px; }
+  p.sub { text-align: center; font-size: 11px; color: #333; margin-bottom: 3px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  table { width: 100%; font-size: 11px; }
+  th { font-size: 11px; padding: 3px 0; border-bottom: 1px solid #000; text-align: left; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 50%; padding: 3px 0; }
+  td.qty { width: 14%; }
+  td.unit { width: 18%; }
+  td.total { width: 18%; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>FERRETERÍA SAN MARTÍN</h1>
+  <p class="sub">RUC: 20512344678</p>
+  <p class="sub">Av. Tomás Marsano 1820, Lima</p>
+  <p class="sub">Boleta: B001-008412</p>
+  <p class="sub">2026-05-10</p>
+  <hr class="dash" />
+  <table>
+    <thead>
+      <tr><th>Producto</th><th class="qty">Cant</th><th class="unit">P.Unit</th><th class="total">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Cemento Sol bolsa 42.5kg</td><td class="qty">4</td><td class="unit">28.50</td><td class="total">114.00</td></tr>
+      <tr><td class="desc">Fierro corrugado 1/2&quot;</td><td class="qty">8</td><td class="unit">42.00</td><td class="total">336.00</td></tr>
+      <tr><td class="desc">Arena fina m³</td><td class="qty">1</td><td class="unit">85.00</td><td class="total">85.00</td></tr>
+      <tr><td class="desc">Clavo 3&quot; kg</td><td class="qty">3</td><td class="unit">8.40</td><td class="total">25.20</td></tr>
+      <tr><td class="desc">Alambre Nro 16 kg</td><td class="qty">2</td><td class="unit">12.50</td><td class="total">25.00</td></tr>
+      <tr><td class="desc">Pintura látex blanco galón</td><td class="qty">1</td><td class="unit">49.90</td><td class="total">49.90</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>S/ 538.22</span></div>
+    <div class="row"><span>IGV 18%</span><span>S/ 96.88</span></div>
+    <div class="row bold"><span>TOTAL PEN</span><span>S/ 635.10</span></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "supplierName": "FERRETERÍA SAN MARTÍN",
+  "supplierTaxId": "20512344678",
+  "invoiceNumber": "B001-008412",
+  "currencyCode": "PEN",
+  "lines": [
+    { "description": "Cemento Sol bolsa 42.5kg", "quantity": 4, "unitPrice": 28.50, "totalLine": 114.00 },
+    { "description": "Fierro corrugado 1/2\"", "quantity": 8, "unitPrice": 42.00, "totalLine": 336.00 },
+    { "description": "Arena fina m³", "quantity": 1, "unitPrice": 85.00, "totalLine": 85.00 },
+    { "description": "Clavo 3\" kg", "quantity": 3, "unitPrice": 8.40, "totalLine": 25.20 },
+    { "description": "Alambre Nro 16 kg", "quantity": 2, "unitPrice": 12.50, "totalLine": 25.00 },
+    { "description": "Pintura látex blanco galón", "quantity": 1, "unitPrice": 49.90, "totalLine": 49.90 }
+  ]
+}

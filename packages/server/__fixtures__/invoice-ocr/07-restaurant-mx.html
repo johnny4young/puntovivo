@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>07 restaurant mx</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Menlo', monospace; background: #fffefa; color: #111; padding: 22px; width: 380px; }
+  h1 { font-size: 17px; text-align: center; margin-bottom: 3px; letter-spacing: 1px; }
+  p.sub { text-align: center; font-size: 11px; color: #444; margin-bottom: 2px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  table { width: 100%; font-size: 11.5px; }
+  th { padding: 3px 0; border-bottom: 1px solid #000; text-align: left; }
+  td { padding: 3px 0; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 50%; }
+  td.qty { width: 12%; }
+  td.unit { width: 18%; }
+  td.total { width: 20%; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; font-size: 13px; }
+  .propina { font-style: italic; color: #555; }
+</style>
+</head>
+<body>
+  <h1>RESTAURANTE LA CASCADA</h1>
+  <p class="sub">RFC: RCS180630AB5</p>
+  <p class="sub">Av. Vasco de Quiroga 3800, CDMX</p>
+  <p class="sub">Mesa 12 / Cuenta: 14238</p>
+  <p class="sub">2026-05-11 21:34</p>
+  <hr class="dash" />
+  <table>
+    <thead>
+      <tr><th>Platillo</th><th class="qty">Cant</th><th class="unit">P.U.</th><th class="total">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Tacos al pastor</td><td class="qty">4</td><td class="unit">38.00</td><td class="total">152.00</td></tr>
+      <tr><td class="desc">Quesadilla de queso</td><td class="qty">2</td><td class="unit">52.00</td><td class="total">104.00</td></tr>
+      <tr><td class="desc">Pozole rojo grande</td><td class="qty">2</td><td class="unit">125.00</td><td class="total">250.00</td></tr>
+      <tr><td class="desc">Agua de horchata jarra</td><td class="qty">1</td><td class="unit">95.00</td><td class="total">95.00</td></tr>
+      <tr><td class="desc">Cerveza Victoria 355ml</td><td class="qty">3</td><td class="unit">48.00</td><td class="total">144.00</td></tr>
+      <tr><td class="desc">Refresco de toronja</td><td class="qty">2</td><td class="unit">35.00</td><td class="total">70.00</td></tr>
+      <tr><td class="desc">Flan napolitano</td><td class="qty">2</td><td class="unit">62.00</td><td class="total">124.00</td></tr>
+      <tr><td class="desc propina">Propina sugerida 10%</td><td class="qty">1</td><td class="unit">93.90</td><td class="total">93.90</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 808.62</span></div>
+    <div class="row"><span>IVA 16%</span><span>$ 129.38</span></div>
+    <div class="row"><span>Propina</span><span>$ 93.90</span></div>
+    <div class="row bold"><span>TOTAL MXN</span><span>$ 1,031.90</span></div>
+  </div>
+</body>
+</html>

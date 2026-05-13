@@ -1,0 +1,12 @@
+{
+  "supplierName": "PANADERÍA SANTA ROSA",
+  "supplierTaxId": "76.543.210-K",
+  "invoiceNumber": "4521",
+  "currencyCode": "CLP",
+  "lines": [
+    { "description": "Pan especial", "quantity": 6, "unitPrice": 850, "totalLine": 5100 },
+    { "description": "Marraqueta kilo", "quantity": 2, "unitPrice": 2400, "totalLine": 4800 },
+    { "description": "Empanada de pino", "quantity": 3, "unitPrice": 1800, "totalLine": 5400 },
+    { "description": "Berlín de manjar", "quantity": 2, "unitPrice": 1200, "totalLine": 2400 }
+  ]
+}

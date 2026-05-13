@@ -7,8 +7,11 @@
  * enforcement + `ai_audit_log` pipeline; this module is the vision
  * counterpart of `completeAI` in `client.ts`.
  *
- * Slice 1 ships the pipeline + Zod output schema. Line-to-product
- * mapping and the 10-receipt accuracy benchmark land in slice 1b.
+ * Slice 1 (ENG-040a) shipped the pipeline + Zod output schema.
+ * Line-to-product mapping shipped in slice 1b. The 10-receipt
+ * accuracy benchmark + mobile/tablet camera capture ship in slice 1d
+ * (ENG-040d) — see `scripts/benchmark-invoice-ocr.ts` and the
+ * scoring helper in `./benchmark-scoring.ts`.
  *
  * @module services/ai/vision/invoice-ocr
  */
@@ -68,7 +71,13 @@ export type InvoiceOcr = z.infer<typeof InvoiceOcrSchema>;
 const EXTRACT_PROMPT_SYSTEM =
   'You extract structured purchase-invoice data for a Latin American retail point of sale. ' +
   'Read the supplied invoice photograph carefully. Return every line item you can read with confidence. ' +
-  'Preserve currency values as numbers (no thousand separators, dot as decimal mark). ' +
+  'Latin American number formatting matters: COP, CLP, ARS, PYG and similar zero-decimal currencies ' +
+  'print prices with a DOT (or space) as the thousand separator and no fractional part — "1.950" means ' +
+  'one thousand nine hundred fifty pesos, NOT one point nine five. ' +
+  'In MXN, PEN, and USD the dot is a decimal mark. When the currency printed on the ticket is COP/CLP/' +
+  'ARS/PYG, treat every dot/comma inside numeric prices as a thousand separator and return the integer ' +
+  'value of the price in the local minor unit. ' +
+  'Preserve all output values as plain numbers (no thousand separators in the output, dot as decimal). ' +
   'Use null for any field you cannot read with confidence rather than guessing.';
 
 const EXTRACT_PROMPT_USER =

@@ -272,4 +272,40 @@ describe('InvoiceOcrPreviewModal', () => {
     // does not roundtrip into React's render cycle in a single click.
     expect(screen.getByTestId('ocr-match-button')).toBeInTheDocument();
   });
+
+  // ENG-040d — mobile/tablet camera capture.
+
+  it('renders the dual upload + camera CTAs side by side', () => {
+    render(<InvoiceOcrPreviewModal isOpen onClose={vi.fn()} />);
+    expect(screen.getByTestId('ocr-upload-button')).toBeInTheDocument();
+    expect(screen.getByTestId('ocr-camera-button')).toBeInTheDocument();
+  });
+
+  it('exposes capture="environment" on the camera input so mobile browsers open the rear camera', () => {
+    render(<InvoiceOcrPreviewModal isOpen onClose={vi.fn()} />);
+    const cameraInput = screen.getByTestId('ocr-camera-input') as HTMLInputElement;
+    expect(cameraInput).toHaveAttribute('capture', 'environment');
+    // Same explicit MIME whitelist as the file input so iOS Safari
+    // filters HEIC at the chooser instead of letting it land in JS.
+    expect(cameraInput).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
+  });
+
+  it('feeds the camera input into the same handleFileChange pipeline', async () => {
+    render(<InvoiceOcrPreviewModal isOpen onClose={vi.fn()} />);
+    const cameraInput = screen.getByTestId('ocr-camera-input') as HTMLInputElement;
+    const file = buildFile('camera-shot.jpg', 'image/jpeg', 4 * 1024);
+    fireEvent.change(cameraInput, { target: { files: [file] } });
+    await waitFor(() => expect(extractMutate).toHaveBeenCalledTimes(1));
+  });
+
+  it('rejects a HEIC photo coming through the camera input', async () => {
+    render(<InvoiceOcrPreviewModal isOpen onClose={vi.fn()} />);
+    const cameraInput = screen.getByTestId('ocr-camera-input') as HTMLInputElement;
+    const heic = buildFile('shot.heic', 'image/heic', 1024);
+    fireEvent.change(cameraInput, { target: { files: [heic] } });
+    await waitFor(() => {
+      expect(screen.getByText(/JPG, PNG or WebP/i)).toBeInTheDocument();
+    });
+    expect(extractMutate).not.toHaveBeenCalled();
+  });
 });

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>03 bakery cl</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lucida Console', monospace; background: #fffdf6; color: #2b2b2b; padding: 22px; width: 370px; }
+  h1 { font-size: 16px; text-align: center; margin-bottom: 4px; font-weight: bold; }
+  p.sub { text-align: center; font-size: 11px; color: #444; margin-bottom: 3px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 8px 0; }
+  .line { display: grid; grid-template-columns: 1fr auto; font-size: 12px; padding: 3px 0; }
+  .line .meta { color: #555; font-size: 11px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #222; padding-top: 6px; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>PANADERÍA SANTA ROSA</h1>
+  <p class="sub">RUT: 76.543.210-K</p>
+  <p class="sub">San Pío X 234, Providencia</p>
+  <p class="sub">Boleta N° 4521</p>
+  <p class="sub">14/05/2026</p>
+  <hr class="dash" />
+  <div class="line"><div>Pan especial<div class="meta">6 × 850</div></div><div>5.100</div></div>
+  <div class="line"><div>Marraqueta kilo<div class="meta">2 × 2.400</div></div><div>4.800</div></div>
+  <div class="line"><div>Empanada de pino<div class="meta">3 × 1.800</div></div><div>5.400</div></div>
+  <div class="line"><div>Berlín de manjar<div class="meta">2 × 1.200</div></div><div>2.400</div></div>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 14.874</span></div>
+    <div class="row"><span>IVA 19%</span><span>$ 2.826</span></div>
+    <div class="row bold"><span>TOTAL CLP</span><span>$ 17.700</span></div>
+  </div>
+</body>
+</html>

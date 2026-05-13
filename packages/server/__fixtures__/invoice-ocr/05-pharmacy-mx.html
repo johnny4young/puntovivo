@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>05 pharmacy mx</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Monaco', monospace; background: #fff; color: #2a2a2a; padding: 18px; width: 360px; font-size: 10px; }
+  h1 { font-size: 14px; text-align: center; margin-bottom: 3px; }
+  p.sub { text-align: center; font-size: 9.5px; color: #444; margin-bottom: 2px; }
+  hr.dash { border: none; border-top: 1px dashed #555; margin: 6px 0; }
+  table { width: 100%; font-size: 9.5px; }
+  th { padding: 2px 0; border-bottom: 1px solid #000; font-size: 9.5px; text-align: left; }
+  td { padding: 2px 0; }
+  th.qty, td.qty, th.unit, td.unit, th.total, td.total { text-align: right; }
+  td.desc { width: 55%; }
+  td.qty { width: 10%; }
+  td.unit { width: 17%; }
+  td.total { width: 18%; }
+  .meta { font-size: 8.5px; color: #666; }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 11px; }
+  .totals .row.bold { font-weight: bold; border-top: 1px solid #000; padding-top: 4px; margin-top: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>FARMACIA GUADALUPE</h1>
+  <p class="sub">RFC: FGU010912R39</p>
+  <p class="sub">Calz. de Tlalpan 4001, CDMX</p>
+  <p class="sub">Ticket: TK-7724</p>
+  <p class="sub">2026-05-08</p>
+  <hr class="dash" />
+  <table>
+    <thead>
+      <tr><th>Producto</th><th class="qty">Cant</th><th class="unit">P.U.</th><th class="total">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="desc">Paracetamol 500mg c/20<div class="meta">GENÉRICO</div></td><td class="qty">2</td><td class="unit">38.50</td><td class="total">77.00</td></tr>
+      <tr><td class="desc">Tafil 0.25mg c/30<div class="meta">PFIZER</div></td><td class="qty">1</td><td class="unit">219.00</td><td class="total">219.00</td></tr>
+      <tr><td class="desc">Vitamina C 1g c/10<div class="meta">REDOXON</div></td><td class="qty">1</td><td class="unit">115.00</td><td class="total">115.00</td></tr>
+      <tr><td class="desc">Suero oral 500ml<div class="meta">ELECTROLIT</div></td><td class="qty">3</td><td class="unit">18.00</td><td class="total">54.00</td></tr>
+      <tr><td class="desc">Termómetro digital<div class="meta">OMRON</div></td><td class="qty">1</td><td class="unit">189.00</td><td class="total">189.00</td></tr>
+    </tbody>
+  </table>
+  <hr class="dash" />
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>$ 567.24</span></div>
+    <div class="row"><span>IVA 16%</span><span>$ 86.76</span></div>
+    <div class="row bold"><span>TOTAL MXN</span><span>$ 654.00</span></div>
+  </div>
+</body>
+</html>
