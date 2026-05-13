@@ -27,6 +27,13 @@
     "sampleModelsHint_one": "{{count}} producto con el modelo {{models}}",
     "sampleModelsHint_other": "{{count}} productos con el modelo {{models}}"
   },
+  "suggestCategory": {
+    "autoSelectedBadge": "Sugerido por IA",
+    "chipApplyCta": "Aplicar sugerencia",
+    "chipDismissAria": "Descartar sugerencia",
+    "chipLabel": "{{name}} · {{percent}}% de confianza",
+    "chipPrefix": "Sugerido"
+  },
   "table": {
     "loading": "Cargando productos...",
     "error": "No se pudieron cargar los productos",
