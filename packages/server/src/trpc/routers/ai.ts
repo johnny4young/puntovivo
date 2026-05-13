@@ -25,7 +25,10 @@ import { nanoid } from 'nanoid';
 
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
-import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
+import {
+  cashierManagerOrAdminProcedureWithModule,
+  managerOrAdminProcedureWithModule,
+} from '../middleware/modules.js';
 import {
   ANALYSIS_WINDOW_DAYS,
   byBreakdown,
@@ -43,7 +46,10 @@ import {
   extractInvoiceFromImage,
   matchInvoiceLinesToProducts,
 } from '../../services/ai/vision/index.js';
-import { transcribeAudio } from '../../services/ai/voice/index.js';
+import {
+  parseVoiceCartCommand,
+  transcribeAudio,
+} from '../../services/ai/voice/index.js';
 import { getProvider } from '../../services/ai/providers/registry.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
@@ -55,7 +61,10 @@ import {
   updateAISettingsInput,
 } from '../schemas/ai.js';
 import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../schemas/ai-vision.js';
-import { transcribeAudioInput } from '../schemas/ai-voice.js';
+import {
+  parseCartCommandInput,
+  transcribeAudioInput,
+} from '../schemas/ai-voice.js';
 import { aiAnomalySnoozes, users } from '../../db/schema.js';
 
 const settingsRouter = router({
@@ -327,18 +336,21 @@ export const aiRouter = router({
     }),
 
   /**
-   * ENG-040c slice 1 — Whisper-style audio transcription. Manager /
-   * admin uploads a short audio clip; the configured transcription
-   * provider returns the transcript + detected language. Slice 1 ships
-   * the raw transcription only; cart-command parsing + audio capture
-   * UI land in slice 2 / 3.
+   * ENG-040c slice 1 — Whisper-style audio transcription.
    *
-   * Role gate matches `extractInvoiceLines` — cashier callers receive
-   * `FORBIDDEN`. Audio over 10 MB raw is rejected at the service
-   * layer; providers that lack a `transcriptionModel` (Anthropic /
-   * Ollama today) surface `AI_VOICE_NOT_AVAILABLE`.
+   * ENG-040c slice 3 widened the gate from `managerOrAdminProcedure`
+   * to `cashierManagerOrAdminProcedureWithModule('semantic-search')`
+   * because the primary consumer is the cashier-driven voice cart
+   * command flow (modal lives in `features/voice/`). The role floor
+   * stays explicit so a future read-only role cannot trigger
+   * billable AI calls. The `monthlyBudgetUsd` kill switch remains
+   * the master abuse defense; the audit log stamps `ctx.user.id`
+   * so every call is traceable. Audio over 10 MB raw is rejected
+   * at the service layer; providers that lack a
+   * `transcriptionModel` (Anthropic / Ollama today) surface
+   * `AI_VOICE_NOT_AVAILABLE`.
    */
-  transcribeAudio: managerOrAdminProcedure
+  transcribeAudio: cashierManagerOrAdminProcedureWithModule('semantic-search')
     .input(transcribeAudioInput)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id ?? null;
@@ -364,6 +376,45 @@ export const aiRouter = router({
         model: result.model,
         auditLogId: result.auditLogId,
       };
+    }),
+
+  /**
+   * ENG-040c slice 3 — Voice cart command parser. Takes a transcript
+   * (typically produced by `ai.transcribeAudio`) and extracts a
+   * bounded ADD-only set of cart actions via `generateObject`, then
+   * resolves each parsed `productHint` to a real catalog row via the
+   * ENG-033 embeddings stack.
+   *
+   * Returns one of two shapes:
+   *   - `mode: 'parsed'` with `matches[]` — each entry carries a
+   *     `productHint`, the (possibly null) parsed `quantity`, and
+   *     either a hydrated product summary or `null` for hints below
+   *     the cosine floor.
+   *   - `mode: 'unrecognized'` — the parser returned zero items.
+   *     The `reason` field carries an operator-readable hint the
+   *     modal can render inline.
+   *
+   * Gated by `cashierManagerOrAdminProcedureWithModule('semantic-search')`
+   * because the product resolution step depends on tenant embeddings
+   * and the primary consumer is the cashier voice modal. The role
+   * floor stays explicit so a future read-only role cannot trigger
+   * billable AI calls. The monthly budget guard short-circuits
+   * before any provider call; the audit log captures one row per
+   * call regardless of outcome.
+   */
+  parseCartCommand: cashierManagerOrAdminProcedureWithModule('semantic-search')
+    .input(parseCartCommandInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id ?? null;
+      return parseVoiceCartCommand(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+        },
+        { transcript: input.transcript }
+      );
     }),
 
   /**

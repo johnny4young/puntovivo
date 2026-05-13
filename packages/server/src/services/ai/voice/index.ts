@@ -1,8 +1,10 @@
 /**
- * ENG-040c slice 1 — AI voice barrel.
+ * ENG-040c voice barrel.
  *
- * Exposes the Whisper transcription pipeline. Cart-command parsing
- * (slice 2) will land alongside it under the same namespace.
+ * - slice 1 (`transcribe.ts`) — Whisper transcription pipeline.
+ * - slice 3 (`parse-cart-command.ts`) — cart-command parser that
+ *   maps transcripts to add-to-cart actions via `generateObject` +
+ *   ENG-033 embeddings.
  *
  * @module services/ai/voice
  */
@@ -16,3 +18,15 @@ export {
   type VoiceTranscribeMimeType,
   type VoiceTranscribeResult,
 } from './transcribe.js';
+
+export {
+  VOICE_CART_COMMAND_MAX_TRANSCRIPT_CHARS,
+  VoiceCartCommandSchema,
+  parseVoiceCartCommand,
+  type CartCommandContext,
+  type CartCommandInput,
+  type CartCommandMatch,
+  type CartCommandResult,
+  type MatchedCartProduct,
+  type VoiceCartCommand,
+} from './parse-cart-command.js';

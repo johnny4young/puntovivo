@@ -1,10 +1,12 @@
 /**
  * ENG-040c slice 1 — Schema for `ai.transcribeAudio`.
+ * ENG-040c slice 3 — Schema for `ai.parseCartCommand`.
  *
  * @module trpc/schemas/ai-voice
  */
 import { z } from 'zod';
 
+import { VOICE_CART_COMMAND_MAX_TRANSCRIPT_CHARS } from '../../services/ai/voice/parse-cart-command.js';
 import {
   VOICE_TRANSCRIBE_MAX_BYTES,
   VOICE_TRANSCRIBE_MIME_TYPES,
@@ -32,3 +34,17 @@ export const transcribeAudioInput = z.object({
   mimeType: z.enum(VOICE_TRANSCRIBE_MIME_TYPES),
 });
 export type TranscribeAudioInput = z.infer<typeof transcribeAudioInput>;
+
+export const parseCartCommandInput = z.object({
+  /**
+   * Cashier transcript produced by `ai.transcribeAudio`. Trimmed +
+   * length-capped at `VOICE_CART_COMMAND_MAX_TRANSCRIPT_CHARS`
+   * (defense-in-depth — the service layer re-checks).
+   */
+  transcript: z
+    .string()
+    .trim()
+    .min(1)
+    .max(VOICE_CART_COMMAND_MAX_TRANSCRIPT_CHARS),
+});
+export type ParseCartCommandInput = z.infer<typeof parseCartCommandInput>;

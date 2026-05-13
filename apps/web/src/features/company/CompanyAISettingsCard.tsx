@@ -20,13 +20,13 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 
-import { blobToBase64 } from './blobToBase64';
+import { blobToBase64 } from '@/features/voice/blobToBase64';
 import {
   MAX_TEST_RECORDING_MS,
   VOICE_RECORDER_MIME_TYPES,
   useVoiceRecorder,
   type VoiceRecorderMimeType,
-} from './useVoiceRecorder';
+} from '@/features/voice/useVoiceRecorder';
 
 interface TranscriptionResult {
   transcript: string;

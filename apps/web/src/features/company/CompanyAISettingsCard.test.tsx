@@ -53,11 +53,11 @@ const recorderState: {
   resetMock: vi.fn(),
 };
 
-vi.mock('./useVoiceRecorder', async () => {
+vi.mock('@/features/voice/useVoiceRecorder', async () => {
   // Keep the constants live so the card's SERVER_MIME_LIST narrow
   // still resolves the same array.
-  const actual = await vi.importActual<typeof import('./useVoiceRecorder')>(
-    './useVoiceRecorder'
+  const actual = await vi.importActual<typeof import('@/features/voice/useVoiceRecorder')>(
+    '@/features/voice/useVoiceRecorder'
   );
   return {
     ...actual,
@@ -73,7 +73,7 @@ vi.mock('./useVoiceRecorder', async () => {
   };
 });
 
-vi.mock('./blobToBase64', () => ({
+vi.mock('@/features/voice/blobToBase64', () => ({
   blobToBase64: async () => ({
     base64: 'ZmFrZS1hdWRpbw==',
     mimeType: 'audio/webm',

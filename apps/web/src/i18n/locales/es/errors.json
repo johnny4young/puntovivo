@@ -94,6 +94,7 @@
     "AI_VOICE_NOT_AVAILABLE": "Tu proveedor de IA no admite transcripción de voz. Cambia el proveedor en Empresa → Configuración de IA.",
     "AI_VOICE_PARSE_FAILED": "No pude entender el audio. Intenta grabar de nuevo en un lugar más silencioso.",
     "AI_VOICE_AUDIO_TOO_LARGE": "El archivo de audio es demasiado grande. Usa una grabación de menos de 10 MB.",
+    "AI_VOICE_COMMAND_UNRECOGNIZED": "No entendí el comando. Intenta grabar de nuevo con un producto y una cantidad claros.",
     "FISCAL_PACK_NOT_AVAILABLE": "La emisión fiscal para este país aún no está disponible. La venta se completó sin documento fiscal; vuelve a intentarlo cuando salga el paquete del país.",
     "FISCAL_RFC_INVALID": "El RFC del emisor mexicano no es válido. Revisa la longitud (12 para persona moral, 13 para persona física), la estructura, la fecha embebida y la homoclave.",
     "FISCAL_REGIMEN_INVALID": "El código de régimen fiscal o giro comercial no está en el catálogo. Elige uno de los códigos soportados.",
