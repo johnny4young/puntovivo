@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -5,6 +6,7 @@ import {
   BadgePercent,
   Building2,
   ChefHat,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -90,6 +92,11 @@ const navigationSections = [
     ],
   },
   {
+    // ENG-079b — providers / categories / locations were moved from
+    // here to `sections.setup`. They are configuration data (third-party
+    // catalog, taxonomy, places) not operational flow; clustering them
+    // with the rest of the admin-only setup screens keeps the
+    // operational tab focused on day-to-day work.
     titleKey: 'sections.flow',
     items: [
       { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
@@ -97,9 +104,6 @@ const navigationSections = [
       { nameKey: 'items.quotations', href: '/quotations', icon: FileText, allowedRoles: managerOrAdminRoles, requiredModule: 'quotations' },
       { nameKey: 'items.customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
-      { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
-      { nameKey: 'items.locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
     ],
   },
   {
@@ -124,6 +128,12 @@ const navigationSections = [
       { nameKey: 'items.sequentials', href: '/sequentials', icon: FileDigit, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.customerCatalogs', href: '/customer-catalogs', icon: ClipboardList, allowedRoles: adminOnlyRoles },
+      // ENG-079b — providers/categories/locations re-anchored here from
+      // sections.flow. They cluster with the rest of the data-setup
+      // catalog (customerCatalogs above; units/vatRates below).
+      { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.locations', href: '/locations', icon: MapPinned, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.vatRates', href: '/vat-rates', icon: BadgePercent, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.receiptTemplates', href: '/receipt-templates', icon: Receipt, allowedRoles: adminOnlyRoles },
@@ -213,6 +223,72 @@ function NavigationLink({
   );
 }
 
+// ENG-079b — sessionStorage key for the collapsible Setup section.
+// Prefix mirrors the `active_site_id:` convention in `siteStorage.ts`.
+// Value is the string 'true' or 'false'; missing key = collapsed by
+// default. Per-tab scope (sessionStorage) so a new browsing session
+// resets to the conservative collapsed state.
+const SETUP_COLLAPSED_STORAGE_KEY = 'puntovivo:sidebar:setupCollapsed';
+
+function readSetupCollapsed(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = window.sessionStorage.getItem(SETUP_COLLAPSED_STORAGE_KEY);
+    if (raw === null) return true;
+    return raw !== 'false';
+  } catch {
+    // Private-mode browsers can throw on sessionStorage access. Fall back
+    // to the conservative collapsed default rather than crash render.
+    return true;
+  }
+}
+
+function writeSetupCollapsed(collapsed: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(SETUP_COLLAPSED_STORAGE_KEY, String(collapsed));
+  } catch {
+    // Same private-mode guard. The UI state still flips via useState;
+    // we just can't persist it.
+  }
+}
+
+function SidebarCollapsibleSectionTitle({
+  title,
+  isOpen,
+  onToggle,
+  controlsId,
+}: {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  controlsId: string;
+}) {
+  // ENG-079b — clickable section header for collapsible groups.
+  // Mirrors the static `<p>` styling used by other sections so the
+  // visual rhythm stays consistent; only the chevron + button affordance
+  // are new. aria-expanded + aria-controls give screen readers the
+  // disclosure semantics for free.
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={isOpen}
+      aria-controls={controlsId}
+      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase text-secondary-500 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+    >
+      <span className="truncate">{title}</span>
+      <ChevronDown
+        className={cn(
+          'h-3.5 w-3.5 shrink-0 transition-transform duration-150',
+          !isOpen && '-rotate-90'
+        )}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
 function SidebarSections({
   collapsed,
   onNavigate,
@@ -255,12 +331,34 @@ function SidebarSections({
   // tile but are quiet enough not to chase the operator across screens.
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
 
+  // ENG-079b — `sections.setup` is the only collapsible group today.
+  // Default collapsed (settings are session-occasional, not daily);
+  // sessionStorage remembers within the tab so the operator doesn't
+  // re-collapse on every navigation. Collapsed-rail mode (`collapsed`
+  // prop true) bypasses this — every icon renders regardless because
+  // the section labels are hidden anyway and power users navigate by
+  // icon position.
+  const [setupCollapsed, setSetupCollapsed] = useState<boolean>(readSetupCollapsed);
+  const toggleSetup = () => {
+    setSetupCollapsed(prev => {
+      const next = !prev;
+      writeSetupCollapsed(next);
+      return next;
+    });
+  };
+
   return (
     // ENG-079a — tighter section gap (was space-y-5 / 20 px). Collapsed
     // mode shrinks further since section labels are hidden anyway.
     <div className={cn('space-y-3', collapsed && 'space-y-2')}>
       {navigationSections.map(section => {
-        const visibleItems = section.items.filter(item => {
+        // ENG-079b — annotate item as NavigationItem so the optional
+        // `requiredModule` field survives the union narrowing that
+        // `satisfies readonly NavigationSection[]` introduces (the
+        // setup section's items now all share `requiredModule?: never`
+        // since none of them gate on a module, which makes the union
+        // forget the optional shape).
+        const visibleItems = (section.items as readonly NavigationItem[]).filter(item => {
           if (!canAccessRole(role, item.allowedRoles)) {
             return false;
           }
@@ -274,14 +372,30 @@ function SidebarSections({
           return null;
         }
 
+        const isSetup = section.titleKey === 'sections.setup';
+        // ENG-079b — only the setup section collapses in expanded-rail
+        // mode. In collapsed-rail mode the section labels are hidden
+        // anyway and the icons always render.
+        const isCollapsible = isSetup && !collapsed;
+        const itemsHidden = isCollapsible && setupCollapsed;
+        const controlsId = `sidebar-section-${section.titleKey.replace('.', '-')}`;
+
         return (
           <section key={section.titleKey} className="space-y-2">
-            {!collapsed && (
-              <p className="px-2 text-[0.65rem] font-semibold uppercase text-secondary-500">
-                {t(section.titleKey)}
-              </p>
-            )}
-            <div className="space-y-1">
+            {!collapsed &&
+              (isCollapsible ? (
+                <SidebarCollapsibleSectionTitle
+                  title={t(section.titleKey)}
+                  isOpen={!setupCollapsed}
+                  onToggle={toggleSetup}
+                  controlsId={controlsId}
+                />
+              ) : (
+                <p className="px-2 text-[0.65rem] font-semibold uppercase text-secondary-500">
+                  {t(section.titleKey)}
+                </p>
+              ))}
+            <div id={controlsId} hidden={itemsHidden} className="space-y-1">
               {visibleItems.map(item => (
                 <NavigationLink
                   key={item.href}
@@ -327,6 +441,24 @@ export function Sidebar({
       >
         <div className="mb-4 shrink-0 flex items-center justify-between gap-2">
           <SidebarBrand collapsed={collapsed} />
+          {/*
+            ENG-079b — collapse-rail button moved from the footer up to
+            the header so the controls live together (Notion / Linear /
+            GitHub pattern). The mobile X close button stays on the
+            opposite breakpoint so only one icon is visible at a time.
+          */}
+          <button
+            type="button"
+            className="btn-outline btn-icon hidden xl:inline-flex"
+            onClick={onToggleCollapse}
+            aria-label={t(collapsed ? 'nav:actions.expandNavigation' : 'nav:actions.collapseRail')}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+            )}
+          </button>
           <button
             type="button"
             className="btn-outline btn-icon mobile-shell-toggle xl:hidden"
@@ -346,30 +478,11 @@ export function Sidebar({
         </div>
 
         {/*
-          ENG-079a — the SESIÓN INICIADA card was dropped here. The same
-          user.name / user.role surface lives in the Header user menu
-          (top-right) so the sidebar card was pure duplication that ate
-          ~80 px of vertical space on every page.
+          ENG-079a dropped the SESIÓN INICIADA card here (the same
+          user.name + role + email surface in the Header user menu).
+          ENG-079b moved the collapse-rail button to the top header so
+          the footer block is now empty and the chrome shrinks to fit.
         */}
-        <div className={cn('mt-4 shrink-0', collapsed && 'items-center')}>
-          <button
-            type="button"
-            className="btn-outline hidden w-full xl:inline-flex"
-            onClick={onToggleCollapse}
-          >
-            {collapsed ? (
-              <>
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">{t('nav:actions.expandNavigation')}</span>
-              </>
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" />
-                {t('nav:actions.collapseRail')}
-              </>
-            )}
-          </button>
-        </div>
       </aside>
     </>
   );
