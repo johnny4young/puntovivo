@@ -1,0 +1,36 @@
+{
+  "surface": {
+    "touchHeading": "POS Touch",
+    "mobileHeading": "Mobile Waiter",
+    "subheading": "Capture the order by voice or manual search."
+  },
+  "tableLabel": {
+    "label": "Table",
+    "placeholder": "e.g. Mesa 5",
+    "required": "Enter a table to save the order."
+  },
+  "cart": {
+    "heading": "Order",
+    "empty": "No items yet.",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "quantityIncrement": "Increase quantity",
+    "quantityDecrement": "Decrease quantity",
+    "removeRow": "Remove item",
+    "notesPlaceholder": "Note (e.g. no cheese)"
+  },
+  "actions": {
+    "voiceCTA": "Voice order",
+    "manualAdd": "Search product",
+    "saveOrder": "Save order",
+    "exit": "Sign out"
+  },
+  "save": {
+    "successToast_one": "Saved order for {{tableLabel}} with {{count}} item.",
+    "successToast_other": "Saved order for {{tableLabel}} with {{count}} items.",
+    "errorTitle": "Could not save the order",
+    "tableRequired": "Enter a table label before saving.",
+    "emptyCartHint": "Add at least one item before saving."
+  }
+}

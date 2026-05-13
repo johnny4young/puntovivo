@@ -12,6 +12,7 @@
   "transcriptLabel": "Transcripción",
   "matchedHeader": "Productos detectados",
   "matchedItem": "{{quantity}} × {{name}}",
+  "noteSuffix": "(nota: {{note}})",
   "unmatchedItem": "{{hint}} — no se encontró en el catálogo",
   "applyCta": "Aplicar al carrito",
   "applySuccess_one": "Se agregó {{count}} producto al carrito",
