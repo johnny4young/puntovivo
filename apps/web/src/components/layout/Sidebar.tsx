@@ -138,18 +138,20 @@ const navigationSections = [
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation('nav');
+  // ENG-079a — flat brand row. The previous `hero-surface` recipe with
+  // radial gradients + heavy shadow was chrome appropriate for hero
+  // panels, not nav. The icon is preserved so the collapsed rail
+  // (xl:w-[6.5rem]) keeps its visual anchor.
   return (
-    <div className="hero-surface px-4 py-4">
-      <div className="relative z-10 flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
-          <Package2 className="h-6 w-6" />
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <h1 className="truncate font-display text-2xl text-secondary-950">{t('brand.title')}</h1>
-          </div>
-        )}
+    <div className={cn('flex items-center gap-2 px-2 py-1.5', collapsed && 'justify-center px-0')}>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-primary text-primary-foreground">
+        <Package2 className="h-[1.125rem] w-[1.125rem]" />
       </div>
+      {!collapsed && (
+        <h1 className="truncate text-base font-semibold text-secondary-950">
+          {t('brand.title')}
+        </h1>
+      )}
     </div>
   );
 }
@@ -175,7 +177,7 @@ function NavigationLink({
       title={collapsed ? name : undefined}
       className={({ isActive }) =>
         cn(
-          'group flex items-center gap-3 rounded-[20px] px-3 py-3 text-sm font-medium transition-all duration-200',
+          'group flex items-center gap-3 rounded-[20px] px-3 py-2 text-sm font-medium transition-all duration-200',
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_color-mix(in_oklch,var(--primary)_75%,transparent)]'
@@ -254,7 +256,9 @@ function SidebarSections({
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
 
   return (
-    <div className="space-y-5">
+    // ENG-079a — tighter section gap (was space-y-5 / 20 px). Collapsed
+    // mode shrinks further since section labels are hidden anyway.
+    <div className={cn('space-y-3', collapsed && 'space-y-2')}>
       {navigationSections.map(section => {
         const visibleItems = section.items.filter(item => {
           if (!canAccessRole(role, item.allowedRoles)) {
@@ -273,11 +277,11 @@ function SidebarSections({
         return (
           <section key={section.titleKey} className="space-y-2">
             {!collapsed && (
-              <p className="px-2 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-secondary-500">
+              <p className="px-2 text-[0.65rem] font-semibold uppercase text-secondary-500">
                 {t(section.titleKey)}
               </p>
             )}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {visibleItems.map(item => (
                 <NavigationLink
                   key={item.href}
@@ -302,7 +306,7 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const { user } = useAuth();
-  const { t } = useTranslation(['nav', 'common']);
+  const { t } = useTranslation('nav');
 
   return (
     <>
@@ -341,17 +345,13 @@ export function Sidebar({
           />
         </div>
 
-        <div className={cn('mt-4 shrink-0 space-y-3', collapsed && 'items-center')}>
-          {!collapsed && user && (
-            <div className="card-inset px-4 py-3">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-secondary-500">
-                {t('common:signedIn')}
-              </p>
-              <p className="mt-2 truncate text-sm font-semibold text-secondary-950">{user.name}</p>
-              <p className="truncate text-xs text-secondary-500">{user.role}</p>
-            </div>
-          )}
-
+        {/*
+          ENG-079a — the SESIÓN INICIADA card was dropped here. The same
+          user.name / user.role surface lives in the Header user menu
+          (top-right) so the sidebar card was pure duplication that ate
+          ~80 px of vertical space on every page.
+        */}
+        <div className={cn('mt-4 shrink-0', collapsed && 'items-center')}>
           <button
             type="button"
             className="btn-outline hidden w-full xl:inline-flex"

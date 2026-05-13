@@ -85,7 +85,6 @@
   },
   "changePassword": "Change password",
   "signOut": "Sign out",
-  "signedIn": "Signed in",
   "user": "User",
   "session": "session",
   "loadingSites": "Loading sites...",
