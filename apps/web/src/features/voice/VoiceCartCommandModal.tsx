@@ -44,6 +44,10 @@ const SERVER_MIME_LIST: ReadonlyArray<VoiceRecorderMimeType> = VOICE_RECORDER_MI
 export interface VoiceCartItem {
   selection: ProductSearchSelection;
   quantity: number;
+  /** Free-form modifier captured by the parser (e.g. "sin queso").
+   *  Null when no modifier was spoken. Consumers route this to the
+   *  cart row's `notes` field at hydration time. ENG-039a. */
+  note: string | null;
 }
 
 interface MatchedProduct {
@@ -66,6 +70,8 @@ interface MatchedProduct {
 interface CartMatch {
   productHint: string;
   quantity: number | null;
+  /** ENG-039a — free-form modifier captured by the parser. */
+  note: string | null;
   product: MatchedProduct | null;
 }
 
@@ -276,6 +282,7 @@ export function VoiceCartCommandModal({
       .map(m => ({
         selection: buildSelection(m.product),
         quantity: typeof m.quantity === 'number' && m.quantity > 0 ? m.quantity : 1,
+        note: m.note,
       }));
     if (items.length === 0) {
       toast.warning({ title: t('voice:noMatches') });
@@ -452,6 +459,14 @@ export function VoiceCartCommandModal({
                         : t('voice:unmatchedItem', {
                             hint: match.productHint,
                           })}
+                      {match.note !== null && (
+                        <span
+                          className="ml-2 text-xs italic text-secondary-600"
+                          data-testid="voice-modal-match-note"
+                        >
+                          {t('voice:noteSuffix', { note: match.note })}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

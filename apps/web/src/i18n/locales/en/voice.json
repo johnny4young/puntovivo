@@ -12,6 +12,7 @@
   "transcriptLabel": "Transcript",
   "matchedHeader": "Detected items",
   "matchedItem": "{{quantity}} × {{name}}",
+  "noteSuffix": "(note: {{note}})",
   "unmatchedItem": "{{hint}} — not found in catalog",
   "applyCta": "Apply to cart",
   "applySuccess_one": "Added {{count}} product to the cart",

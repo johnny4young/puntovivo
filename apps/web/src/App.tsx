@@ -118,8 +118,12 @@ const OperationsPage = lazyPage(async () => ({
 const TouchShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/TouchShell')).TouchShell,
 }));
-const TouchHomePlaceholder = lazyPage(async () => ({
-  default: (await import('@/features/surfaces/TouchHomePlaceholder')).TouchHomePlaceholder,
+// ENG-039a — real restaurant voice-ordering surface replaces the
+// `TouchHomePlaceholder` for `/touch`. The placeholder file stays
+// in the repo as the reference for the KDS / customer-display
+// surfaces that still ship the "Coming with ENG-039" chrome.
+const TouchHome = lazyPage(async () => ({
+  default: (await import('@/features/restaurants/TouchHome')).default,
 }));
 const KdsShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/KdsShell')).KdsShell,
@@ -136,8 +140,10 @@ const CustomerDisplayHomePlaceholder = lazyPage(async () => ({
 const MobileWaiterShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,
 }));
-const MobileWaiterHomePlaceholder = lazyPage(async () => ({
-  default: (await import('@/features/surfaces/MobileWaiterHomePlaceholder')).MobileWaiterHomePlaceholder,
+// ENG-039a — real restaurant voice-ordering surface replaces the
+// `MobileWaiterHomePlaceholder` for `/m`.
+const MobileWaiterHome = lazyPage(async () => ({
+  default: (await import('@/features/restaurants/MobileWaiterHome')).default,
 }));
 
 function HomeRedirect() {
@@ -456,7 +462,7 @@ function App() {
               </SurfaceShellRoute>
             }
           >
-            <Route index element={<TouchHomePlaceholder />} />
+            <Route index element={<TouchHome />} />
           </Route>
           <Route
             path="kds"
@@ -486,7 +492,7 @@ function App() {
               </SurfaceShellRoute>
             }
           >
-            <Route index element={<MobileWaiterHomePlaceholder />} />
+            <Route index element={<MobileWaiterHome />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

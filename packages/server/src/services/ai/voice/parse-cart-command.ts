@@ -71,6 +71,17 @@ export const VoiceCartCommandSchema = z.object({
           .number()
           .nullable()
           .describe('Quantity stated by the cashier; null if not stated.'),
+        // ENG-039a — Free-form modifier ("sin queso", "extra
+        // picante") preserved verbatim as a note until structured
+        // modifiers ship in a later ENG-039 child. The schema
+        // accepts null or any string up to 200 chars; the service
+        // layer collapses whitespace-only strings to null so the
+        // downstream cart row never stores empty padding.
+        note: z
+          .string()
+          .max(200)
+          .nullable()
+          .describe('Free-form modifier as the cashier spoke it; null when no modifier.'),
       })
     )
     .max(50)
@@ -86,13 +97,17 @@ export const VoiceCartCommandSchema = z.object({
 export type VoiceCartCommand = z.infer<typeof VoiceCartCommandSchema>;
 
 const SYSTEM_PROMPT =
-  'Eres un asistente que interpreta órdenes habladas por un cajero de un punto de venta en español o inglés. ' +
+  'Eres un asistente que interpreta órdenes habladas por un cajero o mesero de un punto de venta en español o inglés. ' +
   'Extrae SOLO las acciones de tipo "agregar producto al carrito" y la cantidad. ' +
   'Devuelve null en `quantity` si el cashier no la menciona. ' +
-  'NO inventes productos ni cantidades. Si el cashier dice algo que no es una orden de agregar ' +
+  'Cuando el cashier mencione un modificador libre del producto (por ejemplo "sin queso", "extra picante", "sin azúcar", "no cheese"), ' +
+  'guárdalo verbatim en el campo `note` del item correspondiente. Devuelve null en `note` cuando no haya modificador. ' +
+  'NO inventes productos, cantidades ni modificadores. Si el cashier dice algo que no es una orden de agregar ' +
   '(por ejemplo "buenos días"), devuelve items=[] y un mensaje claro en `reason`. ' +
-  'Ejemplos: "agrega dos cocas y un pan" => items=[{productHint:"coca cola", quantity:2},{productHint:"pan", quantity:1}], confidence:"high". ' +
-  '"agrega coca cola" => items=[{productHint:"coca cola", quantity:null}], confidence:"high". ' +
+  'Ejemplos: "agrega dos cocas y un pan" => items=[{productHint:"coca cola", quantity:2, note:null},{productHint:"pan", quantity:1, note:null}], confidence:"high". ' +
+  '"agrega coca cola" => items=[{productHint:"coca cola", quantity:null, note:null}], confidence:"high". ' +
+  '"agrega una hamburguesa sin queso" => items=[{productHint:"hamburguesa", quantity:1, note:"sin queso"}], confidence:"high". ' +
+  '"add two cokes and one burger no cheese" => items=[{productHint:"coke", quantity:2, note:null},{productHint:"burger", quantity:1, note:"no cheese"}], confidence:"high". ' +
   '"hola buenos días" => items=[], reason:"No identifiqué productos", confidence:"low".';
 
 const USER_PROMPT_TEMPLATE =
@@ -125,6 +140,10 @@ export interface MatchedCartProduct {
 export interface CartCommandMatch {
   productHint: string;
   quantity: number | null;
+  /** Free-form modifier captured by the parser (e.g. "sin queso").
+   *  Null when no modifier was spoken. Consumers route this to the
+   *  cart row's `notes` field at hydration time. */
+  note: string | null;
   product: MatchedCartProduct | null;
 }
 
@@ -346,17 +365,33 @@ export async function parseVoiceCartCommand(
       : await hydrateCartProducts(ctx.db, ctx.tenantId, matchedIds);
 
   const matches: CartCommandMatch[] = parsed.items.map((item, idx) => {
+    // ENG-039a — normalize whitespace-only notes to null (the
+    // schema accepts any string, but a row that only carries
+    // padding is the same as no modifier for cart purposes).
+    const normalizedNote =
+      item.note === null || item.note.trim().length === 0 ? null : item.note.trim();
     const winner = winners[idx];
     if (!winner) {
-      return { productHint: item.productHint, quantity: item.quantity, product: null };
+      return {
+        productHint: item.productHint,
+        quantity: item.quantity,
+        note: normalizedNote,
+        product: null,
+      };
     }
     const summary = summaries.get(winner.productId);
     if (!summary) {
-      return { productHint: item.productHint, quantity: item.quantity, product: null };
+      return {
+        productHint: item.productHint,
+        quantity: item.quantity,
+        note: normalizedNote,
+        product: null,
+      };
     }
     return {
       productHint: item.productHint,
       quantity: item.quantity,
+      note: normalizedNote,
       product: { ...summary, similarity: winner.similarity },
     };
   });

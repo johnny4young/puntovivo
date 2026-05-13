@@ -1,0 +1,36 @@
+{
+  "surface": {
+    "touchHeading": "POS Touch",
+    "mobileHeading": "Mesero Móvil",
+    "subheading": "Captura la orden por voz o búsqueda manual."
+  },
+  "tableLabel": {
+    "label": "Mesa",
+    "placeholder": "p. ej. Mesa 5",
+    "required": "Escribe una mesa para guardar la orden."
+  },
+  "cart": {
+    "heading": "Orden",
+    "empty": "Aún no hay productos.",
+    "subtotal": "Subtotal",
+    "tax": "Impuesto",
+    "total": "Total",
+    "quantityIncrement": "Aumentar cantidad",
+    "quantityDecrement": "Disminuir cantidad",
+    "removeRow": "Eliminar producto",
+    "notesPlaceholder": "Nota (p. ej. sin queso)"
+  },
+  "actions": {
+    "voiceCTA": "Orden por voz",
+    "manualAdd": "Buscar producto",
+    "saveOrder": "Guardar orden",
+    "exit": "Cerrar sesión"
+  },
+  "save": {
+    "successToast_one": "Se guardó la orden de {{tableLabel}} con {{count}} producto.",
+    "successToast_other": "Se guardó la orden de {{tableLabel}} con {{count}} productos.",
+    "errorTitle": "No se pudo guardar la orden",
+    "tableRequired": "Escribe el nombre de la mesa antes de guardar.",
+    "emptyCartHint": "Agrega al menos un producto antes de guardar."
+  }
+}
