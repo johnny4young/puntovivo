@@ -213,7 +213,38 @@
         "status": "Status",
         "attempts": "Attempts",
         "lastError": "Last error",
-        "createdAt": "Created"
+        "createdAt": "Created",
+        "actions": "Actions"
+      },
+      "actions": {
+        "retry": "Retry",
+        "retryConfirmTitle": "Retry this payment",
+        "retryConfirmMessage": "The row will go back to queued with a fresh retry budget. The worker will pick it up on the next tick.",
+        "retrySuccess": "Payment queued for retry",
+        "retryError": "Could not retry the payment",
+        "retryUnavailable": "Only declined, timed out, retrying, or dead-letter payments can be retried.",
+        "markSettled": "Mark settled",
+        "markSettledConfirmTitle": "Mark this payment settled",
+        "markSettledConfirmMessage": "Only use this override when the provider already confirmed settlement out of band. The status flips to settled and you can paste the provider reference below.",
+        "markSettledProviderTxLabel": "Provider transaction id (optional)",
+        "markSettledProviderTxPlaceholder": "Leave blank to keep the current value",
+        "markSettledSuccess": "Payment marked settled",
+        "markSettledError": "Could not mark the payment settled",
+        "noPermission": "Only administrators can change payment state",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      }
+    },
+    "breakdown": {
+      "title": "Volume by rail and status",
+      "description": "Aggregated counts and amounts for each rail in the recent window.",
+      "emptyState": "No payment activity in the last {{days}} days.",
+      "windowDays": "Last {{days}} days",
+      "columns": {
+        "rail": "Rail",
+        "status": "Status",
+        "count": "Count",
+        "amount": "Amount"
       }
     },
     "settings": {

@@ -121,6 +121,8 @@
     "PAYMENT_RECONCILIATION_NO_MATCH": "El conciliador no encontró un cobro del POS para esta liquidación. Revisa la referencia y enlaza el cobro manualmente.",
     "PAYMENT_RECONCILIATION_AMBIGUOUS": "Más de un cobro del POS parece coincidir con esta liquidación. Revisa los candidatos y resuelve el conflicto.",
     "PAYMENT_RECONCILIATION_AI_DEGRADED": "El desempate por IA no estuvo disponible, así que el conciliador dejó la operación pendiente para revisión manual.",
+    "PAYMENT_OUTBOX_NOT_FOUND": "Ese registro de pago ya no existe para este tenant. Actualiza el Centro de operaciones y vuelve a intentarlo.",
+    "PAYMENT_OUTBOX_NOT_RETRIABLE": "Este pago no se puede reintentar en su estado actual. Solo los registros rechazados, vencidos, en reintento o marcados como dead letter pueden volver a la cola.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

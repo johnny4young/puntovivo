@@ -48,7 +48,9 @@
     "sale.complete": "Draft completed",
     "ai.anomaly.detected": "AI anomaly detected",
     "module.toggle": "Module toggled",
-    "device.revoke": "Device revoked"
+    "device.revoke": "Device revoked",
+    "payment.retry": "Payment retry queued",
+    "payment.mark_settled": "Payment marked settled"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -61,7 +63,8 @@
     "user": "User",
     "cashier": "Cashier",
     "tenant_module": "Tenant module",
-    "device": "Device"
+    "device": "Device",
+    "payment_outbox": "Payment outbox"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

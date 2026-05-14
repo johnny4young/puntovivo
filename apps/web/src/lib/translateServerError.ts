@@ -148,6 +148,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PAYMENT_RECONCILIATION_NO_MATCH',
   'PAYMENT_RECONCILIATION_AMBIGUOUS',
   'PAYMENT_RECONCILIATION_AI_DEGRADED',
+  // --- ENG-065d Operations Center payment admin actions ---
+  'PAYMENT_OUTBOX_NOT_FOUND',
+  'PAYMENT_OUTBOX_NOT_RETRIABLE',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
