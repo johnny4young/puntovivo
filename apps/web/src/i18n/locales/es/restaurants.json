@@ -100,5 +100,20 @@
       "badgeLabel": "{{tableName}}",
       "badgeTooltip": "Borrador abierto en {{tableName}}"
     }
+  },
+  "transfer": {
+    "ctaLabel": "Cambiar mesa",
+    "ctaAriaLabel": "Cambia la mesa de la orden {{saleNumber}}",
+    "title": "Cambiar mesa",
+    "currentLine": "Actual: {{current}}",
+    "selectLabel": "Nueva mesa",
+    "loading": "Cargando mesas...",
+    "clearOption": "— Liberar mesa —",
+    "currentSuffix": "(actual)",
+    "occupiedSuffix": "(ocupada)",
+    "confirm": "Mover orden",
+    "confirming": "Moviendo...",
+    "successToast": "Orden movida a {{tableName}}",
+    "successToastCleared": "Orden desvinculada de su mesa anterior"
   }
 }

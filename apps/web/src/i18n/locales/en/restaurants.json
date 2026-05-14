@@ -100,5 +100,20 @@
       "badgeLabel": "{{tableName}}",
       "badgeTooltip": "Open draft on {{tableName}}"
     }
+  },
+  "transfer": {
+    "ctaLabel": "Change table",
+    "ctaAriaLabel": "Change the table for order {{saleNumber}}",
+    "title": "Change table",
+    "currentLine": "Current: {{current}}",
+    "selectLabel": "New table",
+    "loading": "Loading tables...",
+    "clearOption": "— Detach from table —",
+    "currentSuffix": "(current)",
+    "occupiedSuffix": "(occupied)",
+    "confirm": "Move order",
+    "confirming": "Moving...",
+    "successToast": "Order moved to {{tableName}}",
+    "successToastCleared": "Order detached from its previous table"
   }
 }

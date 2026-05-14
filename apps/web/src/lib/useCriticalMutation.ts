@@ -35,6 +35,13 @@ export type CriticalCommandPath =
   | 'sales.returnSale'
   | 'sales.void'
   | 'sales.getForReprint'
+  // ENG-039c2 — change the restaurant table a suspended draft is
+  // open on (or detach the FK to free-text). Server uses
+  // `criticalCommandManagerOrAdminProcedure` (manager/admin only —
+  // transferring drafts between physical tables is an operations
+  // override) so the client must mint an envelope AND the panel CTA
+  // must gate on role.
+  | 'sales.changeTable'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
