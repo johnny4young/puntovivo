@@ -118,6 +118,9 @@
     "PERIPHERAL_ACTIVE_DUPLICATE": "Ya hay otro periférico activo de este tipo en esta sede.",
     "PERIPHERAL_NOT_FOUND": "No se pudo encontrar el periférico.",
     "HARDWARE_OUTBOX_NOT_FOUND": "No se pudo encontrar el trabajo de hardware. Actualiza el Centro de operaciones y vuelve a intentarlo.",
+    "PAYMENT_RECONCILIATION_NO_MATCH": "El conciliador no encontró un cobro del POS para esta liquidación. Revisa la referencia y enlaza el cobro manualmente.",
+    "PAYMENT_RECONCILIATION_AMBIGUOUS": "Más de un cobro del POS parece coincidir con esta liquidación. Revisa los candidatos y resuelve el conflicto.",
+    "PAYMENT_RECONCILIATION_AI_DEGRADED": "El desempate por IA no estuvo disponible, así que el conciliador dejó la operación pendiente para revisión manual.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

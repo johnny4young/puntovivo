@@ -36,6 +36,10 @@ import {
   createHardwareWorker,
   setDefaultHardwareWorker,
 } from './services/peripherals/hardware-worker.js';
+import {
+  createPaymentWorker,
+  setDefaultPaymentWorker,
+} from './services/payments/payment-worker.js';
 import { INVOICE_OCR_MAX_BYTES } from './services/ai/vision/invoice-ocr.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
@@ -106,6 +110,14 @@ export interface PuntovivoServer {
    * need to assert dead-letter transitions in tight loops.
    */
   hardwareWorker: import('./services/peripherals/hardware-worker.js').HardwareWorker;
+  /**
+   * ENG-038c — Payment worker daemon registered to drain
+   * `payment_outbox` (housekeeping today; live charge dispatch lands
+   * with rail-specific API clients) and run statement-import +
+   * reconciliation. Tests pass a stub `fetchStatement` via
+   * `createPaymentWorker` to drive deterministic imports.
+   */
+  paymentWorker: import('./services/payments/payment-worker.js').PaymentWorker;
   /** Start listening for requests */
   listen: () => Promise<string>;
   /** Stop the server and close database */
@@ -532,12 +544,26 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     setDefaultHardwareWorker(null);
   });
 
+  // ENG-038c — boot the payment worker. v1 ships the housekeeping +
+  // statement-import skeleton without a live `fetchStatement` wired —
+  // production calls `createPaymentWorker` directly when a real
+  // provider client lands, and the test harness injects a stub
+  // fixture fetcher. Without `fetchStatement` Timer B + catch-up
+  // short-circuit on `skippedReason='fetcher-missing'`.
+  const paymentWorker = createPaymentWorker({ db });
+  setDefaultPaymentWorker(paymentWorker);
+  app.addHook('onClose', async () => {
+    await paymentWorker.stop();
+    setDefaultPaymentWorker(null);
+  });
+
   const serverLog = createModuleLogger('server');
   return {
     app,
     db,
     fiscalWorker,
     hardwareWorker,
+    paymentWorker,
     listen: async () => {
       const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
@@ -562,6 +588,11 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       }
       fiscalWorker.start();
       hardwareWorker.start();
+      paymentWorker.start();
+      // ENG-038c — kick the boot catch-up sweep after the timers
+      // are armed so a long-offline POS reconciles missed statement
+      // windows before the first regular Timer B tick fires.
+      void paymentWorker.catchUpOnBoot();
       serverLog.info(
         {
           address,

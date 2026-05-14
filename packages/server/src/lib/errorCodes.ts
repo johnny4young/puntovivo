@@ -458,6 +458,31 @@ export const SERVER_ERROR_CODES = {
    * Cause carries `{ railId, unknownKey }`.
    */
   PAYMENT_CREDENTIAL_UNKNOWN_FIELD: 'PAYMENT_CREDENTIAL_UNKNOWN_FIELD',
+  /**
+   * ENG-038c — reconciliation matcher could not find any provider
+   * statement row matching a POS tender. Carries
+   * `{ tenantId, salePaymentId, reference }`. Surfaced from the
+   * server-side worker logs and (via translateServerError) the
+   * Operations Center mismatch tooltips once ENG-065d ships the
+   * retry UI.
+   */
+  PAYMENT_RECONCILIATION_NO_MATCH: 'PAYMENT_RECONCILIATION_NO_MATCH',
+  /**
+   * ENG-038c — reconciliation matcher found multiple plausible matches
+   * for the same statement row and the AI tie-break path was either
+   * disabled, over-budget, or returned a non-decisive answer. Carries
+   * `{ tenantId, statementReference, candidates }`. The worker keeps
+   * the mismatch surfaced for operator review.
+   */
+  PAYMENT_RECONCILIATION_AMBIGUOUS: 'PAYMENT_RECONCILIATION_AMBIGUOUS',
+  /**
+   * ENG-038c — AI tie-break call failed (provider unavailable, budget
+   * exceeded, module off) AND the matcher had to degrade to a
+   * deterministic suggestion. Operator-visible warning; not a fatal
+   * error. Carries `{ tenantId, reason }` where reason is one of
+   * `'ai-disabled' | 'ai-budget-exceeded' | 'ai-provider-error'`.
+   */
+  PAYMENT_RECONCILIATION_AI_DEGRADED: 'PAYMENT_RECONCILIATION_AI_DEGRADED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

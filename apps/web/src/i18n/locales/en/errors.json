@@ -118,6 +118,9 @@
     "PERIPHERAL_ACTIVE_DUPLICATE": "Another active peripheral of this type already exists at this site.",
     "PERIPHERAL_NOT_FOUND": "The peripheral could not be found.",
     "HARDWARE_OUTBOX_NOT_FOUND": "The hardware job could not be found. Refresh the Operations Center and try again.",
+    "PAYMENT_RECONCILIATION_NO_MATCH": "The matcher could not find a POS tender for this provider settlement. Review the reference and link the tender manually.",
+    "PAYMENT_RECONCILIATION_AMBIGUOUS": "More than one POS tender looks like a plausible match. Review the candidates and resolve the conflict.",
+    "PAYMENT_RECONCILIATION_AI_DEGRADED": "The AI tie-break was unavailable, so the matcher fell back to a manual review suggestion.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }

@@ -30,7 +30,8 @@
     "db:studio": "drizzle-kit studio",
     "seed:dev": "npm run native:ensure:node && tsx src/scripts/seed-dev.ts",
     "benchmark:invoice-ocr": "npm run native:ensure:node && tsx scripts/benchmark-invoice-ocr.ts",
-    "benchmark:invoice-ocr:regen": "node scripts/generate-invoice-ocr-fixtures.mjs"
+    "benchmark:invoice-ocr:regen": "node scripts/generate-invoice-ocr-fixtures.mjs",
+    "benchmark:payment-reconciliation": "npm run native:ensure:node && tsx scripts/benchmark-payment-reconciliation.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
