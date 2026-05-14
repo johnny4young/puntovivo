@@ -19,7 +19,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Clock, PlayCircle, RotateCw, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Clock, MapPin, PlayCircle, RotateCw, Trash2, Users } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
@@ -38,6 +38,14 @@ export interface SuspendedDraftSummary {
   customerName: string | null;
   total: number;
   itemCount: number;
+  /**
+   * ENG-039c — when the draft was opened on a restaurant table the
+   * server surfaces the FK + the resolved table name through the
+   * `sales.listDrafts` leftJoin. Free-text drafts (legacy ENG-039a/b)
+   * leave both fields `null` and the panel falls back to `label`.
+   */
+  tableId: string | null;
+  tableName: string | null;
 }
 
 interface SuspendedSalesPanelProps {
@@ -57,7 +65,7 @@ export function SuspendedSalesPanel({
   onClose,
   onResume,
 }: SuspendedSalesPanelProps) {
-  const { t } = useTranslation(['sales', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -98,6 +106,8 @@ export function SuspendedSalesPanel({
     customerName: item.customerName ?? null,
     total: item.total,
     itemCount: Number(item.itemCount ?? 0),
+    tableId: item.tableId ?? null,
+    tableName: item.tableName ?? null,
   })) satisfies SuspendedDraftSummary[];
 
   return (
@@ -185,9 +195,25 @@ export function SuspendedSalesPanel({
               data-testid="suspended-draft-card"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-secondary-950">
-                  {draft.label ?? draft.saleNumber}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-secondary-950">
+                    {draft.label ?? draft.saleNumber}
+                  </p>
+                  {draft.tableId && draft.tableName && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-primary-700"
+                      data-testid="suspended-draft-table-badge"
+                      title={t('restaurants:tables.draftStatus.badgeTooltip', {
+                        tableName: draft.tableName,
+                      })}
+                    >
+                      <MapPin className="h-3 w-3" />
+                      {t('restaurants:tables.draftStatus.badgeLabel', {
+                        tableName: draft.tableName,
+                      })}
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-secondary-600">
                   {draft.saleNumber}
                   {draft.customerName && ` · ${draft.customerName}`}

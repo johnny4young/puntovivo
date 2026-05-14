@@ -134,6 +134,11 @@ export const auditLogActionEnum = [
   'restaurant_table.create',
   'restaurant_table.update',
   'restaurant_table.archive',
+  // ENG-039c — `sales.changeTable` moves a suspended draft between
+  // restaurant tables (or detaches it back to free text). Audit row
+  // captures the prior + post tableId so forensics can reconstruct
+  // table occupancy timelines.
+  'sale.changeTable',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -1535,6 +1540,11 @@ export const sales = sqliteTable(
       .references(() => tenants.id),
     saleNumber: text('sale_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
+    // ENG-039c — optional restaurant-table FK. When non-null the draft
+    // is "open" on that physical table; `listWithDraftStatus` reads
+    // this column to surface occupancy. Nullable so non-restaurant
+    // tenants and pre-ENG-039c drafts pass through unchanged.
+    tableId: text('table_id').references(() => restaurantTables.id),
     subtotal: real('subtotal').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
@@ -1574,6 +1584,9 @@ export const sales = sqliteTable(
     index('idx_sales_created_by').on(table.createdBy),
     // ENG-018 — filter drafts quickly by owning cashier in `listDrafts`.
     index('idx_sales_suspended_by').on(table.suspendedBy),
+    // ENG-039c — cover the leftJoin that drives
+    // `restaurantTables.listWithDraftStatus`.
+    index('idx_sales_tenant_table').on(table.tenantId, table.tableId),
     uniqueIndex('idx_sales_tenant_number').on(table.tenantId, table.saleNumber),
   ]
 );
@@ -1594,6 +1607,11 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   cashSession: one(cashSessions, {
     fields: [sales.cashSessionId],
     references: [cashSessions.id],
+  }),
+  // ENG-039c — optional link to the physical restaurant table.
+  restaurantTable: one(restaurantTables, {
+    fields: [sales.tableId],
+    references: [restaurantTables.id],
   }),
   items: many(saleItems),
   returns: many(saleReturns),

@@ -22,9 +22,9 @@
  * @module trpc/routers/restaurantTables
  */
 
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { restaurantTables, sites } from '../../db/schema.js';
+import { restaurantTables, sales, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { Context } from '../context.js';
@@ -89,6 +89,113 @@ export const restaurantTablesRouter = router({
         .limit(input.limit)
         .all();
       return { items: rows };
+    }),
+
+  /**
+   * ENG-039c — Catalog rows for a site, each augmented with the open
+   * draft sale that currently occupies it (if any). Draft lookup
+   * filters sales by tenant + status + suspended_at IS NOT NULL so a
+   * sale that was resumed or completed no longer keeps its table
+   * "open" — the row falls back to `openDraft: null`.
+   *
+   * Multi-tenant invariant: the draft lookup pins
+   * `sales.tenant_id = ctx.tenantId`, so a sale belonging to a
+   * different tenant can never surface as the open draft for this
+   * row. Tested by `restaurant-tables.test.ts`.
+   */
+  listWithDraftStatus: managerOrAdminProcedure
+    .input(listRestaurantTablesInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+
+      const conditions = [
+        eq(restaurantTables.tenantId, ctx.tenantId),
+        eq(restaurantTables.siteId, input.siteId),
+      ];
+      if (!input.includeArchived) {
+        conditions.push(eq(restaurantTables.isActive, true));
+      }
+
+      const tableRows = await ctx.db
+        .select({
+          id: restaurantTables.id,
+          tenantId: restaurantTables.tenantId,
+          siteId: restaurantTables.siteId,
+          name: restaurantTables.name,
+          seatCount: restaurantTables.seatCount,
+          area: restaurantTables.area,
+          notes: restaurantTables.notes,
+          isActive: restaurantTables.isActive,
+          createdAt: restaurantTables.createdAt,
+          updatedAt: restaurantTables.updatedAt,
+        })
+        .from(restaurantTables)
+        .where(and(...conditions))
+        .orderBy(asc(restaurantTables.name))
+        .limit(input.limit)
+        .all();
+
+      if (tableRows.length === 0) {
+        return { items: [] };
+      }
+
+      const draftRows = await ctx.db
+        .select({
+          tableId: sales.tableId,
+          saleId: sales.id,
+          saleNumber: sales.saleNumber,
+          suspendedAt: sales.suspendedAt,
+          suspendedBy: sales.suspendedBy,
+          total: sales.total,
+        })
+        .from(sales)
+        .where(
+          and(
+            eq(sales.tenantId, ctx.tenantId),
+            inArray(
+              sales.tableId,
+              tableRows.map(row => row.id)
+            ),
+            eq(sales.status, 'draft'),
+            sql`${sales.suspendedAt} IS NOT NULL`
+          )
+        )
+        .orderBy(desc(sales.suspendedAt), desc(sales.createdAt), desc(sales.id))
+        .all();
+
+      const openDraftByTableId = new Map<string, (typeof draftRows)[number]>();
+      for (const draft of draftRows) {
+        if (draft.tableId && !openDraftByTableId.has(draft.tableId)) {
+          openDraftByTableId.set(draft.tableId, draft);
+        }
+      }
+
+      return {
+        items: tableRows.map(row => {
+          const openDraft = openDraftByTableId.get(row.id);
+          return {
+            id: row.id,
+            tenantId: row.tenantId,
+            siteId: row.siteId,
+            name: row.name,
+            seatCount: row.seatCount,
+            area: row.area,
+            notes: row.notes,
+            isActive: row.isActive,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            openDraft: openDraft
+              ? {
+                  saleId: openDraft.saleId,
+                  saleNumber: openDraft.saleNumber,
+                  suspendedAt: openDraft.suspendedAt,
+                  suspendedBy: openDraft.suspendedBy,
+                  total: openDraft.total ?? 0,
+                }
+              : null,
+          };
+        }),
+      };
     }),
 
   getById: managerOrAdminProcedure

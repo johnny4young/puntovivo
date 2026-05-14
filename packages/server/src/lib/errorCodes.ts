@@ -176,6 +176,16 @@ export const SERVER_ERROR_CODES = {
   /** Attempt to complete a draft that is still suspended; caller must resume first. */
   SALE_COMPLETE_DRAFT_SUSPENDED: 'SALE_COMPLETE_DRAFT_SUSPENDED',
 
+  // --- ENG-039c restaurant table linkage ---
+  /**
+   * `sales.changeTable` requires the target sale to be a suspended draft
+   * (`status='draft'` AND `suspended_at IS NOT NULL`). Mirrors the
+   * SALE_NOT_SUSPENDED guard but distinguished so the operator UI can
+   * surface "this sale already completed, transfer is no longer
+   * possible" instead of the generic resume copy.
+   */
+  SALE_CHANGE_TABLE_INVALID_STATUS: 'SALE_CHANGE_TABLE_INVALID_STATUS',
+
   // --- ENG-060 peripherals registry ---
   /** `peripherals.{update,setActive,test,remove}` could not find the row for the tenant. */
   PERIPHERAL_NOT_FOUND: 'PERIPHERAL_NOT_FOUND',

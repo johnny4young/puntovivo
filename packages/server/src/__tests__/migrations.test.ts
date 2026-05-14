@@ -322,6 +322,55 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at text NOT NULL,
         updated_at text NOT NULL
       );
+
+      -- ENG-039c — stub the post-0002 sales table shape so the 0024
+      -- ALTER TABLE sales ADD COLUMN table_id finds an existing
+      -- target. A real bridge-build DB would have this table from
+      -- migration 0000 + the 0002 suspend/reprint additions. The FK
+      -- on created_by etc. is dropped here because the parent
+      -- tables are not stubbed and SQLite default is foreign_keys=OFF.
+      CREATE TABLE sales (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        sale_number text NOT NULL,
+        customer_id text,
+        subtotal real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        discount_amount real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL,
+        payment_method text DEFAULT 'cash' NOT NULL,
+        payment_status text DEFAULT 'pending' NOT NULL,
+        status text DEFAULT 'draft' NOT NULL,
+        cash_session_id text,
+        notes text,
+        created_by text NOT NULL,
+        suspended_at text,
+        suspended_by text,
+        suspended_label text,
+        reprint_count integer DEFAULT 0 NOT NULL,
+        last_reprinted_at text,
+        last_reprinted_by text,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text DEFAULT (datetime('now')) NOT NULL,
+        updated_at text DEFAULT (datetime('now')) NOT NULL
+      );
+
+      -- ENG-039c — stub the post-0023 restaurant_tables shape so the
+      -- 0024 ALTER TABLE sales ... REFERENCES restaurant_tables(id)
+      -- parses against an existing target.
+      CREATE TABLE restaurant_tables (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        site_id text NOT NULL,
+        name text NOT NULL,
+        seat_count integer,
+        area text,
+        notes text,
+        is_active integer DEFAULT 1 NOT NULL,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
     `);
 
     // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which

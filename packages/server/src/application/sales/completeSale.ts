@@ -570,6 +570,9 @@ async function runFreshSale(
         tenantId: ctx.tenantId,
         saleNumber,
         customerId: input.customerId,
+        // ENG-039c — restaurant table FK passed through from the
+        // tRPC layer (already tenant/site-scoped + active-validated there).
+        tableId: input.tableId ?? null,
         subtotal,
         taxAmount,
         discountAmount: input.discountAmount ?? 0,

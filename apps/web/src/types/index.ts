@@ -529,7 +529,9 @@ export type AuditLogAction =
   // ENG-039b — restaurant table catalog admin gestures.
   | 'restaurant_table.create'
   | 'restaurant_table.update'
-  | 'restaurant_table.archive';
+  | 'restaurant_table.archive'
+  // ENG-039c — restaurant table FK move on a suspended draft.
+  | 'sale.changeTable';
 
 export type AuditLogResourceType =
   | 'transfer_order'

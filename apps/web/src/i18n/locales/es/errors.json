@@ -82,6 +82,7 @@
     "SALE_REPRINT_DRAFT_FORBIDDEN": "Las ventas en borrador no tienen recibo que reimprimir.",
     "SALE_REPRINT_ACTIVE_SESSION_REQUIRED": "Los cajeros solo pueden reimprimir ventas de su propio turno activo.",
     "SALE_COMPLETE_DRAFT_SUSPENDED": "Este borrador sigue suspendido. Retómalo antes de completar la venta.",
+    "SALE_CHANGE_TABLE_INVALID_STATUS": "Solo las ventas en borrador suspendidas se pueden mover entre mesas.",
     "SYNC_LOCAL_RECORD_MISSING": "El registro local ya no existe. Descarta el cambio local para aceptar la versión remota.",
     "AI_DISABLED": "Las funciones de IA están desactivadas para esta organización. Actívalas en Empresa → Configuración de IA.",
     "AI_BUDGET_EXCEEDED": "El gasto de IA de este mes alcanzó el presupuesto configurado. Aumenta el presupuesto o espera al próximo mes.",
