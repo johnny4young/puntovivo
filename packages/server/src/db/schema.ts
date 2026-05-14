@@ -127,6 +127,13 @@ export const auditLogActionEnum = [
   // attempts in `before` so forensics can replay the lifecycle.
   'payment.retry',
   'payment.mark_settled',
+  // ENG-039b — restaurant table catalog admin gestures. Every CRUD on
+  // a `restaurant_tables` row emits an audit entry carrying the row's
+  // prior + post-action snapshot so forensics can replay the catalog
+  // history across pilots.
+  'restaurant_table.create',
+  'restaurant_table.update',
+  'restaurant_table.archive',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -152,6 +159,8 @@ export const auditLogResourceTypeEnum = [
   'device',
   // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
   'payment_outbox',
+  // ENG-039b — restaurant table catalog rows.
+  'restaurant_table',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
@@ -1952,6 +1961,65 @@ export const paymentOutboxRelations = relations(paymentOutbox, ({ one }) => ({
 
 export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
 export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
+
+// ============================================================================
+// RESTAURANT TABLES (ENG-039b)
+// ============================================================================
+
+/**
+ * ENG-039b — restaurant table catalog.
+ *
+ * Persistent per-site list of physical tables a waiter can pick when
+ * opening an order on the voice-ordering / mobile-waiter surfaces.
+ * v1 keeps `sales.suspendedLabel` as the persistence column (no
+ * `sales.tableId` FK yet) — the dropdown just resolves the picked
+ * row's `name` into the existing text label. ENG-039c will introduce
+ * the FK + open/seat/transfer/split state machine on top.
+ *
+ * The partial-unique index lives in `0023_restaurant_tables.sql` as a
+ * hand-appended statement; Drizzle's SQLite dialect cannot emit the
+ * `WHERE is_active = 1` clause natively.
+ */
+export const restaurantTables = sqliteTable(
+  'restaurant_tables',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    name: text('name').notNull(),
+    seatCount: integer('seat_count'),
+    area: text('area'),
+    notes: text('notes'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  table => [
+    index('idx_restaurant_tables_tenant_site').on(table.tenantId, table.siteId),
+  ]
+);
+
+export const restaurantTablesRelations = relations(restaurantTables, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [restaurantTables.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [restaurantTables.siteId],
+    references: [sites.id],
+  }),
+}));
+
+export type RestaurantTableRow = typeof restaurantTables.$inferSelect;
+export type NewRestaurantTableRow = typeof restaurantTables.$inferInsert;
 
 // ============================================================================
 // SALE RETURNS

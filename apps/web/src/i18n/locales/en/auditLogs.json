@@ -49,6 +49,9 @@
     "ai.anomaly.detected": "AI anomaly detected",
     "module.toggle": "Module toggled",
     "device.revoke": "Device revoked",
+    "restaurant_table.create": "Restaurant table created",
+    "restaurant_table.update": "Restaurant table updated",
+    "restaurant_table.archive": "Restaurant table archived",
     "payment.retry": "Payment retry queued",
     "payment.mark_settled": "Payment marked settled"
   },
@@ -64,6 +67,7 @@
     "cashier": "Cashier",
     "tenant_module": "Tenant module",
     "device": "Device",
+    "restaurant_table": "Restaurant table",
     "payment_outbox": "Payment outbox"
   },
   "summary": {

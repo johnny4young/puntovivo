@@ -29,6 +29,7 @@ import {
   Smartphone,
   Sparkles,
   Store,
+  Table2,
   Tablet,
   Truck,
   Tv,
@@ -118,6 +119,13 @@ const navigationSections = [
       { nameKey: 'items.kds', href: '/kds', icon: ChefHat, allowedRoles: salesRoles, requiredModule: 'kds' },
       { nameKey: 'items.customerDisplay', href: '/customer-display', icon: Tv, allowedRoles: salesRoles, requiredModule: 'customer-display' },
       { nameKey: 'items.mobileWaiter', href: '/m', icon: Smartphone, allowedRoles: salesRoles, requiredModule: 'mobile-waiter' },
+      // ENG-039b — restaurant table catalog. Admin-only setup but lives
+      // in `sections.surfaces` because it only matters once a tenant
+      // adopts the restaurant vertical. Gating on `pos-touch` keeps the
+      // entry hidden for tenants who never enable any restaurant
+      // surface; admins running mobile-waiter or kds alone can still
+      // reach the page via direct URL.
+      { nameKey: 'items.restaurantTables', href: '/restaurants/tables', icon: Table2, allowedRoles: adminOnlyRoles, requiredModule: 'pos-touch' },
     ],
   },
   {

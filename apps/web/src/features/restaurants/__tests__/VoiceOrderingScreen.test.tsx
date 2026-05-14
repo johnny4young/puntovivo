@@ -35,6 +35,24 @@ const cashSessionMock = vi.fn(() => ({
   openedAt: new Date().toISOString(),
 }));
 
+// ENG-039b — restaurant tables catalog mock. Tests override this to
+// flip between dropdown mode (entries > 0) and free-text fallback
+// (empty array or error). Default: empty so the existing assertions
+// against the free-text input keep passing without modification.
+const restaurantTablesMock = vi.fn<
+  () => {
+    data:
+      | { items: Array<{ id: string; name: string }> }
+      | undefined;
+    isLoading: boolean;
+    error: Error | null;
+  }
+>(() => ({
+  data: { items: [] },
+  isLoading: false,
+  error: null,
+}));
+
 const createMutateAsync = vi.fn();
 const suspendMutateAsync = vi.fn();
 const discardMutateAsync = vi.fn();
@@ -101,6 +119,11 @@ vi.mock('@/lib/trpc', () => ({
           data: cashSessionMock(),
           isLoading: false,
         }),
+      },
+    },
+    restaurantTables: {
+      list: {
+        useQuery: () => restaurantTablesMock(),
       },
     },
     useUtils: () => ({
@@ -466,5 +489,70 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     renderScreen('mobile');
     const screenEl = screen.getByTestId('voice-ordering-screen');
     expect(screenEl.getAttribute('data-variant')).toBe('mobile');
+  });
+
+  // ENG-039b — catalog populated renders a <select> with the names + custom option
+  it('renders a dropdown when restaurantTables.list returns entries', () => {
+    restaurantTablesMock.mockReturnValueOnce({
+      data: {
+        items: [
+          { id: 'rt-1', name: 'Mesa 1' },
+          { id: 'rt-2', name: 'Barra 1' },
+          { id: 'rt-3', name: 'Terraza A' },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderScreen('touch');
+    const select = screen.getByTestId('voice-ordering-table-select') as HTMLSelectElement;
+    expect(select).toBeDefined();
+    const optionTexts = Array.from(select.options).map(opt => opt.textContent ?? '');
+    expect(optionTexts).toEqual(
+      expect.arrayContaining(['Mesa 1', 'Barra 1', 'Terraza A'])
+    );
+    // The free-text input should not render simultaneously.
+    expect(screen.queryByTestId('voice-ordering-table-input')).toBeNull();
+  });
+
+  // ENG-039b — picking from the dropdown flows the table name into the save payload
+  it('picking a table name from the dropdown saves the order with that label', async () => {
+    restaurantTablesMock.mockReturnValueOnce({
+      data: { items: [{ id: 'rt-1', name: 'Mesa Catalog' }] },
+      isLoading: false,
+      error: null,
+    });
+    createMutateAsync.mockResolvedValue({ id: 'draft-rt' });
+    suspendMutateAsync.mockResolvedValue({ id: 'draft-rt', suspendedLabel: 'Mesa Catalog' });
+    renderScreen('touch');
+
+    const select = screen.getByTestId('voice-ordering-table-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'Mesa Catalog' } });
+    fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
+    await waitFor(() => expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument());
+    await act(async () => {
+      lastVoiceOnApply?.([
+        { selection: makeSelection(), quantity: 1, note: null },
+      ]);
+    });
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+
+    await waitFor(() =>
+      expect(suspendMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'Mesa Catalog' })
+      )
+    );
+  });
+
+  // ENG-039b — defensive: a query error keeps the free-text input rendered
+  it('falls back to the free-text input when the catalog query errors out', () => {
+    restaurantTablesMock.mockReturnValueOnce({
+      data: undefined,
+      isLoading: false,
+      error: new Error('boom'),
+    });
+    renderScreen('touch');
+    expect(screen.getByTestId('voice-ordering-table-input')).toBeDefined();
+    expect(screen.queryByTestId('voice-ordering-table-select')).toBeNull();
   });
 });

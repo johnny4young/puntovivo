@@ -151,6 +151,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-065d Operations Center payment admin actions ---
   'PAYMENT_OUTBOX_NOT_FOUND',
   'PAYMENT_OUTBOX_NOT_RETRIABLE',
+  // --- ENG-039b restaurant table catalog ---
+  'RESTAURANT_TABLE_NOT_FOUND',
+  'RESTAURANT_TABLE_NAME_DUPLICATE',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

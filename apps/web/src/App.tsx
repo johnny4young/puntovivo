@@ -125,6 +125,10 @@ const TouchShell = lazyPage(async () => ({
 const TouchHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/TouchHome')).default,
 }));
+// ENG-039b — admin page for the restaurant table catalog.
+const RestaurantTablesPage = lazyPage(async () => ({
+  default: (await import('@/features/restaurants/RestaurantTablesPage')).RestaurantTablesPage,
+}));
 const KdsShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/KdsShell')).KdsShell,
 }));
@@ -282,6 +286,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={adminOnlyRoles}>
                   <LocationsPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="restaurants/tables"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <RestaurantTablesPage />
                 </ShellRoute>
               }
             />

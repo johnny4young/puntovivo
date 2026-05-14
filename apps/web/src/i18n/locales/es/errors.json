@@ -123,6 +123,8 @@
     "PAYMENT_RECONCILIATION_AI_DEGRADED": "El desempate por IA no estuvo disponible, así que el conciliador dejó la operación pendiente para revisión manual.",
     "PAYMENT_OUTBOX_NOT_FOUND": "Ese registro de pago ya no existe para este tenant. Actualiza el Centro de operaciones y vuelve a intentarlo.",
     "PAYMENT_OUTBOX_NOT_RETRIABLE": "Este pago no se puede reintentar en su estado actual. Solo los registros rechazados, vencidos, en reintento o marcados como dead letter pueden volver a la cola.",
+    "RESTAURANT_TABLE_NOT_FOUND": "Esa mesa ya no existe para este tenant. Actualiza la lista y vuelve a intentarlo.",
+    "RESTAURANT_TABLE_NAME_DUPLICATE": "Otra mesa activa de esta sede ya usa este nombre. Elige uno distinto o archiva la mesa existente primero.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

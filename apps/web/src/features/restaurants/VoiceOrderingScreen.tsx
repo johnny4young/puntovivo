@@ -78,12 +78,38 @@ export function VoiceOrderingScreen({
     { enabled: Boolean(currentSite) }
   );
 
+  // ENG-039b — pull the persistent table catalog when the active site
+  // resolves. When the catalog has entries the input becomes a
+  // <select>; otherwise the existing free-text input renders so
+  // tenants without tables do not regress. Errors fall back the same
+  // way — defensive against transient DB hiccups.
+  const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
+    currentSite
+      ? { siteId: currentSite.id, includeArchived: false }
+      : (undefined as never),
+    { enabled: Boolean(currentSite) }
+  );
+  const tableCatalog = tableCatalogQuery.data?.items ?? [];
+  const useCatalogDropdown =
+    !tableCatalogQuery.isLoading &&
+    !tableCatalogQuery.error &&
+    tableCatalog.length > 0;
+
   const utils = trpc.useUtils();
   const createMutation = useCriticalMutation('sales.create');
   const suspendMutation = useCriticalMutation('sales.suspend');
   const discardDraftMutation = useCriticalMutation('sales.discardDraft');
 
   const [tableLabel, setTableLabel] = useState<string>('');
+  // ENG-039b — when the catalog resolves AFTER the operator typed into
+  // the free-text input (slow LTE / restaurant Wi-Fi), the visible
+  // <select> shows the empty placeholder while `tableLabel` still
+  // holds the stale typed value. Guard `saveDisabled` so the button
+  // never fires with a phantom label that doesn't match any option;
+  // the operator has to explicitly pick a row from the dropdown.
+  const tableLabelMatchesCatalog =
+    !useCatalogDropdown ||
+    tableCatalog.some(row => row.name === tableLabel);
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
@@ -104,6 +130,7 @@ export function VoiceOrderingScreen({
   const saveDisabled =
     !cashSession ||
     tableLabel.trim().length === 0 ||
+    !tableLabelMatchesCatalog ||
     cartItems.length === 0 ||
     isSaving;
 
@@ -311,17 +338,37 @@ export function VoiceOrderingScreen({
             >
               {t('restaurants:tableLabel.label')}
             </label>
-            <input
-              id="voice-ordering-table-label"
-              data-testid="voice-ordering-table-input"
-              className="input mt-1 w-full text-lg"
-              type="text"
-              maxLength={TABLE_LABEL_MAX}
-              placeholder={t('restaurants:tableLabel.placeholder')}
-              aria-required="true"
-              value={tableLabel}
-              onChange={event => setTableLabel(event.target.value)}
-            />
+            {useCatalogDropdown ? (
+              <select
+                id="voice-ordering-table-label"
+                data-testid="voice-ordering-table-select"
+                className="input mt-1 w-full text-lg"
+                aria-required="true"
+                value={tableLabel}
+                onChange={event => setTableLabel(event.target.value)}
+              >
+                <option value="">
+                  {t('restaurants:tables.dropdown.selectPlaceholder')}
+                </option>
+                {tableCatalog.map(row => (
+                  <option key={row.id} value={row.name}>
+                    {row.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="voice-ordering-table-label"
+                data-testid="voice-ordering-table-input"
+                className="input mt-1 w-full text-lg"
+                type="text"
+                maxLength={TABLE_LABEL_MAX}
+                placeholder={t('restaurants:tableLabel.placeholder')}
+                aria-required="true"
+                value={tableLabel}
+                onChange={event => setTableLabel(event.target.value)}
+              />
+            )}
             {tableLabel.trim().length === 0 && (
               <p className="mt-1 text-xs text-warning-700">
                 {t('restaurants:tableLabel.required')}
