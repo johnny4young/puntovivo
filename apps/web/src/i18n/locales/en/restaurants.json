@@ -32,5 +32,69 @@
     "errorTitle": "Could not save the order",
     "tableRequired": "Enter a table label before saving.",
     "emptyCartHint": "Add at least one item before saving."
+  },
+  "tables": {
+    "title": "Restaurant tables",
+    "description": "Curate the list of physical tables a waiter can pick when opening an order.",
+    "empty": "No tables defined for this site yet.",
+    "loading": "Loading tables...",
+    "error": "Unable to load restaurant tables.",
+    "permissionNote": "Only administrators can edit the table catalog.",
+    "siteSelector": "Site",
+    "toolbar": {
+      "createCta": "Create table",
+      "showArchived": "Show archived"
+    },
+    "columns": {
+      "name": "Name",
+      "seatCount": "Seats",
+      "area": "Area",
+      "notes": "Notes",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "actions": {
+      "edit": "Edit table",
+      "archive": "Archive table"
+    },
+    "form": {
+      "createTitle": "Create table",
+      "editTitle": "Edit table",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Mesa 1",
+      "nameRequired": "Name is required.",
+      "seatCountLabel": "Seats (optional)",
+      "areaLabel": "Area (optional)",
+      "areaPlaceholder": "e.g. Main hall",
+      "notesLabel": "Notes (optional)",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "errorFallback": "Could not save the table."
+    },
+    "archive": {
+      "title": "Archive table",
+      "message": "Archived tables disappear from the waiter dropdown but stay in history. You can re-create a table with the same name later.",
+      "confirm": "Archive",
+      "submitting": "Archiving...",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "Table created.",
+      "createError": "Could not create the table.",
+      "updated": "Table updated.",
+      "updateError": "Could not update the table.",
+      "archived": "Table archived.",
+      "archiveError": "Could not archive the table."
+    },
+    "dropdown": {
+      "selectPlaceholder": "Pick a table",
+      "customOption": "— Custom label —",
+      "emptyHint": "No tables in the catalog. Type a custom label or ask an admin to add one."
+    }
   }
 }

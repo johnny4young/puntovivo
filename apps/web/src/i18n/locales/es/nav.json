@@ -38,7 +38,8 @@
     "posTouch": "POS Táctil",
     "kds": "KDS",
     "customerDisplay": "Pantalla cliente",
-    "mobileWaiter": "Móvil mesero"
+    "mobileWaiter": "Móvil mesero",
+    "restaurantTables": "Mesas"
   },
   "badges": {
     "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"

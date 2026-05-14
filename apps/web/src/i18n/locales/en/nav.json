@@ -38,7 +38,8 @@
     "posTouch": "POS Touch",
     "kds": "KDS",
     "customerDisplay": "Customer Display",
-    "mobileWaiter": "Mobile Waiter"
+    "mobileWaiter": "Mobile Waiter",
+    "restaurantTables": "Tables"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"

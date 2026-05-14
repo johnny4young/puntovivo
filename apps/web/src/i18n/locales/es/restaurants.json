@@ -32,5 +32,69 @@
     "errorTitle": "No se pudo guardar la orden",
     "tableRequired": "Escribe el nombre de la mesa antes de guardar.",
     "emptyCartHint": "Agrega al menos un producto antes de guardar."
+  },
+  "tables": {
+    "title": "Mesas del restaurante",
+    "description": "Administra la lista de mesas físicas que el mesero puede elegir al abrir una orden.",
+    "empty": "Aún no hay mesas definidas para esta sede.",
+    "loading": "Cargando mesas...",
+    "error": "No se pudieron cargar las mesas del restaurante.",
+    "permissionNote": "Solo el administrador puede editar el catálogo de mesas.",
+    "siteSelector": "Sede",
+    "toolbar": {
+      "createCta": "Crear mesa",
+      "showArchived": "Mostrar archivadas"
+    },
+    "columns": {
+      "name": "Nombre",
+      "seatCount": "Comensales",
+      "area": "Zona",
+      "notes": "Notas",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "active": "Activa",
+      "archived": "Archivada"
+    },
+    "actions": {
+      "edit": "Editar mesa",
+      "archive": "Archivar mesa"
+    },
+    "form": {
+      "createTitle": "Crear mesa",
+      "editTitle": "Editar mesa",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "p. ej. Mesa 1",
+      "nameRequired": "El nombre es obligatorio.",
+      "seatCountLabel": "Comensales (opcional)",
+      "areaLabel": "Zona (opcional)",
+      "areaPlaceholder": "p. ej. Salón principal",
+      "notesLabel": "Notas (opcional)",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "cancel": "Cancelar",
+      "errorFallback": "No se pudo guardar la mesa."
+    },
+    "archive": {
+      "title": "Archivar mesa",
+      "message": "Las mesas archivadas desaparecen del menú del mesero pero quedan en el historial. Puedes volver a crear una mesa con el mismo nombre más adelante.",
+      "confirm": "Archivar",
+      "submitting": "Archivando...",
+      "cancel": "Cancelar"
+    },
+    "toast": {
+      "created": "Mesa creada.",
+      "createError": "No se pudo crear la mesa.",
+      "updated": "Mesa actualizada.",
+      "updateError": "No se pudo actualizar la mesa.",
+      "archived": "Mesa archivada.",
+      "archiveError": "No se pudo archivar la mesa."
+    },
+    "dropdown": {
+      "selectPlaceholder": "Elige una mesa",
+      "customOption": "— Etiqueta personalizada —",
+      "emptyHint": "No hay mesas en el catálogo. Escribe una etiqueta o pide al administrador que cree una."
+    }
   }
 }

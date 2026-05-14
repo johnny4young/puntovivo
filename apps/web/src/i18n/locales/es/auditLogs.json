@@ -49,6 +49,9 @@
     "ai.anomaly.detected": "Anomalía IA detectada",
     "module.toggle": "Módulo actualizado",
     "device.revoke": "Dispositivo revocado",
+    "restaurant_table.create": "Mesa de restaurante creada",
+    "restaurant_table.update": "Mesa de restaurante actualizada",
+    "restaurant_table.archive": "Mesa de restaurante archivada",
     "payment.retry": "Reintento de pago encolado",
     "payment.mark_settled": "Pago marcado como liquidado"
   },
@@ -64,6 +67,7 @@
     "cashier": "Cajero",
     "tenant_module": "Módulo del inquilino",
     "device": "Dispositivo",
+    "restaurant_table": "Mesa de restaurante",
     "payment_outbox": "Outbox de pagos"
   },
   "summary": {

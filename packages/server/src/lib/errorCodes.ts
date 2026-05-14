@@ -500,6 +500,21 @@ export const SERVER_ERROR_CODES = {
    * `{ outboxId, currentStatus }` for the UI hint.
    */
   PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
+  /**
+   * ENG-039b — admin tried to act on a `restaurant_tables` row that
+   * does not exist for the active tenant. The lookup is tenant-scoped
+   * so a cross-tenant attempt collapses to NOT_FOUND (not FORBIDDEN) —
+   * never leak existence across tenants. Mirrors the
+   * `PAYMENT_OUTBOX_NOT_FOUND` pattern.
+   */
+  RESTAURANT_TABLE_NOT_FOUND: 'RESTAURANT_TABLE_NOT_FOUND',
+  /**
+   * ENG-039b — partial-unique conflict on `(tenant_id, site_id, name)`
+   * among active `restaurant_tables` rows. Archived rows are excluded
+   * from the unique index so the same display name can be re-created
+   * after archiving the original. Cause carries `{ siteId, name }`.
+   */
+  RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

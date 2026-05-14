@@ -525,7 +525,11 @@ export type AuditLogAction =
   | 'device.revoke'
   // ENG-065d — Operations Center payment admin gestures.
   | 'payment.retry'
-  | 'payment.mark_settled';
+  | 'payment.mark_settled'
+  // ENG-039b — restaurant table catalog admin gestures.
+  | 'restaurant_table.create'
+  | 'restaurant_table.update'
+  | 'restaurant_table.archive';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -544,7 +548,9 @@ export type AuditLogResourceType =
   // ENG-075 — hub-client terminal registry lifecycle.
   | 'device'
   // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
-  | 'payment_outbox';
+  | 'payment_outbox'
+  // ENG-039b — restaurant_tables catalog rows.
+  | 'restaurant_table';
 
 export interface AuditLogEntry {
   id: string;

@@ -123,6 +123,8 @@
     "PAYMENT_RECONCILIATION_AI_DEGRADED": "The AI tie-break was unavailable, so the matcher fell back to a manual review suggestion.",
     "PAYMENT_OUTBOX_NOT_FOUND": "That payment row no longer exists for this tenant. Refresh the Operations Center and try again.",
     "PAYMENT_OUTBOX_NOT_RETRIABLE": "This payment cannot be retried in its current status. Only declined, timed out, retrying, or dead-letter rows can go back to the queue.",
+    "RESTAURANT_TABLE_NOT_FOUND": "That table no longer exists for this tenant. Refresh the list and try again.",
+    "RESTAURANT_TABLE_NAME_DUPLICATE": "Another active table for this site already uses this name. Pick a different name or archive the existing table first.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }
