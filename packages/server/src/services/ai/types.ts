@@ -11,7 +11,8 @@ export type AIFeature =
   | 'copilot'
   | 'autoCategorize'
   | 'embeddings'
-  | 'invoiceOcr';
+  | 'invoiceOcr'
+  | 'paymentReconciliation';
 
 export interface AICompletionInput {
   feature: AIFeature;

@@ -144,6 +144,10 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-036b Chile DTE CAF ---
   'CAF_NOT_AVAILABLE',
   'CAF_EXHAUSTED',
+  // --- ENG-038c payment reconciliation matcher ---
+  'PAYMENT_RECONCILIATION_NO_MATCH',
+  'PAYMENT_RECONCILIATION_AMBIGUOUS',
+  'PAYMENT_RECONCILIATION_AI_DEGRADED',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
