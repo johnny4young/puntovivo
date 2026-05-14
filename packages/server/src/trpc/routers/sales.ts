@@ -772,8 +772,9 @@ export const salesRouter = router({
    * Invariants:
    * - Target sale must be `status='draft'` AND suspended (otherwise
    *   `SALE_CHANGE_TABLE_INVALID_STATUS`).
-   * - Same owner-or-managerOrAdmin gate as `sales.resume` — cashiers
-   *   may only move their own drafts.
+   * - Manager/admin only. Cashiers can suspend / resume their own
+   *   drafts, but moving a draft between physical tables is an
+   *   operations override.
    * - When `tableId` is non-null, the new row must belong to the
    *   tenant and be active; otherwise `RESTAURANT_TABLE_NOT_FOUND`.
    * - `suspendedLabel` is refreshed to the new table's name when
@@ -783,7 +784,7 @@ export const salesRouter = router({
    *   transaction with before/after `tableId` + the resolved table
    *   names in metadata for forensics.
    */
-  changeTable: criticalCommandProcedure
+  changeTable: criticalCommandManagerOrAdminProcedure
     .input(changeSaleTableInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db
@@ -810,19 +811,6 @@ export const salesRouter = router({
             actualStatus: existing.status,
             suspended: existing.suspendedAt !== null,
           },
-        });
-      }
-
-      const actorRole = ctx.user?.role;
-      const isOwner = existing.suspendedBy === ctx.user!.id;
-      const canOverride = actorRole === 'manager' || actorRole === 'admin';
-
-      if (!isOwner && !canOverride) {
-        throwServerError({
-          trpcCode: 'FORBIDDEN',
-          errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-          message: 'Only the cashier who suspended this sale can move it',
-          details: { operation: 'changeTable' },
         });
       }
 

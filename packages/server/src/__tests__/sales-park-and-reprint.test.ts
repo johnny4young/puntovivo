@@ -1203,7 +1203,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     it('sales.changeTable rejects a non-suspended draft with SALE_CHANGE_TABLE_INVALID_STATUS', async () => {
       const tableRowId = await seedRestaurantTable(`Mesa NotSus ${nanoid(6)}`);
       const caller = appRouter.createCaller(
-        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+        createContext(managerId, 'manager', tenantId, primarySiteId)
       );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       // Sale is a draft but has not been suspended yet.
@@ -1221,11 +1221,14 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       const secondName = `Mesa Move B ${nanoid(6)}`;
       const firstId = await seedRestaurantTable(firstName);
       const secondId = await seedRestaurantTable(secondName);
-      const caller = appRouter.createCaller(
+      const owner = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
+      const caller = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
-      await caller.sales.suspend({ saleId, tableId: firstId });
+      await owner.sales.suspend({ saleId, tableId: firstId });
       await caller.sales.changeTable({ saleId, tableId: secondId });
       const db = getDatabase();
       const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
@@ -1258,11 +1261,14 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
         `Mesa Other Site ${nanoid(6)}`,
         { siteIdOverride: secondarySiteId }
       );
-      const caller = appRouter.createCaller(
+      const owner = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
+      const caller = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
-      await caller.sales.suspend({ saleId, tableId: firstId });
+      await owner.sales.suspend({ saleId, tableId: firstId });
       await expect(
         caller.sales.changeTable({ saleId, tableId: otherSiteTableId })
       ).rejects.toMatchObject({
@@ -1276,11 +1282,14 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     it('sales.changeTable with tableId=null clears the FK but keeps the prior label intact', async () => {
       const tableName = `Mesa Detach ${nanoid(6)}`;
       const tableRowId = await seedRestaurantTable(tableName);
-      const caller = appRouter.createCaller(
+      const owner = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
+      const caller = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
-      await caller.sales.suspend({ saleId, tableId: tableRowId });
+      await owner.sales.suspend({ saleId, tableId: tableRowId });
       await caller.sales.changeTable({ saleId, tableId: null });
       const db = getDatabase();
       const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
@@ -1289,7 +1298,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       expect(stored?.suspendedLabel).toBe(tableName);
     });
 
-    it('sales.changeTable blocks a different cashier and lets manager override', async () => {
+    it('sales.changeTable blocks cashiers and lets manager override', async () => {
       const tableRowId = await seedRestaurantTable(`Mesa Override ${nanoid(6)}`);
       const altTableId = await seedRestaurantTable(`Mesa Override2 ${nanoid(6)}`);
       const owner = appRouter.createCaller(
@@ -1297,12 +1306,16 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       await owner.sales.suspend({ saleId, tableId: tableRowId });
+      await expect(
+        owner.sales.changeTable({ saleId, tableId: altTableId })
+      ).rejects.toThrowError(/administrators and managers/i);
+
       const intruder = appRouter.createCaller(
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
       );
       await expect(
         intruder.sales.changeTable({ saleId, tableId: altTableId })
-      ).rejects.toThrowError(/suspended this sale/i);
+      ).rejects.toThrowError(/administrators and managers/i);
 
       const manager = appRouter.createCaller(
         createContext(managerId, 'manager', tenantId, primarySiteId)

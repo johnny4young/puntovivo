@@ -19,15 +19,27 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Clock, MapPin, PlayCircle, RotateCw, Trash2, Users } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  Clock,
+  MapPin,
+  PlayCircle,
+  RotateCw,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
+import { TransferTableModal } from './TransferTableModal';
 
 export interface SuspendedDraftSummary {
   id: string;
@@ -68,8 +80,17 @@ export function SuspendedSalesPanel({
   const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
+  const { user } = useAuth();
+  const { currentSite } = useTenant();
+  const canTransferTables = user?.role === 'manager' || user?.role === 'admin';
 
   const [discardTarget, setDiscardTarget] = useState<
+    SuspendedDraftSummary | null
+  >(null);
+  // ENG-039c2 — the operator picks a draft to transfer to a different
+  // restaurant table. Holding the full summary (not just the id) lets
+  // `<TransferTableModal>` render the current label without re-fetching.
+  const [transferTarget, setTransferTarget] = useState<
     SuspendedDraftSummary | null
   >(null);
 
@@ -77,6 +98,23 @@ export function SuspendedSalesPanel({
     { page: 1, perPage: 50 },
     { enabled: isOpen, staleTime: 5_000 }
   );
+  // ENG-039c2 — "Cambiar mesa" is manager/admin only. Gate the CTA on
+  // both role and catalog availability so cashiers do not call the
+  // manager/admin restaurant-table read procedures from `/sales`.
+  const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
+    currentSite && canTransferTables
+      ? { siteId: currentSite.id, includeArchived: false }
+      : (undefined as never),
+    {
+      enabled: isOpen && canTransferTables && Boolean(currentSite),
+      staleTime: 5_000,
+    }
+  );
+  const restaurantTablesAvailable =
+    canTransferTables &&
+    !tableCatalogQuery.isLoading &&
+    !tableCatalogQuery.isError &&
+    (tableCatalogQuery.data?.items.length ?? 0) > 0;
 
   const discardMutation = useCriticalMutation('sales.discardDraft', {
     onSuccess: async () => {
@@ -238,7 +276,7 @@ export function SuspendedSalesPanel({
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="btn-outline"
@@ -250,6 +288,20 @@ export function SuspendedSalesPanel({
                   <PlayCircle className="h-4 w-4" />
                   {t('sales:park.resumeAction')}
                 </button>
+                {restaurantTablesAvailable && (
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setTransferTarget(draft)}
+                    data-testid="suspended-draft-transfer"
+                    aria-label={t('restaurants:transfer.ctaAriaLabel', {
+                      saleNumber: draft.saleNumber,
+                    })}
+                  >
+                    <ArrowRightLeft className="h-4 w-4" />
+                    {t('restaurants:transfer.ctaLabel')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-outline text-danger-600 hover:bg-danger-50"
@@ -281,6 +333,17 @@ export function SuspendedSalesPanel({
         cancelText={t('common:actions.cancel')}
         variant="danger"
         loading={discardMutation.isPending}
+      />
+
+      {/* ENG-039c2 — Transfer-to-table modal. The `key` forces a
+          fresh remount whenever the operator picks a different draft
+          so the modal's `useState` initializer seeds the dropdown
+          with the right starting value (the draft's current tableId)
+          without a setState-in-effect mirror. */}
+      <TransferTableModal
+        key={transferTarget?.id ?? 'transfer-closed'}
+        draft={canTransferTables ? transferTarget : null}
+        onClose={() => setTransferTarget(null)}
       />
     </>
   );
