@@ -213,7 +213,38 @@
         "status": "Estado",
         "attempts": "Intentos",
         "lastError": "Último error",
-        "createdAt": "Creado"
+        "createdAt": "Creado",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "retry": "Reintentar",
+        "retryConfirmTitle": "Reintentar este pago",
+        "retryConfirmMessage": "La fila vuelve a queued con un presupuesto de reintentos fresco. El worker la recoge en el siguiente tick.",
+        "retrySuccess": "Pago encolado para reintento",
+        "retryError": "No se pudo reintentar el pago",
+        "retryUnavailable": "Solo los pagos rechazados, vencidos, en reintento o marcados como dead letter se pueden reintentar.",
+        "markSettled": "Marcar liquidado",
+        "markSettledConfirmTitle": "Marcar este pago como liquidado",
+        "markSettledConfirmMessage": "Usa este override solo cuando el proveedor ya confirmó la liquidación por fuera. El estado pasa a liquidado y abajo puedes pegar la referencia del proveedor.",
+        "markSettledProviderTxLabel": "Identificador del proveedor (opcional)",
+        "markSettledProviderTxPlaceholder": "Deja vacío para conservar el valor actual",
+        "markSettledSuccess": "Pago marcado como liquidado",
+        "markSettledError": "No se pudo marcar el pago como liquidado",
+        "noPermission": "Solo los administradores pueden cambiar el estado de un pago",
+        "confirm": "Confirmar",
+        "cancel": "Cancelar"
+      }
+    },
+    "breakdown": {
+      "title": "Volumen por rail y estado",
+      "description": "Conteos y montos agregados por rail en la ventana reciente.",
+      "emptyState": "No hay actividad de pagos en los últimos {{days}} días.",
+      "windowDays": "Últimos {{days}} días",
+      "columns": {
+        "rail": "Rail",
+        "status": "Estado",
+        "count": "Cantidad",
+        "amount": "Monto"
       }
     },
     "settings": {

@@ -27,6 +27,11 @@ vi.mock('@/lib/trpc', () => ({
       },
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
       authority: { status: { invalidate: vi.fn() } },
+      payments: {
+        peekOutbox: { invalidate: vi.fn() },
+        reconciliation: { invalidate: vi.fn() },
+        methodBreakdown: { invalidate: vi.fn() },
+      },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
       cb({ peripherals: { list: () => ({ data: [], isLoading: false }) } }),
@@ -115,6 +120,19 @@ vi.mock('@/lib/trpc', () => ({
       },
       peekOutbox: {
         useQuery: () => ({ data: [], isLoading: false, error: null }),
+      },
+      methodBreakdown: {
+        useQuery: () => ({
+          data: { windowDays: 7, entries: [] },
+          isLoading: false,
+          error: null,
+        }),
+      },
+      retryOutbox: {
+        useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
+      },
+      markSettled: {
+        useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
       },
     },
     peripherals: {

@@ -483,6 +483,23 @@ export const SERVER_ERROR_CODES = {
    * `'ai-disabled' | 'ai-budget-exceeded' | 'ai-provider-error'`.
    */
   PAYMENT_RECONCILIATION_AI_DEGRADED: 'PAYMENT_RECONCILIATION_AI_DEGRADED',
+  /**
+   * ENG-065d — admin tried to act on a `payment_outbox` row that does
+   * not exist for the active tenant. The lookup is tenant-scoped so a
+   * cross-tenant attempt collapses to NOT_FOUND (not FORBIDDEN) — never
+   * leak existence across tenants. Mirrors `HARDWARE_OUTBOX_NOT_FOUND`.
+   *
+   * Cause carries `{ tenantId, outboxId }`.
+   */
+  PAYMENT_OUTBOX_NOT_FOUND: 'PAYMENT_OUTBOX_NOT_FOUND',
+  /**
+   * ENG-065d — admin tried to retry a `payment_outbox` row that is in
+   * a terminal status the matcher should not undo via a retry gesture
+   * (today this is just `settled`; the operator can still use
+   * mark-settled to reverse-confirm if needed). Cause carries
+   * `{ outboxId, currentStatus }` for the UI hint.
+   */
+  PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

@@ -48,7 +48,9 @@
     "sale.complete": "Borrador completado",
     "ai.anomaly.detected": "Anomalía IA detectada",
     "module.toggle": "Módulo actualizado",
-    "device.revoke": "Dispositivo revocado"
+    "device.revoke": "Dispositivo revocado",
+    "payment.retry": "Reintento de pago encolado",
+    "payment.mark_settled": "Pago marcado como liquidado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -61,7 +63,8 @@
     "user": "Usuario",
     "cashier": "Cajero",
     "tenant_module": "Módulo del inquilino",
-    "device": "Dispositivo"
+    "device": "Dispositivo",
+    "payment_outbox": "Outbox de pagos"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

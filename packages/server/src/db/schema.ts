@@ -119,6 +119,14 @@ export const auditLogActionEnum = [
   // ENG-075 — Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
+  // ENG-065d — Operations Center payment reconciliation admin gestures.
+  // `payment.retry` resets a `payment_outbox` row back to `queued` so
+  // the worker re-dispatches it. `payment.mark_settled` is a manual
+  // override the operator uses when the provider already confirmed
+  // settlement out-of-band. Both rows carry the row's prior status +
+  // attempts in `before` so forensics can replay the lifecycle.
+  'payment.retry',
+  'payment.mark_settled',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -142,6 +150,8 @@ export const auditLogResourceTypeEnum = [
   'tenant_module',
   // ENG-075 — hub-client terminal registry lifecycle.
   'device',
+  // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
+  'payment_outbox',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

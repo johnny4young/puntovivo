@@ -522,7 +522,10 @@ export type AuditLogAction =
   // ENG-068 — module activation kernel toggle audit row.
   | 'module.toggle'
   // ENG-075 — hub-client terminal revocation.
-  | 'device.revoke';
+  | 'device.revoke'
+  // ENG-065d — Operations Center payment admin gestures.
+  | 'payment.retry'
+  | 'payment.mark_settled';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -539,7 +542,9 @@ export type AuditLogResourceType =
   // ENG-068 — module activation kernel resource type.
   | 'tenant_module'
   // ENG-075 — hub-client terminal registry lifecycle.
-  | 'device';
+  | 'device'
+  // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
+  | 'payment_outbox';
 
 export interface AuditLogEntry {
   id: string;

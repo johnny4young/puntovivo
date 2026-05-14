@@ -39,3 +39,45 @@ export const updatePaymentRailSettingsInput = z.object({
 export type UpdatePaymentRailSettingsInput = z.infer<
   typeof updatePaymentRailSettingsInput
 >;
+
+/**
+ * ENG-065d — input for admin `payments.retryOutbox`. The row id is
+ * narrowed at the procedure boundary by a tenant-scoped lookup; the
+ * Zod-level `nanoid` shape just rejects empty strings.
+ */
+export const retryPaymentOutboxInput = z.object({
+  outboxId: z.string().min(1).max(64),
+});
+export type RetryPaymentOutboxInput = z.infer<typeof retryPaymentOutboxInput>;
+
+/**
+ * ENG-065d — input for admin `payments.markSettled`. The optional
+ * `providerTransactionId` lets the operator paste a provider-portal
+ * value at override time; an empty string is normalised to omitted
+ * (no update on the column).
+ */
+export const markPaymentOutboxSettledInput = z.object({
+  outboxId: z.string().min(1).max(64),
+  providerTransactionId: z
+    .string()
+    .trim()
+    .max(256)
+    .transform(value => (value.length === 0 ? undefined : value))
+    .optional(),
+});
+export type MarkPaymentOutboxSettledInput = z.infer<
+  typeof markPaymentOutboxSettledInput
+>;
+
+/**
+ * ENG-065d — input for `payments.methodBreakdown`. `windowDays` bounds
+ * the aggregation window (defaults to 7 days; max 90 to keep the query
+ * lightweight). The router groups by `(rail_id, status)` so the panel
+ * renders one row per bucket.
+ */
+export const paymentMethodBreakdownInput = z.object({
+  windowDays: z.number().int().min(1).max(90).default(7),
+});
+export type PaymentMethodBreakdownInput = z.infer<
+  typeof paymentMethodBreakdownInput
+>;
