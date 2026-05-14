@@ -82,6 +82,13 @@ export type CompleteSaleInput =
       discountAmount?: number;
       status: FreshSaleStatus;
       notes?: string | null;
+      /**
+       * ENG-039c — optional restaurant_tables FK captured at draft open
+       * time. Persisted on the new sale row when present. The router
+       * validates tenant scope + active flag before invoking the
+       * service.
+       */
+      tableId?: string | null;
     }
   | {
       mode: 'fromDraft';

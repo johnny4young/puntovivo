@@ -169,6 +169,13 @@
       "when": 1783296000000,
       "tag": "0023_restaurant_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1783382400000,
+      "tag": "0024_sales_table_id",
+      "breakpoints": true
     }
   ]
 }

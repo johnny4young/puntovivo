@@ -19,6 +19,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'sale.price_override',
   'sale.park',
   'sale.resume',
+  'sale.changeTable',
   'sale.reprint',
   'sale.complete',
   'purchase.void',

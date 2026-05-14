@@ -439,6 +439,32 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  if (entry.action === 'sale.changeTable') {
+    const saleNumber =
+      entry.metadata && typeof entry.metadata.saleNumber === 'string'
+        ? entry.metadata.saleNumber
+        : entry.resourceId;
+    const from =
+      entry.metadata && typeof entry.metadata.priorTableName === 'string'
+        ? entry.metadata.priorTableName
+        : entry.before && typeof entry.before.suspendedLabel === 'string'
+          ? entry.before.suspendedLabel
+          : t('summary.saleChangeTableNoTable');
+    const to =
+      entry.metadata && typeof entry.metadata.nextTableName === 'string'
+        ? entry.metadata.nextTableName
+        : entry.after && entry.after.tableId === null
+          ? t('summary.saleChangeTableNoTable')
+          : entry.after && typeof entry.after.suspendedLabel === 'string'
+            ? entry.after.suspendedLabel
+            : t('summary.saleChangeTableNoTable');
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.saleChangeTable', { saleNumber, from, to })}
+      </span>
+    );
+  }
+
   if (entry.action === 'sale.reprint') {
     const saleNumber =
       (entry.before && typeof entry.before.saleNumber === 'string'

@@ -95,6 +95,10 @@
       "selectPlaceholder": "Pick a table",
       "customOption": "— Custom label —",
       "emptyHint": "No tables in the catalog. Type a custom label or ask an admin to add one."
+    },
+    "draftStatus": {
+      "badgeLabel": "{{tableName}}",
+      "badgeTooltip": "Open draft on {{tableName}}"
     }
   }
 }

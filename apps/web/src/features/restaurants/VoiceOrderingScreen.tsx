@@ -110,6 +110,14 @@ export function VoiceOrderingScreen({
   const tableLabelMatchesCatalog =
     !useCatalogDropdown ||
     tableCatalog.some(row => row.name === tableLabel);
+  // ENG-039c — resolve the picked table's id from the label so we can
+  // persist the FK alongside the denormalized free-text label. The
+  // dropdown stores the table NAME (back-compat with ENG-039b);
+  // looking up the id on save keeps a single source of truth without
+  // doubling the controlled state.
+  const resolvedPickedTableId = useCatalogDropdown
+    ? tableCatalog.find(row => row.name === tableLabel)?.id ?? null
+    : null;
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
@@ -252,9 +260,18 @@ export function VoiceOrderingScreen({
         status: 'draft',
         discountAmount: 0,
         notes: buildAggregatedNotes(),
+        // ENG-039c — pass the FK when the operator picked a row from
+        // the catalog dropdown. Free-text fallback keeps `tableId`
+        // undefined and the server falls back to the label-only
+        // legacy contract.
+        ...(resolvedPickedTableId ? { tableId: resolvedPickedTableId } : {}),
       });
       pendingDraftId = draft.id;
-      await suspendMutation.mutateAsync({ saleId: draft.id, label: trimmedLabel });
+      await suspendMutation.mutateAsync({
+        saleId: draft.id,
+        label: trimmedLabel,
+        ...(resolvedPickedTableId ? { tableId: resolvedPickedTableId } : {}),
+      });
       pendingDraftId = null;
       await utils.sales.listDrafts.invalidate();
       await utils.cashSessions.getActive.invalidate();

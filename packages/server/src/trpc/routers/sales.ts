@@ -26,6 +26,7 @@ import {
 import {
   cashSessions,
   customers,
+  restaurantTables,
   saleItems,
   saleReturns,
   sales,
@@ -34,6 +35,7 @@ import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
+  changeSaleTableInput,
   completeDraftInput,
   createSaleInput,
   discardDraftInput,
@@ -79,6 +81,72 @@ function buildLifecycleContext(ctx: Context): CompleteSaleContext {
       (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
     log: ctx.req?.server?.log,
   };
+}
+
+/**
+ * ENG-039c — resolve a `restaurant_tables` row for the tenant, asserting
+ * it belongs to `ctx.tenantId` and is active. Cross-tenant hits collapse
+ * to `RESTAURANT_TABLE_NOT_FOUND` so the lookup never leaks existence.
+ * Archived rows are also rejected so a draft cannot anchor to a table
+ * that the operator removed from the dropdown.
+ */
+async function resolveActiveRestaurantTable(
+  db: Context['db'],
+  tenantId: string,
+  tableId: string,
+  expectedSiteId?: string | null
+): Promise<{ id: string; name: string; siteId: string }> {
+  const row = await db
+    .select({
+      id: restaurantTables.id,
+      name: restaurantTables.name,
+      siteId: restaurantTables.siteId,
+      isActive: restaurantTables.isActive,
+    })
+    .from(restaurantTables)
+    .where(
+      and(
+        eq(restaurantTables.id, tableId),
+        eq(restaurantTables.tenantId, tenantId)
+      )
+    )
+    .get();
+  if (
+    !row ||
+    row.isActive === false ||
+    (expectedSiteId !== null &&
+      expectedSiteId !== undefined &&
+      row.siteId !== expectedSiteId)
+  ) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+      message: `Restaurant table ${tableId} not found for this tenant`,
+      details: { tenantId, tableId, siteId: expectedSiteId ?? null },
+    });
+  }
+  return { id: row.id, name: row.name, siteId: row.siteId };
+}
+
+async function resolveSaleSiteId(
+  db: Context['db'],
+  tenantId: string,
+  cashSessionId: string | null,
+  fallbackSiteId: string | null
+): Promise<string | null> {
+  if (!cashSessionId) {
+    return fallbackSiteId;
+  }
+
+  const session = await db
+    .select({ siteId: cashSessions.siteId })
+    .from(cashSessions)
+    .where(
+      and(eq(cashSessions.id, cashSessionId), eq(cashSessions.tenantId, tenantId))
+    )
+    .get();
+
+  return session?.siteId ?? fallbackSiteId;
 }
 
 function getRevenueEligibleSaleConditions(tenantId: string) {
@@ -239,6 +307,19 @@ export const salesRouter = router({
    * input to the use-case shape and returns the resulting record.
    */
   create: criticalCommandProcedure.input(createSaleInput).mutation(async ({ ctx, input }) => {
+    // ENG-039c — when the renderer passes a tableId (voice-ordering
+    // screen), resolve + validate it against the tenant/site catalog BEFORE
+    // entering the transactional sale flow so a cross-tenant or
+    // archived FK fails fast with a clear error code.
+    if (input.tableId) {
+      await resolveActiveRestaurantTable(
+        ctx.db,
+        ctx.tenantId,
+        input.tableId,
+        ctx.siteId
+      );
+    }
+
     const result = await completeSale(
       {
         db: ctx.db,
@@ -261,6 +342,7 @@ export const salesRouter = router({
         discountAmount: input.discountAmount,
         status: input.status,
         notes: input.notes,
+        tableId: input.tableId,
       }
     );
     return result.sale;
@@ -395,15 +477,47 @@ export const salesRouter = router({
       });
     }
 
-    const now = new Date().toISOString();
-    const label = input.label && input.label.length > 0 ? input.label : null;
+    // ENG-039c — when the caller passes a tableId, resolve it first so
+    // (a) cross-tenant / archived FKs fail before the UPDATE lands and
+    // (b) we can refresh `suspendedLabel` from the catalog row to keep
+    // the panel display in sync with the FK. A free-text label keeps
+    // working when no tableId is supplied.
+    const saleSiteId = input.tableId
+      ? await resolveSaleSiteId(
+          ctx.db,
+          ctx.tenantId,
+          existing.cashSessionId,
+          ctx.siteId
+        )
+      : null;
+    const resolvedTable = input.tableId
+      ? await resolveActiveRestaurantTable(
+          ctx.db,
+          ctx.tenantId,
+          input.tableId,
+          saleSiteId
+        )
+      : null;
 
-    ctx.db.transaction(tx => {
+    const now = new Date().toISOString();
+    const label = resolvedTable
+      ? resolvedTable.name
+      : input.label && input.label.length > 0
+        ? input.label
+        : null;
+
+    // ENG-039c — await the transaction so a constraint violation in
+    // the audit-log write surfaces to the tRPC caller instead of
+    // becoming an unhandled rejection. The pre-ENG-039c code missed
+    // the await; fixing it inline because this slice already touches
+    // the procedure body.
+    await ctx.db.transaction(tx => {
       tx.update(sales)
         .set({
           suspendedAt: now,
           suspendedBy: ctx.user!.id,
           suspendedLabel: label,
+          tableId: resolvedTable ? resolvedTable.id : existing.tableId ?? null,
           syncStatus: 'pending',
           syncVersion: (existing.syncVersion ?? 0) + 1,
           updatedAt: now,
@@ -422,13 +536,18 @@ export const salesRouter = router({
           status: existing.status,
           suspendedAt: existing.suspendedAt,
           suspendedLabel: existing.suspendedLabel,
+          tableId: existing.tableId,
         },
         after: {
           status: 'draft',
           suspendedAt: now,
           suspendedLabel: label,
+          tableId: resolvedTable ? resolvedTable.id : existing.tableId ?? null,
         },
-        metadata: label ? { label } : null,
+        metadata: {
+          ...(label ? { label } : {}),
+          ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
+        },
       });
     });
 
@@ -584,6 +703,11 @@ export const salesRouter = router({
           suspendedAt: sales.suspendedAt,
           suspendedBy: sales.suspendedBy,
           suspendedLabel: sales.suspendedLabel,
+          // ENG-039c — surface the restaurant table linkage so the
+          // suspended-sales panel can render a resolved badge instead
+          // of relying on the denormalized free-text label.
+          tableId: sales.tableId,
+          tableName: restaurantTables.name,
           createdBy: sales.createdBy,
           cashSessionId: sales.cashSessionId,
           createdAt: sales.createdAt,
@@ -592,6 +716,13 @@ export const salesRouter = router({
         })
         .from(sales)
         .leftJoin(customers, eq(sales.customerId, customers.id))
+        .leftJoin(
+          restaurantTables,
+          and(
+            eq(sales.tableId, restaurantTables.id),
+            eq(restaurantTables.tenantId, ctx.tenantId)
+          )
+        )
         .where(where)
         .orderBy(desc(sales.suspendedAt))
         .limit(perPage)
@@ -632,6 +763,156 @@ export const salesRouter = router({
         saleId: input.saleId,
       });
       return { id: result.id, status: result.status };
+    }),
+
+  /**
+   * ENG-039c — Move a suspended draft between restaurant tables, or
+   * detach it back to free-text mode by passing `tableId: null`.
+   *
+   * Invariants:
+   * - Target sale must be `status='draft'` AND suspended (otherwise
+   *   `SALE_CHANGE_TABLE_INVALID_STATUS`).
+   * - Same owner-or-managerOrAdmin gate as `sales.resume` — cashiers
+   *   may only move their own drafts.
+   * - When `tableId` is non-null, the new row must belong to the
+   *   tenant and be active; otherwise `RESTAURANT_TABLE_NOT_FOUND`.
+   * - `suspendedLabel` is refreshed to the new table's name when
+   *   moving onto a table; when detaching (`tableId: null`) we keep
+   *   any prior free-text label so the panel display stays stable.
+   * - Emits a `sale.changeTable` audit row inside the UPDATE
+   *   transaction with before/after `tableId` + the resolved table
+   *   names in metadata for forensics.
+   */
+  changeTable: criticalCommandProcedure
+    .input(changeSaleTableInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'SALE_NOT_FOUND',
+          message: 'Sale not found',
+        });
+      }
+
+      if (existing.status !== 'draft' || !existing.suspendedAt) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
+          message: 'Only suspended draft sales can be moved between tables',
+          details: {
+            operation: 'changeTable',
+            actualStatus: existing.status,
+            suspended: existing.suspendedAt !== null,
+          },
+        });
+      }
+
+      const actorRole = ctx.user?.role;
+      const isOwner = existing.suspendedBy === ctx.user!.id;
+      const canOverride = actorRole === 'manager' || actorRole === 'admin';
+
+      if (!isOwner && !canOverride) {
+        throwServerError({
+          trpcCode: 'FORBIDDEN',
+          errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+          message: 'Only the cashier who suspended this sale can move it',
+          details: { operation: 'changeTable' },
+        });
+      }
+
+      const saleSiteId = input.tableId
+        ? await resolveSaleSiteId(
+            ctx.db,
+            ctx.tenantId,
+            existing.cashSessionId,
+            ctx.siteId
+          )
+        : null;
+
+      // Resolve the new table BEFORE the transaction so a cross-tenant
+      // or cross-site FK fails fast with a clean NOT_FOUND.
+      const resolvedTable = input.tableId
+        ? await resolveActiveRestaurantTable(
+            ctx.db,
+            ctx.tenantId,
+            input.tableId,
+            saleSiteId
+          )
+        : null;
+
+      // Resolve the prior table name (when one was set) for the audit
+      // metadata — useful when the operator archives the source table
+      // between the move and a future forensic read.
+      let priorTableName: string | null = null;
+      if (existing.tableId) {
+        const prior = await ctx.db
+          .select({ name: restaurantTables.name })
+          .from(restaurantTables)
+          .where(
+            and(
+              eq(restaurantTables.id, existing.tableId),
+              eq(restaurantTables.tenantId, ctx.tenantId)
+            )
+          )
+          .get();
+        priorTableName = prior?.name ?? null;
+      }
+
+      const now = new Date().toISOString();
+      const nextTableId = resolvedTable ? resolvedTable.id : null;
+      // When moving onto a real table, refresh the label so the panel
+      // display tracks the catalog row. When detaching, keep the prior
+      // free-text label intact — there is no FK-derived value to swap
+      // in, and clearing it would surprise the operator.
+      const nextLabel = resolvedTable
+        ? resolvedTable.name
+        : existing.suspendedLabel;
+
+      await ctx.db.transaction(tx => {
+        tx.update(sales)
+          .set({
+            tableId: nextTableId,
+            suspendedLabel: nextLabel,
+            syncStatus: 'pending',
+            syncVersion: (existing.syncVersion ?? 0) + 1,
+            updatedAt: now,
+          })
+          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+          .run();
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sale.changeTable',
+          resourceType: 'sale',
+          resourceId: input.saleId,
+          before: {
+            tableId: existing.tableId,
+            suspendedLabel: existing.suspendedLabel,
+          },
+          after: {
+            tableId: nextTableId,
+            suspendedLabel: nextLabel,
+          },
+          metadata: {
+            saleNumber: existing.saleNumber,
+            ...(priorTableName ? { priorTableName } : {}),
+            ...(resolvedTable ? { nextTableName: resolvedTable.name } : {}),
+            ...(existing.suspendedBy && existing.suspendedBy !== ctx.user!.id
+              ? { override: true, originalSuspendedBy: existing.suspendedBy }
+              : {}),
+          },
+        });
+      });
+
+      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),
 
   /**

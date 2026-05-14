@@ -95,6 +95,10 @@
       "selectPlaceholder": "Elige una mesa",
       "customOption": "— Etiqueta personalizada —",
       "emptyHint": "No hay mesas en el catálogo. Escribe una etiqueta o pide al administrador que cree una."
+    },
+    "draftStatus": {
+      "badgeLabel": "{{tableName}}",
+      "badgeTooltip": "Borrador abierto en {{tableName}}"
     }
   }
 }

@@ -76,6 +76,12 @@ export const createSaleInput = z.object({
    * using the dominant tender so legacy consumers keep rendering.
    */
   payments: z.array(salePaymentInput).optional(),
+  /**
+   * ENG-039c — optional restaurant table the draft is being opened on.
+   * Server validates the row belongs to the active tenant and is active
+   * before persisting the FK. Non-restaurant callers omit it.
+   */
+  tableId: z.string().min(1).optional(),
 });
 
 export const updateSaleInput = z.object({
@@ -109,6 +115,24 @@ export const returnSaleInput = z.object({
 export const suspendSaleInput = z.object({
   saleId: z.string().min(1, 'Sale ID is required'),
   label: z.string().trim().max(80).optional(),
+  /**
+   * ENG-039c — optional restaurant table FK. When present, the server
+   * validates against the tenant catalog and refreshes `suspendedLabel`
+   * to the resolved table name so the panel display stays in sync.
+   */
+  tableId: z.string().min(1).optional(),
+});
+
+/**
+ * ENG-039c — Input for `sales.changeTable`. Moves a suspended draft
+ * between restaurant tables, or detaches it back to free-text mode by
+ * passing `null`. The mutation gates on the existing owner-or-manager
+ * rule mirrored from `sales.resume`.
+ */
+export const changeSaleTableInput = z.object({
+  saleId: z.string().min(1, 'Sale ID is required'),
+  /** `null` clears the FK (back to free-text label). */
+  tableId: z.string().min(1).nullable(),
 });
 
 /** Input for `sales.resume`. Returns the full sale record + items + payments. */
@@ -206,3 +230,4 @@ export type ResumeSaleInput = z.infer<typeof resumeSaleInput>;
 export type ListDraftsInput = z.infer<typeof listDraftsInput>;
 export type DiscardDraftInput = z.infer<typeof discardDraftInput>;
 export type CompleteDraftInput = z.infer<typeof completeDraftInput>;
+export type ChangeSaleTableInput = z.infer<typeof changeSaleTableInput>;

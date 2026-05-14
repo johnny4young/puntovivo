@@ -301,15 +301,6 @@ Cosmetic or low-severity issues that do not warrant a dedicated
 `ENG-NNN` ticket. Group into a single `ENG-NNN` when you have ~5
 and want to batch them into one sprint.
 
-- `[sales][testing]` Add a dedicated component test file for
-  `apps/web/src/features/sales/SuspendedSalesPanel.tsx`. The panel
-  has a non-trivial discard-confirm flow (ConfirmModal → mutation →
-  toast), a listDrafts query mapping, and a resume callback — all
-  currently exercised only by the ENG-018b E2E round-trip. A
-  focused unit test (empty state, draft cards render, discard
-  confirm calls mutation, resume callback fires) would catch future
-  regressions without needing a full browser. Flagged by the code
-  review that landed ENG-018b. — 2026-04-23 (jy)
 - `[inventory][testing]` Investigate the flaky E2E transfer-receipt
   path where `inventory.receiveTransfer` can surface `database is
   locked` under parallel Playwright load, leaving the "Receive

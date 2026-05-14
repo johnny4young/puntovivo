@@ -10,10 +10,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, desc, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { nanoid } from 'nanoid';
 import {
   auditLogs,
   companies,
   restaurantTables,
+  sales,
   sites,
   tenants,
   users,
@@ -359,6 +361,150 @@ describe('restaurantTables.update (ENG-039b)', () => {
     // The row in tenant B stays untouched.
     const stillThere = await adminB.restaurantTables.getById({ id: row.id });
     expect(stillThere.name).toBe('Mesa B-cross');
+  });
+});
+
+describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
+  // Insert a draft sale directly so we don't have to plumb the
+  // `sales.create` mutation (which would need a cash session). The
+  // read model only needs tenant + table + status + suspended_at, so a
+  // direct INSERT is the smallest setup that exercises the query.
+  async function insertDraftOnTable(
+    tenantIdValue: string,
+    actorId: string,
+    tableRowId: string,
+    overrides: Partial<{
+      status: 'draft' | 'completed';
+      suspended: boolean;
+      suspendedAt: string;
+      total: number;
+    }> = {}
+  ): Promise<string> {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = overrides.suspendedAt ?? new Date().toISOString();
+    const suspended = overrides.suspended ?? true;
+    await db.insert(sales).values({
+      id,
+      tenantId: tenantIdValue,
+      saleNumber: `T-${id.slice(0, 6)}`,
+      tableId: tableRowId,
+      total: overrides.total ?? 25,
+      subtotal: overrides.total ?? 25,
+      taxAmount: 0,
+      discountAmount: 0,
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: overrides.status ?? 'draft',
+      createdBy: actorId,
+      suspendedAt: suspended ? now : null,
+      suspendedBy: suspended ? actorId : null,
+      suspendedLabel: suspended ? 'auto' : null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id;
+  }
+
+  it('returns each catalog row with its open draft (or null)', async () => {
+    const h = await seedHarness('list-draft-mix');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const occupied = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa Ocupada',
+    });
+    const free = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa Libre',
+    });
+    const draftSaleId = await insertDraftOnTable(h.tenantId, h.adminId, occupied.id);
+
+    const result = await caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId });
+    const occupiedRow = result.items.find(row => row.id === occupied.id);
+    const freeRow = result.items.find(row => row.id === free.id);
+
+    expect(occupiedRow?.openDraft?.saleId).toBe(draftSaleId);
+    expect(occupiedRow?.openDraft?.total).toBe(25);
+    expect(freeRow?.openDraft).toBeNull();
+  });
+
+  it('returns one catalog row when multiple open drafts point at the same table', async () => {
+    const h = await seedHarness('list-draft-dupe');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa Duplicada',
+    });
+    await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+      suspendedAt: '2026-05-14T10:00:00.000Z',
+      total: 10,
+    });
+    const newerDraftId = await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+      suspendedAt: '2026-05-14T10:05:00.000Z',
+      total: 35,
+    });
+
+    const result = await caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId });
+    const rowsForTable = result.items.filter(row => row.id === table.id);
+
+    expect(rowsForTable).toHaveLength(1);
+    expect(rowsForTable[0]?.openDraft?.saleId).toBe(newerDraftId);
+    expect(rowsForTable[0]?.openDraft?.total).toBe(35);
+  });
+
+  it('cashier read is FORBIDDEN (managerOrAdmin gate)', async () => {
+    const h = await seedHarness('list-draft-csh');
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa Csh' });
+    const cashier = appRouter.createCaller(
+      buildCtx(h.tenantId, h.cashierId, 'cashier')
+    );
+    await expect(
+      cashier.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
+    ).rejects.toBeInstanceOf(TRPCError);
+  });
+
+  it('cross-tenant draft never surfaces as the open row', async () => {
+    const a = await seedHarness('list-draft-x-a');
+    const b = await seedHarness('list-draft-x-b');
+    const adminA = appRouter.createCaller(buildCtx(a.tenantId, a.adminId, 'admin'));
+    const tableA = await adminA.restaurantTables.create({
+      siteId: a.siteId,
+      name: 'Mesa Cruz A',
+    });
+    // Insert a draft anchored to a DIFFERENT tenant's table id but
+    // recorded under tenant A. The draft lookup pins `sales.tenant_id`
+    // so a sale with a foreign-tenant table_id never
+    // surfaces as the open draft for that row.
+    const adminB = appRouter.createCaller(buildCtx(b.tenantId, b.adminId, 'admin'));
+    const tableB = await adminB.restaurantTables.create({
+      siteId: b.siteId,
+      name: 'Mesa Cruz B',
+    });
+    await insertDraftOnTable(b.tenantId, b.adminId, tableB.id);
+
+    const result = await adminA.restaurantTables.listWithDraftStatus({ siteId: a.siteId });
+    const occupiedFromA = result.items.find(row => row.id === tableA.id);
+    expect(occupiedFromA?.openDraft).toBeNull();
+  });
+
+  it('non-draft and resumed sales do not occupy the table', async () => {
+    const h = await seedHarness('list-draft-status');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa Estados',
+    });
+    // Resumed draft (suspended_at is null) and a completed sale on
+    // the same table both fall outside the open-draft filter.
+    await insertDraftOnTable(h.tenantId, h.adminId, table.id, { suspended: false });
+    await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+      status: 'completed',
+      suspended: false,
+    });
+    const result = await caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId });
+    const row = result.items.find(item => item.id === table.id);
+    expect(row?.openDraft).toBeNull();
   });
 });
 

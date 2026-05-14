@@ -555,4 +555,83 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
     expect(screen.getByTestId('voice-ordering-table-input')).toBeDefined();
     expect(screen.queryByTestId('voice-ordering-table-select')).toBeNull();
   });
+
+  // ENG-039c — picking a catalog row forwards the FK id on both
+  // sales.create AND sales.suspend so the server can persist the
+  // relationship + drive the listWithDraftStatus surface.
+  it('passes tableId on both create and suspend when a catalog row is picked', async () => {
+    restaurantTablesMock.mockReturnValue({
+      data: {
+        items: [
+          { id: 'rt-pick-1', name: 'Mesa Pick' },
+          { id: 'rt-pick-2', name: 'Mesa Other' },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    createMutateAsync.mockResolvedValue({ id: 'draft-rt-c' });
+    suspendMutateAsync.mockResolvedValue({
+      id: 'draft-rt-c',
+      suspendedLabel: 'Mesa Pick',
+    });
+    renderScreen('touch');
+
+    const select = screen.getByTestId('voice-ordering-table-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'Mesa Pick' } });
+    fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument()
+    );
+    await act(async () => {
+      lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
+    });
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+
+    await waitFor(() =>
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ tableId: 'rt-pick-1' })
+      )
+    );
+    await waitFor(() =>
+      expect(suspendMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ tableId: 'rt-pick-1', label: 'Mesa Pick' })
+      )
+    );
+  });
+
+  // ENG-039c — free-text fallback (no catalog dropdown) must NOT
+  // synthesize a tableId so non-restaurant tenants keep working as
+  // before.
+  it('omits tableId on save when the catalog is empty (free-text fallback)', async () => {
+    restaurantTablesMock.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      error: null,
+    });
+    createMutateAsync.mockResolvedValue({ id: 'draft-rt-d' });
+    suspendMutateAsync.mockResolvedValue({
+      id: 'draft-rt-d',
+      suspendedLabel: 'Mesa libre',
+    });
+    renderScreen('touch');
+
+    const input = screen.getByTestId('voice-ordering-table-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Mesa libre' } });
+    fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('voice-modal-stub')).toBeInTheDocument()
+    );
+    await act(async () => {
+      lastVoiceOnApply?.([{ selection: makeSelection(), quantity: 1, note: null }]);
+    });
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+
+    await waitFor(() => expect(createMutateAsync).toHaveBeenCalled());
+    const createPayload = createMutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(createPayload).not.toHaveProperty('tableId');
+    const suspendPayload = suspendMutateAsync.mock.calls[0]?.[0] ?? {};
+    expect(suspendPayload).not.toHaveProperty('tableId');
+    expect(suspendPayload).toMatchObject({ label: 'Mesa libre' });
+  });
 });

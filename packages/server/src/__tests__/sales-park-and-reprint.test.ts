@@ -37,6 +37,7 @@ import {
   companies,
   inventoryMovements,
   products,
+  restaurantTables,
   salePayments,
   sales,
   sites,
@@ -56,6 +57,7 @@ let managerId: string;
 let cashier1Id: string;
 let cashier2Id: string;
 let primarySiteId: string;
+let secondarySiteId: string;
 let baseUnitId: string;
 let productId: string;
 let cashier1SessionId: string;
@@ -131,6 +133,7 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     if (!seededAdmin) throw new Error('Expected seeded admin user');
     tenantId = seededAdmin.tenantId;
     adminId = seededAdmin.id;
+    const now = new Date().toISOString();
 
     const mainSite = await db
       .select()
@@ -139,6 +142,16 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       .get();
     if (!mainSite) throw new Error('Expected seeded main site');
     primarySiteId = mainSite.id;
+    secondarySiteId = nanoid();
+    await db.insert(sites).values({
+      id: secondarySiteId,
+      tenantId,
+      companyId: mainSite.companyId,
+      name: 'Secondary Restaurant Site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     const seededUnits = await db
       .select()
@@ -150,7 +163,6 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
     baseUnitId = baseUnit.id;
 
     // Seed a manager and two cashiers.
-    const now = new Date().toISOString();
     managerId = nanoid();
     cashier1Id = nanoid();
     cashier2Id = nanoid();
@@ -999,6 +1011,336 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
           paymentStatus: 'paid',
           amountReceived: 10,
         })
+      ).rejects.toThrowError(/not found/i);
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // ENG-039c — restaurant table linkage + changeTable mutation
+  // --------------------------------------------------------------------
+
+  describe('sales table FK + sales.changeTable (ENG-039c)', () => {
+    // Helper: seed a fresh restaurant_tables row on the primary site.
+    // Each test uses a unique name so the partial-unique index never
+    // blocks a parallel test.
+    async function seedRestaurantTable(
+      name: string,
+      opts: { tenantIdOverride?: string; siteIdOverride?: string; archived?: boolean } = {}
+    ): Promise<string> {
+      const db = getDatabase();
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(restaurantTables).values({
+        id,
+        tenantId: opts.tenantIdOverride ?? tenantId,
+        siteId: opts.siteIdOverride ?? primarySiteId,
+        name,
+        seatCount: 4,
+        area: null,
+        notes: null,
+        isActive: opts.archived ? false : true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    it('sales.create persists tableId when provided', async () => {
+      const tableRowId = await seedRestaurantTable(`ENG039c create ${nanoid(6)}`);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const draft = await caller.sales.create({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+        tableId: tableRowId,
+      });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, draft.id)).get();
+      expect(stored?.tableId).toBe(tableRowId);
+    });
+
+    it('sales.create with cross-tenant tableId collapses to RESTAURANT_TABLE_NOT_FOUND', async () => {
+      // Seed a sibling site under the other tenant and a table on it.
+      const db = getDatabase();
+      const otherSite = await db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(eq(sites.tenantId, otherTenantId))
+        .get();
+      if (!otherSite) throw new Error('Expected other tenant to have a site');
+      const foreignTableId = await seedRestaurantTable(
+        `ENG039c cross ${nanoid(6)}`,
+        { tenantIdOverride: otherTenantId, siteIdOverride: otherSite.id }
+      );
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      await expect(
+        caller.sales.create({
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
+          paymentMethod: 'cash',
+          paymentStatus: 'pending',
+          status: 'draft',
+          discountAmount: 0,
+          tableId: foreignTableId,
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
+      });
+    });
+
+    it('sales.create rejects an archived tableId', async () => {
+      const archivedId = await seedRestaurantTable(
+        `ENG039c archived ${nanoid(6)}`,
+        { archived: true }
+      );
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      await expect(
+        caller.sales.create({
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
+          paymentMethod: 'cash',
+          paymentStatus: 'pending',
+          status: 'draft',
+          discountAmount: 0,
+          tableId: archivedId,
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
+      });
+    });
+
+    it('sales.create rejects a same-tenant tableId from another site', async () => {
+      const otherSiteTableId = await seedRestaurantTable(
+        `ENG039c other-site ${nanoid(6)}`,
+        { siteIdOverride: secondarySiteId }
+      );
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      await expect(
+        caller.sales.create({
+          items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 }],
+          paymentMethod: 'cash',
+          paymentStatus: 'pending',
+          status: 'draft',
+          discountAmount: 0,
+          tableId: otherSiteTableId,
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
+      });
+    });
+
+    it('sales.suspend with tableId refreshes label from the catalog row name', async () => {
+      const tableName = `Mesa Suspend ${nanoid(6)}`;
+      const tableRowId = await seedRestaurantTable(tableName);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      // Pass a stale label to confirm the server refreshes it from the
+      // catalog row instead of trusting the client-side text.
+      await caller.sales.suspend({ saleId, label: 'stale-input', tableId: tableRowId });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBe(tableRowId);
+      expect(stored?.suspendedLabel).toBe(tableName);
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.action, 'sale.park')
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(audit?.metadata).toMatchObject({ tableName });
+    });
+
+    it('sales.suspend rejects a tableId outside the draft sale site', async () => {
+      const otherSiteTableId = await seedRestaurantTable(
+        `ENG039c suspend other-site ${nanoid(6)}`,
+        { siteIdOverride: secondarySiteId }
+      );
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await expect(
+        caller.sales.suspend({ saleId, tableId: otherSiteTableId })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
+      });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBeNull();
+      expect(stored?.suspendedAt).toBeNull();
+    });
+
+    it('sales.listDrafts surfaces tableId + tableName via the leftJoin', async () => {
+      const tableName = `Mesa List ${nanoid(6)}`;
+      const tableRowId = await seedRestaurantTable(tableName);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await caller.sales.suspend({ saleId, tableId: tableRowId });
+      const list = await caller.sales.listDrafts({ page: 1, perPage: 50 });
+      const draftRow = list.items.find(row => row.id === saleId);
+      expect(draftRow?.tableId).toBe(tableRowId);
+      expect(draftRow?.tableName).toBe(tableName);
+    });
+
+    it('sales.changeTable rejects a non-suspended draft with SALE_CHANGE_TABLE_INVALID_STATUS', async () => {
+      const tableRowId = await seedRestaurantTable(`Mesa NotSus ${nanoid(6)}`);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      // Sale is a draft but has not been suspended yet.
+      await expect(
+        caller.sales.changeTable({ saleId, tableId: tableRowId })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({
+          errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
+        }),
+      });
+    });
+
+    it('sales.changeTable moves the FK between tables and refreshes the label', async () => {
+      const firstName = `Mesa Move A ${nanoid(6)}`;
+      const secondName = `Mesa Move B ${nanoid(6)}`;
+      const firstId = await seedRestaurantTable(firstName);
+      const secondId = await seedRestaurantTable(secondName);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await caller.sales.suspend({ saleId, tableId: firstId });
+      await caller.sales.changeTable({ saleId, tableId: secondId });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBe(secondId);
+      expect(stored?.suspendedLabel).toBe(secondName);
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.action, 'sale.changeTable')
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(audit).toBeTruthy();
+      expect(audit?.before).toMatchObject({ tableId: firstId });
+      expect(audit?.after).toMatchObject({ tableId: secondId, suspendedLabel: secondName });
+      expect(audit?.metadata).toMatchObject({
+        priorTableName: firstName,
+        nextTableName: secondName,
+      });
+    });
+
+    it('sales.changeTable rejects a target table from another site', async () => {
+      const firstId = await seedRestaurantTable(`Mesa Same Site ${nanoid(6)}`);
+      const otherSiteTableId = await seedRestaurantTable(
+        `Mesa Other Site ${nanoid(6)}`,
+        { siteIdOverride: secondarySiteId }
+      );
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await caller.sales.suspend({ saleId, tableId: firstId });
+      await expect(
+        caller.sales.changeTable({ saleId, tableId: otherSiteTableId })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
+      });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBe(firstId);
+    });
+
+    it('sales.changeTable with tableId=null clears the FK but keeps the prior label intact', async () => {
+      const tableName = `Mesa Detach ${nanoid(6)}`;
+      const tableRowId = await seedRestaurantTable(tableName);
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await caller.sales.suspend({ saleId, tableId: tableRowId });
+      await caller.sales.changeTable({ saleId, tableId: null });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBeNull();
+      // Prior label survives so the panel display stays stable.
+      expect(stored?.suspendedLabel).toBe(tableName);
+    });
+
+    it('sales.changeTable blocks a different cashier and lets manager override', async () => {
+      const tableRowId = await seedRestaurantTable(`Mesa Override ${nanoid(6)}`);
+      const altTableId = await seedRestaurantTable(`Mesa Override2 ${nanoid(6)}`);
+      const owner = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await owner.sales.suspend({ saleId, tableId: tableRowId });
+      const intruder = appRouter.createCaller(
+        createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
+      );
+      await expect(
+        intruder.sales.changeTable({ saleId, tableId: altTableId })
+      ).rejects.toThrowError(/suspended this sale/i);
+
+      const manager = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
+      await manager.sales.changeTable({ saleId, tableId: altTableId });
+      const db = getDatabase();
+      const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
+      expect(stored?.tableId).toBe(altTableId);
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.action, 'sale.changeTable')
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(audit?.metadata).toMatchObject({
+        override: true,
+        originalSuspendedBy: cashier1Id,
+      });
+    });
+
+    it('sales.changeTable is cross-tenant isolated', async () => {
+      const tableRowId = await seedRestaurantTable(`Mesa Cross ${nanoid(6)}`);
+      const owner = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await owner.sales.suspend({ saleId, tableId: tableRowId });
+      const intruder = appRouter.createCaller(
+        createContext(otherAdminId, 'admin', otherTenantId, null)
+      );
+      await expect(
+        intruder.sales.changeTable({ saleId, tableId: null })
       ).rejects.toThrowError(/not found/i);
     });
   });
