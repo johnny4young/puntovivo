@@ -248,7 +248,8 @@
       "ai": "AI",
       "fiscal": "Fiscal",
       "payments": "Payments",
-      "modules": "Modules"
+      "modules": "Modules",
+      "restaurant": "Restaurant"
     },
     "submitting": "Saving...",
     "save": "Save Company",
@@ -547,6 +548,20 @@
         "systemDescription": "The app now follows the system appearance.",
         "themeDescription": "The app is now using the {{theme}} theme.",
         "updateError": "Unable to update theme"
+      }
+    },
+    "restaurant": {
+      "title": "Restaurant",
+      "description": "Tune the restaurant-mode behaviour that auto-applies on every checkout.",
+      "serviceChargeLabel": "Service charge rate (%)",
+      "serviceChargeHelp": "Enter 0 to disable the auto-applied service line. Cap is {{max}}%.",
+      "serviceChargeDisabledHint": "Service charge is disabled.",
+      "serviceChargeRangeError": "Enter a rate between 0 and {{max}}%.",
+      "save": "Save restaurant settings",
+      "saving": "Saving...",
+      "toast": {
+        "saved": "Restaurant settings saved",
+        "saveError": "Unable to save restaurant settings"
       }
     }
   },

@@ -248,7 +248,8 @@
       "ai": "IA",
       "fiscal": "Fiscal",
       "payments": "Pagos",
-      "modules": "Módulos"
+      "modules": "Módulos",
+      "restaurant": "Restaurante"
     },
     "submitting": "Guardando...",
     "save": "Guardar empresa",
@@ -547,6 +548,20 @@
         "systemDescription": "La app ahora sigue la apariencia del sistema.",
         "themeDescription": "La app ahora usa el tema {{theme}}.",
         "updateError": "No se pudo actualizar el tema"
+      }
+    },
+    "restaurant": {
+      "title": "Restaurante",
+      "description": "Ajusta el comportamiento de modo restaurante que se aplica automáticamente en cada cobro.",
+      "serviceChargeLabel": "Porcentaje de servicio (%)",
+      "serviceChargeHelp": "Ingresa 0 para deshabilitar la línea de servicio automática. El máximo es {{max}}%.",
+      "serviceChargeDisabledHint": "El cargo por servicio está deshabilitado.",
+      "serviceChargeRangeError": "Ingresa un porcentaje entre 0 y {{max}}%.",
+      "save": "Guardar restaurante",
+      "saving": "Guardando...",
+      "toast": {
+        "saved": "Configuración de restaurante guardada",
+        "saveError": "No se pudo guardar la configuración de restaurante"
       }
     }
   },

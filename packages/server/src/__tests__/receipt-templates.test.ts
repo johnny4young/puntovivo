@@ -790,6 +790,7 @@ describe('Receipt Templates (Iter 2)', () => {
             discount: 'Descuento',
             taxTotal: 'Impuesto',
             tip: 'Propina',
+            serviceCharge: 'Servicio',
             grandTotal: 'Total',
           },
           tendersTable: {
@@ -944,6 +945,10 @@ describe('Receipt Templates (Iter 2)', () => {
         'grandTotal',
         'notes',
         'saleNumber',
+        // ENG-039d3 — service charge fields exposed to the editor's
+        // variable autocomplete alongside the existing tip field.
+        'serviceCharge',
+        'serviceChargeRate',
         'site',
         'subtotal',
         'taxTotal',

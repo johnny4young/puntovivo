@@ -39,7 +39,14 @@ export type EditorReceiptBlock =
     }
   | {
       type: 'totalsBlock';
-      show: Array<'subtotal' | 'discount' | 'taxTotal' | 'tip' | 'grandTotal'>;
+      show: Array<
+        | 'subtotal'
+        | 'discount'
+        | 'taxTotal'
+        | 'tip'
+        | 'serviceCharge'
+        | 'grandTotal'
+      >;
     }
   | { type: 'tendersTable'; showChange?: boolean }
   | { type: 'qr'; source: string; sizeMm?: number }

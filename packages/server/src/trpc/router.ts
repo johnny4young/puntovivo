@@ -49,6 +49,7 @@ import { authorityRouter } from './routers/authority.js';
 import { paymentsRouter } from './routers/payments.js';
 import { paymentSettingsRouter } from './routers/payments-settings.js';
 import { restaurantTablesRouter } from './routers/restaurantTables.js';
+import { restaurantSettingsRouter } from './routers/restaurantSettings.js';
 
 export const appRouter = router({
   health: router({
@@ -104,6 +105,7 @@ export const appRouter = router({
   payments: paymentsRouter,
   paymentSettings: paymentSettingsRouter,
   restaurantTables: restaurantTablesRouter,
+  restaurantSettings: restaurantSettingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -30,6 +30,14 @@ export interface TenantSettings {
   taxRate: number;
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
+  /**
+   * ENG-039d3 — Restaurant-specific tenant settings. Currently a single
+   * field (`serviceChargeRate`). Defaults to `{ serviceChargeRate: 0 }`
+   * so retail tenants pay zero surface cost.
+   */
+  restaurant?: {
+    serviceChargeRate: number;
+  };
 }
 
 export interface Site {

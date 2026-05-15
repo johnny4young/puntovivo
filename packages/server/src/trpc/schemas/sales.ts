@@ -80,6 +80,15 @@ export const createSaleInput = z
     tipAmount: z.number().min(0).default(0),
     tipMethod: tipMethodEnum.optional(),
     /**
+     * ENG-039d3 — restaurant service charge / propina sugerida. Driven
+     * by `tenants.settings.restaurant.serviceChargeRate`; the server
+     * re-validates `serviceChargeAmount ≈ subtotal × rate / 100` to
+     * reject stale-form drift. `serviceChargeRate` (0–30%) is echoed
+     * onto the row so reporting can reconstruct what was active.
+     */
+    serviceChargeAmount: z.number().min(0).default(0),
+    serviceChargeRate: z.number().min(0).max(30).optional(),
+    /**
      * Phase 2 Tier-2 step 5 — optional multi-tender list. When present, the
      * server validates Σ(amount) ≈ total and persists a row per tender. The
      * legacy `paymentMethod` + `amountReceived` pair is ignored for
@@ -97,7 +106,14 @@ export const createSaleInput = z
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
-  });
+  })
+  .refine(
+    value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0,
+    {
+      message: 'serviceChargeRate requires a positive serviceChargeAmount',
+      path: ['serviceChargeAmount'],
+    }
+  );
 
 export const updateSaleInput = z.object({
   id: z.string().min(1, 'ID is required'),
@@ -227,17 +243,32 @@ export const completeDraftInput = z
     tipAmount: z.number().min(0).default(0),
     tipMethod: tipMethodEnum.optional(),
     /**
+     * ENG-039d3 — see `createSaleInput.serviceChargeAmount`. The server
+     * re-validates the amount against the live tenant rate at commit
+     * time so a long-suspended draft cannot bypass a rate change.
+     */
+    serviceChargeAmount: z.number().min(0).default(0),
+    serviceChargeRate: z.number().min(0).max(30).optional(),
+    /**
      * Optional multi-tender list. When present, Σ(amount) must equal the
-     * draft's existing total plus any tip (the caller can read the
-     * frozen subtotal/tax/discount from `sales.getById`). The server
-     * re-validates to avoid trusting stale client-side computations.
+     * draft's existing total plus any tip + service charge (the caller
+     * can read the frozen subtotal/tax/discount from `sales.getById`).
+     * The server re-validates to avoid trusting stale client-side
+     * computations.
      */
     payments: z.array(salePaymentInput).optional(),
   })
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
-  });
+  })
+  .refine(
+    value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0,
+    {
+      message: 'serviceChargeRate requires a positive serviceChargeAmount',
+      path: ['serviceChargeAmount'],
+    }
+  );
 
 // ============================================================================
 // ENG-019 — receipt reprint input

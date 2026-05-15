@@ -22,6 +22,7 @@ import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyLogoLibraryCard } from './CompanyLogoLibraryCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
+import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
 import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
@@ -197,6 +198,11 @@ const TAB_KEYS = [
   'fiscal',
   'payments',
   'modules',
+  // ENG-039d3 — restaurant settings tab (service charge today; future
+  // table / KDS preferences land here too). Always-visible to admins;
+  // the contents default to "service charge disabled" for retail
+  // tenants so the new tab is harmless when unused.
+  'restaurant',
 ] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
@@ -269,6 +275,7 @@ export function CompanyPage() {
       fiscal: t('company.tabs.fiscal'),
       payments: t('company.tabs.payments'),
       modules: t('company.tabs.modules'),
+      restaurant: t('company.tabs.restaurant'),
     }),
     [t]
   );
@@ -413,6 +420,12 @@ export function CompanyPage() {
                 {activeTab === 'payments' && (
                   <div className="space-y-6">
                     <CompanyPaymentsCard />
+                  </div>
+                )}
+
+                {activeTab === 'restaurant' && (
+                  <div className="space-y-6">
+                    <CompanyRestaurantSettingsCard />
                   </div>
                 )}
 

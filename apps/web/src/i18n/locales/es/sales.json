@@ -221,6 +221,13 @@
       "customLabel": "Monto personalizado",
       "customPlaceholder": "0.00",
       "grandTotalBreakdown": "Base {{base}} + propina {{tip}}"
+    },
+    "serviceCharge": {
+      "heading": "Servicio",
+      "helper": "Se aplica automáticamente al subtotal.",
+      "rateLabel": "Servicio ({{rate}}%)",
+      "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
+      "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
     }
   },
   "history": {

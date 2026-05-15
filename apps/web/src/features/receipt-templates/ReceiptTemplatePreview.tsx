@@ -80,6 +80,9 @@ export function ReceiptTemplatePreview({
         discount: t('editor.totalsLines.discount'),
         taxTotal: t('editor.totalsLines.taxTotal'),
         tip: t('editor.totalsLines.tip'),
+        // ENG-039d3 — service charge label paired with the receipt
+        // renderer's `serviceCharge` totals line.
+        serviceCharge: t('editor.totalsLines.serviceCharge'),
         grandTotal: t('editor.totalsLines.grandTotal'),
       },
       tendersTable: {

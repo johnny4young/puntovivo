@@ -56,11 +56,17 @@ interface AuthProviderProps {
 // against `tenant_locale_settings` and the global catalogs. Kept
 // `taxRate` as a neutral default because credit-sale / discount flows
 // still key off the JSON blob until that feature retires.
+// ENG-039d3 — `restaurant.serviceChargeRate` baseline (0 = disabled)
+// so `useTenant().tenantSettings.restaurant?.serviceChargeRate` is
+// always readable. Real value flows from the admin Company tab.
 const DEFAULT_TENANT_SETTINGS: Tenant['settings'] = {
   currency: 'USD',
   timezone: 'UTC',
   dateFormat: 'YYYY-MM-DD',
   taxRate: 0,
+  restaurant: {
+    serviceChargeRate: 0,
+  },
 };
 
 type AuthMePayload = Awaited<ReturnType<typeof vanillaClient.auth.me.query>>;
