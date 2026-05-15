@@ -310,7 +310,7 @@ export function CopilotPage() {
         </h1>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <section className="card flex min-h-[35rem] flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-line/70 px-5 py-4">
             <MessageSquareText className="h-4 w-4 text-primary-700" />

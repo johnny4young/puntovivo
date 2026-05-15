@@ -8,7 +8,7 @@
   },
   "composer": {
     "label": "Pregunta de analítica",
-    "placeholder": "Pregunta por ventas, sedes, productos, cajeros o tendencias recientes...",
+    "placeholder": "Pregúntale a tus datos...",
     "send": "Enviar pregunta"
   },
   "states": {

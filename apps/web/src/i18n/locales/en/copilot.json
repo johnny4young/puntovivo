@@ -8,7 +8,7 @@
   },
   "composer": {
     "label": "Analytics question",
-    "placeholder": "Ask about sales, sites, products, cashiers, or recent trends...",
+    "placeholder": "Ask your data anything...",
     "send": "Send question"
   },
   "states": {
