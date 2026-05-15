@@ -107,6 +107,43 @@
     "selected": "selected",
     "ofTotal": "of {{total}} total"
   },
+  "offlineGrid": {
+    "kicker": "Offline mode",
+    "title": "Don't worry — keep selling",
+    "description": "Sales are stored on this tablet and sync as soon as the connection returns.",
+    "status": {
+      "available": "Available",
+      "limited": "Limited",
+      "pending": "Pending",
+      "blocked": "Blocked"
+    },
+    "capabilities": {
+      "sell": {
+        "label": "Sell",
+        "note": "Local catalog"
+      },
+      "cash": {
+        "label": "Charge cash",
+        "note": "No restrictions"
+      },
+      "card": {
+        "label": "Charge card",
+        "note": "Pending authorization"
+      },
+      "receipt": {
+        "label": "Digital receipt",
+        "note": "Sent on reconnect"
+      },
+      "loyalty": {
+        "label": "Add loyalty points",
+        "note": "Credited on sync"
+      },
+      "inventory": {
+        "label": "Adjust inventory",
+        "note": "Requires hub connection"
+      }
+    }
+  },
   "offline": {
     "youAreOffline": "You are offline",
     "queuedChanges_one": "{{count}} queued change will sync when the connection returns.",
