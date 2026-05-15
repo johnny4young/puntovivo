@@ -1,6 +1,8 @@
 {
   "brand": {
-    "title": "Puntovivo"
+    "title": "Puntovivo",
+    "tagline": "Retail Console",
+    "workspaceKicker": "Point of sale"
   },
   "sections": {
     "overview": "Overview",

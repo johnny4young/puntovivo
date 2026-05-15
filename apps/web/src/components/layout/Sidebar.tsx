@@ -18,7 +18,6 @@ import {
   Map,
   MapPinned,
   Package,
-  Package2,
   PieChart,
   Plug,
   Receipt,
@@ -37,6 +36,7 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { cn } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -156,19 +156,21 @@ const navigationSections = [
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation('nav');
-  // ENG-079a — flat brand row. The previous `hero-surface` recipe with
-  // radial gradients + heavy shadow was chrome appropriate for hero
-  // panels, not nav. The icon is preserved so the collapsed rail
-  // (xl:w-[6.5rem]) keeps its visual anchor.
+  // ENG-080 — replace the Package2 lucide glyph with the Puntovivo
+  // BrandMark. Mark carries the orange punto accent inline so the
+  // brand identity is visible in both expanded and collapsed rail.
   return (
-    <div className={cn('flex items-center gap-2 px-2 py-1.5', collapsed && 'justify-center px-0')}>
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-primary text-primary-foreground">
-        <Package2 className="h-[1.125rem] w-[1.125rem]" />
-      </div>
+    <div className={cn('flex items-center gap-2.5 px-2 py-1.5', collapsed && 'justify-center px-0')}>
+      <BrandMark className="h-9 w-9 shrink-0" />
       {!collapsed && (
-        <h1 className="truncate text-base font-semibold text-secondary-950">
-          {t('brand.title')}
-        </h1>
+        <div className="min-w-0 leading-none">
+          <h1 className="truncate font-display text-lg tracking-[-0.02em] text-secondary-950">
+            {t('brand.title')}
+          </h1>
+          <p className="mt-1 truncate text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+            {t('brand.tagline')}
+          </p>
+        </div>
       )}
     </div>
   );

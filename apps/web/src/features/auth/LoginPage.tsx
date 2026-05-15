@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, LogIn, Package2, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
+import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
 
@@ -75,9 +76,10 @@ export function LoginPage() {
         <section className="shell-panel flex min-h-[38rem] flex-col justify-between px-6 py-8 sm:px-8 lg:min-h-full lg:px-10">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
-                <Package2 className="h-6 w-6" />
-              </div>
+              <BrandMark
+                className="h-12 w-12 shrink-0 drop-shadow-[0_18px_40px_color-mix(in_oklch,var(--primary)_30%,transparent)]"
+                label="Puntovivo"
+              />
               <div>
                 <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Puntovivo</p>
                 <h2 className="font-display text-3xl text-secondary-950">{t('login.signInHeadline')}</h2>
