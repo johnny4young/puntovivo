@@ -465,6 +465,45 @@ function AuditSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  if (entry.action === 'sale.splitDraft') {
+    const sourceSaleNumber =
+      entry.metadata && typeof entry.metadata.sourceSaleNumber === 'string'
+        ? entry.metadata.sourceSaleNumber
+        : entry.before &&
+            typeof (entry.before as Record<string, unknown>).sourceSaleId ===
+              'string'
+          ? ((entry.before as Record<string, unknown>).sourceSaleId as string)
+          : '';
+    const newSaleNumber =
+      entry.metadata && typeof entry.metadata.newSaleNumber === 'string'
+        ? entry.metadata.newSaleNumber
+        : entry.resourceId;
+    const count =
+      entry.metadata && typeof entry.metadata.movedItemCount === 'number'
+        ? entry.metadata.movedItemCount
+        : 0;
+    const tableName =
+      entry.metadata && typeof entry.metadata.tableName === 'string'
+        ? entry.metadata.tableName
+        : null;
+    return (
+      <span className="text-sm text-secondary-700">
+        {tableName
+          ? t('summary.saleSplitDraftWithTable', {
+              sourceSaleNumber,
+              newSaleNumber,
+              tableName,
+              count,
+            })
+          : t('summary.saleSplitDraft', {
+              sourceSaleNumber,
+              newSaleNumber,
+              count,
+            })}
+      </span>
+    );
+  }
+
   if (entry.action === 'sale.reprint') {
     const saleNumber =
       (entry.before && typeof entry.before.saleNumber === 'string'

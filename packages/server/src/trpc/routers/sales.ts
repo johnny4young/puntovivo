@@ -14,7 +14,8 @@
  * @module trpc/routers/sales
  */
 
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
@@ -30,6 +31,8 @@ import {
   saleItems,
   saleReturns,
   sales,
+  sequentials,
+  sites,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -45,6 +48,7 @@ import {
   listSalesInput,
   resumeSaleInput,
   returnSaleInput,
+  splitDraftInput,
   suspendSaleInput,
   updateSaleInput,
   voidSaleInput,
@@ -901,6 +905,278 @@ export const salesRouter = router({
       });
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    }),
+
+  /**
+   * ENG-039c3 — Split a suspended draft into a brand-new suspended
+   * draft, moving the chosen `saleItemIds` from the source onto the
+   * new draft. Designed for restaurant flows where one open table
+   * needs to pay in multiple checks.
+   *
+   * Invariants:
+   * - Source must be `status='draft'` AND `suspendedAt IS NOT NULL`
+   *   (otherwise `SALE_SPLIT_INVALID_STATUS`).
+   * - Manager/admin only. Splitting a draft is an operations override
+   *   (same role gate as `changeTable`).
+   * - `saleItemIds` must be non-empty and every id must currently be
+   *   bound to `sourceSaleId` for the caller's tenant. Mismatches
+   *   collapse to `SALE_SPLIT_ITEMS_NOT_FOUND` so cross-draft
+   *   existence cannot be probed.
+   * - When `tableId` is non-null, the row must belong to the tenant
+   *   and the same site as the source draft (otherwise
+   *   `RESTAURANT_TABLE_NOT_FOUND`).
+   * - Stock is NOT touched: items are merely relocated. Stock was
+   *   already debited at the source's create time and a future
+   *   `discardDraft` against either draft reverses its OWN current
+   *   items only, so the total debited stays correct.
+   * - Audit row `sale.splitDraft` lands inside the same transaction
+   *   with `resourceId = newDraftId`; `metadata.sourceSaleNumber`
+   *   carries the donor back-pointer for forensics.
+   */
+  splitDraft: criticalCommandManagerOrAdminProcedure
+    .input(splitDraftInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.id, input.sourceSaleId), eq(sales.tenantId, ctx.tenantId)))
+        .get();
+
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'SALE_NOT_FOUND',
+          message: 'Sale not found',
+        });
+      }
+
+      if (existing.status !== 'draft' || !existing.suspendedAt) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_SPLIT_INVALID_STATUS',
+          message: 'Only suspended draft sales can be split',
+          details: {
+            operation: 'splitDraft',
+            actualStatus: existing.status,
+            suspended: existing.suspendedAt !== null,
+          },
+        });
+      }
+
+      const uniqueItemIds = [...new Set(input.saleItemIds)];
+      if (uniqueItemIds.length === 0) {
+        // Zod rejects empty arrays upstream; defence-in-depth.
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_SPLIT_NO_ITEMS_SELECTED',
+          message: 'At least one sale item must be selected to split',
+        });
+      }
+
+      const sourceItems = await ctx.db
+        .select({ id: saleItems.id, saleId: saleItems.saleId })
+        .from(saleItems)
+        .where(inArray(saleItems.id, uniqueItemIds))
+        .all();
+      // Every requested id must exist AND belong to the source draft.
+      // Both "not found" and "found but wrong owner" collapse to the
+      // same error so a caller cannot use the response as an existence
+      // oracle across drafts.
+      const allBelong =
+        sourceItems.length === uniqueItemIds.length &&
+        sourceItems.every(row => row.saleId === input.sourceSaleId);
+      if (!allBelong) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+          message: 'Selected items do not belong to the source draft',
+          details: {
+            requestedCount: uniqueItemIds.length,
+            matchedCount: sourceItems.filter(
+              row => row.saleId === input.sourceSaleId
+            ).length,
+          },
+        });
+      }
+
+      const saleSiteId = await resolveSaleSiteId(
+        ctx.db,
+        ctx.tenantId,
+        existing.cashSessionId,
+        ctx.siteId
+      );
+
+      const resolvedTable = input.tableId
+        ? await resolveActiveRestaurantTable(
+            ctx.db,
+            ctx.tenantId,
+            input.tableId,
+            saleSiteId
+          )
+        : null;
+
+      // Source draft's site sequential drives the new draft's sale
+      // number. Falls back to a tenant-wide alphabetical pick when the
+      // source has no cash session link (legacy / orphan drafts).
+      const sequentialContext = await ctx.db
+        .select({
+          id: sequentials.id,
+          prefix: sequentials.prefix,
+          currentValue: sequentials.currentValue,
+          siteId: sequentials.siteId,
+        })
+        .from(sequentials)
+        .innerJoin(sites, eq(sequentials.siteId, sites.id))
+        .where(
+          and(
+            eq(sequentials.tenantId, ctx.tenantId),
+            eq(sequentials.documentType, 'sale'),
+            eq(sites.isActive, true),
+            ...(saleSiteId ? [eq(sequentials.siteId, saleSiteId)] : [])
+          )
+        )
+        .get();
+
+      if (!sequentialContext) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'SALE_SEQUENTIAL_MISSING',
+          message: 'No active sale sequential is configured for the current tenant',
+        });
+      }
+
+      const nextSequentialValue = sequentialContext.currentValue + 1;
+      const newSaleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+      const newSaleId = nanoid();
+      const now = new Date().toISOString();
+      const nextTableId = resolvedTable ? resolvedTable.id : null;
+      const newLabel = resolvedTable
+        ? resolvedTable.name
+        : input.label && input.label.length > 0
+          ? input.label
+          : null;
+
+      await ctx.db.transaction(tx => {
+        // Advance the per-site sequential first so a concurrent
+        // sales.create can't double-allocate the same saleNumber.
+        tx.update(sequentials)
+          .set({ currentValue: nextSequentialValue, updatedAt: now })
+          .where(eq(sequentials.id, sequentialContext.id))
+          .run();
+
+        tx.insert(sales)
+          .values({
+            id: newSaleId,
+            tenantId: ctx.tenantId,
+            saleNumber: newSaleNumber,
+            customerId: existing.customerId ?? null,
+            tableId: nextTableId,
+            subtotal: 0,
+            taxAmount: 0,
+            discountAmount: 0,
+            total: 0,
+            paymentMethod: existing.paymentMethod,
+            paymentStatus: 'pending',
+            status: 'draft',
+            cashSessionId: existing.cashSessionId,
+            notes: null,
+            suspendedAt: now,
+            suspendedBy: ctx.user!.id,
+            suspendedLabel: newLabel,
+            createdBy: existing.createdBy,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        // Reassign the chosen sale_items to the new draft. The AND
+        // guard re-validates the source ownership inside the
+        // transaction so a TOCTOU race (e.g. parallel completeDraft on
+        // the source) cannot smuggle items across drafts.
+        const moveResult = tx
+          .update(saleItems)
+          .set({ saleId: newSaleId })
+          .where(
+            and(
+              inArray(saleItems.id, uniqueItemIds),
+              eq(saleItems.saleId, input.sourceSaleId)
+            )
+          )
+          .run() as { changes?: number };
+        if ((moveResult.changes ?? 0) !== uniqueItemIds.length) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+            message: 'Selected items do not belong to the source draft',
+            details: {
+              requestedCount: uniqueItemIds.length,
+              movedCount: moveResult.changes ?? 0,
+            },
+          });
+        }
+
+        // Recompute aggregate totals on BOTH drafts from the post-move
+        // sale_items rows. Drizzle's better-sqlite3 dialect surfaces
+        // sql.raw aggregates as `number | null` so we coalesce to 0.
+        const recompute = (saleId: string) => {
+          const totals = tx
+            .select({
+              subtotal: sql<number>`COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0)`,
+              taxAmount: sql<number>`COALESCE(SUM(${saleItems.taxAmount}), 0)`,
+              total: sql<number>`COALESCE(SUM(${saleItems.total}), 0)`,
+            })
+            .from(saleItems)
+            .where(eq(saleItems.saleId, saleId))
+            .get();
+          tx.update(sales)
+            .set({
+              subtotal: totals?.subtotal ?? 0,
+              taxAmount: totals?.taxAmount ?? 0,
+              total: totals?.total ?? 0,
+              syncStatus: 'pending',
+              syncVersion:
+                saleId === newSaleId
+                  ? 1
+                  : (existing.syncVersion ?? 0) + 1,
+              updatedAt: now,
+            })
+            .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
+            .run();
+        };
+        recompute(newSaleId);
+        recompute(input.sourceSaleId);
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'sale.splitDraft',
+          resourceType: 'sale',
+          resourceId: newSaleId,
+          before: {
+            sourceSaleId: input.sourceSaleId,
+          },
+          after: {
+            newSaleId,
+            tableId: nextTableId,
+            suspendedLabel: newLabel,
+          },
+          metadata: {
+            sourceSaleNumber: existing.saleNumber,
+            newSaleNumber,
+            movedItemCount: uniqueItemIds.length,
+            ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
+          },
+        });
+      });
+
+      const [source, created] = await Promise.all([
+        getSaleRecord(ctx.db, ctx.tenantId, input.sourceSaleId),
+        getSaleRecord(ctx.db, ctx.tenantId, newSaleId),
+      ]);
+      return { source, created };
     }),
 
   /**

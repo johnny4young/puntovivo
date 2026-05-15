@@ -115,5 +115,28 @@
     "confirming": "Moviendo...",
     "successToast": "Orden movida a {{tableName}}",
     "successToastCleared": "Orden desvinculada de su mesa anterior"
+  },
+  "split": {
+    "ctaLabel": "Dividir cuenta",
+    "ctaAriaLabel": "Divide la cuenta de la orden {{saleNumber}}",
+    "title": "Dividir cuenta",
+    "currentLine": "Origen: {{current}}",
+    "selectItemsLabel": "Productos para la nueva cuenta",
+    "selectAll": "Seleccionar todo",
+    "clearAll": "Limpiar selección",
+    "itemRow": "{{name}} · {{quantity}} × {{unitPrice}}",
+    "emptyItems": "Este borrador no tiene productos para dividir.",
+    "selectTableLabel": "Mesa para la nueva cuenta",
+    "sameTableOption": "Misma mesa ({{tableName}})",
+    "clearOption": "— Sin mesa (etiqueta libre) —",
+    "currentSuffix": "(mesa origen)",
+    "occupiedSuffix": "(ocupada)",
+    "labelInputLabel": "Etiqueta opcional para la nueva cuenta",
+    "labelInputPlaceholder": "ej. Comensal 2",
+    "loading": "Cargando...",
+    "confirm": "Dividir cuenta",
+    "confirming": "Dividiendo...",
+    "successToast": "Nueva cuenta creada para {{label}}",
+    "errorEmptySelection": "Elige al menos un producto antes de dividir."
   }
 }

@@ -186,6 +186,25 @@ export const SERVER_ERROR_CODES = {
    */
   SALE_CHANGE_TABLE_INVALID_STATUS: 'SALE_CHANGE_TABLE_INVALID_STATUS',
 
+  // --- ENG-039c3 split-bill ---
+  /**
+   * `sales.splitDraft` requires the source sale to be a suspended draft
+   * (`status='draft'` AND `suspended_at IS NOT NULL`). Mirrors
+   * `SALE_CHANGE_TABLE_INVALID_STATUS` so the renderer can surface the
+   * same "this sale is no longer a suspended draft" copy.
+   */
+  SALE_SPLIT_INVALID_STATUS: 'SALE_SPLIT_INVALID_STATUS',
+  /** `saleItemIds` was empty after Zod parsed it. Should be caught
+   * upstream but kept for defence-in-depth. */
+  SALE_SPLIT_NO_ITEMS_SELECTED: 'SALE_SPLIT_NO_ITEMS_SELECTED',
+  /**
+   * One or more entries in `saleItemIds` either do not exist for the
+   * caller's tenant or belong to a different sale than `sourceSaleId`.
+   * Both cases collapse into the same error so the response cannot be
+   * used as a cross-draft existence oracle.
+   */
+  SALE_SPLIT_ITEMS_NOT_FOUND: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+
   // --- ENG-060 peripherals registry ---
   /** `peripherals.{update,setActive,test,remove}` could not find the row for the tenant. */
   PERIPHERAL_NOT_FOUND: 'PERIPHERAL_NOT_FOUND',

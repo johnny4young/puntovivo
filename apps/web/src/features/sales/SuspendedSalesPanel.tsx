@@ -26,6 +26,7 @@ import {
   MapPin,
   PlayCircle,
   RotateCw,
+  Split,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
+import { SplitBillModal } from './SplitBillModal';
 import { TransferTableModal } from './TransferTableModal';
 
 export interface SuspendedDraftSummary {
@@ -91,6 +93,13 @@ export function SuspendedSalesPanel({
   // restaurant table. Holding the full summary (not just the id) lets
   // `<TransferTableModal>` render the current label without re-fetching.
   const [transferTarget, setTransferTarget] = useState<
+    SuspendedDraftSummary | null
+  >(null);
+  // ENG-039c3 — same shape as transferTarget but drives the
+  // `<SplitBillModal>`. Separated so the operator can hold two modals
+  // open against different drafts in principle (in practice only one
+  // mounts at a time because `<Modal>` portals to the same DOM root).
+  const [splitTarget, setSplitTarget] = useState<
     SuspendedDraftSummary | null
   >(null);
 
@@ -302,6 +311,20 @@ export function SuspendedSalesPanel({
                     {t('restaurants:transfer.ctaLabel')}
                   </button>
                 )}
+                {restaurantTablesAvailable && draft.itemCount > 0 && (
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setSplitTarget(draft)}
+                    data-testid="suspended-draft-split"
+                    aria-label={t('restaurants:split.ctaAriaLabel', {
+                      saleNumber: draft.saleNumber,
+                    })}
+                  >
+                    <Split className="h-4 w-4" />
+                    {t('restaurants:split.ctaLabel')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-outline text-danger-600 hover:bg-danger-50"
@@ -344,6 +367,16 @@ export function SuspendedSalesPanel({
         key={transferTarget?.id ?? 'transfer-closed'}
         draft={canTransferTables ? transferTarget : null}
         onClose={() => setTransferTarget(null)}
+      />
+
+      {/* ENG-039c3 — Split-bill modal. Same key-based remount strategy
+          so the per-draft selection state seeds fresh every time. The
+          `canTransferTables` gate is reused intentionally — splitting
+          a draft is also a manager/admin operations override. */}
+      <SplitBillModal
+        key={splitTarget?.id ?? 'split-closed'}
+        draft={canTransferTables ? splitTarget : null}
+        onClose={() => setSplitTarget(null)}
       />
     </>
   );

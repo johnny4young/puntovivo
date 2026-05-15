@@ -42,6 +42,12 @@ export type CriticalCommandPath =
   // override) so the client must mint an envelope AND the panel CTA
   // must gate on role.
   | 'sales.changeTable'
+  // ENG-039c3 — split-bill: subset of items moved out of a suspended
+  // draft into a brand-new suspended draft. Server uses
+  // `criticalCommandManagerOrAdminProcedure` (manager/admin only —
+  // same rationale as `changeTable`); the client must mint an
+  // envelope AND the panel CTA must gate on role + catalog presence.
+  | 'sales.splitDraft'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'

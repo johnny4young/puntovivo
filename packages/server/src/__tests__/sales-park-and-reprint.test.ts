@@ -38,6 +38,7 @@ import {
   inventoryMovements,
   products,
   restaurantTables,
+  saleItems,
   salePayments,
   sales,
   sites,
@@ -1355,6 +1356,346 @@ describe('Sales park-and-resume + reprint (ENG-018 / ENG-019)', () => {
       await expect(
         intruder.sales.changeTable({ saleId, tableId: null })
       ).rejects.toThrowError(/not found/i);
+    });
+
+    // ENG-039c3 — split-bill mutation.
+    //
+    // Helper: build a multi-line suspended draft for the splitDraft
+    // tests. Returns the sale id and the resolved sale_items rows so
+    // each test can assert on a deterministic id subset.
+    async function createSuspendedMultiItemDraft(
+      cashierId: string
+    ): Promise<{ id: string; itemIds: string[]; saleNumber: string }> {
+      const caller = appRouter.createCaller(
+        createContext(cashierId, 'cashier', tenantId, primarySiteId)
+      );
+      const created = await caller.sales.create({
+        items: [
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
+          { productId, unitId: baseUnitId, quantity: 2, unitPrice: 15, discount: 0 },
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 20, discount: 0 },
+          { productId, unitId: baseUnitId, quantity: 1, unitPrice: 5, discount: 0 },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+      await caller.sales.suspend({ saleId: created.id, label: 'Mesa origen' });
+      const db = getDatabase();
+      const rows = await db
+        .select({ id: saleItems.id, total: saleItems.total })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, created.id))
+        .all();
+      return {
+        id: created.id,
+        itemIds: rows.map(row => row.id),
+        saleNumber: created.saleNumber,
+      };
+    }
+
+    describe('sales.splitDraft (ENG-039c3)', () => {
+      it('moves selected items to a fresh suspended draft and recomputes totals on both', async () => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+        const moved = [source.itemIds[0]!, source.itemIds[1]!];
+
+        const result = await manager.sales.splitDraft({
+          sourceSaleId: source.id,
+          saleItemIds: moved,
+          tableId: null,
+          label: 'Comensal 2',
+        });
+
+        expect(result.created.id).not.toBe(source.id);
+        expect(result.created.status).toBe('draft');
+        expect(result.created.suspendedAt).toBeTruthy();
+        expect(result.created.suspendedLabel).toBe('Comensal 2');
+        expect(result.created.tableId).toBeNull();
+        // The created draft inherits cashier + cashSession from the source.
+        expect(result.created.createdBy).toBe(cashier1Id);
+
+        const db = getDatabase();
+        const sourceItems = await db
+          .select()
+          .from(saleItems)
+          .where(eq(saleItems.saleId, source.id))
+          .all();
+        const createdItems = await db
+          .select()
+          .from(saleItems)
+          .where(eq(saleItems.saleId, result.created.id))
+          .all();
+        expect(sourceItems).toHaveLength(2);
+        expect(createdItems).toHaveLength(2);
+        expect(createdItems.map(row => row.id).sort()).toEqual([...moved].sort());
+
+        // Recomputed totals reflect the new ownership.
+        const sourceRow = await db
+          .select()
+          .from(sales)
+          .where(eq(sales.id, source.id))
+          .get();
+        const createdRow = await db
+          .select()
+          .from(sales)
+          .where(eq(sales.id, result.created.id))
+          .get();
+        // Item 3 (qty 1 × $20) + item 4 (qty 1 × $5) = $25 stays on source.
+        expect(sourceRow?.total).toBe(25);
+        // Item 1 (qty 1 × $10) + item 2 (qty 2 × $15) = $40 moves out.
+        expect(createdRow?.total).toBe(40);
+
+        // Stock invariant — total still debited (source pre-split was 5).
+        const sumQuantities = [...sourceItems, ...createdItems].reduce(
+          (acc, row) => acc + row.quantity * row.unitEquivalence,
+          0
+        );
+        expect(sumQuantities).toBe(5);
+
+        // Audit row lands with the right shape.
+        const audit = await db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, tenantId),
+              eq(auditLogs.action, 'sale.splitDraft'),
+              eq(auditLogs.resourceId, result.created.id)
+            )
+          )
+          .orderBy(desc(auditLogs.createdAt))
+          .get();
+        expect(audit).toBeDefined();
+        expect(audit?.metadata).toMatchObject({
+          sourceSaleNumber: source.saleNumber,
+          newSaleNumber: result.created.saleNumber,
+          movedItemCount: 2,
+        });
+      });
+
+      it('moving every item empties the source draft', async () => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+
+        await manager.sales.splitDraft({
+          sourceSaleId: source.id,
+          saleItemIds: source.itemIds,
+          tableId: null,
+        });
+
+        const db = getDatabase();
+        const sourceItems = await db
+          .select()
+          .from(saleItems)
+          .where(eq(saleItems.saleId, source.id))
+          .all();
+        expect(sourceItems).toHaveLength(0);
+        const sourceRow = await db
+          .select()
+          .from(sales)
+          .where(eq(sales.id, source.id))
+          .get();
+        expect(sourceRow?.total).toBe(0);
+        expect(sourceRow?.subtotal).toBe(0);
+        expect(sourceRow?.taxAmount).toBe(0);
+        // Source stays a suspended draft so the operator can choose
+        // to discard or repopulate it.
+        expect(sourceRow?.status).toBe('draft');
+        expect(sourceRow?.suspendedAt).not.toBeNull();
+      });
+
+      it('attaches the new draft to a valid restaurant table', async () => {
+        const tableRowId = await seedRestaurantTable(
+          `Mesa Split ${nanoid(6)}`
+        );
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+
+        const result = await manager.sales.splitDraft({
+          sourceSaleId: source.id,
+          saleItemIds: [source.itemIds[0]!],
+          tableId: tableRowId,
+        });
+
+        expect(result.created.tableId).toBe(tableRowId);
+        // suspendedLabel is refreshed to the resolved table name so
+        // the panel display stays in sync with the FK (parity with
+        // `sales.changeTable`).
+        expect(result.created.suspendedLabel).toMatch(/^Mesa Split/);
+      });
+
+      it('rejects an archived target tableId with RESTAURANT_TABLE_NOT_FOUND', async () => {
+        const archivedId = await seedRestaurantTable(
+          `Mesa Archived Split ${nanoid(6)}`,
+          { archived: true }
+        );
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!],
+            tableId: archivedId,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({
+            errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+          }),
+        });
+      });
+
+      it('rejects a target tableId from another site', async () => {
+        const otherSiteTableId = await seedRestaurantTable(
+          `Mesa Cross-Site Split ${nanoid(6)}`,
+          { siteIdOverride: secondarySiteId }
+        );
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!],
+            tableId: otherSiteTableId,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({
+            errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+          }),
+        });
+      });
+
+      it('rejects a non-suspended draft with SALE_SPLIT_INVALID_STATUS', async () => {
+        const cashier = appRouter.createCaller(
+          createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+        );
+        const created = await cashier.sales.create({
+          items: [
+            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 10, discount: 0 },
+            { productId, unitId: baseUnitId, quantity: 1, unitPrice: 5, discount: 0 },
+          ],
+          paymentMethod: 'cash',
+          paymentStatus: 'pending',
+          status: 'draft',
+          discountAmount: 0,
+        });
+        const db = getDatabase();
+        const rows = await db
+          .select({ id: saleItems.id })
+          .from(saleItems)
+          .where(eq(saleItems.saleId, created.id))
+          .all();
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: created.id,
+            saleItemIds: [rows[0]!.id],
+            tableId: null,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({
+            errorCode: 'SALE_SPLIT_INVALID_STATUS',
+          }),
+        });
+      });
+
+      it('rejects when a saleItemId belongs to a different sale (collapsed error)', async () => {
+        const sourceA = await createSuspendedMultiItemDraft(cashier1Id);
+        const sourceB = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: sourceA.id,
+            // First id is from A (valid); second is from B (foreign).
+            saleItemIds: [sourceA.itemIds[0]!, sourceB.itemIds[0]!],
+            tableId: null,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({
+            errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+          }),
+        });
+        // Neither draft was mutated — totals stayed put.
+        const db = getDatabase();
+        const aItems = await db
+          .select()
+          .from(saleItems)
+          .where(eq(saleItems.saleId, sourceA.id))
+          .all();
+        const bItems = await db
+          .select()
+          .from(saleItems)
+          .where(eq(saleItems.saleId, sourceB.id))
+          .all();
+        expect(aItems).toHaveLength(4);
+        expect(bItems).toHaveLength(4);
+      });
+
+      it('rejects an unknown saleItemId with the same collapsed error code', async () => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!, 'non-existent-id'],
+            tableId: null,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({
+            errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+          }),
+        });
+      });
+
+      it('blocks a cashier caller (manager/admin only)', async () => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const cashier = appRouter.createCaller(
+          createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+        );
+        await expect(
+          cashier.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!],
+            tableId: null,
+          })
+        ).rejects.toBeInstanceOf(TRPCError);
+      });
+
+      it('is cross-tenant isolated', async () => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const intruder = appRouter.createCaller(
+          createContext(otherAdminId, 'admin', otherTenantId, null)
+        );
+        await expect(
+          intruder.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!],
+            tableId: null,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({ errorCode: 'SALE_NOT_FOUND' }),
+        });
+      });
     });
   });
 });

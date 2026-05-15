@@ -531,7 +531,11 @@ export type AuditLogAction =
   | 'restaurant_table.update'
   | 'restaurant_table.archive'
   // ENG-039c — restaurant table FK move on a suspended draft.
-  | 'sale.changeTable';
+  | 'sale.changeTable'
+  // ENG-039c3 — split-bill: subset of items moved out of a suspended
+  // draft into a brand-new suspended draft. resourceId references the
+  // new draft; metadata.sourceSaleNumber names the donor.
+  | 'sale.splitDraft';
 
 export type AuditLogResourceType =
   | 'transfer_order'
