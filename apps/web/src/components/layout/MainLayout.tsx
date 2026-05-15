@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { OfflineStatusBanner } from './OfflineStatusBanner';
+import { WhatsNewOverlay } from '@/features/whats-new/WhatsNewOverlay';
 import { cn } from '@/lib/utils';
 
 export function MainLayout() {
@@ -31,6 +32,11 @@ export function MainLayout() {
           <Outlet />
         </main>
       </div>
+      {/* ENG-092 — per-release announcement overlay. Surfaces once
+        the user has logged in and the whatsNew.listUnseen query
+        returns rows; persists dismissals via markSeen so the same
+        entry does not reappear. */}
+      <WhatsNewOverlay />
     </div>
   );
 }
