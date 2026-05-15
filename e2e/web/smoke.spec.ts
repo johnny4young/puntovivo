@@ -7,6 +7,21 @@ import {
   openUserMenu,
 } from './support/app';
 
+const setupRouteLabels = new Set([
+  'Providers',
+  'Categories',
+  'Locations',
+  'Company',
+  'Sites',
+  'Sequentials',
+  'Geography',
+  'Customer Catalogs',
+  'Units',
+  'VAT Rates',
+  'Users',
+  'Audit log',
+]);
+
 const adminRoutes = [
   {
     label: 'Dashboard',
@@ -67,6 +82,14 @@ test.describe('web smoke', () => {
     await loginAs(page, 'admin');
 
     for (const route of adminRoutes) {
+      if (setupRouteLabels.has(route.label)) {
+        const setupLink = page.getByRole('link', { name: route.label });
+        if ((await setupLink.count()) === 0) {
+          await page.getByRole('button', { name: 'Setup' }).click();
+          await expect(setupLink).toBeVisible();
+        }
+      }
+
       await page.getByRole('link', { name: route.label }).click();
       await expect(page).toHaveURL(new RegExp(`${route.path}$`));
       await expect(await route.assertion(page)).toBeVisible();

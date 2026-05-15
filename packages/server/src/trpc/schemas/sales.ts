@@ -135,6 +135,32 @@ export const changeSaleTableInput = z.object({
   tableId: z.string().min(1).nullable(),
 });
 
+/**
+ * ENG-039c3 — Input for `sales.splitDraft`. Moves the chosen sale items
+ * out of `sourceSaleId` into a brand-new suspended draft so the
+ * operator can bill multiple guests separately. v1 moves items at full
+ * quantity; partial-quantity splits stay deferred for a later slice.
+ *
+ * - `saleItemIds` must be non-empty and every id must currently belong
+ *   to the source draft. Mismatches collapse to a single error code so
+ *   we do not leak cross-draft existence.
+ * - `tableId` is the FK for the NEW draft. `null` leaves the new draft
+ *   free-text; non-null is validated against the active table catalog
+ *   for the source draft's site (same shape as `changeTable`).
+ * - `label` provides an optional free-text fallback when `tableId` is
+ *   null. Ignored when `tableId` resolves to a real row (the resolved
+ *   table name takes precedence so the panel display stays in sync
+ *   with the FK, matching `suspend`/`changeTable`).
+ */
+export const splitDraftInput = z.object({
+  sourceSaleId: z.string().min(1, 'Source sale ID is required'),
+  saleItemIds: z
+    .array(z.string().min(1))
+    .min(1, 'At least one sale item must be selected'),
+  tableId: z.string().min(1).nullable(),
+  label: z.string().trim().max(80).optional(),
+});
+
 /** Input for `sales.resume`. Returns the full sale record + items + payments. */
 export const resumeSaleInput = z.object({
   saleId: z.string().min(1, 'Sale ID is required'),

@@ -104,6 +104,8 @@ follow-up amendment.
 - `sales.returnSale`
 - `sales.void`
 - `sales.getForReprint` (writes counter / audit row)
+- `sales.changeTable` (ENG-039c — manager/admin restaurant transfer)
+- `sales.splitDraft` (ENG-039c3 — manager/admin restaurant split-bill)
 
 **Cash sessions**
 
@@ -136,6 +138,10 @@ follow-up amendment.
 - `users.create`
 - `users.update` (when changing `role` or `isActive`)
 - `auth.changePassword`
+
+**Module activation**
+
+- `modules.setActive` (ENG-068 — admin toggle of a tenant module)
 
 Procedures **not** in the envelope: every read query
 (`*.list`, `*.get`, `*.search`, `*.export`), every catalog mutation

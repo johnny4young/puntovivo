@@ -20,6 +20,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'sale.park',
   'sale.resume',
   'sale.changeTable',
+  'sale.splitDraft',
   'sale.reprint',
   'sale.complete',
   'purchase.void',

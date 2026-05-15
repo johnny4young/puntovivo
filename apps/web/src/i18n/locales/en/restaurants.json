@@ -115,5 +115,28 @@
     "confirming": "Moving...",
     "successToast": "Order moved to {{tableName}}",
     "successToastCleared": "Order detached from its previous table"
+  },
+  "split": {
+    "ctaLabel": "Split bill",
+    "ctaAriaLabel": "Split the bill for order {{saleNumber}}",
+    "title": "Split bill",
+    "currentLine": "Source: {{current}}",
+    "selectItemsLabel": "Items to move to the new check",
+    "selectAll": "Select all",
+    "clearAll": "Clear selection",
+    "itemRow": "{{name}} · {{quantity}} × {{unitPrice}}",
+    "emptyItems": "This draft has no items to split.",
+    "selectTableLabel": "Table for the new check",
+    "sameTableOption": "Same table ({{tableName}})",
+    "clearOption": "— No table (free-text label) —",
+    "currentSuffix": "(source table)",
+    "occupiedSuffix": "(occupied)",
+    "labelInputLabel": "Optional label for the new check",
+    "labelInputPlaceholder": "e.g. Guest 2",
+    "loading": "Loading...",
+    "confirm": "Split bill",
+    "confirming": "Splitting...",
+    "successToast": "New draft created for {{label}}",
+    "errorEmptySelection": "Pick at least one item before splitting."
   }
 }

@@ -63,6 +63,11 @@ export async function getSaleRecord(
       suspendedAt: sales.suspendedAt,
       suspendedBy: sales.suspendedBy,
       suspendedLabel: sales.suspendedLabel,
+      // ENG-039c — restaurant table FK. The column existed on the row
+      // since ENG-039c but the read shape never exposed it; surfaced
+      // here so consumers (split-bill UI, future restaurant detail
+      // surfaces) can read the FK without a second round-trip.
+      tableId: sales.tableId,
       // ENG-019 — reprint counters drive the "reimpresa N veces" banner.
       reprintCount: sales.reprintCount,
       lastReprintedAt: sales.lastReprintedAt,

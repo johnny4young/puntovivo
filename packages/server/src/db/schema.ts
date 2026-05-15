@@ -139,6 +139,12 @@ export const auditLogActionEnum = [
   // captures the prior + post tableId so forensics can reconstruct
   // table occupancy timelines.
   'sale.changeTable',
+  // ENG-039c3 — `sales.splitDraft` carves a subset of items out of a
+  // suspended draft into a brand-new suspended draft so the operator
+  // can bill guests separately. Audit row's `resourceId` is the NEW
+  // draft id (the forensic primary); `metadata.sourceSaleNumber`
+  // carries the back-pointer to the donor draft.
+  'sale.splitDraft',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
