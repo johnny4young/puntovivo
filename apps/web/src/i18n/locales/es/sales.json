@@ -115,6 +115,7 @@
     },
     "form": {
       "title": "Abrir caja",
+      "kicker": "Apertura de caja",
       "cancel": "Cancelar",
       "confirm": "Abrir caja",
       "opening": "Abriendo...",

@@ -115,6 +115,7 @@
     },
     "form": {
       "title": "Open cash session",
+      "kicker": "Open register",
       "cancel": "Cancel",
       "confirm": "Open session",
       "opening": "Opening...",

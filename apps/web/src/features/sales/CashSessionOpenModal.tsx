@@ -1,6 +1,7 @@
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { ModalButton } from '@/components/form-controls/Modal';
+import { Overlay } from '@/components/overlay/Overlay';
 import { formatCurrency } from '@/lib/utils';
 import type { CashSessionDenomination, RegisterAssignment } from '@/types';
 import {
@@ -73,11 +74,16 @@ export function CashSessionOpenModal({
     shouldShowMismatch && !isBalanced ? t('cashSession.form.mismatch') : null;
 
   return (
-    <Modal
+    <Overlay
       isOpen={isOpen}
       onClose={onClose}
       size="lg"
+      kicker={t('cashSession.form.kicker', { defaultValue: 'Apertura de caja' })}
       title={t('cashSession.form.title')}
+      description={t('cashSession.form.description', {
+        defaultValue:
+          'Cuenta el efectivo inicial por denominación. El total debe coincidir con la base de apertura antes de habilitar la caja.',
+      })}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
@@ -219,6 +225,6 @@ export function CashSessionOpenModal({
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>
-    </Modal>
+    </Overlay>
   );
 }
