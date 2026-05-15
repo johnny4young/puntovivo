@@ -133,6 +133,7 @@
     },
     "closeForm": {
       "title": "Cerrar caja",
+      "kicker": "Cierre de caja",
       "cancel": "Cancelar",
       "confirm": "Cerrar caja",
       "closing": "Cerrando...",
