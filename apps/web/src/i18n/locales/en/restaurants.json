@@ -4,6 +4,20 @@
     "mobileHeading": "Mobile Waiter",
     "subheading": "Capture the order by voice or manual search."
   },
+  "floorMap": {
+    "kicker": "Floor",
+    "title": "Floor map",
+    "count_one": "{{count}} table",
+    "count_other": "{{count}} tables",
+    "noAreaLabel": "No zone",
+    "seatCount_one": "Seats · {{count}}",
+    "seatCount_other": "Seats · {{count}}",
+    "seatCountUnknown": "Seats not set",
+    "status": {
+      "free": "Free",
+      "archived": "Archived"
+    }
+  },
   "tableLabel": {
     "label": "Table",
     "placeholder": "e.g. Mesa 5",

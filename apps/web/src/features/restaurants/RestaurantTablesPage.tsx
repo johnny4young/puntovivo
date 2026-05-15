@@ -23,6 +23,7 @@ import {
   type RestaurantTableFormInitial,
   type RestaurantTableFormPayload,
 } from './RestaurantTableFormModal';
+import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
 
 interface RestaurantTableRow {
   id: string;
@@ -269,6 +270,13 @@ export function RestaurantTablesPage() {
 
   return (
     <>
+      <RestaurantFloorMapPreview
+        tables={items}
+        onSelect={id => {
+          const row = items.find(r => r.id === id);
+          if (row) handleOpenEdit(row);
+        }}
+      />
       <ResourcePage
         title={t('tables.title')}
         description={t('tables.description')}

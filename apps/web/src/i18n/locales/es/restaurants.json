@@ -4,6 +4,20 @@
     "mobileHeading": "Mesero Móvil",
     "subheading": "Captura la orden por voz o búsqueda manual."
   },
+  "floorMap": {
+    "kicker": "Salón",
+    "title": "Mapa del salón",
+    "count_one": "{{count}} mesa",
+    "count_other": "{{count}} mesas",
+    "noAreaLabel": "Sin zona",
+    "seatCount_one": "Cupo · {{count}} pers.",
+    "seatCount_other": "Cupo · {{count}} pers.",
+    "seatCountUnknown": "Cupo sin definir",
+    "status": {
+      "free": "Libre",
+      "archived": "Archivada"
+    }
+  },
   "tableLabel": {
     "label": "Mesa",
     "placeholder": "p. ej. Mesa 5",
