@@ -1,6 +1,7 @@
 import { Bell, Check, ChevronDown, KeyRound, LogOut, Menu, Search, User, Wifi, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BrandMark } from '@/components/brand/BrandMark';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -20,7 +21,7 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const { user, logout } = useAuth();
-  const { currentSite, isLoadingSites, sites, switchSite } = useTenant();
+  const { currentSite, currentTenant, isLoadingSites, sites, switchSite } = useTenant();
   const { t, i18n } = useTranslation(['common', 'nav']);
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -76,6 +77,34 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     setShowLanguageMenu(false);
   };
 
+  // ENG-080 — brand cluster shown on the left of the header on >=2xl
+  // viewports (where there is enough room next to the sidebar) and
+  // mirrors the design-system handoff topbar layout: BrandMark + a
+  // 3-tier label stack with kicker, workspace title, and site name.
+  // On smaller viewports the sidebar already carries the brand, so
+  // we hide it to avoid duplication.
+  const brandCluster = (
+    <div
+      data-testid="header-brand-cluster"
+      className="hidden min-w-0 shrink-0 items-center gap-3 border-r border-line/60 pr-4 2xl:flex"
+    >
+      <BrandMark className="h-10 w-10 shrink-0" label="" />
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+          {t('nav:brand.workspaceKicker')}
+        </p>
+        <p className="mt-1 truncate font-display text-sm tracking-[-0.01em] text-secondary-950">
+          {currentTenant?.name ?? t('nav:brand.title')}
+        </p>
+        {currentSite?.name && (
+          <p className="mt-1 truncate text-[0.62rem] font-medium uppercase tracking-[0.24em] text-secondary-500">
+            {currentSite.name}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-8">
       <div className="shell-panel px-4 py-3 sm:px-5">
@@ -88,6 +117,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           >
             <Menu className="h-5.5 w-5.5 shrink-0 text-current" strokeWidth={2.35} />
           </button>
+
+          {brandCluster}
 
           <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-end xl:items-center">
             <div className="relative min-w-0">

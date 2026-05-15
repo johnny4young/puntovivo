@@ -66,6 +66,9 @@
   --color-danger-600: var(--danger-600);
   --color-danger-700: var(--danger-700);
 
+  --color-brand-accent: var(--brand-accent-500);
+  --color-brand-accent-500: var(--brand-accent-500);
+
   --shadow-soft: 0 30px 80px -42px rgb(10 18 33 / 0.45);
   --shadow-card: 0 20px 60px -36px rgb(15 23 42 / 0.18);
   --shadow-panel: 0 28px 80px -44px rgb(15 23 42 / 0.24);
@@ -190,6 +193,36 @@
   --radius-md: 1rem;
   --radius-lg: 1.4rem;
   --radius-xl: 1.75rem;
+  --radius-2xl: 2rem;
+
+  /* ENG-080 — brand accent (Puntovivo "punto naranja").
+   * Sparingly applied: only the dot inside the brand mark and decorative
+   * accent strokes. Never used for status, never for primary CTAs.
+   */
+  --brand-accent-500: oklch(0.72 0.18 62);
+
+  /* ENG-080 — motion tokens lifted from the design-system handoff. The
+   * existing @theme animations already use the same easings inline; these
+   * names let components (Overlay, modal, drawer) reference the curve
+   * instead of duplicating the cubic-bezier.
+   */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+
+  /* ENG-080 — print tokens. ENG-086 consumes these for the thermal
+   * renderer; declared here so the receipt template editor can preview
+   * tokenized sizing without a separate CSS module.
+   */
+  --print-dpi: 203;
+  --print-58mm-dots: 384;
+  --print-80mm-dots: 576;
+  --print-mono-face: "JetBrains Mono", "IBM Plex Mono", "Courier New", monospace;
+  --print-min-size: 10pt;
+  --print-body-size: 11pt;
+  --print-total-size: 14pt;
 }
 
 .dark {
@@ -255,4 +288,9 @@
   --danger-500: oklch(0.72 0.18 24);
   --danger-600: oklch(0.79 0.16 24);
   --danger-700: oklch(0.86 0.13 24);
+
+  /* ENG-080 — slightly less saturated orange dot in dark mode so the
+   * brand mark does not glow against the deep ink background.
+   */
+  --brand-accent-500: oklch(0.78 0.16 62);
 }

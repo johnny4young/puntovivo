@@ -123,6 +123,45 @@
     @apply border-line-strong/45 bg-surface/96;
   }
 
+  /* --------------------------------------------------------------------------
+   * .glyph-tile
+   * ENG-080 — square leading-glyph tile used next to list rows, search bars,
+   * stat tiles, and inline indicators. 4 tones; sized via h-/w-* utilities at
+   * the call site (h-10 w-10 default, h-11 w-11 for stat-tile leading icons).
+   * ------------------------------------------------------------------------ */
+
+  .glyph-tile {
+    @apply inline-flex shrink-0 items-center justify-center rounded-[18px];
+  }
+
+  .glyph-tile-primary {
+    @apply bg-primary-50 text-primary-700;
+  }
+
+  .glyph-tile-success {
+    @apply bg-success-50 text-success-700;
+  }
+
+  .glyph-tile-warning {
+    @apply bg-warning-50 text-warning-700;
+  }
+
+  .glyph-tile-ink {
+    @apply bg-secondary-900 text-surface;
+  }
+
+  .dark .glyph-tile-primary {
+    @apply bg-primary-400/15 text-primary-200;
+  }
+
+  .dark .glyph-tile-success {
+    @apply bg-success-500/15 text-success-500;
+  }
+
+  .dark .glyph-tile-warning {
+    @apply bg-warning-500/15 text-warning-500;
+  }
+
   /* ==========================================================================
    * 3. BUTTONS
    *
