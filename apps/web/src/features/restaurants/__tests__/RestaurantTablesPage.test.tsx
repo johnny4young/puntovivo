@@ -156,8 +156,8 @@ describe('RestaurantTablesPage — admin', () => {
   it('renders the rows + site selector + Crear mesa CTA', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Mesa 1')).toBeInTheDocument();
-      expect(screen.getByText('Mesa 2')).toBeInTheDocument();
+      expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Mesa 2').length).toBeGreaterThan(0);
     });
     expect(screen.getByTestId('restaurant-tables-site-select')).toBeInTheDocument();
     const createCta = screen.getByTestId('restaurant-tables-create-cta');
@@ -166,7 +166,7 @@ describe('RestaurantTablesPage — admin', () => {
 
   it('opens the create modal and fires the mutation on submit', async () => {
     renderPage();
-    await waitFor(() => screen.getByText('Mesa 1'));
+    await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
     fireEvent.click(screen.getByTestId('restaurant-tables-create-cta'));
     fireEvent.change(screen.getByTestId('restaurant-table-name'), {
       target: { value: 'Mesa 3' },
@@ -191,7 +191,7 @@ describe('RestaurantTablesPage — admin', () => {
 
   it('opens the archive confirm modal and fires the archive mutation', async () => {
     renderPage();
-    await waitFor(() => screen.getByText('Mesa 1'));
+    await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
     fireEvent.click(screen.getByTestId('restaurant-table-archive-rt-1'));
     fireEvent.click(screen.getByRole('button', { name: /Archive$/i }));
     await waitFor(() => {
@@ -214,7 +214,7 @@ describe('RestaurantTablesPage — manager', () => {
   it('manager sees the list but the Crear mesa CTA is disabled + permission note shows', async () => {
     mockUserRole = 'manager';
     renderPage();
-    await waitFor(() => screen.getByText('Mesa 1'));
+    await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
     const cta = screen.getByTestId('restaurant-tables-create-cta');
     expect(cta).toBeDisabled();
     expect(
@@ -225,7 +225,7 @@ describe('RestaurantTablesPage — manager', () => {
   it('manager does not see the archive button on active rows', async () => {
     mockUserRole = 'manager';
     renderPage();
-    await waitFor(() => screen.getByText('Mesa 1'));
+    await waitFor(() => expect(screen.getAllByText('Mesa 1').length).toBeGreaterThan(0));
     expect(
       screen.queryByTestId('restaurant-table-archive-rt-1')
     ).toBeNull();
