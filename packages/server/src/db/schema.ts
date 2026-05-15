@@ -4523,3 +4523,156 @@ export const webhookOutboxRelations = relations(webhookOutbox, ({ one }) => ({
 
 export type WebhookOutboxRow = typeof webhookOutbox.$inferSelect;
 export type NewWebhookOutboxRow = typeof webhookOutbox.$inferInsert;
+
+// ============================================================================
+// ENG-089 — customer ledger (Phase 5 extension promoted to active backlog).
+//
+// Captures the running receivable balance for a customer as signed
+// deltas. `sale` rows credit the balance when a sale closes with the
+// `credit` payment method (ENG-090); `payment` rows debit it when the
+// customer abona; `adjustment` covers manual reconciliations.
+// Current balance = SUM(amount) WHERE customer_id = X (no denorm column
+// to avoid dual-write drift).
+// ============================================================================
+
+export const customerLedgerKindEnum = ['sale', 'payment', 'adjustment'] as const;
+export type CustomerLedgerKind = (typeof customerLedgerKindEnum)[number];
+
+export const customerLedgerEntries = sqliteTable(
+  'customer_ledger_entries',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    customerId: text('customer_id').notNull().references(() => customers.id),
+    occurredAt: text('occurred_at').notNull().default(sqliteNow),
+    kind: text('kind', { enum: customerLedgerKindEnum }).notNull(),
+    amount: real('amount').notNull(),
+    referenceSaleId: text('reference_sale_id').references(() => sales.id),
+    note: text('note'),
+    createdBy: text('created_by').references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow),
+  },
+  table => [
+    index('idx_customer_ledger_tenant_customer_occurred').on(
+      table.tenantId,
+      table.customerId,
+      table.occurredAt
+    ),
+    index('idx_customer_ledger_tenant_kind').on(table.tenantId, table.kind),
+  ]
+);
+
+export const customerLedgerEntriesRelations = relations(customerLedgerEntries, ({ one }) => ({
+  tenant: one(tenants, { fields: [customerLedgerEntries.tenantId], references: [tenants.id] }),
+  customer: one(customers, { fields: [customerLedgerEntries.customerId], references: [customers.id] }),
+  sale: one(sales, { fields: [customerLedgerEntries.referenceSaleId], references: [sales.id] }),
+}));
+
+export type CustomerLedgerEntryRow = typeof customerLedgerEntries.$inferSelect;
+export type NewCustomerLedgerEntryRow = typeof customerLedgerEntries.$inferInsert;
+
+// ============================================================================
+// ENG-091 — delivery orders (Phase 5 extension promoted to active backlog).
+//
+// Per-site delivery queue. Status flows linearly accepted → preparing →
+// dispatched → delivered, with cancelled reachable from any state.
+// Courier (domiciliario) is free-text today; a couriers catalog is a
+// follow-up.
+// ============================================================================
+
+export const deliveryOrderStatusEnum = [
+  'accepted',
+  'preparing',
+  'dispatched',
+  'delivered',
+  'cancelled',
+] as const;
+export type DeliveryOrderStatus = (typeof deliveryOrderStatusEnum)[number];
+
+export const deliveryOrders = sqliteTable(
+  'delivery_orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    siteId: text('site_id').notNull().references(() => sites.id),
+    customerId: text('customer_id').references(() => customers.id),
+    customerName: text('customer_name').notNull(),
+    customerPhone: text('customer_phone'),
+    address: text('address').notNull(),
+    addressNotes: text('address_notes'),
+    courierName: text('courier_name'),
+    status: text('status', { enum: deliveryOrderStatusEnum }).notNull().default('accepted'),
+    totalAmount: real('total_amount').notNull().default(0),
+    itemsSnapshot: text('items_snapshot'),
+    saleId: text('sale_id').references(() => sales.id),
+    acceptedAt: text('accepted_at').notNull().default(sqliteNow),
+    preparingAt: text('preparing_at'),
+    dispatchedAt: text('dispatched_at'),
+    deliveredAt: text('delivered_at'),
+    cancelledAt: text('cancelled_at'),
+    createdAt: text('created_at').notNull().default(sqliteNow),
+    updatedAt: text('updated_at').notNull().default(sqliteNow),
+  },
+  table => [
+    index('idx_delivery_orders_tenant_site_status').on(
+      table.tenantId,
+      table.siteId,
+      table.status
+    ),
+    index('idx_delivery_orders_tenant_accepted').on(table.tenantId, table.acceptedAt),
+  ]
+);
+
+export const deliveryOrdersRelations = relations(deliveryOrders, ({ one }) => ({
+  tenant: one(tenants, { fields: [deliveryOrders.tenantId], references: [tenants.id] }),
+  site: one(sites, { fields: [deliveryOrders.siteId], references: [sites.id] }),
+  customer: one(customers, { fields: [deliveryOrders.customerId], references: [customers.id] }),
+  sale: one(sales, { fields: [deliveryOrders.saleId], references: [sales.id] }),
+}));
+
+export type DeliveryOrderRow = typeof deliveryOrders.$inferSelect;
+export type NewDeliveryOrderRow = typeof deliveryOrders.$inferInsert;
+
+// ============================================================================
+// ENG-092 — whats-new entries + acknowledgements.
+//
+// Per-release announcement records. AuthProvider checks for unread
+// entries against the current user on login; the Overlay primitive
+// surfaces the most recent unseen one, and clicking "Lo vi" writes a
+// row to `whats_new_acks` so the same release is not repeated for
+// that user.
+// ============================================================================
+
+export const whatsNewEntries = sqliteTable(
+  'whats_new_entries',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').references(() => tenants.id),
+    version: text('version').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    publishedAt: text('published_at').notNull().default(sqliteNow),
+    createdAt: text('created_at').notNull().default(sqliteNow),
+  },
+  table => [
+    index('idx_whats_new_entries_tenant_published').on(table.tenantId, table.publishedAt),
+  ]
+);
+
+export const whatsNewAcks = sqliteTable(
+  'whats_new_acks',
+  {
+    id: text('id').primaryKey(),
+    entryId: text('entry_id').notNull().references(() => whatsNewEntries.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    acknowledgedAt: text('acknowledged_at').notNull().default(sqliteNow),
+  },
+  table => [
+    uniqueIndex('idx_whats_new_acks_unique').on(table.entryId, table.userId),
+  ]
+);
+
+export type WhatsNewEntryRow = typeof whatsNewEntries.$inferSelect;
+export type NewWhatsNewEntryRow = typeof whatsNewEntries.$inferInsert;
+export type WhatsNewAckRow = typeof whatsNewAcks.$inferSelect;
+export type NewWhatsNewAckRow = typeof whatsNewAcks.$inferInsert;
