@@ -104,47 +104,66 @@ export function QuotationDetailsModal({
             </span>
           </div>
 
-          <dl className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('details.createdAt')}
-              </dt>
-              <dd className="text-sm text-secondary-900">
-                {formatDateTime(detailQuery.data.createdAt)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('details.createdBy')}
-              </dt>
-              <dd className="text-sm text-secondary-900">
-                {detailQuery.data.createdByName ?? detailQuery.data.createdBy}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('details.validUntil')}
-              </dt>
-              <dd className="text-sm text-secondary-900">
-                {detailQuery.data.validUntil
-                  ? formatDate(detailQuery.data.validUntil)
-                  : t('history.validUntilNever')}
-              </dd>
-            </div>
-            {detailQuery.data.statusChangedAt && (
+          {/* ENG-085 — V7 layout: metadata sits in a card-inset with the
+            * kicker pattern, and a dedicated "Despacho · vigencia" panel
+            * elevates the validity date to a first-class signal. */}
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
+            <dl className="card-inset grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-secondary-500">
-                  {t('details.statusChangedAt')}
+                <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                  {t('details.createdAt')}
                 </dt>
-                <dd className="text-sm text-secondary-900">
-                  {formatDateTime(detailQuery.data.statusChangedAt)}
-                  {detailQuery.data.statusChangedByName
-                    ? ` — ${detailQuery.data.statusChangedByName}`
-                    : ''}
+                <dd className="mt-1 text-sm text-secondary-900">
+                  {formatDateTime(detailQuery.data.createdAt)}
                 </dd>
               </div>
-            )}
-          </dl>
+              <div>
+                <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                  {t('details.createdBy')}
+                </dt>
+                <dd className="mt-1 text-sm text-secondary-900">
+                  {detailQuery.data.createdByName ?? detailQuery.data.createdBy}
+                </dd>
+              </div>
+              {detailQuery.data.statusChangedAt && (
+                <div className="md:col-span-2">
+                  <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                    {t('details.statusChangedAt')}
+                  </dt>
+                  <dd className="mt-1 text-sm text-secondary-900">
+                    {formatDateTime(detailQuery.data.statusChangedAt)}
+                    {detailQuery.data.statusChangedByName
+                      ? ` — ${detailQuery.data.statusChangedByName}`
+                      : ''}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            <div className="card-inset relative overflow-hidden p-4">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(circle at 90% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 55%)',
+                }}
+              />
+              <div className="relative">
+                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+                  {t('details.validityKicker', { defaultValue: 'Vigencia' })}
+                </p>
+                <p className="mt-2 font-display text-xl tracking-[-0.02em] text-secondary-950">
+                  {detailQuery.data.validUntil
+                    ? formatDate(detailQuery.data.validUntil)
+                    : t('history.validUntilNever')}
+                </p>
+                <p className="mt-1 text-[0.62rem] uppercase tracking-[0.18em] text-secondary-500">
+                  {t('details.validUntil')}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {detailQuery.data.notes && (
             <div>
