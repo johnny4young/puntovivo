@@ -123,3 +123,102 @@ describe('SalePaymentModal — split payments', () => {
     expect(submittedValues.tenders).toEqual([]);
   });
 });
+
+describe('SalePaymentModal — tip / propina (ENG-039d)', () => {
+  beforeAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  it('defaults to zero tip and submits tipMethod=null', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.tipAmount).toBe(0);
+    expect(submittedValues.tipMethod).toBeNull();
+  });
+
+  it('applies the 10% preset on top of the base total and submits tipMethod=percentage', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
+
+    const user = userEvent.setup();
+    // Three preset buttons render: "No tip", "10%", "15%".
+    await user.click(screen.getByRole('button', { name: '10%' }));
+
+    // Grand total header updates to base+tip = 110.
+    await waitFor(() => {
+      expect(screen.getByText(/Base \$100\.00 \+ tip \$10\.00/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.amountReceived).toBeCloseTo(110, 2);
+    expect(submittedValues.tipAmount).toBeCloseTo(10, 2);
+    expect(submittedValues.tipMethod).toBe('percentage');
+  });
+
+  it('treats a custom tip amount as tipMethod=fixed at submit time', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 80 })} />);
+
+    const user = userEvent.setup();
+    const customInput = screen.getByLabelText('Custom amount') as HTMLInputElement;
+    fireEvent.change(customInput, { target: { value: '7' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Base \$80\.00 \+ tip \$7\.00/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.amountReceived).toBeCloseTo(87, 2);
+    expect(submittedValues.tipAmount).toBeCloseTo(7, 2);
+    expect(submittedValues.tipMethod).toBe('fixed');
+  });
+
+  it('updates the seeded split tender when a tip is added after split mode is enabled', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+
+    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    expect(firstAmount.value).toBe('100');
+
+    await user.click(screen.getByRole('button', { name: '10%' }));
+
+    await waitFor(() => {
+      expect(firstAmount.value).toBe('110');
+    });
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('seeds the first split tender at base + tip and blocks confirm until the sum matches', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
+
+    const user = userEvent.setup();
+    // Pick 10% tip first so the seeded split tender will be 110.
+    await user.click(screen.getByRole('button', { name: '10%' }));
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+
+    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    // The seeded amount mirrors base + tip (= grandTotal).
+    expect(firstAmount.value).toBe('110');
+
+    // Lower the first tender below the grand total — confirm goes
+    // disabled because Σ no longer matches `total + tip = 110`.
+    fireEvent.change(firstAmount, { target: { value: '100' } });
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+});

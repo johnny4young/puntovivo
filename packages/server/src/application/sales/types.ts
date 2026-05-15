@@ -70,6 +70,8 @@ export interface CompleteSaleItemInput {
  * the input type compact and lets the service narrow once at the entry
  * point.
  */
+export type SaleTipMethod = 'percentage' | 'fixed';
+
 export type CompleteSaleInput =
   | {
       mode: 'fresh';
@@ -82,6 +84,15 @@ export type CompleteSaleInput =
       discountAmount?: number;
       status: FreshSaleStatus;
       notes?: string | null;
+      /**
+       * ENG-039d — restaurant tip / propina. Currency amount the
+       * operator captured on top of the line totals; rolls into
+       * `total` so payment validation stays unchanged. `tipMethod`
+       * records how the UI picked it (percentage button vs custom
+       * amount) for downstream reporting.
+       */
+      tipAmount?: number;
+      tipMethod?: SaleTipMethod | null;
       /**
        * ENG-039c — optional restaurant_tables FK captured at draft open
        * time. Persisted on the new sale row when present. The router
@@ -98,6 +109,13 @@ export type CompleteSaleInput =
       amountReceived?: number;
       paymentStatus: SalePaymentStatus;
       notes?: string | null;
+      /**
+       * ENG-039d — tip captured at draft-completion time. Items are
+       * already frozen on the draft; the tip is layered onto the
+       * existing `total` and persisted alongside.
+       */
+      tipAmount?: number;
+      tipMethod?: SaleTipMethod | null;
     };
 
 /**

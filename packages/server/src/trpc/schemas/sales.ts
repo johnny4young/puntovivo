@@ -59,30 +59,45 @@ export const salePaymentInput = z.object({
   reference: z.string().trim().max(120).optional(),
 });
 
-export const createSaleInput = z.object({
-  customerId: z.string().optional(),
-  items: z.array(saleItemInput).min(1, 'At least one item is required'),
-  paymentMethod: paymentMethodEnum.default('cash'),
-  paymentStatus: paymentStatusEnum.default('pending'),
-  status: saleStatusEnum.default('completed'),
-  notes: z.string().optional(),
-  amountReceived: z.number().min(0).optional(),
-  discountAmount: z.number().min(0).default(0),
-  /**
-   * Phase 2 Tier-2 step 5 — optional multi-tender list. When present, the
-   * server validates Σ(amount) ≈ total and persists a row per tender. The
-   * legacy `paymentMethod` + `amountReceived` pair is ignored for
-   * persistence in this mode but still echoed onto `sales.paymentMethod`
-   * using the dominant tender so legacy consumers keep rendering.
-   */
-  payments: z.array(salePaymentInput).optional(),
-  /**
-   * ENG-039c — optional restaurant table the draft is being opened on.
-   * Server validates the row belongs to the active tenant and is active
-   * before persisting the FK. Non-restaurant callers omit it.
-   */
-  tableId: z.string().min(1).optional(),
-});
+/**
+ * ENG-039d — restaurant tip / propina method enum. `tipAmount` defaults
+ * to 0 so retail tenants that ignore the input pay no contract cost.
+ * The cross-field `.refine()` below rejects the "method picked, amount
+ * zeroed by stale form" bug.
+ */
+export const tipMethodEnum = z.enum(['percentage', 'fixed']);
+
+export const createSaleInput = z
+  .object({
+    customerId: z.string().optional(),
+    items: z.array(saleItemInput).min(1, 'At least one item is required'),
+    paymentMethod: paymentMethodEnum.default('cash'),
+    paymentStatus: paymentStatusEnum.default('pending'),
+    status: saleStatusEnum.default('completed'),
+    notes: z.string().optional(),
+    amountReceived: z.number().min(0).optional(),
+    discountAmount: z.number().min(0).default(0),
+    tipAmount: z.number().min(0).default(0),
+    tipMethod: tipMethodEnum.optional(),
+    /**
+     * Phase 2 Tier-2 step 5 — optional multi-tender list. When present, the
+     * server validates Σ(amount) ≈ total and persists a row per tender. The
+     * legacy `paymentMethod` + `amountReceived` pair is ignored for
+     * persistence in this mode but still echoed onto `sales.paymentMethod`
+     * using the dominant tender so legacy consumers keep rendering.
+     */
+    payments: z.array(salePaymentInput).optional(),
+    /**
+     * ENG-039c — optional restaurant table the draft is being opened on.
+     * Server validates the row belongs to the active tenant and is active
+     * before persisting the FK. Non-restaurant callers omit it.
+     */
+    tableId: z.string().min(1).optional(),
+  })
+  .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
+    message: 'tipMethod requires a positive tipAmount',
+    path: ['tipAmount'],
+  });
 
 export const updateSaleInput = z.object({
   id: z.string().min(1, 'ID is required'),
@@ -202,20 +217,27 @@ export const discardDraftInput = z.object({
  * clear it. Items are locked at complete-time: if the operator wants
  * different items they discard the draft and start fresh.
  */
-export const completeDraftInput = z.object({
-  saleId: z.string().min(1, 'Sale ID is required'),
-  paymentMethod: paymentMethodEnum.default('cash'),
-  paymentStatus: completablePaymentStatusEnum.default('pending'),
-  notes: z.string().optional(),
-  amountReceived: z.number().min(0).optional(),
-  /**
-   * Optional multi-tender list. When present, Σ(amount) must equal the
-   * draft's existing total (the caller can read it from
-   * `sales.getById`). The server re-validates to avoid trusting stale
-   * client-side computations.
-   */
-  payments: z.array(salePaymentInput).optional(),
-});
+export const completeDraftInput = z
+  .object({
+    saleId: z.string().min(1, 'Sale ID is required'),
+    paymentMethod: paymentMethodEnum.default('cash'),
+    paymentStatus: completablePaymentStatusEnum.default('pending'),
+    notes: z.string().optional(),
+    amountReceived: z.number().min(0).optional(),
+    tipAmount: z.number().min(0).default(0),
+    tipMethod: tipMethodEnum.optional(),
+    /**
+     * Optional multi-tender list. When present, Σ(amount) must equal the
+     * draft's existing total plus any tip (the caller can read the
+     * frozen subtotal/tax/discount from `sales.getById`). The server
+     * re-validates to avoid trusting stale client-side computations.
+     */
+    payments: z.array(salePaymentInput).optional(),
+  })
+  .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
+    message: 'tipMethod requires a positive tipAmount',
+    path: ['tipAmount'],
+  });
 
 // ============================================================================
 // ENG-019 — receipt reprint input

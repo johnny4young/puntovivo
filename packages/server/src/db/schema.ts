@@ -1555,6 +1555,13 @@ export const sales = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-039d — restaurant tip / propina. `tipAmount` is the resolved
+    // currency value added on top of `subtotal + tax - discount` (it
+    // rolls into `total` so payment validation stays unchanged).
+    // `tipMethod` records how the operator picked it; null means the
+    // operator did not enter a tip (default for retail tenants).
+    tipAmount: real('tip_amount').notNull().default(0),
+    tipMethod: text('tip_method', { enum: ['percentage', 'fixed'] as const }),
     paymentMethod: text('payment_method', { enum: paymentMethodEnum }).notNull().default('cash'),
     paymentStatus: text('payment_status', { enum: paymentStatusEnum }).notNull().default('pending'),
     status: text('status', { enum: saleStatusEnum }).notNull().default('draft'),

@@ -934,9 +934,12 @@ export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
       subtotal: 84034,
       discount: 5000,
       taxTotal: 14966,
-      tip: 0,
-      grandTotal: 94000,
-      changeDue: 6000,
+      // ENG-039d — non-zero preview tip so template designers can
+      // visualise how the line renders. The runtime renderer pulls
+      // the real tip from `sales.tip_amount`.
+      tip: 5000,
+      grandTotal: 99000,
+      changeDue: 1000,
       notes: 'Gracias por su compra',
       items: [
         {
