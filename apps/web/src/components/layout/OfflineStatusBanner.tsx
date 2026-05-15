@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/hooks';
 import { useHubReachability } from '@/hooks/useHubReachability';
+import { OfflineCapabilityGrid } from '@/features/offline/OfflineCapabilityGrid';
 import { cn, formatDateTime } from '@/lib/utils';
 
 function getBannerCopy(
@@ -83,8 +84,16 @@ export function OfflineStatusBanner() {
   // nothing to retry — they need the hub box to come back online).
   const canRetry = !isHubUnreachable && isOnline && !isSyncing && pendingItems > 0 && conflicts === 0;
 
+  // ENG-088 — when the device is fully offline (or the hub is gone)
+  // surface the V12 capability grid below the banner so the cashier
+  // sees the "tranquila, sigue vendiendo" affordance and which actions
+  // still work locally. We hide it for pending-only / conflicts-only
+  // states because the operator is still online and the existing
+  // banner copy is enough.
+  const shouldShowCapabilityGrid = !isOnline || isHubUnreachable;
+
   return (
-    <div className="px-4 pb-1 pt-3 sm:px-6 xl:px-8">
+    <div className="space-y-3 px-4 pb-1 pt-3 sm:px-6 xl:px-8">
       <div
         className={cn(
           'shell-panel flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between',
@@ -132,6 +141,7 @@ export function OfflineStatusBanner() {
           </button>
         )}
       </div>
+      <OfflineCapabilityGrid visible={shouldShowCapabilityGrid} />
     </div>
   );
 }

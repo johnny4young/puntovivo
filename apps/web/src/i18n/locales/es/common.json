@@ -107,6 +107,43 @@
     "selected": "seleccionado(s)",
     "ofTotal": "de {{total}} en total"
   },
+  "offlineGrid": {
+    "kicker": "Modo offline",
+    "title": "Tranquila, sigue vendiendo",
+    "description": "Las ventas se guardan en esta tableta y se sincronizan cuando regrese la conexión.",
+    "status": {
+      "available": "Disponible",
+      "limited": "Limitado",
+      "pending": "Pendiente",
+      "blocked": "Bloqueado"
+    },
+    "capabilities": {
+      "sell": {
+        "label": "Vender",
+        "note": "Catálogo local"
+      },
+      "cash": {
+        "label": "Cobrar efectivo",
+        "note": "Sin restricciones"
+      },
+      "card": {
+        "label": "Cobrar tarjeta",
+        "note": "Pendiente de autorización"
+      },
+      "receipt": {
+        "label": "Recibo digital",
+        "note": "Se envía al reconectar"
+      },
+      "loyalty": {
+        "label": "Sumar puntos",
+        "note": "Se acreditan al sincronizar"
+      },
+      "inventory": {
+        "label": "Ajustar inventario",
+        "note": "Requiere hub conectado"
+      }
+    }
+  },
   "offline": {
     "youAreOffline": "Estás sin conexión",
     "queuedChanges_one": "{{count}} cambio pendiente se sincronizará cuando regrese la conexión.",
