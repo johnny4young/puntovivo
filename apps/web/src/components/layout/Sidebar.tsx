@@ -156,20 +156,25 @@ const navigationSections = [
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation('nav');
-  // ENG-080 — replace the Package2 lucide glyph with the Puntovivo
-  // BrandMark. Mark carries the orange punto accent inline so the
-  // brand identity is visible in both expanded and collapsed rail.
+  // ENG-080 + ENG-080c — Puntovivo BrandMark + the "punto" 400 / "vivo"
+  // 700 lowercase wordmark in Inter (primary) per the handoff
+  // shell.jsx lockup. The orange punto accent is visible in both
+  // expanded and collapsed rail; the tagline only renders expanded.
   return (
     <div className={cn('flex items-center gap-2.5 px-2 py-1.5', collapsed && 'justify-center px-0')}>
-      <BrandMark className="h-9 w-9 shrink-0" />
+      <BrandMark
+        className="h-9 w-9 shrink-0 drop-shadow-[0_8px_18px_color-mix(in_oklch,var(--primary)_45%,transparent)]"
+        label={t('brand.title', 'Puntovivo')}
+      />
       {!collapsed && (
         <div className="min-w-0 leading-none">
-          <h1 className="truncate font-display text-lg tracking-[-0.02em] text-secondary-950">
-            {t('brand.title')}
-          </h1>
-          <p className="mt-1 truncate text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+          <p className="text-[0.55rem] font-semibold uppercase tracking-[0.22em] text-primary-700">
             {t('brand.tagline')}
           </p>
+          <h1 className="mt-1 truncate text-lg leading-none tracking-[-0.01em] text-primary lowercase">
+            <span className="font-normal">punto</span>
+            <span className="font-bold">vivo</span>
+          </h1>
         </div>
       )}
     </div>

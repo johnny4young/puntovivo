@@ -83,7 +83,7 @@ export function OfflineCapabilityGrid({ visible, variant = 'standalone' }: Offli
       )}
       <header className="relative">
         <p className="page-kicker">{t('offlineGrid.kicker', { defaultValue: 'Modo offline' })}</p>
-        <h2 className="mt-1 font-display text-2xl tracking-[-0.02em] text-secondary-950">
+        <h2 className="mt-1 text-2xl font-bold tracking-[-0.02em] text-secondary-950">
           {t('offlineGrid.title', { defaultValue: 'Tranquila, sigue vendiendo' })}
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">

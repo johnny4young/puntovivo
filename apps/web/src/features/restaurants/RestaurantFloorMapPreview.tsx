@@ -74,7 +74,7 @@ export function RestaurantFloorMapPreview({
       <header className="relative flex items-end justify-between gap-3">
         <div>
           <p className="page-kicker">{t('floorMap.kicker', { defaultValue: 'Salón' })}</p>
-          <h2 className="mt-1 font-display text-2xl tracking-[-0.02em] text-secondary-950">
+          <h2 className="mt-1 text-2xl font-bold tracking-[-0.02em] text-secondary-950">
             {t('floorMap.title', { defaultValue: 'Mapa del salón' })}
           </h2>
         </div>
@@ -122,7 +122,7 @@ export function RestaurantFloorMapPreview({
                           : t('floorMap.status.archived', { defaultValue: 'Archivada' })}
                       </span>
                     </div>
-                    <p className="mt-3 font-display text-lg tracking-[-0.02em] text-secondary-950">
+                    <p className="mt-3 text-lg font-semibold tracking-[-0.01em] text-secondary-950">
                       {mesa.name}
                     </p>
                     <p className="mt-1 text-[0.62rem] uppercase tracking-[0.18em] text-secondary-500">

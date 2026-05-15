@@ -86,8 +86,8 @@ export function Overlay({
             <h2
               id="overlay-title"
               className={cn(
-                'font-display text-2xl leading-tight tracking-[-0.02em] text-secondary-950 sm:text-[2rem]',
-                kicker && 'mt-3'
+                'text-2xl font-bold leading-tight tracking-[-0.02em] text-secondary-950 sm:text-[1.875rem]',
+                kicker && 'mt-2'
               )}
             >
               {title}

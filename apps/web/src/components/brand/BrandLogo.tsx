@@ -37,12 +37,17 @@ export function BrandLogo({ className, hideTagline, variant = 'horizontal' }: Br
       )}
     >
       <BrandMark className="h-11 w-11" label={t('brand.title', 'Puntovivo')} />
-      <div className="flex flex-col leading-none">
-        <span className="font-display text-2xl tracking-[-0.025em] text-secondary-950">
-          {t('brand.title', 'Puntovivo')}
+      <div className="flex min-w-0 flex-col leading-none">
+        {/* ENG-080c — wordmark split: "punto" 400 + "vivo" 700, all in
+          lowercase Inter at primary-600, matching the handoff
+          shell.jsx lockup. The tracking is just-tight so the two
+          weights read as one word, not two. */}
+        <span className="text-2xl leading-none tracking-[-0.01em] text-primary lowercase">
+          <span className="font-normal">punto</span>
+          <span className="font-bold">vivo</span>
         </span>
         {!hideTagline && (
-          <span className="mt-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+          <span className="mt-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-primary-700">
             {t('brand.tagline')}
           </span>
         )}
