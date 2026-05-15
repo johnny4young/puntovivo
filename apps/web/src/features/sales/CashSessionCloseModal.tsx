@@ -1,6 +1,7 @@
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { ModalButton } from '@/components/form-controls/Modal';
+import { Overlay } from '@/components/overlay/Overlay';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CashSession, CashSessionDenomination } from '@/types';
 import {
@@ -73,11 +74,16 @@ export function CashSessionCloseModal({
     shouldShowMismatch && !isBalanced ? t('cashSession.closeForm.mismatch') : null;
 
   return (
-    <Modal
+    <Overlay
       isOpen={isOpen}
       onClose={onClose}
       size="lg"
+      kicker={t('cashSession.closeForm.kicker', { defaultValue: 'Cierre de caja' })}
       title={t('cashSession.closeForm.title')}
+      description={t('cashSession.closeForm.description', {
+        defaultValue:
+          'Cuenta el efectivo en caja por denominación. El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.',
+      })}
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
@@ -224,6 +230,6 @@ export function CashSessionCloseModal({
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
       </form>
-    </Modal>
+    </Overlay>
   );
 }

@@ -133,6 +133,7 @@
     },
     "closeForm": {
       "title": "Close cash session",
+      "kicker": "Close register",
       "cancel": "Cancel",
       "confirm": "Close session",
       "closing": "Closing...",
