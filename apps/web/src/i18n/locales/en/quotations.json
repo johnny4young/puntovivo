@@ -58,6 +58,7 @@
     "createdAt": "Created at",
     "createdBy": "Created by",
     "validUntil": "Valid until",
+    "validityKicker": "Validity",
     "statusChangedAt": "Status changed",
     "lineItems": "Line items",
     "notes": "Notes",
