@@ -509,7 +509,11 @@ function renderTotalsBlockHtml(
     .map(line => {
       const label = totalsLabel(line, labels);
       const value = totalsValue(line, data);
-      return `<tr><td class="totals-label">${escapeHtml(label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(value, data.locale))}</td></tr>`;
+      // ENG-086 — flag the grand-total row so the thermal CSS can apply
+      // the 1pt black top/bottom border + 14pt weight from the
+      // design-system thermal preview rules.
+      const rowClass = line === 'grandTotal' ? ' class="grand-total"' : '';
+      return `<tr${rowClass}><td class="totals-label">${escapeHtml(label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(value, data.locale))}</td></tr>`;
     })
     .join('');
   return `<div class="block block-totals"><table><tbody>${rows}</tbody></table></div>`;
@@ -695,23 +699,32 @@ function buildHtmlDocument(
   documentTitle: string
 ): string {
   const widthPx = PAPER_WIDTH_PX[layout.paperWidth] ?? 300;
+  // ENG-086 — adopt the design-system thermal preview rules
+  // (preview/25-print-thermal.html from the 2026-05-14 handoff):
+  //   * 1-bit only: pure #000 on #fff, no grays, no gradients.
+  //   * Monospace everywhere; tabular-nums on every numeric column so
+  //     amounts line up under poor escpos rendering.
+  //   * Body 11pt, grand total 14pt, min 10pt label size.
+  //   * Grand-total row gets a thick black top + bottom border so it
+  //     reads as the dominant value when scanning the strip quickly.
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
-  body{margin:0;padding:8px;font-family:'Courier New',monospace;font-size:11px;color:#000;background:#fff;width:${widthPx}px;}
-  .block{margin-bottom:4px;}
+  body{margin:0;padding:8px;font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;font-size:11pt;line-height:1.35;color:#000;background:#fff;width:${widthPx}px;font-variant-numeric:tabular-nums;}
+  .block{margin-bottom:6px;}
   .align-left{text-align:left;}.align-center{text-align:center;}.align-right{text-align:right;}
-  .style-title{font-size:14px;font-weight:bold;}
-  .style-subtitle{font-size:12px;font-weight:bold;}
-  .style-muted{color:#666;}
-  .style-monospace{font-family:'Courier New',monospace;}
-  .bold{font-weight:bold;}
-  table{width:100%;border-collapse:collapse;}
+  .style-title{font-size:13pt;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
+  .style-subtitle{font-size:11pt;font-weight:700;}
+  .style-muted{color:#000;opacity:0.65;}
+  .style-monospace{font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;}
+  .bold{font-weight:700;}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}
   td,th{padding:2px 0;vertical-align:top;}
-  .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;}
+  .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;font-variant-numeric:tabular-nums;}
   .block-totals td{padding-top:1px;padding-bottom:1px;}
-  .block-separator{font-family:monospace;letter-spacing:0;}
-  .qr-placeholder,.barcode-placeholder{display:inline-block;border:1px dashed #999;padding:4px;font-family:monospace;font-size:10px;}
-  .block-logo img{max-width:100%;}
+  .block-totals tr.grand-total td{border-top:1px solid #000;border-bottom:1px solid #000;font-size:14pt;font-weight:700;padding-top:4px;padding-bottom:4px;}
+  .block-separator{font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;letter-spacing:0;}
+  .qr-placeholder,.barcode-placeholder{display:inline-block;border:1px dashed #000;padding:4px;font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;font-size:10pt;}
+  .block-logo img{max-width:100%;image-rendering:pixelated;}
   .block-logo-empty{min-height:8px;}
   @media print{body{padding:0;}}
 </style></head><body>${body}</body></html>`;
