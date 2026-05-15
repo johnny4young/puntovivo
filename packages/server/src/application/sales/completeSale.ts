@@ -55,6 +55,7 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 import {
   applyInventoryBalanceDelta,
@@ -474,7 +475,28 @@ async function runFreshSale(
   // here as a defensive belt against any non-Zod caller.
   const tipAmount = Math.max(0, input.tipAmount ?? 0);
   const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
-  const total = baseTotal + tipAmount;
+  // ENG-039d3 — restaurant service charge / propina sugerida. Rolls
+  // into `total` after tip so multi-tender Σ stays consistent. The
+  // tenant-settings drift check fires below once we know the resolved
+  // subtotal.
+  const serviceChargeAmount = Math.max(0, input.serviceChargeAmount ?? 0);
+  // Draft creation is not checkout yet: it may persist a frozen cart
+  // before the customer sees payment. Enforce the mandatory service
+  // charge on completed fresh sales, and still validate any draft that
+  // explicitly carries a non-zero service charge so stale amounts cannot
+  // be stored.
+  let serviceChargeRate: number | null = null;
+  if (input.status !== 'draft' || serviceChargeAmount > 0) {
+    const restaurantSettings = await assertServiceChargeMatchesTenant({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      base: baseTotal,
+      serviceChargeAmount,
+    });
+    serviceChargeRate =
+      serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
+  }
+  const total = baseTotal + tipAmount + serviceChargeAmount;
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
@@ -587,6 +609,10 @@ async function runFreshSale(
         // ENG-039d — tip persisted alongside the existing money columns.
         tipAmount,
         tipMethod,
+        // ENG-039d3 — service charge persisted alongside tip; both feed
+        // `total` so payment + receipt rendering stay consistent.
+        serviceChargeAmount,
+        serviceChargeRate,
         total,
         // Echo the dominant tender onto the legacy `paymentMethod`
         // column so older screens that read it directly keep
@@ -930,11 +956,24 @@ async function runCompleteDraft(
   // `total` out of sync with the new `tipAmount` column.
   const tipAmount = Math.max(0, input.tipAmount ?? 0);
   const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
+  // ENG-039d3 — service charge layered onto the frozen draft base. The
+  // same baseTotal-from-frozen-pieces logic that prevents tip compounding
+  // (a draft that was opened with a service charge already in `total`
+  // would otherwise see the new charge double-stacked) applies here too.
+  const serviceChargeAmount = Math.max(0, input.serviceChargeAmount ?? 0);
   const baseTotal =
     (existing.subtotal ?? 0) +
     (existing.taxAmount ?? 0) -
     (existing.discountAmount ?? 0);
-  const total = baseTotal + tipAmount;
+  const restaurantSettings = await assertServiceChargeMatchesTenant({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    base: baseTotal,
+    serviceChargeAmount,
+  });
+  const serviceChargeRate =
+    serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
+  const total = baseTotal + tipAmount + serviceChargeAmount;
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
     method: payment.method,
     amount: payment.amount,
@@ -1039,6 +1078,9 @@ async function runCompleteDraft(
         // partially-staged value never sticks.
         tipAmount,
         tipMethod,
+        // ENG-039d3 — persist service charge captured at complete-time.
+        serviceChargeAmount,
+        serviceChargeRate,
         total,
         syncStatus: 'pending',
         syncVersion: nextSyncVersion,
@@ -1091,6 +1133,13 @@ async function runCompleteDraft(
         // the caller did not specify a method.
         ...(tipAmount > 0
           ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) }
+          : {}),
+        // ENG-039d3 — mirror the tip pattern for service charge.
+        ...(serviceChargeAmount > 0
+          ? {
+              serviceChargeAmount,
+              ...(serviceChargeRate !== null ? { serviceChargeRate } : {}),
+            }
           : {}),
       },
     });

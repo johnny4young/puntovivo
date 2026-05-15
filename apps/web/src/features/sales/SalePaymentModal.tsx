@@ -40,6 +40,16 @@ export interface SalePaymentValues {
    */
   tipAmount: number;
   tipMethod: SaleTipMethod | null;
+  /**
+   * ENG-039d3 — restaurant service charge / propina sugerida. Auto
+   * applied from the tenant's `serviceChargeRate` (a per-tenant
+   * percentage). `serviceChargeAmount` rolls into the persisted total
+   * after tip so split-tender Σ + single-tender `amountReceived`
+   * compare against `total + tip + service`. `serviceChargeRate` is
+   * the percentage active at submit time (null when disabled).
+   */
+  serviceChargeAmount: number;
+  serviceChargeRate: number | null;
 }
 
 interface SalePaymentModalProps {
@@ -48,6 +58,14 @@ interface SalePaymentModalProps {
   customers: Customer[];
   isSaving: boolean;
   error: string | null;
+  /**
+   * ENG-039d3 — tenant-configured service charge percentage (0–30). The
+   * modal hides the entire service section when this is 0; when > 0 it
+   * auto-applies `total × rate / 100` as a read-only line and folds it
+   * into the grand total. Defaults to 0 so non-restaurant tenants pay
+   * zero contract cost.
+   */
+  serviceChargeRate?: number;
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
@@ -57,15 +75,24 @@ const TENDER_SUM_EPSILON = 0.005;
 // so the cashier can explicitly clear after picking 10/15.
 const TIP_PRESETS = [0, 10, 15] as const;
 
-function getDefaultValues(total: number): SalePaymentValues {
+function getDefaultValues(
+  total: number,
+  serviceChargeAmount: number,
+  serviceChargeRate: number
+): SalePaymentValues {
   return {
     customerId: '',
     paymentMethod: 'cash',
-    amountReceived: total,
+    // ENG-039d3 — seed amountReceived at total+service so the cashier
+    // sees the auto-applied service line reflected upfront. Tip layers
+    // on later via `syncPaymentInputsForTip`.
+    amountReceived: total + serviceChargeAmount,
     notes: '',
     tenders: [],
     tipAmount: 0,
     tipMethod: null,
+    serviceChargeAmount,
+    serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
   };
 }
 
@@ -87,13 +114,21 @@ export function SalePaymentModal({
   customers,
   isSaving,
   error,
+  serviceChargeRate = 0,
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
   const { t } = useTranslation('sales');
   const [splitMode, setSplitMode] = useState(false);
+  // ENG-039d3 — service charge is derived from `total × rate / 100`,
+  // not a form field. The operator cannot edit it; the server
+  // re-validates against the tenant rate at submit time.
+  const serviceChargeAmount = useMemo(
+    () => (serviceChargeRate > 0 ? roundCurrency((total * serviceChargeRate) / 100) : 0),
+    [total, serviceChargeRate]
+  );
   const form = useForm<SalePaymentValues>({
-    defaultValues: getDefaultValues(total),
+    defaultValues: getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
   });
   const tenderFields = useFieldArray({
     control: form.control,
@@ -108,7 +143,7 @@ export function SalePaymentModal({
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
-  const grandTotal = roundCurrency(total + tipAmount);
+  const grandTotal = roundCurrency(total + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - amountReceivedValue);
@@ -134,7 +169,10 @@ export function SalePaymentModal({
 
   function syncPaymentInputsForTip(nextTipAmount: number): void {
     const previousGrandTotal = grandTotal;
-    const nextGrandTotal = roundCurrency(total + nextTipAmount);
+    // ENG-039d3 — service charge is fixed for the cart; only the tip
+    // delta moves grandTotal across calls. Including it keeps the
+    // auto-sync of amountReceived / first tender consistent.
+    const nextGrandTotal = roundCurrency(total + serviceChargeAmount + nextTipAmount);
 
     if (splitMode) {
       const currentTenders = form.getValues('tenders');
@@ -188,6 +226,12 @@ export function SalePaymentModal({
       tenders: splitMode ? values.tenders : [],
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? values.tipMethod ?? 'fixed' : null,
+      // ENG-039d3 — service charge is derived from the prop rate, not
+      // operator-editable, so submit always carries the freshly
+      // computed pair. `serviceChargeRate: null` signals "no charge
+      // configured" to the server.
+      serviceChargeAmount,
+      serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
     });
   });
 
@@ -236,7 +280,31 @@ export function SalePaymentModal({
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
           <p className="text-sm text-primary-700">{t('payment.saleTotal')}</p>
           <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(grandTotal)}</p>
-          {tipAmount > 0 && (
+          {/*
+            ENG-039d3 — breakdown line picks one of three i18n keys so
+            the renderer never interpolates "+ servicio $0.00" when the
+            tenant has no rate configured. Tip-only matches the original
+            ENG-039d copy; service-only and service-with-tip add the
+            extra segment in neutral LATAM tú.
+          */}
+          {serviceChargeAmount > 0 && tipAmount > 0 && (
+            <p className="mt-1 text-xs text-primary-700">
+              {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
+                base: formatCurrency(total),
+                service: formatCurrency(serviceChargeAmount),
+                tip: formatCurrency(tipAmount),
+              })}
+            </p>
+          )}
+          {serviceChargeAmount > 0 && tipAmount === 0 && (
+            <p className="mt-1 text-xs text-primary-700">
+              {t('payment.serviceCharge.grandTotalBreakdownOnly', {
+                base: formatCurrency(total),
+                service: formatCurrency(serviceChargeAmount),
+              })}
+            </p>
+          )}
+          {serviceChargeAmount === 0 && tipAmount > 0 && (
             <p className="mt-1 text-xs text-primary-700">
               {t('payment.tip.grandTotalBreakdown', {
                 base: formatCurrency(total),
@@ -245,6 +313,36 @@ export function SalePaymentModal({
             </p>
           )}
         </div>
+
+        {/*
+          ENG-039d3 — read-only service charge line. Hidden when the
+          tenant has no rate configured so non-restaurant operators see
+          no extra surface. The amount is derived from the prop rate;
+          the server re-validates at submit time.
+        */}
+        {serviceChargeRate > 0 && (
+          <div
+            className="rounded-xl border border-secondary-200 p-4"
+            aria-label={t('payment.serviceCharge.heading')}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-secondary-900">
+                {t('payment.serviceCharge.heading')}
+              </p>
+              <p className="text-xs text-secondary-500">
+                {t('payment.serviceCharge.helper')}
+              </p>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-sm text-secondary-500">
+                {t('payment.serviceCharge.rateLabel', { rate: serviceChargeRate })}
+              </span>
+              <span className="text-sm font-medium text-secondary-900">
+                {formatCurrency(serviceChargeAmount)}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div>
           <label htmlFor="sale-payment-customer" className="label">

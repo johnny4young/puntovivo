@@ -77,7 +77,11 @@ export function SalesPage() {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const utils = trpc.useUtils();
   const toast = useToast();
-  const { currentTenant, currentSite } = useTenant();
+  const { currentTenant, currentSite, tenantSettings } = useTenant();
+  // ENG-039d3 — restaurant service-charge rate flows from the tenant
+  // setting into `SalePaymentModal`. 0 means disabled (default for
+  // retail tenants); positive values auto-apply on every checkout.
+  const serviceChargeRate = tenantSettings?.restaurant?.serviceChargeRate ?? 0;
   const { user } = useAuth();
   // ENG-074 — `useHubReachability` is a no-op outside `hub_client`
   // mode. In hub_client mode, `reachable === false` flips the
@@ -569,7 +573,17 @@ export function SalesPage() {
       // the tip in here before forwarding.
       const tipAmount = Math.max(0, values.tipAmount ?? 0);
       const tipMethod = tipAmount > 0 ? values.tipMethod ?? 'fixed' : undefined;
-      const grandTotal = draftSummary.total + tipAmount;
+      // ENG-039d3 — service charge is auto-applied from the tenant rate
+      // (resolved by SalePaymentModal); we forward whatever the modal
+      // produced. `serviceChargeRate: null` → `undefined` so the Zod
+      // optional() schema accepts the no-charge path without firing
+      // the refinement.
+      const serviceChargeAmount = Math.max(0, values.serviceChargeAmount ?? 0);
+      const serviceChargeRate =
+        values.serviceChargeRate != null && values.serviceChargeRate > 0
+          ? values.serviceChargeRate
+          : undefined;
+      const grandTotal = draftSummary.total + tipAmount + serviceChargeAmount;
       const payment = getCheckoutPaymentState(values, grandTotal);
       // ENG-018c — resumed carts complete via `sales.completeDraft` so
       // we do not re-send items (locked at create-time) and do not
@@ -585,6 +599,8 @@ export function SalesPage() {
           payments: payment.payments,
           tipAmount,
           tipMethod,
+          serviceChargeAmount,
+          serviceChargeRate,
         });
         return;
       }
@@ -611,6 +627,8 @@ export function SalesPage() {
         payments: payment.payments,
         tipAmount,
         tipMethod,
+        serviceChargeAmount,
+        serviceChargeRate,
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));
@@ -1218,6 +1236,7 @@ export function SalesPage() {
           customers={customers}
           isSaving={createMutation.isPending || completeDraftMutation.isPending}
           error={saleError}
+          serviceChargeRate={serviceChargeRate}
           onClose={() => setIsPaymentModalOpen(false)}
           onSubmit={handleCheckout}
         />

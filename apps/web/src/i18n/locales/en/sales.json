@@ -221,6 +221,13 @@
       "customLabel": "Custom amount",
       "customPlaceholder": "0.00",
       "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
+    },
+    "serviceCharge": {
+      "heading": "Service charge",
+      "helper": "Auto-applied to the subtotal.",
+      "rateLabel": "Service ({{rate}}%)",
+      "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
+      "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
     }
   },
   "history": {

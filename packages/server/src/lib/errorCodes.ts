@@ -186,6 +186,22 @@ export const SERVER_ERROR_CODES = {
    */
   SALE_CHANGE_TABLE_INVALID_STATUS: 'SALE_CHANGE_TABLE_INVALID_STATUS',
 
+  // --- ENG-039d3 restaurant service charge ---
+  /**
+   * Caller submitted a non-zero `serviceChargeAmount` but the tenant has
+   * `tenants.settings.restaurant.serviceChargeRate === 0`. Protects
+   * retail tenants from accidentally accumulating service charges via a
+   * tampered client.
+   */
+  SALE_SERVICE_CHARGE_DISABLED: 'SALE_SERVICE_CHARGE_DISABLED',
+  /**
+   * `serviceChargeAmount` disagrees with `roundCurrency(subtotal × rate /
+   * 100)` by more than the 1¢ floating-point tolerance. Stale form /
+   * tampered client / drifted tenant rate all funnel into the same
+   * code so the UI can prompt the operator to reload the modal.
+   */
+  SALE_SERVICE_CHARGE_DRIFT: 'SALE_SERVICE_CHARGE_DRIFT',
+
   // --- ENG-039c3 split-bill ---
   /**
    * `sales.splitDraft` requires the source sale to be a suspended draft

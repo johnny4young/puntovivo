@@ -125,6 +125,8 @@ const totalsLineSchema = z.enum([
   'discount',
   'taxTotal',
   'tip',
+  // ENG-039d3 — restaurant service charge / propina sugerida.
+  'serviceCharge',
   'grandTotal',
 ]);
 
@@ -133,7 +135,7 @@ const totalsBlockSchema = z.object({
   show: z
     .array(totalsLineSchema)
     .min(1, 'totalsBlock must show at least one line')
-    .max(5),
+    .max(6),
 });
 
 const tendersTableBlockSchema = z.object({
@@ -289,6 +291,9 @@ const receiptRenderLabelsInput = z.object({
     discount: z.string().trim().min(1).max(50),
     taxTotal: z.string().trim().min(1).max(50),
     tip: z.string().trim().min(1).max(50),
+    // ENG-039d3 — service charge label, paired with the receipt
+    // renderer's `serviceCharge` totals line.
+    serviceCharge: z.string().trim().min(1).max(50),
     grandTotal: z.string().trim().min(1).max(50),
   }),
   tendersTable: z.object({

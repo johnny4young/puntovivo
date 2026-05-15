@@ -281,6 +281,12 @@ export const receiptTemplatesRouter = router({
         discount: true,
         taxTotal: true,
         tip: true,
+        // ENG-039d3 — service charge surfaces alongside tip on every
+        // sale render. The rate is per-sale (frozen at finalize time)
+        // so editors can bind `{{ sale.serviceChargeRate }}` for the
+        // "Servicio (10%)" label.
+        serviceCharge: true,
+        serviceChargeRate: true,
         grandTotal: true,
         changeDue: true,
         notes: true,

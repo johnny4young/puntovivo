@@ -18,6 +18,8 @@ function buildPaymentValues(
     tenders: [],
     tipAmount: 0,
     tipMethod: null,
+    serviceChargeAmount: 0,
+    serviceChargeRate: null,
     ...overrides,
   };
 }

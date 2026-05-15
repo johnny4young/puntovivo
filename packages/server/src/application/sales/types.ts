@@ -94,6 +94,16 @@ export type CompleteSaleInput =
       tipAmount?: number;
       tipMethod?: SaleTipMethod | null;
       /**
+       * ENG-039d3 — restaurant service charge / propina sugerida. Auto
+       * applied from `tenants.settings.restaurant.serviceChargeRate`;
+       * the service re-validates `serviceChargeAmount ≈ subtotal × rate
+       * / 100` and rejects drift or amounts on tenants whose rate is
+       * zero. Rolls into `total` after tip so multi-tender Σ
+       * validation stays unchanged.
+       */
+      serviceChargeAmount?: number;
+      serviceChargeRate?: number | null;
+      /**
        * ENG-039c — optional restaurant_tables FK captured at draft open
        * time. Persisted on the new sale row when present. The router
        * validates tenant scope + active flag before invoking the
@@ -116,6 +126,13 @@ export type CompleteSaleInput =
        */
       tipAmount?: number;
       tipMethod?: SaleTipMethod | null;
+      /**
+       * ENG-039d3 — service charge captured at draft-completion. The
+       * service re-reads the live tenant rate at commit time so a
+       * long-suspended draft cannot bypass a rate change.
+       */
+      serviceChargeAmount?: number;
+      serviceChargeRate?: number | null;
     };
 
 /**

@@ -178,6 +178,7 @@
       "discount": "Descuento",
       "taxTotal": "Impuesto",
       "tip": "Propina",
+      "serviceCharge": "Servicio",
       "grandTotal": "Total"
     }
   },

@@ -222,3 +222,91 @@ describe('SalePaymentModal — tip / propina (ENG-039d)', () => {
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
   });
 });
+
+describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', () => {
+  beforeAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  it('hides the service section when the tenant rate is zero and submits zeros', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
+
+    expect(screen.queryByLabelText('Service charge')).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.serviceChargeAmount).toBe(0);
+    expect(submittedValues.serviceChargeRate).toBeNull();
+  });
+
+  it('auto-applies the tenant rate as a read-only line and folds it into the grand total', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(
+      <SalePaymentModal
+        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
+      />
+    );
+
+    expect(screen.getByLabelText('Service charge')).toBeInTheDocument();
+    // The breakdown line above the totals header shows base + service.
+    expect(
+      screen.getByText(/Base \$100\.00 \+ service \$10\.00$/i)
+    ).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.serviceChargeAmount).toBeCloseTo(10, 2);
+    expect(submittedValues.serviceChargeRate).toBe(10);
+    // amountReceived defaults to grandTotal (110) when service is on.
+    expect(submittedValues.amountReceived).toBeCloseTo(110, 2);
+  });
+
+  it('combines service charge and a tip preset into the grand total breakdown', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(
+      <SalePaymentModal
+        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '10%' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Base \$100\.00 \+ service \$10\.00 \+ tip \$10\.00$/i)
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submittedValues = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submittedValues.tipAmount).toBeCloseTo(10, 2);
+    expect(submittedValues.serviceChargeAmount).toBeCloseTo(10, 2);
+    // grandTotal = base 100 + service 10 + tip 10 = 120.
+    expect(submittedValues.amountReceived).toBeCloseTo(120, 2);
+  });
+
+  it('seeds the first split tender at base + service when split mode is enabled', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(
+      <SalePaymentModal
+        {...createProps({ onSubmit, total: 100, serviceChargeRate: 10 })}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+
+    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    expect(firstAmount.value).toBe('110');
+  });
+});

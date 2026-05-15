@@ -72,6 +72,14 @@ export interface RenderSale {
   discount: number;
   taxTotal: number;
   tip: number;
+  /**
+   * ENG-039d3 — Restaurant service charge / propina sugerida. Currency
+   * value auto-applied from the tenant's configured rate; rendered on
+   * its own totals line. Defaults to 0 for tenants without the setting.
+   */
+  serviceCharge: number;
+  /** Percentage active when the sale was finalized (null when disabled). */
+  serviceChargeRate?: number | null;
   grandTotal: number;
   changeDue?: number | null;
   notes?: string | null;
@@ -281,6 +289,7 @@ export interface ReceiptRenderLabels {
     discount: string;
     taxTotal: string;
     tip: string;
+    serviceCharge: string;
     grandTotal: string;
   };
   tendersTable: {
@@ -306,6 +315,7 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
     discount: 'Discount',
     taxTotal: 'Tax',
     tip: 'Tip',
+    serviceCharge: 'Service',
     grandTotal: 'Total',
   },
   tendersTable: {
@@ -518,6 +528,8 @@ function totalsLabel(
       return labels.totalsLines.taxTotal;
     case 'tip':
       return labels.totalsLines.tip;
+    case 'serviceCharge':
+      return labels.totalsLines.serviceCharge;
     case 'grandTotal':
       return labels.totalsLines.grandTotal;
     default:
@@ -535,6 +547,8 @@ function totalsValue(line: string, data: RenderData): number {
       return data.sale.taxTotal;
     case 'tip':
       return data.sale.tip;
+    case 'serviceCharge':
+      return data.sale.serviceCharge;
     case 'grandTotal':
       return data.sale.grandTotal;
     default:
@@ -938,7 +952,13 @@ export function buildPreviewData(_kind: ReceiptTemplateKind): RenderData {
       // visualise how the line renders. The runtime renderer pulls
       // the real tip from `sales.tip_amount`.
       tip: 5000,
-      grandTotal: 99000,
+      // ENG-039d3 — non-zero preview service charge mirrors the tip
+      // pattern. Real values come from `sales.service_charge_amount` +
+      // `service_charge_rate`. 8403 ≈ 10% of subtotal 84034 keeps the
+      // preview math self-consistent.
+      serviceCharge: 8403,
+      serviceChargeRate: 10,
+      grandTotal: 107403,
       changeDue: 1000,
       notes: 'Gracias por su compra',
       items: [

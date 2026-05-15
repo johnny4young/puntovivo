@@ -349,6 +349,12 @@ export const salesRouter = router({
         tableId: input.tableId,
         tipAmount: input.tipAmount,
         tipMethod: input.tipMethod ?? null,
+        // ENG-039d3 — auto-applied restaurant service charge passes
+        // through to the use-case. The Zod schema defaults amount to 0
+        // and leaves rate optional so retail tenants pay zero contract
+        // cost; `runFreshSale` re-validates against the tenant rate.
+        serviceChargeAmount: input.serviceChargeAmount,
+        serviceChargeRate: input.serviceChargeRate ?? null,
       }
     );
     return result.sale;
@@ -1238,6 +1244,11 @@ export const salesRouter = router({
           notes: input.notes,
           tipAmount: input.tipAmount,
           tipMethod: input.tipMethod ?? null,
+          // ENG-039d3 — same pass-through as the fresh path; the
+          // use-case re-validates the amount against the live tenant
+          // rate at commit time.
+          serviceChargeAmount: input.serviceChargeAmount,
+          serviceChargeRate: input.serviceChargeRate ?? null,
         }
       );
       return result.sale;

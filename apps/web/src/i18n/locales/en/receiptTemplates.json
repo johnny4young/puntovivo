@@ -178,6 +178,7 @@
       "discount": "Discount",
       "taxTotal": "Tax",
       "tip": "Tip",
+      "serviceCharge": "Service",
       "grandTotal": "Total"
     }
   },

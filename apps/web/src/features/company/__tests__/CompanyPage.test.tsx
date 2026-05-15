@@ -117,15 +117,17 @@ describe('CompanyPage tab behavior', () => {
     render(<CompanyPage />);
 
     // Tab list is present and exposes the canonical tabs
-    // (general, locale, data, device, ai, fiscal, payments, modules —
-    // `payments` shipped with ENG-038 slice 2, `modules` with ENG-068).
+    // (general, locale, data, device, ai, fiscal, payments, modules,
+    // restaurant — `payments` shipped with ENG-038 slice 2, `modules`
+    // with ENG-068, `restaurant` with ENG-039d3).
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(8);
+    expect(tabs).toHaveLength(9);
     expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-payments')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-modules')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('company-tab-restaurant')).toHaveAttribute('aria-selected', 'false');
 
     // General tab content visible: form fields + logo library card.
     expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();

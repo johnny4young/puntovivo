@@ -56,6 +56,11 @@ export async function getSaleRecord(
       // can render the captured tip without a second round trip.
       tipAmount: sales.tipAmount,
       tipMethod: sales.tipMethod,
+      // ENG-039d3 — restaurant service charge / propina sugerida. Mirrors
+      // the tip surface so receipt rendering + reporting can reconstruct
+      // the line without re-reading the row.
+      serviceChargeAmount: sales.serviceChargeAmount,
+      serviceChargeRate: sales.serviceChargeRate,
       total: sales.total,
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,

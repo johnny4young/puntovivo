@@ -86,6 +86,8 @@ const TOTALS_LINES = [
   'discount',
   'taxTotal',
   'tip',
+  // ENG-039d3 — service charge line, paired with `RenderSale.serviceCharge`.
+  'serviceCharge',
   'grandTotal',
 ] as const;
 

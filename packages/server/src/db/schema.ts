@@ -1562,6 +1562,16 @@ export const sales = sqliteTable(
     // operator did not enter a tip (default for retail tenants).
     tipAmount: real('tip_amount').notNull().default(0),
     tipMethod: text('tip_method', { enum: ['percentage', 'fixed'] as const }),
+    // ENG-039d3 — restaurant service charge / propina sugerida.
+    // `serviceChargeAmount` is the resolved currency value auto-applied
+    // from `tenants.settings.restaurant.serviceChargeRate` (mandatory,
+    // unlike the voluntary tip). Rolls into `total` after tax + tip so
+    // multi-tender Σ validation stays unchanged. `serviceChargeRate`
+    // records the percentage that was active when the sale was
+    // finalized; null means the tenant had no rate configured (default
+    // for retail tenants).
+    serviceChargeAmount: real('service_charge_amount').notNull().default(0),
+    serviceChargeRate: real('service_charge_rate'),
     paymentMethod: text('payment_method', { enum: paymentMethodEnum }).notNull().default('cash'),
     paymentStatus: text('payment_status', { enum: paymentStatusEnum }).notNull().default('pending'),
     status: text('status', { enum: saleStatusEnum }).notNull().default('draft'),
