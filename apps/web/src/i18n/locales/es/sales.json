@@ -195,6 +195,10 @@
     "other": "Otro",
     "amountReceived": "Monto recibido",
     "amountNegative": "El monto recibido no puede ser negativo",
+    "quickAmount": {
+      "exactKicker": "Exacto",
+      "billKicker": "Billete"
+    },
     "balance": "Saldo pendiente",
     "change": "Cambio",
     "splitEnable": "Dividir el pago en varios medios",
