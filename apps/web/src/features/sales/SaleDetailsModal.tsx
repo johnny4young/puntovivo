@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
+import { RefundConfirmOverlay } from './RefundConfirmOverlay';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { SaleDetailsContent } from '@/features/sales/SaleDetailsContent';
@@ -248,7 +249,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     }
   };
 
-  const handleReturnSale = async () => {
+  const handleReturnSale = async (reason?: string) => {
     if (!saleId) {
       return;
     }
@@ -256,7 +257,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
     setReturnError(null);
 
     try {
-      await returnMutation.mutateAsync({ id: saleId });
+      await returnMutation.mutateAsync({ id: saleId, reason });
     } catch {
       // Error state is handled by the mutation callbacks.
     }
@@ -485,17 +486,16 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         </div>
       </Modal>
 
-      <ConfirmModal
+      <RefundConfirmOverlay
         isOpen={isReturnConfirmOpen}
+        isPending={returnMutation.isPending}
+        saleNumber={sale?.saleNumber ?? undefined}
+        refundTotal={Number(sale?.total ?? 0)}
         onClose={() => setIsReturnConfirmOpen(false)}
-        onConfirm={() => {
-          void handleReturnSale();
+        onConfirm={reason => {
+          setIsReturnConfirmOpen(false);
+          void handleReturnSale(reason);
         }}
-        title={t('confirm.refund.title')}
-        message={t('confirm.refund.message')}
-        confirmText={t('confirm.refund.confirmText')}
-        loading={returnMutation.isPending}
-        variant="primary"
       />
 
       <ConfirmModal

@@ -298,6 +298,25 @@
       "printErrorFallback": "Unable to print the receipt"
     }
   },
+  "refund": {
+    "kicker": "Return",
+    "title": "Return sale",
+    "description": "Confirm a reason to register the return for this ticket.",
+    "descriptionWithNumber": "Confirm a reason to register the return for ticket {{number}}.",
+    "totalLabel": "Refund total",
+    "reasonLabel": "Reason",
+    "cancel": "Cancel",
+    "confirm": "Confirm return",
+    "processing": "Processing...",
+    "approvalLockTitle": "Manager approval required",
+    "approvalLockBody": "The amount exceeds the operational threshold. Request authorization before confirming.",
+    "reasons": {
+      "expired": "Expired / damaged",
+      "duplicate": "Duplicate purchase",
+      "wrong_item": "Wrong item",
+      "other": "Other"
+    }
+  },
   "confirm": {
     "refund": {
       "title": "Refund Sale",

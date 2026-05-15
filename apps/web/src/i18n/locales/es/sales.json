@@ -298,6 +298,25 @@
       "printErrorFallback": "No se pudo imprimir el recibo"
     }
   },
+  "refund": {
+    "kicker": "Devolución",
+    "title": "Devolver venta",
+    "description": "Confirma el motivo para registrar la devolución del ticket.",
+    "descriptionWithNumber": "Confirma el motivo para registrar la devolución del ticket {{number}}.",
+    "totalLabel": "Total a devolver",
+    "reasonLabel": "Motivo",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar devolución",
+    "processing": "Procesando...",
+    "approvalLockTitle": "Aprobación de administrador requerida",
+    "approvalLockBody": "El monto excede el límite operativo. Solicita autorización antes de confirmar.",
+    "reasons": {
+      "expired": "Vencido / mal estado",
+      "duplicate": "Compra duplicada",
+      "wrong_item": "Cambio de producto",
+      "other": "Otro"
+    }
+  },
   "confirm": {
     "refund": {
       "title": "Reembolsar venta",
