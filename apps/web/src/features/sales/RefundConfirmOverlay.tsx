@@ -116,7 +116,7 @@ export function RefundConfirmOverlay({
               <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-warning-700">
                 {t('refund.totalLabel', { defaultValue: 'Total a devolver' })}
               </p>
-              <p className="mt-2 font-display text-3xl text-warning-700">
+              <p className="mt-2 text-3xl font-bold tabular-nums tracking-[-0.02em] text-warning-700">
                 {formatCurrency(refundTotal)}
               </p>
             </div>

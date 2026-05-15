@@ -153,7 +153,7 @@ export function QuotationDetailsModal({
                 <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
                   {t('details.validityKicker', { defaultValue: 'Vigencia' })}
                 </p>
-                <p className="mt-2 font-display text-xl tracking-[-0.02em] text-secondary-950">
+                <p className="mt-2 text-xl font-bold tracking-[-0.02em] text-secondary-950">
                   {detailQuery.data.validUntil
                     ? formatDate(detailQuery.data.validUntil)
                     : t('history.validUntilNever')}

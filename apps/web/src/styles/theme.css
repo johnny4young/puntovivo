@@ -67,7 +67,15 @@
   --color-danger-700: var(--danger-700);
 
   --color-brand-accent: var(--brand-accent-500);
+  --color-brand-accent-50: var(--brand-accent-50);
   --color-brand-accent-500: var(--brand-accent-500);
+  --color-brand-accent-700: var(--brand-accent-700);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+
+  --color-fg1: var(--fg1);
+  --color-fg2: var(--fg2);
+  --color-fg3: var(--fg3);
+  --color-fg4: var(--fg4);
 
   --shadow-soft: 0 30px 80px -42px rgb(10 18 33 / 0.45);
   --shadow-card: 0 20px 60px -36px rgb(15 23 42 / 0.18);
@@ -121,10 +129,35 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ENG-080b — Inter is the canonical UI face per the design-system
+ * handoff. Locally-served 400 / 700 ship as woff2 next to the app
+ * bundle; the heavier weights (500 / 600 / 800) come from Google
+ * Fonts and are imported once in index.html so they're available
+ * to every screen without a per-component flash.
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/src/assets/fonts/Inter-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/src/assets/fonts/Inter-Bold.woff2") format("woff2");
+}
+
 :root {
-  --font-ui: "Avenir Next", "Segoe UI Variable Text", "Segoe UI", sans-serif;
-  --font-display-face: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-  --font-mono-face: "JetBrains Mono", "SFMono-Regular", monospace;
+  /* ENG-080b — Inter is the UI face; Iowan Old Style / Source Serif 4
+   * is reserved for marketing / landing surfaces and opt-in via
+   * `class="display"`. It is NOT wired into h1..h3 by default. */
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-display-face: "Iowan Old Style", "Source Serif 4", "Palatino Linotype", "Book Antiqua", serif;
+  --font-mono-face: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
 
   --background: oklch(0.98 0.008 84);
   --foreground: oklch(0.24 0.02 255);
@@ -153,6 +186,52 @@
   --line-strong: oklch(0.8 0.016 84);
   --ink: oklch(0.21 0.019 255);
   --ink-soft: oklch(0.56 0.019 255);
+
+  /* ENG-080b — explicit foreground ramp per the design-system handoff.
+   * `--ink` / `--ink-soft` still exist for legacy consumers but new
+   * code should reach for the fg1..fg4 contract directly. */
+  --fg1: oklch(0.18 0.016 255);
+  --fg2: oklch(0.37 0.022 255);
+  --fg3: oklch(0.56 0.019 255);
+  --fg4: oklch(0.74 0.018 84);
+
+  /* ENG-080b — semantic type tokens. Heads only ever consume these
+   * (no inline font-size). Bumping a single heading rhythm is a
+   * one-token edit. */
+  --h1-font: var(--font-ui);
+  --h1-size: 3rem;
+  --h1-weight: 700;
+  --h1-tracking: -0.02em;
+  --h1-leading: 1.05;
+  --h2-font: var(--font-ui);
+  --h2-size: 2rem;
+  --h2-weight: 700;
+  --h2-tracking: -0.02em;
+  --h2-leading: 1.1;
+  --h3-font: var(--font-ui);
+  --h3-size: 1.5rem;
+  --h3-weight: 600;
+  --h3-tracking: -0.01em;
+  --h3-leading: 1.2;
+  --h4-font: var(--font-ui);
+  --h4-size: 1.125rem;
+  --h4-weight: 600;
+  --h4-tracking: -0.005em;
+  --h4-leading: 1.3;
+  --body-font: var(--font-ui);
+  --body-size: 0.875rem;
+  --body-weight: 400;
+  --body-leading: 1.6;
+  --label-font: var(--font-ui);
+  --label-size: 0.72rem;
+  --label-weight: 600;
+  --label-tracking: 0.22em;
+  --kicker-font: var(--font-ui);
+  --kicker-size: 0.72rem;
+  --kicker-weight: 600;
+  --kicker-tracking: 0.3em;
+  --mono-font: var(--font-mono-face);
+  --mono-size: 0.875rem;
 
   --primary-50: oklch(0.97 0.014 244);
   --primary-100: oklch(0.93 0.03 244);
@@ -195,34 +274,48 @@
   --radius-xl: 1.75rem;
   --radius-2xl: 2rem;
 
-  /* ENG-080 — brand accent (Puntovivo "punto naranja").
-   * Sparingly applied: only the dot inside the brand mark and decorative
-   * accent strokes. Never used for status, never for primary CTAs.
+  /* ENG-080 + ENG-080b — brand accent (Puntovivo "punto naranja").
+   * Three-stop scale per the design-system handoff. The 500 stop lives
+   * inside the brand mark as the counter dot; the 50 and 700 stops back
+   * accent flourishes (hover chips, motion moments) and a deep
+   * matching foreground when typography crosses an accent surface.
+   * Intentionally separate from `--warning-*` so semantic state (alerts,
+   * warnings) and brand identity never collide.
    */
+  --brand-accent-50: oklch(0.96 0.04 62);
   --brand-accent-500: oklch(0.72 0.18 62);
+  --brand-accent-700: oklch(0.52 0.13 60);
+  --brand-accent: var(--brand-accent-500);
+  --brand-accent-foreground: oklch(0.22 0.02 60);
 
-  /* ENG-080 — motion tokens lifted from the design-system handoff. The
-   * existing @theme animations already use the same easings inline; these
-   * names let components (Overlay, modal, drawer) reference the curve
-   * instead of duplicating the cubic-bezier.
+  /* ENG-080 + ENG-080b — motion tokens lifted from the design-system
+   * handoff. The existing @theme animations already use the same easings
+   * inline; these names let components reference the curve instead of
+   * duplicating the cubic-bezier.
    */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-pop: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --dur-fast: 180ms;
   --dur-base: 220ms;
   --dur-slow: 320ms;
+  --dur-toast: 4000ms;
+  --duration-fast: var(--dur-fast);
+  --duration-normal: var(--dur-base);
+  --duration-slow: var(--dur-slow);
 
-  /* ENG-080 — print tokens. ENG-086 consumes these for the thermal
-   * renderer; declared here so the receipt template editor can preview
-   * tokenized sizing without a separate CSS module.
+  /* ENG-080 + ENG-080b — print tokens. ENG-086 consumes these for the
+   * thermal renderer; ink/paper aliases keep print-only CSS readable.
    */
   --print-dpi: 203;
   --print-58mm-dots: 384;
   --print-80mm-dots: 576;
-  --print-mono-face: "JetBrains Mono", "IBM Plex Mono", "Courier New", monospace;
+  --print-mono-face: "IBM Plex Mono", "JetBrains Mono", "Menlo", "Consolas", ui-monospace, monospace;
   --print-min-size: 10pt;
   --print-body-size: 11pt;
   --print-total-size: 14pt;
+  --print-ink: #000;
+  --print-paper: #fff;
 }
 
 .dark {
@@ -289,8 +382,41 @@
   --danger-600: oklch(0.79 0.16 24);
   --danger-700: oklch(0.86 0.13 24);
 
-  /* ENG-080 — slightly less saturated orange dot in dark mode so the
-   * brand mark does not glow against the deep ink background.
+  /* ENG-080 + ENG-080b — brand accent in dark mode. The accent must
+   * read as warm but never glow against deep ink, so the 500 stop is
+   * desaturated a touch and the 50/700 stops shift to keep contrast.
    */
+  --brand-accent-50: oklch(0.32 0.06 62);
   --brand-accent-500: oklch(0.78 0.16 62);
+  --brand-accent-700: oklch(0.88 0.12 60);
+
+  /* ENG-080b — explicit fg ramp for dark (mirror of light). */
+  --fg1: oklch(0.95 0.006 84);
+  --fg2: oklch(0.81 0.012 84);
+  --fg3: oklch(0.66 0.016 84);
+  --fg4: oklch(0.53 0.02 255);
+
+  /* ENG-080b — dark-mode shadow rule. Box shadows on a 0.19-L base are
+   * effectively invisible, so the design system replaces elevation
+   * with a 1 px line. Components that still need a colored glow
+   * (CTA buttons, accent moments) opt out by re-declaring their own
+   * box-shadow at the component layer.
+   */
+  --shadow-card: none;
+  --shadow-panel: none;
+  --shadow-modal: none;
+}
+
+/* ENG-080b — semantic element styles. Pure CSS so artifacts (printed
+ * receipts, embedded preview iframes) inherit the design-system rhythm
+ * without depending on Tailwind utility classes. */
+body { font-family: var(--font-ui); color: var(--fg1); background: var(--background); }
+.display { font-family: var(--font-display) !important; font-weight: 400; letter-spacing: -0.03em; }
+.kicker {
+  font-family: var(--kicker-font);
+  font-size: var(--kicker-size);
+  font-weight: var(--kicker-weight);
+  letter-spacing: var(--kicker-tracking);
+  text-transform: uppercase;
+  color: var(--primary-600);
 }

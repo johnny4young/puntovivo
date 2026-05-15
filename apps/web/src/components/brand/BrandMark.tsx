@@ -31,6 +31,17 @@ interface BrandMarkProps {
  */
 export function BrandMark({ className, monochrome, size, label = 'Puntovivo' }: BrandMarkProps) {
   const dimension = size ?? undefined;
+  // ENG-080c — official P-mark shape lifted verbatim from the design
+  // system handoff (`ui_kits/pos/shell.jsx`). The path renders a
+  // stylized lowercase "p" with the counter (the bowl) carved out via
+  // fillRule="evenodd"; the punto naranja sits inside that counter at
+  // (25, 19.5). The bag silhouette I shipped originally was a wrong
+  // inference — this path is what the bundle actually specifies.
+  //
+  // The 48×48 viewBox matches the handoff (shell.jsx renders the same
+  // glyph at h-9/10/11 sizing). The drop-shadow filter sits at the
+  // call site so the mark can render flat inside printed receipts
+  // and color-bound icons without bringing the glow along.
   return (
     <svg
       role="img"
@@ -38,41 +49,23 @@ export function BrandMark({ className, monochrome, size, label = 'Puntovivo' }: 
       aria-hidden={label === '' ? true : undefined}
       width={dimension}
       height={dimension}
-      viewBox="0 0 56 56"
+      viewBox="0 0 48 48"
       xmlns="http://www.w3.org/2000/svg"
+      shapeRendering="geometricPrecision"
       className={cn('block', className)}
     >
-      <defs>
-        <linearGradient id="puntovivo-mark-body" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="oklch(0.67 0.12 244)" />
-          <stop offset="100%" stopColor="oklch(0.53 0.12 244)" />
-        </linearGradient>
-      </defs>
-      <rect width="56" height="56" rx="18" fill="url(#puntovivo-mark-body)" />
-      {/* Shopping bag silhouette — 1.8px stroke, rounded joins. Matches the
-        design system handoff (assets/logomark.svg). */}
+      <rect x="0" y="0" width="48" height="48" rx="11" fill="var(--primary)" />
       <path
-        d="M19 22 V19 a9 9 0 0 1 18 0 V22"
-        fill="none"
-        stroke="white"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M14 10 H26.5 A9.5 9.5 0 0 1 26.5 29 H19 V40 H14 Z M19 15 V24 H26.5 A4.5 4.5 0 0 0 26.5 15 Z"
+        fill="#fff"
       />
-      <path
-        d="M16 22 H40 L38 41 a3 3 0 0 1 -3 3 H21 a3 3 0 0 1 -3 -3 L16 22 Z"
-        fill="none"
-        stroke="white"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      {/* Punto naranja — the brand accent. r=2.6 reads at small sizes
-        without overpowering the bag silhouette. */}
       {!monochrome && (
         <circle
           cx="25"
           cy="19.5"
-          r="2.6"
+          r="2.2"
           fill="var(--brand-accent-500)"
           data-testid="brand-mark-punto"
         />

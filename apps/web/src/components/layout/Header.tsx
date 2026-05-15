@@ -77,12 +77,13 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     setShowLanguageMenu(false);
   };
 
-  // ENG-080 — brand cluster shown on the left of the header on >=2xl
-  // viewports (where there is enough room next to the sidebar) and
-  // mirrors the design-system handoff topbar layout: BrandMark + a
-  // 3-tier label stack with kicker, workspace title, and site name.
-  // On smaller viewports the sidebar already carries the brand, so
-  // we hide it to avoid duplication.
+  // ENG-080 + ENG-080c — brand cluster shown on the left of the header
+  // on >=2xl viewports (where there is enough room next to the sidebar)
+  // and mirrors the design-system handoff topbar layout: BrandMark + a
+  // 3-tier label stack with the workspace kicker (primary-700,
+  // tracking-0.22em), the tenant name in semibold Inter, and the
+  // active site name beneath. On smaller viewports the sidebar already
+  // carries the brand, so we hide the cluster to avoid duplication.
   const brandCluster = (
     <div
       data-testid="header-brand-cluster"
@@ -90,14 +91,14 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     >
       <BrandMark className="h-10 w-10 shrink-0" label="" />
       <div className="min-w-0 leading-tight">
-        <p className="truncate text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+        <p className="truncate text-[0.55rem] font-semibold uppercase tracking-[0.22em] text-primary-700">
           {t('nav:brand.workspaceKicker')}
         </p>
-        <p className="mt-1 truncate font-display text-sm tracking-[-0.01em] text-secondary-950">
+        <p className="mt-1 truncate text-sm font-semibold tracking-[-0.005em] text-secondary-950">
           {currentTenant?.name ?? t('nav:brand.title')}
         </p>
         {currentSite?.name && (
-          <p className="mt-1 truncate text-[0.62rem] font-medium uppercase tracking-[0.24em] text-secondary-500">
+          <p className="mt-1 truncate text-[0.62rem] font-medium uppercase tracking-[0.18em] text-fg3">
             {currentSite.name}
           </p>
         )}
