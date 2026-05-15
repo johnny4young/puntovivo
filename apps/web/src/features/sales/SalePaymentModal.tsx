@@ -5,6 +5,7 @@ import { Plus, X } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { sumBy } from '@/lib/numbers';
 import { formatCurrency } from '@/lib/utils';
+import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { Customer, PaymentMethod } from '@/types';
 
 type SplitTenderMethod = Exclude<PaymentMethod, 'credit'>;
@@ -462,6 +463,19 @@ export function SalePaymentModal({
                 )}
               </div>
             </div>
+
+            {isCash && grandTotal > 0 && (
+              <QuickDenominationSelector
+                total={grandTotal}
+                currentValue={amountReceivedValue}
+                onSelect={amount =>
+                  form.setValue('amountReceived', amount, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            )}
 
             <div className="surface-panel-muted text-sm">
               <div className="flex items-center justify-between">

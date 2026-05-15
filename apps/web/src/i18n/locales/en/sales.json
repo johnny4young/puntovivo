@@ -195,6 +195,10 @@
     "other": "Other",
     "amountReceived": "Amount received",
     "amountNegative": "Amount received cannot be negative",
+    "quickAmount": {
+      "exactKicker": "Exact",
+      "billKicker": "Bill"
+    },
     "balance": "Outstanding balance",
     "change": "Change",
     "splitEnable": "Split payment across tenders",
