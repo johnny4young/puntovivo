@@ -107,6 +107,11 @@
     "selected": "selected",
     "ofTotal": "of {{total}} total"
   },
+  "whatsNew": {
+    "kicker": "What's new",
+    "versionLabel": "Version {{version}}",
+    "acknowledge": "Got it"
+  },
   "offlineGrid": {
     "kicker": "Offline mode",
     "title": "Don't worry — keep selling",
