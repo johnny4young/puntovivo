@@ -51,6 +51,11 @@ export async function getSaleRecord(
       subtotal: sales.subtotal,
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,
+      // ENG-039d — restaurant tip / propina; surfaced on the read shape
+      // so the receipt renderer, history modals, and reporting tiles
+      // can render the captured tip without a second round trip.
+      tipAmount: sales.tipAmount,
+      tipMethod: sales.tipMethod,
       total: sales.total,
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,

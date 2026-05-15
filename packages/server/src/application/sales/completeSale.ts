@@ -459,14 +459,22 @@ async function runFreshSale(
 
   const subtotal = resolvedItems.subtotal;
   const taxAmount = resolvedItems.taxAmount;
-  const total = subtotal + taxAmount - (input.discountAmount ?? 0);
-  if (total < 0) {
+  const baseTotal = subtotal + taxAmount - (input.discountAmount ?? 0);
+  if (baseTotal < 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
       message: 'Discount amount cannot exceed the sale total',
     });
   }
+  // ENG-039d — tip / propina rolls into `total` so payment validation
+  // (Σ tenders ≈ total, amountReceived ≥ total) keeps working without
+  // a special case downstream. The Zod refinement already rejects
+  // `tipMethod` without a positive amount; we additionally clamp to 0
+  // here as a defensive belt against any non-Zod caller.
+  const tipAmount = Math.max(0, input.tipAmount ?? 0);
+  const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
+  const total = baseTotal + tipAmount;
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
@@ -576,6 +584,9 @@ async function runFreshSale(
         subtotal,
         taxAmount,
         discountAmount: input.discountAmount ?? 0,
+        // ENG-039d — tip persisted alongside the existing money columns.
+        tipAmount,
+        tipMethod,
         total,
         // Echo the dominant tender onto the legacy `paymentMethod`
         // column so older screens that read it directly keep
@@ -908,7 +919,22 @@ async function runCompleteDraft(
     });
   }
 
-  const total = existing.total;
+  // ENG-039d — tip / propina layered on top of the frozen draft base.
+  // The draft's items + subtotal + tax + discount are immutable from
+  // the create-time call (sales.create stored them with status='draft');
+  // tip is captured at complete-time so the cashier can confirm it
+  // after the customer settles. We recompute `baseTotal` from the
+  // frozen monetary pieces rather than `existing.total` — a draft that
+  // was created with a tip already baked into `total` would otherwise
+  // see the second tip compound on top of the first, leaving
+  // `total` out of sync with the new `tipAmount` column.
+  const tipAmount = Math.max(0, input.tipAmount ?? 0);
+  const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
+  const baseTotal =
+    (existing.subtotal ?? 0) +
+    (existing.taxAmount ?? 0) -
+    (existing.discountAmount ?? 0);
+  const total = baseTotal + tipAmount;
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
     method: payment.method,
     amount: payment.amount,
@@ -1008,6 +1034,12 @@ async function runCompleteDraft(
         // income where it physically arrived.
         cashSessionId: activeCashSession.id,
         notes: input.notes ?? existing.notes,
+        // ENG-039d — persist the tip captured at complete-time. When
+        // no tip was entered we still write 0 / null so a previously
+        // partially-staged value never sticks.
+        tipAmount,
+        tipMethod,
+        total,
         syncStatus: 'pending',
         syncVersion: nextSyncVersion,
         updatedAt: now,
@@ -1052,6 +1084,13 @@ async function runCompleteDraft(
         saleNumber: existing.saleNumber,
         ...(input.payments && input.payments.length > 0
           ? { tenderCount: input.payments.length }
+          : {}),
+        // ENG-039d — surface tip in the audit row only when captured;
+        // suppressing the keys at zero keeps audit reads scannable.
+        // `tipMethod` is omitted (rather than written as `null`) when
+        // the caller did not specify a method.
+        ...(tipAmount > 0
+          ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) }
           : {}),
       },
     });

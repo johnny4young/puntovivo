@@ -559,7 +559,18 @@ export function SalesPage() {
 
   const handleCheckout = async (values: SalePaymentValues) => {
     try {
-      const payment = getCheckoutPaymentState(values, draftSummary.total);
+      // ENG-039d — tip rolls into total server-side; we pass it through
+      // unchanged. `tipMethod` is normalized to `undefined` when the
+      // operator did not capture a tip so the Zod refinement on the
+      // server (method requires positive amount) does not fire on the
+      // happy default path. `getCheckoutPaymentState` reads its `total`
+      // arg as the customer-facing grand total (the value compared
+      // against `amountReceived` to compute paymentStatus), so we add
+      // the tip in here before forwarding.
+      const tipAmount = Math.max(0, values.tipAmount ?? 0);
+      const tipMethod = tipAmount > 0 ? values.tipMethod ?? 'fixed' : undefined;
+      const grandTotal = draftSummary.total + tipAmount;
+      const payment = getCheckoutPaymentState(values, grandTotal);
       // ENG-018c — resumed carts complete via `sales.completeDraft` so
       // we do not re-send items (locked at create-time) and do not
       // double-debit stock. Fresh carts continue on the classic
@@ -572,6 +583,8 @@ export function SalesPage() {
           amountReceived: payment.amountReceived,
           notes: values.notes || undefined,
           payments: payment.payments,
+          tipAmount,
+          tipMethod,
         });
         return;
       }
@@ -596,6 +609,8 @@ export function SalesPage() {
         // legacy single-tender path. Shape is owned by `getCheckoutPaymentState`
         // so the "is-this-a-split?" decision lives in exactly one place.
         payments: payment.payments,
+        tipAmount,
+        tipMethod,
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));

@@ -212,7 +212,16 @@
     "splitDelta": "Diferencia",
     "splitMustMatch": "Los pagos deben sumar el total antes de confirmar.",
     "notes": "Notas",
-    "notesHint": "Comentarios opcionales para la venta"
+    "notesHint": "Comentarios opcionales para la venta",
+    "tip": {
+      "heading": "Propina",
+      "helper": "Opcional. Se calcula sobre el total antes de propina.",
+      "presetZero": "Sin propina",
+      "presetPercentage": "{{percentage}}%",
+      "customLabel": "Monto personalizado",
+      "customPlaceholder": "0.00",
+      "grandTotalBreakdown": "Base {{base}} + propina {{tip}}"
+    }
   },
   "history": {
     "title": "Historial de ventas",

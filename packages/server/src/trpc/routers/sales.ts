@@ -347,6 +347,8 @@ export const salesRouter = router({
         status: input.status,
         notes: input.notes,
         tableId: input.tableId,
+        tipAmount: input.tipAmount,
+        tipMethod: input.tipMethod ?? null,
       }
     );
     return result.sale;
@@ -1234,6 +1236,8 @@ export const salesRouter = router({
           amountReceived: input.amountReceived,
           paymentStatus: input.paymentStatus,
           notes: input.notes,
+          tipAmount: input.tipAmount,
+          tipMethod: input.tipMethod ?? null,
         }
       );
       return result.sale;

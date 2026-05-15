@@ -9,6 +9,11 @@ import type { Customer, PaymentMethod } from '@/types';
 
 type SplitTenderMethod = Exclude<PaymentMethod, 'credit'>;
 
+// ENG-039d — propina tip method. `null` (the default) means the
+// operator did not capture a tip; the server interprets that the same
+// as `tipAmount: 0`.
+export type SaleTipMethod = 'percentage' | 'fixed';
+
 export interface SalePaymentTenderValue {
   method: SplitTenderMethod;
   amount: number;
@@ -25,6 +30,16 @@ export interface SalePaymentValues {
    * `paymentMethod` + `amountReceived` for persistence and uses this list.
    */
   tenders: SalePaymentTenderValue[];
+  /**
+   * ENG-039d — tip / propina captured at checkout. `tipAmount` rolls
+   * into the persisted total server-side, so split-tender Σ and
+   * single-tender `amountReceived` are compared against `total + tip`.
+   * `tipMethod` is informational (`percentage` if the operator clicked
+   * a preset, `fixed` if they typed a custom amount, `null` when the
+   * tip is zero).
+   */
+  tipAmount: number;
+  tipMethod: SaleTipMethod | null;
 }
 
 interface SalePaymentModalProps {
@@ -38,6 +53,9 @@ interface SalePaymentModalProps {
 }
 
 const TENDER_SUM_EPSILON = 0.005;
+// ENG-039d — preset tip percentages. 0% is rendered as "Sin propina"
+// so the cashier can explicitly clear after picking 10/15.
+const TIP_PRESETS = [0, 10, 15] as const;
 
 function getDefaultValues(total: number): SalePaymentValues {
   return {
@@ -46,7 +64,21 @@ function getDefaultValues(total: number): SalePaymentValues {
     amountReceived: total,
     notes: '',
     tenders: [],
+    tipAmount: 0,
+    tipMethod: null,
   };
+}
+
+function roundCurrency(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function coerceTipAmount(value: unknown): number {
+  if (value === '' || value === null || value === undefined) {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
 export function SalePaymentModal({
@@ -71,20 +103,66 @@ export function SalePaymentModal({
   const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash';
   const amountReceived = useWatch({ control: form.control, name: 'amountReceived' });
   const watchedTenders = useWatch({ control: form.control, name: 'tenders' });
+  const tipAmountWatch = useWatch({ control: form.control, name: 'tipAmount' });
+  const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
+  const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
+  const grandTotal = roundCurrency(total + tipAmount);
   const isCash = paymentMethod === 'cash';
-  const change = isCash ? Math.max(0, amountReceivedValue - total) : 0;
-  const outstanding = Math.max(0, total - amountReceivedValue);
+  const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
+  const outstanding = Math.max(0, grandTotal - amountReceivedValue);
 
   const tenderSum = useMemo(
     () => sumBy(tenders, tender => Number(tender.amount) || 0),
     [tenders]
   );
-  const tenderDelta = tenderSum - total;
+  const tenderDelta = tenderSum - grandTotal;
   const tendersAreAllPositive = tenders.every(
     tender => (Number(tender.amount) || 0) > 0
   );
+
+  function handleTipPreset(percentage: number): void {
+    // ENG-039d — percentage base is `total` (subtotal + tax - discount)
+    // before tip is layered on. This is the customer-facing "what I
+    // owe" amount and matches the LATAM hospitality convention.
+    const nextAmount = roundCurrency((total * percentage) / 100);
+    syncPaymentInputsForTip(nextAmount);
+    form.setValue('tipAmount', nextAmount, { shouldDirty: true, shouldValidate: false });
+    form.setValue('tipMethod', percentage === 0 ? null : 'percentage', { shouldDirty: true });
+  }
+
+  function syncPaymentInputsForTip(nextTipAmount: number): void {
+    const previousGrandTotal = grandTotal;
+    const nextGrandTotal = roundCurrency(total + nextTipAmount);
+
+    if (splitMode) {
+      const currentTenders = form.getValues('tenders');
+      const firstTenderAmount = Number(currentTenders[0]?.amount) || 0;
+      if (
+        currentTenders.length === 1 &&
+        Math.abs(firstTenderAmount - previousGrandTotal) < TENDER_SUM_EPSILON
+      ) {
+        form.setValue('tenders.0.amount', nextGrandTotal, {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+      return;
+    }
+
+    if (paymentMethod === 'credit') {
+      return;
+    }
+
+    const currentAmountReceived = Number(form.getValues('amountReceived')) || 0;
+    if (Math.abs(currentAmountReceived - previousGrandTotal) < TENDER_SUM_EPSILON) {
+      form.setValue('amountReceived', nextGrandTotal, {
+        shouldDirty: true,
+        shouldValidate: false,
+      });
+    }
+  }
 
   function handleEnableSplit(): void {
     if (splitMode) {
@@ -92,7 +170,7 @@ export function SalePaymentModal({
     }
     setSplitMode(true);
     // Seed a first tender row so the cashier only needs to add the remainder.
-    tenderFields.append({ method: 'cash', amount: total, reference: '' });
+    tenderFields.append({ method: 'cash', amount: grandTotal, reference: '' });
   }
 
   function handleDisableSplit(): void {
@@ -104,11 +182,12 @@ export function SalePaymentModal({
   }
 
   const handleSubmit = form.handleSubmit(values => {
-    // Normalize: when split mode is inactive, strip the (empty) tenders array
-    // so the legacy single-tender backend path is selected unambiguously.
+    const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
     return onSubmit({
       ...values,
       tenders: splitMode ? values.tenders : [],
+      tipAmount: sanitizedTip,
+      tipMethod: sanitizedTip > 0 ? values.tipMethod ?? 'fixed' : null,
     });
   });
 
@@ -119,6 +198,19 @@ export function SalePaymentModal({
     tendersAreAllPositive;
 
   const canSubmit = !isSaving && (!splitMode || splitIsValid);
+
+  const presetActive = (percentage: number): boolean => {
+    // Zero-tip state — regardless of which method last touched the
+    // form, the "No tip" preset reads as active so the cashier sees
+    // an unambiguous baseline.
+    if (tipAmount === 0) {
+      return percentage === 0;
+    }
+    if (tipMethodWatch !== 'percentage') {
+      return false;
+    }
+    return Math.abs(tipAmount - (total * percentage) / 100) < TENDER_SUM_EPSILON;
+  };
 
   return (
     <Modal
@@ -143,7 +235,15 @@ export function SalePaymentModal({
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
           <p className="text-sm text-primary-700">{t('payment.saleTotal')}</p>
-          <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(total)}</p>
+          <p className="mt-1 text-3xl font-semibold text-primary-900">{formatCurrency(grandTotal)}</p>
+          {tipAmount > 0 && (
+            <p className="mt-1 text-xs text-primary-700">
+              {t('payment.tip.grandTotalBreakdown', {
+                base: formatCurrency(total),
+                tip: formatCurrency(tipAmount),
+              })}
+            </p>
+          )}
         </div>
 
         <div>
@@ -158,6 +258,68 @@ export function SalePaymentModal({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="rounded-xl border border-secondary-200 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-secondary-900">{t('payment.tip.heading')}</p>
+            <p className="text-xs text-secondary-500">{t('payment.tip.helper')}</p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {TIP_PRESETS.map(preset => (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={presetActive(preset)}
+                className={
+                  presetActive(preset)
+                    ? 'btn-primary px-3 py-1.5 text-sm'
+                    : 'btn-secondary px-3 py-1.5 text-sm'
+                }
+                onClick={() => handleTipPreset(preset)}
+              >
+                {preset === 0
+                  ? t('payment.tip.presetZero')
+                  : t('payment.tip.presetPercentage', { percentage: preset })}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <label htmlFor="sale-payment-tip-custom" className="label">
+              {t('payment.tip.customLabel')}
+            </label>
+            <input
+              id="sale-payment-tip-custom"
+              type="number"
+              min={0}
+              step="0.01"
+              className="input mt-1"
+              placeholder={t('payment.tip.customPlaceholder')}
+              {...form.register('tipAmount', {
+                // Mirror the split-tender setValueAs — RHF + valueAsNumber
+                // turns cleared inputs into NaN, which would propagate
+                // into `grandTotal = total + NaN` and the split-tender
+                // Σ comparison. Normalize empty / NaN to 0 at register
+                // time so the rest of the form stays numeric.
+                setValueAs: coerceTipAmount,
+                min: { value: 0, message: t('payment.amountNegative') },
+                onChange: event => {
+                  // Switching to a custom amount detaches from the
+                  // preset state; we mark `tipMethod='fixed'` so the
+                  // server can distinguish percentage vs fixed for
+                  // reporting. Zero amount falls back to `null` at
+                  // submit time.
+                  syncPaymentInputsForTip(coerceTipAmount(event.target.value));
+                  form.setValue('tipMethod', 'fixed', { shouldDirty: true });
+                },
+              })}
+            />
+            {form.formState.errors.tipAmount && (
+              <p className="mt-1 text-sm text-danger-500">
+                {form.formState.errors.tipAmount.message}
+              </p>
+            )}
+          </div>
         </div>
 
         {!splitMode && (
@@ -315,7 +477,7 @@ export function SalePaymentModal({
                 );
                 tenderFields.append({
                   method: 'card',
-                  amount: Math.max(0, total - currentTenderSum),
+                  amount: Math.max(0, grandTotal - currentTenderSum),
                   reference: '',
                 });
               }}

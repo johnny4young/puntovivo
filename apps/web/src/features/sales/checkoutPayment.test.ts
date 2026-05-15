@@ -16,6 +16,8 @@ function buildPaymentValues(
     amountReceived: 100,
     notes: '',
     tenders: [],
+    tipAmount: 0,
+    tipMethod: null,
     ...overrides,
   };
 }
