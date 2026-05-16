@@ -372,7 +372,10 @@ export function QuotationCreateModal({
                   <th scope="col" className="px-3 py-2 text-left">
                     {t('create.columns.product')}
                   </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  <th scope="col" className="px-3 py-2 text-left">
+                    {t('create.columns.tier', { defaultValue: 'Tarifa' })}
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-center">
                     {t('create.columns.quantity')}
                   </th>
                   <th scope="col" className="px-3 py-2 text-right">
@@ -395,44 +398,82 @@ export function QuotationCreateModal({
               <tbody className="divide-y divide-secondary-100">
                 {lines.map((line, index) => {
                   const resolved = resolvedLines[index];
+                  const currentQty = parseNumber(line.quantityInput);
+                  const setQty = (next: number) =>
+                    updateLine(line.rowId, {
+                      quantityInput: String(Math.max(0, next)),
+                    });
+                  const product = resolved?.product;
                   return (
                     <tr key={line.rowId}>
                       <td className="px-3 py-2 align-top">
                         <select
-                          className={`input w-56 ${resolved?.product ? '' : 'border-secondary-300'}`}
+                          className={`input w-56 ${product ? '' : 'border-secondary-300'}`}
                           value={line.productId}
                           onChange={event => {
-                            const product = productById.get(event.target.value);
+                            const next = productById.get(event.target.value);
                             updateLine(line.rowId, {
                               productId: event.target.value,
-                              unitPriceInput: product
-                                ? String(product.price)
+                              unitPriceInput: next
+                                ? String(next.price)
                                 : line.unitPriceInput,
                             });
                           }}
                           aria-label={t('create.columns.product')}
                         >
                           <option value="">{t('create.linePlaceholder')}</option>
-                          {productOptions.map(product => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} — {product.sku}
+                          {productOptions.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} — {p.sku}
                             </option>
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2 text-right align-top">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          step="any"
-                          min={0}
-                          className="input w-24 text-right"
-                          value={line.quantityInput}
-                          onChange={event =>
-                            updateLine(line.rowId, { quantityInput: event.target.value })
-                          }
-                          aria-label={t('create.columns.quantity')}
-                        />
+                      <td className="px-3 py-2 align-top">
+                        {/* V7 — tier badge column. Read-only display of the
+                          * product's first configured price tier. Falls back
+                          * to "—" so the chrome stays present even when no
+                          * wholesale tier is configured (handoff §7 read-only). */}
+                        {product ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-primary-700">
+                            {t('create.tierBadge', { defaultValue: 'Pista 1' })}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-secondary-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center align-top">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line/70 text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50 disabled:opacity-40"
+                            disabled={!Number.isFinite(currentQty) || currentQty <= 0}
+                            onClick={() => setQty((Number.isFinite(currentQty) ? currentQty : 0) - 1)}
+                            aria-label={t('create.decrementQty', { defaultValue: 'Restar' })}
+                          >
+                            <span aria-hidden="true">−</span>
+                          </button>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step="any"
+                            min={0}
+                            className="input h-9 w-14 text-center font-mono tabular-nums"
+                            value={line.quantityInput}
+                            onChange={event =>
+                              updateLine(line.rowId, { quantityInput: event.target.value })
+                            }
+                            aria-label={t('create.columns.quantity')}
+                          />
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line/70 text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50"
+                            onClick={() => setQty((Number.isFinite(currentQty) ? currentQty : 0) + 1)}
+                            aria-label={t('create.incrementQty', { defaultValue: 'Sumar' })}
+                          >
+                            <span aria-hidden="true">+</span>
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right align-top">
                         <input

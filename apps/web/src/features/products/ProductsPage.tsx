@@ -126,13 +126,27 @@ const columns = (
         {
           id: 'similarity',
           header: () => i18next.t('products:table.match'),
-          size: 90,
+          size: 140,
           cell: ({ row }: { row: { original: DisplayProduct } }) => {
             const sim = row.original.similarity;
             if (typeof sim !== 'number') return <span className="text-secondary-400">-</span>;
-            const pct = Math.round(sim * 100);
+            const pct = Math.max(0, Math.min(100, Math.round(sim * 100)));
+            const toneClass =
+              pct >= 80
+                ? 'bg-success-500'
+                : pct >= 60
+                  ? 'bg-primary'
+                  : 'bg-warning-500';
             return (
-              <span className="badge badge-primary">{`${pct}%`}</span>
+              <div
+                className="flex items-center gap-2"
+                title={i18next.t('semanticSearch:score.tooltip', { score: sim.toFixed(2) })}
+              >
+                <div className="h-2 w-20 overflow-hidden rounded-full bg-secondary-100">
+                  <div className={`h-full rounded-full ${toneClass}`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-[11px] font-mono tabular-nums text-secondary-700">{pct}%</span>
+              </div>
             );
           },
         } satisfies ColumnDef<DisplayProduct>,

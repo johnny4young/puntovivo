@@ -1,6 +1,8 @@
 {
   "page": {
-    "title": "Co-pilot"
+    "kicker": "Inteligencia · Co-pilot",
+    "title": "Co-pilot",
+    "subtitle": "Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable."
   },
   "chat": {
     "title": "Conversación",
@@ -21,6 +23,11 @@
     "sqlDisclosure": "SQL ejecutado",
     "noRows": "Este análisis no devolvió filas.",
     "truncated": "El resultado fue recortado al límite de filas del servidor.",
-    "meta": "{{provider}} / {{model}} · {{rows}} filas · {{cost}}"
+    "meta": "{{provider}} / {{model}} · {{rows}} filas · {{cost}}",
+    "metaProviderLabel": "Proveedor",
+    "metaCostLabel": "Costo",
+    "metaRowsLabel": "Filas",
+    "metaTruncatedLabel": "Truncado",
+    "emptyKicker": "Resultado"
   }
 }

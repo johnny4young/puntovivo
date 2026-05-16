@@ -33,16 +33,21 @@ import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
 
-/** Supported image MIME types for invoice OCR. */
-export const INVOICE_OCR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+/** Supported upload MIME types for invoice OCR. */
+export const INVOICE_OCR_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+] as const;
 export type InvoiceOcrMimeType = (typeof INVOICE_OCR_MIME_TYPES)[number];
 
 /**
- * 5 MB raw budget after base64 decode. Anthropic and OpenAI vision
- * endpoints accept larger payloads; the limit exists to bound budget
- * burn and Fastify body size per request.
+ * 10 MB raw budget after base64 decode. Textract accepts larger PDFs,
+ * but the product handoff caps OCR uploads at 10 MB before a provider
+ * sees the document.
  */
-export const INVOICE_OCR_MAX_BYTES = 5 * 1024 * 1024;
+export const INVOICE_OCR_MAX_BYTES = 10 * 1024 * 1024;
 
 const InvoiceOcrLineSchema = z.object({
   description: z.string().describe('Line item description as printed on the invoice.'),

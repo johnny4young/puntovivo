@@ -12,6 +12,7 @@ export type AIFeature =
   | 'autoCategorize'
   | 'embeddings'
   | 'invoiceOcr'
+  | 'invoiceLineMatch'
   | 'paymentReconciliation';
 
 export interface AICompletionInput {
@@ -38,6 +39,32 @@ export interface AICompletionResult {
   auditLogId: string;
 }
 
+export interface AIFeatureFlags {
+  copilot: { enabled: boolean };
+  anomalies: {
+    enabled: boolean;
+    /** Lower bound for surfacing — only show alerts at or above this band. */
+    alertSeverityThreshold: 'media' | 'alta';
+  };
+  semanticSearch: { enabled: boolean };
+  invoiceOcr: {
+    enabled: boolean;
+    provider: 'textract' | 'docai' | 'azure';
+  };
+  privacy: {
+    piiRedaction: true;
+    modelLocation: 'us' | 'on-prem';
+  };
+}
+
+export const DEFAULT_AI_FEATURE_FLAGS: AIFeatureFlags = {
+  copilot: { enabled: false },
+  anomalies: { enabled: false, alertSeverityThreshold: 'media' },
+  semanticSearch: { enabled: false },
+  invoiceOcr: { enabled: false, provider: 'textract' },
+  privacy: { piiRedaction: true, modelLocation: 'us' },
+};
+
 /**
  * Resolved AI configuration for a tenant. Read with `resolveAISettings`
  * from `tenants.settings.ai`; write via the `ai.settings.update` tRPC
@@ -50,6 +77,8 @@ export interface AISettings {
   providerId: AIProviderId | null;
   /** null = use `provider.defaultModelId`. */
   modelId: string | null;
+  /** Per-feature opt-in flags. Added 2026-05-15. */
+  features?: AIFeatureFlags;
 }
 
 /** Defaults applied to a tenant that has no `ai` block in settings yet. */
@@ -58,4 +87,5 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   monthlyBudgetUsd: 0,
   providerId: null,
   modelId: null,
+  features: DEFAULT_AI_FEATURE_FLAGS,
 };

@@ -22,7 +22,8 @@ import { currentMonthSpend, recordCall } from './auditLog.js';
 import { getProvider, isNotImplemented } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type { AICompletionInput, AICompletionResult, AISettings } from './types.js';
-import { DEFAULT_AI_SETTINGS } from './types.js';
+import { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
+import type { AIFeatureFlags } from './types.js';
 
 export interface AIInvocationContext {
   db: DatabaseInstance;
@@ -60,16 +61,99 @@ export async function resolveAISettings(
         ? ai.providerId
         : DEFAULT_AI_SETTINGS.providerId,
     modelId: typeof ai.modelId === 'string' && ai.modelId.length > 0 ? ai.modelId : null,
+    features: mergeFeatureFlags(ai.features),
   };
 }
 
+function mergeFeatureFlags(raw: unknown): AIFeatureFlags {
+  const incoming = (raw && typeof raw === 'object' ? raw : {}) as Partial<AIFeatureFlags>;
+  return {
+    copilot: {
+      enabled:
+        typeof incoming.copilot?.enabled === 'boolean'
+          ? incoming.copilot.enabled
+          : DEFAULT_AI_FEATURE_FLAGS.copilot.enabled,
+    },
+    anomalies: {
+      enabled:
+        typeof incoming.anomalies?.enabled === 'boolean'
+          ? incoming.anomalies.enabled
+          : DEFAULT_AI_FEATURE_FLAGS.anomalies.enabled,
+      alertSeverityThreshold:
+        incoming.anomalies?.alertSeverityThreshold === 'alta' ||
+        incoming.anomalies?.alertSeverityThreshold === 'media'
+          ? incoming.anomalies.alertSeverityThreshold
+          : DEFAULT_AI_FEATURE_FLAGS.anomalies.alertSeverityThreshold,
+    },
+    semanticSearch: {
+      enabled:
+        typeof incoming.semanticSearch?.enabled === 'boolean'
+          ? incoming.semanticSearch.enabled
+          : DEFAULT_AI_FEATURE_FLAGS.semanticSearch.enabled,
+    },
+    invoiceOcr: {
+      enabled:
+        typeof incoming.invoiceOcr?.enabled === 'boolean'
+          ? incoming.invoiceOcr.enabled
+          : DEFAULT_AI_FEATURE_FLAGS.invoiceOcr.enabled,
+      provider:
+        incoming.invoiceOcr?.provider === 'textract' ||
+        incoming.invoiceOcr?.provider === 'docai' ||
+        incoming.invoiceOcr?.provider === 'azure'
+          ? incoming.invoiceOcr.provider
+          : DEFAULT_AI_FEATURE_FLAGS.invoiceOcr.provider,
+    },
+    privacy: {
+      piiRedaction: true,
+      modelLocation:
+        incoming.privacy?.modelLocation === 'on-prem' || incoming.privacy?.modelLocation === 'us'
+          ? incoming.privacy.modelLocation
+          : DEFAULT_AI_FEATURE_FLAGS.privacy.modelLocation,
+    },
+  };
+}
+
+function mergePatchFeatures(
+  current: AIFeatureFlags | undefined,
+  patch: PartialAIFeatureFlags | undefined
+): AIFeatureFlags {
+  const base = current ?? DEFAULT_AI_FEATURE_FLAGS;
+  if (!patch) return base;
+  return {
+    copilot: { ...base.copilot, ...patch.copilot },
+    anomalies: {
+      ...base.anomalies,
+      ...patch.anomalies,
+    },
+    semanticSearch: { ...base.semanticSearch, ...patch.semanticSearch },
+    invoiceOcr: { ...base.invoiceOcr, ...patch.invoiceOcr },
+    privacy: { ...base.privacy, ...patch.privacy, piiRedaction: true },
+  };
+}
+
+type PartialAIFeatureFlags = {
+  copilot?: Partial<AIFeatureFlags['copilot']>;
+  anomalies?: Partial<AIFeatureFlags['anomalies']>;
+  semanticSearch?: Partial<AIFeatureFlags['semanticSearch']>;
+  invoiceOcr?: Partial<AIFeatureFlags['invoiceOcr']>;
+  privacy?: Partial<AIFeatureFlags['privacy']>;
+};
+
 /**
  * Persist (a partial patch of) `tenants.settings.ai`.
+ *
+ * The `features` patch may be partial-of-partial — AiConfigPage only
+ * sends the leaves that the operator touched. `mergePatchFeatures`
+ * merges shallowly while preserving the rest of the resolved shape.
  */
+export type WriteAISettingsPatch = Omit<Partial<AISettings>, 'features'> & {
+  features?: PartialAIFeatureFlags;
+};
+
 export async function writeAISettings(
   db: DatabaseInstance,
   tenantId: string,
-  patch: Partial<AISettings>
+  patch: WriteAISettingsPatch
 ): Promise<AISettings> {
   const current = await resolveAISettings(db, tenantId);
   const next: AISettings = {
@@ -81,6 +165,7 @@ export async function writeAISettings(
     providerId:
       patch.providerId !== undefined ? patch.providerId : current.providerId,
     modelId: patch.modelId !== undefined ? patch.modelId : current.modelId,
+    features: mergePatchFeatures(current.features, patch.features),
   };
 
   const tenant = await db

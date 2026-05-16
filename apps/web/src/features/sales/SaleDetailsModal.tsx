@@ -491,6 +491,14 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
         isPending={returnMutation.isPending}
         saleNumber={sale?.saleNumber ?? undefined}
         refundTotal={Number(sale?.total ?? 0)}
+        lines={
+          sale?.items?.map(item => ({
+            id: item.id ?? item.productId,
+            productName: item.productName ?? item.productId ?? '',
+            quantity: Number(item.quantity ?? 0),
+            total: Number(item.total ?? item.unitPrice ?? 0),
+          })) ?? []
+        }
         onClose={() => setIsReturnConfirmOpen(false)}
         onConfirm={reason => {
           setIsReturnConfirmOpen(false);

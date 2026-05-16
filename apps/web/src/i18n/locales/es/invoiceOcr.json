@@ -1,0 +1,57 @@
+{
+  "openButton": "OCR de factura",
+  "dialog": {
+    "kicker": "OCR de factura",
+    "title": "Sube una foto, la IA lee la factura",
+    "subtitle": "Soporta JPG, PNG y PDF hasta 10 MB. Revisa cada campo antes de registrar la compra.",
+    "close": "Cerrar"
+  },
+  "preview": {
+    "pdfOnePage": "PDF · 1 página"
+  },
+  "upload": {
+    "help": "Selecciona la factura del proveedor o tómale una foto desde la tableta.",
+    "upload": "Subir archivo",
+    "camera": "Tomar foto",
+    "fileTypes": "JPG · PNG · PDF — máx 10 MB"
+  },
+  "stage": {
+    "uploading": "Preparando imagen...",
+    "extracting": "Leyendo la factura..."
+  },
+  "form": {
+    "kicker": "Borrador de compra",
+    "supplier": "Proveedor",
+    "provider": "Proveedor catálogo",
+    "selectProvider": "Selecciona proveedor",
+    "invoiceNumber": "Número factura",
+    "lines": "Líneas",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "unmatchedLine": "Pendiente de producto",
+    "assignProduct": "Asignar producto",
+    "changeProduct": "Cambiar producto",
+    "productPickerTitle": "Asignar producto a la línea",
+    "productPickerConfirm": "Usar producto",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "confirming": "Registrando...",
+    "disclaimer": "La IA leyó la factura. Revisa cada campo antes de registrar la compra.",
+    "warning": {
+      "totalsMismatch": "El total no coincide con la suma de líneas (diferencia {{diff}}). Revisa antes de confirmar.",
+      "unmatched": "{{count}} líneas sin coincidencia en el catálogo. Asígnales un producto para confirmar.",
+      "providerRequired": "Selecciona el proveedor del catálogo antes de confirmar."
+    }
+  },
+  "error": {
+    "title": "No pude leer esa factura",
+    "tryAgain": "Reintentar",
+    "unsupportedType": "Tipo de archivo no soportado.",
+    "tooLarge": "Archivo demasiado grande (máx 10 MB).",
+    "missingRequired": "Selecciona proveedor y producto para cada línea antes de confirmar."
+  },
+  "success": {
+    "title": "Borrador listo",
+    "description": "Revisa la compra borrador antes de finalizarla."
+  }
+}

@@ -104,6 +104,72 @@ export function QuotationDetailsModal({
             </span>
           </div>
 
+          {/* ENG-085 — V7 customer card. Surfaces name + NIT + email/phone
+            * inline so the operator can verify the buyer without leaving
+            * the drawer. Credit / cupo / saldo are scaffolded with "—"
+            * placeholders until the ledger from ENG-089 is wired in. */}
+          <section className="card relative overflow-hidden p-5">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(circle at 88% 0%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 60%)',
+              }}
+            />
+            <div className="relative grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+              <div>
+                <p className="page-kicker">{t('details.customerKicker', { defaultValue: 'Cliente' })}</p>
+                <h3 className="mt-1 font-display text-xl tracking-[-0.02em] text-secondary-950">
+                  {detailQuery.data.customerName ?? t('history.customerNone')}
+                </h3>
+                <dl className="mt-3 grid grid-cols-1 gap-2 text-[12.5px] sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                      NIT
+                    </dt>
+                    <dd className="mt-0.5 font-mono text-secondary-900">
+                      {detailQuery.data.customerTaxId ?? '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                      {t('details.customerContact', { defaultValue: 'Contacto' })}
+                    </dt>
+                    <dd className="mt-0.5 truncate text-secondary-900">
+                      {detailQuery.data.customerEmail ?? detailQuery.data.customerPhone ?? '—'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="grid grid-cols-3 gap-2 self-start">
+                <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
+                  <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                    {t('details.creditLabel', { defaultValue: 'Crédito' })}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                </div>
+                <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
+                  <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                    {t('details.cupoLabel', { defaultValue: 'Cupo' })}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                </div>
+                <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
+                  <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                    {t('details.saldoLabel', { defaultValue: 'Saldo' })}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                </div>
+              </div>
+            </div>
+            <p className="relative mt-3 text-[10.5px] uppercase tracking-[0.18em] text-secondary-500">
+              {t('details.ledgerPending', {
+                defaultValue: 'El estado de cuenta del cliente llegará con ENG-089.',
+              })}
+            </p>
+          </section>
+
           {/* ENG-085 — V7 layout: metadata sits in a card-inset with the
             * kicker pattern, and a dedicated "Despacho · vigencia" panel
             * elevates the validity date to a first-class signal. */}

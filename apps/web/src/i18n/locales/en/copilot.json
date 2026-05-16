@@ -1,6 +1,8 @@
 {
   "page": {
-    "title": "Co-pilot"
+    "kicker": "Intelligence · Co-pilot",
+    "title": "Co-pilot",
+    "subtitle": "Ask your data anything. The SQL stays visible under every result so the answer is auditable."
   },
   "chat": {
     "title": "Conversation",
@@ -21,6 +23,11 @@
     "sqlDisclosure": "Executed SQL",
     "noRows": "No rows returned for this analysis.",
     "truncated": "The result was truncated to the server-side row limit.",
-    "meta": "{{provider}} / {{model}} · {{rows}} rows · {{cost}}"
+    "meta": "{{provider}} / {{model}} · {{rows}} rows · {{cost}}",
+    "metaProviderLabel": "Provider",
+    "metaCostLabel": "Cost",
+    "metaRowsLabel": "Rows",
+    "metaTruncatedLabel": "Truncated",
+    "emptyKicker": "Result"
   }
 }

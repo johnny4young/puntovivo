@@ -63,9 +63,10 @@ export type {
   AICompletionInput,
   AICompletionResult,
   AIFeature,
+  AIFeatureFlags,
   AISettings,
 } from './types.js';
-export { DEFAULT_AI_SETTINGS } from './types.js';
+export { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
 
 export {
   DEFAULT_PROVIDER_ID,

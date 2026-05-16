@@ -597,4 +597,31 @@
   .dark .data-table tbody tr[data-state="selected"] {
     @apply bg-primary-100/15;
   }
+
+  /* 2026-05-15 — scan-band animation for InvoiceOcrPreview. Travels
+   * top → bottom over 2.6s while the OCR backend is still working so
+   * the cashier sees a live progress signal. */
+  .ocr-scan-band {
+    position: absolute;
+    inset-inline: 0;
+    height: 0.875rem;
+    top: -0.875rem;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--primary) 0%, transparent),
+      color-mix(in oklch, var(--primary) 35%, transparent),
+      color-mix(in oklch, var(--primary) 0%, transparent)
+    );
+    animation: ocrScanTravel 2.6s linear infinite;
+  }
+
+  @keyframes ocrScanTravel {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(60vh);
+    }
+  }
 }

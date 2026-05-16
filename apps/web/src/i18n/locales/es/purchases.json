@@ -14,7 +14,8 @@
     "description": "Ajusta cantidades recibidas y costos antes de actualizar el stock.",
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
-    "openOcr": "Escanear factura",
+    "openOcr": "+ OCR de factura",
+    "openOcrV2": "OCR factura (AI Núcleo)",
     "register": "Registrar compra",
     "purchaseTotal": "Total de la compra",
     "provider": "Proveedor",
@@ -165,6 +166,7 @@
     }
   },
   "status": {
+    "draft": "Borrador",
     "completed": "Completado",
     "partial_returned": "Parcialmente devuelto",
     "returned": "Devuelto",

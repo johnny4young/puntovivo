@@ -6,7 +6,7 @@
     "states": {
       "loading": "Computing anomalies…",
       "error": "Could not load anomalies. Try again in a moment.",
-      "disabled": "AI features are turned off. Enable them in Company → AI settings to scan for anomalies.",
+      "disabled": "Anomaly detection is off. Enable it in Company → AI settings to scan for anomalies.",
       "empty": "No anomalies detected in the last 30 days. Team is operating within the normal pattern.",
       "summary_one": "{{count}} alert detected in the last 30 days",
       "summary_other": "{{count}} alerts detected in the last 30 days"

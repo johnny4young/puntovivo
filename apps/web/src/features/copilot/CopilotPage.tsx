@@ -227,20 +227,21 @@ function ResultsPanel({
   result: CopilotChatResult | null;
   formatCurrency: (amount: number) => string;
 }) {
-  const { t } = useTranslation('copilot');
+  const { t } = useTranslation(['copilot', 'aiShared']);
 
   if (!result) {
     return (
       <section className="card p-6">
         <div className="flex h-56 flex-col items-center justify-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-700">
-            <Sparkles className="h-6 w-6" />
+          <div className="glyph-tile glyph-tile-primary h-12 w-12">
+            <Sparkles className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-secondary-950">
+            <p className="page-kicker">{t('copilot:results.emptyKicker', { defaultValue: 'Resultado' })}</p>
+            <h2 className="mt-1 font-display text-lg text-secondary-950">
               {t('states.emptyTitle')}
             </h2>
-            <p className="mt-1 max-w-sm text-sm leading-6 text-secondary-600">
+            <p className="mt-2 max-w-sm text-sm leading-6 text-secondary-600">
               {t('states.emptyDescription')}
             </p>
           </div>
@@ -254,24 +255,59 @@ function ResultsPanel({
       <ResultChart result={result} formatCurrency={formatCurrency} />
       <ResultTable result={result} formatCurrency={formatCurrency} />
       {result.sql && (
-        <details className="card group overflow-hidden">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-secondary-950">
-            <Database className="h-4 w-4 text-primary-700" />
-            {t('results.sqlDisclosure')}
-          </summary>
-          <pre className="overflow-x-auto border-t border-line/70 bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
+        <section className="card overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
+            <Database className="h-4 w-4 text-primary-700" aria-hidden="true" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
+              {t('results.sqlDisclosure')}
+            </p>
+          </div>
+          <pre className="overflow-x-auto bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
             <code>{result.sql}</code>
           </pre>
-        </details>
+        </section>
       )}
-      <div className="card p-4 text-xs text-secondary-500">
-        {t('results.meta', {
-          provider: result.provider,
-          model: result.model,
-          cost: formatUsd(result.costUsd),
-          rows: result.rowCount,
-        })}
-      </div>
+      <section className="card relative overflow-hidden p-4">
+        <div className="grid gap-3 text-[11px] uppercase tracking-[0.18em] text-secondary-500 sm:grid-cols-[1fr_auto_auto_auto]">
+          <div>
+            <p className="text-[9.5px] font-semibold tracking-[0.22em] text-secondary-500">
+              {t('results.metaProviderLabel', { defaultValue: 'Proveedor' })}
+            </p>
+            <p className="mt-1 truncate font-mono text-[12px] tracking-normal text-secondary-900 normal-case">
+              {result.provider} · {result.model}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9.5px] font-semibold tracking-[0.22em] text-secondary-500">
+              {t('results.metaCostLabel', { defaultValue: 'Costo' })}
+            </p>
+            <p className="mt-1 font-mono text-[12px] tabular-nums tracking-normal text-secondary-900 normal-case">
+              {formatUsd(result.costUsd)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9.5px] font-semibold tracking-[0.22em] text-secondary-500">
+              {t('results.metaRowsLabel', { defaultValue: 'Filas' })}
+            </p>
+            <p className="mt-1 font-mono text-[12px] tabular-nums tracking-normal text-secondary-900 normal-case">
+              {result.rowCount}
+            </p>
+          </div>
+          {result.truncated && (
+            <div>
+              <p className="text-[9.5px] font-semibold tracking-[0.22em] text-warning-700">
+                {t('results.metaTruncatedLabel', { defaultValue: 'Truncado' })}
+              </p>
+              <p className="mt-1 text-[12px] tracking-normal text-warning-700 normal-case">
+                {t('results.truncated')}
+              </p>
+            </div>
+          )}
+        </div>
+        <p className="mt-3 border-t border-line/70 pt-3 text-[11px] leading-5 text-secondary-500">
+          {t('aiShared:disclaimer.copilot')}
+        </p>
+      </section>
     </div>
   );
 }
@@ -304,11 +340,30 @@ export function CopilotPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-secondary-950">
-          {t('copilot:page.title')}
-        </h1>
-      </div>
+      <header className="card relative overflow-hidden p-6 sm:p-7">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(circle at 88% 0%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%)',
+          }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 max-w-3xl">
+            <p className="page-kicker">{t('copilot:page.kicker', { defaultValue: 'Inteligencia · Co-pilot' })}</p>
+            <h1 className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950">
+              {t('copilot:page.title')}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-secondary-600">
+              {t('copilot:page.subtitle', {
+                defaultValue:
+                  'Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable.',
+              })}
+            </p>
+          </div>
+        </div>
+      </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <section className="card flex min-h-[35rem] flex-col overflow-hidden">

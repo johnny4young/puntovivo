@@ -93,7 +93,7 @@
     "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "Ese análisis cubre demasiados datos. Reduce el rango de fechas o selecciona una sede e intenta de nuevo.",
     "AI_VISION_NOT_AVAILABLE": "El proveedor de IA actual no admite lectura de imágenes. Cambia el proveedor en Empresa → Configuración de IA.",
     "AI_VISION_PARSE_FAILED": "El modelo no pudo leer esta factura con claridad. Intenta con una foto más nítida o transcribe las líneas manualmente.",
-    "AI_VISION_IMAGE_TOO_LARGE": "La imagen es demasiado grande. Usa una foto de menos de 5 MB.",
+    "AI_VISION_IMAGE_TOO_LARGE": "El documento es demasiado grande. Usa un archivo de menos de 10 MB.",
     "AI_VOICE_NOT_AVAILABLE": "Tu proveedor de IA no admite transcripción de voz. Cambia el proveedor en Empresa → Configuración de IA.",
     "AI_VOICE_PARSE_FAILED": "No pude entender el audio. Intenta grabar de nuevo en un lugar más silencioso.",
     "AI_VOICE_AUDIO_TOO_LARGE": "El archivo de audio es demasiado grande. Usa una grabación de menos de 10 MB.",

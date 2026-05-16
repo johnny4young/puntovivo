@@ -7,6 +7,35 @@ import { z } from 'zod';
 
 export const aiProviderIdSchema = z.enum(['anthropic', 'openai', 'ollama']);
 
+/**
+ * Per-feature flag patch shape — added 2026-05-15 per AI Núcleo
+ * handoff §1.4. Sent by AiConfigPage when an admin toggles a switch
+ * or picks a different OCR provider.
+ */
+export const aiFeatureFlagsPatchSchema = z
+  .object({
+    copilot: z.object({ enabled: z.boolean() }).optional(),
+    anomalies: z
+      .object({
+        enabled: z.boolean().optional(),
+        alertSeverityThreshold: z.enum(['media', 'alta']).optional(),
+      })
+      .optional(),
+    semanticSearch: z.object({ enabled: z.boolean() }).optional(),
+    invoiceOcr: z
+      .object({
+        enabled: z.boolean().optional(),
+        provider: z.enum(['textract', 'docai', 'azure']).optional(),
+      })
+      .optional(),
+    privacy: z
+      .object({
+        modelLocation: z.enum(['us', 'on-prem']).optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
 export const updateAISettingsInput = z.object({
   enabled: z.boolean().optional(),
   monthlyBudgetUsd: z.number().min(0).max(100_000).optional(),
@@ -17,6 +46,7 @@ export const updateAISettingsInput = z.object({
     .max(120)
     .nullable()
     .optional(),
+  features: aiFeatureFlagsPatchSchema,
 });
 
 export const aiUsageInput = z.object({

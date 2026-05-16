@@ -1,0 +1,57 @@
+{
+  "openButton": "Invoice OCR",
+  "dialog": {
+    "kicker": "Invoice OCR",
+    "title": "Upload a photo, AI reads the invoice",
+    "subtitle": "Supports JPG, PNG, and PDF up to 10 MB. Review every field before registering the purchase.",
+    "close": "Close"
+  },
+  "preview": {
+    "pdfOnePage": "PDF · 1 page"
+  },
+  "upload": {
+    "help": "Pick the supplier invoice or snap a photo from the tablet.",
+    "upload": "Upload file",
+    "camera": "Take photo",
+    "fileTypes": "JPG · PNG · PDF — max 10 MB"
+  },
+  "stage": {
+    "uploading": "Preparing image...",
+    "extracting": "Reading the invoice..."
+  },
+  "form": {
+    "kicker": "Purchase draft",
+    "supplier": "Supplier",
+    "provider": "Catalog supplier",
+    "selectProvider": "Select supplier",
+    "invoiceNumber": "Invoice number",
+    "lines": "Lines",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "unmatchedLine": "Product pending",
+    "assignProduct": "Assign product",
+    "changeProduct": "Change product",
+    "productPickerTitle": "Assign product to line",
+    "productPickerConfirm": "Use product",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "confirming": "Saving...",
+    "disclaimer": "AI read the invoice. Review every field before registering the purchase.",
+    "warning": {
+      "totalsMismatch": "Total does not match the sum of lines (difference {{diff}}). Review before confirming.",
+      "unmatched": "{{count}} lines without a catalog match. Assign a product to each one before confirming.",
+      "providerRequired": "Select the catalog supplier before confirming."
+    }
+  },
+  "error": {
+    "title": "I couldn't read that invoice",
+    "tryAgain": "Try again",
+    "unsupportedType": "Unsupported file type.",
+    "tooLarge": "File too large (max 10 MB).",
+    "missingRequired": "Select supplier and product for every line before confirming."
+  },
+  "success": {
+    "title": "Draft ready",
+    "description": "Review the draft purchase before finalizing it."
+  }
+}

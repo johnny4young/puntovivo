@@ -211,6 +211,13 @@
       "when": 1783814400000,
       "tag": "0029_whats_new",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1783900800000,
+      "tag": "0030_invoice_uploads",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,13 @@ export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other']
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
 export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
-export const purchaseStatusEnum = ['completed', 'partial_returned', 'returned', 'voided'] as const;
+export const purchaseStatusEnum = [
+  'draft',
+  'completed',
+  'partial_returned',
+  'returned',
+  'voided',
+] as const;
 export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
 export const cashSessionStatusEnum = ['open', 'closed'] as const;
@@ -145,6 +151,11 @@ export const auditLogActionEnum = [
   // draft id (the forensic primary); `metadata.sourceSaleNumber`
   // carries the back-pointer to the donor draft.
   'sale.splitDraft',
+  'ai.invoice_ocr.extract',
+  'ai.invoice_ocr.confirm',
+  'ai.copilot.query',
+  'ai.anomaly.silenced',
+  'ai.semantic_search.regenerate_embeddings',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -172,6 +183,7 @@ export const auditLogResourceTypeEnum = [
   'payment_outbox',
   // ENG-039b — restaurant table catalog rows.
   'restaurant_table',
+  'ai_feature',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
@@ -1274,6 +1286,48 @@ export const purchasesRelations = relations(purchases, ({ one, many }) => ({
   }),
   items: many(purchaseItems),
   returns: many(purchaseReturns),
+}));
+
+export const invoiceUploads = sqliteTable(
+  'invoice_uploads',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id').references(() => sites.id),
+    userId: text('user_id').references(() => users.id),
+    fileName: text('file_name'),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    payloadBase64: text('payload_base64').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_invoice_uploads_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_invoice_uploads_tenant_site_created').on(
+      table.tenantId,
+      table.siteId,
+      table.createdAt
+    ),
+    index('idx_invoice_uploads_payload_hash').on(table.payloadHash),
+  ]
+);
+
+export const invoiceUploadsRelations = relations(invoiceUploads, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [invoiceUploads.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [invoiceUploads.siteId],
+    references: [sites.id],
+  }),
+  user: one(users, {
+    fields: [invoiceUploads.userId],
+    references: [users.id],
+  }),
 }));
 
 // ============================================================================
@@ -4285,6 +4339,9 @@ export type NewCustomer = typeof customers.$inferInsert;
 
 export type Purchase = typeof purchases.$inferSelect;
 export type NewPurchase = typeof purchases.$inferInsert;
+
+export type InvoiceUpload = typeof invoiceUploads.$inferSelect;
+export type NewInvoiceUpload = typeof invoiceUploads.$inferInsert;
 
 export type PurchaseItem = typeof purchaseItems.$inferSelect;
 export type NewPurchaseItem = typeof purchaseItems.$inferInsert;

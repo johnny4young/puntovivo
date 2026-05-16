@@ -421,7 +421,7 @@ export const SERVER_ERROR_CODES = {
   AI_VISION_PARSE_FAILED: 'AI_VISION_PARSE_FAILED',
   /**
    * The uploaded invoice image exceeds the per-call byte budget
-   * (`INVOICE_OCR_MAX_BYTES`, 5 MB raw after base64 decode). The
+   * (`INVOICE_OCR_MAX_BYTES`, 10 MB raw after base64 decode). The
    * renderer should re-encode or downscale before retrying.
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',

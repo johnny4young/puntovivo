@@ -33,7 +33,22 @@
     "adjustHint": "Ajusta cantidades, descuentos y totales con IVA incluido antes de enviar la venta al cobro.",
     "lineItems_one": "{{count}} artículo",
     "lineItems_other": "{{count}} artículos",
-    "clearCart": "Limpiar carrito"
+    "clearCart": "Limpiar carrito",
+    "lastScanned": "Último escaneado",
+    "lastScannedHint_one": "{{count}} ítem en carrito · revisa el total",
+    "lastScannedHint_other": "{{count}} ítems en carrito · revisa el total",
+    "quickSuggestionKicker": "Sugerencia rápida",
+    "suggestionScan": "Escanea producto",
+    "suggestionBarcode": "Pega código",
+    "suggestionSearch": "Busca SKU",
+    "suggestionWaiting": "Esperando…",
+    "quickSuggestionHelper": "Las sugerencias por catálogo aparecen aquí cuando estén disponibles.",
+    "shortcut": {
+      "search": "Buscar",
+      "suspend": "Pausar",
+      "resume": "Retomar",
+      "charge": "Cobrar"
+    }
   },
   "cart": {
     "empty": "Busca y agrega productos para iniciar una venta.",
@@ -129,7 +144,11 @@
       "denominations": "Conteo por denominaciones",
       "denominationsHint": "Usa cantidades enteras por billete o moneda disponible en el cajón.",
       "lineTotal": "Total de la línea: {{total}}",
-      "countFor": "Cantidad para la denominación {{denomination}}"
+      "countFor": "Cantidad para la denominación {{denomination}}",
+      "firstDay": "Primer día",
+      "differenceLabel": "Diferencia",
+      "incrementCount": "Sumar",
+      "decrementCount": "Restar"
     },
     "closeForm": {
       "title": "Cerrar caja",
@@ -149,7 +168,19 @@
       "denominations": "Conteo final por denominaciones",
       "denominationsHint": "Usa cantidades enteras para cada billete o moneda que quede en el cajón.",
       "lineTotal": "Total de la línea: {{total}}",
-      "countFor": "Cantidad para la denominación {{denomination}}"
+      "countFor": "Cantidad para la denominación {{denomination}}",
+      "blindBadge": "Cierre ciego",
+      "justificationLabel": "Justificación (opcional)",
+      "justificationPlaceholder": "Explica cualquier sobrante o faltante…",
+      "byMethodTitle": "Por método de pago",
+      "byMethodHint": "Tarjeta · Transferencia · Crédito · Otro aparecen cuando ENG-083c sume las ventas por método.",
+      "method": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "credit": "Crédito",
+        "other": "Otro"
+      }
     },
     "movementForm": {
       "title": "Registrar movimiento de caja",
@@ -315,6 +346,32 @@
       "duplicate": "Compra duplicada",
       "wrong_item": "Cambio de producto",
       "other": "Otro"
+    },
+    "actionLabel": "Acción",
+    "linesLabel": "Líneas a devolver",
+    "linesHint": "La selección de líneas se registra en el motivo. El reembolso queda completo por compatibilidad con el flujo actual.",
+    "toggleLine": "Incluir línea",
+    "lineMaxLabel": "máx",
+    "qtyForLine": "Cantidad a devolver",
+    "incrementQty": "Sumar",
+    "decrementQty": "Restar",
+    "actions": {
+      "cash": {
+        "label": "Devolver dinero",
+        "helper": "Efectivo / mismo medio"
+      },
+      "replace": {
+        "label": "Cambio mismo producto",
+        "helper": "Sin tocar saldo"
+      },
+      "credit_note": {
+        "label": "Saldo a favor",
+        "helper": "Crédito tienda"
+      },
+      "voucher": {
+        "label": "Vale",
+        "helper": "Voucher imprimible"
+      }
     }
   },
   "confirm": {

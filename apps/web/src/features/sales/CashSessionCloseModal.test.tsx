@@ -40,7 +40,10 @@ describe('CashSessionCloseModal', () => {
     );
 
     expect(screen.queryByText('Expected balance')).not.toBeInTheDocument();
-    expect(screen.getByText('Blind close')).toBeInTheDocument();
+    // V6 reskin (ENG-083) now renders "Blind close" both as a header
+    // badge and as an inline label inside the form, so use the
+    // multi-match query to verify the term surfaces at least once.
+    expect(screen.getAllByText('Blind close').length).toBeGreaterThan(0);
 
     const actualCountInput = screen.getByLabelText('Blind closing total');
     await user.clear(actualCountInput);

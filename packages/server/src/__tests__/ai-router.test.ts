@@ -3,7 +3,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 
@@ -11,11 +11,19 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   aiAuditLog,
+  auditLogs,
   cashSessions,
   companies,
+  invoiceUploads,
+  products,
+  providers,
+  purchaseItems,
   sales,
+  sequentials,
   sites,
   tenants,
+  units,
+  unitXProduct,
   users,
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
@@ -287,6 +295,193 @@ describe('ai.settings.get', () => {
   });
 });
 
+describe('ai.invoiceOcr.confirm', () => {
+  it('creates a draft purchase and writes the confirm audit row', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const unitId = nanoid();
+    const uploadId = `ocr-upload-${nanoid(6)}`;
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Lacteos El Campo S.A.S.',
+      taxId: '900421118-3',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(units).values({
+      id: unitId,
+      tenantId,
+      name: 'Unidad',
+      abbreviation: 'un',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Yogurt fresa 200g',
+      sku: `YOG-${nanoid(4)}`,
+      cost: 5000,
+      price: 7000,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId,
+      equivalence: 1,
+      price: 7000,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sequentials).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      documentType: 'purchase',
+      prefix: 'COM-',
+      currentValue: 41,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(invoiceUploads).values({
+      id: uploadId,
+      tenantId,
+      siteId,
+      userId: adminId,
+      fileName: 'factura.png',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      payloadBase64: Buffer.from('invoice fixture').toString('base64'),
+      payloadHash: 'test-upload-hash',
+      createdAt: now,
+    });
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { invoiceOcr: { enabled: true, provider: 'textract' } },
+    });
+
+    const result = await caller.ai.invoiceOcr.confirm({
+      uploadId,
+      extractAuditId: 'ai-audit-extract-1',
+      providerId,
+      supplier: { name: 'Lacteos El Campo S.A.S.', nit: '900421118-3' },
+      invoiceNumber: 'FAC-001-2026',
+      totals: { subtotal: 10_000, iva: 1900, total: 11_900, linesSum: 11_900 },
+      lines: [
+        {
+          description: 'Yogurt fresa 200g',
+          quantity: 2,
+          unitPrice: 5000,
+          matchedProductId: productId,
+          unitId,
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.purchase.purchaseNumber).toBe('COM-000042');
+    expect(result.purchase.status).toBe('draft');
+    expect(result.purchase.total).toBe(10_000);
+
+    const insertedItems = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, result.purchase.id))
+      .all();
+    expect(insertedItems).toHaveLength(1);
+    expect(insertedItems[0].productId).toBe(productId);
+    expect(insertedItems[0].quantity).toBe(2);
+
+    const audit = await db
+      .select()
+      .from(auditLogs)
+      .where(and(eq(auditLogs.action, 'ai.invoice_ocr.confirm'), eq(auditLogs.resourceId, uploadId)))
+      .get();
+    expect(audit?.actorId).toBe(adminId);
+    expect(audit?.metadata).toMatchObject({
+      purchaseId: result.purchase.id,
+      purchaseNumber: 'COM-000042',
+      extractAuditId: 'ai-audit-extract-1',
+      payloadHash: 'test-upload-hash',
+      lineCount: 1,
+    });
+  });
+
+  it('rejects confirmation when reviewed totals drift by more than 100 COP', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { invoiceOcr: { enabled: true, provider: 'textract' } },
+    });
+
+    await expect(
+      caller.ai.invoiceOcr.confirm({
+        uploadId: 'totals-drift-upload',
+        extractAuditId: 'ai-audit-extract-2',
+        providerId: 'provider-does-not-matter-before-total-guard',
+        supplier: { name: 'Proveedor', nit: null },
+        invoiceNumber: null,
+        totals: { subtotal: 10_000, iva: 1900, total: 11_900, linesSum: 11_700 },
+        lines: [
+          {
+            description: 'Yogurt fresa 200g',
+            quantity: 2,
+            unitPrice: 5000,
+            matchedProductId: 'product-id',
+            unitId: 'unit-id',
+          },
+        ],
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  it('rejects confirmation when the upload id was not created for this tenant', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { invoiceOcr: { enabled: true, provider: 'textract' } },
+    });
+
+    await expect(
+      caller.ai.invoiceOcr.confirm({
+        uploadId: 'missing-upload-id',
+        extractAuditId: 'ai-audit-extract-3',
+        providerId: 'provider-not-read-before-upload-guard',
+        supplier: { name: 'Proveedor', nit: null },
+        invoiceNumber: null,
+        totals: { subtotal: 10_000, iva: 1900, total: 11_900, linesSum: 11_900 },
+        lines: [
+          {
+            description: 'Yogurt fresa 200g',
+            quantity: 2,
+            unitPrice: 5000,
+            matchedProductId: 'product-not-read-before-upload-guard',
+            unitId: 'unit-not-read-before-upload-guard',
+          },
+        ],
+      })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
 describe('ai.settings.update', () => {
   it('round-trips a partial patch', async () => {
     const caller = appRouter.createCaller(
@@ -509,7 +704,11 @@ describe('ai.completeTest', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
-    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 5 });
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
 
     const original = process.env.ANTHROPIC_API_KEY;
     try {
@@ -588,7 +787,11 @@ describe('ai.copilot.chat', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
-    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 5 });
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
 
     const original = process.env.ANTHROPIC_API_KEY;
     try {
@@ -617,7 +820,11 @@ describe('ai.copilot.chat', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
-    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 1 });
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 1,
+      features: { copilot: { enabled: true } },
+    });
     await getDatabase().insert(aiAuditLog).values({
       id: nanoid(),
       tenantId,
@@ -812,7 +1019,10 @@ describe('ai.anomalies.list', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
-    await caller.ai.settings.update({ enabled: true });
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { anomalies: { enabled: true } },
+    });
     const result = await caller.ai.anomalies.list({});
     expect(result.enabled).toBe(true);
     expect(Array.isArray(result.alerts)).toBe(true);
@@ -825,7 +1035,10 @@ describe('ai.anomalies.list', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
     );
-    await caller.ai.settings.update({ enabled: true });
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { anomalies: { enabled: true } },
+    });
     let caught: unknown;
     try {
       await caller.ai.anomalies.list({

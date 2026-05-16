@@ -79,21 +79,21 @@ export function Overlay({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 max-w-2xl">
             {kicker && (
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
                 {kicker}
               </p>
             )}
             <h2
               id="overlay-title"
               className={cn(
-                'text-2xl font-bold leading-tight tracking-[-0.02em] text-secondary-950 sm:text-[1.875rem]',
+                'font-display text-[22px] font-normal leading-none tracking-[-0.02em] text-secondary-950',
                 kicker && 'mt-2'
               )}
             >
               {title}
             </h2>
             {description && (
-              <p className="mt-3 text-sm leading-6 text-secondary-600">{description}</p>
+              <p className="mt-2.5 text-[12.5px] leading-[1.55] text-secondary-600">{description}</p>
             )}
           </div>
           <div className="flex items-start gap-2">

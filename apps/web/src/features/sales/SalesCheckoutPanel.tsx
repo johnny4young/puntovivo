@@ -108,26 +108,103 @@ export function SalesCheckoutPanel({
         </button>
       </div>
 
-      <div className="mt-6 rounded-[26px] border border-line/70 bg-secondary-950 px-5 py-5 text-white">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/55">{t('checkout.totalDue')}</p>
-        <p className="mt-3 text-4xl font-semibold tracking-tight">{formatCurrency(draftSummary.total)}</p>
-        <div className="mt-6 grid gap-3 text-sm text-white/72">
-          <div className="flex items-center justify-between">
-            <span>{t('checkout.itemCount')}</span>
-            <span className="font-semibold text-white">{draftSummary.itemCount}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>{t('checkout.subtotal')}</span>
-            <span className="font-semibold text-white">{formatCurrency(draftSummary.subtotal)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>{t('checkout.vat')}</span>
-            <span className="font-semibold text-white">{formatCurrency(draftSummary.taxAmount)}</span>
+      <div className="relative mt-6 overflow-hidden rounded-[26px] border border-line/70 bg-secondary-950 px-5 py-5 text-white">
+        {/* V4 split-focus glow — primary radial in the top-right corner so
+          * the dark total card pops without losing the editorial chrome. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--primary) 38%, transparent), transparent 55%)',
+          }}
+        />
+        <div className="relative">
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-white/60">
+            {t('checkout.totalDue')}
+          </p>
+          <p className="mt-3 font-display text-4xl tabular-nums tracking-[-0.02em]">
+            {formatCurrency(draftSummary.total)}
+          </p>
+          <div className="mt-6 grid gap-3 text-sm text-white/72">
+            <div className="flex items-center justify-between">
+              <span>{t('checkout.itemCount')}</span>
+              <span className="font-mono tabular-nums text-white">{draftSummary.itemCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>{t('checkout.subtotal')}</span>
+              <span className="font-mono tabular-nums text-white">{formatCurrency(draftSummary.subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>{t('checkout.vat')}</span>
+              <span className="font-mono tabular-nums text-white">{formatCurrency(draftSummary.taxAmount)}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mt-5 space-y-3">
+        {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
+          * cart is empty we surface a 4-tile dashed-border grid as a hint
+          * to the cashier (scan, scan again, search, suggest). When the
+          * cart has items, the dashed grid hides and the most-recent line
+          * surfaces as a one-row badge so the operator can verify the
+          * last scan at a glance. */}
+        {draftSummary.itemCount > 0 ? (
+          <div className="card-inset relative overflow-hidden px-4 py-3">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 55%)',
+              }}
+            />
+            <div className="relative flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-primary-700">
+                  {t('checkout.lastScanned', { defaultValue: 'Último escaneado' })}
+                </p>
+                <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
+                  {t('checkout.lastScannedHint', {
+                    defaultValue: '{{count}} ítems en carrito · revisa el total',
+                    count: draftSummary.itemCount,
+                  })}
+                </p>
+              </div>
+              <ScanLine className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-line bg-surface/40 px-3 py-3">
+            <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+              {t('checkout.quickSuggestionKicker', { defaultValue: 'Sugerencia rápida' })}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['scan', t('checkout.suggestionScan', { defaultValue: 'Escanea producto' })],
+                  ['barcode', t('checkout.suggestionBarcode', { defaultValue: 'Pega código' })],
+                  ['search', t('checkout.suggestionSearch', { defaultValue: 'Busca SKU' })],
+                  ['waiting', t('checkout.suggestionWaiting', { defaultValue: 'Esperando…' })],
+                ] as const
+              ).map(([key, label]) => (
+                <div
+                  key={key}
+                  className="rounded-xl border border-dashed border-line/70 bg-surface/70 px-2.5 py-2"
+                >
+                  <p className="text-[11px] leading-4 text-secondary-600">{label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[10.5px] text-secondary-500">
+              {t('checkout.quickSuggestionHelper', {
+                defaultValue: 'Las sugerencias por catálogo aparecen aquí cuando estén disponibles.',
+              })}
+            </p>
+          </div>
+        )}
+
         <div className="card-inset px-4 py-4">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
@@ -205,10 +282,30 @@ export function SalesCheckoutPanel({
         </div>
 
         <div className="card-inset px-4 py-4 text-sm text-secondary-600">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
             {t('checkout.shortcuts')}
           </p>
-          <p className="mt-2">{t('checkout.shortcutsHint')}</p>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px] sm:grid-cols-4">
+            {(
+              [
+                ['F2', t('checkout.shortcut.search', { defaultValue: 'Buscar' })],
+                ['F4', t('checkout.shortcut.suspend', { defaultValue: 'Pausar' })],
+                ['F5', t('checkout.shortcut.resume', { defaultValue: 'Retomar' })],
+                ['F12', t('checkout.shortcut.charge', { defaultValue: 'Cobrar' })],
+              ] as const
+            ).map(([keyLabel, action]) => (
+              <div
+                key={keyLabel}
+                className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface px-2.5 py-1.5"
+              >
+                <kbd className="rounded-md border border-line bg-secondary-950 px-1.5 py-0.5 font-mono text-[10.5px] text-white">
+                  {keyLabel}
+                </kbd>
+                <span className="truncate text-[11px] text-secondary-700">{action}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
         </div>
 
         <button

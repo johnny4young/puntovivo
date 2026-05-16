@@ -89,7 +89,7 @@ describe('AnomalyDetectionCard', () => {
       data: { ...baseAnomalies, enabled: false },
     });
     render(<AnomalyDetectionCard />);
-    expect(screen.getByText(/AI features are turned off/i)).toBeInTheDocument();
+    expect(screen.getByText(/Anomaly detection is off/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /AI settings/i })).toHaveAttribute(
       'href',
       '/company?tab=ai'

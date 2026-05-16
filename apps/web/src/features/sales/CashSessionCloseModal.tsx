@@ -1,5 +1,6 @@
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { EyeOff, Minus, Plus } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -13,6 +14,7 @@ import {
 export interface CashSessionCloseValues {
   actualCount: number;
   denominations: CashSessionDenomination[];
+  justification?: string;
 }
 
 interface CashSessionCloseModalProps {
@@ -36,6 +38,7 @@ function createDefaultValues(): CashSessionCloseValues {
   return {
     actualCount: 0,
     denominations: createCashSessionDenominations(),
+    justification: '',
   };
 }
 
@@ -84,6 +87,12 @@ export function CashSessionCloseModal({
         defaultValue:
           'Cuenta el efectivo en caja por denominación. El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.',
       })}
+      headerAside={
+        <span className="hidden items-center gap-2 rounded-full border border-secondary-700/40 bg-secondary-950/95 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-secondary-50 sm:inline-flex">
+          <EyeOff className="h-3 w-3" aria-hidden="true" />
+          {t('cashSession.closeForm.blindBadge', { defaultValue: 'Cierre ciego' })}
+        </span>
+      }
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
@@ -100,10 +109,13 @@ export function CashSessionCloseModal({
         </>
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form
+        className="space-y-4 rounded-[20px] bg-secondary-950 p-4 text-secondary-50 sm:p-5"
+        onSubmit={handleSubmit}
+      >
         {suspendedDraftsCount > 0 && (
           <div
-            className="rounded-2xl border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-900"
+            className="rounded-2xl border border-warning-400/40 bg-warning-500/15 px-4 py-3 text-sm text-warning-100"
             role="alert"
             data-testid="close-session-suspended-warning"
           >
@@ -111,23 +123,26 @@ export function CashSessionCloseModal({
           </div>
         )}
 
-        <section className="card-inset p-4 sm:p-5">
+        <section className="rounded-[16px] border border-secondary-800/70 bg-secondary-900/60 p-4 sm:p-5">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,220px)]">
-            <div className="card-inset bg-surface/92 px-4 py-3">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
                 {t('cashSession.closeForm.registerName')}
               </p>
-              <p className="mt-2 text-lg font-semibold text-secondary-950">
+              <p className="mt-1.5 font-display text-lg text-white">
                 {cashSession?.registerName ?? '—'}
               </p>
-              <p className="mt-1 text-sm text-secondary-500">
+              <p className="mt-1 text-[12px] text-secondary-400">
                 {t('cashSession.closeForm.openedAt')}{' '}
                 {cashSession ? formatDateTime(cashSession.openedAt) : '—'}
               </p>
             </div>
 
             <div>
-              <label htmlFor="cash-session-closing-count" className="label">
+              <label
+                htmlFor="cash-session-closing-count"
+                className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400"
+              >
                 {t('cashSession.closeForm.actualCount')}
               </label>
               <input
@@ -135,7 +150,7 @@ export function CashSessionCloseModal({
                 type="number"
                 min={0}
                 step="0.01"
-                className="input mt-1"
+                className="mt-1 h-10 w-full rounded-[10px] border border-secondary-700 bg-secondary-950 px-3 text-sm text-white tabular-nums outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-400/40"
                 {...form.register('actualCount', {
                   valueAsNumber: true,
                   min: {
@@ -145,7 +160,7 @@ export function CashSessionCloseModal({
                 })}
               />
               {form.formState.errors.actualCount && (
-                <p className="mt-1 text-sm text-danger-500">
+                <p className="mt-1 text-xs text-danger-300">
                   {form.formState.errors.actualCount.message}
                 </p>
               )}
@@ -153,58 +168,126 @@ export function CashSessionCloseModal({
           </div>
         </section>
 
-        <section className="card-inset p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-                {t('cashSession.closeForm.countedTotal')}
-              </p>
-              <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
-                {formatCurrency(countedTotal)}
-              </p>
-            </div>
-            <div className="text-right text-sm">
-              <p className="text-secondary-500">{t('cashSession.closeForm.blindClose')}</p>
-              <p className="mt-1 font-medium text-secondary-900">
-                {t('cashSession.closeForm.blindCloseHint')}
-              </p>
-            </div>
+        <section className="grid gap-3 rounded-[16px] border border-secondary-800/70 bg-secondary-900/60 p-4 sm:grid-cols-3 sm:p-5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+              {t('cashSession.closeForm.countedTotal')}
+            </p>
+            <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-white">
+              {formatCurrency(countedTotal)}
+            </p>
           </div>
-          <p className="mt-3 text-sm leading-6 text-secondary-600">{t('cashSession.closeForm.description')}</p>
-          {mismatchMessage && <p className="mt-3 text-sm text-danger-500">{mismatchMessage}</p>}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+              {t('cashSession.closeForm.actualCount')}
+            </p>
+            <p className="mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] text-white">
+              {formatCurrency(actualCount || 0)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+              {t('cashSession.closeForm.blindClose')}
+            </p>
+            <p className="mt-1.5 text-[11.5px] leading-5 text-secondary-300">
+              {t('cashSession.closeForm.blindCloseHint')}
+            </p>
+          </div>
+        </section>
+
+        {mismatchMessage && (
+          <p className="rounded-2xl border border-warning-400/40 bg-warning-500/15 px-3 py-2 text-[12.5px] text-warning-100">
+            {mismatchMessage}
+          </p>
+        )}
+
+        {/* ENG-083b V6 — 5-col per-payment-method strip. Cash gets the
+          * counted value live; the other four methods surface as "—"
+          * pending server-side aggregation in ENG-083c (extend
+          * cashSessions.summary with sales-by-method rollups). Keeping
+          * the chrome in place now lets the operator see the structure
+          * before the wiring lands. */}
+        <section className="rounded-[16px] border border-secondary-800/70 bg-secondary-900/60 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+            {t('cashSession.closeForm.byMethodTitle', { defaultValue: 'Por método de pago' })}
+          </p>
+          <div className="mt-2.5 grid gap-2 sm:grid-cols-5">
+            {(
+              [
+                ['cash', t('cashSession.closeForm.method.cash', { defaultValue: 'Efectivo' }), formatCurrency(countedTotal), true],
+                ['card', t('cashSession.closeForm.method.card', { defaultValue: 'Tarjeta' }), '—', false],
+                ['transfer', t('cashSession.closeForm.method.transfer', { defaultValue: 'Transferencia' }), '—', false],
+                ['credit', t('cashSession.closeForm.method.credit', { defaultValue: 'Crédito' }), '—', false],
+                ['other', t('cashSession.closeForm.method.other', { defaultValue: 'Otro' }), '—', false],
+              ] as const
+            ).map(([key, label, value, isPrimary]) => (
+              <div
+                key={key}
+                className={`rounded-[10px] border px-2.5 py-2 ${
+                  isPrimary
+                    ? 'border-primary-300/40 bg-primary-400/10'
+                    : 'border-secondary-700/70 bg-secondary-950/40'
+                }`}
+              >
+                <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+                  {label}
+                </p>
+                <p className={`mt-1 font-mono text-[12px] tabular-nums ${isPrimary ? 'text-white' : 'text-secondary-500'}`}>
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10.5px] text-secondary-500">
+            {t('cashSession.closeForm.byMethodHint', {
+              defaultValue:
+                'Tarjeta · Transferencia · Crédito · Otro aparecen cuando ENG-083c sume las ventas por método.',
+            })}
+          </p>
         </section>
 
         <section className="space-y-3">
-          <div>
-            <h3 className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-secondary-500">
-              {t('cashSession.closeForm.denominations')}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-secondary-500">
-              {t('cashSession.closeForm.denominationsHint')}
-            </p>
-          </div>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400">
+            {t('cashSession.closeForm.denominations')}
+          </h3>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {denominationFieldArray.fields.map((field, index) => (
-              <div key={field.value} className="card-inset bg-surface/92 px-4 py-3">
-                <input
-                  type="hidden"
-                  {...form.register(`denominations.${index}.value`, {
-                    valueAsNumber: true,
-                  })}
-                />
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-secondary-950">
-                      {formatCurrency(field.value)}
-                    </p>
-                    <p className="mt-1 text-xs text-secondary-500">
-                      {t('cashSession.closeForm.lineTotal', {
-                        total: formatCurrency((denominations?.[index]?.count ?? 0) * field.value),
-                      })}
-                    </p>
-                  </div>
-                  <div className="w-24">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            {denominationFieldArray.fields.map((field, index) => {
+              const currentCount = denominations?.[index]?.count ?? 0;
+              const lineTotal = currentCount * field.value;
+              const setCount = (next: number) =>
+                form.setValue(`denominations.${index}.count`, Math.max(0, next), {
+                  shouldDirty: true,
+                });
+              return (
+                <div
+                  key={field.value}
+                  className="rounded-[14px] border border-secondary-800/70 bg-secondary-900/60 px-3 py-3"
+                >
+                  <input
+                    type="hidden"
+                    {...form.register(`denominations.${index}.value`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <p className="text-[13px] font-semibold tabular-nums text-white">
+                    {formatCurrency(field.value)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-secondary-400">
+                    {t('cashSession.closeForm.lineTotal', {
+                      total: formatCurrency(lineTotal),
+                    })}
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-label={t('cashSession.form.decrementCount', { defaultValue: 'Restar' })}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-secondary-700 text-secondary-200 transition hover:border-warning-300 hover:bg-warning-500/15 hover:text-warning-200 disabled:opacity-40"
+                      disabled={currentCount <= 0}
+                      onClick={() => setCount(currentCount - 1)}
+                    >
+                      <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
                     <label htmlFor={`cash-session-close-count-${index}`} className="sr-only">
                       {t('cashSession.closeForm.countFor', {
                         denomination: formatCurrency(field.value),
@@ -215,20 +298,46 @@ export function CashSessionCloseModal({
                       type="number"
                       min={0}
                       step={1}
-                      className="input text-right"
+                      className="h-8 w-14 rounded-[8px] border border-secondary-700 bg-secondary-950 text-center font-mono text-[14px] tabular-nums text-white outline-none focus:border-primary-300"
                       {...form.register(`denominations.${index}.count`, {
                         valueAsNumber: true,
                         min: 0,
                       })}
                     />
+                    <button
+                      type="button"
+                      aria-label={t('cashSession.form.incrementCount', { defaultValue: 'Sumar' })}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-secondary-700 text-secondary-200 transition hover:border-primary-300 hover:bg-primary-400/10 hover:text-primary-200"
+                      onClick={() => setCount(currentCount + 1)}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        <section>
+          <label
+            htmlFor="cash-session-close-justification"
+            className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-400"
+          >
+            {t('cashSession.closeForm.justificationLabel', { defaultValue: 'Justificación (opcional)' })}
+          </label>
+          <textarea
+            id="cash-session-close-justification"
+            rows={2}
+            className="mt-1.5 w-full rounded-[10px] border border-secondary-700 bg-secondary-950 px-3 py-2 text-[13px] text-white outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-400/40"
+            placeholder={t('cashSession.closeForm.justificationPlaceholder', {
+              defaultValue: 'Explica cualquier sobrante o faltante…',
+            })}
+            {...form.register('justification', { maxLength: 500 })}
+          />
+        </section>
+
+        {error && <p className="text-[12.5px] text-danger-300">{error}</p>}
       </form>
     </Overlay>
   );

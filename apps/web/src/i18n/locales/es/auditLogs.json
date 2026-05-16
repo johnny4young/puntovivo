@@ -49,6 +49,11 @@
     "sale.reprint": "Recibo reimpreso",
     "sale.complete": "Borrador completado",
     "ai.anomaly.detected": "Anomalía IA detectada",
+    "ai.anomaly.silenced": "Anomalía silenciada",
+    "ai.invoice_ocr.extract": "OCR de factura ejecutado",
+    "ai.invoice_ocr.confirm": "Borrador OCR confirmado",
+    "ai.copilot.query": "Consulta de Co-pilot",
+    "ai.semantic_search.regenerate_embeddings": "Embeddings regenerados",
     "module.toggle": "Módulo actualizado",
     "device.revoke": "Dispositivo revocado",
     "restaurant_table.create": "Mesa de restaurante creada",
@@ -70,7 +75,8 @@
     "tenant_module": "Módulo del inquilino",
     "device": "Dispositivo",
     "restaurant_table": "Mesa de restaurante",
-    "payment_outbox": "Outbox de pagos"
+    "payment_outbox": "Outbox de pagos",
+    "ai_feature": "Función de IA"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
