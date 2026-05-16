@@ -14,6 +14,11 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'cash_session.movement',
   'inventory.adjust_stock',
   'ai.anomaly.detected',
+  'ai.anomaly.silenced',
+  'ai.invoice_ocr.extract',
+  'ai.invoice_ocr.confirm',
+  'ai.copilot.query',
+  'ai.semantic_search.regenerate_embeddings',
   'sale.void',
   'sale.return',
   'sale.price_override',
@@ -41,6 +46,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'user',
   'cashier',
   'quotation',
+  'ai_feature',
 ];
 
 /**

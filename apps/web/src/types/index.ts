@@ -543,7 +543,13 @@ export type AuditLogAction =
   // ENG-039c3 — split-bill: subset of items moved out of a suspended
   // draft into a brand-new suspended draft. resourceId references the
   // new draft; metadata.sourceSaleNumber names the donor.
-  | 'sale.splitDraft';
+  | 'sale.splitDraft'
+  // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature audit rows.
+  | 'ai.invoice_ocr.extract'
+  | 'ai.invoice_ocr.confirm'
+  | 'ai.copilot.query'
+  | 'ai.anomaly.silenced'
+  | 'ai.semantic_search.regenerate_embeddings';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -564,7 +570,9 @@ export type AuditLogResourceType =
   // ENG-065d — payment_outbox rows targeted by admin retry / mark_settled.
   | 'payment_outbox'
   // ENG-039b — restaurant_tables catalog rows.
-  | 'restaurant_table';
+  | 'restaurant_table'
+  // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature resource rows.
+  | 'ai_feature';
 
 export interface AuditLogEntry {
   id: string;
@@ -616,6 +624,9 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  customerTaxId: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -730,7 +741,7 @@ export interface Purchase {
   syncVersion?: number | null;
 }
 
-export type PurchaseStatus = 'completed' | 'partial_returned' | 'returned' | 'voided';
+export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 
 export interface PurchaseItem {
   id: string;

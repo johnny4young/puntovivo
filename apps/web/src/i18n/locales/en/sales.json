@@ -33,7 +33,22 @@
     "adjustHint": "Adjust quantities, discounts, and tax-inclusive totals before sending the sale to payment.",
     "lineItems_one": "{{count}} line item",
     "lineItems_other": "{{count}} line items",
-    "clearCart": "Clear cart"
+    "clearCart": "Clear cart",
+    "lastScanned": "Last scanned",
+    "lastScannedHint_one": "{{count}} item in cart · review total",
+    "lastScannedHint_other": "{{count}} items in cart · review total",
+    "quickSuggestionKicker": "Quick suggestion",
+    "suggestionScan": "Scan product",
+    "suggestionBarcode": "Paste barcode",
+    "suggestionSearch": "Search SKU",
+    "suggestionWaiting": "Waiting…",
+    "quickSuggestionHelper": "Catalog-based suggestions surface here when wired.",
+    "shortcut": {
+      "search": "Search",
+      "suspend": "Suspend",
+      "resume": "Resume",
+      "charge": "Charge"
+    }
   },
   "cart": {
     "empty": "Search and add products to start a sale.",
@@ -129,7 +144,11 @@
       "denominations": "Denomination count",
       "denominationsHint": "Use whole counts for each bill or coin available in the drawer.",
       "lineTotal": "Line total: {{total}}",
-      "countFor": "Count for denomination {{denomination}}"
+      "countFor": "Count for denomination {{denomination}}",
+      "firstDay": "First day",
+      "differenceLabel": "Difference",
+      "incrementCount": "Increment",
+      "decrementCount": "Decrement"
     },
     "closeForm": {
       "title": "Close cash session",
@@ -149,7 +168,19 @@
       "denominations": "Closing denomination count",
       "denominationsHint": "Use whole counts for every bill or coin still in the drawer.",
       "lineTotal": "Line total: {{total}}",
-      "countFor": "Count for denomination {{denomination}}"
+      "countFor": "Count for denomination {{denomination}}",
+      "blindBadge": "Blind close",
+      "justificationLabel": "Justification (optional)",
+      "justificationPlaceholder": "Explain any surplus or shortage…",
+      "byMethodTitle": "By payment method",
+      "byMethodHint": "Card · Transfer · Credit · Other surface once ENG-083c rolls up sales-by-method.",
+      "method": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "credit": "Credit",
+        "other": "Other"
+      }
     },
     "movementForm": {
       "title": "Record cash movement",
@@ -315,6 +346,32 @@
       "duplicate": "Duplicate purchase",
       "wrong_item": "Wrong item",
       "other": "Other"
+    },
+    "actionLabel": "Action",
+    "linesLabel": "Lines to return",
+    "linesHint": "Line selection is captured in the reason. The full ticket still refunds for compatibility.",
+    "toggleLine": "Include line",
+    "lineMaxLabel": "max",
+    "qtyForLine": "Quantity to refund",
+    "incrementQty": "Increment",
+    "decrementQty": "Decrement",
+    "actions": {
+      "cash": {
+        "label": "Refund cash",
+        "helper": "Cash / same tender"
+      },
+      "replace": {
+        "label": "Replace item",
+        "helper": "No balance change"
+      },
+      "credit_note": {
+        "label": "Store credit",
+        "helper": "Customer wallet"
+      },
+      "voucher": {
+        "label": "Voucher",
+        "helper": "Printable voucher"
+      }
     }
   },
   "confirm": {

@@ -354,7 +354,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   const app = Fastify({
     ...fastifyLoggerOption,
     // ENG-040a uploads invoice photos through tRPC. The OCR service caps
-    // decoded images at 5 MB; JSON/base64 transport needs ~4/3 overhead
+    // decoded documents at 10 MB; JSON/base64 transport needs ~4/3 overhead
     // plus a small data-URL prefix allowance, otherwise Fastify rejects
     // valid OCR inputs before Zod can return the localized error code.
     bodyLimit: SERVER_BODY_LIMIT_BYTES,

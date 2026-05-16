@@ -97,6 +97,7 @@ operator idea → BACKLOG.md (unsized)
 | [`COMPONENTS.md`](./COMPONENTS.md) | Shared component catalog. |
 | [`STYLING.md`](./STYLING.md) | Design system tokens + Tailwind primitives. |
 | [`RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) | Receipt template editor + renderer (ENG-016). |
+| [`WEBSITE-CAPABILITY-AUDIT.md`](./WEBSITE-CAPABILITY-AUDIT.md) | Public-website claim audit against shipped product support and roadmap tickets. |
 
 ### Operations & runbooks
 

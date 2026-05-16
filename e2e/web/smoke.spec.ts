@@ -64,11 +64,11 @@ const adminRoutes = [
     path: '/sequentials',
     assertion: async (page) => page.getByRole('button', { name: /Add Sequential|Crear consecutivo/i }),
   },
-  { label: 'Geography', path: '/geography', assertion: async (page) => page.getByRole('heading', { name: /Geography|Geografía/i }) },
+  { label: 'Geography', path: '/geography', assertion: async (page) => page.getByRole('main').getByRole('heading', { name: /Geography|Geografía/i }) },
   {
     label: 'Customer Catalogs',
     path: '/customer-catalogs',
-    assertion: async (page) => page.getByRole('heading', { name: /Customer Catalogs|Catálogos de clientes/i }),
+    assertion: async (page) => page.getByRole('main').getByRole('heading', { name: /Customer Catalogs|Catálogos de clientes/i }),
   },
   { label: 'Units', path: '/units', assertion: async (page) => page.getByRole('button', { name: /Add Unit|Agregar unidad/i }) },
   { label: 'VAT Rates', path: '/vat-rates', assertion: async (page) => page.getByRole('button', { name: /Add VAT Rate|Agregar tarifa IVA/i }) },

@@ -1,0 +1,19 @@
+{
+  "toggle": {
+    "off": "Exact search",
+    "on": "Semantic search",
+    "helper": "Turn on to search by meaning: \"low-fat dairy\" finds the yogurt even when the SKU doesn't say light."
+  },
+  "input": {
+    "placeholderOn": "Describe what you're looking for in natural language"
+  },
+  "staleness": {
+    "banner": "Embeddings are {{days}} days old. Regenerate for sharper results.",
+    "regenerate": "Regenerate embeddings",
+    "regenerating": "Regenerating...",
+    "done": "Embeddings refreshed"
+  },
+  "score": {
+    "tooltip": "Similarity score: {{score}}"
+  }
+}

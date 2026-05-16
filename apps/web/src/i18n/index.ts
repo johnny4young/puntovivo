@@ -23,6 +23,9 @@ import enLocaleSettings from './locales/en/localeSettings.json';
 import enAISettings from './locales/en/aiSettings.json';
 import enAIAnomalies from './locales/en/aiAnomalies.json';
 import enCopilot from './locales/en/copilot.json';
+import enAIShared from './locales/en/aiShared.json';
+import enInvoiceOcr from './locales/en/invoiceOcr.json';
+import enSemanticSearch from './locales/en/semanticSearch.json';
 import enReceipts from './locales/en/receipts.json';
 import enPeripherals from './locales/en/peripherals.json';
 import enOperations from './locales/en/operations.json';
@@ -51,6 +54,9 @@ import esLocaleSettings from './locales/es/localeSettings.json';
 import esAISettings from './locales/es/aiSettings.json';
 import esAIAnomalies from './locales/es/aiAnomalies.json';
 import esCopilot from './locales/es/copilot.json';
+import esAIShared from './locales/es/aiShared.json';
+import esInvoiceOcr from './locales/es/invoiceOcr.json';
+import esSemanticSearch from './locales/es/semanticSearch.json';
 import esReceipts from './locales/es/receipts.json';
 import esPeripherals from './locales/es/peripherals.json';
 import esOperations from './locales/es/operations.json';
@@ -90,7 +96,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants'],
   resources: {
     en: {
       common: enCommon,
@@ -113,6 +119,9 @@ void i18next.use(initReactI18next).init({
       aiSettings: enAISettings,
       aiAnomalies: enAIAnomalies,
       copilot: enCopilot,
+      aiShared: enAIShared,
+      invoiceOcr: enInvoiceOcr,
+      semanticSearch: enSemanticSearch,
       receipts: enReceipts,
       peripherals: enPeripherals,
       operations: enOperations,
@@ -142,6 +151,9 @@ void i18next.use(initReactI18next).init({
       aiSettings: esAISettings,
       aiAnomalies: esAIAnomalies,
       copilot: esCopilot,
+      aiShared: esAIShared,
+      invoiceOcr: esInvoiceOcr,
+      semanticSearch: esSemanticSearch,
       receipts: esReceipts,
       peripherals: esPeripherals,
       operations: esOperations,

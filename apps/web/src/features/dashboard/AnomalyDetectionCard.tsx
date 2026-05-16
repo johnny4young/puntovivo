@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { AnomalyDetailsModal, type AnomalyAlertView } from './AnomalyDetailsModal';
 
 export function AnomalyDetectionCard() {
-  const { t } = useTranslation(['aiAnomalies']);
+  const { t } = useTranslation(['aiAnomalies', 'aiShared']);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
@@ -123,53 +123,68 @@ export function AnomalyDetectionCard() {
 
   // ----- Has alerts -----
   return (
-    <section className="card p-6" data-testid="anomaly-card">
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
-          <ShieldAlert className="h-5 w-5 text-amber-700" />
-        </div>
-        <div className="space-y-1">
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('aiAnomalies:card.kicker')}</p>
-          <h2 className="text-lg font-semibold text-secondary-900">{t('aiAnomalies:card.title')}</h2>
-        </div>
-      </div>
-      <p className="mt-4 text-sm text-secondary-700" data-testid="anomaly-summary">
-        {t('aiAnomalies:card.states.summary', {
-          count: anomalies.totalCount,
-        })}
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {anomalies.severityCounts.high > 0 && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold',
-              'bg-danger-50 text-danger-700'
-            )}
-            data-testid="anomaly-pill-high"
-          >
-            <ShieldAlert className="h-3 w-3" />
-            {t('aiAnomalies:card.severity.high')} · {anomalies.severityCounts.high}
+    <section className="card relative overflow-hidden p-6" data-testid="anomaly-card">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 90% 0%, color-mix(in oklch, var(--warning-500) 14%, transparent), transparent 55%)',
+        }}
+      />
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <span className="glyph-tile glyph-tile-warning h-11 w-11">
+            <ShieldAlert className="h-5 w-5" aria-hidden="true" />
           </span>
-        )}
-        {anomalies.severityCounts.medium > 0 && (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"
-            data-testid="anomaly-pill-medium"
+          <div className="space-y-1">
+            <p className="page-kicker">{t('aiAnomalies:card.kicker')}</p>
+            <h2 className="font-display text-xl tracking-[-0.02em] text-secondary-950">
+              {t('aiAnomalies:card.title')}
+            </h2>
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-secondary-700" data-testid="anomaly-summary">
+          {t('aiAnomalies:card.states.summary', {
+            count: anomalies.totalCount,
+          })}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {anomalies.severityCounts.high > 0 && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
+                'bg-danger-50 text-danger-700'
+              )}
+              data-testid="anomaly-pill-high"
+            >
+              <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+              {t('aiAnomalies:card.severity.high')} · {anomalies.severityCounts.high}
+            </span>
+          )}
+          {anomalies.severityCounts.medium > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-warning-700"
+              data-testid="anomaly-pill-medium"
+            >
+              <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+              {t('aiAnomalies:card.severity.medium')} · {anomalies.severityCounts.medium}
+            </span>
+          )}
+        </div>
+        <p className="mt-3 text-[11px] leading-5 text-secondary-500">
+          {t('aiShared:disclaimer.anomaly')}
+        </p>
+        <div className="mt-5 flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setIsModalOpen(true)}
+            data-testid="anomaly-view-details"
           >
-            <ShieldAlert className="h-3 w-3" />
-            {t('aiAnomalies:card.severity.medium')} · {anomalies.severityCounts.medium}
-          </span>
-        )}
-      </div>
-      <div className="mt-5">
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => setIsModalOpen(true)}
-          data-testid="anomaly-view-details"
-        >
-          {t('aiAnomalies:card.viewDetails')}
-        </button>
+            {t('aiAnomalies:card.viewDetails')}
+          </button>
+        </div>
       </div>
 
       <AnomalyDetailsModal

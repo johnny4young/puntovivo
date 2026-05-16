@@ -327,7 +327,7 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
     expect(embedManyMock).not.toHaveBeenCalled();
   });
 
-  it('returns `product: null` for lines whose similarity falls below the cosine floor', async () => {
+  it('returns `product: null` for lines whose similarity falls below the invoice OCR floor', async () => {
     const { tenantId, adminId } = await seedTenant('floor', { aiEnabled: true });
     await seedProducts(tenantId, [
       {
@@ -338,9 +338,10 @@ describe('ai.matchInvoiceLines (ENG-040 slice 1b)', () => {
       },
     ]);
 
-    // Line embedding nearly orthogonal to the only product → cosine
-    // sits below the 0.3 floor.
-    embedManyMock.mockResolvedValue({ embeddings: [[0.05, 0.99, 0.05]] });
+    // Line embedding is close enough for loose semantic search but not
+    // enough for invoice OCR auto-match. Supplier invoices must stay
+    // conservative so the purchase form marks the line pending.
+    embedManyMock.mockResolvedValue({ embeddings: [[0.84, 0.54, 0]] });
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin' })

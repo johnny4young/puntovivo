@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { InvoiceOcrPreviewModal } from '@/features/purchases/InvoiceOcrPreviewModal';
+import { InvoiceOcrDialog } from '@/features/ai-invoice-ocr';
+import { useAiFeatureFlag } from '@/features/ai-shared';
 import { PurchaseCartTable } from '@/features/purchases/PurchaseCartTable';
 import { PurchasesCheckoutPanel } from '@/features/purchases/PurchasesCheckoutPanel';
 import { PurchaseDetailsModal } from '@/features/purchases/PurchaseDetailsModal';
@@ -40,7 +41,8 @@ export function PurchasesPage() {
   const { currentSite } = useTenant();
   const [cartItems, setCartItems] = useState<PurchaseCartItem[]>([]);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
-  const [isInvoiceOcrOpen, setIsInvoiceOcrOpen] = useState(false);
+  const [isInvoiceOcrV2Open, setIsInvoiceOcrV2Open] = useState(false);
+  const invoiceOcrV2 = useAiFeatureFlag('invoiceOcr');
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [finalizeModalKey, setFinalizeModalKey] = useState(0);
   const [selectedPurchaseDialog, setSelectedPurchaseDialog] = useState<PurchaseDialogState | null>(
@@ -96,28 +98,6 @@ export function PurchasesPage() {
 
   const handleProductSelect = (selection: Parameters<typeof mergePurchaseCartItem>[1]) => {
     setCartItems(currentItems => mergePurchaseCartItem(currentItems, selection));
-    setPurchaseError(null);
-  };
-
-  const handleOcrMatchedLines = (items: PurchaseCartItem[]) => {
-    if (items.length === 0) return;
-    setCartItems(currentItems => {
-      const next = [...currentItems];
-      for (const incoming of items) {
-        const existingIndex = next.findIndex(item => item.key === incoming.key);
-        if (existingIndex === -1) {
-          next.push(incoming);
-        } else {
-          // Combine quantities so a second scan of the same supplier
-          // does not erase the operator's prior cart edits.
-          next[existingIndex] = {
-            ...next[existingIndex],
-            quantity: next[existingIndex]!.quantity + incoming.quantity,
-          };
-        }
-      }
-      return next;
-    });
     setPurchaseError(null);
   };
 
@@ -186,15 +166,15 @@ export function PurchasesPage() {
               <Search className="h-4 w-4" />
               {t('checkout.addProduct')}
             </button>
-            {canManageReturns && (
+            {canManageReturns && invoiceOcrV2.enabled && (
               <button
                 type="button"
                 className="btn-outline flex items-center gap-2"
-                onClick={() => setIsInvoiceOcrOpen(true)}
+                onClick={() => setIsInvoiceOcrV2Open(true)}
                 data-testid="purchases-open-ocr"
               >
                 <ScanLine className="h-4 w-4" />
-                {t('checkout.openOcr')}
+                <span>{t('checkout.openOcr')}</span>
               </button>
             )}
             <button
@@ -319,10 +299,14 @@ export function PurchasesPage() {
         onClose={() => setSelectedPurchaseDialog(null)}
       />
 
-      <InvoiceOcrPreviewModal
-        isOpen={isInvoiceOcrOpen}
-        onClose={() => setIsInvoiceOcrOpen(false)}
-        onMatchedLinesReady={handleOcrMatchedLines}
+      <InvoiceOcrDialog
+        open={isInvoiceOcrV2Open}
+        providers={providers}
+        onClose={() => setIsInvoiceOcrV2Open(false)}
+        onConfirmed={() => {
+          void purchasesQuery.refetch();
+          setIsInvoiceOcrV2Open(false);
+        }}
       />
     </>
   );

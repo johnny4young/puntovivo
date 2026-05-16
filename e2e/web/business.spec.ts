@@ -363,12 +363,15 @@ test.describe('web business flows', () => {
     await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
+    // ENG-084 V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
+    // but the editorial Overlay primitive uses "Return sale" heading + a
+    // "Confirm return" CTA inside.
     const refundDialog = page
       .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Refund Sale' }) })
+      .filter({ has: page.getByRole('heading', { name: 'Return sale' }) })
       .last();
     await expect(refundDialog).toBeVisible();
-    await refundDialog.getByRole('button', { name: 'Refund Sale', exact: true }).click();
+    await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expectSuccessToast(page, 'Sale refunded and stock restored');
 

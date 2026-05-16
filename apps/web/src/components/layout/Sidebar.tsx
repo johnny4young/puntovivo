@@ -147,6 +147,7 @@ const navigationSections = [
       { nameKey: 'items.receiptTemplates', href: '/receipt-templates', icon: Receipt, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.peripherals', href: '/peripherals', icon: Plug, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
+      { nameKey: 'items.aiConfig', href: '/settings/ai', icon: Sparkles, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.auditLogs', href: '/audit-logs', icon: ShieldCheck, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.fiscalDocuments', href: '/fiscal-documents', icon: FileSignature, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.fiscalReports', href: '/fiscal-reports', icon: PieChart, allowedRoles: adminOnlyRoles },

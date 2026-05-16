@@ -62,6 +62,12 @@
     "statusChangedAt": "Status changed",
     "lineItems": "Line items",
     "notes": "Notes",
+    "customerKicker": "Customer",
+    "customerContact": "Contact",
+    "creditLabel": "Credit",
+    "cupoLabel": "Limit",
+    "saldoLabel": "Balance",
+    "ledgerPending": "Customer ledger arrives with ENG-089.",
     "totals": {
       "subtotal": "Subtotal",
       "tax": "Tax",
@@ -92,12 +98,16 @@
     "linePlaceholder": "Pick a product to start adding lines.",
     "columns": {
       "product": "Product",
+      "tier": "Tier",
       "quantity": "Qty",
       "unitPrice": "Unit price",
       "discount": "Discount %",
       "taxRate": "Tax %",
       "total": "Total"
     },
+    "tierBadge": "Tier 1",
+    "incrementQty": "Increment",
+    "decrementQty": "Decrement",
     "totals": {
       "subtotal": "Subtotal",
       "tax": "Tax",

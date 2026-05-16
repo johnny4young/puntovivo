@@ -1,0 +1,19 @@
+{
+  "toggle": {
+    "off": "Búsqueda exacta",
+    "on": "Búsqueda semántica",
+    "helper": "Activa para buscar por significado: \"lácteo bajo en grasa\" encuentra el yogurt aunque el SKU no diga light."
+  },
+  "input": {
+    "placeholderOn": "Describe lo que buscas en lenguaje natural"
+  },
+  "staleness": {
+    "banner": "Los embeddings tienen {{days}} días. Regéneralos para una búsqueda más fiel.",
+    "regenerate": "Regenerar embeddings",
+    "regenerating": "Regenerando...",
+    "done": "Embeddings actualizados"
+  },
+  "score": {
+    "tooltip": "Puntaje de similitud: {{score}}"
+  }
+}

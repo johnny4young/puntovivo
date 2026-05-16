@@ -659,6 +659,9 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  customerTaxId: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -689,6 +692,9 @@ export function getQuotationById(
       status: quotations.status,
       customerId: quotations.customerId,
       customerName: customers.name,
+      customerTaxId: customers.taxId,
+      customerEmail: customers.email,
+      customerPhone: customers.phone,
       siteId: quotations.siteId,
       siteName: sites.name,
       subtotal: quotations.subtotal,

@@ -11,6 +11,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
 const purchaseStatusClassNames: Record<Purchase['status'], string> = {
+  draft: 'badge-warning',
   completed: 'badge-success',
   partial_returned: 'badge-primary',
   returned: 'badge-danger',

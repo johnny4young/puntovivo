@@ -53,6 +53,7 @@ import { restaurantSettingsRouter } from './routers/restaurantSettings.js';
 import { customerLedgerRouter } from './routers/customerLedger.js';
 import { deliveryOrdersRouter } from './routers/deliveryOrders.js';
 import { whatsNewRouter } from './routers/whatsNew.js';
+import { uploadRouter } from './routers/upload.js';
 
 export const appRouter = router({
   health: router({
@@ -112,6 +113,7 @@ export const appRouter = router({
   customerLedger: customerLedgerRouter,
   deliveryOrders: deliveryOrdersRouter,
   whatsNew: whatsNewRouter,
+  upload: uploadRouter,
 });
 
 export type AppRouter = typeof appRouter;

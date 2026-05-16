@@ -1,5 +1,6 @@
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { Minus, Plus, Sun } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { formatCurrency } from '@/lib/utils';
@@ -84,6 +85,12 @@ export function CashSessionOpenModal({
         defaultValue:
           'Cuenta el efectivo inicial por denominación. El total debe coincidir con la base de apertura antes de habilitar la caja.',
       })}
+      headerAside={
+        <span className="hidden items-center gap-2 rounded-full border border-warning-500/30 bg-warning-50/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-warning-700 sm:inline-flex">
+          <Sun className="h-3 w-3" aria-hidden="true" />
+          {t('cashSession.form.firstDay', { defaultValue: 'Primer día' })}
+        </span>
+      }
       footer={
         <>
           <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
@@ -148,23 +155,55 @@ export function CashSessionOpenModal({
           </div>
         </section>
 
-        <section className="card-inset p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section
+          className={`relative overflow-hidden rounded-[20px] border px-4 py-4 sm:px-5 ${
+            mismatchMessage
+              ? 'border-warning-500/30 bg-warning-50/70'
+              : 'border-success-500/30 bg-success-50/40'
+          }`}
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: mismatchMessage
+                ? 'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--warning-500) 18%, transparent), transparent 60%)'
+                : 'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--success-500) 16%, transparent), transparent 60%)',
+            }}
+          />
+          <div className="relative grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                 {t('cashSession.form.countedTotal')}
               </p>
-              <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
+              <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-secondary-950">
                 {formatCurrency(countedTotal)}
               </p>
             </div>
-            <div className="text-right text-sm">
-              <p className="text-secondary-500">{t('cashSession.form.openingFloat')}</p>
-              <p className="mt-1 font-medium text-secondary-900">{formatCurrency(openingFloat || 0)}</p>
+            <div>
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                {t('cashSession.form.openingFloat')}
+              </p>
+              <p className="mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] text-secondary-900">
+                {formatCurrency(openingFloat || 0)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
+                {t('cashSession.form.differenceLabel', { defaultValue: 'Diferencia' })}
+              </p>
+              <p
+                className={`mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] ${
+                  mismatchMessage ? 'text-warning-700' : 'text-success-700'
+                }`}
+              >
+                {formatCurrency(countedTotal - (openingFloat || 0))}
+              </p>
             </div>
           </div>
-          <p className="mt-3 text-sm leading-6 text-secondary-600">{t('cashSession.form.description')}</p>
-          {mismatchMessage && <p className="mt-3 text-sm text-danger-500">{mismatchMessage}</p>}
+          {mismatchMessage && (
+            <p className="relative mt-3 text-[12.5px] text-warning-700">{mismatchMessage}</p>
+          )}
         </section>
 
         <section className="space-y-3">
@@ -179,47 +218,75 @@ export function CashSessionOpenModal({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {denominationFieldArray.fields.map((field, index) => (
-              <div key={field.value} className="card-inset bg-surface/92 px-4 py-3">
-                <input
-                  type="hidden"
-                  {...form.register(`denominations.${index}.value`, {
-                    valueAsNumber: true,
-                  })}
-                />
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-secondary-950">
-                      {formatCurrency(field.value)}
-                    </p>
-                    <p className="mt-1 text-xs text-secondary-500">
-                      {t('cashSession.form.lineTotal', {
-                        total: formatCurrency((denominations?.[index]?.count ?? 0) * field.value),
-                      })}
-                    </p>
-                  </div>
-                  <div className="w-24">
-                    <label htmlFor={`cash-session-count-${index}`} className="sr-only">
-                      {t('cashSession.form.countFor', {
-                        denomination: formatCurrency(field.value),
-                      })}
-                    </label>
-                    <input
-                      id={`cash-session-count-${index}`}
-                      type="number"
-                      min={0}
-                      step={1}
-                      className="input text-right"
-                      {...form.register(`denominations.${index}.count`, {
-                        valueAsNumber: true,
-                        min: 0,
-                      })}
-                    />
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {denominationFieldArray.fields.map((field, index) => {
+              const currentCount = denominations?.[index]?.count ?? 0;
+              const lineTotal = currentCount * field.value;
+              const setCount = (next: number) =>
+                form.setValue(`denominations.${index}.count`, Math.max(0, next), {
+                  shouldDirty: true,
+                });
+              return (
+                <div
+                  key={field.value}
+                  className="rounded-2xl border border-line/70 bg-surface/96 px-3.5 py-3 transition-colors hover:border-primary-200"
+                >
+                  <input
+                    type="hidden"
+                    {...form.register(`denominations.${index}.value`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[15px] font-semibold tabular-nums text-secondary-950">
+                        {formatCurrency(field.value)}
+                      </p>
+                      <p className="mt-0.5 text-[10.5px] uppercase tracking-[0.18em] text-secondary-500">
+                        {t('cashSession.form.lineTotal', {
+                          total: formatCurrency(lineTotal),
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={t('cashSession.form.decrementCount', { defaultValue: 'Restar' })}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line/70 text-secondary-700 transition hover:border-warning-300 hover:bg-warning-50 hover:text-warning-700 disabled:opacity-40"
+                        disabled={currentCount <= 0}
+                        onClick={() => setCount(currentCount - 1)}
+                      >
+                        <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <label htmlFor={`cash-session-count-${index}`} className="sr-only">
+                        {t('cashSession.form.countFor', {
+                          denomination: formatCurrency(field.value),
+                        })}
+                      </label>
+                      <input
+                        id={`cash-session-count-${index}`}
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="input h-9 w-14 text-center font-mono text-[14px] tabular-nums"
+                        {...form.register(`denominations.${index}.count`, {
+                          valueAsNumber: true,
+                          min: 0,
+                        })}
+                      />
+                      <button
+                        type="button"
+                        aria-label={t('cashSession.form.incrementCount', { defaultValue: 'Sumar' })}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line/70 text-secondary-700 transition hover:border-primary/40 hover:bg-primary-50 hover:text-primary-700"
+                        onClick={() => setCount(currentCount + 1)}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

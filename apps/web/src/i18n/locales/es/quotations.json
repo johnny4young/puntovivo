@@ -62,6 +62,12 @@
     "statusChangedAt": "Estado cambiado",
     "lineItems": "Líneas",
     "notes": "Notas",
+    "customerKicker": "Cliente",
+    "customerContact": "Contacto",
+    "creditLabel": "Crédito",
+    "cupoLabel": "Cupo",
+    "saldoLabel": "Saldo",
+    "ledgerPending": "El estado de cuenta del cliente llegará con ENG-089.",
     "totals": {
       "subtotal": "Subtotal",
       "tax": "Impuestos",
@@ -92,12 +98,16 @@
     "linePlaceholder": "Selecciona un producto para empezar a agregar líneas.",
     "columns": {
       "product": "Producto",
+      "tier": "Tarifa",
       "quantity": "Cant.",
       "unitPrice": "Precio unitario",
       "discount": "Desc. %",
       "taxRate": "Impuesto %",
       "total": "Total"
     },
+    "tierBadge": "Pista 1",
+    "incrementQty": "Sumar",
+    "decrementQty": "Restar",
     "totals": {
       "subtotal": "Subtotal",
       "tax": "Impuestos",

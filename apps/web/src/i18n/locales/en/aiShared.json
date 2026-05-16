@@ -1,0 +1,55 @@
+{
+  "enabled": {
+    "copilot": {
+      "title": "Co-pilot is on"
+    },
+    "anomalies": {
+      "title": "Anomaly detection is on"
+    },
+    "semanticSearch": {
+      "title": "Semantic search is on"
+    },
+    "invoiceOcr": {
+      "title": "Invoice OCR is on"
+    }
+  },
+  "disabled": {
+    "copilot": {
+      "title": "Co-pilot is off",
+      "subtitle": "Turn it on to ask your data in plain English. The SQL stays visible and auditable."
+    },
+    "anomalies": {
+      "title": "Anomaly detection is off",
+      "subtitle": "When you turn it on, Puntovivo watches each cashier's pattern against their own 30-day baseline and flags anything that drifts."
+    },
+    "semanticSearch": {
+      "title": "Semantic search is off",
+      "subtitle": "Meaning-based product search: \"low-fat dairy\" finds the yogurt even when the SKU doesn't say light."
+    },
+    "invoiceOcr": {
+      "title": "Invoice OCR is off",
+      "subtitle": "Upload a photo of the invoice and the AI pre-fills the purchase. You review, it types."
+    },
+    "cta": "Enable in Settings › AI",
+    "role": "Only an admin can turn AI on."
+  },
+  "disclaimer": {
+    "copilot": "AI-generated answer — review the SQL before acting.",
+    "anomaly": "Starting point for an investigation, not an accusation."
+  },
+  "privacy": {
+    "redaction": "Personal data is redacted before it leaves your server."
+  },
+  "audit": {
+    "title": "AI activity log",
+    "subtitle": "Most recent AI events executed in this tenant.",
+    "columns": {
+      "occurredAt": "When",
+      "actor": "User",
+      "action": "Action",
+      "cost": "Cost (USD)",
+      "latency": "Latency"
+    },
+    "empty": "No AI activity recorded yet."
+  }
+}

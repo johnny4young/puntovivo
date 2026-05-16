@@ -14,7 +14,8 @@
     "description": "Adjust received quantities and costs before updating stock.",
     "addProduct": "Add Product",
     "clear": "Clear",
-    "openOcr": "Scan Invoice",
+    "openOcr": "+ Invoice OCR",
+    "openOcrV2": "Invoice OCR (AI Núcleo)",
     "register": "Register Purchase",
     "purchaseTotal": "Purchase total",
     "provider": "Provider",
@@ -165,6 +166,7 @@
     }
   },
   "status": {
+    "draft": "Draft",
     "completed": "Completed",
     "partial_returned": "Partial returned",
     "returned": "Returned",

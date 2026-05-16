@@ -9,7 +9,13 @@
 import { z } from 'zod';
 import { paginationInput } from './common.js';
 
-export const purchaseStatusEnum = z.enum(['completed', 'partial_returned', 'returned', 'voided']);
+export const purchaseStatusEnum = z.enum([
+  'draft',
+  'completed',
+  'partial_returned',
+  'returned',
+  'voided',
+]);
 
 export const purchaseItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),

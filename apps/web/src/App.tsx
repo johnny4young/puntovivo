@@ -36,6 +36,9 @@ const DashboardPage = lazyPage(async () => ({
 const CopilotPage = lazyPage(async () => ({
   default: (await import('@/features/copilot/CopilotPage')).CopilotPage,
 }));
+const AiConfigPage = lazyPage(async () => ({
+  default: (await import('@/features/ai-config/AiConfigPage')).default,
+}));
 const CompanyPage = lazyPage(async () => ({
   default: (await import('@/features/company/CompanyPage')).CompanyPage,
 }));
@@ -254,6 +257,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="copilot">
                   <CopilotPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="settings/ai"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <AiConfigPage />
                 </ShellRoute>
               }
             />

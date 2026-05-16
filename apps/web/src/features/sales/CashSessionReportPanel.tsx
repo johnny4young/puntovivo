@@ -94,16 +94,24 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
   );
 
   return (
-    <section className="card-inset space-y-4 px-4 py-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-          <ReceiptText className="h-4.5 w-4.5" />
-        </div>
+    <section className="card relative space-y-4 overflow-hidden px-4 py-4 sm:px-5">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%)',
+        }}
+      />
+      <div className="relative flex items-start gap-3">
+        <span className="glyph-tile glyph-tile-primary h-10 w-10">
+          <ReceiptText className="h-4.5 w-4.5" aria-hidden="true" />
+        </span>
         <div className="min-w-0">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-            {t('cashSession.report.title')}
+          <p className="page-kicker">{t('cashSession.report.title')}</p>
+          <p className="mt-1.5 text-sm leading-6 text-secondary-600">
+            {t('cashSession.report.description')}
           </p>
-          <p className="mt-2 text-sm text-secondary-600">{t('cashSession.report.description')}</p>
         </div>
       </div>
 
@@ -111,36 +119,38 @@ export function CashSessionReportPanel({ report, isLoading }: CashSessionReportP
         <div className="surface-empty">{t('cashSession.report.loading')}</div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-            <div className="surface-panel">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+          <div className="relative grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+            <div className="rounded-2xl border border-line/70 bg-surface/95 px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                 {t('cashSession.report.activeSessionsMetric')}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-secondary-950">
+              <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-secondary-950">
                 {summary.activeSessionCount}
               </p>
             </div>
-            <div className="surface-panel">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            <div className="rounded-2xl border border-line/70 bg-surface/95 px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                 {t('cashSession.report.activeRegistersMetric')}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-secondary-950">
+              <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-secondary-950">
                 {summary.activeRegisterCount}
               </p>
             </div>
-            <div className="surface-panel">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            <div className="rounded-2xl border border-line/70 bg-surface/95 px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                 {t('cashSession.report.reviewCountMetric')}
               </p>
-              <p className="mt-2 text-2xl font-semibold text-secondary-950">{summary.reviewCount}</p>
+              <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-secondary-950">
+                {summary.reviewCount}
+              </p>
             </div>
-            <div className="surface-panel">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            <div className="rounded-2xl border border-line/70 bg-surface/95 px-3.5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                 {t('cashSession.report.netOverShortMetric')}
               </p>
               <p
                 className={cn(
-                  'mt-2 text-2xl font-semibold',
+                  'mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em]',
                   summary.netOverShort < 0 ? 'text-warning-700' : 'text-secondary-950'
                 )}
               >

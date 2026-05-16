@@ -1,31 +1,15 @@
-/**
- * ENG-040 slice 1b — invoice line to product matching.
- *
- * Takes the structured lines returned by `extractInvoiceFromImage`
- * (ENG-040a) and maps each one to the best product candidate in the
- * tenant's catalog using the same embeddings infrastructure that powers
- * semantic product search (ENG-033). Returns top-1 per line above the
- * shared cosine floor; lines below the floor surface as `null` so the
- * operator can fall back to the manual product picker for them.
- *
- * One batch embed call covers the whole invoice; one audit log row
- * covers the whole match. AI off / no embedded products short-circuit
- * to `mode:'unavailable'` so the modal can render a helpful hint instead
- * of throwing.
- *
- * @module services/ai/vision/invoice-line-matcher
- */
 import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { products, unitXProduct, units } from '../../../db/schema.js';
 import { recordCall } from '../auditLog.js';
 import {
-  SEMANTIC_SIMILARITY_FLOOR,
   cosineSimilarity,
   embedTexts,
   loadTenantProductEmbeddings,
 } from '../embeddings.js';
+
+const INVOICE_LINE_SIMILARITY_FLOOR = 0.85;
 
 export interface InvoiceLineForMatching {
   description: string;
@@ -49,6 +33,7 @@ export interface MatchedProductSummary {
 export interface InvoiceLineMatch {
   line: InvoiceLineForMatching;
   product: MatchedProductSummary | null;
+  source: 'sku' | 'embedding' | null;
   similarity: number | null;
 }
 
@@ -63,43 +48,103 @@ export interface InvoiceLineMatcherContext {
   userId: string | null;
 }
 
-/**
- * Match every invoice line to a product candidate. Pure data path:
- * the procedure layer owns the AI-budget pre-flight + role gating; this
- * function focuses on cosine math + audit-log persistence on the
- * successful path.
- */
+export interface InvoiceLineMatcherOptions {
+  bestEffortSkuFallback?: boolean;
+}
+
+function normalizeSku(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+
+function descriptionContainsSku(description: string, sku: string): boolean {
+  const normalizedSku = normalizeSku(sku);
+  if (normalizedSku.length < 2) return false;
+  return normalizeSku(description).includes(normalizedSku);
+}
+
+async function loadExactSkuProductIds(
+  db: DatabaseInstance,
+  tenantId: string,
+  lines: InvoiceLineForMatching[]
+): Promise<Map<number, string>> {
+  const productRows = await db
+    .select({ id: products.id, sku: products.sku })
+    .from(products)
+    .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
+    .all();
+
+  const out = new Map<number, string>();
+  lines.forEach((line, idx) => {
+    const winner = productRows.find(product =>
+      descriptionContainsSku(line.description, product.sku)
+    );
+    if (winner) out.set(idx, winner.id);
+  });
+  return out;
+}
+
 export async function matchInvoiceLinesToProducts(
   ctx: InvoiceLineMatcherContext,
-  lines: InvoiceLineForMatching[]
+  lines: InvoiceLineForMatching[],
+  options: InvoiceLineMatcherOptions = {}
 ): Promise<InvoiceLineMatcherResult> {
   if (lines.length === 0) {
     return { mode: 'matched', matches: [] };
   }
 
-  // The DB-load happens before `embedTexts` so a tenant with no
-  // embedded products is signalled as `no-embeddings` rather than as
-  // `ai-disabled`. When AI is also off the modal still collapses both
-  // reasons into the same operator hint (`match.unavailable` i18n key)
-  // — the distinction is purely for audit-log telemetry. Keeping the
-  // DB-load first avoids a wasted embedding API call in the common
-  // "tenant on free plan, no embeddings yet" path.
+  const matches: InvoiceLineMatch[] = lines.map(line => ({
+    line,
+    product: null,
+    source: null,
+    similarity: null,
+  }));
+
+  if (options.bestEffortSkuFallback === true) {
+    const exactSkuMatches = await loadExactSkuProductIds(ctx.db, ctx.tenantId, lines);
+    const exactSkuProductIds = [...new Set(exactSkuMatches.values())];
+    const exactSkuSummaries =
+      exactSkuProductIds.length === 0
+        ? new Map<string, MatchedProductSummary>()
+        : await hydrateProductSummaries(ctx.db, ctx.tenantId, exactSkuProductIds);
+
+    lines.forEach((line, idx) => {
+      const exactProductId = exactSkuMatches.get(idx);
+      const product = exactProductId ? exactSkuSummaries.get(exactProductId) ?? null : null;
+      if (!product) return;
+      matches[idx] = {
+        line,
+        product,
+        source: 'sku',
+        similarity: 1,
+      };
+    });
+  }
+
+  const remaining = matches
+    .map((match, idx) => ({ match, idx }))
+    .filter(({ match }) => match.product === null);
+
+  if (remaining.length === 0) {
+    return { mode: 'matched', matches };
+  }
+
   const embedded = await loadTenantProductEmbeddings(ctx.db, ctx.tenantId);
   if (embedded.length === 0) {
-    return { mode: 'unavailable', reason: 'no-embeddings', matches: [] };
+    return options.bestEffortSkuFallback === true
+      ? { mode: 'matched', matches }
+      : { mode: 'unavailable', reason: 'no-embeddings', matches: [] };
   }
 
   const startedAt = Date.now();
   const embedResult = await embedTexts(
     ctx.db,
     ctx.tenantId,
-    lines.map(line => line.description)
+    remaining.map(({ match }) => match.line.description)
   );
   if (!embedResult) {
-    // Same signal regardless of root cause — the modal collapses both
-    // "AI off" and "provider lacks embeddings" into one hint that tells
-    // the operator how to fix the tenant.
-    return { mode: 'unavailable', reason: 'ai-disabled', matches: [] };
+    return options.bestEffortSkuFallback === true
+      ? { mode: 'matched', matches }
+      : { mode: 'unavailable', reason: 'ai-disabled', matches: [] };
   }
 
   const winners: Array<{ productId: string; similarity: number } | null> = embedResult.embeddings.map(
@@ -107,7 +152,7 @@ export async function matchInvoiceLinesToProducts(
       let best: { productId: string; similarity: number } | null = null;
       for (const row of embedded) {
         const sim = cosineSimilarity(queryVec, row.embedding);
-        if (sim < SEMANTIC_SIMILARITY_FLOOR) continue;
+        if (sim < INVOICE_LINE_SIMILARITY_FLOOR) continue;
         if (best === null || sim > best.similarity) {
           best = { productId: row.productId, similarity: sim };
         }
@@ -127,20 +172,24 @@ export async function matchInvoiceLinesToProducts(
     ? new Map<string, MatchedProductSummary>()
     : await hydrateProductSummaries(ctx.db, ctx.tenantId, matchedIds);
 
-  const matches: InvoiceLineMatch[] = lines.map((line, idx) => {
-    const winner = winners[idx];
+  remaining.forEach(({ idx }, remainingIdx) => {
+    const line = lines[idx]!;
+    const winner = winners[remainingIdx];
     if (!winner) {
-      return { line, product: null, similarity: null };
+      matches[idx] = { line, product: null, source: null, similarity: null };
+      return;
     }
     const summary = summaries.get(winner.productId);
     if (!summary) {
       // Defensive: product disappeared between embedding load and
       // hydrate. Surface as unmatched rather than throwing.
-      return { line, product: null, similarity: null };
+      matches[idx] = { line, product: null, source: null, similarity: null };
+      return;
     }
-    return {
+    matches[idx] = {
       line,
       product: summary,
+      source: 'embedding',
       similarity: winner.similarity,
     };
   });

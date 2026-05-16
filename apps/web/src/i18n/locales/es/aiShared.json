@@ -1,0 +1,55 @@
+{
+  "enabled": {
+    "copilot": {
+      "title": "Co-pilot está activo"
+    },
+    "anomalies": {
+      "title": "La detección de anomalías está activa"
+    },
+    "semanticSearch": {
+      "title": "La búsqueda semántica está activa"
+    },
+    "invoiceOcr": {
+      "title": "El OCR de factura está activo"
+    }
+  },
+  "disabled": {
+    "copilot": {
+      "title": "Co-pilot está apagado",
+      "subtitle": "Actívalo para preguntarle a tus datos en español. El SQL queda visible y auditable."
+    },
+    "anomalies": {
+      "title": "La detección de anomalías está apagada",
+      "subtitle": "Cuando la activas, Puntovivo vigila el patrón de cada cajero contra su propio promedio de 30 días y te avisa si algo se sale de lo normal."
+    },
+    "semanticSearch": {
+      "title": "La búsqueda semántica está apagada",
+      "subtitle": "Búsqueda por significado para productos: \"lácteo bajo en grasa\" encuentra el yogurt aunque el SKU no diga light."
+    },
+    "invoiceOcr": {
+      "title": "El OCR de factura está apagado",
+      "subtitle": "Subes una foto de la factura y la IA pre-llena la compra. Tú revisas, ella escribe."
+    },
+    "cta": "Activar en Configuración › IA",
+    "role": "Solo el administrador puede activar la IA."
+  },
+  "disclaimer": {
+    "copilot": "Respuesta generada por IA · revisa el SQL antes de actuar.",
+    "anomaly": "Punto de partida para una investigación, no una acusación."
+  },
+  "privacy": {
+    "redaction": "Los datos personales se redactan antes de salir de tu servidor."
+  },
+  "audit": {
+    "title": "Registro de IA",
+    "subtitle": "Últimos eventos de IA ejecutados en esta organización.",
+    "columns": {
+      "occurredAt": "Cuándo",
+      "actor": "Usuario",
+      "action": "Acción",
+      "cost": "Costo (USD)",
+      "latency": "Latencia"
+    },
+    "empty": "Aún no hay actividad de IA registrada."
+  }
+}

@@ -6,7 +6,7 @@
     "states": {
       "loading": "Calculando anomalías…",
       "error": "No se pudieron cargar las anomalías. Intenta de nuevo en un momento.",
-      "disabled": "Las funciones de IA están desactivadas. Actívalas en Empresa → Configuración de IA para escanear anomalías.",
+      "disabled": "La detección de anomalías está desactivada. Actívala en Empresa → Configuración de IA para escanear anomalías.",
       "empty": "Sin anomalías detectadas en los últimos 30 días. El equipo está operando dentro del patrón normal.",
       "summary_one": "{{count}} alerta detectada en los últimos 30 días",
       "summary_other": "{{count}} alertas detectadas en los últimos 30 días"

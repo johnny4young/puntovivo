@@ -49,6 +49,11 @@
     "sale.reprint": "Receipt reprinted",
     "sale.complete": "Draft completed",
     "ai.anomaly.detected": "AI anomaly detected",
+    "ai.anomaly.silenced": "AI anomaly silenced",
+    "ai.invoice_ocr.extract": "Invoice OCR executed",
+    "ai.invoice_ocr.confirm": "Invoice OCR draft confirmed",
+    "ai.copilot.query": "Co-pilot query",
+    "ai.semantic_search.regenerate_embeddings": "Embeddings regenerated",
     "module.toggle": "Module toggled",
     "device.revoke": "Device revoked",
     "restaurant_table.create": "Restaurant table created",
@@ -70,7 +75,8 @@
     "tenant_module": "Tenant module",
     "device": "Device",
     "restaurant_table": "Restaurant table",
-    "payment_outbox": "Payment outbox"
+    "payment_outbox": "Payment outbox",
+    "ai_feature": "AI feature"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
