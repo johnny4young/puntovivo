@@ -36,7 +36,7 @@ Or use the workspace shortcut: `npm run rebuild --workspace=@puntovivo/desktop`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
-Current desktop runtime is Electron `41.2.2`. If you pass `-v` to `electron-rebuild`, use `41.2.2` instead of older examples.
+Current desktop runtime is Electron `41.6.1`. The `rebuild` script no longer hard-codes `-v`; `electron-rebuild` picks the version from `apps/desktop/package.json` automatically. If you invoke `electron-rebuild` by hand and want to override the auto-detect, match the version in that package.json.
 
 If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
 
@@ -118,7 +118,7 @@ If the `review` skill is available in the session, run it on the diff before fin
 
 ## Node.js version constraint
 
-Root `package.json` enforces `>=22.0.0`. `packages/server` has `>=20.0.0` but the root constraint takes precedence. Use Node 22+.
+Root `package.json` enforces `>=24.0.0`. All workspaces (`apps/desktop`, `packages/server`) also pin `>=24.0.0`. Use Node 24+.
 
 ## Stale files — do not rely on
 

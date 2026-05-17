@@ -21,12 +21,13 @@ import { seedDefaultData } from './seed.js';
 const dbLog = createModuleLogger('db');
 
 // ENG-002 — versioned Drizzle migrations live next to this module. Resolved
-// at module load so the path is valid whether we run tests, dev, or the
-// bundled Electron main process (each preserves directory layout).
-const MIGRATIONS_FOLDER = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  'migrations'
-);
+// lazily so `import.meta.url` is only touched in ESM contexts (standalone
+// server, tests). The Electron main process always passes an explicit
+// `migrationsFolder`, because Vite bundles this file into CJS where
+// `import.meta.url` evaluates to `undefined` and would crash at module load.
+function getDefaultMigrationsFolder(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), 'migrations');
+}
 
 export type DatabaseInstance = BetterSQLite3Database<typeof schema>;
 
@@ -69,7 +70,7 @@ export async function initDatabase(
     verbose = false,
     migrationsFolder,
   } = options;
-  const effectiveMigrationsFolder = migrationsFolder ?? MIGRATIONS_FOLDER;
+  const effectiveMigrationsFolder = migrationsFolder ?? getDefaultMigrationsFolder();
 
   // Ensure directory exists (skip for in-memory databases)
   if (dbPath !== ':memory:') {
@@ -117,8 +118,8 @@ export async function initDatabase(
     // this is a no-op.
     //
     // Hard-fail when the migrations folder is absent: every real boot
-    // path ships it (dev resolves the default `MIGRATIONS_FOLDER`
-    // constant, packaged Electron receives an explicit override from
+    // path ships it (dev resolves the default via `getDefaultMigrationsFolder()`,
+    // packaged Electron receives an explicit override from
     // `process.resourcesPath` via Forge `extraResource`, and tests
     // either supply a folder override or opt out via
     // `runMigrations: false`). A missing folder means the deployment

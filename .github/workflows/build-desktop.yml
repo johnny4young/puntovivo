@@ -46,7 +46,7 @@ on:
         default: false
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
 
 # Per-job concurrency: cancel any in-progress run for the same actor when
 # they kick off another. Avoids stacking macOS minutes when an operator
