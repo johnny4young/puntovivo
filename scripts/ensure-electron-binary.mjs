@@ -20,12 +20,18 @@
 // exits non-zero with an actionable message if the repair itself fails.
 
 import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-const electronDir = join(repoRoot, 'node_modules', 'electron');
+// ENG-072 — resolve electron via Node module resolution starting from the
+// desktop workspace so the script works whether npm hoists `electron` to
+// `node_modules/electron` (single-package install) or keeps it nested under
+// `apps/desktop/node_modules/electron` (workspace dedup).
+const requireFromDesktop = createRequire(join(repoRoot, 'apps/desktop/package.json'));
+const electronDir = dirname(requireFromDesktop.resolve('electron/package.json'));
 const pathTxt = join(electronDir, 'path.txt');
 const installJs = join(electronDir, 'install.js');
 const distDir = join(electronDir, 'dist');
@@ -87,15 +93,12 @@ function healthIssue() {
 
 function runInstall() {
   log('running node_modules/electron/install.js to fetch the runtime');
+  // ENG-072 / Electron 42 — the `ELECTRON_SKIP_BINARY_DOWNLOAD` env var was
+  // removed upstream when the binary download moved out of `postinstall` and
+  // became lazy on first execution. We just inherit env now.
   const result = spawnSync(process.execPath, [installJs], {
     cwd: electronDir,
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      // Drop any SKIP flag a CI job might have set upstream, so the repair
-      // attempt actually downloads when invoked at dev-start time.
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '',
-    },
   });
 
   if (result.status !== 0) {

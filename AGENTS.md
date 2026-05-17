@@ -38,6 +38,8 @@ If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`
 
 Current desktop runtime is Electron `41.6.1`. The `rebuild` script no longer hard-codes `-v`; `electron-rebuild` picks the version from `apps/desktop/package.json` automatically. If you invoke `electron-rebuild` by hand and want to override the auto-detect, match the version in that package.json.
 
+**Electron 42 is gated upstream**: `better-sqlite3` 12.10.0 (latest, 2026-05-15) does not compile against V8 14.x. The native code uses `External::Value()` / `External::New()` / `SetNativeDataProperty` shapes that V8 14 changed. Upstream tracking issue: [WiseLibs/better-sqlite3#1474](https://github.com/WiseLibs/better-sqlite3/issues/1474). Once `better-sqlite3` ships V8 14 support, bump `electron` to `^42.x` and re-run `preflight:desktop` — the rest of the upgrade (Electron-42-aware `ensure-electron-binary.mjs`, `@electron/fuses@^2.1.1` with `WasmTrapHandlers` + `GrantFileProtocolExtraPrivileges: false`) is already in place.
+
 If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
 
 ```

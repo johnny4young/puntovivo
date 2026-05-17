@@ -94,6 +94,15 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      // ENG-072 — renderer runs sandboxed (window-config.ts) and we never
+      // load file:// content into the BrowserWindow, so the extra privileges
+      // historically granted to the file: protocol are dead weight. Drop them.
+      [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+      // ENG-072 — new in @electron/fuses 2.1.0 + Electron 42. Enables V8 WASM
+      // trap handlers (faster bounds-check elimination via signal-based traps
+      // instead of explicit branches). Speeds up any WASM dependency the
+      // renderer pulls in (notably jspdf + exceljs).
+      [FuseV1Options.WasmTrapHandlers]: true,
     }),
   ],
 };
