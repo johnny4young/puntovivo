@@ -359,6 +359,253 @@ describe('Receipt Templates (Iter 2)', () => {
       });
       expect(bad.success).toBe(false);
     });
+
+    // -------------------------------------------------------------------------
+    // ENG-086 — thermal-handoff blocks: wordmark + metaTable + QR placeholder
+    // -------------------------------------------------------------------------
+
+    it('renders the wordmark block as the puntovivo lockup with a brand dot (HTML)', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'wordmark' as const, show: true, align: 'center' as const }],
+      };
+      const result = renderReceipt(layout, data);
+      // Sans-serif wordmark with bold `vivo` + an explicit dot span so the
+      // ESC/POS strip silhouette matches the editor preview.
+      expect(result.html).toContain('class="block block-wordmark align-center"');
+      expect(result.html).toContain('<div class="wordmark">punto<b>vivo</b>');
+      expect(result.html).toContain('class="wordmark-dot"');
+      expect(result.html).toContain('<div class="wordmark-tagline">CONSOLA RETAIL</div>');
+    });
+
+    it('collapses the wordmark block to an empty string when show is false', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'wordmark' as const, show: false }],
+      };
+      const result = renderReceipt(layout, data);
+      expect(result.html).not.toContain('class="wordmark"');
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      // ESC/POS payload only carries the printer init + cut bytes when
+      // every block hides — the wordmark text must NOT leak through.
+      expect(escposText).not.toContain('puntovivo');
+    });
+
+    it('prints the wordmark as a bold centered puntovivo line in ESC/POS', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'wordmark' as const, show: true, align: 'center' as const }],
+      };
+      const result = renderReceipt(layout, data);
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      expect(escposText).toContain('puntovivo');
+      expect(escposText).toContain('CONSOLA RETAIL');
+      // ESC a 1 == center align, ESC E 1 == bold on. Both must precede
+      // the wordmark bytes; ESC E 0 must follow to reset.
+      const bytes = Array.from(result.escpos);
+      const centerIdx = bytes.findIndex(
+        (b, i) => b === 0x1b && bytes[i + 1] === 0x61 && bytes[i + 2] === 1
+      );
+      const boldOnIdx = bytes.findIndex(
+        (b, i) => b === 0x1b && bytes[i + 1] === 0x45 && bytes[i + 2] === 1
+      );
+      expect(centerIdx).toBeGreaterThanOrEqual(0);
+      expect(boldOnIdx).toBeGreaterThan(centerIdx);
+    });
+
+    it('renders a metaTable block as a key/value dl grid', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [
+          {
+            type: 'metaTable' as const,
+            rows: [
+              { key: 'Factura', value: '{{sale.saleNumber}}' },
+              { key: 'Caja', value: '{{sale.cashier}}' },
+            ],
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      expect(result.html).toContain('class="block block-meta"');
+      expect(result.html).toContain('<dl class="meta-grid">');
+      expect(result.html).toContain('<dt class="meta-key">Factura</dt>');
+      expect(result.html).toContain('<dd class="meta-value">V-000123</dd>');
+      expect(result.html).toContain('<dt class="meta-key">Caja</dt>');
+      expect(result.html).toContain('<dd class="meta-value">Ana López</dd>');
+    });
+
+    it('drops metaTable rows whose value resolves to an empty string', () => {
+      const data = buildPreviewData('sale');
+      // Clear the customer so the row interpolation collapses to ''.
+      data.sale.customer = null;
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [
+          {
+            type: 'metaTable' as const,
+            rows: [
+              { key: 'Factura', value: '{{sale.saleNumber}}' },
+              { key: 'Cliente', value: '{{sale.customer}}' },
+            ],
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      expect(result.html).toContain('Factura');
+      expect(result.html).not.toContain('Cliente');
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      expect(escposText).toContain('Factura');
+      expect(escposText).not.toContain('Cliente');
+    });
+
+    it('pads metaTable rows to the paper char count in ESC/POS', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '58mm' as const, // 32 chars
+        blocks: [
+          {
+            type: 'metaTable' as const,
+            rows: [{ key: 'A', value: 'B' }],
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      const escposText = Array.from(result.escpos)
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      // "A" + 30 spaces + "B" = 32 chars total
+      expect(escposText).toContain(`A${' '.repeat(30)}B`);
+    });
+
+    it('renders the QR placeholder with three finder-pattern corners + quiet zone', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'qr' as const, source: '{{fiscal.qrUrl}}', sizeMm: 25 }],
+      };
+      const result = renderReceipt(layout, data);
+      // Strip the embedded <style> block so CSS rule definitions cannot
+      // satisfy a body-content assertion (the `.qr-finder-tl` selector
+      // lives there too).
+      const bodyHtml = result.html.replace(/<style>[\s\S]*?<\/style>/g, '');
+      expect(bodyHtml).toContain('class="qr-finder qr-finder-tl"');
+      expect(bodyHtml).toContain('class="qr-finder qr-finder-tr"');
+      expect(bodyHtml).toContain('class="qr-finder qr-finder-bl"');
+      expect(bodyHtml).toContain('class="qr-module"');
+      // The resolved QR source is embedded for the print handler to pick
+      // up when it draws the real PNG — the body must carry the value
+      // even though the renderer does not generate the PNG itself.
+      expect(bodyHtml).toContain('data-qr-source="');
+      expect(bodyHtml).toContain('catalogo-vpfe.dian.gov.co');
+      // Quiet zone is the 4 px white border on the .qr-placeholder; CSS
+      // selector lives in the embedded stylesheet so a defense-in-depth
+      // assertion catches the rule literally.
+      expect(result.html).toContain('.qr-placeholder{');
+      expect(result.html).toContain(`border:4px solid #fff`);
+      expect(result.html).not.toContain('gradient');
+    });
+
+    it('keeps the QR placeholder empty when the source resolves to empty', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'qr' as const, source: '{{ default(fiscal.cufe, "") }}' }],
+      };
+      // Clear the cufe so the default substitution collapses to ''.
+      data.fiscal = { ...data.fiscal, cufe: null };
+      const result = renderReceipt(layout, data);
+      expect(result.html).toContain('class="qr-placeholder qr-placeholder-empty"');
+      // Body-only assertion: the empty placeholder must not emit any
+      // finder-pattern span elements. The CSS rule `.qr-finder-tl`
+      // still lives in the stylesheet, so we strip the <style> block
+      // before asserting against the rendered body.
+      const bodyHtml = result.html.replace(
+        /<style>[\s\S]*?<\/style>/g,
+        ''
+      );
+      expect(bodyHtml).not.toContain('qr-finder-tl');
+    });
+
+    it('embeds the print tokens from PRINT_TOKENS in the document stylesheet', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'text' as const, value: '{{sale.saleNumber}}' }],
+      };
+      const result = renderReceipt(layout, data);
+      // Body font, grand-total size, ink, and paper must come from the
+      // shared tokens — mirrors `apps/web/src/styles/theme.css` ENG-080
+      // print-tokens block. Drift on either side fails this test.
+      expect(result.html).toContain("'IBM Plex Mono'");
+      expect(result.html).toContain('font-size:14pt');
+      expect(result.html).toContain('color:#000');
+      expect(result.html).toContain('background:#fff');
+    });
+
+    it('uses the real thermal dot widths from PRINT_TOKENS', () => {
+      const data = buildPreviewData('sale');
+      const baseBlocks = [{ type: 'text' as const, value: '{{sale.saleNumber}}' }];
+
+      expect(
+        renderReceipt({ paperWidth: '58mm' as const, blocks: baseBlocks }, data).html
+      ).toContain('width:384px');
+      expect(
+        renderReceipt({ paperWidth: '80mm' as const, blocks: baseBlocks }, data).html
+      ).toContain('width:576px');
+    });
+
+    it('Zod schema accepts wordmark + metaTable blocks; rejects empty rows + unknown keys', () => {
+      const ok = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [
+          { type: 'wordmark', show: true, align: 'center' },
+          {
+            type: 'metaTable',
+            rows: [{ key: 'Factura', value: '{{sale.saleNumber}}' }],
+          },
+        ],
+      });
+      expect(ok.success).toBe(true);
+
+      const emptyRows = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [{ type: 'metaTable', rows: [] }],
+      });
+      expect(emptyRows.success).toBe(false);
+
+      const tooManyRows = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [
+          {
+            type: 'metaTable',
+            rows: Array.from({ length: 13 }, (_, i) => ({
+              key: `K${i}`,
+              value: '{{sale.saleNumber}}',
+            })),
+          },
+        ],
+      });
+      expect(tooManyRows.success).toBe(false);
+
+      const unknownNs = receiptLayoutSchema.safeParse({
+        paperWidth: '80mm',
+        blocks: [
+          { type: 'metaTable', rows: [{ key: 'X', value: '{{evil.path}}' }] },
+        ],
+      });
+      expect(unknownNs.success).toBe(false);
+    });
   });
 
   // -------------------------------------------------------------------------

@@ -87,6 +87,10 @@
       "customerLabel": "Customer",
       "taxIdLabel": "Tax ID",
       "resolutionLabel": "Resolution",
+      "documentLabel": "Document",
+      "dateLabel": "Date",
+      "metaKey": "Label",
+      "metaValue": "Value",
       "thankYou": "Thank you for your purchase"
     },
     "blockTypes": {
@@ -98,7 +102,9 @@
       "qr": "QR code",
       "separator": "Separator",
       "barcode128": "Barcode 128",
-      "appFooter": "App footer"
+      "appFooter": "App footer",
+      "wordmark": "Brand wordmark",
+      "metaTable": "Meta band"
     },
     "blockFields": {
       "value": "Value",
@@ -132,10 +138,18 @@
         "discount": "Discount — total discounts applied to items.",
         "taxTotal": "Tax — sum of tax amounts across all items.",
         "tip": "Tip — optional gratuity field on the sale.",
-        "grandTotal": "Total — subtotal minus discounts plus taxes and tip."
+        "serviceCharge": "Service — restaurant service charge auto-applied from the tenant rate.",
+        "grandTotal": "Total — subtotal minus discounts plus taxes, tip, and service."
       },
       "appFooterHelp": "Adds three lines at the bottom of the receipt with the Puntovivo product name, URL, and support contact. Keep it enabled to credit the software, or toggle it off for a branding-free receipt.",
-      "appFooterShow": "Show the Puntovivo footer"
+      "appFooterShow": "Show the Puntovivo footer",
+      "wordmarkHelp": "Renders the puntovivo brand mark at the top of the receipt header band. The mark itself is not configurable so the brand stays consistent across tenants.",
+      "wordmarkShow": "Show the brand wordmark",
+      "metaTableHelp": "Two-column key/value grid for the receipt header (Invoice, Date, Cashier, etc.). Each value accepts the same variables and functions as a text block.",
+      "metaTableKey": "Label",
+      "metaTableValue": "Value",
+      "metaTableAddRow": "Add row",
+      "metaTableRemoveRow": "Remove row"
     },
     "codeEditor": {
       "placeholder": "Use double curly braces to open the picker for variables and functions.",

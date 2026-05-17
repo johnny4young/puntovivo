@@ -87,6 +87,10 @@
       "customerLabel": "Cliente",
       "taxIdLabel": "NIT",
       "resolutionLabel": "Resolución",
+      "documentLabel": "Documento",
+      "dateLabel": "Fecha",
+      "metaKey": "Etiqueta",
+      "metaValue": "Valor",
       "thankYou": "Gracias por tu compra"
     },
     "blockTypes": {
@@ -98,7 +102,9 @@
       "qr": "Código QR",
       "separator": "Separador",
       "barcode128": "Código de barras 128",
-      "appFooter": "Pie de la aplicación"
+      "appFooter": "Pie de la aplicación",
+      "wordmark": "Marca puntovivo",
+      "metaTable": "Banda de datos"
     },
     "blockFields": {
       "value": "Valor",
@@ -132,10 +138,18 @@
         "discount": "Descuento — total de descuentos aplicados a los ítems.",
         "taxTotal": "Impuesto — suma de los impuestos de todos los ítems.",
         "tip": "Propina — campo opcional de propina en la venta.",
-        "grandTotal": "Total — subtotal menos descuentos más impuestos y propina."
+        "serviceCharge": "Servicio — propina sugerida que se aplica de forma automática con la tarifa configurada del tenant.",
+        "grandTotal": "Total — subtotal menos descuentos más impuestos, propina y servicio."
       },
       "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
-      "appFooterShow": "Mostrar el pie de Puntovivo"
+      "appFooterShow": "Mostrar el pie de Puntovivo",
+      "wordmarkHelp": "Imprime la marca puntovivo en la banda superior del recibo. La marca no es configurable para mantener la identidad consistente entre tenants.",
+      "wordmarkShow": "Mostrar la marca",
+      "metaTableHelp": "Cuadrícula compacta de dos columnas para la cabecera del recibo (Factura, Fecha, Cajero, etc.). Cada valor acepta las mismas variables y funciones que un bloque de texto.",
+      "metaTableKey": "Etiqueta",
+      "metaTableValue": "Valor",
+      "metaTableAddRow": "Agregar fila",
+      "metaTableRemoveRow": "Quitar fila"
     },
     "codeEditor": {
       "placeholder": "Usa dobles llaves para abrir el selector de variables y funciones.",

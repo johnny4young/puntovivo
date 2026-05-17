@@ -128,6 +128,40 @@ describe('ReceiptTemplateEditor (ENG-016 pass 1)', () => {
   });
 
   // ---------------------------------------------------------------------
+  // ENG-086 — wordmark + metaTable add-block menu entries
+  // ---------------------------------------------------------------------
+
+  it('exposes the brand wordmark + meta band buttons in the add-block menu', () => {
+    renderEditor();
+    expect(screen.getByRole('button', { name: 'Brand wordmark' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Meta band' })).toBeInTheDocument();
+  });
+
+  it('adds a metaTable block with a single editable row from the menu', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Meta band' }));
+
+    // The freshly added block becomes the active block; its rows panel
+    // must surface at least one row + the Add row CTA.
+    const rowsPanel = screen.getByTestId('meta-table-rows');
+    const labelInputs = within(rowsPanel).getAllByDisplayValue('Label');
+    expect(labelInputs.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('meta-table-add-row')).toBeInTheDocument();
+  });
+
+  it('keeps focus while editing a metaTable row label', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Meta band' }));
+
+    const rowsPanel = screen.getByTestId('meta-table-rows');
+    const labelInput = within(rowsPanel).getByDisplayValue('Label');
+    labelInput.focus();
+    fireEvent.change(labelInput, { target: { value: 'Invoice' } });
+
+    expect(screen.getByDisplayValue('Invoice')).toHaveFocus();
+  });
+
+  // ---------------------------------------------------------------------
   // Item #6 — FLIP reorder capture
   // ---------------------------------------------------------------------
 
