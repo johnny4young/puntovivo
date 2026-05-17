@@ -106,7 +106,7 @@ export class EscPosReceiptPrinterAdapter implements ReceiptPrinterAdapter {
    * can decide between fallback / retry / surface.
    */
   async print(job: PrintJob): Promise<PrintResult> {
-    let bytes: Uint8Array | null = null;
+    let bytes: Uint8Array;
 
     if (job.escposBytes && job.escposBytes.length > 0) {
       bytes = job.escposBytes;

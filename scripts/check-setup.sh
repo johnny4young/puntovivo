@@ -12,11 +12,11 @@ NODE_VERSION=$(node -v 2>/dev/null)
 if [ $? -eq 0 ]; then
     echo "✓ Node.js: $NODE_VERSION"
     MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-    if [ "$MAJOR_VERSION" -lt 20 ]; then
-        echo "⚠ Warning: Node.js 20+ is recommended (you have $NODE_VERSION)"
+    if [ "$MAJOR_VERSION" -lt 24 ]; then
+        echo "⚠ Warning: Node.js 24+ is required (you have $NODE_VERSION)"
     fi
 else
-    echo "✗ Node.js not found. Please install Node.js 20+"
+    echo "✗ Node.js not found. Please install Node.js 24+"
     exit 1
 fi
 
