@@ -34,6 +34,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@electron/fuses": "^2.1.1",
     "@playwright/test": "^1.59.1",
     "@types/node": "^24.12.2",
     "concurrently": "^9.2.1",
@@ -42,5 +43,8 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "overrides": {
+    "@electron/fuses": "$@electron/fuses"
   }
 }
