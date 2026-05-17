@@ -21,7 +21,15 @@ export type ReceiptBlockKind =
   | 'qr'
   | 'separator'
   | 'barcode128'
-  | 'appFooter';
+  | 'appFooter'
+  // ENG-086 — Puntovivo brand wordmark and 2-column meta band.
+  | 'wordmark'
+  | 'metaTable';
+
+export interface EditorMetaTableRow {
+  key: string;
+  value: string;
+}
 
 export type EditorReceiptBlock =
   | { type: 'logo'; align?: 'left' | 'center' | 'right'; maxHeightMm?: number }
@@ -55,7 +63,13 @@ export type EditorReceiptBlock =
   // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
   // `show` defaults to `true`; setting it `false` keeps the block
   // in the layout but hides its rendered output (soft toggle).
-  | { type: 'appFooter'; show?: boolean; align?: 'left' | 'center' | 'right' };
+  | { type: 'appFooter'; show?: boolean; align?: 'left' | 'center' | 'right' }
+  // ENG-086 — Brand wordmark. No editable content; `show: false`
+  // collapses the block without removing it from the layout.
+  | { type: 'wordmark'; show?: boolean; align?: 'left' | 'center' | 'right' }
+  // ENG-086 — Compact key/value band. Each row's `key` and `value`
+  // accept the same `{{...}}` whitelist as `text.value`.
+  | { type: 'metaTable'; rows: EditorMetaTableRow[] };
 
 export interface EditorReceiptLayout {
   paperWidth: '58mm' | '80mm' | 'letter' | 'a4';
@@ -76,32 +90,36 @@ export function buildDefaultLayouts(
   t: Translate
 ): Record<ReceiptTemplateKind, EditorReceiptLayout> {
   return {
+    // ENG-086 — sale + fiscal_dee defaults match
+    // `preview/25-print-thermal.html` from the 2026-05-15 handoff:
+    // wordmark header band, compact metaTable for Factura / Fecha /
+    // Caja, then the standard items + totals + tenders strip. Existing
+    // tenant templates are untouched — the new structure only applies
+    // to layouts created from these presets.
     sale: {
       paperWidth: '80mm',
       blocks: [
-        { type: 'logo', align: 'center', maxHeightMm: 18 },
-        { type: 'text', value: '{{company.name}}', style: 'title', align: 'center' },
+        { type: 'wordmark', show: true, align: 'center' },
+        { type: 'text', value: '{{company.name}}', style: 'normal', align: 'center' },
+        { type: 'text', value: '{{company.address}}', style: 'muted', align: 'center' },
         {
           type: 'text',
           value: interpolateLabel(t('editor.defaults.taxIdLabel'), '{{company.taxId}}'),
           style: 'muted',
           align: 'center',
         },
-        { type: 'text', value: '{{company.address}}', style: 'muted', align: 'center' },
-        { type: 'separator' },
         {
-          type: 'text',
-          value: interpolateLabel(t('editor.defaults.saleNumberLabel'), '{{sale.saleNumber}}'),
-        },
-        {
-          type: 'text',
-          value: `${t('editor.defaults.cashierLabel')}: {{sale.cashier}}`,
-          style: 'muted',
-        },
-        {
-          type: 'text',
-          value: `${t('editor.defaults.customerLabel')}: {{sale.customer}}`,
-          style: 'muted',
+          type: 'metaTable',
+          rows: [
+            { key: t('editor.defaults.saleNumberLabel'), value: '{{sale.saleNumber}}' },
+            { key: t('editor.defaults.dateLabel'), value: '{{ date(sale.createdAt) }}' },
+            { key: t('editor.defaults.cashierLabel'), value: '{{sale.cashier}}' },
+            // The customer row drops automatically when the value
+            // resolves to empty (anonymous walk-in sale), so existing
+            // operators that relied on this surface stay covered for
+            // B2B and credit-customer flows.
+            { key: t('editor.defaults.customerLabel'), value: '{{sale.customer}}' },
+          ],
         },
         { type: 'separator' },
         {
@@ -110,7 +128,6 @@ export function buildDefaultLayouts(
         },
         { type: 'separator' },
         { type: 'totalsBlock', show: ['subtotal', 'taxTotal', 'grandTotal'] },
-        { type: 'separator' },
         { type: 'tendersTable', showChange: true },
         { type: 'separator' },
         { type: 'text', value: t('editor.defaults.thankYou'), align: 'center', style: 'muted' },
@@ -149,7 +166,8 @@ export function buildDefaultLayouts(
     fiscal_dee: {
       paperWidth: '80mm',
       blocks: [
-        { type: 'text', value: '{{company.name}}', style: 'title', align: 'center' },
+        { type: 'wordmark', show: true, align: 'center' },
+        { type: 'text', value: '{{company.name}}', style: 'normal', align: 'center' },
         {
           type: 'text',
           value: interpolateLabel(t('editor.defaults.taxIdLabel'), '{{company.taxId}}'),
@@ -157,16 +175,13 @@ export function buildDefaultLayouts(
           align: 'center',
         },
         {
-          type: 'text',
-          value: interpolateLabel(
-            t('editor.defaults.resolutionLabel'),
-            '{{fiscal.resolution}}'
-          ),
-          style: 'muted',
-          align: 'center',
+          type: 'metaTable',
+          rows: [
+            { key: t('editor.defaults.documentLabel'), value: '{{fiscal.documentNumber}}' },
+            { key: t('editor.defaults.resolutionLabel'), value: '{{fiscal.resolution}}' },
+            { key: t('editor.defaults.dateLabel'), value: '{{ date(sale.createdAt) }}' },
+          ],
         },
-        { type: 'separator' },
-        { type: 'text', value: '{{fiscal.documentNumber}}', style: 'subtitle', align: 'center' },
         { type: 'separator' },
         {
           type: 'itemsTable',
@@ -214,6 +229,18 @@ export function createEmptyBlock(
       // ENG-016 pass 1 (item #5) — new block defaults to visible +
       // centered; admins can toggle the `show` field from the form.
       return { type: 'appFooter', show: true, align: 'center' };
+    case 'wordmark':
+      // ENG-086 — wordmark defaults to visible + centered. There is no
+      // editable copy because the wordmark is brand identity.
+      return { type: 'wordmark', show: true, align: 'center' };
+    case 'metaTable':
+      // ENG-086 — start with a single row so the operator sees the
+      // shape immediately; they can add up to 11 more before the Zod
+      // 12-row cap kicks in.
+      return {
+        type: 'metaTable',
+        rows: [{ key: t('editor.defaults.metaKey'), value: t('editor.defaults.metaValue') }],
+      };
     default: {
       const exhaustive: never = kind;
       void exhaustive;

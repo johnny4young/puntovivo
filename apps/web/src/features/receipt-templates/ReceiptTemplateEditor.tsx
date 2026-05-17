@@ -54,7 +54,11 @@ export interface ReceiptTemplateEditorProps {
 
 const BLOCK_KINDS: ReceiptBlockKind[] = [
   'logo',
+  // ENG-086 — wordmark sits at the top so operators see it first when
+  // composing the header band of a thermal layout.
+  'wordmark',
   'text',
+  'metaTable',
   'itemsTable',
   'totalsBlock',
   'tendersTable',
@@ -162,17 +166,15 @@ export function ReceiptTemplateEditor({
   }
 
   function addBlock(blockKind: ReceiptBlockKind) {
-    let appendedIndex: number | null = null;
+    const appendedIndex = layout.blocks.length;
+    if (appendedIndex >= 50) return;
+    const newKey = allocateBlockId();
     setLayout(prev => {
       if (prev.blocks.length >= 50) return prev;
-      appendedIndex = prev.blocks.length;
       return { ...prev, blocks: [...prev.blocks, createEmptyBlock(blockKind, t)] };
     });
-    if (appendedIndex !== null) {
-      const newKey = allocateBlockId();
-      setBlockKeys(prev => [...prev, newKey]);
-      setActiveBlockIndex(appendedIndex);
-    }
+    setBlockKeys(prev => [...prev, newKey]);
+    setActiveBlockIndex(appendedIndex);
   }
 
   function removeBlock(index: number) {
@@ -917,6 +919,125 @@ function BlockForm({ block, onPatch, unavailableVariables }: BlockFormProps) {
           </label>
         </div>
       );
+    case 'wordmark':
+      // ENG-086 — single visibility toggle + align. The wordmark itself
+      // is brand identity, rendered by the server from stable
+      // constants, so there is nothing else to edit here.
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-secondary-500">
+            {t('editor.blockFields.wordmarkHelp')}
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={block.show ?? true}
+              onChange={e => onPatch({ show: e.target.checked })}
+              data-testid="wordmark-show-toggle"
+            />
+            {t('editor.blockFields.wordmarkShow')}
+          </label>
+          <label className="block">
+            <span className="label">{t('editor.blockFields.align')}</span>
+            <select
+              className="input mt-1"
+              value={block.align ?? 'center'}
+              onChange={handleAlignChange}
+            >
+              <option value="left">{t('editor.blockFields.alignLeft')}</option>
+              <option value="center">{t('editor.blockFields.alignCenter')}</option>
+              <option value="right">{t('editor.blockFields.alignRight')}</option>
+            </select>
+          </label>
+        </div>
+      );
+    case 'metaTable': {
+      // ENG-086 — rows editor for the 2-column key/value band. Key is
+      // a static label; value accepts the same `{{...}}` expressions as
+      // a text block. The Zod schema caps the array at 12 rows.
+      const MAX_META_ROWS = 12;
+      const rows = block.rows;
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-secondary-500">
+            {t('editor.blockFields.metaTableHelp')}
+          </p>
+          <ul className="space-y-2" data-testid="meta-table-rows">
+            {rows.map((row, rowIndex) => (
+              // The row has no persisted id, and its label is edited
+              // in-place. Keep the React key independent from the typed
+              // value so focus survives each keystroke.
+              <li
+                key={`meta-row-${rowIndex}`}
+                className="grid grid-cols-[1fr_2fr_auto] gap-2 rounded border border-line p-2"
+              >
+                <label className="block">
+                  <span className="label text-xs">
+                    {t('editor.blockFields.metaTableKey')}
+                  </span>
+                  <input
+                    className="input mt-1"
+                    value={row.key}
+                    maxLength={50}
+                    onChange={e => {
+                      const next = rows.slice();
+                      next[rowIndex] = { ...row, key: e.target.value };
+                      onPatch({ rows: next });
+                    }}
+                  />
+                </label>
+                <label className="block">
+                  <span className="label text-xs">
+                    {t('editor.blockFields.metaTableValue')}
+                  </span>
+                  <input
+                    className="input mt-1"
+                    value={row.value}
+                    maxLength={200}
+                    onChange={e => {
+                      const next = rows.slice();
+                      next[rowIndex] = { ...row, value: e.target.value };
+                      onPatch({ rows: next });
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-icon self-end"
+                  aria-label={t('editor.blockFields.metaTableRemoveRow')}
+                  disabled={rows.length <= 1}
+                  onClick={() => {
+                    if (rows.length <= 1) return;
+                    onPatch({ rows: rows.filter((_, i) => i !== rowIndex) });
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="btn btn-secondary text-xs"
+            disabled={rows.length >= MAX_META_ROWS}
+            onClick={() =>
+              onPatch({
+                rows: [
+                  ...rows,
+                  {
+                    key: t('editor.defaults.metaKey'),
+                    value: t('editor.defaults.metaValue'),
+                  },
+                ],
+              })
+            }
+            data-testid="meta-table-add-row"
+          >
+            {t('editor.blockFields.metaTableAddRow')}
+          </button>
+        </div>
+      );
+    }
     default: {
       const _exhaustive: never = block;
       void _exhaustive;
@@ -1091,6 +1212,10 @@ function TotalsBlockCaption() {
           <li>{t('editor.blockFields.totalsBlockBindings.discount')}</li>
           <li>{t('editor.blockFields.totalsBlockBindings.taxTotal')}</li>
           <li>{t('editor.blockFields.totalsBlockBindings.tip')}</li>
+          {/* ENG-086 collateral — ENG-039d3 added the serviceCharge
+              toggle but never published its caption row, leaving the
+              explainer out of sync with the checkbox grid. */}
+          <li>{t('editor.blockFields.totalsBlockBindings.serviceCharge')}</li>
           <li>{t('editor.blockFields.totalsBlockBindings.grandTotal')}</li>
         </ul>
       ) : null}

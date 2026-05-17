@@ -26,6 +26,7 @@ import type {
   ReceiptLayout,
 } from '../trpc/schemas/receiptTemplates.js';
 import type { FiscalDocumentStatus, ReceiptTemplateKind } from '../db/schema.js';
+import { PRINT_TOKENS } from './print-tokens.js';
 import {
   applyDatePattern,
   evaluateTemplate,
@@ -175,6 +176,7 @@ export const APP_FOOTER_METADATA = {
   appUrl: 'puntovivo.co',
   appSupport: 'soporte@puntovivo.co',
 } as const;
+const WORDMARK_TAGLINE = 'CONSOLA RETAIL';
 
 // ---------------------------------------------------------------------------
 // HTML escape + variable substitution
@@ -267,9 +269,9 @@ function resolvePlain(template: string, data: RenderData): string {
 // HTML rendering
 // ---------------------------------------------------------------------------
 
-const PAPER_WIDTH_PX: Record<string, number> = {
-  '58mm': 220,
-  '80mm': 300,
+const PAPER_WIDTH_PX: Record<ReceiptLayout['paperWidth'], number> = {
+  '58mm': PRINT_TOKENS.paper58mmDots,
+  '80mm': PRINT_TOKENS.paper80mmDots,
   letter: 612,
   a4: 595,
 };
@@ -590,6 +592,31 @@ function renderTendersTableHtml(
  * value reaches a phone scanner.
  */
 const RESOLVED_URL_SCHEME_BLOCKLIST = /^(javascript|data|vbscript|file):/i;
+const QR_MODULE_COORDS: ReadonlyArray<readonly [number, number]> = [
+  [30, 4],
+  [42, 4],
+  [48, 10],
+  [30, 16],
+  [36, 22],
+  [48, 22],
+  [30, 34],
+  [42, 34],
+  [54, 34],
+  [24, 46],
+  [36, 46],
+  [48, 46],
+  [60, 46],
+  [30, 58],
+  [42, 58],
+  [54, 58],
+  [66, 58],
+  [30, 70],
+  [48, 70],
+];
+const QR_MODULE_SPANS = QR_MODULE_COORDS.map(
+  ([left, top]) =>
+    `<span class="qr-module" style="left:${left}px;top:${top}px"></span>`
+).join('');
 
 function safeResolvedScannerSource(template: string, data: RenderData): string {
   const resolved = resolvePlain(template, data);
@@ -608,12 +635,22 @@ function renderQrBlockHtml(
   // print handler can swap for a real QR via `<canvas>` at print time.
   // Storing the resolved value in a `data-qr-source` attribute (already
   // escaped) lets the print preview see exactly what will be encoded.
+  //
+  // ENG-086 — the placeholder now ships three finder-pattern corners
+  // (top-left, top-right, bottom-left) and a 4-module quiet zone so the
+  // editor preview reads as an actual QR silhouette instead of a bare
+  // `[QR]` tag. The structure mirrors `.r-qr .box` in
+  // `preview/25-print-thermal.html`; the print handler still owns real
+  // PNG generation via the ESC/POS `GS ( k` command.
   const resolved = safeResolvedScannerSource(block.source, data);
   const safeSource = escapeHtml(resolved);
   const sizeStyle = block.sizeMm
     ? ` style="width: ${block.sizeMm}mm; height: ${block.sizeMm}mm;"`
     : '';
-  return `<div class="block block-qr"><div class="qr-placeholder" data-qr-source="${safeSource}"${sizeStyle}>${safeSource ? '[QR]' : ''}</div></div>`;
+  if (!safeSource) {
+    return `<div class="block block-qr"><div class="qr-placeholder qr-placeholder-empty" data-qr-source=""${sizeStyle}></div></div>`;
+  }
+  return `<div class="block block-qr"><div class="qr-placeholder" data-qr-source="${safeSource}"${sizeStyle}>${QR_MODULE_SPANS}<span class="qr-finder qr-finder-tl"></span><span class="qr-finder qr-finder-tr"></span><span class="qr-finder qr-finder-bl"></span></div></div>`;
 }
 
 function renderSeparatorBlockHtml(
@@ -643,6 +680,50 @@ function renderAppFooterBlockHtml(
   const line2 = escapeHtml(appUrl);
   const line3 = escapeHtml(appSupport);
   return `<div class="block block-app-footer ${align}"><div>${line1}</div><div>${line2}</div><div>${line3}</div></div>`;
+}
+
+/**
+ * ENG-086 — HTML renderer for the canonical `puntovivo·` wordmark.
+ *
+ * Emits a sans-serif lockup with regular `punto` + bold `vivo` + a
+ * square dot, sized to fit the active paper, followed by the handoff
+ * tagline. Layout keeps the wordmark itself on one line with
+ * `text-transform: lowercase` so the brand reads consistently
+ * regardless of the source CSS the editor preview overrides. `show`
+ * defaults to `true`; `show: false` collapses the block.
+ */
+function renderWordmarkBlockHtml(
+  block: Extract<ReceiptBlock, { type: 'wordmark' }>
+): string {
+  if (block.show === false) return '';
+  const align = alignClass(block.align ?? 'center');
+  return `<div class="block block-wordmark ${align}"><div class="wordmark">punto<b>vivo</b><span class="wordmark-dot"></span></div><div class="wordmark-tagline">${WORDMARK_TAGLINE}</div></div>`;
+}
+
+/**
+ * ENG-086 — HTML renderer for the 2-column key/value meta band.
+ *
+ * Each row renders as `<dt>` + `<dd>` inside a `<dl>`. The bound CSS
+ * grids the pair so the value column lines up flush right and keeps
+ * `tabular-nums`. Rows whose value resolves to an empty string after
+ * interpolation are dropped to avoid blank `| |` lines on the printed
+ * strip.
+ */
+function renderMetaTableBlockHtml(
+  block: Extract<ReceiptBlock, { type: 'metaTable' }>,
+  data: RenderData
+): string {
+  const rows = block.rows
+    .map(row => {
+      const resolvedValue = resolveAndEscape(row.value, data);
+      if (!resolvedValue) return '';
+      const resolvedKey = resolveAndEscape(row.key, data);
+      return `<dt class="meta-key">${resolvedKey}</dt><dd class="meta-value">${resolvedValue}</dd>`;
+    })
+    .filter(Boolean)
+    .join('');
+  if (!rows) return '';
+  return `<div class="block block-meta"><dl class="meta-grid">${rows}</dl></div>`;
 }
 
 function renderBarcode128BlockHtml(
@@ -683,6 +764,10 @@ function renderBlockHtml(
       return renderBarcode128BlockHtml(block, data);
     case 'appFooter':
       return renderAppFooterBlockHtml(block);
+    case 'wordmark':
+      return renderWordmarkBlockHtml(block);
+    case 'metaTable':
+      return renderMetaTableBlockHtml(block, data);
     default: {
       // Exhaustiveness check — TypeScript will flag if a block type is
       // added without a renderer.
@@ -699,33 +784,55 @@ function buildHtmlDocument(
   documentTitle: string
 ): string {
   const widthPx = PAPER_WIDTH_PX[layout.paperWidth] ?? 300;
+  const is80mm = layout.paperWidth === '80mm';
   // ENG-086 — adopt the design-system thermal preview rules
-  // (preview/25-print-thermal.html from the 2026-05-14 handoff):
+  // (`preview/25-print-thermal.html` from the 2026-05-15 handoff):
   //   * 1-bit only: pure #000 on #fff, no grays, no gradients.
   //   * Monospace everywhere; tabular-nums on every numeric column so
-  //     amounts line up under poor escpos rendering.
+  //     amounts line up under poor ESC/POS rendering.
   //   * Body 11pt, grand total 14pt, min 10pt label size.
   //   * Grand-total row gets a thick black top + bottom border so it
   //     reads as the dominant value when scanning the strip quickly.
+  // Tokens come from `PRINT_TOKENS` (mirrors `apps/web/src/styles/theme.css`
+  // ENG-080 `--print-*` properties); update both surfaces together.
+  const mono = PRINT_TOKENS.monoFace;
+  const brand = PRINT_TOKENS.brandFace;
+  const dotSize = is80mm ? '8px' : '6px';
+  const wordmarkSize = is80mm ? '28px' : '22px';
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
-  body{margin:0;padding:8px;font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;font-size:11pt;line-height:1.35;color:#000;background:#fff;width:${widthPx}px;font-variant-numeric:tabular-nums;}
+  body{margin:0;padding:8px;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthPx}px;font-variant-numeric:tabular-nums;}
   .block{margin-bottom:6px;}
   .align-left{text-align:left;}.align-center{text-align:center;}.align-right{text-align:right;}
   .style-title{font-size:13pt;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
-  .style-subtitle{font-size:11pt;font-weight:700;}
-  .style-muted{color:#000;opacity:0.65;}
-  .style-monospace{font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;}
+  .style-subtitle{font-size:${PRINT_TOKENS.bodySize};font-weight:700;}
+  .style-muted{color:${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.minSize};}
+  .style-monospace{font-family:${mono};}
   .bold{font-weight:700;}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}
   td,th{padding:2px 0;vertical-align:top;}
   .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;font-variant-numeric:tabular-nums;}
   .block-totals td{padding-top:1px;padding-bottom:1px;}
-  .block-totals tr.grand-total td{border-top:1px solid #000;border-bottom:1px solid #000;font-size:14pt;font-weight:700;padding-top:4px;padding-bottom:4px;}
-  .block-separator{font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;letter-spacing:0;}
-  .qr-placeholder,.barcode-placeholder{display:inline-block;border:1px dashed #000;padding:4px;font-family:'JetBrains Mono','IBM Plex Mono','Courier New',monospace;font-size:10pt;}
+  .block-totals tr.grand-total td{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.totalSize};font-weight:700;padding-top:4px;padding-bottom:4px;letter-spacing:0.02em;}
+  .block-separator{font-family:${mono};letter-spacing:0;}
+  .qr-placeholder{display:inline-block;position:relative;width:78px;height:78px;border:4px solid ${PRINT_TOKENS.paper};outline:1px solid ${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};}
+  .qr-placeholder-empty{background:${PRINT_TOKENS.paper};}
+  .qr-module{position:absolute;width:6px;height:6px;background:${PRINT_TOKENS.ink};}
+  .qr-finder{position:absolute;width:18px;height:18px;background:${PRINT_TOKENS.paper};border:4px solid ${PRINT_TOKENS.ink};box-sizing:border-box;}
+  .qr-finder-tl{top:4px;left:4px;}
+  .qr-finder-tr{top:4px;right:4px;}
+  .qr-finder-bl{bottom:4px;left:4px;}
+  .barcode-placeholder{display:inline-block;border:1px dashed ${PRINT_TOKENS.ink};padding:4px;font-family:${mono};font-size:${PRINT_TOKENS.minSize};}
   .block-logo img{max-width:100%;image-rendering:pixelated;}
   .block-logo-empty{min-height:8px;}
+  .block-wordmark{padding-bottom:8px;border-bottom:1px solid ${PRINT_TOKENS.ink};margin-bottom:8px;}
+  .wordmark{font-family:${brand};font-weight:400;font-size:${wordmarkSize};letter-spacing:0;text-transform:lowercase;line-height:1;display:inline-block;}
+  .wordmark b{font-weight:700;}
+  .wordmark-dot{display:inline-block;width:${dotSize};height:${dotSize};background:${PRINT_TOKENS.ink};margin-left:4px;vertical-align:middle;}
+  .wordmark-tagline{font-family:${brand};font-size:${PRINT_TOKENS.minSize};font-weight:700;letter-spacing:0;margin-top:4px;}
+  .block-meta .meta-grid{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;margin:0;font-size:${PRINT_TOKENS.minSize};}
+  .block-meta .meta-key{font-weight:700;}
+  .block-meta .meta-value{margin:0;text-align:right;font-variant-numeric:tabular-nums;}
   @media print{body{padding:0;}}
 </style></head><body>${body}</body></html>`;
 }
@@ -872,6 +979,43 @@ function renderBlockEscPos(
       const out: number[] = [...escposAlign(block.align ?? 'center')];
       for (const line of [`${appName} ${appVersion}`, appUrl, appSupport]) {
         out.push(...bytesFromString(line));
+        out.push(...escposLine());
+      }
+      return out;
+    }
+    case 'wordmark': {
+      // ENG-086 — centered brand lockup. ESC/POS lacks the
+      // mixed-weight typography the HTML preview ships, so the wordmark
+      // collapses to a bold lowercase `puntovivo` line plus the handoff
+      // tagline on the printed strip.
+      if (block.show === false) return [];
+      const out: number[] = [
+        ...escposAlign(block.align ?? 'center'),
+        ...escposBoldOn(),
+        ...bytesFromString(APP_FOOTER_METADATA.appName.toLowerCase()),
+        ...escposBoldOff(),
+        ...escposLine(),
+        ...bytesFromString(WORDMARK_TAGLINE),
+        ...escposLine(),
+      ];
+      return out;
+    }
+    case 'metaTable': {
+      // ENG-086 — render each `{key, value}` row as a left-padded label
+      // and a right-aligned interpolated value so the strip stays
+      // readable on 32/48-char paper. Empty resolved values drop the
+      // row entirely.
+      const out: number[] = [...escposAlign('left')];
+      for (const row of block.rows) {
+        const resolvedValue = resolvePlain(row.value, data);
+        if (!resolvedValue) continue;
+        const resolvedKey = resolvePlain(row.key, data);
+        const gap = Math.max(
+          1,
+          paperWidthChars - resolvedKey.length - resolvedValue.length
+        );
+        const line = `${resolvedKey}${' '.repeat(gap)}${resolvedValue}`;
+        out.push(...bytesFromString(line.slice(0, paperWidthChars)));
         out.push(...escposLine());
       }
       return out;

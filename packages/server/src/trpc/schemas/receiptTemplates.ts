@@ -202,6 +202,64 @@ const appFooterBlockSchema = z.object({
   align: blockAlignSchema,
 });
 
+/**
+ * ENG-086 — Puntovivo brand wordmark.
+ *
+ * Atomic block that renders the canonical `puntovivo·` lockup at the
+ * top of the receipt (regular `punto` + bold `vivo` + 6 px square dot,
+ * scaled up to 8 px on 80 mm paper). No editable text — the wordmark
+ * is brand identity, not configurable copy.
+ *
+ * The block sits in the header band of every default thermal layout
+ * per the 2026-05-15 handoff. `show` defaults to `true`; toggling it
+ * `false` keeps the block in the layout but hides it, which lets
+ * admins do white-label prints without deleting the block.
+ */
+const wordmarkBlockSchema = z.object({
+  type: z.literal('wordmark'),
+  show: z.boolean().optional(),
+  align: blockAlignSchema,
+});
+
+const metaTableRowSchema = z.object({
+  key: z
+    .string()
+    .min(1, 'metaTable row key cannot be empty')
+    .max(50, 'metaTable row key cannot exceed 50 characters')
+    .superRefine((value, ctx) => {
+      validateExpressionField(value, ctx);
+    }),
+  value: z
+    .string()
+    .max(200, 'metaTable row value cannot exceed 200 characters')
+    .superRefine((value, ctx) => {
+      validateExpressionField(value, ctx);
+    }),
+});
+
+/**
+ * ENG-086 — Compact 2-column key/value grid.
+ *
+ * Replaces the three loose text blocks (Factura / Fecha / Caja) that
+ * the original default layout used for the receipt meta band. Each row
+ * carries a static label in `key` and an interpolated value in `value`
+ * (e.g. `{Factura, {{sale.saleNumber}}}`). The renderer aligns labels
+ * left and values right with monospace padding so the strip stays
+ * readable on both paper widths.
+ *
+ * `rows` accepts the same `{{...}}` whitelist as `text.value` — the
+ * Zod refinement reuses `validateExpressionField` so prototype-chain
+ * segments and unknown namespaces are rejected at save time. Up to 12
+ * rows so the band cannot grow into an itemsTable.
+ */
+const metaTableBlockSchema = z.object({
+  type: z.literal('metaTable'),
+  rows: z
+    .array(metaTableRowSchema)
+    .min(1, 'metaTable must contain at least one row')
+    .max(12, 'metaTable cannot contain more than 12 rows'),
+});
+
 export const receiptBlockSchema = z.discriminatedUnion('type', [
   logoBlockSchema,
   textBlockSchema,
@@ -212,6 +270,8 @@ export const receiptBlockSchema = z.discriminatedUnion('type', [
   separatorBlockSchema,
   barcode128BlockSchema,
   appFooterBlockSchema,
+  wordmarkBlockSchema,
+  metaTableBlockSchema,
 ]);
 
 export type ReceiptBlock = z.infer<typeof receiptBlockSchema>;
