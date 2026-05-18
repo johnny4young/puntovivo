@@ -191,6 +191,9 @@ export const customersRouter = router({
       clientTypeId: clientTypeCode,
       commercialActivityId: commercialActivityCode,
       notes: input.notes,
+      // ENG-089 — default cupo to 0 (sin cupo) when the operator did
+      // not pick a value; persistence-layer NOT NULL guards the column.
+      creditLimit: input.creditLimit ?? 0,
       isActive: input.isActive,
       syncStatus: 'pending',
       syncVersion: 1,
@@ -205,7 +208,11 @@ export const customersRouter = router({
       data: { id, ...input },
     });
 
-    const created = await ctx.db.select().from(customers).where(eq(customers.id, id)).get();
+    const created = await ctx.db
+      .select()
+      .from(customers)
+      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+      .get();
 
     return created!;
   }),
@@ -304,6 +311,9 @@ export const customersRouter = router({
       updateData.commercialActivityId = commercialActivityCode;
     }
     if (updates.notes !== undefined) updateData.notes = updates.notes;
+    // ENG-089 — `creditLimit` can be set to 0 to remove the cupo so an
+    // explicit `undefined` is the only way to skip the update.
+    if (updates.creditLimit !== undefined) updateData.creditLimit = updates.creditLimit;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     await ctx.db.update(customers).set(updateData).where(eq(customers.id, id));
@@ -315,7 +325,16 @@ export const customersRouter = router({
       data: { id, ...updateData },
     });
 
-    const updated = await ctx.db.select().from(customers).where(eq(customers.id, id)).get();
+    // ENG-089 collateral — mirror the tenant-scoped pattern used by
+    // `getById` / the pre-write guard. The nanoid collision risk is
+    // vanishingly small but the multi-tenant invariant in CLAUDE.md
+    // calls for every query to scope by tenantId; the re-fetch is
+    // the one spot that was inconsistent.
+    const updated = await ctx.db
+      .select()
+      .from(customers)
+      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+      .get();
 
     return updated!;
   }),

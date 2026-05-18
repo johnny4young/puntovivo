@@ -371,6 +371,36 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at text NOT NULL,
         updated_at text NOT NULL
       );
+
+      -- ENG-089 — stub the baseline customers shape so the
+      -- 0031 ALTER TABLE customers ADD COLUMN credit_limit parses
+      -- against an existing target. The real bridge-build DB would
+      -- carry this table from migration 0000; the stub only needs
+      -- the column shape the ALTER targets.
+      CREATE TABLE customers (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL,
+        email text,
+        phone text,
+        address text,
+        city text,
+        state text,
+        postal_code text,
+        country text,
+        tax_id text,
+        identification_type_id text,
+        person_type_id text,
+        regime_type_id text,
+        client_type_id text,
+        commercial_activity_id text,
+        notes text,
+        is_active integer DEFAULT 1,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
     `);
 
     // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which

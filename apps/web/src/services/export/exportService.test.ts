@@ -121,7 +121,7 @@ describe('generateFilename', () => {
 
   it('appends the extension exactly once with a timestamped base', () => {
     const name = generateFilename('sales-history', 'csv');
-    expect(name).toBe('sales_history_2026-04-18T03-23-57.csv');
+    expect(name).toBe('sales-history_2026-04-18T03-23-57.csv');
     expect(name).toMatch(/\.csv$/);
     // Exactly one dot — the one before the extension.
     expect(name.split('.')).toHaveLength(2);
@@ -129,14 +129,14 @@ describe('generateFilename', () => {
 
   it('omits the timestamp when includeTimestamp is false but keeps the extension', () => {
     const name = generateFilename('sales-history', 'csv', false);
-    expect(name).toBe('sales_history.csv');
+    expect(name).toBe('sales-history.csv');
   });
 
   it('applies the extension regardless of punctuation in the base name', () => {
-    // The sanitizer swaps every non-alphanumeric char for `_`; the dot in
+    // The sanitizer swaps punctuation for `-`; the dot in
     // `v1.2` must NOT collide with the extension separator.
     expect(generateFilename('app.v1.2/report', 'xlsx')).toBe(
-      'app_v1_2_report_2026-04-18T03-23-57.xlsx'
+      'app-v1-2-report_2026-04-18T03-23-57.xlsx'
     );
     // One dot in the result — the extension.
     const parts = generateFilename('a.b.c', 'pdf').split('.');
@@ -146,7 +146,13 @@ describe('generateFilename', () => {
 
   it('lowercases the base name for cross-filesystem portability', () => {
     expect(generateFilename('Sales-HISTORY', 'csv', false)).toBe(
-      'sales_history.csv'
+      'sales-history.csv'
+    );
+  });
+
+  it('normalizes accents so customer-facing filenames stay readable', () => {
+    expect(generateFilename('Cuenta corriente José Pérez', 'csv', false)).toBe(
+      'cuenta-corriente-jose-perez.csv'
     );
   });
 
@@ -177,7 +183,7 @@ describe('generateFilename', () => {
     });
 
     expect(autoTableSpy).toHaveBeenCalledTimes(1);
-    expect(docSaveSpy).toHaveBeenCalledWith('quotations_history.pdf');
+    expect(docSaveSpy).toHaveBeenCalledWith('quotations-history.pdf');
   });
 
   it('exports Excel through the browser-only exceljs bundle', async () => {
