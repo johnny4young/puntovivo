@@ -20,6 +20,12 @@ import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
+import {
+  createEscposReceiptDispatcher,
+  printSaleReceipt,
+  type EscPosDispatchOutcome,
+  type HubReceiptBytesPayload,
+} from '@/features/sales/receiptPrinter';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import { SalesOverview } from '@/features/sales/SalesOverview';
@@ -255,6 +261,90 @@ export function SalesPage() {
   );
   const suspendedDraftsCount = draftsQuery.data?.totalItems ?? 0;
 
+  // ENG-097 — auto-print on sale completion.
+  //
+  // The active site's active printer config is read via the SAME
+  // `peripherals.activeForSite` query that ENG-061 already mounts for
+  // the barcode scanner + cash-drawer detection (declared further
+  // down as `peripheralsForSiteQuery`). We hoist that query up here so
+  // both ENG-097 and the ENG-061/062 consumers share a single tRPC
+  // subscription — two separate `useQuery` calls would resolve to the
+  // same cache key but generate duplicate background refetches with
+  // mismatched `staleTime`. When the active printer ships with
+  // `config.autoPrintOnComplete: true`, every successful sale (fresh
+  // create OR completeDraft) fires `peripherals.printReceipt` through
+  // the same dispatcher the SaleDetailsModal reprint path uses, so
+  // the dispatch decision (device_local / site_hub server-side vs.
+  // hub_client bridge) stays in one place. Defaults to `false` so
+  // existing tenants do not get surprise prints — opt-in is explicit
+  // per site at the peripheral config level.
+  //
+  // Failures fall through the existing fallback chain (system print
+  // → browser print window) inside `printSaleReceipt`. We surface a
+  // warning toast when the ESC/POS path fails so the cashier knows
+  // the receipt landed on a different surface; the operator can
+  // diagnose via the hardware_outbox surface in Operations.
+  const peripheralsForSiteQuery = trpc.peripherals.activeForSite.useQuery(
+    { siteId: currentSite?.id ?? '' },
+    { enabled: !!currentSite, staleTime: 5 * 60 * 1000 }
+  );
+  const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
+  const printReceiptMutateAsync = printReceiptMutation.mutateAsync;
+  const autoPrintEnabled = (() => {
+    const rows = peripheralsForSiteQuery.data;
+    if (!rows) return false;
+    const printer = rows.find(row => row.kind === 'printer');
+    if (!printer) return false;
+    const config = printer.config as Record<string, unknown> | null;
+    return config?.autoPrintOnComplete === true;
+  })();
+  const handleAutoPrintFallback = useCallback(() => {
+    toast.warning({ title: t('sales:printer.escposFailedFallback') });
+  }, [t, toast]);
+  const maybeAutoPrint = useCallback(
+    async (sale: Sale) => {
+      if (!autoPrintEnabled || !currentSite) return;
+      const siteId = currentSite.id;
+      const dispatcher = createEscposReceiptDispatcher({
+        serverPrint: async () => {
+          const result = await printReceiptMutateAsync({
+            saleId: sale.id,
+            siteId,
+          });
+          return result as EscPosDispatchOutcome;
+        },
+        fetchHubReceiptBytes: async () => {
+          const result = await utils.peripherals.buildReceiptBytes.fetch({
+            saleId: sale.id,
+            siteId,
+          });
+          return result as HubReceiptBytesPayload;
+        },
+      });
+      try {
+        await printSaleReceipt(sale, {
+          escposDispatcher: dispatcher,
+          onEscposFallback: handleAutoPrintFallback,
+        });
+      } catch (err) {
+        // Receipt-print is best-effort post-sale — never block the
+        // cashier flow. Surface a one-line warning toast and let the
+        // operator reprint manually from the sale details modal.
+        console.warn('[sales] auto-print failed', err);
+        toast.warning({ title: t('sales:printer.autoPrintFailed') });
+      }
+    },
+    [
+      autoPrintEnabled,
+      currentSite,
+      handleAutoPrintFallback,
+      printReceiptMutateAsync,
+      t,
+      toast,
+      utils,
+    ]
+  );
+
   // Shared epilogue for both "finish a sale" paths: sales.create for a
   // fresh cart, and sales.completeDraft for a resumed draft. Both need
   // to invalidate the same query set and both want the workspace to
@@ -293,7 +383,7 @@ export function SalesPage() {
   );
 
   const createMutation = useCriticalMutation('sales.create', {
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (data, variables) => {
       // Drafts created via the Suspend orchestration skip the epilogue
       // — `handleSuspendConfirm` handles invalidation + workspace
       // reset + the localized "Sale suspended" toast itself so the
@@ -303,6 +393,10 @@ export function SalesPage() {
         return;
       }
       await finishSaleEpilogue(variables.items.length);
+      // ENG-097 — best-effort auto-print after the epilogue toast so
+      // the cashier sees "Sale completed" before any printer fallback
+      // warning lands.
+      await maybeAutoPrint(data as Sale);
     },
     onError: onErrorToast(toast, t),
   });
@@ -313,6 +407,8 @@ export function SalesPage() {
   const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
     onSuccess: async result => {
       await finishSaleEpilogue(result.items.length);
+      // ENG-097 — auto-print mirror of the fresh-create path.
+      await maybeAutoPrint(result as Sale);
     },
     onError: onErrorToast(toast, t),
   });
@@ -831,16 +927,14 @@ export function SalesPage() {
 
   // ENG-061 — barcode scanner pipeline.
   //
-  // Read the active scanner peripheral via salesRoles tRPC, drive
-  // a global keystroke buffer with `useBarcodeWedgeListener`, and
-  // route resolved scans into the cart through the same selection
-  // shape `handleProductSelect` consumes from ProductSearchDialog.
+  // ENG-061/062 — `peripheralsForSiteQuery` is declared once near the
+  // top of the component (see the ENG-097 auto-print block) so all
+  // peripheral consumers (scanner, cash drawer, auto-print) share a
+  // single tRPC subscription. The cash-drawer scanner code below
+  // reads from that hoisted query.
+  //
   // GS1 weight/price-embedded labels override quantity / unitPrice
   // server-side so the cart line reflects the weighed package.
-  const peripheralsForSiteQuery = trpc.peripherals.activeForSite.useQuery(
-    { siteId: currentSite?.id ?? '' },
-    { enabled: !!currentSite, staleTime: 5 * 60 * 1000 }
-  );
 
   // ENG-062 — manager-gated cash drawer kick. The button only renders
   // when (a) the user role can kick (manager/admin), (b) an active

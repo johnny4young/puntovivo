@@ -35,7 +35,11 @@
     "displayNameLabel": "Nombre visible",
     "displayNamePlaceholder": "Opcional, por ejemplo: Caja principal",
     "configLabel": "Configuración (JSON)",
-    "configPlaceholder": "{}"
+    "configPlaceholder": "{}",
+    "autoPrintOnComplete": {
+      "label": "Imprimir automáticamente al cerrar la venta",
+      "help": "Envía el recibo a esta impresora apenas el cajero confirma la venta. El cajón monedero se abre con el mismo gesto cuando la opción kickDrawerAfterReceipt de la impresora está activa."
+    }
   },
   "actions": {
     "test": "Probar",

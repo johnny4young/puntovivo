@@ -65,6 +65,16 @@ export const escposReceiptPrinterConfigSchema = z
      * for the pulse to reach it.
      */
     kickDrawerAfterReceipt: z.boolean().default(true),
+    /**
+     * ENG-097 — automatically fire `peripherals.printReceipt` when a
+     * sale completes (fresh or fromDraft path). Defaults `false` so
+     * existing tenants do not get surprise auto-prints; opt-in is
+     * explicit per site. The SalesPage hook reads this flag through
+     * `peripherals.activeForSite`; the existing
+     * `kickDrawerAfterReceipt` decides whether the drawer pulses with
+     * the same gesture.
+     */
+    autoPrintOnComplete: z.boolean().default(false),
     /** Override the default 3000 ms TCP connect timeout. */
     timeoutMs: z.number().int().min(100).max(30_000).optional(),
   })

@@ -487,6 +487,7 @@
   },
   "printer": {
     "escposFailedFallback": "ESC/POS print failed; printed via the system printer",
+    "autoPrintFailed": "Auto-print failed; reprint manually from the sale details",
     "kickDrawerCta": "Open cash drawer",
     "kickDrawerSuccess": "Cash drawer opened",
     "kickDrawerFailed": "Could not open the cash drawer",

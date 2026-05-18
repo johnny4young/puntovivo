@@ -35,7 +35,11 @@
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Optional, for example: Front register",
     "configLabel": "Configuration (JSON)",
-    "configPlaceholder": "{}"
+    "configPlaceholder": "{}",
+    "autoPrintOnComplete": {
+      "label": "Print automatically when a sale closes",
+      "help": "Fires the receipt to this printer the moment the cashier confirms the sale. The cash drawer pulses with the same gesture when the printer's kickDrawerAfterReceipt config is enabled."
+    }
   },
   "actions": {
     "test": "Test",
