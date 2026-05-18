@@ -9,6 +9,16 @@ import {
   type SalePaymentValues,
 } from './SalePaymentModal';
 
+vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    customerLedger: {
+      getBalance: {
+        useQuery: () => ({ data: { balance: 0 }, isLoading: false, error: null }),
+      },
+    },
+  },
+}));
+
 const customers: Customer[] = [];
 
 function createProps(overrides?: Partial<React.ComponentProps<typeof SalePaymentModal>>) {

@@ -102,6 +102,15 @@ export const createSaleInput = z
      * before persisting the FK. Non-restaurant callers omit it.
      */
     tableId: z.string().min(1).optional(),
+    /**
+     * ENG-090 — admin override flag for the credit limit invariant.
+     * When `true`, `requireCreditLimitNotExceeded` skips the throw even
+     * when `currentBalance + grandTotal > creditLimit`. The router
+     * gates this field to admin callers; the manager + cashier paths
+     * reject `true` with `CREDIT_OVERRIDE_FORBIDDEN` before the sale
+     * tx runs.
+     */
+    creditOverride: z.boolean().optional(),
   })
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',
@@ -112,6 +121,15 @@ export const createSaleInput = z
     {
       message: 'serviceChargeRate requires a positive serviceChargeAmount',
       path: ['serviceChargeAmount'],
+    }
+  )
+  .refine(
+    value =>
+      value.paymentMethod !== 'credit' ||
+      (value.customerId !== undefined && value.customerId.length > 0),
+    {
+      message: 'Credit sales require a customer to be attached',
+      path: ['customerId'],
     }
   );
 
@@ -257,6 +275,13 @@ export const completeDraftInput = z
      * computations.
      */
     payments: z.array(salePaymentInput).optional(),
+    /**
+     * ENG-090 — admin override flag mirrors `createSaleInput.creditOverride`
+     * so a draft that resumed as credit can also bypass the cupo limit
+     * at finalize time when an admin co-signs. Router gates `true` to
+     * admin callers.
+     */
+    creditOverride: z.boolean().optional(),
   })
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',

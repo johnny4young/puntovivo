@@ -492,5 +492,25 @@
     "kickDrawerSuccess": "Cash drawer opened",
     "kickDrawerFailed": "Could not open the cash drawer",
     "noDrawerRegistered": "No cash drawer is registered for this site"
+  },
+  "credit": {
+    "card": {
+      "unknownCustomer": "Unknown customer",
+      "balance": "Current balance",
+      "cupo": "Credit limit",
+      "projected": "Projected balance",
+      "unlimited": "No limit"
+    },
+    "warning": {
+      "exceedsLimit": "The projected balance exceeds the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash."
+    },
+    "override": {
+      "label": "Authorize exceeding the credit limit",
+      "adminHelp": "Adds the sale even though the projected balance exceeds the customer's limit. Use this only with administrator approval.",
+      "adminOnly": "Only an administrator can authorize this"
+    },
+    "toast": {
+      "success": "Credit sale recorded"
+    }
   }
 }

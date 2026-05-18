@@ -20,6 +20,7 @@ function buildPaymentValues(
     tipMethod: null,
     serviceChargeAmount: 0,
     serviceChargeRate: null,
+    creditOverride: false,
     ...overrides,
   };
 }

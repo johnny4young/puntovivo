@@ -295,6 +295,25 @@ research.
   cuando ENG-035c necesite verificar contra schema antes de
   enviar a PAC. — 2026-05-01 (ENG-035b)
 
+- `[sales][receipt]` ENG-090b — Credit sale receipt footer + cashier
+  approval queue. ENG-090 shipped the credit sale flow + ledger
+  write + admin override, but cut two scopes for later: (1) the
+  receipt renderer's `RenderSale` shape does not carry
+  `customerBalanceAfter`, so the templated `text` block that should
+  print "Pagado a crédito · saldo posterior $X" at the receipt
+  footer is not yet emitted (every other credit-side metadata is in
+  place — `sale.paymentMethod === 'credit'` already reaches the
+  renderer); and (2) the cashier-facing "Solicitar autorización"
+  flow is currently a hard hide — the credit tile is gated behind
+  `canLendCredit = admin || manager`, so cashiers cannot offer a
+  credit sale at all. The follow-up surfaces an admin approval
+  request queue (in-app notification + audit row carrying the
+  cashier's identity), the cashier UI shows a Solicitar autorización
+  button instead of a hidden tile, and the admin can sign off
+  without leaving their station. Includes the `RenderSale.customerBalanceAfter`
+  extension + a conditional `text` block (`{{ default(sale.creditFooter, '') }}`)
+  in the default template. — 2026-05-18 (ENG-090)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

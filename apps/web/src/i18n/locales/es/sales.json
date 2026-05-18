@@ -449,7 +449,7 @@
     "labelPromptConfirm": "Suspender",
     "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
     "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",
-    "resumedBannerHint": "Para cambiar artículos, descartá este borrador e iniciá una venta nueva."
+    "resumedBannerHint": "Para cambiar artículos, descarta este borrador e inicia una venta nueva."
   },
   "reprint": {
     "action": "Reimprimir recibo",
@@ -492,5 +492,25 @@
     "kickDrawerSuccess": "Cajón monedero abierto",
     "kickDrawerFailed": "No se pudo abrir el cajón monedero",
     "noDrawerRegistered": "No hay cajón monedero registrado para esta sede"
+  },
+  "credit": {
+    "card": {
+      "unknownCustomer": "Cliente desconocido",
+      "balance": "Saldo actual",
+      "cupo": "Cupo",
+      "projected": "Saldo proyectado",
+      "unlimited": "Sin cupo"
+    },
+    "warning": {
+      "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pide a un administrador autorizar el sobregiro o cobra el excedente en efectivo."
+    },
+    "override": {
+      "label": "Autorizar exceder el cupo",
+      "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úsalo solo con aprobación administrativa.",
+      "adminOnly": "Solo un administrador puede autorizar esto"
+    },
+    "toast": {
+      "success": "Venta a crédito registrada"
+    }
   }
 }

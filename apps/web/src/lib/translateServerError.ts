@@ -157,6 +157,11 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-039b restaurant table catalog ---
   'RESTAURANT_TABLE_NOT_FOUND',
   'RESTAURANT_TABLE_NAME_DUPLICATE',
+  // --- ENG-090 credit sales ---
+  'CREDIT_LIMIT_EXCEEDED',
+  'CREDIT_SALE_CUSTOMER_REQUIRED',
+  'CREDIT_OVERRIDE_FORBIDDEN',
+  'CREDIT_SALE_FORBIDDEN',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

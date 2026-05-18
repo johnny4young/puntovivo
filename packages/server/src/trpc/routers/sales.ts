@@ -87,6 +87,19 @@ function buildLifecycleContext(ctx: Context): CompleteSaleContext {
   };
 }
 
+function assertCanCreateCreditSale(ctx: Context): void {
+  const role = ctx.user!.role;
+  if (role === 'admin' || role === 'manager') {
+    return;
+  }
+
+  throwServerError({
+    trpcCode: 'FORBIDDEN',
+    errorCode: 'CREDIT_SALE_FORBIDDEN',
+    message: 'Only managers and administrators can create credit sales',
+  });
+}
+
 /**
  * ENG-039c — resolve a `restaurant_tables` row for the tenant, asserting
  * it belongs to `ctx.tenantId` and is active. Cross-tenant hits collapse
@@ -324,6 +337,21 @@ export const salesRouter = router({
       );
     }
 
+    if (input.paymentMethod === 'credit') {
+      assertCanCreateCreditSale(ctx);
+    }
+
+    // ENG-090 — only admins can bypass the credit-limit invariant. The
+    // router rejects manager + cashier callers before the sale tx
+    // runs so a forged payload never reaches `completeSale`.
+    if (input.creditOverride === true && ctx.user!.role !== 'admin') {
+      throwServerError({
+        trpcCode: 'FORBIDDEN',
+        errorCode: 'CREDIT_OVERRIDE_FORBIDDEN',
+        message: 'Only administrators can override the credit limit',
+      });
+    }
+
     const result = await completeSale(
       {
         db: ctx.db,
@@ -355,6 +383,8 @@ export const salesRouter = router({
         // cost; `runFreshSale` re-validates against the tenant rate.
         serviceChargeAmount: input.serviceChargeAmount,
         serviceChargeRate: input.serviceChargeRate ?? null,
+        // ENG-090 — admin override for the credit-limit invariant.
+        creditOverride: input.creditOverride ?? false,
       }
     );
     return result.sale;
@@ -1217,6 +1247,20 @@ export const salesRouter = router({
   completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
+      if (input.paymentMethod === 'credit') {
+        assertCanCreateCreditSale(ctx);
+      }
+
+      // ENG-090 — same admin-only gate as `sales.create`. Drafts that
+      // resume as credit can also bypass the cupo at finalize time
+      // when an admin co-signs; non-admin callers cannot.
+      if (input.creditOverride === true && ctx.user!.role !== 'admin') {
+        throwServerError({
+          trpcCode: 'FORBIDDEN',
+          errorCode: 'CREDIT_OVERRIDE_FORBIDDEN',
+          message: 'Only administrators can override the credit limit',
+        });
+      }
       // ENG-054 — orchestration delegated to
       // `application/sales/completeSale`. The fromDraft path covers:
       // ownership check, suspension check, draft-only invariant, line
@@ -1249,6 +1293,8 @@ export const salesRouter = router({
           // rate at commit time.
           serviceChargeAmount: input.serviceChargeAmount,
           serviceChargeRate: input.serviceChargeRate ?? null,
+          // ENG-090 — admin override for the credit-limit invariant.
+          creditOverride: input.creditOverride ?? false,
         }
       );
       return result.sale;
