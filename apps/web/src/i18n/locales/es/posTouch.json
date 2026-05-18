@@ -1,0 +1,54 @@
+{
+  "page": {
+    "kicker": "Cobro táctil",
+    "title": "POS Táctil",
+    "subtitle": "Toca un producto para agregarlo al carrito. Cobra directo desde el panel derecho.",
+    "noActiveSite": "Selecciona una sede activa antes de abrir el cobro táctil.",
+    "loadingProducts": "Cargando catálogo…",
+    "loadingError": "No pudimos cargar el catálogo. Intenta de nuevo.",
+    "voiceLink": "Abrir cobro por voz"
+  },
+  "categories": {
+    "all": "Todas",
+    "allHint": "Todos los productos de esta sede",
+    "empty": "Aún no hay categorías configuradas",
+    "label": "Categorías"
+  },
+  "grid": {
+    "empty": "Aún no hay productos en esta categoría.",
+    "noResults": "No hay productos en el catálogo. Primero agrega productos desde Configuración.",
+    "tileAriaLabel": "Agregar {{name}} por {{price}}"
+  },
+  "cart": {
+    "title": "Carrito activo",
+    "lineCount_one": "{{count}} artículo",
+    "lineCount_other": "{{count}} artículos",
+    "customer": "Cliente",
+    "customerPlaceholder": "Cliente ocasional",
+    "loyalty": {
+      "badge": "Cliente frecuente",
+      "sumarPuntos": "Sumar puntos",
+      "sumarPuntosHelp": "Reconoce al cliente al cerrar la venta."
+    },
+    "empty": "Toca un producto para iniciar la venta.",
+    "lineQty": "Cant.",
+    "lineUnitPrice": "Unitario",
+    "lineTotal": "Total",
+    "lineRemoveAriaLabel": "Eliminar {{name}} del carrito",
+    "subtotal": "Subtotal",
+    "tax": "IVA",
+    "total": "Total",
+    "clear": "Limpiar carrito",
+    "charge": "Cobrar venta",
+    "chargeDisabledNoSession": "Abre la caja para cobrar.",
+    "chargeDisabledNoItems": "Agrega un producto al carrito.",
+    "chargeDisabledNoSite": "Selecciona una sede activa para cobrar."
+  },
+  "toast": {
+    "addedToCart": "Agregaste {{name}} al carrito",
+    "chargeSuccess": "Venta completada",
+    "chargeSuccessDescription_one": "{{count}} artículo procesado.",
+    "chargeSuccessDescription_other": "{{count}} artículos procesados.",
+    "chargeError": "No pudimos completar la venta"
+  }
+}
