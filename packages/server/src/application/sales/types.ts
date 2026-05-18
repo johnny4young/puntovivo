@@ -110,6 +110,14 @@ export type CompleteSaleInput =
        * service.
        */
       tableId?: string | null;
+      /**
+       * ENG-090 — admin override for the credit-limit invariant. When
+       * `true`, `requireCreditLimitNotExceeded` skips the throw even
+       * when the projected balance exceeds the customer's
+       * `creditLimit`. Router enforces that only admins can set this
+       * to `true`; non-admin callers see `CREDIT_OVERRIDE_FORBIDDEN`.
+       */
+      creditOverride?: boolean;
     }
   | {
       mode: 'fromDraft';
@@ -133,6 +141,12 @@ export type CompleteSaleInput =
        */
       serviceChargeAmount?: number;
       serviceChargeRate?: number | null;
+      /**
+       * ENG-090 — admin override mirrors the fresh path; lets an
+       * admin co-sign a finalize that would otherwise exceed the
+       * cupo.
+       */
+      creditOverride?: boolean;
     };
 
 /**

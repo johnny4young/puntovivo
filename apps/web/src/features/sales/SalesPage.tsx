@@ -363,6 +363,10 @@ export function SalesPage() {
         u => u.inventory.listStock,
         u => u.products.list,
         u => u.products.search,
+        // ENG-090 — credit sales mutate the ledger, so the cupo card
+        // inside SalePaymentModal must refetch on the next open.
+        u => u.customerLedger.getBalance,
+        u => u.customerLedger.list,
       ]);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -685,6 +689,14 @@ export function SalesPage() {
       // we do not re-send items (locked at create-time) and do not
       // double-debit stock. Fresh carts continue on the classic
       // `sales.create` path.
+      // ENG-090 — admin override for the credit-limit invariant. Only
+      // forwarded when the modal returns it (modal already gates to
+      // admin role + credit method); server still re-asserts.
+      const creditOverride =
+        values.creditOverride && payment.paymentMethod === 'credit'
+          ? true
+          : undefined;
+
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
           saleId: activeWorkspace.serverSaleId,
@@ -697,6 +709,7 @@ export function SalesPage() {
           tipMethod,
           serviceChargeAmount,
           serviceChargeRate,
+          creditOverride,
         });
         return;
       }
@@ -725,6 +738,7 @@ export function SalesPage() {
         tipMethod,
         serviceChargeAmount,
         serviceChargeRate,
+        creditOverride,
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));
@@ -1331,6 +1345,11 @@ export function SalesPage() {
           isSaving={createMutation.isPending || completeDraftMutation.isPending}
           error={saleError}
           serviceChargeRate={serviceChargeRate}
+          // ENG-090 — role gates the credit method tile inside the
+          // modal. Cashier never sees it; manager + admin do; admin
+          // additionally sees the override checkbox when cupo is
+          // exceeded.
+          userRole={user?.role}
           onClose={() => setIsPaymentModalOpen(false)}
           onSubmit={handleCheckout}
         />

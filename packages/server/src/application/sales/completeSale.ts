@@ -80,6 +80,13 @@ import type {
   CompleteSaleResult,
   CompleteSaleTender,
 } from './types.js';
+// ENG-090 — credit-sale plumbing. The invariant runs pre-tx so a
+// cupo violation never decrements stock / inserts a sale row that
+// has to be voided. `recordCreditSaleLedger` runs post-tx (mirrors
+// the fiscal emit pattern) so a ledger write never blocks the
+// sale completion itself.
+import { requireCreditLimitNotExceeded } from '../../services/credit-limit.js';
+import { recordCreditSaleLedger } from './recordCreditSaleLedger.js';
 
 const fallbackLog = createModuleLogger('application/sales/completeSale');
 
@@ -553,6 +560,36 @@ async function runFreshSale(
     });
   }
 
+  // ENG-090 — credit-sale pre-flight. Full-credit single-tender is the
+  // only flow that writes a `customer_ledger_entries` row of
+  // `kind='sale'` today; split-tender credit (ENG-014) stays out of
+  // scope and the Zod schema for `SplitTenderMethod` keeps `credit`
+  // excluded. The invariant + customer-required throw run BEFORE the
+  // sale tx so a cupo violation never decrements stock / inserts a
+  // sale row that would have to be voided.
+  const isFullCreditSale =
+    !isSplitPayment && resolvedPayments.dominantMethod === 'credit';
+  const creditSaleAmount = isFullCreditSale ? total : 0;
+  let creditProjection: Awaited<
+    ReturnType<typeof requireCreditLimitNotExceeded>
+  > | null = null;
+  if (isFullCreditSale && input.status === 'completed') {
+    if (!input.customerId) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'CREDIT_SALE_CUSTOMER_REQUIRED',
+        message: 'Credit sales require a customer to be attached',
+      });
+    }
+    creditProjection = await requireCreditLimitNotExceeded({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      customerId: input.customerId,
+      attemptedAmount: creditSaleAmount,
+      allowOverride: input.creditOverride === true,
+    });
+  }
+
   const nextSequentialValue = sequentialContext.currentValue + 1;
   const saleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
   const productStockState = new Map(resolvedItems.productStocks);
@@ -767,6 +804,40 @@ async function runFreshSale(
       paymentStatus,
     },
   });
+
+  // ENG-090 — write the customer ledger receivable for full-credit
+  // sales. Best-effort post-tx: a ledger write failure does not roll
+  // back the sale (the sale tx already committed). Operators can
+  // retry the ledger write from the V5 Cuenta corriente panel via
+  // `customerLedger.addAdjustment` if this branch ever fails.
+  // `creditProjection` is captured for the future audit-metadata
+  // wire-up (`projectedBalance` becomes the receipt's saldo posterior
+  // when the renderer integration lands as ENG-090b).
+  if (creditSaleAmount > 0 && input.customerId && input.status === 'completed') {
+    try {
+      await recordCreditSaleLedger({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        customerId: input.customerId,
+        creditAmount: creditSaleAmount,
+        saleId,
+        createdBy: ctx.user.id,
+        note: saleNumber,
+      });
+    } catch (err) {
+      log.warn(
+        {
+          err,
+          saleId,
+          customerId: input.customerId,
+          creditSaleAmount,
+          projectedBalance: creditProjection?.projectedBalance ?? null,
+        },
+        '[completeSale] failed to write credit-sale ledger row'
+      );
+    }
+  }
+  void creditProjection;
 
   // ENG-020 — emit DIAN DEE when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.
@@ -1022,6 +1093,36 @@ async function runCompleteDraft(
     });
   }
 
+  // ENG-090 — same credit-sale pre-flight as the fresh path. A
+  // resumed draft that arrives with `paymentMethod === 'credit'` and
+  // a non-null `customerId` (carried on the draft row from the
+  // create call) must clear the cupo invariant before the finalize
+  // tx runs. The draft inherits the customerId from `existing` (the
+  // draft sale row).
+  const isFullCreditSale =
+    !isSplitPayment && resolvedPayments.dominantMethod === 'credit';
+  const creditSaleAmount = isFullCreditSale ? total : 0;
+  const draftCustomerId = existing.customerId;
+  let creditProjection: Awaited<
+    ReturnType<typeof requireCreditLimitNotExceeded>
+  > | null = null;
+  if (isFullCreditSale && creditSaleAmount > 0) {
+    if (!draftCustomerId) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'CREDIT_SALE_CUSTOMER_REQUIRED',
+        message: 'Credit sales require a customer to be attached',
+      });
+    }
+    creditProjection = await requireCreditLimitNotExceeded({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      customerId: draftCustomerId,
+      attemptedAmount: creditSaleAmount,
+      allowOverride: input.creditOverride === true,
+    });
+  }
+
   const now = new Date().toISOString();
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
 
@@ -1160,6 +1261,35 @@ async function runCompleteDraft(
       paymentStatus,
     },
   });
+
+  // ENG-090 — same best-effort ledger-write as the fresh path. The
+  // draft already finalized as `completed`; a ledger failure here
+  // does NOT roll the sale back.
+  if (creditSaleAmount > 0 && draftCustomerId) {
+    try {
+      await recordCreditSaleLedger({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        customerId: draftCustomerId,
+        creditAmount: creditSaleAmount,
+        saleId: input.saleId,
+        createdBy: ctx.user.id,
+        note: existing.saleNumber,
+      });
+    } catch (err) {
+      log.warn(
+        {
+          err,
+          saleId: input.saleId,
+          customerId: draftCustomerId,
+          creditSaleAmount,
+          projectedBalance: creditProjection?.projectedBalance ?? null,
+        },
+        '[completeSale.fromDraft] failed to write credit-sale ledger row'
+      );
+    }
+  }
+  void creditProjection;
 
   // ENG-020 — emit DIAN DEE on first completion of the draft.
   const fiscalResult = await safelyEmitFiscalDocument({

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { sumBy } from '@/lib/numbers';
 import { formatCurrency } from '@/lib/utils';
+import { trpc } from '@/lib/trpc';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { Customer, PaymentMethod } from '@/types';
 
@@ -42,6 +43,14 @@ export interface SalePaymentValues {
   tipAmount: number;
   tipMethod: SaleTipMethod | null;
   /**
+   * ENG-090 — admin override for the credit-limit invariant. Only
+   * surfaces in the UI when an admin opens the modal and the
+   * projected balance exceeds the customer's `creditLimit`. The
+   * server still enforces the admin role on the `creditOverride`
+   * flag at the router gate.
+   */
+  creditOverride: boolean;
+  /**
    * ENG-039d3 — restaurant service charge / propina sugerida. Auto
    * applied from the tenant's `serviceChargeRate` (a per-tenant
    * percentage). `serviceChargeAmount` rolls into the persisted total
@@ -67,6 +76,15 @@ interface SalePaymentModalProps {
    * zero contract cost.
    */
   serviceChargeRate?: number;
+  /**
+   * ENG-090 — caller's role drives credit-method gating. Cashier never
+   * sees the credit tile; manager + admin do. Admin additionally sees
+   * the override checkbox when the projected balance exceeds the
+   * customer's cupo. Undefined or any other role hides credit
+   * entirely. The server still enforces the gate on
+   * `creditOverride: true`.
+   */
+  userRole?: 'admin' | 'manager' | 'cashier' | 'viewer';
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
@@ -94,6 +112,7 @@ function getDefaultValues(
     tipMethod: null,
     serviceChargeAmount,
     serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
+    creditOverride: false,
   };
 }
 
@@ -116,11 +135,15 @@ export function SalePaymentModal({
   isSaving,
   error,
   serviceChargeRate = 0,
+  userRole,
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
   const { t } = useTranslation('sales');
   const [splitMode, setSplitMode] = useState(false);
+  // ENG-090 — credit method gating + projection.
+  const canLendCredit = userRole === 'admin' || userRole === 'manager';
+  const isAdmin = userRole === 'admin';
   // ENG-039d3 — service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
@@ -141,13 +164,32 @@ export function SalePaymentModal({
   const watchedTenders = useWatch({ control: form.control, name: 'tenders' });
   const tipAmountWatch = useWatch({ control: form.control, name: 'tipAmount' });
   const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
+  const watchedCustomerId = useWatch({ control: form.control, name: 'customerId' }) ?? '';
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const grandTotal = roundCurrency(total + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
+  const isCredit = paymentMethod === 'credit';
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - amountReceivedValue);
+  const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
+
+  // ENG-090 — read the active customer's current balance + creditLimit
+  // when credit is the active method. The query short-circuits via
+  // `enabled` so non-credit flows pay zero contract cost. balance is
+  // the running SUM(amount) across the ledger (positive = customer
+  // owes); creditLimit comes from the customers row (0 = sin cupo).
+  const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
+  const creditQueryEnabled = isCredit && creditMethodAvailable;
+  const creditBalanceQuery = trpc.customerLedger.getBalance.useQuery(
+    { customerId: watchedCustomerId },
+    { enabled: creditQueryEnabled, staleTime: 30_000 }
+  );
+  const currentBalance = creditBalanceQuery.data?.balance ?? 0;
+  const creditLimit = selectedCustomer?.creditLimit ?? 0;
+  const projectedBalance = currentBalance + grandTotal;
+  const cupoExceeded = creditLimit > 0 && projectedBalance > creditLimit;
 
   const tenderSum = useMemo(
     () => sumBy(tenders, tender => Number(tender.amount) || 0),
@@ -157,6 +199,21 @@ export function SalePaymentModal({
   const tendersAreAllPositive = tenders.every(
     tender => (Number(tender.amount) || 0) > 0
   );
+
+  useEffect(() => {
+    if (paymentMethod !== 'credit' || creditMethodAvailable) {
+      return;
+    }
+
+    form.setValue('paymentMethod', 'cash', {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue('creditOverride', false, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [creditMethodAvailable, form, paymentMethod]);
 
   function handleTipPreset(percentage: number): void {
     // ENG-039d — percentage base is `total` (subtotal + tax - discount)
@@ -222,6 +279,15 @@ export function SalePaymentModal({
 
   const handleSubmit = form.handleSubmit(values => {
     const sanitizedTip = Math.max(0, Number(values.tipAmount) || 0);
+    // ENG-090 — credit override is admin-only at the form layer too.
+    // The server still gates `true` from non-admin callers at the
+    // router; this prevents stale form state (admin opens modal,
+    // toggles override on, role swaps mid-flow) from leaking the
+    // flag onto the payload.
+    const sanitizedOverride =
+      values.paymentMethod === 'credit' && isAdmin
+        ? values.creditOverride
+        : false;
     return onSubmit({
       ...values,
       tenders: splitMode ? values.tenders : [],
@@ -233,6 +299,7 @@ export function SalePaymentModal({
       // configured" to the server.
       serviceChargeAmount,
       serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
+      creditOverride: sanitizedOverride,
     });
   });
 
@@ -431,12 +498,22 @@ export function SalePaymentModal({
                 <select
                   id="sale-payment-method"
                   className="input mt-1"
+                  data-testid="sale-payment-method-select"
                   {...form.register('paymentMethod')}
                 >
                   <option value="cash">{t('payment.cash')}</option>
                   <option value="card">{t('payment.card')}</option>
                   <option value="transfer">{t('payment.transfer')}</option>
-                  <option value="credit">{t('payment.credit')}</option>
+                  {/* ENG-090 — credit option gated to manager + admin AND
+                      requires a customer attached. Cashier never sees it
+                      (server router also enforces the role gate on the
+                      credit payment method). Walk-in (no customer) hides the
+                      option because credit is per-customer by definition. */}
+                  {creditMethodAvailable && (
+                    <option value="credit" data-testid="sale-payment-method-credit-option">
+                      {t('payment.credit')}
+                    </option>
+                  )}
                   <option value="other">{t('payment.other')}</option>
                 </select>
               </div>
@@ -451,6 +528,7 @@ export function SalePaymentModal({
                   min={0}
                   step="0.01"
                   className="input mt-1"
+                  disabled={isCredit}
                   {...form.register('amountReceived', {
                     valueAsNumber: true,
                     min: { value: 0, message: t('payment.amountNegative') },
@@ -463,6 +541,101 @@ export function SalePaymentModal({
                 )}
               </div>
             </div>
+
+            {/* ENG-090 — V10 credit-sale customer card. Shows the
+                customer's current balance, cupo, projected balance
+                after this sale, and (admin only) an override checkbox
+                when the projection exceeds the cupo. */}
+            {isCredit && (
+              <div
+                className="rounded-xl border border-secondary-200 p-4"
+                data-testid="credit-sale-customer-card"
+              >
+                <p className="text-sm font-medium text-secondary-900">
+                  {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
+                </p>
+                {selectedCustomer?.taxId && (
+                  <p className="text-xs text-secondary-500">
+                    {selectedCustomer.taxId}
+                  </p>
+                )}
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  <div
+                    className={`rounded border p-2 ${currentBalance > 0 ? 'border-danger-300 bg-danger-50 text-danger-700' : 'border-line bg-white text-secondary-900'}`}
+                    data-testid="credit-sale-current-balance"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-secondary-500">
+                      {t('credit.card.balance')}
+                    </p>
+                    <p className="mt-1 text-base font-medium tabular-nums">
+                      {creditBalanceQuery.isLoading
+                        ? '…'
+                        : formatCurrency(currentBalance)}
+                    </p>
+                  </div>
+                  <div
+                    className="rounded border border-line bg-white p-2 text-secondary-900"
+                    data-testid="credit-sale-cupo"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-secondary-500">
+                      {t('credit.card.cupo')}
+                    </p>
+                    <p className="mt-1 text-base font-medium tabular-nums">
+                      {creditLimit > 0
+                        ? formatCurrency(creditLimit)
+                        : t('credit.card.unlimited')}
+                    </p>
+                  </div>
+                  <div
+                    className={`rounded border p-2 ${cupoExceeded ? 'border-warning-300 bg-warning-50 text-warning-700' : 'border-line bg-white text-secondary-900'}`}
+                    data-testid="credit-sale-projected"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-secondary-500">
+                      {t('credit.card.projected')}
+                    </p>
+                    <p className="mt-1 text-base font-medium tabular-nums">
+                      {formatCurrency(projectedBalance)}
+                    </p>
+                  </div>
+                </div>
+                {cupoExceeded && (
+                  <p
+                    className="mt-3 text-sm text-warning-700"
+                    data-testid="credit-sale-warning"
+                  >
+                    {t('credit.warning.exceedsLimit')}
+                  </p>
+                )}
+                {/* Override checkbox: admin only, only when the
+                    projection actually exceeds the cupo. Submitting
+                    without it raises the server-side
+                    CREDIT_LIMIT_EXCEEDED toast. */}
+                {cupoExceeded && (
+                  <label
+                    className={`mt-3 flex items-start gap-2 text-sm ${isAdmin ? '' : 'opacity-60'}`}
+                    data-testid="credit-sale-override-label"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      data-testid="credit-sale-override-toggle"
+                      disabled={!isAdmin}
+                      {...form.register('creditOverride')}
+                    />
+                    <span className="flex flex-col">
+                      <span className="font-medium">
+                        {t('credit.override.label')}
+                      </span>
+                      <span className="text-xs text-secondary-500">
+                        {isAdmin
+                          ? t('credit.override.adminHelp')
+                          : t('credit.override.adminOnly')}
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
 
             {isCash && grandTotal > 0 && (
               <QuickDenominationSelector
@@ -477,27 +650,38 @@ export function SalePaymentModal({
               />
             )}
 
-            <div className="surface-panel-muted text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-secondary-500">{t('payment.amountReceived')}</span>
-                <span className="font-medium text-secondary-900">{formatCurrency(amountReceivedValue)}</span>
+            {/* ENG-090 — the change/outstanding overlay does not
+                apply to credit sales (the entire total is deferred
+                onto the ledger). The credit customer card above
+                already carries the relevant amounts. */}
+            {!isCredit && (
+              <div className="surface-panel-muted text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-secondary-500">{t('payment.amountReceived')}</span>
+                  <span className="font-medium text-secondary-900">{formatCurrency(amountReceivedValue)}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-secondary-500">{isCash ? t('payment.change') : t('payment.balance')}</span>
+                  <span className="font-medium text-secondary-900">
+                    {formatCurrency(isCash ? change : outstanding)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-secondary-500">{isCash ? t('payment.change') : t('payment.balance')}</span>
-                <span className="font-medium text-secondary-900">
-                  {formatCurrency(isCash ? change : outstanding)}
-                </span>
-              </div>
-            </div>
+            )}
 
-            <button
-              type="button"
-              className="btn-ghost inline-flex items-center gap-2 text-sm"
-              onClick={handleEnableSplit}
-            >
-              <Plus className="h-4 w-4" />
-              {t('payment.splitEnable')}
-            </button>
+            {/* Split-tender is intentionally unavailable when the
+                operator picked credit (ENG-014 owns split-credit; the
+                SplitTenderMethod type already excludes credit). */}
+            {!isCredit && (
+              <button
+                type="button"
+                className="btn-ghost inline-flex items-center gap-2 text-sm"
+                onClick={handleEnableSplit}
+              >
+                <Plus className="h-4 w-4" />
+                {t('payment.splitEnable')}
+              </button>
+            )}
           </>
         )}
 

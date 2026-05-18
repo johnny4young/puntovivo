@@ -560,6 +560,39 @@ export const SERVER_ERROR_CODES = {
    * after archiving the original. Cause carries `{ siteId, name }`.
    */
   RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
+
+  // --- credit sales domain (ENG-090) ---
+  /**
+   * `completeSale` refused the credit-sale payload because the projected
+   * balance (`currentBalance + grandTotal`) would exceed the customer's
+   * configured `creditLimit`. `details` carries
+   * `{ creditLimit, currentBalance, projectedBalance, attemptedAmount }`
+   * so the cashier UI can render a precise "Cupo superado por $X" toast
+   * and offer the admin-override checkbox without an extra round-trip.
+   * The override path bypasses this throw entirely.
+   */
+  CREDIT_LIMIT_EXCEEDED: 'CREDIT_LIMIT_EXCEEDED',
+  /**
+   * `completeSale` received `paymentMethod === 'credit'` without a
+   * `customerId`. Credit sales are per-customer by definition; the
+   * UI's payment-method tile is gated to hide the credit choice when
+   * no customer is attached, so this code is a server-side guard
+   * against drift / direct API consumers.
+   */
+  CREDIT_SALE_CUSTOMER_REQUIRED: 'CREDIT_SALE_CUSTOMER_REQUIRED',
+  /**
+   * A non-admin caller set `creditOverride: true` on `sales.create`.
+   * Only admins can bypass the cupo limit; the router rejects manager
+   * and cashier callers at the input layer before the sale tx runs.
+   */
+  CREDIT_OVERRIDE_FORBIDDEN: 'CREDIT_OVERRIDE_FORBIDDEN',
+  /**
+   * A caller without credit-lending authority attempted to complete a
+   * sale with `paymentMethod === 'credit'`. Managers and admins can lend
+   * credit; cashiers need the follow-up approval queue before they can
+   * request an admin co-sign in-app.
+   */
+  CREDIT_SALE_FORBIDDEN: 'CREDIT_SALE_FORBIDDEN',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];
