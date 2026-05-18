@@ -1,0 +1,89 @@
+{
+  "page": {
+    "kicker": "Cola de domicilios",
+    "title": "Pedidos a domicilio",
+    "subtitle": "Sigue cada domicilio desde que entra hasta que se entrega. Mueve pedidos, asigna mensajeros y cancela cuando lo necesites desde una sola consola.",
+    "empty": "Todavía no hay pedidos en esta columna.",
+    "loading": "Cargando pedidos…",
+    "errorTitle": "No pudimos cargar los pedidos",
+    "errorRetry": "Reintentar",
+    "noActiveSite": "Selecciona una sede activa antes de abrir la cola de domicilios."
+  },
+  "status": {
+    "accepted": {
+      "label": "Por aceptar",
+      "count_one": "{{count}} pedido",
+      "count_other": "{{count}} pedidos"
+    },
+    "preparing": {
+      "label": "Preparando",
+      "count_one": "{{count}} pedido",
+      "count_other": "{{count}} pedidos"
+    },
+    "dispatched": {
+      "label": "En camino",
+      "count_one": "{{count}} pedido",
+      "count_other": "{{count}} pedidos"
+    },
+    "delivered": {
+      "label": "Entregados",
+      "count_one": "{{count}} pedido",
+      "count_other": "{{count}} pedidos"
+    },
+    "cancelled": {
+      "label": "Con problema",
+      "count_one": "{{count}} pedido",
+      "count_other": "{{count}} pedidos"
+    }
+  },
+  "card": {
+    "idLabel": "Pedido",
+    "customerFallback": "Cliente ocasional",
+    "noPhone": "Sin teléfono",
+    "addressLabel": "Dirección",
+    "itemsLabel": "Artículos",
+    "itemsFallback": "Sin detalle de artículos",
+    "totalLabel": "Total",
+    "detailsCta": "Ver detalle",
+    "elapsedSince": "Abierto hace {{elapsed}}"
+  },
+  "detail": {
+    "title": "Detalle del pedido",
+    "empty": "Selecciona un pedido para ver su detalle completo.",
+    "customerHeader": "Cliente",
+    "phoneLabel": "Teléfono",
+    "addressLabel": "Dirección de entrega",
+    "addressNotesLabel": "Notas",
+    "itemsLabel": "Artículos del pedido",
+    "totalLabel": "Total",
+    "courierLabel": "Mensajero",
+    "courierPlaceholder": "Asigna un mensajero",
+    "courierClear": "Sin mensajero asignado",
+    "timelineTitle": "Línea de tiempo",
+    "timeline": {
+      "accepted": "Aceptado",
+      "preparing": "Preparando",
+      "dispatched": "En camino",
+      "delivered": "Entregado",
+      "cancelled": "Cancelado"
+    },
+    "advance": {
+      "accepted": "Marcar como preparando",
+      "preparing": "Marcar en camino",
+      "dispatched": "Marcar como entregado",
+      "delivered": "Pedido entregado",
+      "cancelled": "Pedido cancelado"
+    },
+    "cancel": "Cancelar pedido",
+    "cancelConfirmTitle": "¿Cancelar este pedido?",
+    "cancelConfirmBody": "La cancelación queda registrada en el log de auditoría. No se puede deshacer desde la cola.",
+    "cancelConfirmConfirm": "Cancelar pedido",
+    "cancelConfirmDismiss": "Conservar pedido"
+  },
+  "toast": {
+    "advanceSuccess": "Pedido movido a {{label}}",
+    "advanceError": "No pudimos avanzar el pedido",
+    "cancelSuccess": "Pedido cancelado",
+    "cancelError": "No pudimos cancelar el pedido"
+  }
+}

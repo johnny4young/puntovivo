@@ -56,6 +56,10 @@
     "eventsApi": {
       "label": "Public events API",
       "description": "Publish public events (sale.completed, sale.refunded, inventory.adjusted, cash_session.closed, fiscal_document.accepted) to the webhook queue so a future central server or integration partner can subscribe. When off, no webhook rows are created."
+    },
+    "delivery": {
+      "label": "Delivery orders",
+      "description": "Operational queue for delivery / domicilio orders with status columns and courier assignment. When on, the /delivery page becomes reachable and the deliveryOrders.* router accepts calls."
     }
   }
 }

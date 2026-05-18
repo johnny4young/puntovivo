@@ -49,14 +49,14 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
     expect(MODULES_SCHEMA_VERSION).toBeGreaterThanOrEqual(1);
   });
 
-  it('locks the v1 + ENG-069 surfaces + ENG-070 events module set so deletions trigger CI failure', () => {
+  it('locks the v1 + ENG-069 surfaces + ENG-070 events + ENG-091 delivery module set so deletions trigger CI failure', () => {
     // Pin the count so a silent removal of a module from the list
     // is caught by the regression test before it lands. The 5 demo
     // modules from ENG-068 default ON; the 4 surface modules from
     // ENG-069 default OFF; the events-api module from ENG-070 also
-    // default OFF (each new surface or integration is opt-in per
-    // tenant).
-    expect(MODULE_IDS.length).toBe(10);
+    // default OFF; the delivery module from ENG-091 also defaults
+    // OFF (each new surface or integration is opt-in per tenant).
+    expect(MODULE_IDS.length).toBe(11);
     expect(MODULE_IDS).toEqual([
       'copilot',
       'operations-center',
@@ -68,10 +68,11 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
       'customer-display',
       'mobile-waiter',
       'events-api',
+      'delivery',
     ]);
   });
 
-  it('ENG-068 demo modules default ON; ENG-069 surfaces + ENG-070 events default OFF', () => {
+  it('ENG-068 demo modules default ON; ENG-069 surfaces + ENG-070 events + ENG-091 delivery default OFF', () => {
     const onByDefault = MODULE_IDS.filter(
       id => MODULES_MANIFEST[id].defaultEnabled === true
     );
@@ -91,6 +92,7 @@ describe('module manifest exhaustiveness (ENG-068)', () => {
       'customer-display',
       'mobile-waiter',
       'events-api',
+      'delivery',
     ]);
   });
 });
