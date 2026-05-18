@@ -212,6 +212,54 @@ describe('peripherals.register', () => {
       expectErrorCode(err, 'PERIPHERAL_ACTIVE_DUPLICATE');
     }
   });
+
+  // ENG-097 — `autoPrintOnComplete` is opt-in per site; the printer
+  // driver schema must accept + round-trip the boolean so the
+  // SalesPage hook can read it back via `activeForSite`.
+  it('round-trips the ENG-097 autoPrintOnComplete printer config flag', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: {
+        channel: 'mock',
+        autoPrintOnComplete: true,
+      },
+      displayName: 'Auto-print printer',
+    });
+    expect(row.kind).toBe('printer');
+    expect(row.driver).toBe('escpos');
+    const config = row.config as Record<string, unknown>;
+    expect(config.autoPrintOnComplete).toBe(true);
+
+    // activeForSite is the surface SalesPage reads; the flag must
+    // survive the projection that drops persistence-only columns.
+    const active = await caller.peripherals.activeForSite({ siteId });
+    const printer = active.find(p => p.kind === 'printer');
+    expect(printer).toBeDefined();
+    expect(
+      (printer!.config as Record<string, unknown>).autoPrintOnComplete
+    ).toBe(true);
+  });
+
+  it('rejects a non-boolean autoPrintOnComplete with PERIPHERAL_CONFIG_INVALID', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    try {
+      await caller.peripherals.register({
+        siteId,
+        kind: 'printer',
+        driver: 'escpos',
+        config: {
+          channel: 'mock',
+          autoPrintOnComplete: 'yes' as unknown as boolean,
+        },
+      });
+      throw new Error('should have thrown');
+    } catch (err) {
+      expectErrorCode(err, 'PERIPHERAL_CONFIG_INVALID');
+    }
+  });
 });
 
 describe('peripherals.setActive', () => {

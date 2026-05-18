@@ -487,6 +487,7 @@
   },
   "printer": {
     "escposFailedFallback": "La impresora ESC/POS falló; imprimimos por la del sistema",
+    "autoPrintFailed": "La impresión automática falló; reimprime desde el detalle de la venta",
     "kickDrawerCta": "Abrir cajón",
     "kickDrawerSuccess": "Cajón monedero abierto",
     "kickDrawerFailed": "No se pudo abrir el cajón monedero",

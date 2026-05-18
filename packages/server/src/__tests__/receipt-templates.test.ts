@@ -488,32 +488,30 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(escposText).toContain(`A${' '.repeat(30)}B`);
     });
 
-    it('renders the QR placeholder with three finder-pattern corners + quiet zone', () => {
+    it('renders a real inline SVG QR for a non-empty source (ENG-097)', () => {
       const data = buildPreviewData('sale');
       const layout = {
         paperWidth: '80mm' as const,
         blocks: [{ type: 'qr' as const, source: '{{fiscal.qrUrl}}', sizeMm: 25 }],
       };
       const result = renderReceipt(layout, data);
-      // Strip the embedded <style> block so CSS rule definitions cannot
-      // satisfy a body-content assertion (the `.qr-finder-tl` selector
-      // lives there too).
       const bodyHtml = result.html.replace(/<style>[\s\S]*?<\/style>/g, '');
-      expect(bodyHtml).toContain('class="qr-finder qr-finder-tl"');
-      expect(bodyHtml).toContain('class="qr-finder qr-finder-tr"');
-      expect(bodyHtml).toContain('class="qr-finder qr-finder-bl"');
-      expect(bodyHtml).toContain('class="qr-module"');
-      // The resolved QR source is embedded for the print handler to pick
-      // up when it draws the real PNG — the body must carry the value
-      // even though the renderer does not generate the PNG itself.
+      // The qrcode lib emits a single <svg> with a <path> covering every
+      // dark module. The body must carry that markup AND retain the
+      // data-qr-source attribute so the print handler / scanner can
+      // observe the encoded URL.
+      expect(bodyHtml).toContain('class="qr-svg"');
+      expect(bodyHtml).toContain('<svg');
+      expect(bodyHtml).toContain('xmlns="http://www.w3.org/2000/svg"');
       expect(bodyHtml).toContain('data-qr-source="');
       expect(bodyHtml).toContain('catalogo-vpfe.dian.gov.co');
-      // Quiet zone is the 4 px white border on the .qr-placeholder; CSS
-      // selector lives in the embedded stylesheet so a defense-in-depth
-      // assertion catches the rule literally.
-      expect(result.html).toContain('.qr-placeholder{');
-      expect(result.html).toContain(`border:4px solid #fff`);
-      expect(result.html).not.toContain('gradient');
+      // The 1-bit rule still holds: no gradient, no opacity tweaks.
+      expect(bodyHtml).not.toContain('gradient');
+      expect(bodyHtml).not.toContain('opacity:');
+      // ENG-086 placeholder finder-pattern markup is no longer emitted
+      // on the happy path (it lives only in the encoder-fallback branch
+      // and the empty-source branch).
+      expect(bodyHtml).not.toContain('class="qr-finder qr-finder-tl"');
     });
 
     it('keeps the QR placeholder empty when the source resolves to empty', () => {
@@ -535,6 +533,74 @@ describe('Receipt Templates (Iter 2)', () => {
         ''
       );
       expect(bodyHtml).not.toContain('qr-finder-tl');
+      expect(bodyHtml).not.toContain('<svg');
+    });
+
+    it('emits the GS ( k QR opcode sequence in the ESC/POS payload (ENG-097)', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'qr' as const, source: '{{fiscal.qrUrl}}', sizeMm: 25 }],
+      };
+      const result = renderReceipt(layout, data);
+      const bytes = Array.from(result.escpos);
+      // Helper: locate the first occurrence of an exact byte sequence.
+      const indexOfSequence = (seq: number[]): number => {
+        outer: for (let i = 0; i + seq.length <= bytes.length; i += 1) {
+          for (let j = 0; j < seq.length; j += 1) {
+            if (bytes[i + j] !== seq[j]) continue outer;
+          }
+          return i;
+        }
+        return -1;
+      };
+      // Model select: GS ( k 04 00 31 41 32 00.
+      const modelIdx = indexOfSequence([
+        0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00,
+      ]);
+      // Module size: GS ( k 03 00 31 43 06 (default moduleSize 6).
+      const sizeIdx = indexOfSequence([
+        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06,
+      ]);
+      // Error correction level M: GS ( k 03 00 31 45 31.
+      const ecIdx = indexOfSequence([
+        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31,
+      ]);
+      // Print: GS ( k 03 00 31 51 30.
+      const printIdx = indexOfSequence([
+        0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30,
+      ]);
+      expect(modelIdx).toBeGreaterThanOrEqual(0);
+      expect(sizeIdx).toBeGreaterThan(modelIdx);
+      expect(ecIdx).toBeGreaterThan(sizeIdx);
+      expect(printIdx).toBeGreaterThan(ecIdx);
+      // The legacy `[QR: ...]` text fallback must not leak when the
+      // encoder succeeded.
+      const escposText = bytes
+        .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
+        .join('');
+      expect(escposText).not.toContain('[QR:');
+    });
+
+    it('falls back to the placeholder text in ESC/POS when the source is empty', () => {
+      const data = buildPreviewData('sale');
+      data.fiscal = { ...data.fiscal, cufe: null };
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'qr' as const, source: '{{ default(fiscal.cufe, "") }}' }],
+      };
+      const result = renderReceipt(layout, data);
+      const bytes = Array.from(result.escpos);
+      // Empty source must NOT emit the GS ( k model-select opcode.
+      const hasModelOpcode = bytes.some(
+        (_, i) =>
+          bytes[i] === 0x1d &&
+          bytes[i + 1] === 0x28 &&
+          bytes[i + 2] === 0x6b &&
+          bytes[i + 5] === 0x31 &&
+          bytes[i + 6] === 0x41
+      );
+      expect(hasModelOpcode).toBe(false);
     });
 
     it('embeds the print tokens from PRINT_TOKENS in the document stylesheet', () => {

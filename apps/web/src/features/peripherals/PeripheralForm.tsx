@@ -114,6 +114,43 @@ export function PeripheralForm({
 
   const driverOptions = useMemo(() => DRIVER_OPTIONS[kind] ?? [], [kind]);
 
+  // ENG-097 — derive the `autoPrintOnComplete` printer flag from the
+  // JSON textarea so the toggle + the raw editor stay in sync without
+  // a second state mirror. Returns `null` when the JSON does not parse
+  // (so the toggle reflects "unknown" via its derived defaultChecked).
+  const parsedConfig = useMemo<Record<string, unknown> | null>(() => {
+    try {
+      const trimmed = configRaw.trim();
+      if (trimmed === '') return {};
+      const value = JSON.parse(trimmed) as unknown;
+      if (
+        typeof value !== 'object' ||
+        value === null ||
+        Array.isArray(value)
+      ) {
+        return null;
+      }
+      return value as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }, [configRaw]);
+  const showAutoPrintToggle = kind === 'printer' && driver === 'escpos';
+  const autoPrintChecked =
+    showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
+  const autoPrintToggleDisabled = isSaving || parsedConfig === null;
+
+  function handleAutoPrintToggle(nextChecked: boolean) {
+    if (parsedConfig === null) return;
+    const nextConfig: Record<string, unknown> = { ...parsedConfig };
+    if (nextChecked) {
+      nextConfig.autoPrintOnComplete = true;
+    } else {
+      delete nextConfig.autoPrintOnComplete;
+    }
+    setConfigRaw(formatConfigForInput(nextConfig));
+  }
+
   // When the kind changes, snap to the first available driver so the
   // operator does not silently land on an unsupported pair. We do
   // this in the change handler instead of an effect to avoid a
@@ -238,6 +275,33 @@ export function PeripheralForm({
             onChange={event => setDisplayName(event.target.value)}
           />
         </div>
+
+        {showAutoPrintToggle && (
+          <div className="rounded border border-line bg-secondary-50 p-3">
+            <label
+              htmlFor="peripheral-auto-print"
+              className="flex items-start gap-2 text-sm"
+            >
+              <input
+                id="peripheral-auto-print"
+                type="checkbox"
+                className="mt-0.5"
+                checked={autoPrintChecked}
+                disabled={autoPrintToggleDisabled}
+                onChange={event => handleAutoPrintToggle(event.target.checked)}
+                data-testid="peripheral-auto-print-toggle"
+              />
+              <span className="flex flex-col">
+                <span className="font-medium">
+                  {t('fields.autoPrintOnComplete.label')}
+                </span>
+                <span className="text-xs text-secondary-600">
+                  {t('fields.autoPrintOnComplete.help')}
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         <div>
           <label htmlFor="peripheral-config" className="label">

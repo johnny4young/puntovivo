@@ -250,4 +250,53 @@ describe('PeripheralsPage', () => {
 
     expect(screen.getAllByText('Not tested').length).toBeGreaterThanOrEqual(1);
   });
+
+  // ENG-097 — the auto-print toggle ships only for the ESC/POS printer
+  // driver pair. Other (kind, driver) combinations must not surface it
+  // so cashier UI hooks never read a flag from an unrelated peripheral.
+  it('hides the ENG-097 auto-print toggle for the system printer driver', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [];
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    // Default new-entry pair is (printer, system) — no toggle.
+    expect(
+      screen.queryByTestId('peripheral-auto-print-toggle')
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the ENG-097 auto-print toggle for the ESC/POS printer driver', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [];
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    // Switch the driver to escpos — the toggle must appear.
+    const driverSelect = screen.getByLabelText('Driver');
+    await user.selectOptions(driverSelect, 'escpos');
+    expect(
+      screen.getByTestId('peripheral-auto-print-toggle')
+    ).toBeInTheDocument();
+    // Help copy is rendered alongside.
+    expect(
+      screen.getByText('Print automatically when a sale closes')
+    ).toBeInTheDocument();
+  });
+
+  it('writes the auto-print flag into the config JSON when toggled on', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [];
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    await user.selectOptions(screen.getByLabelText('Driver'), 'escpos');
+    const toggle = screen.getByTestId(
+      'peripheral-auto-print-toggle'
+    ) as HTMLInputElement;
+    await user.click(toggle);
+    expect(toggle.checked).toBe(true);
+    // The textarea now contains the serialized flag.
+    const configTextarea = screen.getByLabelText(
+      'Configuration (JSON)'
+    ) as HTMLTextAreaElement;
+    expect(configTextarea.value).toContain('"autoPrintOnComplete": true');
+  });
 });

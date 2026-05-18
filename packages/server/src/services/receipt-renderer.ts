@@ -27,6 +27,7 @@ import type {
 } from '../trpc/schemas/receiptTemplates.js';
 import type { FiscalDocumentStatus, ReceiptTemplateKind } from '../db/schema.js';
 import { PRINT_TOKENS } from './print-tokens.js';
+import { encodeQrEscposBytes, encodeQrSvg } from './qr-encoder.js';
 import {
   applyDatePattern,
   evaluateTemplate,
@@ -626,22 +627,30 @@ function safeResolvedScannerSource(template: string, data: RenderData): string {
   return resolved;
 }
 
+/** ENG-097 — default pixel size for the rendered QR SVG when the
+ *  block omits `sizeMm`. 78 px matches the handoff placeholder so the
+ *  editor preview footprint does not jump when the renderer switches
+ *  from the placeholder to the real SVG.
+ */
+const QR_DEFAULT_PIXEL_SIZE = 78;
+/** ENG-097 — mm-to-pixel scale used to size the inline SVG when the
+ *  block declares `sizeMm`. Matches the design-system ratio (1 mm ≈
+ *  3.78 px on screen at 96 dpi); the printer firmware re-rasters from
+ *  the ESC/POS payload at its native dpi so this constant only affects
+ *  the preview iframe.
+ */
+const QR_MM_TO_PX = 3.78;
+
 function renderQrBlockHtml(
   block: Extract<ReceiptBlock, { type: 'qr' }>,
   data: RenderData
 ): string {
-  // We do not generate the QR PNG inline (would require a node lib +
-  // bytes embedding); we render a stable placeholder marker that the
-  // print handler can swap for a real QR via `<canvas>` at print time.
-  // Storing the resolved value in a `data-qr-source` attribute (already
-  // escaped) lets the print preview see exactly what will be encoded.
-  //
-  // ENG-086 — the placeholder now ships three finder-pattern corners
-  // (top-left, top-right, bottom-left) and a 4-module quiet zone so the
-  // editor preview reads as an actual QR silhouette instead of a bare
-  // `[QR]` tag. The structure mirrors `.r-qr .box` in
-  // `preview/25-print-thermal.html`; the print handler still owns real
-  // PNG generation via the ESC/POS `GS ( k` command.
+  // ENG-097 — emit a real inline SVG QR when the resolved source is
+  // present; fall back to the ENG-086 CSS placeholder when the source
+  // is empty (no fiscal data yet) or the encoder rejects the payload
+  // (too long for the chosen EC level). The placeholder keeps the
+  // editor preview footprint stable so designers see a consistent
+  // silhouette regardless of which path lands.
   const resolved = safeResolvedScannerSource(block.source, data);
   const safeSource = escapeHtml(resolved);
   const sizeStyle = block.sizeMm
@@ -650,7 +659,16 @@ function renderQrBlockHtml(
   if (!safeSource) {
     return `<div class="block block-qr"><div class="qr-placeholder qr-placeholder-empty" data-qr-source=""${sizeStyle}></div></div>`;
   }
-  return `<div class="block block-qr"><div class="qr-placeholder" data-qr-source="${safeSource}"${sizeStyle}>${QR_MODULE_SPANS}<span class="qr-finder qr-finder-tl"></span><span class="qr-finder qr-finder-tr"></span><span class="qr-finder qr-finder-bl"></span></div></div>`;
+  const pixelSize = block.sizeMm
+    ? Math.round(block.sizeMm * QR_MM_TO_PX)
+    : QR_DEFAULT_PIXEL_SIZE;
+  const svg = encodeQrSvg(resolved, { pixelSize });
+  if (!svg) {
+    // Encoder rejected (payload too large or invalid); keep the
+    // receipt printable with the ENG-086 silhouette.
+    return `<div class="block block-qr"><div class="qr-placeholder" data-qr-source="${safeSource}"${sizeStyle}>${QR_MODULE_SPANS}<span class="qr-finder qr-finder-tl"></span><span class="qr-finder qr-finder-tr"></span><span class="qr-finder qr-finder-bl"></span></div></div>`;
+  }
+  return `<div class="block block-qr"><div class="qr-svg" data-qr-source="${safeSource}"${sizeStyle}>${svg}</div></div>`;
 }
 
 function renderSeparatorBlockHtml(
@@ -815,6 +833,8 @@ function buildHtmlDocument(
   .block-totals td{padding-top:1px;padding-bottom:1px;}
   .block-totals tr.grand-total td{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.totalSize};font-weight:700;padding-top:4px;padding-bottom:4px;letter-spacing:0.02em;}
   .block-separator{font-family:${mono};letter-spacing:0;}
+  .qr-svg{display:inline-block;line-height:0;background:${PRINT_TOKENS.paper};color:${PRINT_TOKENS.ink};}
+  .qr-svg svg{width:100%;height:100%;display:block;shape-rendering:crispEdges;}
   .qr-placeholder{display:inline-block;position:relative;width:78px;height:78px;border:4px solid ${PRINT_TOKENS.paper};outline:1px solid ${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};}
   .qr-placeholder-empty{background:${PRINT_TOKENS.paper};}
   .qr-module{position:absolute;width:6px;height:6px;background:${PRINT_TOKENS.ink};}
@@ -944,16 +964,28 @@ function renderBlockEscPos(
       return out;
     }
     case 'qr': {
-      // Real QR generation is part of the EscPosPrinterAdapter (Iter 4
-      // — the GS ( k command). Until then we emit a placeholder line
-      // so the layout cadence is preserved. Same scheme guard as the
-      // HTML branch — a hostile resolved value never reaches the
-      // printed strip.
+      // ENG-097 — emit the real Epson Standard Mode `GS ( k` QR
+      // sequence so the printed code scans. Falls through to a
+      // placeholder line when the source is empty or the encoder
+      // rejects the payload (too long for the chosen EC level) — the
+      // receipt stays printable instead of throwing mid-flush. Same
+      // scheme guard as the HTML branch keeps hostile resolved values
+      // (`javascript:`, `data:`, …) off the printer.
       const resolved = safeResolvedScannerSource(block.source, data);
+      const qrBytes = encodeQrEscposBytes(resolved);
+      if (qrBytes) {
+        return [
+          ...escposAlign('center'),
+          ...qrBytes,
+          ...escposLine(),
+          ...escposAlign('left'),
+        ];
+      }
       return [
         ...escposAlign('center'),
-        ...bytesFromString(`[QR: ${resolved}]`),
+        ...bytesFromString(resolved ? `[QR: ${resolved}]` : ''),
         ...escposLine(),
+        ...escposAlign('left'),
       ];
     }
     case 'separator': {
