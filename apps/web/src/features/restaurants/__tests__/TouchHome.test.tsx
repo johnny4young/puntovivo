@@ -1,24 +1,23 @@
 /**
- * ENG-039a — TouchHome mounting smoke.
- * Confirms the page wrapper renders the shared screen with the
- * `touch` variant. The full behavior matrix lives in
- * VoiceOrderingScreen.test.tsx.
+ * ENG-087 — TouchHome mounting smoke (V1 POS grid replaces the
+ * prior VoiceOrderingScreen default from ENG-039a). Confirms the
+ * page wrapper renders the V1 Touch POS surface. The full
+ * behavior matrix lives in `PosTouchScreen.test.tsx`. Voice
+ * ordering moves to `/touch/voice` and stays reachable via that
+ * sibling route registered in `App.tsx`.
  */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../VoiceOrderingScreen', () => ({
-  VoiceOrderingScreen: ({ variant }: { variant: string }) => (
-    <div data-testid="voice-ordering-stub" data-variant={variant} />
-  ),
+vi.mock('@/features/pos-touch/PosTouchScreen', () => ({
+  PosTouchScreen: () => <div data-testid="pos-touch-screen-stub" />,
 }));
 
 import TouchHome from '../TouchHome';
 
-describe('TouchHome (ENG-039a)', () => {
-  it('mounts VoiceOrderingScreen with variant="touch"', () => {
+describe('TouchHome (ENG-087)', () => {
+  it('mounts the V1 Touch POS surface by default', () => {
     render(<TouchHome />);
-    const stub = screen.getByTestId('voice-ordering-stub');
-    expect(stub.getAttribute('data-variant')).toBe('touch');
+    expect(screen.getByTestId('pos-touch-screen-stub')).toBeInTheDocument();
   });
 });

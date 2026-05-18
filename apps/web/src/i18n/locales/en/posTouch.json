@@ -1,0 +1,54 @@
+{
+  "page": {
+    "kicker": "Touch checkout",
+    "title": "POS Touch",
+    "subtitle": "Tap a product to add it to the cart. Charge directly from the right rail.",
+    "noActiveSite": "Select an active site before opening the touch register.",
+    "loadingProducts": "Loading catalog…",
+    "loadingError": "We could not load the catalog. Try again.",
+    "voiceLink": "Open voice ordering"
+  },
+  "categories": {
+    "all": "All",
+    "allHint": "Every product in this site",
+    "empty": "No categories configured yet",
+    "label": "Categories"
+  },
+  "grid": {
+    "empty": "No products match this category yet.",
+    "noResults": "No products in the catalog. Add products from Setup first.",
+    "tileAriaLabel": "Add {{name}} for {{price}}"
+  },
+  "cart": {
+    "title": "Active cart",
+    "lineCount_one": "{{count}} item",
+    "lineCount_other": "{{count}} items",
+    "customer": "Customer",
+    "customerPlaceholder": "Walk-in customer",
+    "loyalty": {
+      "badge": "Loyal customer",
+      "sumarPuntos": "Add points",
+      "sumarPuntosHelp": "Reward the customer after the sale closes."
+    },
+    "empty": "Tap a product to start the sale.",
+    "lineQty": "Qty",
+    "lineUnitPrice": "Unit",
+    "lineTotal": "Total",
+    "lineRemoveAriaLabel": "Remove {{name}} from cart",
+    "subtotal": "Subtotal",
+    "tax": "VAT",
+    "total": "Total",
+    "clear": "Clear cart",
+    "charge": "Charge sale",
+    "chargeDisabledNoSession": "Open the cash register to charge sales.",
+    "chargeDisabledNoItems": "Add a product to the cart first.",
+    "chargeDisabledNoSite": "Select an active site to charge."
+  },
+  "toast": {
+    "addedToCart": "Added {{name}} to the cart",
+    "chargeSuccess": "Sale completed",
+    "chargeSuccessDescription_one": "{{count}} item processed.",
+    "chargeSuccessDescription_other": "{{count}} items processed.",
+    "chargeError": "We could not complete the sale"
+  }
+}

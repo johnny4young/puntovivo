@@ -131,6 +131,18 @@ const TouchShell = lazyPage(async () => ({
 const TouchHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/TouchHome')).default,
 }));
+// ENG-087 — voice ordering was the previous default of `/touch`.
+// After ENG-087 ships the V1 POS grid as the `/touch` home, the
+// voice ordering surface moves to `/touch/voice` so the ENG-039a
+// flow stays reachable for operators who rely on it. The wrapper
+// pins `variant="touch"` so the route component matches the
+// existing tablet two-column shape used before this slice.
+const TouchVoiceRoute = lazyPage(async () => {
+  const mod = await import('@/features/restaurants/VoiceOrderingScreen');
+  return {
+    default: () => <mod.VoiceOrderingScreen variant="touch" />,
+  };
+});
 // ENG-039b — admin page for the restaurant table catalog.
 const RestaurantTablesPage = lazyPage(async () => ({
   default: (await import('@/features/restaurants/RestaurantTablesPage')).RestaurantTablesPage,
@@ -497,6 +509,7 @@ function App() {
             }
           >
             <Route index element={<TouchHome />} />
+            <Route path="voice" element={<TouchVoiceRoute />} />
           </Route>
           <Route
             path="kds"

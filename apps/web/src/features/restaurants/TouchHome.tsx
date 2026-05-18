@@ -1,13 +1,16 @@
 /**
- * ENG-039a — Real `/touch` home page.
+ * ENG-087 — `/touch` home page.
  *
- * Replaces the `TouchHomePlaceholder` from ENG-069. Mounts the shared
- * `VoiceOrderingScreen` with the tablet two-column variant.
+ * V1 of the Touch POS surface (grid catálogo + cart sidebar +
+ * Cobrar CTA). Replaces the prior `VoiceOrderingScreen` mount
+ * from ENG-039a; voice ordering now lives at `/touch/voice` as a
+ * sibling route registered in `App.tsx`, so existing voice users
+ * keep access via direct URL.
  *
  * @module features/restaurants/TouchHome
  */
-import { VoiceOrderingScreen } from './VoiceOrderingScreen';
+import { PosTouchScreen } from '@/features/pos-touch/PosTouchScreen';
 
 export default function TouchHome() {
-  return <VoiceOrderingScreen variant="touch" />;
+  return <PosTouchScreen />;
 }
