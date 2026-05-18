@@ -65,6 +65,13 @@ export const MODULE_IDS = [
   // existing tenants do not start emitting webhooks on the kernel
   // ship — operators opt-in per tenant via /company?tab=modules.
   'events-api',
+  // ENG-091 — Domicilios touch V5. The server-side scaffold
+  // (deliveryOrders router + delivery_orders table) shipped in 0c75ca1
+  // independent of the module gate. This entry adds the runtime gate
+  // for the `/delivery` UI surface. Default OFF so non-delivery
+  // tenants do not see the sidebar entry appear after the kernel
+  // ships; operators flip it on per tenant via /company?tab=modules.
+  'delivery',
 ] as const;
 
 export type ModuleId = (typeof MODULE_IDS)[number];
@@ -174,6 +181,17 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'eventsApi',
+  },
+  // ENG-091 — Domicilios touch V5. Gates the `/delivery` UI route.
+  // The server `deliveryOrders.*` router enforces role + site scopes
+  // independent of this flag; the manifest entry hides the renderer
+  // surface (sidebar entry + route) so non-delivery tenants do not
+  // see it after the kernel ships.
+  'delivery': {
+    id: 'delivery',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'delivery',
   },
 };
 

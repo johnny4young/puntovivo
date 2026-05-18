@@ -81,6 +81,9 @@ const PurchasesPage = lazyPage(async () => ({
 const QuotationsPage = lazyPage(async () => ({
   default: (await import('@/features/quotations/QuotationsPage')).QuotationsPage,
 }));
+const DeliveryPage = lazyPage(async () => ({
+  default: (await import('@/features/delivery/DeliveryPage')).DeliveryPage,
+}));
 const ReceiptTemplatesPage = lazyPage(async () => ({
   default: (await import('@/features/receipt-templates/ReceiptTemplatesPage'))
     .ReceiptTemplatesPage,
@@ -385,6 +388,14 @@ function App() {
               element={
                 <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="quotations">
                   <QuotationsPage />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="delivery"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="delivery">
+                  <DeliveryPage />
                 </ShellRoute>
               }
             />

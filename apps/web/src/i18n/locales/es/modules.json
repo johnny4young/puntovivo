@@ -56,6 +56,10 @@
     "eventsApi": {
       "label": "API pública de eventos",
       "description": "Publica eventos públicos (sale.completed, sale.refunded, inventory.adjusted, cash_session.closed, fiscal_document.accepted) en la cola de webhooks para que un futuro servidor central o un integrador externo se suscriba. Cuando está desactivado, no se crean registros de webhook."
+    },
+    "delivery": {
+      "label": "Domicilios",
+      "description": "Cola operativa para pedidos a domicilio con columnas por estado y asignación de mensajero. Cuando está activo, la página /delivery queda accesible y el router deliveryOrders.* acepta llamadas."
     }
   }
 }

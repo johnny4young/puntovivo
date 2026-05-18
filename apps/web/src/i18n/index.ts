@@ -14,6 +14,7 @@ import enInventory from './locales/en/inventory.json';
 import enProducts from './locales/en/products.json';
 import enCustomers from './locales/en/customers.json';
 import enQuotations from './locales/en/quotations.json';
+import enDelivery from './locales/en/delivery.json';
 import enReceiptTemplates from './locales/en/receiptTemplates.json';
 import enAuditLogs from './locales/en/auditLogs.json';
 import enFiscal from './locales/en/fiscal.json';
@@ -45,6 +46,7 @@ import esInventory from './locales/es/inventory.json';
 import esProducts from './locales/es/products.json';
 import esCustomers from './locales/es/customers.json';
 import esQuotations from './locales/es/quotations.json';
+import esDelivery from './locales/es/delivery.json';
 import esReceiptTemplates from './locales/es/receiptTemplates.json';
 import esAuditLogs from './locales/es/auditLogs.json';
 import esFiscal from './locales/es/fiscal.json';
@@ -96,7 +98,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'delivery', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants'],
   resources: {
     en: {
       common: enCommon,
@@ -110,6 +112,7 @@ void i18next.use(initReactI18next).init({
       products: enProducts,
       customers: enCustomers,
       quotations: enQuotations,
+      delivery: enDelivery,
       receiptTemplates: enReceiptTemplates,
       auditLogs: enAuditLogs,
       fiscal: enFiscal,
@@ -142,6 +145,7 @@ void i18next.use(initReactI18next).init({
       products: esProducts,
       customers: esCustomers,
       quotations: esQuotations,
+      delivery: esDelivery,
       receiptTemplates: esReceiptTemplates,
       auditLogs: esAuditLogs,
       fiscal: esFiscal,

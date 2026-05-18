@@ -103,6 +103,7 @@ const navigationSections = [
       { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.quotations', href: '/quotations', icon: FileText, allowedRoles: managerOrAdminRoles, requiredModule: 'quotations' },
+      { nameKey: 'items.delivery', href: '/delivery', icon: Truck, allowedRoles: managerOrAdminRoles, requiredModule: 'delivery' },
       { nameKey: 'items.customers', href: '/customers', icon: Users, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
     ],

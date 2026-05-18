@@ -1,0 +1,89 @@
+{
+  "page": {
+    "kicker": "Delivery queue",
+    "title": "Delivery orders",
+    "subtitle": "Track every domicilio from acceptance through delivery. Move orders forward, assign couriers, and reach for cancellations from one console.",
+    "empty": "There are no delivery orders in this column yet.",
+    "loading": "Loading delivery orders…",
+    "errorTitle": "We could not load delivery orders",
+    "errorRetry": "Try again",
+    "noActiveSite": "Select an active site before opening the delivery queue."
+  },
+  "status": {
+    "accepted": {
+      "label": "Pending acceptance",
+      "count_one": "{{count}} order",
+      "count_other": "{{count}} orders"
+    },
+    "preparing": {
+      "label": "Preparing",
+      "count_one": "{{count}} order",
+      "count_other": "{{count}} orders"
+    },
+    "dispatched": {
+      "label": "On the way",
+      "count_one": "{{count}} order",
+      "count_other": "{{count}} orders"
+    },
+    "delivered": {
+      "label": "Delivered",
+      "count_one": "{{count}} order",
+      "count_other": "{{count}} orders"
+    },
+    "cancelled": {
+      "label": "With problem",
+      "count_one": "{{count}} order",
+      "count_other": "{{count}} orders"
+    }
+  },
+  "card": {
+    "idLabel": "Order",
+    "customerFallback": "Walk-in customer",
+    "noPhone": "No phone",
+    "addressLabel": "Address",
+    "itemsLabel": "Items",
+    "itemsFallback": "No items snapshot",
+    "totalLabel": "Total",
+    "detailsCta": "Open details",
+    "elapsedSince": "Open for {{elapsed}}"
+  },
+  "detail": {
+    "title": "Order detail",
+    "empty": "Select an order to see its full detail.",
+    "customerHeader": "Customer",
+    "phoneLabel": "Phone",
+    "addressLabel": "Delivery address",
+    "addressNotesLabel": "Notes",
+    "itemsLabel": "Items snapshot",
+    "totalLabel": "Total",
+    "courierLabel": "Courier",
+    "courierPlaceholder": "Assign a courier",
+    "courierClear": "Leave courier unassigned",
+    "timelineTitle": "Status timeline",
+    "timeline": {
+      "accepted": "Accepted",
+      "preparing": "Preparing",
+      "dispatched": "On the way",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "advance": {
+      "accepted": "Mark as preparing",
+      "preparing": "Mark as on the way",
+      "dispatched": "Mark as delivered",
+      "delivered": "Order delivered",
+      "cancelled": "Order cancelled"
+    },
+    "cancel": "Cancel order",
+    "cancelConfirmTitle": "Cancel this delivery order?",
+    "cancelConfirmBody": "Cancellation is recorded in the audit log. You cannot undo this from the queue.",
+    "cancelConfirmConfirm": "Cancel order",
+    "cancelConfirmDismiss": "Keep order"
+  },
+  "toast": {
+    "advanceSuccess": "Order moved to {{label}}",
+    "advanceError": "We could not advance the order",
+    "cancelSuccess": "Order cancelled",
+    "cancelError": "We could not cancel the order"
+  }
+}
