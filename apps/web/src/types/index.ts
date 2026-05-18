@@ -308,6 +308,10 @@ export interface Customer {
   clientTypeId?: string | null;
   commercialActivityId?: string | null;
   notes?: string | null;
+  // ENG-089 — per-customer cupo de crédito. `0 = sin cupo` (no
+  // limit); the server NOT-NULL default + Zod nonnegative refinement
+  // make this always present.
+  creditLimit?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

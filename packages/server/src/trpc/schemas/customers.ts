@@ -22,6 +22,16 @@ export const getCustomerInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
 
+// ENG-089 — `creditLimit` is the per-customer cupo de crédito. Zero
+// is the explicit "no limit" sentinel; negative values are rejected
+// here so the persistence layer never sees them. ENG-090 reads this
+// to gate the "Cargar a cuenta" payment method against the running
+// ledger balance.
+const creditLimitSchema = z
+  .number()
+  .nonnegative('creditLimit must be zero or greater')
+  .finite();
+
 export const createCustomerInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   email: z.string().email('Invalid email address').optional(),
@@ -38,6 +48,7 @@ export const createCustomerInput = z.object({
   clientTypeId: z.string().optional(),
   commercialActivityId: z.string().optional(),
   notes: z.string().optional(),
+  creditLimit: creditLimitSchema.optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -58,6 +69,7 @@ export const updateCustomerInput = z.object({
   clientTypeId: z.string().nullable().optional(),
   commercialActivityId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  creditLimit: creditLimitSchema.optional(),
   isActive: z.boolean().optional(),
 });
 

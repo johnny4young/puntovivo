@@ -22,6 +22,8 @@ export interface ExportOptions {
   dateFormat?: string;
 }
 
+const DOWNLOAD_URL_REVOKE_DELAY_MS = 1000;
+
 /**
  * Get the value from an object using a dot-notation path
  */
@@ -64,7 +66,7 @@ function formatValue<T>(value: unknown, column: ExportColumn<T>, row: T): string
 /**
  * Generate a filename with optional timestamp.
  *
- * The sanitizer replaces every non-alphanumeric character in `baseName`
+ * The sanitizer normalizes accents and replaces punctuation in `baseName`
  * (so callers can pass user-facing strings like "sales history") but never
  * touches the trailing `.${extension}` — that is the single source of truth
  * for the extension and must survive unchanged so the browser honors the
@@ -75,27 +77,35 @@ export function generateFilename(
   extension: string,
   includeTimestamp = true
 ): string {
-  const sanitizedName = baseName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const sanitizedName =
+    baseName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'export';
+  const sanitizedExtension =
+    extension.replace(/^\.+/, '').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'txt';
   if (includeTimestamp) {
     // ISO string has `:` and `.`; swap both for `-` so the filename has
     // exactly one dot — the one before the extension.
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    return `${sanitizedName}_${timestamp}.${extension}`;
+    return `${sanitizedName}_${timestamp}.${sanitizedExtension}`;
   }
-  return `${sanitizedName}.${extension}`;
+  return `${sanitizedName}.${sanitizedExtension}`;
 }
 
 /**
  * Trigger file download in the browser.
  *
- * Revoking the object URL is deferred to the next tick — revoking it
+ * Revoking the object URL is deferred briefly — revoking it
  * synchronously right after `link.click()` races against the browser's own
  * download pipeline on Firefox / Safari / Electron. When the race is lost
  * the browser falls back to the blob URL fragment as the suggested
  * filename, which has no extension at all ("Unknown", "download", or the
- * UUID portion of the blob URL). The tiny async gap fixes that without
- * leaking memory — the URL is revoked as soon as the browser has handed
- * the download over to the OS.
+ * UUID portion of the blob URL). The short grace period keeps the semantic
+ * `download` filename alive long enough for the OS handoff without leaking
+ * the URL for the lifetime of the page.
  */
 function downloadFile(content: Blob, filename: string): void {
   const url = URL.createObjectURL(content);
@@ -109,7 +119,7 @@ function downloadFile(content: Blob, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS);
 }
 
 /**

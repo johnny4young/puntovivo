@@ -49,10 +49,12 @@ const columns: ExportColumn<Row>[] = [
 
 let createdUrl: string | null = null;
 let revokedUrl: string | null = null;
+let clickedDownloadName: string | null = null;
 
 beforeEach(() => {
   createdUrl = null;
   revokedUrl = null;
+  clickedDownloadName = null;
   vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
     const blob = src as Blob;
     createdUrl = `blob:mock/${blob.size}`;
@@ -61,10 +63,15 @@ beforeEach(() => {
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(url => {
     revokedUrl = url;
   });
-  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement
+  ) {
+    clickedDownloadName = this.download;
+  });
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -109,10 +116,14 @@ describe('exportToCSV', () => {
     expect(text).toContain('"0"');
   });
 
-  it('appends an anchor with the correct download filename and revokes the URL on the next tick', async () => {
+  it('appends an anchor with the correct download filename and revokes the URL after a grace period', async () => {
+    vi.useFakeTimers();
     exportToCSV(sample, columns, 'My Rows!', { includeTimestamp: false });
-    // Wait for setTimeout(0) revoke + arrayBuffer microtask.
-    await new Promise(r => setTimeout(r, 5));
+    expect(clickedDownloadName).toBe('my-rows.csv');
+    expect(revokedUrl).toBeNull();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(revokedUrl).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
     expect(revokedUrl).toBe(createdUrl);
   });
 

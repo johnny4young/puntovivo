@@ -35,8 +35,11 @@ const addPaymentInput = z.object({
 
 const addAdjustmentInput = z.object({
   customerId: z.string().min(1),
-  amount: z.number(),
-  note: z.string().min(1, 'note required for adjustments'),
+  amount: z
+    .number()
+    .finite()
+    .refine(value => value !== 0, 'amount must be non-zero'),
+  note: z.string().trim().min(1, 'note required for adjustments'),
 });
 
 export const customerLedgerRouter = router({

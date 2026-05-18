@@ -43,8 +43,76 @@
       "postalCode": "Código postal",
       "country": "País",
       "notes": "Notas",
+      "creditLimit": {
+        "label": "Cupo de crédito",
+        "help": "Saldo máximo de cartera que puede acumular el cliente. 0 significa sin cupo.",
+        "placeholder": "0.00",
+        "invalid": "El cupo debe ser cero o mayor"
+      },
       "isActive": "Cliente activo"
     }
+  },
+  "ledger": {
+    "cta": {
+      "abono": "Recibir abono",
+      "estadoCuenta": "Estado de cuenta",
+      "cargarCuenta": "Cargar a cuenta",
+      "verCuenta": "Ver cuenta corriente"
+    },
+    "actions": {
+      "cancel": "Cancelar",
+      "saving": "Guardando...",
+      "close": "Cerrar",
+      "optional": "(opcional)",
+      "noteTooLong": "La nota puede tener máximo 240 caracteres"
+    },
+    "modal": {
+      "title": "Cuenta corriente",
+      "balanceLabel": "Saldo",
+      "cupoLabel": "Cupo",
+      "cupoUnset": "Sin cupo",
+      "projectedLabel": "Saldo proyectado",
+      "empty": "Aún no hay movimientos",
+      "loading": "Cargando movimientos...",
+      "noTaxId": "Sin NIT",
+      "kind": {
+        "sale": "Venta a crédito",
+        "payment": "Abono",
+        "adjustment": "Ajuste"
+      },
+      "column": {
+        "occurredAt": "Fecha",
+        "kind": "Movimiento",
+        "amount": "Monto",
+        "note": "Referencia / nota"
+      }
+    },
+    "abonoModal": {
+      "title": "Recibir abono",
+      "description": "Registra un abono contra el saldo del cliente. El monto se asienta como crédito y el saldo baja.",
+      "amountLabel": "Monto",
+      "amountRequired": "Ingresa un monto mayor a cero",
+      "noteLabel": "Nota",
+      "confirm": "Confirmar abono",
+      "success": "Abono registrado",
+      "error": "No se pudo registrar el abono"
+    },
+    "adjustmentModal": {
+      "title": "Cargar a cuenta",
+      "description": "Registra un ajuste manual. Un monto positivo suma al saldo del cliente y uno negativo lo reduce. La nota es obligatoria para la traza de auditoría.",
+      "amountLabel": "Monto",
+      "amountRequired": "Ingresa un ajuste distinto de cero",
+      "noteLabel": "Nota",
+      "noteRequired": "La nota es obligatoria para ajustes",
+      "confirm": "Confirmar ajuste",
+      "success": "Ajuste registrado",
+      "error": "No se pudo registrar el ajuste"
+    },
+    "estadoCuenta": {
+      "filename": "estado-cuenta",
+      "successToast": "Estado de cuenta descargado"
+    },
+    "adminOnly": "Se requiere rol admin para cargar ajustes"
   },
   "delete": {
     "title": "Eliminar cliente",

@@ -43,8 +43,76 @@
       "postalCode": "Postal Code",
       "country": "Country",
       "notes": "Notes",
+      "creditLimit": {
+        "label": "Credit limit",
+        "help": "Maximum receivable balance the customer can carry. 0 means no limit.",
+        "placeholder": "0.00",
+        "invalid": "Credit limit must be zero or greater"
+      },
       "isActive": "Customer is active"
     }
+  },
+  "ledger": {
+    "cta": {
+      "abono": "Receive payment",
+      "estadoCuenta": "Statement",
+      "cargarCuenta": "Charge to account",
+      "verCuenta": "View account"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "close": "Close",
+      "optional": "(optional)",
+      "noteTooLong": "Note can have at most 240 characters"
+    },
+    "modal": {
+      "title": "Account statement",
+      "balanceLabel": "Balance",
+      "cupoLabel": "Credit limit",
+      "cupoUnset": "No limit",
+      "projectedLabel": "Projected balance",
+      "empty": "No ledger entries yet",
+      "loading": "Loading ledger...",
+      "noTaxId": "No tax ID",
+      "kind": {
+        "sale": "Credit sale",
+        "payment": "Payment",
+        "adjustment": "Adjustment"
+      },
+      "column": {
+        "occurredAt": "When",
+        "kind": "Entry",
+        "amount": "Amount",
+        "note": "Reference / note"
+      }
+    },
+    "abonoModal": {
+      "title": "Receive payment",
+      "description": "Record a payment against the customer balance. The amount is stored as a credit so the running balance drops.",
+      "amountLabel": "Amount",
+      "amountRequired": "Enter a payment amount greater than zero",
+      "noteLabel": "Note",
+      "confirm": "Confirm payment",
+      "success": "Payment recorded",
+      "error": "Could not record the payment"
+    },
+    "adjustmentModal": {
+      "title": "Charge to account",
+      "description": "Record a manual adjustment. Positive amount adds to the customer's balance, negative reduces it. A note is required for the audit trail.",
+      "amountLabel": "Amount",
+      "amountRequired": "Enter a non-zero adjustment amount",
+      "noteLabel": "Note",
+      "noteRequired": "A note is required for adjustments",
+      "confirm": "Confirm adjustment",
+      "success": "Adjustment recorded",
+      "error": "Could not record the adjustment"
+    },
+    "estadoCuenta": {
+      "filename": "account-statement",
+      "successToast": "Statement downloaded"
+    },
+    "adminOnly": "Admin role required to charge adjustments"
   },
   "delete": {
     "title": "Delete Customer",

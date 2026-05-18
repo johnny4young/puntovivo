@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
+import { Plus, Pencil, Trash2, Mail, Phone, BookOpen } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -13,6 +13,7 @@ import {
   CustomerFormModal,
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
+import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
 
 function toOptionalString(value: string): string | undefined {
@@ -37,6 +38,9 @@ export function CustomersPage() {
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  // ENG-089 — V5 ledger panel mounting state. Manager + admin only;
+  // the row action button is hidden for cashier roles via `canViewLedger`.
+  const [ledgerCustomer, setLedgerCustomer] = useState<Customer | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
   const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
@@ -71,6 +75,10 @@ export function CustomersPage() {
   });
 
   const canDelete = user?.role === 'admin';
+  // ENG-089 — `Estado cuenta` row action mirrors the server's
+  // `customerLedger.list` manager+ gate; cashier never sees the
+  // button.
+  const canViewLedger = user?.role === 'admin' || user?.role === 'manager';
   const customers = (data?.items ?? []).map(customer => ({
     ...customer,
     isActive: customer.isActive ?? false,
@@ -119,6 +127,9 @@ export function CustomersPage() {
         clientTypeId: toNullableString(values.clientTypeId),
         commercialActivityId: toNullableString(values.commercialActivityId),
         notes: toNullableString(values.notes),
+        // ENG-089 — `creditLimit` always sends a number; the form
+        // coerces undefined to 0 via the default value.
+        creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
         isActive: values.isActive,
       });
       return;
@@ -140,6 +151,7 @@ export function CustomersPage() {
       clientTypeId: toOptionalString(values.clientTypeId),
       commercialActivityId: toOptionalString(values.commercialActivityId),
       notes: toOptionalString(values.notes),
+      creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
       isActive: values.isActive,
     });
   };
@@ -211,9 +223,24 @@ export function CustomersPage() {
     },
     {
       id: 'actions',
-      size: 80,
+      size: 120,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
+          {canViewLedger && (
+            <button
+              className="btn-ghost btn-icon h-8 w-8"
+              data-testid={`customer-ledger-${row.original.id}`}
+              // ENG-089 — the row action opens the full ledger panel
+              // (the panel itself exposes the CSV export CTA). Use
+              // `verCuenta` for the affordance label so screen-reader
+              // users hear "View account" instead of "Statement".
+              aria-label={i18next.t('customers:ledger.cta.verCuenta')}
+              title={i18next.t('customers:ledger.cta.verCuenta')}
+              onClick={() => setLedgerCustomer(row.original)}
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          )}
           <button className="btn-ghost btn-icon h-8 w-8" onClick={() => handleOpenEdit(row.original)}>
             <Pencil className="h-4 w-4" />
           </button>
@@ -279,6 +306,15 @@ export function CustomersPage() {
         message={t('delete.description')}
         confirmText={t('delete.title')}
         loading={deleteMutation.isPending}
+      />
+
+      {/* ENG-089 — V5 "Cuenta corriente" panel for the selected
+          customer. Manager + admin only; cashier never reaches this
+          surface because the row action button is hidden for them. */}
+      <CustomerLedgerModal
+        isOpen={!!ledgerCustomer}
+        customer={ledgerCustomer}
+        onClose={() => setLedgerCustomer(null)}
       />
     </>
   );

@@ -20,6 +20,9 @@ export interface CustomerFormValues {
   clientTypeId: string;
   commercialActivityId: string;
   notes: string;
+  // ENG-089 — cupo de crédito (0 = sin cupo). Stored as a number;
+  // negative values blocked at the form layer + Zod.
+  creditLimit: number;
   isActive: boolean;
 }
 
@@ -39,6 +42,7 @@ const defaultValues: CustomerFormValues = {
   clientTypeId: '',
   commercialActivityId: '',
   notes: '',
+  creditLimit: 0,
   isActive: true,
 };
 
@@ -63,6 +67,7 @@ function mapCustomerToForm(customer: Customer | null): CustomerFormValues {
     clientTypeId: customer.clientTypeId ?? '',
     commercialActivityId: customer.commercialActivityId ?? '',
     notes: customer.notes ?? '',
+    creditLimit: customer.creditLimit ?? 0,
     isActive: customer.isActive,
   };
 }
@@ -268,6 +273,39 @@ export function CustomerFormModal({
             className="input mt-1 min-h-[96px]"
             {...form.register('notes')}
           />
+        </div>
+
+        {/* ENG-089 — cupo de crédito (per-customer ceiling). */}
+        <div>
+          <label htmlFor="customer-credit-limit" className="label">
+            {t('form.fields.creditLimit.label')}
+          </label>
+          <input
+            id="customer-credit-limit"
+            type="number"
+            min={0}
+            step="0.01"
+            className="input mt-1"
+            placeholder={t('form.fields.creditLimit.placeholder')}
+            data-testid="customer-credit-limit-input"
+            {...form.register('creditLimit', {
+              valueAsNumber: true,
+              min: {
+                value: 0,
+                message: t('form.fields.creditLimit.invalid'),
+              },
+              validate: value =>
+                Number.isFinite(value) || t('form.fields.creditLimit.invalid'),
+            })}
+          />
+          <p className="mt-1 text-xs text-secondary-500">
+            {t('form.fields.creditLimit.help')}
+          </p>
+          {form.formState.errors.creditLimit && (
+            <p className="mt-1 text-sm text-danger-500">
+              {form.formState.errors.creditLimit.message}
+            </p>
+          )}
         </div>
 
         <label className="flex items-center gap-3 text-sm text-secondary-700">

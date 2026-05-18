@@ -1200,6 +1200,12 @@ export const customers = sqliteTable(
     clientTypeId: text('client_type_id'),
     commercialActivityId: text('commercial_activity_id'),
     notes: text('notes'),
+    // ENG-089 — per-customer credit ceiling (cupo de crédito).
+    // `0 = sin cupo` (no limit); zero is the sentinel so reads never
+    // need to handle null. Zod rejects negative values at the input
+    // layer. ENG-090's `requireCreditLimitNotExceeded()` invariant
+    // gates the "Cargar a cuenta" payment method against this column.
+    creditLimit: real('credit_limit').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
