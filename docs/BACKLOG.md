@@ -31,6 +31,55 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
+- `[payments][ux][bug]` Statement downloads need a human-readable
+  filename and a real extension. Today the exported file can arrive as
+  a UUID-like name with no extension, which is hard to identify after
+  download. Use a semantic pattern such as
+  `statement-<provider>-<date-range>.<ext>` and keep the extension
+  aligned with the response MIME type. — 2026-05-19 (jy)
+- `[restaurant][kds]` Product `station` field + admin form input.
+  Lets the kitchen route bar items to "Barra" and grill items to
+  "Parrilla" instead of pooling everything into "Cocina". Schema
+  delta on `products` plus a small toggle in the product form modal.
+  ENG-098 already shipped per-station rows in `kds_orders`
+  (`UNIQUE(tenant_id, sale_id, station)`), so this is purely the
+  routing input + grouping logic. — 2026-05-19 (jy)
+- `[restaurant][kds]` Per-station prep-time alarm. Configurable
+  amber-then-red threshold per station with an optional audio cue
+  (off by default). ENG-098 ships a global 10-minute amber switch
+  and no audio; this is the next step once a real kitchen tells us
+  the threshold they actually want. — 2026-05-19 (jy)
+- `[restaurant][kds]` `served` state for kitchen cards. Cook hits
+  Listo → waiter taps "Servido" from `SuspendedSalesPanel` row →
+  card evicts. Useful for service-quality KPIs (Listo → Servido
+  latency per table). ENG-098 stayed at the two-state
+  `pending → ready` machine; this adds the third lifecycle step. —
+  2026-05-19 (jy)
+- `[restaurant][kds]` Per-line `sale_items.notes` column. Today the
+  voice-ordering surface aggregates per-item notes into the sale-
+  level `notes` field as free text; KDS renders that aggregate at
+  the bottom of the card. A dedicated column unblocks structured
+  modifiers (sin cebolla / extra queso) instead of a single string.
+  ENG-098 snapshots whatever `sale_items` exposes, so the KDS
+  render reads it per row automatically once the column lands. —
+  2026-05-19 (jy)
+- `[restaurant][kds]` Add-items-mid-service flow. Today the cashier
+  must `discardDraft` + recreate from scratch to add a course
+  mid-meal because `sales.create` is the only path that accepts an
+  `items` array. A `sales.appendItems(saleId, items[])` procedure
+  would emit a fresh KDS card for the delta and keep the rest of
+  the order frozen. Requires deciding the auditing story (one
+  `sale.park` audit per append or a new `sale.append` action?). —
+  2026-05-19 (jy)
+- `[restaurant][kds]` KDS read-only "Vista" mode for waiters. Show
+  the same board on the waiter station (subscribes to the same SSE
+  channel) so they know which tables are ready without walking
+  into the kitchen. Role gate the markReady / recall mutations
+  off; everything else stays the same as the cook view. —
+  2026-05-19 (jy)
+- `[restaurant][kds]` Audible cue on new order arrival, tenant-
+  togglable (off by default). Kitchens vary on whether they want
+  this — some prefer the visual-only board ENG-098 shipped. — 2026-05-19 (jy)
 - `[fiscal][refactor]` Move `services/fiscal/cufe.ts` into
   `packs/co/cufe.ts` once ENG-021 lands the real Colombia adapter.
   The CUFE algorithm is Colombia-specific (SHA-384 over a fixed

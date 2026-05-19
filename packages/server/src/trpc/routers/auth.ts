@@ -33,9 +33,12 @@ import {
 } from '../../services/devices/authority.js';
 import { getCurrentSchemaVersion } from '../../lib/runtimeMetadata.js';
 import {
+  REALTIME_COOKIE_NAME,
+  REALTIME_TOKEN_MAX_AGE_SECONDS,
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
   signAccessToken,
+  signRealtimeToken,
   signRefreshToken,
   verifyRefreshToken,
 } from '../../security/authTokens.js';
@@ -60,6 +63,20 @@ function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: s
     secure: shouldUseSecureCookies(request),
     path: '/',
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
+  });
+}
+
+function setRealtimeCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
+  if (typeof reply.setCookie !== 'function') {
+    return;
+  }
+
+  reply.setCookie(REALTIME_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: shouldUseSecureCookies(request),
+    path: '/api/realtime',
+    maxAge: REALTIME_TOKEN_MAX_AGE_SECONDS,
   });
 }
 
@@ -212,6 +229,38 @@ export const authRouter = router({
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
     return { token };
+  }),
+
+  /**
+   * Issue a short-lived bearer for browser-native EventSource
+   * subscriptions. EventSource cannot attach custom Authorization
+   * headers, so the web client exchanges its normal authenticated tRPC
+   * session for this scoped token and passes it on the subscribe URL.
+   */
+  realtimeToken: tenantProcedure.mutation(async ({ ctx }) => {
+    if (!ctx.user) {
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
+        message: 'authenticated tenant context required',
+      });
+    }
+
+    const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+
+    if (!user || !user.isActive || user.tenantId !== ctx.tenantId) {
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_INVALID_CREDENTIALS',
+        message: 'authenticated tenant context required',
+      });
+    }
+
+    setRealtimeCookie(ctx.req, ctx.res, signRealtimeToken(ctx.req.server, user));
+
+    return {
+      expiresInSeconds: REALTIME_TOKEN_MAX_AGE_SECONDS,
+    };
   }),
 
   /**

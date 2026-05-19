@@ -553,7 +553,10 @@ export type AuditLogAction =
   | 'ai.invoice_ocr.confirm'
   | 'ai.copilot.query'
   | 'ai.anomaly.silenced'
-  | 'ai.semantic_search.regenerate_embeddings';
+  | 'ai.semantic_search.regenerate_embeddings'
+  // ENG-098 — kitchen display Listo + recall actions.
+  | 'kds.order.ready'
+  | 'kds.order.recalled';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -576,7 +579,9 @@ export type AuditLogResourceType =
   // ENG-039b — restaurant_tables catalog rows.
   | 'restaurant_table'
   // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature resource rows.
-  | 'ai_feature';
+  | 'ai_feature'
+  // ENG-098 — kitchen display rows.
+  | 'kds_order';
 
 export interface AuditLogEntry {
   id: string;

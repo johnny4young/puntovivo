@@ -4,10 +4,13 @@ import { tenants, users } from '../db/schema.js';
 import { shouldUseSecureCookies } from './cookies.js';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
+export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
+export const REALTIME_TOKEN_MAX_AGE_SECONDS = 120;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
+const REALTIME_TOKEN_TTL = `${REALTIME_TOKEN_MAX_AGE_SECONDS}s`;
 
-export type AuthTokenType = 'access' | 'refresh';
+export type AuthTokenType = 'access' | 'refresh' | 'realtime';
 
 export interface AuthTokenPayload {
   userId: string;
@@ -46,6 +49,12 @@ export function signAccessToken(server: FastifyInstance, user: AuthUserIdentity)
 export function signRefreshToken(server: FastifyInstance, user: AuthUserIdentity): string {
   return server.jwt.sign(buildTokenPayload(user, 'refresh'), {
     expiresIn: REFRESH_TOKEN_TTL,
+  });
+}
+
+export function signRealtimeToken(server: FastifyInstance, user: AuthUserIdentity): string {
+  return server.jwt.sign(buildTokenPayload(user, 'realtime'), {
+    expiresIn: REALTIME_TOKEN_TTL,
   });
 }
 
@@ -141,6 +150,13 @@ export function verifyRefreshToken(request: FastifyRequest): Promise<AuthTokenPa
     request.cookies[REFRESH_COOKIE_NAME] ?? null,
     'refresh'
   );
+}
+
+export function verifyRealtimeToken(
+  server: FastifyInstance,
+  token: string | null
+): Promise<AuthTokenPayload | null> {
+  return verifyTokenWithServer(server, token, 'realtime');
 }
 
 export function clearRefreshCookie(request: FastifyRequest, reply: FastifyReply): void {

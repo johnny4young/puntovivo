@@ -128,6 +128,8 @@
     "PAYMENT_OUTBOX_NOT_RETRIABLE": "This payment cannot be retried in its current status. Only declined, timed out, retrying, or dead-letter rows can go back to the queue.",
     "RESTAURANT_TABLE_NOT_FOUND": "That table no longer exists for this tenant. Refresh the list and try again.",
     "RESTAURANT_TABLE_NAME_DUPLICATE": "Another active table for this site already uses this name. Pick a different name or archive the existing table first.",
+    "KDS_ORDER_NOT_FOUND": "That order is no longer on the kitchen board. Refresh and try again.",
+    "KDS_ORDER_NOT_READY": "That order is no longer marked Ready. Refresh the board to see the current state.",
     "CREDIT_LIMIT_EXCEEDED": "The projected balance would exceed the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash.",
     "CREDIT_SALE_CUSTOMER_REQUIRED": "Credit sales require a customer to be attached. Pick a customer before charging to account.",
     "CREDIT_OVERRIDE_FORBIDDEN": "Only administrators can override the credit limit.",

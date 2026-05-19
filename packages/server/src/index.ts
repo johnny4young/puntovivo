@@ -466,7 +466,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   });
 
   // Register SSE plugin
-  await app.register(ssePlugin);
+  await app.register(ssePlugin, { corsOrigins: effectiveCorsOrigins });
 
   // Decorate request with database instance
   app.decorate('db', db);

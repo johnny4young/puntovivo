@@ -156,6 +156,13 @@ export const auditLogActionEnum = [
   'ai.copilot.query',
   'ai.anomaly.silenced',
   'ai.semantic_search.regenerate_embeddings',
+  // ENG-098 — kitchen display lifecycle. `kds.order.ready` is the cook
+  // marking a card Listo; `kds.order.recalled` is the recovery affordance
+  // when the cook misclicks and needs to flip a ready row back to pending.
+  // Both rows carry the row's prior + post snapshot so forensics can
+  // reconstruct the kitchen timeline.
+  'kds.order.ready',
+  'kds.order.recalled',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -184,6 +191,8 @@ export const auditLogResourceTypeEnum = [
   // ENG-039b — restaurant table catalog rows.
   'restaurant_table',
   'ai_feature',
+  // ENG-098 — kitchen display rows.
+  'kds_order',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
@@ -4739,3 +4748,88 @@ export type WhatsNewEntryRow = typeof whatsNewEntries.$inferSelect;
 export type NewWhatsNewEntryRow = typeof whatsNewEntries.$inferInsert;
 export type WhatsNewAckRow = typeof whatsNewAcks.$inferSelect;
 export type NewWhatsNewAckRow = typeof whatsNewAcks.$inferInsert;
+
+// ============================================================================
+// KDS ORDERS (ENG-098)
+// ============================================================================
+
+export const kdsOrderStatusEnum = ['pending', 'ready'] as const;
+
+/**
+ * ENG-098 — kitchen display queue.
+ *
+ * One row per (sale, station) pair, materialised from `sales` +
+ * `sale_items` whenever a tabled draft is suspended or completed.
+ * `items_json` is a frozen snapshot so the kitchen sees what the
+ * waiter saved even after a split or table change rewrites it.
+ *
+ * UNIQUE(tenant_id, sale_id, station) makes enqueue idempotent
+ * across the suspend → complete progression and against double
+ * post-tx hook fires. The compound index on (tenant_id, site_id,
+ * status) keeps the board read fast under hundreds of orders.
+ */
+export const kdsOrders = sqliteTable(
+  'kds_orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    saleId: text('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    tableId: text('table_id').references(() => restaurantTables.id),
+    tableLabel: text('table_label'),
+    saleNumber: text('sale_number').notNull(),
+    station: text('station').notNull().default('main'),
+    itemsJson: text('items_json').notNull(),
+    notes: text('notes'),
+    status: text('status', { enum: kdsOrderStatusEnum }).notNull().default('pending'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    readyAt: text('ready_at'),
+    readyByUserId: text('ready_by_user_id').references(() => users.id),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_kds_orders_unique_sale_station').on(
+      table.tenantId,
+      table.saleId,
+      table.station
+    ),
+    index('idx_kds_orders_tenant_site_status').on(
+      table.tenantId,
+      table.siteId,
+      table.status
+    ),
+  ]
+);
+
+export const kdsOrdersRelations = relations(kdsOrders, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [kdsOrders.tenantId],
+    references: [tenants.id],
+  }),
+  site: one(sites, {
+    fields: [kdsOrders.siteId],
+    references: [sites.id],
+  }),
+  sale: one(sales, {
+    fields: [kdsOrders.saleId],
+    references: [sales.id],
+  }),
+  table: one(restaurantTables, {
+    fields: [kdsOrders.tableId],
+    references: [restaurantTables.id],
+  }),
+  readyBy: one(users, {
+    fields: [kdsOrders.readyByUserId],
+    references: [users.id],
+  }),
+}));
+
+export type KdsOrderStatus = (typeof kdsOrderStatusEnum)[number];
+export type KdsOrderRow = typeof kdsOrders.$inferSelect;
+export type NewKdsOrderRow = typeof kdsOrders.$inferInsert;

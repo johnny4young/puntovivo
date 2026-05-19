@@ -1,19 +1,11 @@
 /**
- * ENG-069 — KDS home placeholder. Replaced by the real kitchen
- * ticket queue UI in ENG-039.
- *
- * Uses a slightly different card style — light card on the dark
- * KDS backdrop — so the placeholder remains legible until the
- * real ticket queue lands.
+ * ENG-098 — KDS landing surface now mounts the real Kitchen Display
+ * board. The placeholder shell built in ENG-069 still provides the
+ * fullscreen black backdrop and route gating; the body inside is the
+ * pending + ready card grid backed by `kds.list` + realtime SSE.
  */
-import { SurfacePlaceholder } from './SurfacePlaceholder';
+import { KdsBoard } from '@/features/kds/KdsBoard';
 
 export function KdsHomePlaceholder() {
-  return (
-    <SurfacePlaceholder
-      i18nKey="kds"
-      containerClassName="flex min-h-[60vh] items-center justify-center"
-      cardClassName="flex max-w-lg flex-col gap-4 rounded-3xl bg-secondary-50 p-8 text-center text-secondary-950"
-    />
-  );
+  return <KdsBoard />;
 }

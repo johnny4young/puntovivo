@@ -1,0 +1,33 @@
+{
+  "station": {
+    "main": "Cocina",
+    "unknown": "Otros",
+    "orderCount_one": "{{count}} orden",
+    "orderCount_other": "{{count}} órdenes"
+  },
+  "card": {
+    "untabledLabel": "Para llevar",
+    "itemsAria": "Productos de la orden",
+    "noItems": "Sin productos",
+    "noteLabel": "Nota",
+    "markReady": "Listo",
+    "recall": "Volver a pendiente",
+    "readyStamp": "Listo · {{time}}",
+    "elapsedJustNow": "recién",
+    "elapsedMinutes_one": "hace {{count}} min",
+    "elapsedMinutes_other": "hace {{count}} min"
+  },
+  "empty": {
+    "title": "Sin órdenes pendientes",
+    "description": "Las nuevas comandas aparecen aquí cuando el mesero guarda la orden en la mesa."
+  },
+  "errors": {
+    "noSiteSelected": "Selecciona una sede para ver su cocina.",
+    "loadFailed": "No se pudo cargar la pantalla de cocina. Actualiza la página y vuelve a intentarlo."
+  },
+  "toast": {
+    "recalled": "Orden devuelta a pendiente.",
+    "markReadyError": "No se pudo marcar la orden como Listo.",
+    "recallError": "No se pudo devolver la orden a pendiente."
+  }
+}

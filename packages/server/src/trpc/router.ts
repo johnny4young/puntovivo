@@ -50,6 +50,7 @@ import { paymentsRouter } from './routers/payments.js';
 import { paymentSettingsRouter } from './routers/payments-settings.js';
 import { restaurantTablesRouter } from './routers/restaurantTables.js';
 import { restaurantSettingsRouter } from './routers/restaurantSettings.js';
+import { kdsRouter } from './routers/kds.js';
 import { customerLedgerRouter } from './routers/customerLedger.js';
 import { deliveryOrdersRouter } from './routers/deliveryOrders.js';
 import { whatsNewRouter } from './routers/whatsNew.js';
@@ -110,6 +111,7 @@ export const appRouter = router({
   paymentSettings: paymentSettingsRouter,
   restaurantTables: restaurantTablesRouter,
   restaurantSettings: restaurantSettingsRouter,
+  kds: kdsRouter,
   customerLedger: customerLedgerRouter,
   deliveryOrders: deliveryOrdersRouter,
   whatsNew: whatsNewRouter,

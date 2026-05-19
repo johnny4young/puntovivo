@@ -35,6 +35,9 @@ import {
   sites,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
+import { refreshKdsOrderItems } from '../../services/kds/refresh.js';
+import type { KdsHookContext } from '../../services/kds/types.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { Context } from '../context.js';
 import {
@@ -83,6 +86,24 @@ function buildLifecycleContext(ctx: Context): CompleteSaleContext {
       (ctx as unknown as { envelope?: { operationId: string } }).envelope ?? null,
     deviceId:
       (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
+    log: ctx.req?.server?.log,
+    sse: ctx.req?.server?.sse ?? null,
+  };
+}
+
+/**
+ * ENG-098 — build the structural context shape consumed by the KDS
+ * post-tx hooks. The SSE manager is read off the FastifyInstance
+ * decorated at boot (`realtime/sse.ts`). When `req` is absent (unit
+ * tests, internal callers) the helpers skip the broadcast silently.
+ */
+function buildKdsHookContext(ctx: Context): KdsHookContext {
+  return {
+    db: ctx.db,
+    tenantId: ctx.tenantId!,
+    siteId: ctx.siteId ?? null,
+    user: ctx.user ? { id: ctx.user.id } : null,
+    sse: ctx.req?.server?.sse ?? null,
     log: ctx.req?.server?.log,
   };
 }
@@ -593,6 +614,16 @@ export const salesRouter = router({
       });
     });
 
+    // ENG-098 — push to the kitchen display when the suspended draft
+    // carries a tableId. Best-effort post-tx hook; module-disabled or
+    // tableless suspends are no-ops inside the helper.
+    if (resolvedTable || existing.tableId) {
+      await enqueueKdsOrder({
+        ctx: buildKdsHookContext(ctx),
+        saleId: input.saleId,
+      });
+    }
+
     return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
   }),
 
@@ -942,6 +973,13 @@ export const salesRouter = router({
         });
       });
 
+      // ENG-098 — refresh the existing KDS card with the new table
+      // label / detachment. No-op when no card exists for the sale.
+      await refreshKdsOrderItems({
+        ctx: buildKdsHookContext(ctx),
+        saleId: input.saleId,
+      });
+
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),
 
@@ -1214,6 +1252,17 @@ export const salesRouter = router({
         getSaleRecord(ctx.db, ctx.tenantId, input.sourceSaleId),
         getSaleRecord(ctx.db, ctx.tenantId, newSaleId),
       ]);
+
+      // ENG-098 — rewrite the source KDS snapshot (items moved out)
+      // and create a fresh card for the carved-out draft when it
+      // landed on a tableId. Both calls are no-ops when the kds
+      // module is off or the rows have no kitchen footprint.
+      const kdsCtx = buildKdsHookContext(ctx);
+      await refreshKdsOrderItems({ ctx: kdsCtx, saleId: input.sourceSaleId });
+      if (nextTableId) {
+        await enqueueKdsOrder({ ctx: kdsCtx, saleId: newSaleId });
+      }
+
       return { source, created };
     }),
 
