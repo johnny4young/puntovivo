@@ -41,7 +41,10 @@ import {
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
-import { getCheckoutPaymentState } from '@/features/sales/checkoutPayment';
+import {
+  checkoutUsesCreditTender,
+  getCheckoutPaymentState,
+} from '@/features/sales/checkoutPayment';
 import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
@@ -689,11 +692,12 @@ export function SalesPage() {
       // we do not re-send items (locked at create-time) and do not
       // double-debit stock. Fresh carts continue on the classic
       // `sales.create` path.
-      // ENG-090 — admin override for the credit-limit invariant. Only
-      // forwarded when the modal returns it (modal already gates to
-      // admin role + credit method); server still re-asserts.
+      // ENG-090 / ENG-014 — admin override for the credit-limit invariant.
+      // Split-credit can demote the legacy paymentMethod to cash/card, so the
+      // forwarding decision must inspect the modal tenders instead of only
+      // the dominant legacy method. The server still re-asserts admin role.
       const creditOverride =
-        values.creditOverride && payment.paymentMethod === 'credit'
+        values.creditOverride && checkoutUsesCreditTender(values)
           ? true
           : undefined;
 

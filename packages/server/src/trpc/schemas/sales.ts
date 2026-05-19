@@ -14,7 +14,13 @@ import { paginationInput } from './common.js';
 // ============================================================================
 
 export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
-export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'other']);
+// ENG-014 — split-tender method enum mirrors paymentMethodEnum so a single
+// sale can mix instant tenders (cash / card / transfer / other) with a
+// credit portion that lands as an IOU on `customer_ledger_entries`. The
+// "all-or-nothing" credit restriction shipped in ENG-090 was the only thing
+// blocking apartado / layaway; the resolver now sums credit tenders and
+// fires the limit invariant + ledger hook for that portion only.
+export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
 export const paymentStatusEnum = z.enum(['pending', 'paid', 'partial', 'refunded']);
 const completablePaymentStatusEnum = z.enum(['pending', 'paid', 'partial']);
 export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided']);
@@ -131,6 +137,16 @@ export const createSaleInput = z
   .refine(
     value =>
       value.paymentMethod !== 'credit' ||
+      (value.customerId !== undefined && value.customerId.length > 0),
+    {
+      message: 'Credit sales require a customer to be attached',
+      path: ['customerId'],
+    }
+  )
+  // ENG-014 — split tender may include a credit portion; require customer.
+  .refine(
+    value =>
+      !value.payments?.some(p => p.method === 'credit') ||
       (value.customerId !== undefined && value.customerId.length > 0),
     {
       message: 'Credit sales require a customer to be attached',
@@ -299,6 +315,13 @@ export const completeDraftInput = z
       path: ['serviceChargeAmount'],
     }
   );
+
+// ENG-014 — no Zod refine here for "credit tender requires customerId":
+// the draft's customer is locked at create-time and lives on the DB row,
+// not in the completeDraft input. The service layer enforces the
+// invariant in `runCompleteDraft` via the `hasCreditPortion` guard,
+// which throws `CREDIT_SALE_CUSTOMER_REQUIRED` when a credit tender
+// arrives on a draft that never had a customerId.
 
 // ============================================================================
 // ENG-019 — receipt reprint input

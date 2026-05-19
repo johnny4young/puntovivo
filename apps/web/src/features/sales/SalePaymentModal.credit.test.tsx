@@ -229,4 +229,104 @@ describe('SalePaymentModal (ENG-090 credit branch)', () => {
     expect(submitted.paymentMethod).toBe('cash');
     expect(submitted.customerId).toBe('');
   });
+
+  // ============================================================
+  // ENG-014 — split-credit ("apartado") cases
+  // ============================================================
+
+  it('ENG-014: cashier cannot pick credit inside split tender (gate matches single-tender)', async () => {
+    const user = userEvent.setup();
+    renderModal({ userRole: 'cashier' });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    // Enable split mode and inspect the tender method select. The
+    // 'credit' option must not be present for cashier.
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+    expect(
+      screen.queryByTestId('split-tender-credit-option-0')
+    ).not.toBeInTheDocument();
+  });
+
+  it('ENG-014: split tender exposes credit option when admin + customer attached', async () => {
+    const user = userEvent.setup();
+    renderModal({
+      userRole: 'admin',
+      customers: [makeCustomer({ creditLimit: 200 })],
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+    expect(
+      screen.getByTestId('split-tender-credit-option-0')
+    ).toBeInTheDocument();
+  });
+
+  it('ENG-014: V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
+    const user = userEvent.setup();
+    mockBalance = 0;
+    renderModal({
+      userRole: 'admin',
+      total: 200,
+      customers: [makeCustomer({ creditLimit: 500 })],
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+    // Default first tender row is cash $200 — flip it to $50.
+    const amountInput = screen.getByLabelText(/Amount for tender 1/i);
+    await user.clear(amountInput);
+    await user.type(amountInput, '50');
+    // Add a second tender row — defaults to card; flip to credit $150.
+    await user.click(screen.getByRole('button', { name: /Add payment method/i }));
+    const secondMethod = screen.getByLabelText(/Method for tender 2/i);
+    await user.selectOptions(secondMethod, 'credit');
+    const secondAmount = screen.getByLabelText(/Amount for tender 2/i);
+    await user.clear(secondAmount);
+    await user.type(secondAmount, '150');
+
+    // V10 card appears with projection sized to the credit portion (150),
+    // not the grand total (200): 0 currentBalance + 150 = 150 ≤ 500 cupo.
+    await waitFor(() =>
+      expect(screen.getByTestId('credit-sale-customer-card')).toBeInTheDocument()
+    );
+    expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('150');
+    expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
+    // Partial-credit summary line shows the breakdown.
+    expect(
+      screen.getByTestId('credit-sale-partial-summary')
+    ).toBeInTheDocument();
+  });
+
+  it('ENG-014: submits split payload carrying cash + credit tenders', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    mockBalance = 0;
+    renderModal({
+      userRole: 'admin',
+      total: 200,
+      customers: [makeCustomer({ creditLimit: 500 })],
+      onSubmit,
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+    const firstAmount = screen.getByLabelText(/Amount for tender 1/i);
+    await user.clear(firstAmount);
+    await user.type(firstAmount, '50');
+    await user.click(screen.getByRole('button', { name: /Add payment method/i }));
+    await user.selectOptions(
+      screen.getByLabelText(/Method for tender 2/i),
+      'credit'
+    );
+    const secondAmount = screen.getByLabelText(/Amount for tender 2/i);
+    await user.clear(secondAmount);
+    await user.type(secondAmount, '150');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.tenders).toHaveLength(2);
+    const cashRow = submitted.tenders.find(t => t.method === 'cash');
+    const creditRow = submitted.tenders.find(t => t.method === 'credit');
+    expect(cashRow?.amount).toBe(50);
+    expect(creditRow?.amount).toBe(150);
+    // Customer is required for the split-credit payload.
+    expect(submitted.customerId).toBe('cust-1');
+  });
 });

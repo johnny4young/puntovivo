@@ -24,6 +24,7 @@ import {
   operationEvents,
   products,
   saleItems,
+  salePayments,
   saleReturns,
   sales,
 } from '../../db/schema.js';
@@ -177,6 +178,31 @@ export async function returnSale(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_RETURN_DUPLICATE',
       message: 'Sale already has a recorded refund',
+    });
+  }
+
+  // ENG-014 — refund of a sale that included a credit tender (split
+  // cash + credit, "apartado") requires reversing both the cash
+  // movement and the customer-ledger entry, with operator-facing copy
+  // for partial reversals. That dedicated flow lives behind a future
+  // ticket; until it lands, block the refund here so an operator
+  // cannot leave a half-reversed sale in the database.
+  const creditTenderRows = await ctx.db
+    .select({ id: salePayments.id })
+    .from(salePayments)
+    .where(
+      and(
+        eq(salePayments.tenantId, ctx.tenantId),
+        eq(salePayments.saleId, input.id),
+        eq(salePayments.method, 'credit')
+      )
+    )
+    .all();
+  if (creditTenderRows.length > 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
+      message: 'Refunds for sales with a credit tender are not yet supported',
     });
   }
 

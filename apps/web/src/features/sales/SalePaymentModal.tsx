@@ -9,7 +9,12 @@ import { trpc } from '@/lib/trpc';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { Customer, PaymentMethod } from '@/types';
 
-type SplitTenderMethod = Exclude<PaymentMethod, 'credit'>;
+// ENG-014 — split-tender method now mirrors PaymentMethod so a sale
+// can mix instant tenders with a credit portion ("apartado"). The
+// modal still gates the credit option behind canLendCredit + an
+// attached customer; the server enforces the same gate at the router
+// and rejects credit tenders without a customerId via Zod refine.
+type SplitTenderMethod = PaymentMethod;
 
 // ENG-039d — propina tip method. `null` (the default) means the
 // operator did not capture a tip; the server interprets that the same
@@ -181,24 +186,52 @@ export function SalePaymentModal({
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
-  const creditQueryEnabled = isCredit && creditMethodAvailable;
+  const tenderSum = useMemo(
+    () => sumBy(tenders, tender => Number(tender.amount) || 0),
+    [tenders]
+  );
+  // ENG-014 — sum credit tenders in split mode. The V10 customer card
+  // surfaces the projected balance based on this portion only (not
+  // grandTotal). Outside split mode the value is 0 and the legacy
+  // single-tender credit branch still drives the projection.
+  const creditAmountInSplit = useMemo(
+    () =>
+      splitMode
+        ? sumBy(
+            tenders.filter(tender => tender.method === 'credit'),
+            tender => Number(tender.amount) || 0
+          )
+        : 0,
+    [splitMode, tenders]
+  );
+  const tenderDelta = tenderSum - grandTotal;
+  const tendersAreAllPositive = tenders.every(
+    tender => (Number(tender.amount) || 0) > 0
+  );
+
+  // ENG-014 — the balance query also fires when a split tender row is
+  // credit so the V10 card has live data to project against.
+  const creditQueryEnabled =
+    creditMethodAvailable && (isCredit || creditAmountInSplit > 0);
   const creditBalanceQuery = trpc.customerLedger.getBalance.useQuery(
     { customerId: watchedCustomerId },
     { enabled: creditQueryEnabled, staleTime: 30_000 }
   );
   const currentBalance = creditBalanceQuery.data?.balance ?? 0;
   const creditLimit = selectedCustomer?.creditLimit ?? 0;
-  const projectedBalance = currentBalance + grandTotal;
-  const cupoExceeded = creditLimit > 0 && projectedBalance > creditLimit;
-
-  const tenderSum = useMemo(
-    () => sumBy(tenders, tender => Number(tender.amount) || 0),
-    [tenders]
-  );
-  const tenderDelta = tenderSum - grandTotal;
-  const tendersAreAllPositive = tenders.every(
-    tender => (Number(tender.amount) || 0) > 0
-  );
+  // ENG-014 — the projection sizes to the credit portion only. Pure
+  // legacy credit (single-tender) projects against grandTotal as
+  // before; split-credit projects against the credit tender sum so
+  // the cashier sees "$150 a crédito" rather than the full "$200".
+  const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
+  const projectedBalance = currentBalance + creditProjectionAmount;
+  const cupoExceeded =
+    creditLimit > 0 &&
+    creditProjectionAmount > 0 &&
+    projectedBalance > creditLimit;
+  // ENG-014 — V10 card surfaces whenever the sale carries a credit
+  // portion (legacy single-tender OR split with a credit row).
+  const showCreditCard = isCredit || creditAmountInSplit > 0;
 
   useEffect(() => {
     if (paymentMethod !== 'credit' || creditMethodAvailable) {
@@ -284,8 +317,13 @@ export function SalePaymentModal({
     // router; this prevents stale form state (admin opens modal,
     // toggles override on, role swaps mid-flow) from leaking the
     // flag onto the payload.
+    // ENG-014 — also accept override when split mode carries a
+    // credit tender ("apartado"). Non-credit sales (split or single)
+    // never pass override through.
+    const hasSplitCredit =
+      splitMode && values.tenders.some(tender => tender.method === 'credit');
     const sanitizedOverride =
-      values.paymentMethod === 'credit' && isAdmin
+      isAdmin && (values.paymentMethod === 'credit' || hasSplitCredit)
         ? values.creditOverride
         : false;
     return onSubmit({
@@ -542,101 +580,6 @@ export function SalePaymentModal({
               </div>
             </div>
 
-            {/* ENG-090 — V10 credit-sale customer card. Shows the
-                customer's current balance, cupo, projected balance
-                after this sale, and (admin only) an override checkbox
-                when the projection exceeds the cupo. */}
-            {isCredit && (
-              <div
-                className="rounded-xl border border-secondary-200 p-4"
-                data-testid="credit-sale-customer-card"
-              >
-                <p className="text-sm font-medium text-secondary-900">
-                  {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
-                </p>
-                {selectedCustomer?.taxId && (
-                  <p className="text-xs text-secondary-500">
-                    {selectedCustomer.taxId}
-                  </p>
-                )}
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  <div
-                    className={`rounded border p-2 ${currentBalance > 0 ? 'border-danger-300 bg-danger-50 text-danger-700' : 'border-line bg-white text-secondary-900'}`}
-                    data-testid="credit-sale-current-balance"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-secondary-500">
-                      {t('credit.card.balance')}
-                    </p>
-                    <p className="mt-1 text-base font-medium tabular-nums">
-                      {creditBalanceQuery.isLoading
-                        ? '…'
-                        : formatCurrency(currentBalance)}
-                    </p>
-                  </div>
-                  <div
-                    className="rounded border border-line bg-white p-2 text-secondary-900"
-                    data-testid="credit-sale-cupo"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-secondary-500">
-                      {t('credit.card.cupo')}
-                    </p>
-                    <p className="mt-1 text-base font-medium tabular-nums">
-                      {creditLimit > 0
-                        ? formatCurrency(creditLimit)
-                        : t('credit.card.unlimited')}
-                    </p>
-                  </div>
-                  <div
-                    className={`rounded border p-2 ${cupoExceeded ? 'border-warning-300 bg-warning-50 text-warning-700' : 'border-line bg-white text-secondary-900'}`}
-                    data-testid="credit-sale-projected"
-                  >
-                    <p className="text-xs uppercase tracking-wide text-secondary-500">
-                      {t('credit.card.projected')}
-                    </p>
-                    <p className="mt-1 text-base font-medium tabular-nums">
-                      {formatCurrency(projectedBalance)}
-                    </p>
-                  </div>
-                </div>
-                {cupoExceeded && (
-                  <p
-                    className="mt-3 text-sm text-warning-700"
-                    data-testid="credit-sale-warning"
-                  >
-                    {t('credit.warning.exceedsLimit')}
-                  </p>
-                )}
-                {/* Override checkbox: admin only, only when the
-                    projection actually exceeds the cupo. Submitting
-                    without it raises the server-side
-                    CREDIT_LIMIT_EXCEEDED toast. */}
-                {cupoExceeded && (
-                  <label
-                    className={`mt-3 flex items-start gap-2 text-sm ${isAdmin ? '' : 'opacity-60'}`}
-                    data-testid="credit-sale-override-label"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      data-testid="credit-sale-override-toggle"
-                      disabled={!isAdmin}
-                      {...form.register('creditOverride')}
-                    />
-                    <span className="flex flex-col">
-                      <span className="font-medium">
-                        {t('credit.override.label')}
-                      </span>
-                      <span className="text-xs text-secondary-500">
-                        {isAdmin
-                          ? t('credit.override.adminHelp')
-                          : t('credit.override.adminOnly')}
-                      </span>
-                    </span>
-                  </label>
-                )}
-              </div>
-            )}
-
             {isCash && grandTotal > 0 && (
               <QuickDenominationSelector
                 total={grandTotal}
@@ -669,9 +612,12 @@ export function SalePaymentModal({
               </div>
             )}
 
-            {/* Split-tender is intentionally unavailable when the
-                operator picked credit (ENG-014 owns split-credit; the
-                SplitTenderMethod type already excludes credit). */}
+            {/* ENG-014 — when the single-tender method is already
+                credit, splitting is redundant: the operator has
+                signaled the entire sale is on account. To split a
+                credit portion, the operator starts from a non-credit
+                method (cash / card / transfer) and adds a credit row
+                inside split mode via the tender selector. */}
             {!isCredit && (
               <button
                 type="button"
@@ -716,6 +662,19 @@ export function SalePaymentModal({
                     <option value="cash">{t('payment.cash')}</option>
                     <option value="card">{t('payment.card')}</option>
                     <option value="transfer">{t('payment.transfer')}</option>
+                    {/* ENG-014 — credit option in split tender mirrors
+                        the single-tender gate: only managers + admins
+                        with an attached customer can pick it. The
+                        server enforces the same gate via Zod refine
+                        + the credit-limit invariant. */}
+                    {creditMethodAvailable && (
+                      <option
+                        value="credit"
+                        data-testid={`split-tender-credit-option-${index}`}
+                      >
+                        {t('payment.credit')}
+                      </option>
+                    )}
                     <option value="other">{t('payment.other')}</option>
                   </select>
                   <input
@@ -806,6 +765,119 @@ export function SalePaymentModal({
               <p className="text-xs text-secondary-500">
                 {t('payment.splitMustMatch')}
               </p>
+            )}
+          </div>
+        )}
+
+        {/* ENG-090 — V10 credit-sale customer card. Shows the
+            customer's current balance, cupo, projected balance
+            after this sale, and (admin only) an override checkbox
+            when the projection exceeds the cupo. ENG-014 lifted
+            this out of the !splitMode branch so it surfaces in
+            both modes: legacy single-tender credit projects against
+            grandTotal; split-credit ("apartado") projects against
+            the credit-tender sum only. */}
+        {showCreditCard && (
+          <div
+            className="rounded-xl border border-secondary-200 p-4"
+            data-testid="credit-sale-customer-card"
+          >
+            <p className="text-sm font-medium text-secondary-900">
+              {selectedCustomer?.name ?? t('credit.card.unknownCustomer')}
+            </p>
+            {selectedCustomer?.taxId && (
+              <p className="text-xs text-secondary-500">
+                {selectedCustomer.taxId}
+              </p>
+            )}
+            {/* ENG-014 — when split mode pushes a partial credit
+                amount, surface a one-line summary so the cashier
+                sees the breakdown ("$50 efectivo + $150 a crédito"). */}
+            {splitMode && creditAmountInSplit > 0 && (
+              <p
+                className="mt-2 text-xs text-secondary-600"
+                data-testid="credit-sale-partial-summary"
+              >
+                {t('payment.partialCredit.summary', {
+                  cashAmount: formatCurrency(grandTotal - creditAmountInSplit),
+                  creditAmount: formatCurrency(creditAmountInSplit),
+                })}
+              </p>
+            )}
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div
+                className={`rounded border p-2 ${currentBalance > 0 ? 'border-danger-300 bg-danger-50 text-danger-700' : 'border-line bg-white text-secondary-900'}`}
+                data-testid="credit-sale-current-balance"
+              >
+                <p className="text-xs uppercase tracking-wide text-secondary-500">
+                  {t('credit.card.balance')}
+                </p>
+                <p className="mt-1 text-base font-medium tabular-nums">
+                  {creditBalanceQuery.isLoading
+                    ? '…'
+                    : formatCurrency(currentBalance)}
+                </p>
+              </div>
+              <div
+                className="rounded border border-line bg-white p-2 text-secondary-900"
+                data-testid="credit-sale-cupo"
+              >
+                <p className="text-xs uppercase tracking-wide text-secondary-500">
+                  {t('credit.card.cupo')}
+                </p>
+                <p className="mt-1 text-base font-medium tabular-nums">
+                  {creditLimit > 0
+                    ? formatCurrency(creditLimit)
+                    : t('credit.card.unlimited')}
+                </p>
+              </div>
+              <div
+                className={`rounded border p-2 ${cupoExceeded ? 'border-warning-300 bg-warning-50 text-warning-700' : 'border-line bg-white text-secondary-900'}`}
+                data-testid="credit-sale-projected"
+              >
+                <p className="text-xs uppercase tracking-wide text-secondary-500">
+                  {t('credit.card.projected')}
+                </p>
+                <p className="mt-1 text-base font-medium tabular-nums">
+                  {formatCurrency(projectedBalance)}
+                </p>
+              </div>
+            </div>
+            {cupoExceeded && (
+              <p
+                className="mt-3 text-sm text-warning-700"
+                data-testid="credit-sale-warning"
+              >
+                {t('credit.warning.exceedsLimit')}
+              </p>
+            )}
+            {/* Override checkbox: admin only, only when the
+                projection actually exceeds the cupo. Submitting
+                without it raises the server-side
+                CREDIT_LIMIT_EXCEEDED toast. */}
+            {cupoExceeded && (
+              <label
+                className={`mt-3 flex items-start gap-2 text-sm ${isAdmin ? '' : 'opacity-60'}`}
+                data-testid="credit-sale-override-label"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  data-testid="credit-sale-override-toggle"
+                  disabled={!isAdmin}
+                  {...form.register('creditOverride')}
+                />
+                <span className="flex flex-col">
+                  <span className="font-medium">
+                    {t('credit.override.label')}
+                  </span>
+                  <span className="text-xs text-secondary-500">
+                    {isAdmin
+                      ? t('credit.override.adminHelp')
+                      : t('credit.override.adminOnly')}
+                  </span>
+                </span>
+              </label>
             )}
           </div>
         )}

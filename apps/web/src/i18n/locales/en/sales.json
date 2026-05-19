@@ -226,6 +226,9 @@
     "transfer": "Transfer",
     "credit": "Credit",
     "other": "Other",
+    "partialCredit": {
+      "summary": "{{cashAmount}} up front + {{creditAmount}} on credit"
+    },
     "amountReceived": "Amount received",
     "amountNegative": "Amount received cannot be negative",
     "quickAmount": {

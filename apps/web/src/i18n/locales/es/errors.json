@@ -134,6 +134,7 @@
     "CREDIT_SALE_CUSTOMER_REQUIRED": "Las ventas a crédito requieren un cliente asignado. Selecciona un cliente antes de cargar a cuenta.",
     "CREDIT_OVERRIDE_FORBIDDEN": "Solo un administrador puede autorizar exceder el cupo de crédito.",
     "CREDIT_SALE_FORBIDDEN": "Solo gerentes y administradores pueden cargar una venta a la cuenta de un cliente.",
+    "REFUND_PARTIAL_CREDIT_NOT_SUPPORTED": "Las devoluciones de ventas cobradas con crédito aún no están disponibles. Revierte el movimiento de la cuenta del cliente manualmente y luego anula la venta.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }

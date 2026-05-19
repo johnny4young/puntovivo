@@ -42,15 +42,25 @@ export function getPaymentStatus({
   requestedStatus,
   total,
   isSplit,
+  creditAmount,
 }: {
   amountReceived: number | undefined;
   paymentMethod: SalePaymentMethod;
   requestedStatus: SalePaymentStatus;
   total: number;
   isSplit?: boolean;
+  /**
+   * ENG-014 — sum of credit-tender amounts within the resolved payments
+   * list. When a split sale carries a credit portion (cash + credit
+   * mix, "apartado") the persisted status flips to `'partial'`: some
+   * tenders settle at the register, the rest land on the customer
+   * ledger as an IOU. A pure split (cash + card, no credit) keeps
+   * the legacy `'paid'` outcome.
+   */
+  creditAmount?: number;
 }): SalePaymentStatus {
   if (isSplit) {
-    return 'paid';
+    return (creditAmount ?? 0) > 0 ? 'partial' : 'paid';
   }
 
   if (paymentMethod === 'credit') {
@@ -137,7 +147,17 @@ export function resolveSalePayments(args: {
       });
     }
 
-    const dominant = args.payments.reduce((best, payment) =>
+    // ENG-014 — when split tender mixes credit with other methods,
+    // the dominant `paymentMethod` echoed onto `sales.payment_method`
+    // must NOT be 'credit'. The operator thinks of the sale through
+    // the lens of the initial-installment tender (cash / card), not
+    // the IOU portion. Demote credit from the dominant pick when at
+    // least one non-credit tender exists; otherwise keep the legacy
+    // behavior (single-tender credit OR all-credit split still echoes
+    // 'credit').
+    const nonCreditTenders = args.payments.filter(p => p.method !== 'credit');
+    const dominantPool = nonCreditTenders.length > 0 ? nonCreditTenders : args.payments;
+    const dominant = dominantPool.reduce((best, payment) =>
       payment.amount > best.amount ? payment : best
     );
     return {
@@ -151,8 +171,13 @@ export function resolveSalePayments(args: {
   }
 
   // Legacy single-tender path: one payment row whose amount equals the
-  // sale total (cash overage is change, not a tender).
-  const legacyAmount = Math.min(args.amountReceived ?? args.total, args.total);
+  // sale total (cash overage is change, not a tender). Credit tenders
+  // ignore `amountReceived` entirely because the customer pays nothing
+  // at the register — the whole sale lands on the ledger (ENG-090).
+  const legacyAmount =
+    args.legacyMethod === 'credit'
+      ? args.total
+      : Math.min(args.amountReceived ?? args.total, args.total);
   return {
     rows: [
       {
@@ -245,6 +270,20 @@ export function getPersistedCashContribution(sale: {
     return 0;
   }
   if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+    return 0;
+  }
+  // ENG-014 — `'partial'` covers two distinct cases since the
+  // credit-mix slice landed: legacy single-tender cash with
+  // `amountReceived < total`, AND split sales with a credit portion.
+  // For partial sales the sale.total no longer matches the actual
+  // cash deposited at the register, so this synchronous fallback
+  // cannot trust it. The primary lookup in
+  // `getPersistedSaleCashContribution` reads `cash_movements`
+  // directly and is preferred; this fallback only fires when the
+  // movement row is missing (data corruption), in which case the
+  // safe direction is under-refund (operator reconciles) rather
+  // than over-refund (drawer short).
+  if (sale.paymentStatus === 'partial') {
     return 0;
   }
   return sale.total;
