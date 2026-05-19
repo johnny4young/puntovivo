@@ -29,6 +29,29 @@ Purpose: keep the future public website aligned with real product capability. A 
 | KDS / comanda | Restaurant table/floor foundations exist, but kitchen display queue is not shipped. | Track in `ENG-098`; keep as roadmap until shipped. |
 | Voice payment / Cobro por voz | Voice cart entry exists, but payment terminal handoff by voice is not shipped. | Track in `ENG-099`; keep as roadmap until shipped. |
 
+## Tile Catalog (source of truth)
+
+Closed by **ENG-100** on 2026-05-19. `apps/web/src/features/offline/OfflineCapabilityCatalog.ts` exports `OFFLINE_CAPABILITY_CATALOG` as the canonical set of six tiles the cashier sees when the device drops off the hub. The future public website must consume this table as authoritative copy — no marketing claim is allowed to exceed the `status` declared in the matching tile.
+
+| id | status | Spanish (es) | English (en) | Backing feature |
+| --- | --- | --- | --- | --- |
+| `sell` | `available` | Vender — Catálogo local | Sell — Local catalog | ENG-088 local product cache |
+| `cash` | `available` | Cobrar efectivo — Sin restricciones | Take cash — No restrictions | ENG-090 + ENG-014 offline sale completion (cash and split cash + credit) |
+| `card` | `limited` | Cobrar tarjeta — Pendiente de autorización | Take card — Pending authorization | Payment terminal requires online connection |
+| `receipt` | `limited` | Recibo digital — Se envía al reconectar | Digital receipt — Sent on reconnect | Sync queue + receipt template — delivery deferred |
+| `loyalty` | `pending` | Sumar puntos — Se acreditan al sincronizar | Earn points — Credited on sync | Loyalty queue pending — points reconcile on reconnect |
+| `inventory` | `blocked` | Ajustar inventario — Requiere hub conectado | Adjust inventory — Hub required | Hub coordination needed for stock writes |
+
+Rules enforced by the audit test `apps/web/src/features/offline/__tests__/OfflineCapabilityGrid.audit.test.ts`:
+
+1. Cardinality is fixed at six tiles — adding a seventh requires updating this table in the same commit.
+2. Tile ids belong to the closed set listed above.
+3. `status` is one of `available | limited | pending | blocked` and must reflect the real runtime behavior of the backing feature.
+4. Every `available` tile must point at a documented shipped feature (referenced in `AVAILABLE_TILE_BACKING_FEATURE` inside the test).
+5. `limited` / `pending` / `blocked` tile copy never uses absolute language (`100%`, `siempre`, `always`, `totalmente`, `totally`, `completamente`, `fully`) in either locale.
+
+Drift between this table and the exported catalog is a review-time block. The audit test pins the runtime catalog shape; the reviewer must keep this table synchronized before commit.
+
 ## Copy Corrections Before Publishing
 
 - Replace absolute "100% Offline-first" with: "Caja local y sincronización offline-first; los cambios pendientes se suben cuando vuelve la conexión."
