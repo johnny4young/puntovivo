@@ -60,7 +60,11 @@
     "restaurant_table.update": "Restaurant table updated",
     "restaurant_table.archive": "Restaurant table archived",
     "payment.retry": "Payment retry queued",
-    "payment.mark_settled": "Payment marked settled"
+    "payment.mark_settled": "Payment marked settled",
+    "kds.order.ready": "KDS order marked ready",
+    "kds.order.recalled": "KDS order recalled to pending",
+    "customer.credit_limit.update": "Customer credit limit updated",
+    "sale.credit_override": "Sale completed with credit override"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -76,7 +80,9 @@
     "device": "Device",
     "restaurant_table": "Restaurant table",
     "payment_outbox": "Payment outbox",
-    "ai_feature": "AI feature"
+    "ai_feature": "AI feature",
+    "kds_order": "KDS order",
+    "customer": "Customer"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

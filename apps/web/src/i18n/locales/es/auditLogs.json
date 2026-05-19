@@ -60,7 +60,11 @@
     "restaurant_table.update": "Mesa de restaurante actualizada",
     "restaurant_table.archive": "Mesa de restaurante archivada",
     "payment.retry": "Reintento de pago encolado",
-    "payment.mark_settled": "Pago marcado como liquidado"
+    "payment.mark_settled": "Pago marcado como liquidado",
+    "kds.order.ready": "Orden marcada como Listo en cocina",
+    "kds.order.recalled": "Orden devuelta a pendiente en cocina",
+    "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
+    "sale.credit_override": "Venta completada con sobregiro autorizado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -76,7 +80,9 @@
     "device": "Dispositivo",
     "restaurant_table": "Mesa de restaurante",
     "payment_outbox": "Outbox de pagos",
-    "ai_feature": "Función de IA"
+    "ai_feature": "Función de IA",
+    "kds_order": "Orden de cocina",
+    "customer": "Cliente"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

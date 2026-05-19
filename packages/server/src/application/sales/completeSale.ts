@@ -803,6 +803,34 @@ async function runFreshSale(
       });
       priceOverrideAuditEmitted = priceOverrideAuditId !== null;
     }
+
+    // ENG-007 closure — admin authorised a credit sale whose projected
+    // balance exceeded the customer's cupo. `overrideApplied` is true
+    // only when (exceedsLimit && allowOverride === true), so the row
+    // never fires for admin-completed sales that stayed under the
+    // limit. Keeps the audit log clean of admin-completion noise.
+    if (creditProjection?.overrideApplied === true && input.customerId) {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'sale.credit_override',
+        resourceType: 'sale',
+        resourceId: saleId,
+        before: null,
+        after: {
+          customerId: input.customerId,
+          creditLimit: creditProjection.creditLimit,
+          currentBalance: creditProjection.currentBalance,
+          projectedBalance: creditProjection.projectedBalance,
+          attemptedAmount: creditProjection.attemptedAmount,
+        },
+        metadata: {
+          actorRole: ctx.user.role,
+          saleNumber,
+        },
+      });
+    }
   });
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, saleId);
@@ -1273,6 +1301,36 @@ async function runCompleteDraft(
           : {}),
       },
     });
+
+    // ENG-007 closure — admin authorised a credit sale whose projected
+    // balance exceeded the customer's cupo. `overrideApplied` is true
+    // only when (exceedsLimit && allowOverride === true), so the row
+    // never fires for admin-completed sales that stayed under the limit.
+    // `draftCustomerId` is captured from the existing sale row above
+    // because the `fromDraft` input shape does not carry `customerId`.
+    if (creditProjection?.overrideApplied === true && draftCustomerId) {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'sale.credit_override',
+        resourceType: 'sale',
+        resourceId: input.saleId,
+        before: null,
+        after: {
+          customerId: draftCustomerId,
+          creditLimit: creditProjection.creditLimit,
+          currentBalance: creditProjection.currentBalance,
+          projectedBalance: creditProjection.projectedBalance,
+          attemptedAmount: creditProjection.attemptedAmount,
+        },
+        metadata: {
+          actorRole: ctx.user.role,
+          saleNumber: existing.saleNumber,
+          completedFromDraft: true,
+        },
+      });
+    }
   });
 
   // ENG-064b — sync_outbox emit moved POST-tx (was inline `tx.insert`

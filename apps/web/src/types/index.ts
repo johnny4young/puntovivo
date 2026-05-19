@@ -556,7 +556,10 @@ export type AuditLogAction =
   | 'ai.semantic_search.regenerate_embeddings'
   // ENG-098 — kitchen display Listo + recall actions.
   | 'kds.order.ready'
-  | 'kds.order.recalled';
+  | 'kds.order.recalled'
+  // ENG-007 closure — credit-policy mutations.
+  | 'customer.credit_limit.update'
+  | 'sale.credit_override';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -581,7 +584,9 @@ export type AuditLogResourceType =
   // ENG-094 / AI Núcleo 2026-05-15 — generic AI-feature resource rows.
   | 'ai_feature'
   // ENG-098 — kitchen display rows.
-  | 'kds_order';
+  | 'kds_order'
+  // ENG-007 closure — customer rows targeted by credit-limit audits.
+  | 'customer';
 
 export interface AuditLogEntry {
   id: string;
