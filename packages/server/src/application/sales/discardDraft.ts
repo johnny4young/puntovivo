@@ -30,6 +30,7 @@ import {
   sales,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -268,6 +269,22 @@ export async function discardDraft(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
+
+  // ENG-098 — drop any kitchen card for the discarded draft so the
+  // cook does not keep cooking food for a sale the cashier killed.
+  // No-op when no card exists.
+  await removeKdsOrders({
+    ctx: {
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId || null,
+      user: { id: ctx.user.id },
+      sse: ctx.sse ?? null,
+      log: ctx.log,
+    },
+    saleId: input.saleId,
+    reason: 'discard',
+  });
 
   return {
     id: input.saleId,

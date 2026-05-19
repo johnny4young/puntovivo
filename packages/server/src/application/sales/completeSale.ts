@@ -47,6 +47,8 @@ import {
   units,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
+import type { KdsHookContext } from '../../services/kds/types.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -89,6 +91,23 @@ import { requireCreditLimitNotExceeded } from '../../services/credit-limit.js';
 import { recordCreditSaleLedger } from './recordCreditSaleLedger.js';
 
 const fallbackLog = createModuleLogger('application/sales/completeSale');
+
+/**
+ * ENG-098 — adapt the application-layer context shape to the KDS
+ * hook helper input. `siteId` is widened to `string | null` here
+ * because the application context types it as `string` (defaulting
+ * to ''); the helper short-circuits on falsy site ids.
+ */
+function buildKdsHookContextFromAppCtx(ctx: CompleteSaleContext): KdsHookContext {
+  return {
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId || null,
+    user: { id: ctx.user.id },
+    sse: ctx.sse ?? null,
+    log: ctx.log,
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /*  Shared resolver types — private to the service.                   */
@@ -935,6 +954,16 @@ async function runFreshSale(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
+  // ENG-098 — push to the kitchen display when the sale carries a
+  // tableId. Idempotent against the suspend-then-complete progression
+  // via UNIQUE(tenant_id, sale_id, station); a second fire is a no-op.
+  if (input.tableId) {
+    await enqueueKdsOrder({
+      ctx: buildKdsHookContextFromAppCtx(ctx),
+      saleId,
+    });
+  }
+
   return {
     sale: { ...created, change } as CompleteSaleSaleRecord,
     change,
@@ -1374,6 +1403,18 @@ async function runCompleteDraft(
       });
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
+  }
+
+  // ENG-098 — push to the kitchen display when the underlying draft
+  // carried a tableId. Idempotent against the suspend → complete
+  // progression via UNIQUE(tenant_id, sale_id, station). For the
+  // common path (suspend already created the card) this is a no-op
+  // at the DB layer.
+  if (existing.tableId) {
+    await enqueueKdsOrder({
+      ctx: buildKdsHookContextFromAppCtx(ctx),
+      saleId: input.saleId,
+    });
   }
 
   return {

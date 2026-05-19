@@ -173,6 +173,16 @@ export interface CompleteSaleContext {
   envelope?: { operationId: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;
+  /**
+   * ENG-098 — optional SSE broadcaster used by the KDS post-tx hook
+   * to notify the kitchen surface live. When omitted (unit tests,
+   * internal callers without an HTTP boundary), the helper writes
+   * the `kds_orders` row but skips the broadcast — the board picks
+   * up the change on the next `kds.list` refetch.
+   */
+  sse?: {
+    broadcast(eventName: string, data: unknown, tenantId?: string): void;
+  } | null;
 }
 
 /**

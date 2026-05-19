@@ -31,6 +31,7 @@ import {
   sales,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -344,6 +345,22 @@ export async function voidSale(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
+
+  // ENG-098 — drop any kitchen card for the voided sale. No-op when
+  // the sale never had a tableId (retail path) or when the card has
+  // already aged out via the 5-minute ready TTL.
+  await removeKdsOrders({
+    ctx: {
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId || null,
+      user: { id: ctx.user.id },
+      sse: ctx.sse ?? null,
+      log: ctx.log,
+    },
+    saleId: input.id,
+    reason: 'void',
+  });
 
   return {
     sale: updated as VoidedSaleRecord,

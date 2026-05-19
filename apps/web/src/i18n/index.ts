@@ -35,6 +35,7 @@ import enModules from './locales/en/modules.json';
 import enSurfaces from './locales/en/surfaces.json';
 import enVoice from './locales/en/voice.json';
 import enRestaurants from './locales/en/restaurants.json';
+import enKds from './locales/en/kds.json';
 
 import esCommon from './locales/es/common.json';
 import esAuth from './locales/es/auth.json';
@@ -68,6 +69,7 @@ import esModules from './locales/es/modules.json';
 import esSurfaces from './locales/es/surfaces.json';
 import esVoice from './locales/es/voice.json';
 import esRestaurants from './locales/es/restaurants.json';
+import esKds from './locales/es/kds.json';
 
 const preference = readLanguagePreference();
 const lng = resolveLocale(preference);
@@ -100,7 +102,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'delivery', 'posTouch', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'delivery', 'posTouch', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants', 'kds'],
   resources: {
     en: {
       common: enCommon,
@@ -135,6 +137,7 @@ void i18next.use(initReactI18next).init({
       surfaces: enSurfaces,
       voice: enVoice,
       restaurants: enRestaurants,
+      kds: enKds,
     },
     es: {
       common: esCommon,
@@ -169,6 +172,7 @@ void i18next.use(initReactI18next).init({
       surfaces: esSurfaces,
       voice: esVoice,
       restaurants: esRestaurants,
+      kds: esKds,
     },
   },
   interpolation: {

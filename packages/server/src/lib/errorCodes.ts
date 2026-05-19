@@ -561,6 +561,22 @@ export const SERVER_ERROR_CODES = {
    */
   RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
 
+  // --- kitchen display (ENG-098) ---
+  /**
+   * ENG-098 — `kds_orders` row not found for the (tenant, id) pair.
+   * Mirrors the cross-tenant collapse contract: a card from another
+   * tenant returns NOT_FOUND with this code so existence never leaks.
+   * Also raised by `markReady` / `recall` when the row has already
+   * been deleted by a racing `discardDraft` or `voidSale`.
+   */
+  KDS_ORDER_NOT_FOUND: 'KDS_ORDER_NOT_FOUND',
+  /**
+   * ENG-098 — `kds.recall` was called on a row whose status is not
+   * `ready`. Cause carries the actual `currentStatus` so the UI can
+   * render the right toast.
+   */
+  KDS_ORDER_NOT_READY: 'KDS_ORDER_NOT_READY',
+
   // --- credit sales domain (ENG-090) ---
   /**
    * `completeSale` refused the credit-sale payload because the projected

@@ -225,6 +225,13 @@
       "when": 1783987200000,
       "tag": "0031_customer_credit_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1784073600000,
+      "tag": "0032_kds_orders",
+      "breakpoints": true
     }
   ]
 }

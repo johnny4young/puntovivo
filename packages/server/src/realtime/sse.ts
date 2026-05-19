@@ -16,9 +16,10 @@
  * @module realtime/sse
  */
 
-import { FastifyReply, FastifyPluginCallback, FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyPluginCallback } from 'fastify';
 import fp from 'fastify-plugin';
 import { createModuleLogger } from '../logging/logger.js';
+import { REALTIME_COOKIE_NAME, verifyRealtimeToken } from '../security/authTokens.js';
 
 const sseLog = createModuleLogger('sse');
 
@@ -41,6 +42,10 @@ export interface SseEvent {
   data: unknown;
   id?: string;
   retry?: number;
+}
+
+interface SsePluginOptions {
+  corsOrigins?: string[];
 }
 
 /**
@@ -100,8 +105,8 @@ export class SseManager {
     let sentCount = 0;
 
     for (const client of this.clients.values()) {
-      // Filter by tenant if specified
-      if (tenantId && client.tenantId && client.tenantId !== tenantId) {
+      // Tenant-scoped events must never fan out to anonymous clients.
+      if (tenantId && client.tenantId !== tenantId) {
         continue;
       }
 
@@ -183,20 +188,30 @@ function generateClientId(): string {
   return `sse_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+function getCorsHeaders(
+  originHeader: string | undefined,
+  allowedOrigins: readonly string[]
+): Record<string, string> {
+  if (!originHeader || !allowedOrigins.includes(originHeader)) {
+    return {};
+  }
+  return {
+    'Access-Control-Allow-Origin': originHeader,
+    'Access-Control-Allow-Credentials': 'true',
+    Vary: 'Origin',
+  };
+}
+
 /**
  * Fastify plugin for SSE support
  */
-const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
+const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opts, done) => {
   const manager = new SseManager();
+  const allowedOrigins = opts.corsOrigins ?? [];
 
-  async function resolveTenantId(request: FastifyRequest): Promise<string | null> {
-    try {
-      await request.jwtVerify();
-      const payload = request.user as { tenantId?: unknown };
-      return typeof payload.tenantId === 'string' ? payload.tenantId : null;
-    } catch {
-      return null;
-    }
+  async function resolveTenantId(requestCookie: string | undefined): Promise<string | null> {
+    const payload = await verifyRealtimeToken(fastify, requestCookie ?? null);
+    return payload?.tenantId ?? null;
   }
 
   // Decorate fastify instance with SSE manager
@@ -217,7 +232,15 @@ const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
     handler: async (request, reply) => {
       const clientId = generateClientId();
       const collections = request.query.collections?.split(',').map(c => c.trim()) || [];
-      const tenantId = await resolveTenantId(request);
+      const tenantId = await resolveTenantId(request.cookies[REALTIME_COOKIE_NAME]);
+      const corsHeaders = getCorsHeaders(request.headers.origin, allowedOrigins);
+
+      if (!tenantId) {
+        return reply
+          .code(401)
+          .headers(corsHeaders)
+          .send({ error: 'Realtime subscription requires authentication' });
+      }
 
       // Set SSE headers
       reply.raw.writeHead(200, {
@@ -225,6 +248,7 @@ const ssePluginCallback: FastifyPluginCallback = (fastify, _opts, done) => {
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no', // Disable nginx buffering
+        ...corsHeaders,
       });
 
       // Send initial connection message
