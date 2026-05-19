@@ -22,8 +22,6 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import {
   auditLogs,
-  auditLogActionEnum,
-  auditLogResourceTypeEnum,
   users,
   type AuditLogAction,
   type AuditLogResourceType,
@@ -48,28 +46,21 @@ function getTimestamp(): string {
   return new Date().toISOString();
 }
 
-function isAuditLogAction(value: string): value is AuditLogAction {
-  return auditLogActionEnum.some(item => item === value);
-}
-
+/**
+ * The module JSDoc states the DB column is "free-form text" and that
+ * extending the enum "never requires a migration". A throw on unknown
+ * values contradicts that contract — if any historical row carries an
+ * action that has since been removed or renamed, the entire list view
+ * crashes with a 500. Cast through `AuditLogAction` so the caller
+ * still gets the union type at compile time, and let the renderer
+ * fall back to the raw string via the i18n `defaultValue` mechanism.
+ */
 function parseAuditLogAction(value: string): AuditLogAction {
-  if (isAuditLogAction(value)) {
-    return value;
-  }
-
-  throw new Error(`Unknown audit log action: ${value}`);
-}
-
-function isAuditLogResourceType(value: string): value is AuditLogResourceType {
-  return auditLogResourceTypeEnum.some(item => item === value);
+  return value as AuditLogAction;
 }
 
 function parseAuditLogResourceType(value: string): AuditLogResourceType {
-  if (isAuditLogResourceType(value)) {
-    return value;
-  }
-
-  throw new Error(`Unknown audit log resource type: ${value}`);
+  return value as AuditLogResourceType;
 }
 
 /**

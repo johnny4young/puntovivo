@@ -163,6 +163,16 @@ export const auditLogActionEnum = [
   // reconstruct the kitchen timeline.
   'kds.order.ready',
   'kds.order.recalled',
+  // ENG-007 closure — credit-policy mutations. `customer.credit_limit.update`
+  // captures every per-customer cupo adjustment from the customers admin;
+  // `sale.credit_override` fires when an admin authorised a sale whose
+  // projected balance exceeded the customer's credit_limit (overrideApplied
+  // === true in the credit-limit projection). The ENG-007 original wording
+  // mentioned a `company_credit_settings` table that ENG-090 never created
+  // (the credit-sales feature put the cupo on the customer row instead);
+  // these two actions cover the two real mutation surfaces.
+  'customer.credit_limit.update',
+  'sale.credit_override',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -193,6 +203,10 @@ export const auditLogResourceTypeEnum = [
   'ai_feature',
   // ENG-098 — kitchen display rows.
   'kds_order',
+  // ENG-007 closure — customer rows targeted by credit-limit audits.
+  // ENG-089/090 shipped the credit-sales feature without ever emitting
+  // audit rows from the customers router, so this resource type is new.
+  'customer',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

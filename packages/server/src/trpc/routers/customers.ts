@@ -30,6 +30,7 @@ import {
   regimeTypes,
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   listCustomersInput,
   getCustomerInput,
@@ -316,7 +317,38 @@ export const customersRouter = router({
     if (updates.creditLimit !== undefined) updateData.creditLimit = updates.creditLimit;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(customers).set(updateData).where(eq(customers.id, id));
+    // ENG-007 closure — credit-limit changes must leave an audit trail.
+    // Only emit when the field is explicitly in the payload AND the new
+    // value differs from the prior row state; an update that touches only
+    // name / phone / address never writes a credit-policy audit row.
+    const priorCreditLimit = existing.creditLimit ?? 0;
+    const nextCreditLimit =
+      updates.creditLimit !== undefined ? updates.creditLimit : priorCreditLimit;
+    const creditLimitChanged =
+      updates.creditLimit !== undefined && nextCreditLimit !== priorCreditLimit;
+
+    await ctx.db.transaction(tx => {
+      tx.update(customers)
+        .set(updateData)
+        .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+        .run();
+      if (creditLimitChanged) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'customer.credit_limit.update',
+          resourceType: 'customer',
+          resourceId: id,
+          before: { creditLimit: priorCreditLimit },
+          after: { creditLimit: nextCreditLimit },
+          metadata: {
+            customerName: existing.name,
+            customerEmail: existing.email ?? null,
+          },
+        });
+      }
+    });
 
     await enqueueSync(ctx, {
       entityType: 'customers',

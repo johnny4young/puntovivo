@@ -28,12 +28,16 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'sale.splitDraft',
   'sale.reprint',
   'sale.complete',
+  'sale.credit_override',
   'purchase.void',
   'transfer.void',
   'user.create',
   'user.update',
   'quotation.delete',
   'quotation.convert',
+  'kds.order.ready',
+  'kds.order.recalled',
+  'customer.credit_limit.update',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -47,6 +51,8 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'cashier',
   'quotation',
   'ai_feature',
+  'kds_order',
+  'customer',
 ];
 
 /**
