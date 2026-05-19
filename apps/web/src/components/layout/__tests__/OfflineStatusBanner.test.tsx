@@ -8,6 +8,24 @@ vi.mock('@/hooks/useOfflineSync', () => ({
   useOfflineSync: vi.fn(),
 }));
 
+// ENG-088 — the banner now calls useHubReachability() directly.
+// The real hook schedules a setInterval which leaks across tests
+// in jsdom; the suite never asserts hub-reachable behaviour so a
+// neutral stub keeps the focus on the banner copy + retry CTA.
+vi.mock('@/hooks/useHubReachability', () => ({
+  useHubReachability: () => ({ reachable: null, lastChecked: null, lastError: null }),
+}));
+
+// ENG-088 — the banner now mounts OfflineModePanel below itself
+// when offline / hub unreachable. The panel pulls from
+// `trpc.sync.listQueue` which requires a tRPC provider that this
+// suite does not wire up. Stub it so the banner-only behaviour
+// stays the focus; the panel has its own dedicated test files.
+vi.mock('@/features/offline/OfflineModePanel', () => ({
+  OfflineModePanel: ({ visible }: { visible: boolean }) =>
+    visible ? <div data-testid="offline-mode-panel-stub" /> : null,
+}));
+
 const mockUseOfflineSync = vi.mocked(useOfflineSync);
 
 describe('OfflineStatusBanner', () => {

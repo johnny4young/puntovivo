@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/hooks';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { OfflineCapabilityGrid } from '@/features/offline/OfflineCapabilityGrid';
+import { OfflineModePanel } from '@/features/offline/OfflineModePanel';
 import { cn, formatDateTime } from '@/lib/utils';
 
 function getBannerCopy(
@@ -141,7 +141,7 @@ export function OfflineStatusBanner() {
           </button>
         )}
       </div>
-      <OfflineCapabilityGrid visible={shouldShowCapabilityGrid} />
+      <OfflineModePanel visible={shouldShowCapabilityGrid} />
     </div>
   );
 }
