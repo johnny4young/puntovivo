@@ -19,8 +19,7 @@ export function hasSplitPayments(sale: Pick<Sale, 'payments'>): boolean {
 
 /**
  * Shape of a single forwarded tender sent to `sales.create`. Mirrors
- * `salePaymentInput` on the server (method/amount/reference, no `credit`
- * method on the split path).
+ * `salePaymentInput` on the server (method/amount/reference).
  */
 export interface CheckoutForwardTender {
   method: SalePaymentTenderValue['method'];
@@ -28,10 +27,19 @@ export interface CheckoutForwardTender {
   reference?: string;
 }
 
+export function checkoutUsesCreditTender(values: SalePaymentValues): boolean {
+  if (values.tenders.length > 0) {
+    return values.tenders.some(tender => tender.method === 'credit');
+  }
+  return values.paymentMethod === 'credit';
+}
+
 function getDominantSplitTenderMethod(
   tenders: SalePaymentValues['tenders']
 ): PaymentMethod {
-  const [firstTender, ...restTenders] = tenders;
+  const nonCreditTenders = tenders.filter(tender => tender.method !== 'credit');
+  const dominantPool = nonCreditTenders.length > 0 ? nonCreditTenders : tenders;
+  const [firstTender, ...restTenders] = dominantPool;
   if (!firstTender) {
     return 'cash';
   }
@@ -50,7 +58,7 @@ export function getRequestedPaymentStatus(
   total: number
 ): CompletablePaymentStatus {
   if (values.tenders.length > 0) {
-    return 'paid';
+    return checkoutUsesCreditTender(values) ? 'partial' : 'paid';
   }
 
   if (values.paymentMethod === 'credit') {
@@ -87,7 +95,7 @@ export function getCheckoutPaymentState(
   if (values.tenders.length > 0) {
     return {
       paymentMethod: getDominantSplitTenderMethod(values.tenders),
-      paymentStatus: 'paid',
+      paymentStatus: getRequestedPaymentStatus(values, total),
       amountReceived: total,
       payments: values.tenders.map(tender => {
         const trimmedReference = tender.reference?.trim();

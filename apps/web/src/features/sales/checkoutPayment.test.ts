@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import type { SalePayment } from '@/types';
 import {
+  checkoutUsesCreditTender,
   getCheckoutPaymentState,
   getRequestedPaymentStatus,
   hasSplitPayments,
@@ -51,6 +52,7 @@ describe('checkoutPayment', () => {
       ],
     });
 
+    expect(checkoutUsesCreditTender(values)).toBe(false);
     expect(getRequestedPaymentStatus(values, 100)).toBe('paid');
     expect(getCheckoutPaymentState(values, 100)).toEqual({
       paymentMethod: 'card',
@@ -59,6 +61,29 @@ describe('checkoutPayment', () => {
       payments: [
         { method: 'cash', amount: 40 },
         { method: 'card', amount: 60, reference: 'AUTH-42' },
+      ],
+    });
+  });
+
+  it('derives a partial checkout state from split credit and demotes credit from the dominant legacy method', () => {
+    const values = buildPaymentValues({
+      paymentMethod: 'cash',
+      amountReceived: 0,
+      tenders: [
+        { method: 'cash', amount: 40, reference: '' },
+        { method: 'credit', amount: 60, reference: '' },
+      ],
+    });
+
+    expect(checkoutUsesCreditTender(values)).toBe(true);
+    expect(getRequestedPaymentStatus(values, 100)).toBe('partial');
+    expect(getCheckoutPaymentState(values, 100)).toEqual({
+      paymentMethod: 'cash',
+      paymentStatus: 'partial',
+      amountReceived: 100,
+      payments: [
+        { method: 'cash', amount: 40 },
+        { method: 'credit', amount: 60 },
       ],
     });
   });
@@ -145,6 +170,18 @@ describe('checkoutPayment', () => {
       });
       expect(getRequestedPaymentStatus(values, 100)).toBe('paid');
     });
+
+    it('returns "partial" when split tenders include a credit portion', () => {
+      const values = buildPaymentValues({
+        paymentMethod: 'cash',
+        amountReceived: 0,
+        tenders: [
+          { method: 'cash', amount: 80, reference: '' },
+          { method: 'credit', amount: 20, reference: '' },
+        ],
+      });
+      expect(getRequestedPaymentStatus(values, 100)).toBe('partial');
+    });
   });
 
   describe('getCheckoutPaymentState — split-tender dominant-method tie-break', () => {
@@ -167,6 +204,16 @@ describe('checkoutPayment', () => {
         ],
       });
       expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('card');
+    });
+
+    it('demotes credit from the dominant method when a non-credit tender exists', () => {
+      const values = buildPaymentValues({
+        tenders: [
+          { method: 'cash', amount: 30, reference: '' },
+          { method: 'credit', amount: 70, reference: '' },
+        ],
+      });
+      expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('cash');
     });
 
     it('falls back to cash when the tenders array is empty (defensive helper guard)', () => {

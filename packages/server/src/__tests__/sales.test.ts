@@ -1725,7 +1725,7 @@ describe('Sales tRPC Router', () => {
       expect(result.paymentMethod).toBe('card');
     });
 
-    it('rejects credit inside split payments until on-account sales exist', async () => {
+    it('requires a customer when split payments include credit', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const productId = await createPaymentTestProduct({
         name: 'Payment Credit Split',

@@ -121,6 +121,16 @@ function assertCanCreateCreditSale(ctx: Context): void {
   });
 }
 
+function inputCarriesCreditTender(input: {
+  paymentMethod: string;
+  payments?: Array<{ method: string }>;
+}): boolean {
+  return (
+    input.paymentMethod === 'credit' ||
+    (input.payments?.some(payment => payment.method === 'credit') ?? false)
+  );
+}
+
 /**
  * ENG-039c — resolve a `restaurant_tables` row for the tenant, asserting
  * it belongs to `ctx.tenantId` and is active. Cross-tenant hits collapse
@@ -358,7 +368,7 @@ export const salesRouter = router({
       );
     }
 
-    if (input.paymentMethod === 'credit') {
+    if (inputCarriesCreditTender(input)) {
       assertCanCreateCreditSale(ctx);
     }
 
@@ -1296,7 +1306,7 @@ export const salesRouter = router({
   completeDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(completeDraftInput)
     .mutation(async ({ ctx, input }) => {
-      if (input.paymentMethod === 'credit') {
+      if (inputCarriesCreditTender(input)) {
         assertCanCreateCreditSale(ctx);
       }
 

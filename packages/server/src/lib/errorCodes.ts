@@ -609,6 +609,16 @@ export const SERVER_ERROR_CODES = {
    * request an admin co-sign in-app.
    */
   CREDIT_SALE_FORBIDDEN: 'CREDIT_SALE_FORBIDDEN',
+  /**
+   * ENG-014 — refund of a sale that included a credit tender (split
+   * cash + credit, "apartado") is not yet supported because reversing
+   * a partial-credit sale requires reversing both the cash session
+   * movement and the customer-ledger entry, with operator-facing copy
+   * for partial reversals. The dedicated flow lives behind a future
+   * ticket; until it lands, `returnSale` blocks the refund with this
+   * code so an operator cannot leave a half-reversed sale in the DB.
+   */
+  REFUND_PARTIAL_CREDIT_NOT_SUPPORTED: 'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

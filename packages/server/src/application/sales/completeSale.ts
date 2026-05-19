@@ -554,6 +554,12 @@ async function runFreshSale(
     total,
   });
   const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
+  // ENG-014 — sum credit tenders so the status, invariant, and ledger
+  // hook all key off the same number. A split with cash + credit lands
+  // here with rows=[{cash, $50}, {credit, $150}], so creditSaleAmount=150.
+  const creditSaleAmount = resolvedPayments.rows
+    .filter(row => row.method === 'credit')
+    .reduce((sum, row) => sum + row.amount, 0);
 
   const paymentStatus = getPaymentStatus({
     amountReceived: input.amountReceived,
@@ -561,6 +567,7 @@ async function runFreshSale(
     requestedStatus: input.paymentStatus,
     total,
     isSplit: isSplitPayment,
+    creditAmount: creditSaleAmount,
   });
   const change =
     input.amountReceived !== undefined && input.amountReceived > total
@@ -596,20 +603,18 @@ async function runFreshSale(
     });
   }
 
-  // ENG-090 — credit-sale pre-flight. Full-credit single-tender is the
-  // only flow that writes a `customer_ledger_entries` row of
-  // `kind='sale'` today; split-tender credit (ENG-014) stays out of
-  // scope and the Zod schema for `SplitTenderMethod` keeps `credit`
-  // excluded. The invariant + customer-required throw run BEFORE the
-  // sale tx so a cupo violation never decrements stock / inserts a
-  // sale row that would have to be voided.
-  const isFullCreditSale =
-    !isSplitPayment && resolvedPayments.dominantMethod === 'credit';
-  const creditSaleAmount = isFullCreditSale ? total : 0;
+  // ENG-014 — credit-sale pre-flight. `creditSaleAmount` already
+  // computed above (sum of credit tenders). Only that portion creates
+  // a `customer_ledger_entries.kind='sale'` row; the non-credit
+  // tenders settle through the cash session as usual. The invariant +
+  // customer-required throw run BEFORE the sale tx so a cupo violation
+  // never decrements stock / inserts a sale row that would have to be
+  // voided.
+  const hasCreditPortion = creditSaleAmount > 0;
   let creditProjection: Awaited<
     ReturnType<typeof requireCreditLimitNotExceeded>
   > | null = null;
-  if (isFullCreditSale && input.status === 'completed') {
+  if (hasCreditPortion && input.status === 'completed') {
     if (!input.customerId) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -1133,6 +1138,12 @@ async function runCompleteDraft(
     total,
   });
   const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
+  // ENG-014 — sum credit tenders so the status, invariant, and ledger
+  // hook all key off the same number. A split with cash + credit lands
+  // here with rows=[{cash, $50}, {credit, $150}], so creditSaleAmount=150.
+  const creditSaleAmount = resolvedPayments.rows
+    .filter(row => row.method === 'credit')
+    .reduce((sum, row) => sum + row.amount, 0);
 
   const paymentStatus = getPaymentStatus({
     amountReceived: input.amountReceived,
@@ -1140,6 +1151,7 @@ async function runCompleteDraft(
     requestedStatus: input.paymentStatus,
     total,
     isSplit: isSplitPayment,
+    creditAmount: creditSaleAmount,
   });
   const change =
     input.amountReceived !== undefined && input.amountReceived > total
@@ -1169,20 +1181,17 @@ async function runCompleteDraft(
     });
   }
 
-  // ENG-090 — same credit-sale pre-flight as the fresh path. A
-  // resumed draft that arrives with `paymentMethod === 'credit'` and
-  // a non-null `customerId` (carried on the draft row from the
-  // create call) must clear the cupo invariant before the finalize
-  // tx runs. The draft inherits the customerId from `existing` (the
-  // draft sale row).
-  const isFullCreditSale =
-    !isSplitPayment && resolvedPayments.dominantMethod === 'credit';
-  const creditSaleAmount = isFullCreditSale ? total : 0;
+  // ENG-014 — same credit-sale pre-flight as the fresh path, but the
+  // customer comes from the draft row (`existing.customerId`) rather
+  // than from the input. The draft customer is locked at create-time;
+  // completeDraft cannot re-assign it. `creditSaleAmount` already
+  // computed above (sum of credit tenders across split payload).
   const draftCustomerId = existing.customerId;
+  const hasCreditPortion = creditSaleAmount > 0;
   let creditProjection: Awaited<
     ReturnType<typeof requireCreditLimitNotExceeded>
   > | null = null;
-  if (isFullCreditSale && creditSaleAmount > 0) {
+  if (hasCreditPortion) {
     if (!draftCustomerId) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',

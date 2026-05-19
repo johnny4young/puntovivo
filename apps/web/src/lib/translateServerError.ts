@@ -162,6 +162,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'CREDIT_SALE_CUSTOMER_REQUIRED',
   'CREDIT_OVERRIDE_FORBIDDEN',
   'CREDIT_SALE_FORBIDDEN',
+  // --- ENG-014 split-credit refund guard ---
+  'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
