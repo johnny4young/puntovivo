@@ -66,13 +66,15 @@ backend/server
 playwright-report/
 test-results/
 
-# Claude Code per-developer state. We list these explicitly instead
-# of using `.claude/*` + negation because git does not recurse into
-# excluded directories — a wildcard at the parent level hides
-# `.claude/skills/` even with `!.claude/skills/**` afterwards.
-# Project-scoped skills (e.g. `puntovivo-ship`, `puntovivo-review`)
-# under `.claude/skills/` are intentionally NOT listed here so they
-# stay versioned and shared with every collaborator.
+# Claude Code + OpenAI Agents per-developer state. Skills live under
+# `.claude/skills/` and `.agents/skills/` — both are intentionally
+# kept OUT of git history because they evolve with each contributor's
+# workflow and the OpenAI mirror has format-specific divergences
+# (shorter description fields, separate openai.yaml manifests) that
+# do not belong in shared repo history. New contributors bootstrap
+# their own skill packs from a central registry, not from this repo.
+.claude/skills/
+.agents/skills/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/settings.local.json

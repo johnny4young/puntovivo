@@ -1,4 +1,0 @@
-interface:
-  display_name: "Puntovivo Review"
-  short_description: "Review Puntovivo staged diffs"
-  default_prompt: "Use $puntovivo-review to inspect the staged Puntovivo diff before commit."
