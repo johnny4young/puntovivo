@@ -62,6 +62,7 @@ export interface CompleteSaleItemInput {
   unitPrice: number;
   discount: number;
   taxRate?: number | null;
+  notes?: string | null;
 }
 
 /**

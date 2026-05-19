@@ -10,6 +10,7 @@
     "itemsAria": "Order items",
     "noItems": "No items",
     "noteLabel": "Note",
+    "itemNoteAria": "Modifier: {{note}}",
     "markReady": "Ready",
     "recall": "Move back to pending",
     "readyStamp": "Ready · {{time}}",

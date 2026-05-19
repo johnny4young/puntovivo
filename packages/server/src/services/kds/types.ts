@@ -54,6 +54,13 @@ export interface KdsItemSnapshot {
   productId: string;
   productName: string;
   quantity: number;
+  /**
+   * ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
+   * Null when no modifier was captured. Optional in the type so
+   * snapshots persisted before this field shipped still parse on
+   * the board (the renderer treats `notes ?? null` uniformly).
+   */
+  notes?: string | null;
 }
 
 export interface KdsBroadcastPayload {

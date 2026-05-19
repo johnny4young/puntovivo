@@ -232,6 +232,13 @@
       "when": 1784073600000,
       "tag": "0032_kds_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1784160000000,
+      "tag": "0033_sale_items_notes",
+      "breakpoints": true
     }
   ]
 }

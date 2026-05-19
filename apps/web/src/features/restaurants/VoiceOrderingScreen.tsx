@@ -17,11 +17,11 @@
  *   4. "Guardar orden" runs `sales.create({status:'draft'})` then
  *      `sales.suspend({label})` and clears local state on success.
  *
- * Per-line notes are kept in a local `Map<itemKey, string>`; on save
- * they are aggregated into the sale-level `notes` field (no schema
- * migration needed for the MVP). Per-item notes will move to
- * `sale_items.notes` once structured modifiers ship in a later
- * `ENG-039` child.
+ * Per-line notes live in a local `Record<itemKey, string>`; on save
+ * each cart line forwards its trimmed note as `sale_items.notes`
+ * (ENG-039d2). The sale-level `notes` field is no longer populated
+ * by this surface; `tableId` / `suspendedLabel` already carry the
+ * table identifier so no aggregation is needed.
  *
  * @module features/restaurants/VoiceOrderingScreen
  */
@@ -219,27 +219,6 @@ export function VoiceOrderingScreen({
     });
   }
 
-  function buildAggregatedNotes(): string | undefined {
-    // The desktop SuspendedSalesPanel renders `suspendedLabel`
-    // alongside the row, so duplicating the table name inside `notes`
-    // would echo "Mesa 5" twice on resume. Only emit per-line notes
-    // here; the table prefix lands only when there is at least one
-    // per-line note to anchor it to, so a kitchen ticket downstream
-    // can read "Mesa 5 — pan: sin sal" without the cashier hunting
-    // for which table the line belongs to.
-    const noteLines: string[] = [];
-    for (const item of cartItems) {
-      const note = itemNotes[item.key];
-      if (note && note.trim().length > 0) {
-        noteLines.push(`${item.productName}: ${note.trim()}`);
-      }
-    }
-    if (noteLines.length === 0) return undefined;
-    return [`${t('restaurants:tableLabel.label')}: ${tableLabel.trim()}`, ...noteLines].join(
-      '\n'
-    );
-  }
-
   async function handleSave(): Promise<void> {
     if (saveDisabled) return;
     setIsSaving(true);
@@ -247,19 +226,29 @@ export function VoiceOrderingScreen({
     try {
       const trimmedLabel = tableLabel.trim();
       const draft = await createMutation.mutateAsync({
-        items: cartItems.map(item => ({
-          productId: item.productId,
-          unitId: item.unitId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount,
-          taxRate: item.taxRate,
-        })),
+        // ENG-039d2 — per-item notes now persist on `sale_items.notes`
+        // directly (one row per cart line carries its own modifier).
+        // Pre-ENG-039d2 the surface aggregated every note into the
+        // sale-level `sales.notes` field with a table-label prefix;
+        // both were redundant because ENG-039c already persists
+        // tableId + suspendedLabel separately and the KDS render now
+        // shows the modifier inline with each product.
+        items: cartItems.map(item => {
+          const trimmedNote = itemNotes[item.key]?.trim();
+          return {
+            productId: item.productId,
+            unitId: item.unitId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount,
+            taxRate: item.taxRate,
+            notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
+          };
+        }),
         paymentMethod: 'cash',
         paymentStatus: 'pending',
         status: 'draft',
         discountAmount: 0,
-        notes: buildAggregatedNotes(),
         // ENG-039c — pass the FK when the operator picked a row from
         // the catalog dropdown. Free-text fallback keeps `tableId`
         // undefined and the server falls back to the label-only

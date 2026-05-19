@@ -55,14 +55,6 @@ research.
   latency per table). ENG-098 stayed at the two-state
   `pending → ready` machine; this adds the third lifecycle step. —
   2026-05-19 (jy)
-- `[restaurant][kds]` Per-line `sale_items.notes` column. Today the
-  voice-ordering surface aggregates per-item notes into the sale-
-  level `notes` field as free text; KDS renders that aggregate at
-  the bottom of the card. A dedicated column unblocks structured
-  modifiers (sin cebolla / extra queso) instead of a single string.
-  ENG-098 snapshots whatever `sale_items` exposes, so the KDS
-  render reads it per row automatically once the column lands. —
-  2026-05-19 (jy)
 - `[restaurant][kds]` Add-items-mid-service flow. Today the cashier
   must `discardDraft` + recreate from scratch to add a course
   mid-meal because `sales.create` is the only path that accepts an

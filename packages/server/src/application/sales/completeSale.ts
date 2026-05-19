@@ -129,6 +129,13 @@ interface ResolvedSaleItem {
   costAtSale: number;
   total: number;
   normalizedQuantity: number;
+  /**
+   * ENG-039d2 — free-form per-line modifier captured at sale
+   * creation time. Null when no modifier was entered. Items are
+   * immutable after draft creation so this value round-trips
+   * through suspend / resume / completeDraft unchanged.
+   */
+  notes: string | null;
 }
 
 interface SaleSequentialContext {
@@ -371,6 +378,16 @@ async function resolveSaleItems(
       costAtSale: product.cost,
       total: lineTotal,
       normalizedQuantity,
+      // ENG-039d2 — empty / whitespace-only notes collapse to null so
+      // the column stays semantically two-state (modifier present
+      // vs absent). The Zod schema `.trim()`s the input, but callers
+      // that bypass the schema (programmatic completeSale callers,
+      // future bulk-import flows) may still pass a whitespace-only
+      // string, so the resolver re-trims defensively.
+      notes:
+        typeof item.notes === 'string' && item.notes.trim().length > 0
+          ? item.notes.trim()
+          : null,
     });
   }
 
@@ -724,6 +741,8 @@ async function runFreshSale(
           taxAmount: row.taxAmount,
           costAtSale: row.costAtSale,
           total: row.total,
+          // ENG-039d2 — per-line modifier captured at sale creation.
+          notes: row.notes,
         })
         .run();
 

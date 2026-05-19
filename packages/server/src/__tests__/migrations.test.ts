@@ -401,6 +401,27 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at text NOT NULL,
         updated_at text NOT NULL
       );
+
+      -- ENG-039d2 — stub the baseline sale_items shape so the 0033
+      -- ALTER TABLE sale_items ADD COLUMN notes parses against an
+      -- existing target. The real bridge-build DB would carry this
+      -- table from migration 0000; the stub only needs the columns
+      -- already in place at the cutover so the later ALTER lands
+      -- against a real table.
+      CREATE TABLE sale_items (
+        id text PRIMARY KEY NOT NULL,
+        sale_id text NOT NULL,
+        product_id text NOT NULL,
+        quantity real DEFAULT 1 NOT NULL,
+        unit_price real DEFAULT 0 NOT NULL,
+        unit_id text,
+        unit_equivalence real DEFAULT 1 NOT NULL,
+        discount real DEFAULT 0 NOT NULL,
+        tax_rate real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        cost_at_sale real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL
+      );
     `);
 
     // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which

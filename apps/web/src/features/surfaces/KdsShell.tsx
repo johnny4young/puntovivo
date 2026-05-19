@@ -3,8 +3,8 @@
  *
  * Fullscreen black backdrop sized for a kitchen-mounted TV. No
  * sidebar / no Header — the kitchen station does not need
- * navigation chrome. v1 ships the chrome only; the actual ticket
- * queue lands with ENG-039 (vertical restaurant Mexico).
+ * navigation chrome. v1 shipped the chrome only; the real ticket
+ * queue landed with ENG-098 (kitchen display surface, 2026-05-19).
  *
  * Mounted as a top-level route in `App.tsx` so KDS owns its
  * viewport without competing with `MainLayout`.

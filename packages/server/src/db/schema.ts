@@ -1893,6 +1893,13 @@ export const saleItems = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-039d2 — per-line free-form modifier note ("sin cebolla",
+    // "extra queso", etc.). Captured at sale creation time by the
+    // voice-ordering surface and snapshotted into the KDS card so
+    // the cook sees the modifier inline with each product instead
+    // of aggregated at the bottom of the ticket. Nullable so retail
+    // tenants and pre-ENG-039d2 sales pass through unchanged.
+    notes: text('notes'),
   },
   table => [
     index('idx_sale_items_sale').on(table.saleId),

@@ -189,7 +189,7 @@ Concretely:
   `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
   viewport (KDS fullscreen black backdrop, customer-display gradient,
   mobile-waiter phone-width container, POS Touch wider chrome).
-- ENG-039 (vertical restaurant Mexico) plugs real workflows into the
+- ENG-039 (vertical restaurant) plugs real workflows into the
   existing shells without forking the App component. The shells +
   manifest are the seam; the placeholders ship as stubs.
 

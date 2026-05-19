@@ -24,6 +24,13 @@ export interface KdsCardItem {
   saleItemId: string;
   productName: string;
   quantity: number;
+  /**
+   * ENG-039d2 — per-line modifier ("sin cebolla"). Rendered as a
+   * dim caption under the product name. Older cards (pre-ENG-039d2
+   * snapshots) carry undefined here; the renderer falls back to the
+   * sale-level note panel for those.
+   */
+  notes?: string | null;
 }
 
 export interface KdsCardData {
@@ -117,11 +124,26 @@ export function KdsOrderCard({ order, onReady, onRecall, busy = false }: KdsOrde
           <li className="text-sm italic text-secondary-700">{t('card.noItems')}</li>
         ) : (
           order.items.map(item => (
-            <li key={item.saleItemId} className="flex items-baseline gap-3 text-lg">
+            <li
+              key={item.saleItemId}
+              className="flex items-baseline gap-3 text-lg"
+              data-testid="kds-order-card-item"
+            >
               <span className="min-w-[1.5rem] font-bold tabular-nums">
                 {formatQuantity(item.quantity)}
               </span>
-              <span>{item.productName}</span>
+              <span className="flex flex-col">
+                <span>{item.productName}</span>
+                {item.notes ? (
+                  <span
+                    className="text-sm italic text-secondary-800"
+                    data-testid="kds-order-card-item-note"
+                    aria-label={t('card.itemNoteAria', { note: item.notes })}
+                  >
+                    {item.notes}
+                  </span>
+                ) : null}
+              </span>
             </li>
           ))
         )}

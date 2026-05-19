@@ -120,6 +120,7 @@ async function loadItemSnapshots(
       productId: saleItems.productId,
       productName: products.name,
       quantity: saleItems.quantity,
+      notes: saleItems.notes,
     })
     .from(saleItems)
     .innerJoin(products, eq(products.id, saleItems.productId))
@@ -130,6 +131,7 @@ async function loadItemSnapshots(
     productId: row.productId,
     productName: row.productName,
     quantity: row.quantity,
+    notes: row.notes,
   }));
 }
 

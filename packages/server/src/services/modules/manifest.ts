@@ -147,7 +147,7 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
   // ENG-069 — surface modules default OFF so existing tenants do not
   // see new sidebar entries appear after the kernel ships. The
   // surfaces themselves render placeholders until ENG-039 (vertical
-  // restaurant Mexico) plugs the real workflows.
+  // restaurant) plugs the real workflows.
   'pos-touch': {
     id: 'pos-touch',
     defaultEnabled: false,

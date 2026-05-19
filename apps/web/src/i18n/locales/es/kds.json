@@ -10,6 +10,7 @@
     "itemsAria": "Productos de la orden",
     "noItems": "Sin productos",
     "noteLabel": "Nota",
+    "itemNoteAria": "Modificador: {{note}}",
     "markReady": "Listo",
     "recall": "Volver a pendiente",
     "readyStamp": "Listo · {{time}}",
