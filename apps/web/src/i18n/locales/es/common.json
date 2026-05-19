@@ -116,6 +116,7 @@
     "kicker": "Modo offline",
     "title": "Tranquila, sigue vendiendo",
     "description": "Las ventas se guardan en esta tableta y se sincronizan cuando regrese la conexión.",
+    "reassurance": "Sigue vendiendo — sincronizamos todo apenas vuelva la conexión.",
     "status": {
       "available": "Disponible",
       "limited": "Limitado",
@@ -147,6 +148,38 @@
         "label": "Ajustar inventario",
         "note": "Requiere hub conectado"
       }
+    },
+    "syncQueue": {
+      "title": "Cola de sincronización",
+      "subtitle": "Las ventas se envían automáticamente cuando vuelva la conexión.",
+      "empty": "Sin cambios pendientes.",
+      "ticketLabel": "Ticket {{id}}",
+      "entityType": {
+        "sale": "Venta",
+        "sale_item": "Línea de venta",
+        "inventory_movement": "Movimiento de inventario",
+        "other": "Operación"
+      },
+      "elapsed": {
+        "justNow": "Ahora mismo",
+        "seconds_one": "Hace {{count}} segundo",
+        "seconds_other": "Hace {{count}} segundos",
+        "minutes_one": "Hace {{count}} minuto",
+        "minutes_other": "Hace {{count}} minutos",
+        "hours_one": "Hace {{count}} hora",
+        "hours_other": "Hace {{count}} horas",
+        "days_one": "Hace {{count}} día",
+        "days_other": "Hace {{count}} días"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "retrying": "Reintentando",
+        "failed": "Falló"
+      },
+      "retry": "Reintentar sincronización",
+      "loading": "Cargando cola…",
+      "errorTitle": "No pudimos cargar la cola",
+      "errorDescription": "Intenta de nuevo en un momento. Los tickets pendientes se quedan seguros en esta tableta."
     }
   },
   "offline": {

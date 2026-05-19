@@ -116,6 +116,7 @@
     "kicker": "Offline mode",
     "title": "Don't worry — keep selling",
     "description": "Sales are stored on this tablet and sync as soon as the connection returns.",
+    "reassurance": "Keep selling — we'll catch up the moment the connection returns.",
     "status": {
       "available": "Available",
       "limited": "Limited",
@@ -147,6 +148,38 @@
         "label": "Adjust inventory",
         "note": "Requires hub connection"
       }
+    },
+    "syncQueue": {
+      "title": "Sync queue",
+      "subtitle": "Sales upload automatically when the connection returns.",
+      "empty": "Nothing pending to sync.",
+      "ticketLabel": "Ticket {{id}}",
+      "entityType": {
+        "sale": "Sale",
+        "sale_item": "Sale item",
+        "inventory_movement": "Inventory move",
+        "other": "Operation"
+      },
+      "elapsed": {
+        "justNow": "Just now",
+        "seconds_one": "{{count}} second ago",
+        "seconds_other": "{{count}} seconds ago",
+        "minutes_one": "{{count}} minute ago",
+        "minutes_other": "{{count}} minutes ago",
+        "hours_one": "{{count}} hour ago",
+        "hours_other": "{{count}} hours ago",
+        "days_one": "{{count}} day ago",
+        "days_other": "{{count}} days ago"
+      },
+      "status": {
+        "pending": "Pending",
+        "retrying": "Retrying",
+        "failed": "Failed"
+      },
+      "retry": "Retry sync",
+      "loading": "Loading queue…",
+      "errorTitle": "We could not load the queue",
+      "errorDescription": "Try again in a moment. Pending tickets stay safe on this tablet."
     }
   },
   "offline": {

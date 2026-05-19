@@ -314,6 +314,38 @@ research.
   extension + a conditional `text` block (`{{ default(sale.creditFooter, '') }}`)
   in the default template. — 2026-05-18 (ENG-090)
 
+- `[offline][peripherals]` ENG-088b — Live device capability probe.
+  ENG-088 ships the V12 capability grid with a STATIC 6-card
+  mapping (Vender → Disponible, Sumar puntos → Pendiente, etc.).
+  The follow-up wires each card to a runtime probe so the status
+  pill reflects the actual environment: (a) `Cobrar tarjeta` reads
+  `trpc.peripherals.list({ kind: 'card_payment_terminal',
+  active: true })` plus a heartbeat ping to the terminal; (b)
+  `Recibo digital` checks the receipt-printer peripheral + the
+  tenant's email-transport config; (c) `Sumar puntos` flips to
+  Disponible the moment the loyalty module + customer
+  `loyaltyProfile` schema land (currently always Pendiente);
+  (d) `Ajustar inventario` reads `useModulesSnapshot().modules`
+  to verify the `operations-center` module is on for the active
+  user role. The static mapping stays as the fallback for any
+  capability whose probe returns inconclusive. — 2026-05-18
+  (ENG-088)
+
+- `[devtools][offline]` ENG-088c — QueryClient debug handle for
+  live-smoke screenshot evidence. ENG-088's live smoke could not
+  capture a populated `OfflineSyncQueueList` screenshot because
+  React Query's in-memory cache held the initial empty
+  `sync.listQueue` response across the SQL-seed → reload cycle
+  and the renderer exposes no debug handle to invalidate the
+  cache from the browser console. Expose the QueryClient on
+  `window.__PV_QUERY_CLIENT__` in dev mode only (gated by
+  `import.meta.env.DEV`) so Playwright smokes can call
+  `window.__PV_QUERY_CLIENT__.invalidateQueries(...)` to force a
+  refetch without a full reload. Acceptance: smoke harness for
+  any tRPC-backed surface can seed the DB + invalidate the
+  cached query + capture a populated screenshot in one
+  Playwright session. — 2026-05-18 (ENG-088)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated
