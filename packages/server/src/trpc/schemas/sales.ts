@@ -30,6 +30,11 @@ export const saleItemInput = z.object({
   unitPrice: z.number().min(0, 'Unit price must be non-negative'),
   discount: z.number().min(0).max(100).default(0),
   taxRate: z.number().min(0).max(100).optional(),
+  // ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
+  // 280-char cap mirrors restaurantTables.notes. Empty / whitespace
+  // strings collapse to null at the resolver to keep the column
+  // semantically two-state: present (real note) or absent.
+  notes: z.string().trim().max(280).nullable().optional(),
 });
 
 export const listSalesInput = paginationInput.extend({

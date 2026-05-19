@@ -123,6 +123,10 @@ export async function getSaleRecord(
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
       total: saleItems.total,
+      // ENG-039d2 — surface the per-line modifier so the renderer
+      // (KDS card, receipt reprint, history detail modal) reads it
+      // alongside each item.
+      notes: saleItems.notes,
     })
     .from(saleItems)
     .leftJoin(products, eq(saleItems.productId, products.id))

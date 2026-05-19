@@ -5,7 +5,7 @@
  * "próximamente" badge, and a CTA back to /dashboard. The actual
  * surface workflows (touch sales flow, kitchen ticket queue, table
  * grid, etc.) replace this placeholder with real content in
- * ENG-039 (vertical restaurant Mexico).
+ * ENG-039 (vertical restaurant).
  *
  * @module features/surfaces/SurfacePlaceholder
  */

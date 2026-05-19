@@ -406,13 +406,23 @@ describe('VoiceOrderingScreen (ENG-039a)', () => {
       discountAmount: 0,
     });
     expect(createCall.items).toHaveLength(2);
+    // ENG-039d2 — per-line notes persist on each item, not aggregated.
+    // Coca line has no note → notes is null. Hamburguesa carries the
+    // "sin queso" modifier as item.notes. The sale-level `notes`
+    // field is no longer populated by the voice surface; the table
+    // identifier already flows through `tableId` / `suspendedLabel`.
     expect(createCall.items[0]).toMatchObject({
       productId: 'p-coca',
       quantity: 2,
       unitPrice: 5000,
+      notes: null,
     });
-    expect(createCall.notes).toContain('Mesa 5');
-    expect(createCall.notes).toContain('sin queso');
+    expect(createCall.items[1]).toMatchObject({
+      productId: 'p-burg',
+      quantity: 1,
+      notes: 'sin queso',
+    });
+    expect(createCall.notes).toBeUndefined();
 
     await waitFor(() => expect(suspendMutateAsync).toHaveBeenCalledTimes(1));
     expect(suspendMutateAsync.mock.calls[0]?.[0]).toEqual({
