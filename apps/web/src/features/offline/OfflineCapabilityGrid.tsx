@@ -1,24 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import {
-  Banknote,
-  CreditCard,
-  Mail,
-  PackageCheck,
-  ShoppingBag,
-  Stars,
-  type LucideIcon,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-type CapabilityStatus = 'available' | 'limited' | 'pending' | 'blocked';
-
-interface CapabilityCard {
-  id: string;
-  icon: LucideIcon;
-  status: CapabilityStatus;
-  /** Optional follow-up note for "Limitado" / "Bloqueado" tiles. */
-  note?: string;
-}
+import { OFFLINE_CAPABILITY_CATALOG, type OfflineCapabilityStatus } from './OfflineCapabilityCatalog';
 
 interface OfflineCapabilityGridProps {
   /**
@@ -31,16 +13,10 @@ interface OfflineCapabilityGridProps {
   variant?: 'standalone' | 'inline';
 }
 
-const CAPABILITIES: readonly CapabilityCard[] = [
-  { id: 'sell', icon: ShoppingBag, status: 'available' },
-  { id: 'cash', icon: Banknote, status: 'available' },
-  { id: 'card', icon: CreditCard, status: 'limited', note: 'card' },
-  { id: 'receipt', icon: Mail, status: 'limited', note: 'receipt' },
-  { id: 'loyalty', icon: Stars, status: 'pending', note: 'loyalty' },
-  { id: 'inventory', icon: PackageCheck, status: 'blocked', note: 'inventory' },
-];
+// Backward-compatible local alias — existing render path stays untouched.
+const CAPABILITIES = OFFLINE_CAPABILITY_CATALOG;
 
-const STATUS_TONE: Record<CapabilityStatus, string> = {
+const STATUS_TONE: Record<OfflineCapabilityStatus, string> = {
   available: 'badge badge-success',
   limited: 'badge badge-warning',
   pending: 'badge badge-secondary',
