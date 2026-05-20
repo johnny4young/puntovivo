@@ -18,6 +18,17 @@
     "budgetHint": "Calls refuse once this month's spend reaches the budget. Set to 0 to disable temporarily.",
     "spentLabel": "Used this month",
     "spentSuffix": "of {{budget}}",
+    "quotas": {
+      "title": "Monthly AI quotas",
+      "usedOfLimit": "{{used}} / {{limit}}",
+      "resetHint": "Quotas renew on {{date}}.",
+      "copilot": {
+        "label": "Co-pilot questions"
+      },
+      "invoiceOcr": {
+        "label": "Invoices processed by OCR"
+      }
+    },
     "providerOk": "Provider configured",
     "providerMissing": "Provider not configured (check the required environment variable or local daemon)",
     "saveAction": "Save AI settings",

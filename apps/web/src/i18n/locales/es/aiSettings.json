@@ -18,6 +18,17 @@
     "budgetHint": "Las llamadas se rechazan cuando el gasto del mes alcanza el presupuesto. Pon 0 para desactivar temporalmente.",
     "spentLabel": "Usado este mes",
     "spentSuffix": "de {{budget}}",
+    "quotas": {
+      "title": "Cuotas mensuales de IA",
+      "usedOfLimit": "{{used}} / {{limit}}",
+      "resetHint": "Las cuotas se renuevan el {{date}}.",
+      "copilot": {
+        "label": "Preguntas al Co-pilot"
+      },
+      "invoiceOcr": {
+        "label": "Facturas OCR procesadas"
+      }
+    },
     "providerOk": "Proveedor configurado",
     "providerMissing": "Proveedor sin configurar (revisa la variable de entorno requerida o el servicio local)",
     "saveAction": "Guardar configuración de IA",

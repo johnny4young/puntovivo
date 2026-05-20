@@ -70,6 +70,11 @@ import {
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { normalizeColombianInvoice } from '../../services/ai/invoice/normalize-co.js';
 import { extractInvoiceWithTextract } from '../../services/ai/invoice/textract.js';
+import {
+  projectEmptyAiQuotas,
+  projectAiQuotas,
+  requireAiQuotaAvailable,
+} from '../../services/ai/quotas.js';
 import { createOcrDraftPurchase } from './purchases.js';
 import {
   parseCartCommandInput,
@@ -112,6 +117,17 @@ const settingsRouter = router({
     const settings = await resolveAISettings(ctx.db, ctx.tenantId);
     const provider = getProvider(settings.providerId);
     const spend = await currentMonthSpend(ctx.db, ctx.tenantId);
+    // ENG-102 — per-site quota projection. When the request has no
+    // siteId (admin without an active site) we still return the
+    // shape so the UI never branches on undefined; the numbers
+    // surface as zero / limit / next-month boundary.
+    const quotas = ctx.siteId
+      ? await projectAiQuotas({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+        })
+      : projectEmptyAiQuotas();
     return {
       enabled: settings.enabled,
       monthlyBudgetUsd: settings.monthlyBudgetUsd,
@@ -131,6 +147,11 @@ const settingsRouter = router({
       // ENG-095 / AI Núcleo 2026-05-15 — per-feature opt-in flags
       // consumed by `useAiFeatureFlag` on the web.
       features: settings.features,
+      // ENG-102 — monthly per-site quotas for the features that the
+      // website draft makes a numeric promise about. The UI renders
+      // a progress bar per feature using `used / limit` and surfaces
+      // `resetsAt` so the cashier knows when the counter rolls over.
+      quotas,
     };
   }),
 
@@ -176,6 +197,19 @@ const copilotRouter = router({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'AI_DISABLED',
           message: 'Co-pilot is disabled for this tenant',
+        });
+      }
+      // ENG-102 — per-site monthly quota check fires BEFORE the
+      // provider call so a blocked request never writes an audit
+      // row. Bypass when the request has no site context (admin
+      // without a selected site); the quota is "per site" by
+      // definition, so a site-less call has no bucket to charge.
+      if (ctx.siteId) {
+        await requireAiQuotaAvailable({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          feature: 'copilot',
         });
       }
       const userId = ctx.user?.id ?? null;
@@ -354,6 +388,17 @@ const invoiceOcrRouter = router({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'AI_DISABLED',
           message: 'Invoice OCR is disabled for this tenant',
+        });
+      }
+      // ENG-102 — per-site monthly quota check fires BEFORE the
+      // OCR provider call so a blocked request never writes an
+      // audit row. Bypass when the request has no site context.
+      if (ctx.siteId) {
+        await requireAiQuotaAvailable({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          feature: 'invoiceOcr',
         });
       }
 
@@ -641,6 +686,17 @@ export const aiRouter = router({
     .input(extractInvoiceLinesInput)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id ?? null;
+      // ENG-102 — legacy OCR still writes `feature: invoiceOcr`
+      // audit rows, so it must share the same per-site quota gate as
+      // the newer `ai.invoiceOcr.extract` mutation.
+      if (ctx.siteId) {
+        await requireAiQuotaAvailable({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          feature: 'invoiceOcr',
+        });
+      }
       const result = await extractInvoiceFromImage(
         {
           db: ctx.db,

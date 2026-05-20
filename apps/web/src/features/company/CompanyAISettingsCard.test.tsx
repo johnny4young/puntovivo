@@ -80,6 +80,13 @@ vi.mock('@/features/voice/blobToBase64', () => ({
   }),
 }));
 
+type QuotaProjection = {
+  feature: 'copilot' | 'invoiceOcr';
+  used: number;
+  limit: number;
+  resetsAt: string;
+};
+
 type SettingsPayload = {
   enabled: boolean;
   monthlyBudgetUsd: number;
@@ -91,6 +98,11 @@ type SettingsPayload = {
   currentMonthSpendUsd: number;
   availableProviders: Array<{ id: string; defaultModelId: string; isImplemented: boolean }>;
   transcriptionAvailable: boolean;
+  // ENG-102 — per-site monthly quota projection.
+  quotas: {
+    copilot: QuotaProjection;
+    invoiceOcr: QuotaProjection;
+  };
 };
 
 const defaultSettings: SettingsPayload = {
@@ -108,6 +120,20 @@ const defaultSettings: SettingsPayload = {
     { id: 'ollama', defaultModelId: 'llama3.2', isImplemented: true },
   ],
   transcriptionAvailable: true,
+  quotas: {
+    copilot: {
+      feature: 'copilot',
+      used: 0,
+      limit: 800,
+      resetsAt: '2026-06-01T00:00:00.000Z',
+    },
+    invoiceOcr: {
+      feature: 'invoiceOcr',
+      used: 0,
+      limit: 200,
+      resetsAt: '2026-06-01T00:00:00.000Z',
+    },
+  },
 };
 
 let mockSettingsState: SettingsPayload = { ...defaultSettings };
@@ -258,5 +284,76 @@ describe('CompanyAISettingsCard (ENG-040c slice 2 — Test transcription)', () =
     );
     expect(screen.getByTestId('ai-transcript-language')).toHaveTextContent('es');
     expect(screen.getByTestId('ai-transcript-duration')).toHaveTextContent('4.2s');
+  });
+
+  // ============================================================
+  // ENG-102 — Cuotas section
+  // ============================================================
+
+  it('ENG-102: renders the quotas section with idle bars (success tone)', () => {
+    mockSettingsState = {
+      ...defaultSettings,
+      quotas: {
+        copilot: {
+          feature: 'copilot',
+          used: 100,
+          limit: 800,
+          resetsAt: '2026-06-01T00:00:00.000Z',
+        },
+        invoiceOcr: {
+          feature: 'invoiceOcr',
+          used: 50,
+          limit: 200,
+          resetsAt: '2026-06-01T00:00:00.000Z',
+        },
+      },
+    };
+    render(<CompanyAISettingsCard />);
+    const section = screen.getByTestId('ai-quota-section');
+    expect(section).toBeInTheDocument();
+    expect(screen.getByTestId('ai-quota-copilot')).toHaveTextContent('100 / 800');
+    expect(screen.getByTestId('ai-quota-invoiceOcr')).toHaveTextContent('50 / 200');
+    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute(
+      'data-tone',
+      'success'
+    );
+  });
+
+  it('ENG-102: flips to warning tone at 80% and danger at 100%', () => {
+    mockSettingsState = {
+      ...defaultSettings,
+      quotas: {
+        copilot: {
+          feature: 'copilot',
+          used: 750, // 750 / 800 = 93.75% → warning (>=80%)
+          limit: 800,
+          resetsAt: '2026-06-01T00:00:00.000Z',
+        },
+        invoiceOcr: {
+          feature: 'invoiceOcr',
+          used: 200, // at limit → danger (>=100%)
+          limit: 200,
+          resetsAt: '2026-06-01T00:00:00.000Z',
+        },
+      },
+    };
+    render(<CompanyAISettingsCard />);
+    expect(screen.getByTestId('ai-quota-copilot-bar')).toHaveAttribute(
+      'data-tone',
+      'warning'
+    );
+    expect(screen.getByTestId('ai-quota-invoiceOcr-bar')).toHaveAttribute(
+      'data-tone',
+      'danger'
+    );
+  });
+
+  it('ENG-102: hides the quotas section when the master AI toggle is off', () => {
+    mockSettingsState = {
+      ...defaultSettings,
+      enabled: false,
+    };
+    render(<CompanyAISettingsCard />);
+    expect(screen.queryByTestId('ai-quota-section')).not.toBeInTheDocument();
   });
 });
