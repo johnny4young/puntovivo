@@ -6,6 +6,7 @@ import {
   dashboardRoles,
   canAccessRole,
   getDefaultRouteForRole,
+  getDefaultRouteForRoleWithSetup,
 } from './roleAccess';
 
 describe('roleAccess role tuples', () => {
@@ -63,5 +64,51 @@ describe('getDefaultRouteForRole', () => {
     expect(getDefaultRouteForRole('manager')).toBe('/dashboard');
     expect(getDefaultRouteForRole('viewer')).toBe('/dashboard');
     expect(getDefaultRouteForRole(undefined)).toBe('/dashboard');
+  });
+});
+
+describe('getDefaultRouteForRoleWithSetup', () => {
+  it('routes unacknowledged admins with blockers to the readiness tab', () => {
+    expect(
+      getDefaultRouteForRoleWithSetup({
+        role: 'admin',
+        hasBlockers: true,
+        acknowledgedAt: null,
+      })
+    ).toBe('/company?tab=readiness');
+  });
+
+  it('keeps managers on dashboard because /company is admin-only', () => {
+    expect(
+      getDefaultRouteForRoleWithSetup({
+        role: 'manager',
+        hasBlockers: true,
+        acknowledgedAt: null,
+      })
+    ).toBe('/dashboard');
+  });
+
+  it('falls back to the role default once setup is acknowledged or clean', () => {
+    expect(
+      getDefaultRouteForRoleWithSetup({
+        role: 'admin',
+        hasBlockers: false,
+        acknowledgedAt: null,
+      })
+    ).toBe('/dashboard');
+    expect(
+      getDefaultRouteForRoleWithSetup({
+        role: 'admin',
+        hasBlockers: true,
+        acknowledgedAt: '2026-05-20T12:00:00.000Z',
+      })
+    ).toBe('/dashboard');
+    expect(
+      getDefaultRouteForRoleWithSetup({
+        role: 'cashier',
+        hasBlockers: true,
+        acknowledgedAt: null,
+      })
+    ).toBe('/sales');
   });
 });

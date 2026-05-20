@@ -241,6 +241,7 @@
     },
     "tabs": {
       "ariaLabel": "Secciones de configuración de empresa",
+      "readiness": "Configuración inicial",
       "general": "General",
       "locale": "Localización",
       "data": "Datos",

@@ -1,0 +1,90 @@
+{
+  "readiness": {
+    "title": "Setup readiness",
+    "description": "These signals come from the rest of your configuration. Fix the blockers before opening the store.",
+    "loading": "Loading readiness checklist...",
+    "score": {
+      "label": "{{ready}} of {{total}} steps completed",
+      "aria": "Setup score {{score}} out of 100"
+    },
+    "blocker": {
+      "count_one": "{{count}} blocker still pending",
+      "count_other": "{{count}} blockers still pending"
+    },
+    "status": {
+      "ready": "Ready",
+      "blocker": "Blocker",
+      "optional-pending": "Optional pending",
+      "not-applicable": "Not applicable"
+    },
+    "cta": {
+      "configure": "Configure"
+    },
+    "acknowledge": {
+      "button": "Got it, take me to the dashboard",
+      "pending": "Saving...",
+      "toast": "Setup acknowledged",
+      "error": "Could not save your acknowledgement"
+    },
+    "sections": {
+      "locale": {
+        "label": "Locale and country",
+        "hint": "Country, currency and date format the store will use."
+      },
+      "sites": {
+        "label": "Sites",
+        "hint": "At least one active site must exist before selling."
+      },
+      "fiscal": {
+        "label": "Fiscal profile",
+        "hint": "Required when the tenant emits electronic invoices."
+      },
+      "peripherals": {
+        "label": "Peripherals",
+        "hint": "Printers, scanners and payment terminals are optional."
+      },
+      "payments": {
+        "label": "Payment rails",
+        "hint": "Cash always works; add cards or transfer rails as needed."
+      },
+      "modules": {
+        "label": "Modules",
+        "hint": "Restaurant, KDS and AI modules toggle here."
+      },
+      "users": {
+        "label": "Users",
+        "hint": "Add at least one staff user beyond the admin."
+      },
+      "ai": {
+        "label": "AI features",
+        "hint": "AI Co-pilot, OCR and anomaly detection are opt-in."
+      },
+      "catalog": {
+        "label": "Product catalog",
+        "hint": "Add at least one product before opening the register."
+      },
+      "cashSession": {
+        "label": "Cash session",
+        "hint": "Open a cash session before ringing the first sale."
+      }
+    }
+  },
+  "banner": {
+    "title_one": "Setup incomplete: {{count}} blocker keeps the store from opening.",
+    "title_other": "Setup incomplete: {{count}} blockers keep the store from opening.",
+    "cta": "Go to setup",
+    "dismiss": "Dismiss"
+  },
+  "emptyState": {
+    "products": {
+      "title": "No products yet",
+      "description": "Add your first product to start selling.",
+      "cta": "Open setup checklist"
+    },
+    "customers": {
+      "title": "No customers yet",
+      "description": "Add customers to start tracking ledgers and credit lines.",
+      "cta": "Open setup checklist"
+    }
+  }
+}

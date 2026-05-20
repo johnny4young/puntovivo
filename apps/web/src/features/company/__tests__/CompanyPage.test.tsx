@@ -108,32 +108,39 @@ vi.mock('../CompanyTraySettingsCard', () => ({
 vi.mock('../CompanyModulesCard', () => ({
   CompanyModulesCard: () => <div data-testid="card-modules">Modules</div>,
 }));
+// ENG-104 — Stub the readiness card too; the real implementation
+// reaches the trpc surface and the rest of this suite already mocks
+// the trpc layer at the page level.
+vi.mock('../CompanyReadinessCard', () => ({
+  CompanyReadinessCard: () => <div data-testid="card-readiness">Readiness</div>,
+}));
 
 // Import after mocks so the page picks up the stubbed children.
 import { CompanyPage } from '../CompanyPage';
 
 describe('CompanyPage tab behavior', () => {
-  it('renders the segmented-control with the canonical tabs and lands on General by default', () => {
+  it('renders the segmented-control with the canonical tabs and lands on Readiness by default for admin (ENG-104)', () => {
     render(<CompanyPage />);
 
-    // Tab list is present and exposes the canonical tabs
-    // (general, locale, data, device, ai, fiscal, payments, modules,
-    // restaurant — `payments` shipped with ENG-038 slice 2, `modules`
-    // with ENG-068, `restaurant` with ENG-039d3).
+    // Tab list now includes the readiness tab (ENG-104 — first
+    // entry, default for admin role) on top of the legacy tabs:
+    // general, locale, data, device, ai, fiscal, payments, modules,
+    // restaurant.
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(9);
-    expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'true');
+    expect(tabs).toHaveLength(10);
+    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-payments')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-modules')).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByTestId('company-tab-restaurant')).toHaveAttribute('aria-selected', 'false');
 
-    // General tab content visible: form fields + logo library card.
-    expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
-    expect(screen.getByTestId('card-logos')).toBeInTheDocument();
+    // Readiness panel content visible.
+    expect(screen.getByTestId('card-readiness')).toBeInTheDocument();
 
-    // AI / Locale / Data / Device / Fiscal / Modules cards must NOT be in the DOM yet.
+    // The other cards must NOT be in the DOM yet.
+    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-sync')).not.toBeInTheDocument();

@@ -490,15 +490,24 @@ describe('reports.fiscal (ENG-020)', () => {
         tenantId: harnessA.tenantId,
         xml: '<?xml version="1.0"?><Invoice>Ñandú</Invoice>',
       });
+      const db = getDatabase();
+      db.delete(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, harnessA.tenantId),
+            eq(auditLogs.action, 'fiscal.xml.downloaded'),
+            eq(auditLogs.resourceId, seeded.documentId)
+          )
+        )
+        .run();
+
       const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
       await caller.reports.fiscal.getXml({ documentId: seeded.documentId });
 
-      const db = getDatabase();
-      // Pick the LATEST audit row — earlier cases in this describe
-      // block also exercise getXml against the same fiscal document
-      // with different xmlRef bodies, so a naive `.get()` (no order)
-      // could collide with the earlier UTF-8 sample. orderBy
-      // `createdAt desc` pins the assertion to this test's emission.
+      // Previous cases in this describe block also exercise getXml
+      // against the same fiscal document. The cleanup above removes
+      // timestamp-tie ambiguity so this assertion targets this
+      // download's audit row.
       const auditRow = db
         .select()
         .from(auditLogs)
