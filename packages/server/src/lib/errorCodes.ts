@@ -388,6 +388,17 @@ export const SERVER_ERROR_CODES = {
    */
   AI_BUDGET_EXCEEDED: 'AI_BUDGET_EXCEEDED',
   /**
+   * ENG-102 — the active site has already consumed the per-site
+   * monthly quota for an AI feature (e.g. 800 Co-pilot questions or
+   * 200 OCR invoices). Pre-checked BEFORE the provider call so a
+   * blocked request never produces an audit row. The error `details`
+   * carry `{ feature, used, limit, resetsAt }` so the client toast can
+   * render "800/800 — renews on YYYY-MM-01" without a follow-up
+   * round-trip. Errored prior calls (provider 5xx, etc.) do NOT
+   * consume quota — only successful audit rows count.
+   */
+  AI_QUOTA_EXCEEDED: 'AI_QUOTA_EXCEEDED',
+  /**
    * The configured provider is unreachable, unconfigured (no env-var
    * key), or returned an error. Wraps the original SDK / network
    * error in `details.cause`.

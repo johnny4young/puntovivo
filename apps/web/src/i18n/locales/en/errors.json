@@ -135,6 +135,7 @@
     "CREDIT_OVERRIDE_FORBIDDEN": "Only administrators can override the credit limit.",
     "CREDIT_SALE_FORBIDDEN": "Only managers and administrators can charge a sale to a customer's account.",
     "REFUND_PARTIAL_CREDIT_NOT_SUPPORTED": "Refunds for sales charged to credit are not yet supported. Reverse the customer account entry manually and then void the sale.",
+    "AI_QUOTA_EXCEEDED": "This site has used its monthly AI quota. The counter renews on the first day of next month.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
     "unknown": "Something went wrong. Please try again."
   }

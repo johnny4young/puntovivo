@@ -379,6 +379,105 @@ export function CompanyAISettingsCard() {
         })}
       </div>
 
+      {/*
+        ENG-102 — per-site monthly AI quotas. Hidden when the master
+        AI toggle is off (cuota is irrelevant if AI is disabled).
+        Each row renders a progress bar that flips warning at >=80%
+        and danger at >=100%. The reset date footer tells the cashier
+        when the counter rolls over. The data shape is server-side
+        per-site; the panel always reflects the active site.
+      */}
+      {enabled && data?.quotas?.copilot && data.quotas.invoiceOcr && (
+        <div
+          className="surface-panel-muted space-y-3 text-sm"
+          data-testid="ai-quota-section"
+        >
+          <p className="font-medium text-secondary-800">
+            {t('aiSettings:card.quotas.title')}
+          </p>
+          {(['copilot', 'invoiceOcr'] as const).map(feature => {
+            const q = data.quotas[feature];
+            // Defensive guard — the outer condition already pins both
+            // keys, but future server-side shape evolution might drop
+            // a feature key. Skip the row instead of crashing the card.
+            if (!q) return null;
+            const ratio = q.limit > 0 ? q.used / q.limit : 0;
+            const tone =
+              ratio >= 1
+                ? 'danger'
+                : ratio >= 0.8
+                  ? 'warning'
+                  : 'success';
+            const barColor =
+              tone === 'danger'
+                ? 'bg-danger-600'
+                : tone === 'warning'
+                  ? 'bg-warning-500'
+                  : 'bg-success-600';
+            const labelColor =
+              tone === 'danger'
+                ? 'text-danger-700'
+                : tone === 'warning'
+                  ? 'text-warning-700'
+                  : 'text-secondary-700';
+            const width = Math.min(100, Math.round(ratio * 100));
+            const valueText = t('aiSettings:card.quotas.usedOfLimit', {
+              used: q.used,
+              limit: q.limit,
+            });
+            return (
+              <div
+                key={feature}
+                className="space-y-1"
+                data-testid={`ai-quota-${feature}`}
+              >
+                <div className="flex items-baseline justify-between">
+                  <span className="font-medium text-secondary-800">
+                    {t(`aiSettings:card.quotas.${feature}.label`)}
+                  </span>
+                  <span className={`tabular-nums ${labelColor}`}>
+                    {valueText}
+                  </span>
+                </div>
+                <div
+                  className="h-2 w-full overflow-hidden rounded-full bg-secondary-100"
+                  role="progressbar"
+                  aria-valuenow={width}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  // aria-valuetext announces the raw count so screen
+                  // readers say "100 / 800" instead of "12%". The
+                  // progressbar's numeric meaning (percent) is not
+                  // self-describing without the count.
+                  aria-valuetext={valueText}
+                  aria-label={t(`aiSettings:card.quotas.${feature}.label`)}
+                  data-testid={`ai-quota-${feature}-bar`}
+                  data-tone={tone}
+                >
+                  <div
+                    className={`h-full ${barColor}`}
+                    style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {/*
+            Reset date footer reads from the copilot quota because
+            v1 has all features reset on the same calendar boundary
+            (server-side `monthBounds` snapshot). If a future ticket
+            decouples per-feature windows, move this into each row.
+          */}
+          <p className="text-xs text-secondary-500">
+            {t('aiSettings:card.quotas.resetHint', {
+              date: data.quotas.copilot.resetsAt
+                ? data.quotas.copilot.resetsAt.slice(0, 10)
+                : '—',
+            })}
+          </p>
+        </div>
+      )}
+
       <p className="text-xs">
         <span
           className={

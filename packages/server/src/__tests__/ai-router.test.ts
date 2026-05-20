@@ -1141,6 +1141,47 @@ describe('ai.extractInvoiceLines (ENG-040a)', () => {
     expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
   });
 
+  it('applies the invoice OCR quota to the legacy extract endpoint before provider calls', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({ enabled: true, monthlyBudgetUsd: 10 });
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const rows = Array.from({ length: 200 }, () => ({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      userId: adminId,
+      feature: 'invoiceOcr',
+      providerId: 'anthropic',
+      modelId: 'claude-haiku-4-5',
+      inputTokens: 10,
+      outputTokens: 10,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 0.001,
+      durationMs: 10,
+      errorCode: null,
+      createdAt: now,
+    }));
+    await db.insert(aiAuditLog).values(rows);
+
+    let caught: unknown;
+    try {
+      await caller.ai.extractInvoiceLines({
+        imageBase64: 'data:image/png;base64,aGVsbG8=',
+        mimeType: 'image/png',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('AI_QUOTA_EXCEEDED');
+  });
+
   it('rejects an unsupported mime type via Zod', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
