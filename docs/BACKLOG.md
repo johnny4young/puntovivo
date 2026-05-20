@@ -31,47 +31,6 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
-- `[payments][ux][bug]` Statement downloads need a human-readable
-  filename and a real extension. Today the exported file can arrive as
-  a UUID-like name with no extension, which is hard to identify after
-  download. Use a semantic pattern such as
-  `statement-<provider>-<date-range>.<ext>` and keep the extension
-  aligned with the response MIME type. — 2026-05-19 (jy)
-- `[restaurant][kds]` Product `station` field + admin form input.
-  Lets the kitchen route bar items to "Barra" and grill items to
-  "Parrilla" instead of pooling everything into "Cocina". Schema
-  delta on `products` plus a small toggle in the product form modal.
-  ENG-098 already shipped per-station rows in `kds_orders`
-  (`UNIQUE(tenant_id, sale_id, station)`), so this is purely the
-  routing input + grouping logic. — 2026-05-19 (jy)
-- `[restaurant][kds]` Per-station prep-time alarm. Configurable
-  amber-then-red threshold per station with an optional audio cue
-  (off by default). ENG-098 ships a global 10-minute amber switch
-  and no audio; this is the next step once a real kitchen tells us
-  the threshold they actually want. — 2026-05-19 (jy)
-- `[restaurant][kds]` `served` state for kitchen cards. Cook hits
-  Listo → waiter taps "Servido" from `SuspendedSalesPanel` row →
-  card evicts. Useful for service-quality KPIs (Listo → Servido
-  latency per table). ENG-098 stayed at the two-state
-  `pending → ready` machine; this adds the third lifecycle step. —
-  2026-05-19 (jy)
-- `[restaurant][kds]` Add-items-mid-service flow. Today the cashier
-  must `discardDraft` + recreate from scratch to add a course
-  mid-meal because `sales.create` is the only path that accepts an
-  `items` array. A `sales.appendItems(saleId, items[])` procedure
-  would emit a fresh KDS card for the delta and keep the rest of
-  the order frozen. Requires deciding the auditing story (one
-  `sale.park` audit per append or a new `sale.append` action?). —
-  2026-05-19 (jy)
-- `[restaurant][kds]` KDS read-only "Vista" mode for waiters. Show
-  the same board on the waiter station (subscribes to the same SSE
-  channel) so they know which tables are ready without walking
-  into the kitchen. Role gate the markReady / recall mutations
-  off; everything else stays the same as the cook view. —
-  2026-05-19 (jy)
-- `[restaurant][kds]` Audible cue on new order arrival, tenant-
-  togglable (off by default). Kitchens vary on whether they want
-  this — some prefer the visual-only board ENG-098 shipped. — 2026-05-19 (jy)
 - `[fiscal][refactor]` Move `services/fiscal/cufe.ts` into
   `packs/co/cufe.ts` once ENG-021 lands the real Colombia adapter.
   The CUFE algorithm is Colombia-specific (SHA-384 over a fixed
@@ -149,22 +108,11 @@ research.
   removing it). Promote when the offline storage surface is next
   touched. Working title: `ENG-041`. — 2026-04-27 (jy)
 
-- `[ecomm][bridge]` E-commerce sync bridge with Shopify + Tiendanube +
-  VTEX: catalog + stock + price sync, plus emit fiscal documents from
-  the e-commerce side via the FISCAL-CORE pack from `ENG-034`. Sized
-  when `ENG-034` lands and the adapter contract is firm. — 2026-04-27 (jy)
-
 - `[fiscal][oss]` Open-source the FISCAL-CORE engine + a country-pack
   template under Apache-2 license; keep proprietary packs internal.
   Validates certification, attracts integrator developers (model:
   Strapi / Supabase / Cal.com). Decision after `ENG-035` + `ENG-036`
   ship and run in production for at least one tenant per country.
-  — 2026-04-27 (jy)
-
-- `[ai][reporting]` Weekly executive report generator: LLM narrates
-  KPI deltas using the `ai_audit_log` infrastructure from `ENG-030`,
-  delivered as a Monday email + PDF. Sized after `ENG-031` lands and
-  the conversational pipeline + tool-calling pattern are battle-tested.
   — 2026-04-27 (jy)
 
 - `[receipts][ai]` Auto-generated receipt template per vertical
@@ -335,25 +283,6 @@ research.
   http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd). Trigger:
   cuando ENG-035c necesite verificar contra schema antes de
   enviar a PAC. — 2026-05-01 (ENG-035b)
-
-- `[sales][receipt]` ENG-090b — Credit sale receipt footer + cashier
-  approval queue. ENG-090 shipped the credit sale flow + ledger
-  write + admin override, but cut two scopes for later: (1) the
-  receipt renderer's `RenderSale` shape does not carry
-  `customerBalanceAfter`, so the templated `text` block that should
-  print "Pagado a crédito · saldo posterior $X" at the receipt
-  footer is not yet emitted (every other credit-side metadata is in
-  place — `sale.paymentMethod === 'credit'` already reaches the
-  renderer); and (2) the cashier-facing "Solicitar autorización"
-  flow is currently a hard hide — the credit tile is gated behind
-  `canLendCredit = admin || manager`, so cashiers cannot offer a
-  credit sale at all. The follow-up surfaces an admin approval
-  request queue (in-app notification + audit row carrying the
-  cashier's identity), the cashier UI shows a Solicitar autorización
-  button instead of a hidden tile, and the admin can sign off
-  without leaving their station. Includes the `RenderSale.customerBalanceAfter`
-  extension + a conditional `text` block (`{{ default(sale.creditFooter, '') }}`)
-  in the default template. — 2026-05-18 (ENG-090)
 
 - `[offline][peripherals]` ENG-088b — Live device capability probe.
   ENG-088 ships the V12 capability grid with a STATIC 6-card

@@ -17,6 +17,7 @@ is the authority on which file wins.
 | --- | --- | --- |
 | [`PLAN.md`](./PLAN.md) | **Strategic** 12-36 month vision, fiscal engine design, multi-vertical analysis, hybrid-DB architecture | Architecture / fiscal / i18n / LATAM / multi-vertical decisions. Skip for simple features. |
 | [`PLAN-V2.md`](./PLAN-V2.md) | **Tactical bridge** between PLAN.md and ROADMAP §3b — phasing of `ENG-025..ENG-040` by quarter, architectural decisions closed by 2026-Q2 audit | Cadence + sequencing of v2.0; when in flight on Phase 0..4 tickets. |
+| [`PLAN-V3.md`](./PLAN-V3.md) | **Tactical bridge** for the World-Class LatAm POS wave — `ENG-103..ENG-165` across market objective, adoption, launch migration, cashier UX, loyalty, omnichannel, money trust, procurement, accounting, BI, KDS v2, public API delivery, supportability, privacy, AI automation, vertical-depth packs, information architecture simplification, progressive disclosure, performance budgets, accessibility AA, production observability, backup/restore, auto-update, subscription/billing, SSO/MFA, shift management, day-close report, loss-prevention rules, in-transit transfers, WhatsApp inbound commerce, tip pooling, recipe scaling, self-checkout, hardware compatibility matrix, shared peripherals, universal print server, chaos/DR, data portability, cohort/LTV/RFM, receipt branding, contextual help, multi-currency, public demo sandbox, tenant clone, data residency, Nómina Electrónica DIAN (Gated), pt-BR + NFe Brazil, hosted micro-storefront, and compliance readiness pack. Replaces H0..H4 horizons with a single flat priority list. | When promoting work beyond the shipped core toward best-in-LatAm commercial readiness. |
 | [`ROADMAP.md`](./ROADMAP.md) | **Ticket index** — `ENG-NNN` rows with acceptance criteria, sequencing recommendation in §3b, machine-readable `Status` column | Pool discovery for the next ticket. **§3b is the canonical Status source — when ROADMAP and PLAN disagree, ROADMAP wins.** |
 | [`SELLABILITY.md`](./SELLABILITY.md) | **Go/no-go sellability index** for Colombian retail pilots and production sales | When deciding whether Puntovivo is demo-ready, pilot-ready, or production-sellable. |
 | [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | **Per-iter execution detail** — commit sequencing, draft commit messages, verification matrix per ticket | Daily execution; agent opens this next to ROADMAP when shipping. |
@@ -94,12 +95,16 @@ operator idea → BACKLOG.md (unsized)
 | File | Use |
 | --- | --- |
 | [`UI-SURFACES.md`](./UI-SURFACES.md) | Inventory of admin surfaces + role gating. |
+| [`SALES-COCKPIT.md`](./SALES-COCKPIT.md) | Operator UX guide for cashier speed, touch ergonomics, KDS readability, fiscal setup, recipes/BOM, quotations, and owner dashboards. |
+| [`UI-REFRACTOR-V3.md`](./UI-REFRACTOR-V3.md) | Live-audit-backed information architecture and progressive-disclosure plan for reducing visible options per screen (`ENG-131`, `ENG-132`). |
+| [`WALKTHROUGH.md`](./WALKTHROUGH.md) | Design handoff alignment for Sales Cockpit, surfaces, module activation, and the `ENG-103..ENG-165` roadmap mapping. |
 | [`COMPONENTS.md`](./COMPONENTS.md) | Shared component catalog. |
 | [`STYLING.md`](./STYLING.md) | Design system tokens + Tailwind primitives. |
 | [`RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) | Receipt template editor + renderer (ENG-016). |
 | [`WEBSITE-CAPABILITY-AUDIT.md`](./WEBSITE-CAPABILITY-AUDIT.md) | Public-website claim audit against shipped product support and roadmap tickets. |
 
 ### Operations & runbooks
+
 
 | File | Use |
 | --- | --- |
