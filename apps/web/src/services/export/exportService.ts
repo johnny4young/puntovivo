@@ -106,8 +106,14 @@ export function generateFilename(
  * UUID portion of the blob URL). The short grace period keeps the semantic
  * `download` filename alive long enough for the OS handoff without leaking
  * the URL for the lifetime of the page.
+ *
+ * ENG-103 — exported so every download surface in the app routes through
+ * the same anchor + revoke pattern. Re-implementing this dance inline (as
+ * the v1 fiscal XML modal did) bypasses the cache-friendly revoke delay
+ * and risks the extensionless-filename regression on slow Electron
+ * channels.
  */
-function downloadFile(content: Blob, filename: string): void {
+export function downloadFile(content: Blob, filename: string): void {
   const url = URL.createObjectURL(content);
   const link = document.createElement('a');
   link.href = url;
@@ -120,6 +126,135 @@ function downloadFile(content: Blob, filename: string): void {
   link.click();
   document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_REVOKE_DELAY_MS);
+}
+
+/**
+ * ENG-103 — Canonical MIME registry per extension. Single source of
+ * truth so every download surface agrees on the type to declare to
+ * `Blob` (and indirectly to `Content-Type` when the renderer uploads
+ * via FormData). The Map is intentionally typed as `Record` of a
+ * literal union so adding a new extension is a one-line TS change.
+ *
+ * Charset suffixes (e.g. `;charset=iso-8859-1`) live on the server
+ * envelope for that specific document — the client passes the server
+ * value through untouched. Do NOT bake charsets into this table.
+ */
+export const MIME_BY_EXT = {
+  csv: 'text/csv;charset=utf-8',
+  xml: 'application/xml;charset=utf-8',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pdf: 'application/pdf',
+  zip: 'application/zip',
+  json: 'application/json;charset=utf-8',
+  txt: 'text/plain;charset=utf-8',
+} as const satisfies Record<string, string>;
+
+export type SupportedExportExtension = keyof typeof MIME_BY_EXT;
+
+/**
+ * Throw helper for the registry. The renderer should never construct a
+ * Blob with an extension we do not know — if it tries, we want a loud
+ * error at the call site instead of a silent `application/octet-stream`
+ * download with the wrong icon in the OS file picker.
+ */
+export function mimeTypeForExtension(extension: string): string {
+  const normalized = extension
+    .replace(/^\.+/, '')
+    .toLowerCase() as SupportedExportExtension;
+  const mime = MIME_BY_EXT[normalized];
+  if (!mime) {
+    throw new Error(
+      `Unsupported export extension: "${extension}". Allowed: ${Object.keys(
+        MIME_BY_EXT
+      ).join(', ')}`
+    );
+  }
+  return mime;
+}
+
+/**
+ * ENG-103 — Semantic filename builder. Resolves the canonical
+ * `<kind>-<context>-<date|id>.<ext>` pattern so every surface that
+ * downloads an artifact picks a name the operator can recognise after
+ * download. Anchors the convention before the settlement statement
+ * downloads of ENG-124 land — when those arrive, they only have to
+ * import `'statement'` from this union without re-deciding the shape.
+ *
+ * The builder routes the final string through `generateFilename` so
+ * the same accent / punctuation / casing normalisation rules apply
+ * regardless of which kind the caller picked.
+ */
+export type SemanticExportKind =
+  | {
+      kind: 'statement';
+      /** Provider slug (e.g. `wompi`, `nequi`). */
+      provider: string;
+      /** ISO date — start of the statement window. */
+      from: string;
+      /** ISO date — end of the statement window (inclusive). */
+      to: string;
+    }
+  | {
+      kind: 'ledger';
+      /** Customer display name or business name. */
+      customer: string;
+      /** Optional tax id appended to the filename to disambiguate. */
+      taxId?: string | null;
+      /** ISO date the statement was generated at. */
+      date: string;
+    }
+  | {
+      kind: 'diagnostic';
+      /** Tenant slug. */
+      tenant: string;
+      /** ISO timestamp the bundle was generated at. */
+      timestamp: string;
+    }
+  | {
+      kind: 'fiscal';
+      /** Two-letter country code (`co`, `mx`, `cl`, ...). */
+      country: string;
+      /** Document folio / consecutive identifier. */
+      documentNumber: string;
+    }
+  | {
+      kind: 'report';
+      /** Free-form report name (e.g. `sales-history`, `cash-close`). */
+      name: string;
+      /** ISO date appended to the filename. */
+      date: string;
+    };
+
+export function buildSemanticFilename(
+  spec: SemanticExportKind,
+  extension: SupportedExportExtension
+): string {
+  // Validate the extension up-front so the renderer never produces a
+  // filename whose MIME type cannot be resolved later.
+  void mimeTypeForExtension(extension);
+
+  const baseName = (() => {
+    switch (spec.kind) {
+      case 'statement':
+        return `statement-${spec.provider}-${spec.from}_${spec.to}`;
+      case 'ledger': {
+        const taxId = spec.taxId?.trim();
+        const customerSegment = `${spec.customer}${taxId ? `-${taxId}` : ''}`;
+        return `ledger-estadocuenta-${customerSegment}-${spec.date}`;
+      }
+      case 'diagnostic':
+        return `puntovivo-diagnostic-${spec.tenant}-${spec.timestamp}`;
+      case 'fiscal':
+        return `cfdi-${spec.country}-${spec.documentNumber}`;
+      case 'report':
+        return `${spec.name}-${spec.date}`;
+    }
+  })();
+
+  // The legacy `generateFilename` helper adds a timestamp by default;
+  // we already encode the relevant date into `baseName`, so the
+  // `includeTimestamp=false` form is what the semantic builder wants.
+  return generateFilename(baseName, extension, false);
 }
 
 /**

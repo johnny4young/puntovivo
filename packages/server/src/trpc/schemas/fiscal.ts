@@ -54,3 +54,15 @@ export const retryFiscalDocumentInput = z.object({
 });
 
 export type RetryFiscalDocumentInput = z.infer<typeof retryFiscalDocumentInput>;
+
+/**
+ * ENG-103 — lazy XML body fetch. Input is the internal
+ * `fiscal_documents.id` (NOT the cufe) so the procedure can reuse the
+ * tenant-scoped primary-key index. Cross-tenant access collapses to
+ * `FISCAL_DOCUMENT_NOT_FOUND` so we never leak the row's existence.
+ */
+export const getFiscalXmlInput = z.object({
+  documentId: z.string().min(1, 'documentId is required'),
+});
+
+export type GetFiscalXmlInput = z.infer<typeof getFiscalXmlInput>;

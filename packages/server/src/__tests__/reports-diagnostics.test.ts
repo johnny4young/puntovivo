@@ -447,6 +447,14 @@ describe('reports.diagnostics (ENG-065c)', () => {
         expect.objectContaining({ id: harnessA.deviceId, authorityRole: 'web_client' }),
       ])
     );
+    // ENG-103 — server suggests the canonical ZIP filename so the
+    // client never has to invent one. Pattern:
+    // `puntovivo-diagnostic-<tenant-slug>-<YYYYMMDD-HHMMSS>.zip`.
+    expect(result.suggestedFilename).toMatch(
+      /^puntovivo-diagnostic-[a-z0-9-]+-\d{8}-\d{6}\.zip$/
+    );
+    expect(result.suggestedFilename).toContain('puntovivo-diagnostic-');
+    expect(result.suggestedFilename.endsWith('.zip')).toBe(true);
   });
 
   it('respects includeOutboxes filter while keeping counts honest', async () => {

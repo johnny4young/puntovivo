@@ -54,6 +54,11 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 vi.mock('@/services/export/exportService', () => ({
   exportToCSV: exportToCSVMock,
+  // ENG-103 — CustomerLedgerModal now imports buildSemanticFilename to
+  // resolve the canonical ledger-statement filename pattern; the test
+  // does not care about the exact name (it only verifies the export
+  // helper was invoked) so a passthrough constant is enough.
+  buildSemanticFilename: () => 'ledger-estadocuenta-test.csv',
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -180,16 +185,15 @@ describe('CustomerLedgerModal (ENG-089)', () => {
 
     fireEvent.click(screen.getByTestId('ledger-cta-estado-cuenta'));
 
-    const now = new Date();
-    const today = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0'),
-    ].join('-');
+    // ENG-103 — `CustomerLedgerModal` now resolves the filename via
+    // the centralized `buildSemanticFilename` helper (mocked above to
+    // a deterministic string). The component strips the `.csv`
+    // extension before invoking `exportToCSV` (which appends it
+    // again), so the mock receives the stem.
     expect(exportToCSVMock).toHaveBeenCalledWith(
       mockLedgerRows,
       expect.any(Array),
-      `account-statement-juan-perez-s-a-s-nit-900-123-456-7-${today}`,
+      'ledger-estadocuenta-test',
       { includeTimestamp: false }
     );
   });

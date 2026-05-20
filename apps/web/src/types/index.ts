@@ -559,7 +559,11 @@ export type AuditLogAction =
   | 'kds.order.recalled'
   // ENG-007 closure — credit-policy mutations.
   | 'customer.credit_limit.update'
-  | 'sale.credit_override';
+  | 'sale.credit_override'
+  // ENG-103 — audit-grade export contract. Emitted by
+  // `reports.fiscal.getXml` every time an admin / manager downloads
+  // a signed XML body. Metadata carries `{ cufe, documentNumber }`.
+  | 'fiscal.xml.downloaded';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -586,7 +590,11 @@ export type AuditLogResourceType =
   // ENG-098 — kitchen display rows.
   | 'kds_order'
   // ENG-007 closure — customer rows targeted by credit-limit audits.
-  | 'customer';
+  | 'customer'
+  // ENG-103 — fiscal documents targeted by the `getXml` download
+  // procedure. `resourceId` is the internal `fiscal_documents.id`,
+  // not the cufe.
+  | 'fiscal_document';
 
 export interface AuditLogEntry {
   id: string;

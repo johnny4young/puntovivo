@@ -12,6 +12,22 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
+// ENG-103 — `FiscalDocumentXmlModal` now lazy-fetches the XML body
+// via `reports.fiscal.getXml`; the surrounding test only verifies
+// that clicking "View XML" opens the modal, so a minimal trpc mock
+// keeps the loading state in place without exercising the network.
+vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    reports: {
+      fiscal: {
+        getXml: {
+          useQuery: () => ({ data: undefined, isLoading: true }),
+        },
+      },
+    },
+  },
+}));
+
 describe('SaleDetailsFiscalBlock', () => {
   it('uses the fiscal authority for the document country', () => {
     render(
@@ -68,7 +84,11 @@ describe('SaleDetailsFiscalBlock', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /View XML/i }));
 
+    // Post-ENG-103: the modal opens and shows its loading state while
+    // `reports.fiscal.getXml` resolves. The XML body itself comes
+    // from the server, not from the list prop, so this assertion now
+    // focuses on the modal heading + loading affordance.
     expect(screen.getByRole('heading', { name: 'XML CFDI 4.0' })).toBeInTheDocument();
-    expect(screen.getByText('<cfdi:Comprobante Version="4.0" />')).toBeInTheDocument();
+    expect(screen.getByTestId('cfdi-xml-loading')).toBeInTheDocument();
   });
 });
