@@ -87,6 +87,9 @@
   "signOut": "Cerrar sesión",
   "user": "Usuario",
   "session": "sesión",
+  "userMenu": {
+    "aria": "Abre el menú de usuario de {{name}}"
+  },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",
   "quickSearch": "Búsqueda rápida de productos, clientes, recibos",

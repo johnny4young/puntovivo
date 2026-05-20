@@ -14,6 +14,7 @@ import { fireEvent, render, screen } from '@/test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
 import { CompanyReadinessCard } from '../CompanyReadinessCard';
+import { assertNoA11yViolations } from '@/test/a11y';
 
 interface ReadinessQueryState {
   data?: {
@@ -130,6 +131,24 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     expect(
       screen.getByRole('button', { name: /retry|reintentar/i })
     ).toBeInTheDocument();
+  });
+
+  it('passes axe-core WCAG 2 AA on the happy-render path (ENG-134)', async () => {
+    readinessQueryRef.current = {
+      data: {
+        score: 80,
+        blockerCount: 0,
+        sections: sampleSections().map(s =>
+          s.status === 'blocker' ? { ...s, status: 'ready' } : s
+        ),
+        acknowledgedAt: null,
+      },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(async () => undefined),
+    };
+    const { container } = render(<CompanyReadinessCard />);
+    await assertNoA11yViolations(container);
   });
 
   it('renders 10 sections with status-specific data attributes', () => {

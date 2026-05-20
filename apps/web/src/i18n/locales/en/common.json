@@ -87,6 +87,9 @@
   "signOut": "Sign out",
   "user": "User",
   "session": "session",
+  "userMenu": {
+    "aria": "Open user menu for {{name}}"
+  },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",
   "quickSearch": "Quick search products, customers, receipts",

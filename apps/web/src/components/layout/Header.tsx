@@ -30,6 +30,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
     readLanguagePreference()
   );
+  const userMenuId = 'header-user-menu';
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -160,6 +161,12 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               type="button"
               className="inline-flex h-10 items-center gap-2 rounded-full border border-line/70 bg-surface-2/70 py-1.5 pl-2 pr-3 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700"
               onClick={() => setShowUserMenu(current => !current)}
+              aria-label={t('common:userMenu.aria', {
+                name: user?.name ?? t('common:user'),
+              })}
+              aria-haspopup="menu"
+              aria-expanded={showUserMenu}
+              aria-controls={showUserMenu ? userMenuId : undefined}
             >
               <span className="pointer-events-none flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary-100 text-primary-700">
                 <User className="h-3.5 w-3.5" />
@@ -175,7 +182,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 z-20 mt-3 w-72 animate-pop-in rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]">
+              <div
+                id={userMenuId}
+                className="absolute right-0 z-20 mt-3 w-72 animate-pop-in rounded-[24px] border border-line bg-card p-3 shadow-[var(--shadow-panel)]"
+              >
                 <div className="card-inset px-4 py-3">
                   <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
                   <p className="mt-1 text-xs text-secondary-500">{user?.email}</p>

@@ -117,6 +117,7 @@ operator idea → BACKLOG.md (unsized)
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Operator-facing recovery procedures. |
 | [`TEST-PLAN.md`](./TEST-PLAN.md) | E2E test inventory + automation status. |
 | [`PERF-BUDGETS.md`](./PERF-BUDGETS.md) | Performance budgets contract: bundle-size + tRPC p95 latency CI gates anchored on `perf-budget.json` (ENG-133). |
+| [`A11Y.md`](./A11Y.md) | Accessibility contract: axe-core component helper, contrast CI gate on theme tokens, ARIA conventions (ENG-134). |
 
 ### Long-term vision
 
