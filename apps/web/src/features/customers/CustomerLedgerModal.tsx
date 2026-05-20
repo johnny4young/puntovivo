@@ -28,7 +28,11 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { exportToCSV, type ExportColumn } from '@/services/export/exportService';
+import {
+  buildSemanticFilename,
+  exportToCSV,
+  type ExportColumn,
+} from '@/services/export/exportService';
 import {
   CustomerLedgerAbonoModal,
   type CustomerLedgerAbonoMode,
@@ -64,26 +68,24 @@ function formatFilenameDate(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-function slugFilenameSegment(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-}
-
-function buildStatementFilename(customer: Customer, baseLabel: string): string {
-  const parts = [
-    slugFilenameSegment(baseLabel) || 'account-statement',
-    slugFilenameSegment(customer.name) || 'customer',
-  ];
-  const taxId = slugFilenameSegment(customer.taxId ?? '');
-  if (taxId) {
-    parts.push(taxId);
-  }
-  parts.push(formatFilenameDate());
-  return parts.join('-');
+/**
+ * ENG-103 — Customer ledger statement filename. The semantic helper
+ * resolves the canonical `ledger-estadocuenta-<customer>-<date>` shape
+ * (plus the customer tax id when available) and re-uses the
+ * accent / casing normalisation baked into `generateFilename`.
+ * `exportToCSV` is invoked with `includeTimestamp: false` so the
+ * timestamp inside the filename matches the date we already encode.
+ */
+function buildStatementFilename(customer: Customer): string {
+  return buildSemanticFilename(
+    {
+      kind: 'ledger',
+      customer: customer.name,
+      taxId: customer.taxId ?? null,
+      date: formatFilenameDate(),
+    },
+    'csv'
+  );
 }
 
 export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedgerModalProps) {
@@ -175,7 +177,11 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
       },
       { key: 'note', header: t('ledger.modal.column.note') },
     ];
-    const filename = buildStatementFilename(customer, t('ledger.estadoCuenta.filename'));
+    // `buildStatementFilename` returns the full filename WITH extension
+    // (e.g. `ledger-estadocuenta-juan-perez-2026-05-20.csv`). Strip the
+    // trailing `.csv` so `exportToCSV` (which always appends the
+    // extension itself) does not produce `...csv.csv`.
+    const filename = buildStatementFilename(customer).replace(/\.csv$/, '');
     exportToCSV(ledgerRows, columns, filename, { includeTimestamp: false });
     toast.success({ title: t('ledger.estadoCuenta.successToast') });
   };

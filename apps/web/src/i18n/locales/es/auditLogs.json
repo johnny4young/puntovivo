@@ -64,7 +64,8 @@
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
-    "sale.credit_override": "Venta completada con sobregiro autorizado"
+    "sale.credit_override": "Venta completada con sobregiro autorizado",
+    "fiscal.xml.downloaded": "XML fiscal descargado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -82,7 +83,8 @@
     "payment_outbox": "Outbox de pagos",
     "ai_feature": "Función de IA",
     "kds_order": "Orden de cocina",
-    "customer": "Cliente"
+    "customer": "Cliente",
+    "fiscal_document": "Documento fiscal"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

@@ -37,10 +37,13 @@ export function FiscalDocumentListPage() {
   const [source, setSource] = useState<FiscalSource | ''>('');
   // ENG-035b: documento seleccionado para mostrar el XML CFDI 4.0
   // del adapter MX en un modal admin-only.
+  // ENG-103: el modal ahora resuelve el XML body server-side via
+  // `reports.fiscal.getXml` — el list page sólo necesita pasar el
+  // `documentId` interno + metadata visible.
   const [xmlModalDoc, setXmlModalDoc] = useState<{
+    documentId: string;
     cufe: string;
     documentNumber: string;
-    xml: string | null;
   } | null>(null);
 
   const queryInput = useMemo(
@@ -179,9 +182,9 @@ export function FiscalDocumentListPage() {
                           className="btn btn-ghost btn-xs inline-flex items-center gap-1"
                           onClick={() =>
                             setXmlModalDoc({
+                              documentId: row.id,
                               cufe: row.cufe,
                               documentNumber: row.documentNumber,
-                              xml: row.xmlRef ?? null,
                             })
                           }
                           aria-label={t('document.xml.viewButton')}
@@ -202,7 +205,7 @@ export function FiscalDocumentListPage() {
       <FiscalDocumentXmlModal
         isOpen={xmlModalDoc !== null}
         onClose={() => setXmlModalDoc(null)}
-        xml={xmlModalDoc?.xml ?? null}
+        documentId={xmlModalDoc?.documentId ?? ''}
         cufe={xmlModalDoc?.cufe ?? ''}
         documentNumber={xmlModalDoc?.documentNumber ?? ''}
       />

@@ -173,6 +173,14 @@ export const auditLogActionEnum = [
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
   'sale.credit_override',
+  // ENG-103 — audit-grade export contract. `fiscal.xml.downloaded` is
+  // emitted every time `reports.fiscal.getXml` returns a signed XML body
+  // to the operator. The audit row carries the document id + cufe in
+  // `metadata` so forensics can reconstruct who downloaded which XML
+  // when. The download itself is admin / manager — gated, scoped by
+  // tenant — emitted on the server side of the procedure right before
+  // the response.
+  'fiscal.xml.downloaded',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -207,6 +215,11 @@ export const auditLogResourceTypeEnum = [
   // ENG-089/090 shipped the credit-sales feature without ever emitting
   // audit rows from the customers router, so this resource type is new.
   'customer',
+  // ENG-103 — fiscal documents targeted by the new `getXml` download
+  // procedure. The audit row's `resourceId` is the `fiscal_documents.id`
+  // (internal id, NOT cufe) so cross-tenant collapse stays consistent
+  // with the rest of the resource catalog.
+  'fiscal_document',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  buildSemanticFilename,
   exportToExcel,
   exportToPDF,
   generateFilename,
+  mimeTypeForExtension,
+  MIME_BY_EXT,
   type ExportColumn,
 } from './exportService';
 
@@ -198,5 +201,110 @@ describe('generateFilename', () => {
     expect(writeBufferSpy).toHaveBeenCalledTimes(1);
     expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
     expect(anchorClickSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ENG-103 — Audit-grade export and download contract.
+describe('buildSemanticFilename (ENG-103)', () => {
+  it('builds statement filenames with the canonical pattern', () => {
+    const filename = buildSemanticFilename(
+      {
+        kind: 'statement',
+        provider: 'wompi',
+        from: '2026-05-01',
+        to: '2026-05-31',
+      },
+      'csv'
+    );
+    // Pattern: statement-<provider>-<from>_<to>.<ext>
+    expect(filename).toMatch(/^statement-wompi-2026-05-01-2026-05-31\.csv$/);
+  });
+
+  it('encodes the customer + tax id segment for ledger statements', () => {
+    const filename = buildSemanticFilename(
+      {
+        kind: 'ledger',
+        customer: 'Juán Pérez',
+        taxId: '900654321',
+        date: '2026-05-20',
+      },
+      'csv'
+    );
+    // Accents normalize and the tax id rides as a discriminator.
+    expect(filename).toBe(
+      'ledger-estadocuenta-juan-perez-900654321-2026-05-20.csv'
+    );
+  });
+
+  it('keeps the ledger filename clean when no tax id is provided', () => {
+    const filename = buildSemanticFilename(
+      {
+        kind: 'ledger',
+        customer: 'Anonymous customer',
+        taxId: null,
+        date: '2026-05-20',
+      },
+      'csv'
+    );
+    expect(filename).toBe(
+      'ledger-estadocuenta-anonymous-customer-2026-05-20.csv'
+    );
+  });
+
+  it('builds fiscal filenames anchored on country + document number', () => {
+    expect(
+      buildSemanticFilename(
+        { kind: 'fiscal', country: 'mx', documentNumber: 'F0000000042' },
+        'xml'
+      )
+    ).toBe('cfdi-mx-f0000000042.xml');
+  });
+
+  it('builds diagnostic filenames for the operations export', () => {
+    expect(
+      buildSemanticFilename(
+        {
+          kind: 'diagnostic',
+          tenant: 'acme-store',
+          timestamp: '20260520-123456',
+        },
+        'zip'
+      )
+    ).toBe('puntovivo-diagnostic-acme-store-20260520-123456.zip');
+  });
+
+  it('rejects unsupported extensions before constructing the filename', () => {
+    expect(() =>
+      buildSemanticFilename(
+        { kind: 'report', name: 'sales-history', date: '2026-05-20' },
+        'docx' as unknown as 'csv'
+      )
+    ).toThrow(/Unsupported export extension/);
+  });
+});
+
+describe('MIME_BY_EXT registry (ENG-103)', () => {
+  it('maps every supported extension to a Blob-ready MIME type', () => {
+    // The registry is the only source of truth; treat each entry as a
+    // contract pin so adding an extension never silently downgrades to
+    // application/octet-stream.
+    expect(MIME_BY_EXT.csv).toBe('text/csv;charset=utf-8');
+    expect(MIME_BY_EXT.xml).toBe('application/xml;charset=utf-8');
+    expect(MIME_BY_EXT.xlsx).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    expect(MIME_BY_EXT.pdf).toBe('application/pdf');
+    expect(MIME_BY_EXT.zip).toBe('application/zip');
+  });
+
+  it('throws on unknown extensions via mimeTypeForExtension', () => {
+    expect(() => mimeTypeForExtension('docx')).toThrow(
+      /Unsupported export extension/
+    );
+  });
+
+  it('normalises leading dots + casing in mimeTypeForExtension', () => {
+    expect(mimeTypeForExtension('.CSV')).toBe('text/csv;charset=utf-8');
+    expect(mimeTypeForExtension('Xml')).toBe('application/xml;charset=utf-8');
   });
 });

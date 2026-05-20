@@ -174,7 +174,7 @@ export function SaleDetailsFiscalBlock({
         <FiscalDocumentXmlModal
           isOpen
           onClose={() => setSelectedXmlDoc(null)}
-          xml={selectedXmlDoc.xmlRef}
+          documentId={selectedXmlDoc.id}
           cufe={selectedXmlDoc.cufe}
           documentNumber={selectedXmlDoc.documentNumber}
         />

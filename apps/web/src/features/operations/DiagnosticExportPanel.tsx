@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
+import { downloadFile } from '@/services/export/exportService';
 
 /**
  * ENG-065c — Operations Center: Diagnostic Export panel.
@@ -60,7 +61,13 @@ function isDateInputValue(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function buildExportFilename(tenantSlug: string | undefined): string {
+/**
+ * Fallback filename used only when the server envelope misses
+ * `suggestedFilename` (defense in depth — the export procedure should
+ * always include it post-ENG-103). Pattern matches the canonical
+ * `puntovivo-diagnostic-<slug>-<timestamp>.zip` the server emits.
+ */
+function buildExportFilenameFallback(tenantSlug: string | undefined): string {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const slug = (tenantSlug ?? 'tenant').replace(/[^a-z0-9-]/gi, '-');
   return `puntovivo-diagnostic-${slug}-${ts}.zip`;
@@ -152,15 +159,14 @@ export function DiagnosticExportPanel() {
       }
 
       const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = buildExportFilename(user?.tenantId);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      // Defer revoke for Firefox/Safari race per existing CSV pattern.
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      // ENG-103 — prefer the server-suggested filename so the
+      // canonical pattern stays consistent across surfaces; fall back
+      // to the local builder only when an older server build leaves
+      // the field absent. The centralized `downloadFile` helper
+      // handles the anchor + delayed revoke pattern.
+      const filename =
+        result.data.suggestedFilename ?? buildExportFilenameFallback(user?.tenantId);
+      downloadFile(blob, filename);
 
       toast.success({ title: t('diagnostics.export.success') });
     } catch (error) {

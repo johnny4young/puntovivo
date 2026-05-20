@@ -1,34 +1,45 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Download, Check } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { trpc } from '@/lib/trpc';
+import {
+  buildSemanticFilename,
+  downloadFile,
+} from '@/services/export/exportService';
 
 export interface FiscalDocumentXmlModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Raw XML emitido por el adapter; null cuando el documento no tiene xmlRef. */
-  xml: string | null;
-  /** CUFE / UUID del documento — usado en el filename de descarga. */
+  /**
+   * ENG-103 — internal `fiscal_documents.id` (NOT cufe). The modal
+   * lazily fetches the signed XML body via `reports.fiscal.getXml`
+   * the first time it opens, so the list query no longer has to
+   * ship ~10kb per row to render the "Ver XML" affordance.
+   */
+  documentId: string;
+  /** CUFE / UUID del documento — usado en metadatos visibles del modal. */
   cufe: string;
-  /** Document number (Folio) — usado en el filename de descarga. */
+  /** Document number (Folio) — usado en metadatos visibles del modal. */
   documentNumber: string;
 }
 
 /**
- * ENG-035b — Modal admin-only que muestra el XML CFDI 4.0
- * (estructuralmente válido, sin firmar) emitido por
- * `MexicoCFDIAdapter`. Read-only: el operador puede copiar al
- * portapapeles o descargar el archivo .xml para revisión / debug.
+ * ENG-035b — Modal admin-only que muestra el XML CFDI 4.0 / DTE10 / FE
+ * emitido por el adapter fiscal del país activo. Read-only: el operador
+ * puede copiar al portapapeles o descargar el archivo .xml.
  *
- * El XML llega ya pretty-printed desde el server, o como un string
- * sin indentación cuando el caller no aplicó `prettyPrintCfdi`. El
- * componente lo muestra en un `<pre>` con scroll horizontal.
+ * ENG-103 — La descarga ahora pasa por `downloadFile` del helper
+ * centralizado en `services/export/exportService.ts`, y el XML se
+ * pide lazy via `reports.fiscal.getXml`. El server arma el filename
+ * canónico (`cfdi-<country>-<documentNumber>.xml`) y el MIME type
+ * con charset apropiado para CL (ISO-8859-1).
  */
 export function FiscalDocumentXmlModal({
   isOpen,
   onClose,
-  xml,
+  documentId,
   cufe,
   documentNumber,
 }: FiscalDocumentXmlModalProps) {
@@ -36,9 +47,29 @@ export function FiscalDocumentXmlModal({
   const toast = useToast();
   const [justCopied, setJustCopied] = useState(false);
 
-  const filename = useMemo(
-    () => `${documentNumber || cufe || 'cfdi'}.xml`,
-    [documentNumber, cufe]
+  // Lazy fetch: only hit the server while the modal is open. The
+  // `enabled` flag prevents the query from firing for the dozens of
+  // documents in the list that the operator never expands.
+  const xmlQuery = trpc.reports.fiscal.getXml.useQuery(
+    { documentId },
+    { enabled: isOpen && documentId.length > 0 }
+  );
+
+  const xml = xmlQuery.data?.data ?? null;
+  const serverFilename = xmlQuery.data?.filename ?? null;
+  const serverMimeType = xmlQuery.data?.mimeType ?? null;
+  // Failure fallback for the filename: derive a semantic one from the
+  // visible metadata. The server normally provides this; we only fall
+  // back if the operator triggers the download before the query lands
+  // (which the disabled state below should prevent — but defense in
+  // depth keeps the OS handoff from getting a UUID name).
+  const fallbackFilename = buildSemanticFilename(
+    {
+      kind: 'fiscal',
+      country: 'xx',
+      documentNumber: documentNumber || cufe || documentId,
+    },
+    'xml'
   );
 
   const handleCopy = async () => {
@@ -55,16 +86,14 @@ export function FiscalDocumentXmlModal({
 
   const handleDownload = () => {
     if (!xml) return;
-    const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const filename = serverFilename ?? fallbackFilename;
+    const mimeType = serverMimeType ?? 'application/xml;charset=utf-8';
+    const blob = new Blob([xml], { type: mimeType });
+    downloadFile(blob, filename);
   };
+
+  const isLoading = xmlQuery.isLoading;
+  const downloadDisabled = !xml || isLoading;
 
   return (
     <Modal
@@ -82,7 +111,7 @@ export function FiscalDocumentXmlModal({
               type="button"
               className="btn btn-secondary inline-flex items-center gap-2"
               onClick={handleCopy}
-              disabled={!xml}
+              disabled={downloadDisabled}
             >
               {justCopied ? (
                 <Check className="h-4 w-4" aria-hidden />
@@ -99,7 +128,7 @@ export function FiscalDocumentXmlModal({
               type="button"
               className="btn btn-primary inline-flex items-center gap-2"
               onClick={handleDownload}
-              disabled={!xml}
+              disabled={downloadDisabled}
             >
               <Download className="h-4 w-4" aria-hidden />
               <span>{t('document.xml.download')}</span>
@@ -120,7 +149,11 @@ export function FiscalDocumentXmlModal({
           </div>
         </div>
 
-        {xml ? (
+        {isLoading ? (
+          <p className="text-sm text-secondary-500" data-testid="cfdi-xml-loading">
+            {t('document.xml.loading')}
+          </p>
+        ) : xml ? (
           <pre
             className="max-h-[60vh] overflow-auto rounded-md border border-line bg-secondary-50/40 p-3 text-xs leading-relaxed text-secondary-800"
             data-testid="cfdi-xml-pre"

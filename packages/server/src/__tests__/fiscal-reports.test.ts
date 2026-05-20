@@ -13,11 +13,12 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   cashSessions,
   companies,
   customers,
@@ -355,5 +356,186 @@ describe('reports.fiscal (ENG-020)', () => {
     const result = await caller.reports.fiscal.list({ limit: 10, offset: 0 });
     expect(Array.isArray(result.items)).toBe(true);
     expect(typeof result.total).toBe('number');
+  });
+
+  // ENG-103 — Audit-grade export and download contract.
+  // `reports.fiscal.getXml` lazily returns the signed XML body for a
+  // single fiscal document, wrapped in the canonical
+  // `ServerExportEnvelope` shape `{ data, filename, mimeType }`. The
+  // procedure scopes by tenant, collapses missing rows to the same
+  // generic error code, and emits a `fiscal.xml.downloaded` audit row
+  // so the trail is intact even when the download itself is dropped
+  // mid-transit.
+  describe('getXml (ENG-103)', () => {
+    /**
+     * Helper: seed an `xmlRef` value onto the freshest document
+     * emitted for the given harness. The Colombia mock adapter
+     * returns `xmlRef: null` (timbrado deferred), so the test has to
+     * inject an XML body to exercise the happy path. Also pins the
+     * row's `localeCode` so the country-code derivation in the
+     * procedure is deterministic across test environments — the
+     * harness default locale may not be Colombian. Returns the
+     * resolved `{ documentId, xml, documentNumber }`.
+     */
+    async function injectXmlRef(args: {
+      tenantId: string;
+      xml: string;
+      localeCode?: string;
+    }): Promise<{ documentId: string; xml: string; documentNumber: string }> {
+      const db = getDatabase();
+      const row = db
+        .select({
+          id: fiscalDocuments.id,
+          documentNumber: fiscalDocuments.documentNumber,
+        })
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.tenantId, args.tenantId))
+        .get();
+      if (!row) throw new Error('Expected at least one fiscal document');
+      db.update(fiscalDocuments)
+        .set({ xmlRef: args.xml, localeCode: args.localeCode ?? 'es-CO' })
+        .where(
+          and(
+            eq(fiscalDocuments.tenantId, args.tenantId),
+            eq(fiscalDocuments.id, row.id)
+          )
+        )
+        .run();
+      return { documentId: row.id, xml: args.xml, documentNumber: row.documentNumber };
+    }
+
+    it('returns the signed XML, semantic filename and MIME type for a CO document', async () => {
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0" encoding="UTF-8"?><Invoice/>',
+      });
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      const envelope = await caller.reports.fiscal.getXml({ documentId: seeded.documentId });
+      expect(envelope.data).toBe(seeded.xml);
+      expect(envelope.mimeType).toBe('application/xml;charset=utf-8');
+      expect(envelope.filename).toMatch(/^cfdi-co-.+\.xml$/);
+      expect(envelope.filename).toContain(seeded.documentNumber);
+    });
+
+    it('keeps the raw XML body out of the fiscal list payload', async () => {
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0" encoding="UTF-8"?><Invoice>Ñandú</Invoice>',
+      });
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      const result = await caller.reports.fiscal.list({ limit: 10, offset: 0 });
+      const row = result.items.find(item => item.id === seeded.documentId);
+      expect(row).toBeTruthy();
+      expect(Boolean(row?.xmlRef)).toBe(true);
+      expect(typeof row?.xmlRef).not.toBe('string');
+      expect(row?.xmlRef).not.toBe(seeded.xml);
+    });
+
+    it('honors ISO-8859-1 encoding when the document is Chilean', async () => {
+      // Patch the row's localeCode to `es-CL` so the procedure picks
+      // the ISO-8859-1 charset suffix without needing a full Chile
+      // harness.
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0" encoding="ISO-8859-1"?><DTE/>',
+        localeCode: 'es-CL',
+      });
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      const envelope = await caller.reports.fiscal.getXml({ documentId: seeded.documentId });
+      expect(envelope.mimeType).toBe('application/xml;charset=iso-8859-1');
+      expect(envelope.filename).toMatch(/^cfdi-cl-.+\.xml$/);
+    });
+
+    it('collapses cross-tenant access to FISCAL_DOCUMENT_NOT_FOUND (no row-existence leak)', async () => {
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0"?><Invoice/>',
+      });
+      const callerB = appRouter.createCaller(buildCtx(harnessB.tenantId, harnessB.userId));
+      try {
+        await callerB.reports.fiscal.getXml({ documentId: seeded.documentId });
+        throw new Error('Expected NOT_FOUND');
+      } catch (err) {
+        const trpcErr = err as { code?: string };
+        expect(trpcErr.code).toBe('NOT_FOUND');
+        expect(String(err)).toContain('Fiscal document XML not available');
+      }
+    });
+
+    it('rejects when xmlRef is null (timbrado pendiente / contingencia)', async () => {
+      // Clear xmlRef explicitly to simulate the pre-signing state.
+      const db = getDatabase();
+      const row = db
+        .select({ id: fiscalDocuments.id })
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.tenantId, harnessA.tenantId))
+        .get();
+      if (!row) throw new Error('Expected a fiscal document');
+      db.update(fiscalDocuments)
+        .set({ xmlRef: null })
+        .where(eq(fiscalDocuments.id, row.id))
+        .run();
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      try {
+        await caller.reports.fiscal.getXml({ documentId: row.id });
+        throw new Error('Expected NOT_FOUND when xmlRef is null');
+      } catch (err) {
+        const trpcErr = err as { code?: string };
+        expect(trpcErr.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('emits a fiscal.xml.downloaded audit row scoped to the caller tenant', async () => {
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0"?><Invoice>Ñandú</Invoice>',
+      });
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      await caller.reports.fiscal.getXml({ documentId: seeded.documentId });
+
+      const db = getDatabase();
+      // Pick the LATEST audit row — earlier cases in this describe
+      // block also exercise getXml against the same fiscal document
+      // with different xmlRef bodies, so a naive `.get()` (no order)
+      // could collide with the earlier UTF-8 sample. orderBy
+      // `createdAt desc` pins the assertion to this test's emission.
+      const auditRow = db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, harnessA.tenantId),
+            eq(auditLogs.action, 'fiscal.xml.downloaded'),
+            eq(auditLogs.resourceId, seeded.documentId)
+          )
+        )
+        .orderBy(desc(auditLogs.createdAt))
+        .get();
+      expect(auditRow).toBeTruthy();
+      expect(auditRow?.resourceType).toBe('fiscal_document');
+      expect(auditRow?.actorId).toBe(harnessA.userId);
+      const meta = auditRow?.metadata as
+        | { cufe?: string; documentNumber?: string; countryCode?: string; byteSize?: number }
+        | undefined;
+      expect(meta?.documentNumber).toBe(seeded.documentNumber);
+      expect(meta?.countryCode).toBe('co');
+      expect(meta?.byteSize).toBe(Buffer.byteLength(seeded.xml, 'utf8'));
+    });
+
+    it('rejects cashier callers with FORBIDDEN (manager + admin only)', async () => {
+      const seeded = await injectXmlRef({
+        tenantId: harnessA.tenantId,
+        xml: '<?xml version="1.0"?><Invoice/>',
+      });
+      const caller = appRouter.createCaller(
+        buildCtx(harnessA.tenantId, harnessA.userId, 'cashier')
+      );
+      try {
+        await caller.reports.fiscal.getXml({ documentId: seeded.documentId });
+        throw new Error('Expected FORBIDDEN');
+      } catch (err) {
+        expect(String(err)).toMatch(/TRPCError|administrators|managers/i);
+      }
+    });
   });
 });

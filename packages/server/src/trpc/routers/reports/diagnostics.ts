@@ -37,6 +37,7 @@ import {
   operationEffects,
   operationEvents,
   syncOutbox,
+  tenants,
 } from '../../../db/schema.js';
 import {
   diagnosticsExportInput,
@@ -46,6 +47,7 @@ import {
 import { sanitizeRows } from '../../../services/diagnostics/sanitize.js';
 import { getActiveRuntimeConfig, type RuntimeConfig } from '../../../config/runtime.js';
 import { getAuthorityTopology } from '../../../services/devices/authority.js';
+import { buildDiagnosticZipFilename } from '../../../services/exports/envelope.js';
 
 /**
  * Hard cap per table at export time. Empirically a 7-day window for a
@@ -498,7 +500,22 @@ export const diagnosticsReportsRouter = router({
       const runtime = getActiveRuntimeConfig();
       const authorityTopology = await getAuthorityTopology(ctx.db, ctx.tenantId, runtime);
 
+      // ENG-103 — Suggested filename for the client-side ZIP. The
+      // tenant slug is the marketing identifier persisted in
+      // `tenants.slug` (lowercase, ASCII, kebab); it falls back to
+      // the tenant id when the row is missing or has an empty slug.
+      const tenantRow = await ctx.db
+        .select({ slug: tenants.slug })
+        .from(tenants)
+        .where(eq(tenants.id, ctx.tenantId))
+        .get();
+      const tenantSlug = tenantRow?.slug?.trim() ?? ctx.tenantId;
+      const suggestedFilename = buildDiagnosticZipFilename({
+        tenantSlug,
+      });
+
       return {
+        suggestedFilename,
         manifest: {
           schemaVersion: SCHEMA_VERSION,
           generatedAt: new Date().toISOString(),
