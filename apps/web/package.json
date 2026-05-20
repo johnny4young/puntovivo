@@ -14,7 +14,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.172",
+    "@ai-sdk/react": "^3.0.187",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/language": "^6.12.3",
@@ -25,7 +25,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@lezer/highlight": "^1.2.3",
-    "@tanstack/react-query": "^5.100.3",
+    "@tanstack/react-query": "^5.100.11",
     "@tanstack/react-table": "^8.11.0",
     "@trpc/client": "^11.9.0",
     "@trpc/react-query": "^11.9.0",
@@ -37,7 +37,7 @@
     "exceljs": "^4.4.0",
     "i18next": "^26.0.8",
     "jspdf": "^4.1.0",
-    "jspdf-autotable": "^5.0.7",
+    "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
     "lucide-react": "^1.11.0",
     "qrcode": "^1.5.4",
