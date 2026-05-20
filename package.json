@@ -22,7 +22,7 @@
     "publish:desktop": "npm run publish:desktop --workspace=@puntovivo/desktop",
     "ci:release": "npm run test:release-script",
     "ci:audit": "npm audit --production --audit-level=high",
-    "ci:web": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/web && npm run lint --workspace=@puntovivo/web && npm run test:coverage --workspace=@puntovivo/web -- --run && npm run build --workspace=@puntovivo/web",
+    "ci:web": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/web && npm run lint --workspace=@puntovivo/web && npm run test:coverage --workspace=@puntovivo/web -- --run && npm run build --workspace=@puntovivo/web && node --test scripts/check-bundle-size.test.mjs && node scripts/check-bundle-size.mjs",
     "ci:desktop": "npm run ci:audit && npm run build --workspace=@puntovivo/server && npm run build --workspace=@puntovivo/web && npm run typecheck --workspace=@puntovivo/desktop && npm run lint --workspace=@puntovivo/desktop && npm run test --workspace=@puntovivo/desktop",
     "ci:server": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/server && npm run lint --workspace=@puntovivo/server && npm run test:coverage --workspace=@puntovivo/server",
     "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.web.config.ts",
