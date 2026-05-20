@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "$comment": "ENG-133 — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
+  "bundleSize": {
+    "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
+    "thresholdPercent": 5,
+    "perChunkGzKb": {
+      "index": 320,
+      "exceljs.bare.min": 231,
+      "ReceiptTemplatesPage": 154,
+      "jspdf.es.min": 126,
+      "CopilotPage": 51,
+      "index.es": 48,
+      "html2canvas": 46,
+      "OperationsPage": 41,
+      "SalesPage": 40,
+      "CompanyPage": 22,
+      "TableLoadingState": 16,
+      "PurchasesPage": 13,
+      "InventoryPage": 13,
+      "jspdf.plugin.autotable": 10,
+      "purify.es": 10,
+      "browser": 9,
+      "ProductsPage": 10,
+      "QuotationsPage": 10,
+      "OrdersPage": 8,
+      "DashboardPage": 7,
+      "CustomersPage": 7,
+      "GeographyPage": 6,
+      "CompanySyncCard": 5
+    }
+  },
+  "trpcLatencyMs": {
+    "$comment": "p95 latency budget in milliseconds for a curated set of tRPC procedures. CI runs warmupIterations warmups then samplesPerProcedure measurements, computes p95, and asserts it falls within budget * (1 + thresholdPercent/100). Bias the procedure list toward routes the operator opens repeatedly during the day.",
+    "samplesPerProcedure": 50,
+    "warmupIterations": 10,
+    "thresholdPercent": 20,
+    "p95": {
+      "products.list": 60,
+      "customers.list": 60,
+      "reports.fiscal.list": 80,
+      "auditLogs.list": 80,
+      "setupReadiness.get": 80
+    }
+  }
+}

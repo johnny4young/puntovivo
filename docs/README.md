@@ -116,6 +116,7 @@ operator idea → BACKLOG.md (unsized)
 | [`DEBUGGING.md`](./DEBUGGING.md) | Common dev gotchas. |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Operator-facing recovery procedures. |
 | [`TEST-PLAN.md`](./TEST-PLAN.md) | E2E test inventory + automation status. |
+| [`PERF-BUDGETS.md`](./PERF-BUDGETS.md) | Performance budgets contract: bundle-size + tRPC p95 latency CI gates anchored on `perf-budget.json` (ENG-133). |
 
 ### Long-term vision
 
