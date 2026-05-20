@@ -1,118 +1,90 @@
 # UI Surfaces — Desktop, Touch, KDS, Customer Display, Mobile
 
-> Status: **Stub — design document, not yet implemented.**
-> Phase 6c of the April 2026 plan.
+> Status: **Official Design Document**.
+> Phase 6c of the master roadmap plan.
 > Created: April 21, 2026.
+> Last Updated: May 20, 2026.
 
 ## Principle
 
-One codebase (React 19 + Vite bundle) serves every UI surface as a
-**different route**. Business logic lives behind the tRPC client and is
-consumed identically by every surface. A single Electron binary can
-open multiple `BrowserWindow`s (one per surface) on different physical
-screens of the same PC.
+One codebase (React 19 + Vite bundle) serves every UI surface as a **different route**. Business logic lives behind the tRPC client and is consumed identically by every surface. A single Electron binary can open multiple `BrowserWindow`s (one per surface) on different physical screens of the same PC workstation.
 
-No React Native, no separate Vite project, no duplicated domain code.
-Styling adapts via media queries and CSS variables.
+No React Native, no separate Vite project, no duplicated domain code. Styling adapts via media queries and CSS variables.
+
+The V3 information-architecture overlay lives in
+[UI-REFRACTOR-V3.md](./UI-REFRACTOR-V3.md). Route-owned surfaces remain
+valid, but daily navigation should expose role workspaces first and
+surface-specific launchers second; adding another full-screen surface
+must not automatically add another permanent sidebar entry.
+
+---
 
 ## Surfaces
 
-### 1. POS Desktop (shipped)
+### 1. POS Desktop (Sales Cockpit Core)
 
-- Route: `/sales` (default today)
-- Device: PC + keyboard + mouse
-- UI: dense `DataTable`, hover states, keyboard shortcuts, multi-column layouts
-- Authentication: full user login + role gating
+-   **Route:** `/sales` (default today)
+-   **Device:** PC + keyboard + mouse
+-   **UI:** Dense `DataTable`, hover states, keyboard shortcuts, multi-column layouts, optimized for high-frequency cashiers (using `F2` to search, `Shift + E` for rapid cash checkouts, and `F8` for payment gateways).
+-   **Efficiency requirements:** global command palette, checkout preflight, quick-create modals, fast-register mode, and reversible local actions as defined in [SALES-COCKPIT.md](./SALES-COCKPIT.md).
+-   **Authentication:** Full user login + role gating.
 
-### 2. POS Touch (planned, Phase 6c)
+---
 
-- Route: `/pos/touch`
-- Device: all-in-one touch monitor (Elo, HP RP9), Android tablet (in
-  portrait kiosk mode)
-- UI: tile grid of products grouped by category; tiles 150x150px with
-  photo + name + price; >=44px touch targets; on-screen numeric keypad
-  for quantity and price overrides; no hover states
-- Detection: `navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)')`
-  at boot → auto-redirect to `/pos/touch` unless overridden in settings
-- Styling: reuse the same Tailwind theme with a `pointer: coarse` media
-  query that bumps padding + text size globally
-- No duplicated state: consumes the same `useCartWorkspace` Zustand store
-  as the desktop POS
+### 2. POS Touch (Touch POS)
 
-### 3. KDS — Kitchen Display (planned, Phase 6b)
+-   **Route:** `/touch`
+-   **Device:** All-in-one touch monitor (Elo, HP RP9), Android/iOS tablet (in portrait kiosk mode).
+-   **UI & Interaction Design:**
+    *   **Dense Product Tile Grid:** Responsive fixed-aspect tiles with product image, name, price, stock state, and stable height. Styling follows the shared design system; avoid decorative glass effects or large radius values that reduce density.
+    *   **Fat-finger Protection:** Minimum tactile hit targets of `44px` across all buttons and inputs.
+    *   **Touch Numpad:** Tapping a quantity counter opens a docked or modal numeric keypad with rapid multipliers (`+1`, `+5`, `+10`, `-1`) and explicit confirm/cancel controls.
+    *   **Surface Picker:** A compact toolbar lets operators switch between catalog, voice, tables, and waiter/KDS read-only view when the matching modules are active.
+-   **Detection:** Evaluates `navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches` at boot to suggest auto-redirecting to `/touch`.
+-   **State Management:** Consumes the same `useCartWorkspace` Zustand store as the desktop POS to prevent state duplication.
 
-- Route: `/kds?station=<stationId>`
-- Device: TV 32-50" in the kitchen, running either inside the Electron
-  app (local second window) or on a Raspberry Pi 4 Chromium kiosk
-  pointing at `http://<host>:8090/kds?station=...`
-- UI: three-column kanban (`queued | preparing | ready`); each ticket
-  card shows mesa + waiter + items + modifiers + timer since `queued_at`
-  (turns red past station SLA)
-- Interaction: click/touch a card to advance; TV-only: USB remote →
-  arrow keys + Enter navigation
-- Authentication: **station token** (not user credentials) — an admin
-  generates the token per station; the TV stores it in `localStorage`
-  for unattended boot
-- Scope: `kitchen:read + tickets:advance` — cannot see sales or
-  customers
+---
 
-### 4. Customer-facing Display (planned, Phase 6c)
+### 3. KDS — Kitchen Display System
 
-- Route: `/display/customer?terminal=<id>`
-- Device: second monitor facing the customer
-- UI: logo, live list of items in the current cart, big total, thank-you
-  footer. Read-only.
-- Mechanism (Electron): main process opens an additional `BrowserWindow`
-  on `screen.getAllDisplays()[1]` full-screen, loading this route.
-  The POS cart pushes updates via IPC `broadcastToDisplays` → the
-  display window re-renders.
-- Alternative (web-only deployment): SSE on `/api/realtime/cart/:terminal`
+-   **Route:** `/kds?station=<stationId>`
+-   **Device:** TV 32-50" in the kitchen, running either inside the Electron app (local second window) or on a Raspberry Pi kiosk browser pointing at `http://<host>:8090/kds?station=...`
+-   **UI & Kitchen Workflow:**
+    *   **Station Columns:** CSS Grid layout mapped to physical preparation stations such as `Cocina`, `Barra`, and `Parrilla`, allowing isolated real-time ticket filtering.
+    *   **High-contrast Comanda Cards:** Opaque cards with order number, table, waiter when available, elapsed timer, item list, and modifiers. Cards must be readable from a kitchen monitor without relying on blur or transparency.
+    *   **Touch Interactions:** Primary action advances the card through the configured state machine; recovery actions remain visible but visually secondary.
+    *   **SLA Time-based Alerts:**
+        *   *0 to 5 minutes:* normal tone with readable timer.
+        *   *5 to 10 minutes:* warning tone with alert icon and label.
+        *   *More than 10 minutes:* critical tone with stronger border and label. Animation, if used, must be subtle and tested for readability.
+    *   **Recall Button:** Persistent recovery action to reverse accidental state changes and restore the kitchen card.
+-   **Authentication:** **Station Token** (stored in `localStorage` for unattended boots) generated from admin settings. No user credentials required on the line.
+-   **Scope:** Restricted to `kitchen:read + tickets:advance`. Cannot access financial reports or customer databases.
 
-### 5. Mobile Waiter (planned, Phase 6c)
+---
 
-- Route: `/pos/mobile`
-- Device: Android tablet 10" in portrait
-- UI: vertical layout, category drawer, quick-fire buttons. Optimized
-  for one-handed operation while the waiter stands next to the table.
-- Distribution: same Vite bundle accessed over LAN via Chromium mobile
-  browser (no native packaging in v1). For a wrapped experience
-  (offline + home-screen icon), Capacitor can wrap the same bundle —
-  post-MVP.
+### 4. Customer-facing Display
 
-## Exposing the server to LAN
+-   **Route:** `/display/customer?terminal=<id>`
+-   **Device:** Second monitor facing the customer.
+-   **UI:** Brand logo, dynamic line-item checkout list, grand total in large Outfit typography, and a promotional footer. Read-only.
+-   **Mechanism (Electron):** Main process opens a second `BrowserWindow` on `screen.getAllDisplays()[1]` in full-screen. POS cart modifications trigger an IPC `broadcastToDisplays` event to update the customer view in milliseconds.
+-   **Mechanism (Web-only):** Server-Sent Events (SSE) subscription over `/api/realtime/cart/:terminal`.
 
-For KDS / mobile waiter, the Electron embedded Fastify must listen on
-the LAN IP, not only 127.0.0.1. This is opt-in in settings ("Enable
-LAN access for peripherals"):
+---
 
-- Opens port 8090 on `0.0.0.0` only when the feature is toggled
-- Emits an audit log entry on activation
-- Requires a station token or user cookie — no unauthenticated LAN access
+### 5. Mobile Waiter
 
-## Performance targets
+-   **Route:** `/m`
+-   **Device:** Android/iOS tablet 10" in portrait.
+-   **UI:** Vertical one-handed layout with category sliders and rapid-fire add keys, optimized for tableside order intake.
+-   **Distribution:** Serves the same Vite bundle over local LAN. No native apps needed for v1.
 
-- Touch POS: initial render < 1.5s on Elo AIO (8th-gen i3, 4GB)
-- KDS: render 50 tickets in < 300ms; SSE update latency end-to-end < 500ms
-- Customer display: cart change → on-screen reflect < 200ms
+---
 
-## Bundle splitting
+## Performance Targets
 
-Each surface lazy-loads its feature tree via `React.lazy()` + Suspense,
-so an Electron instance that only ever runs POS Desktop doesn't ship
-KDS code to the renderer. Already the pattern in `apps/web/src/App.tsx`
-for existing routes.
-
-## Testing plan
-
-- Touch mode: layout snapshots under `pointer: coarse` media query
-- KDS: SSE round-trip test with simulated station token
-- Customer display: cart-sync end-to-end over IPC
-- Smoke: each surface renders sample fixture data in CI via Playwright
-  (depends on ENG-001 landing)
-
-## Out of scope (v1)
-
-- Native React Native apps — Capacitor is the planned wrap
-- Windowed KDS on tablet (only TV / PC kiosk in v1)
-- Configurable KDS layouts (fixed 3-column kanban in v1)
-- Menu board / digital signage TV — separate surface, Phase 15
+-   **Touch POS:** First layout paint < 1.5s on legacy Elo AIO terminals (Intel Celeron, 4GB RAM).
+-   **KDS:** Renders up to 50 active comanda cards in < 300ms without layout lag.
+-   **LAN Latency:** End-to-end latency from a waiter's table checkout to KDS ingestion < 500ms over local WiFi networks.
+-   **Bundle Splitting:** Lazy-loads each surface route independently using React dynamic bundles (`React.lazy`), ensuring a desktop cashier checkout does not download KDS or Services assets.

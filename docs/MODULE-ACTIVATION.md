@@ -1,130 +1,128 @@
 # Module Activation System
 
-> Status: **Stub — design document.** Phase 0 Foundation item #13 in [ROADMAP.md](./ROADMAP.md).
+> Status: shipped kernel, living reference.
 > Created: April 21, 2026.
+> Updated: May 20, 2026.
+> Roadmap anchor: `ENG-068`, with surface expansion in `ENG-069` and
+> public events in `ENG-070`.
 
 ## Goal
 
-Ship a single codebase where each tenant can turn on the verticals
-they need — restaurant, pharmacy, salon, workshop — without loading
-irrelevant code in the renderer or applying unused migrations to the DB.
+Ship one codebase where tenants can turn capabilities on and off
+without forking the product. A minimarket should not carry restaurant,
+KDS, AI, or public-event UI unless those modules are active, but
+historical data must remain durable when a module is disabled.
 
-## Contract
+## Shipped Contract
 
-### What a module is
+The source of truth is the server manifest plus the tenant settings JSON:
 
-A **module** is a bundle of:
+- `packages/server/src/services/modules/manifest.ts`
+- `tenants.settings.modules`
 
-- Zero or more new DB tables (with additive DDL)
-- Zero or more new tRPC routers (mounted under a namespace)
-- Zero or more new UI routes (lazy-loaded)
-- Zero or more extensions to existing routers (hooks / middlewares)
-- Its own i18n namespace
+There is no separate `tenant_modules` table in the shipped architecture.
+That was an earlier design option and is now superseded by ADR-0007.
 
-It is **NOT**:
+At request time, module-aware procedures use the module guard middleware:
 
-- A branch of the code
-- A separately versioned package
-- A fork of the domain
+- `createModuleGuard(moduleId)`
+- `adminProcedureWithModule(moduleId)`
+- `managerOrAdminProcedureWithModule(moduleId)`
+- `tenantProcedureWithModule(moduleId)`
 
-### Activation
+When a module is inactive, the server returns `FORBIDDEN` with
+`MODULE_NOT_ACTIVATED`. The renderer mirrors the effective module map
+through `ModulesProvider`, `useIsModuleActive`, and `RequireModule`.
 
-A module is activated per tenant via `tenant_modules`:
+## What a Module Is
 
-```sql
-CREATE TABLE tenant_modules (
-  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  module_key TEXT NOT NULL,      -- 'restaurant', 'pharmacy', 'salon', ...
-  activated_at TEXT NOT NULL,
-  activated_by TEXT NOT NULL REFERENCES users(id),
-  config_json TEXT,
-  PRIMARY KEY (tenant_id, module_key)
-);
-```
+A module is a capability bundle that can include:
 
-At request time, tRPC context loads the active modules for the tenant.
-Routers gated by a module use an `activeModule('restaurant')` middleware
-that returns `FORBIDDEN` if the module is off.
+- tRPC procedures or procedure guards.
+- UI routes or sidebar entries.
+- i18n namespaces.
+- Outbox/event projections.
+- Optional seed data on activation.
+- Optional schema additions when the feature needs durable tables.
 
-### Module registry (server)
+A module is not:
 
-```ts
-// packages/server/src/modules/registry.ts (planned)
-export type ModuleKey = 'restaurant' | 'pharmacy' | 'salon' | 'workshop' | ...;
+- A code branch.
+- A separately versioned package.
+- A tenant-specific fork.
+- A signal that historical data can be deleted.
 
-export interface ModuleDefinition {
-  key: ModuleKey;
-  displayName: string;
-  router?: AnyRouter;             // mounted under /api/trpc/<key>/*
-  seedOnActivate?: (ctx) => Promise<void>;
-  uninstallPolicy: 'prevent-if-data' | 'soft-disable';
-}
-```
+## Activation Semantics
 
-Core adds a module to the registry at build time. Activating it at
-runtime only flips the `tenant_modules` row — no code reload.
+- Default state comes from the manifest.
+- Per-tenant overrides live in `tenants.settings.modules`.
+- `modules.setActive` is admin-only and writes an audit row.
+- Deactivation is soft-disable: UI hides and procedures reject, but rows
+  remain intact.
+- New modules must define their copy, route/sidebar behavior, and server
+  guard behavior in one coherent ticket.
 
-### Module registry (web)
+## Current Module Families
 
-```ts
-// apps/web/src/modules/registry.ts (planned)
-export const moduleRoutes: Record<ModuleKey, { path: string; component: React.LazyExoticComponent<...> }> = {
-  restaurant: { path: '/kds', component: React.lazy(() => import('./features/kds/KdsPage')) },
-  ...
-};
-```
+| Family | Examples | Notes |
+| --- | --- | --- |
+| AI | `copilot`, `anomaly-detection`, `semantic-search` | Provider and budget gates still live in AI settings. |
+| Operations | `operations-center`, `events-api` | Public delivery worker follow-up lives in `ENG-118`. |
+| Sales surfaces | `pos-touch`, `mobile-waiter`, `customer-display` | Route shell shipped in `ENG-069`; deeper workflows live in Plan V3. |
+| Restaurant | `kds` | KDS foundation shipped in `ENG-098`; v2 lifecycle lives in `ENG-117`. |
+| Commercial docs | `quotations` | Existing quote module can feed WhatsApp and accounting tickets. |
 
-`App.tsx` only registers the lazy routes for modules the tenant has on.
-Sidebar filters entries accordingly.
+Future vertical modules for services, pharmacy, supermarket, and
+hardware-store workflows are tracked in `ENG-119..ENG-122`. Future
+supportability, privacy, and AI automation work in `ENG-128..ENG-130`
+must reuse the same module/permission semantics where tenant-specific
+activation is needed. Do not revive the old `tenant_modules` table
+design.
+
+### License-gated activation (planned, `ENG-138`)
+
+`ENG-138` (subscription / billing / license enforcement) introduces a
+license check at the activation seam: when `modules.setActive` flips a
+module to `true`, the procedure first asks the license service whether
+the tenant's current plan tier covers that module. If the plan does
+not, the procedure rejects with `MODULE_NOT_LICENSED` (a new error
+code distinct from `MODULE_NOT_ACTIVATED`). Grace-period tenants
+remain in read-only mode and cannot flip new modules on. The
+license-check call is local (license state syncs to the tenant DB so
+the POS works during a brief offline window) and audit-logged. The
+existing `createModuleGuard(moduleId)` middleware is unchanged; the
+license gate runs at activation time, not at every guarded request,
+so the hot path stays cheap.
 
 ## Invariants
 
-- A module cannot modify a core table's existing columns (only add new
-  tables or columns with safe defaults)
-- A module's tRPC procedures always pass through the tenant + auth
-  middleware stack — no shortcut
-- A module can register `seedOnActivate` hooks but these run in a
-  single transaction; failure rolls back activation
-- Deactivation is `soft-disable` by default — rows stay, only the
-  module's UI and procedures hide. Full uninstall requires admin +
-  confirmation + audit entry
-- Adding a new module never requires a schema migration across tenants
-  who don't use it
+- Every guarded procedure still scopes by `ctx.tenantId`.
+- Module state never replaces role checks; it composes with them.
+- Adding a module must not silently activate it for existing tenants
+  unless the manifest default explicitly preserves current behavior.
+- Deactivation must not orphan operational records or break historical
+  reports.
+- User-facing module copy ships in both `en` and `es`.
+- Any route gated by a module needs live smoke for active and inactive
+  states when the route changes.
 
-## Example: restaurant module
+## Example: KDS Module
 
-```
-packages/server/src/modules/restaurant/
-  index.ts              # ModuleDefinition export
-  schema.ts             # preparation_stations, tables, ...
-  routers/
-    tables.ts
-    kitchen.ts
-  services/
-    tables.ts
-    preparation.ts
-  seed.ts               # default stations, demo tables
-```
+The KDS module illustrates the shipped pattern:
 
-On activation:
+1. Module state gates `kds.*` procedures and the `/kds` route.
+2. `sales.suspend` and `completeSale` enqueue KDS rows only when the
+   module is active and the sale belongs to a restaurant table.
+3. Existing sales remain valid if KDS is later deactivated.
+4. `ENG-117` can extend the module with station routing, served state,
+   and waiter views without changing the activation contract.
 
-1. Ensure restaurant tables exist (idempotent DDL, like the current
-   bootstrap approach)
-2. Seed default preparation stations (Kitchen, Bar)
-3. Emit audit_log entry `module.activated` with `metadata.moduleKey`
+## Testing Checklist
 
-## Testing plan
-
-- Activate / deactivate round-trip preserves data (soft-disable)
-- Inactive module's tRPC routes return `FORBIDDEN` for that tenant
-- Inactive module's UI routes are not registered
-- Cross-tenant isolation: one tenant's activation doesn't leak into
-  another
-- Bundle splitting: confirmed by Vite `rollupOptions.output.manualChunks`
-
-## Why this matters for stack evolution
-
-Once modules are formalized, adding a new vertical (future: colleges,
-agencies, food trucks, …) is a **contained PR** — a new directory, a
-new row type. The core stays lean, each vertical evolves independently,
-and tenants opt into exactly what they use.
+- Active module allows the route and server procedure for an authorized
+  role.
+- Inactive module returns `MODULE_NOT_ACTIVATED` and hides the route.
+- Cross-tenant state does not leak.
+- Toggle writes an audit row.
+- Default-on modules preserve current behavior for existing tenants.
+- Default-off modules stay hidden until activated.
