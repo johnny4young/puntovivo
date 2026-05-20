@@ -19,7 +19,10 @@ import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
-import { getDefaultRouteForRole } from './roleAccess';
+import {
+  getDefaultRouteForRole,
+  getDefaultRouteForRoleWithSetup,
+} from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 
 interface AuthContextType {
@@ -290,7 +293,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(session.user);
       setTenant(session.tenant);
 
-      navigate(getDefaultRouteForRole(session.user.role));
+      // ENG-104 — Post-login routing considers setup readiness so
+      // admins see the readiness checklist when there are unresolved
+      // blockers. Defense in depth: any readiness error collapses to
+      // the legacy default — a broken aggregator NEVER traps the
+      // operator on a setup screen.
+      let postLoginRoute = getDefaultRouteForRole(session.user.role);
+      if (session.user.role === 'admin') {
+        try {
+          const readiness = await vanillaClient.setupReadiness.get.query();
+          postLoginRoute = getDefaultRouteForRoleWithSetup({
+            role: session.user.role,
+            hasBlockers: readiness.blockerCount > 0,
+            acknowledgedAt: readiness.acknowledgedAt,
+          });
+        } catch (readinessErr) {
+          // Non-fatal — log + fall back to the role default.
+          console.warn(
+            'setupReadiness.get failed at login; using role default route',
+            readinessErr
+          );
+        }
+      }
+      navigate(postLoginRoute);
     } catch (err) {
       // Store the raw error so consumers can translate it against the active
       // locale via `translateServerError`. The provider itself stays

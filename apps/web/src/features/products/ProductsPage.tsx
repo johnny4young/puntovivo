@@ -17,6 +17,7 @@ import {
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
 import { EmbeddingDriftBanner } from '@/features/products/EmbeddingDriftBanner';
+import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -466,6 +467,12 @@ export function ProductsPage() {
       )}
 
       {canUseSemantic && <EmbeddingDriftBanner data={embeddingHealthQuery.data} />}
+
+      {/* ENG-104 — when the tenant has no products yet, surface a
+          nudge toward the readiness checklist for admins. */}
+      {!productsQuery.isLoading &&
+        !productsQuery.error &&
+        products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
 
       <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}

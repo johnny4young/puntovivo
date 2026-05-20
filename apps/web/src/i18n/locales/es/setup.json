@@ -1,0 +1,90 @@
+{
+  "readiness": {
+    "title": "Configuración inicial",
+    "description": "Estas señales vienen del resto de tu configuración. Resuelve los bloqueadores antes de abrir la tienda.",
+    "loading": "Cargando lista de configuración...",
+    "score": {
+      "label": "{{ready}} de {{total}} pasos completados",
+      "aria": "Configuración {{score}} de 100"
+    },
+    "blocker": {
+      "count_one": "{{count}} bloqueador pendiente",
+      "count_other": "{{count}} bloqueadores pendientes"
+    },
+    "status": {
+      "ready": "Listo",
+      "blocker": "Bloqueador",
+      "optional-pending": "Opcional pendiente",
+      "not-applicable": "No aplica"
+    },
+    "cta": {
+      "configure": "Configurar"
+    },
+    "acknowledge": {
+      "button": "Entendido, llévame al panel principal",
+      "pending": "Guardando...",
+      "toast": "Configuración reconocida",
+      "error": "No se pudo guardar tu confirmación"
+    },
+    "sections": {
+      "locale": {
+        "label": "Idioma y país",
+        "hint": "País, moneda y formato de fecha que usará la tienda."
+      },
+      "sites": {
+        "label": "Sedes",
+        "hint": "Necesitas al menos una sede activa para empezar a vender."
+      },
+      "fiscal": {
+        "label": "Perfil fiscal",
+        "hint": "Requerido cuando el negocio emite factura electrónica."
+      },
+      "peripherals": {
+        "label": "Periféricos",
+        "hint": "Impresoras, scanners y datáfonos son opcionales."
+      },
+      "payments": {
+        "label": "Medios de pago",
+        "hint": "El efectivo siempre funciona; añade tarjeta o transferencia si los necesitas."
+      },
+      "modules": {
+        "label": "Módulos",
+        "hint": "Activa o desactiva restaurante, KDS e IA aquí."
+      },
+      "users": {
+        "label": "Usuarios",
+        "hint": "Agrega al menos un cajero o gerente además del admin."
+      },
+      "ai": {
+        "label": "Funciones de IA",
+        "hint": "Co-pilot, OCR de facturas y detección de anomalías son opt-in."
+      },
+      "catalog": {
+        "label": "Catálogo de productos",
+        "hint": "Agrega al menos un producto antes de abrir caja."
+      },
+      "cashSession": {
+        "label": "Sesión de caja",
+        "hint": "Abre una sesión de caja antes de registrar la primera venta."
+      }
+    }
+  },
+  "banner": {
+    "title_one": "Configuración incompleta: {{count}} bloqueador impide abrir la tienda.",
+    "title_other": "Configuración incompleta: {{count}} bloqueadores impiden abrir la tienda.",
+    "cta": "Ir a configuración",
+    "dismiss": "Cerrar"
+  },
+  "emptyState": {
+    "products": {
+      "title": "Aún no hay productos",
+      "description": "Agrega tu primer producto para empezar a vender.",
+      "cta": "Abrir lista de configuración"
+    },
+    "customers": {
+      "title": "Aún no hay clientes",
+      "description": "Agrega clientes para llevar el control de cupos y cuentas corrientes.",
+      "cta": "Abrir lista de configuración"
+    }
+  }
+}

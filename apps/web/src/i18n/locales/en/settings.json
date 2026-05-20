@@ -241,6 +241,7 @@
     },
     "tabs": {
       "ariaLabel": "Company configuration sections",
+      "readiness": "Setup",
       "general": "General",
       "locale": "Locale",
       "data": "Data",

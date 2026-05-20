@@ -14,6 +14,7 @@ import {
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
+import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { onErrorToast } from '@/lib/mutationHelpers';
 
 function toOptionalString(value: string): string | undefined {
@@ -259,6 +260,13 @@ export function CustomersPage() {
 
   return (
     <>
+      {/* ENG-104 — fresh tenant nudge toward the readiness checklist.
+          The nudge gates to admin because the target setup surface is admin-only. */}
+      {!isLoading && !error && customers.length === 0 && (
+        <div className="mb-4">
+          <EmptyStateReadinessNudge scope="customers" />
+        </div>
+      )}
       <ResourcePage
         title={t('page.title')}
         action={

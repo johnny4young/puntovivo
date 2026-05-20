@@ -13,6 +13,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { cn } from '@/lib/utils';
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
+import { CompanyReadinessCard } from './CompanyReadinessCard';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
@@ -190,6 +191,12 @@ function canManageCompany(role: UserRole | undefined): boolean {
  * tuple and add the matching localized label in en + es.
  */
 const TAB_KEYS = [
+  // ENG-104 — readiness checklist first so a fresh admin lands here
+  // by default (post-login routing in `AuthProvider` deep-links here
+  // when `setupReadiness.get` reports unresolved blockers). The card
+  // is opt-in for other roles via the segmented control; cashier
+  // never reaches `/company` per existing role gating.
+  'readiness',
   'general',
   'locale',
   'data',
@@ -231,7 +238,11 @@ export function CompanyPage() {
   // setSearchParams keeps the back button non-noisy.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'general';
+  // ENG-104 — admins default to the readiness checklist; managers
+  // and other roles keep the legacy `general` default. Cashier never
+  // reaches `/company` (role-gated route).
+  const defaultTab: TabKey = canEdit ? 'readiness' : 'general';
+  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : defaultTab;
 
   const upsertMutation = trpc.companies.upsert.useMutation({
     onSuccess: async company => {
@@ -257,8 +268,8 @@ export function CompanyPage() {
 
   function handleTabChange(next: TabKey): void {
     const nextParams = new URLSearchParams(searchParams);
-    if (next === 'general') {
-      nextParams.delete('tab'); // keep the URL clean for the default
+    if (next === defaultTab) {
+      nextParams.delete('tab'); // keep the URL clean for the role default
     } else {
       nextParams.set('tab', next);
     }
@@ -267,6 +278,7 @@ export function CompanyPage() {
 
   const tabLabels: Record<TabKey, string> = useMemo(
     () => ({
+      readiness: t('company.tabs.readiness'),
       general: t('company.tabs.general'),
       locale: t('company.tabs.locale'),
       data: t('company.tabs.data'),
@@ -359,6 +371,12 @@ export function CompanyPage() {
                 aria-labelledby={`company-tab-${activeTab}`}
                 data-testid={`company-tabpanel-${activeTab}`}
               >
+                {activeTab === 'readiness' && (
+                  <div className="space-y-6">
+                    <CompanyReadinessCard />
+                  </div>
+                )}
+
                 {activeTab === 'general' && (
                   <div className="space-y-6">
                     <div className="card p-6">

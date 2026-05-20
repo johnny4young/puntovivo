@@ -1,8 +1,8 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { companies, logos } from '../../db/schema.js';
+import { companies, logos, tenants } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -178,5 +178,32 @@ export const companiesRouter = router({
         .where(eq(companies.id, company.id))
         .get()
     )!;
+  }),
+
+  /**
+   * ENG-104 — Admin opts out of the readiness force-redirect.
+   *
+   * Writes the current ISO timestamp into
+   * `tenants.settings.setupAcknowledgedAt`. Future logins will land
+   * on `/dashboard` even when blockers remain — the readiness card
+   * and the in-shell banner stay visible so the operator can finish
+   * configuring at their own pace.
+   *
+   * Idempotent: the timestamp is refreshed on each call (the
+   * mutation never throws on repeated invocations).
+   */
+  acknowledgeSetup: adminProcedure.mutation(async ({ ctx }) => {
+    const now = new Date().toISOString();
+    await ctx.db
+      .update(tenants)
+      .set({
+        // SQLite's `json_set` returns NULL when applied to NULL, so we
+        // COALESCE to '{}' to seed an empty settings blob for fresh
+        // tenants. Mirrors the merge pattern used by `modules.setActive`.
+        settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.setupAcknowledgedAt', ${now})`,
+        updatedAt: now,
+      })
+      .where(eq(tenants.id, ctx.tenantId));
+    return { acknowledgedAt: now };
   }),
 });
