@@ -1,0 +1,56 @@
+{
+  "title": "Paleta de comandos",
+  "searchPlaceholder": "Buscar acciones y destinos…",
+  "noResults": "Sin resultados",
+  "noResultsHint": "Prueba con otra palabra, o cierra la paleta con Esc y usa el menú lateral.",
+  "groups": {
+    "navigate": "Ir a",
+    "command": "Ejecutar"
+  },
+  "actions": {
+    "navigate": {
+      "dashboard": "Abrir tablero",
+      "sales": "Abrir ventas",
+      "products": "Abrir productos",
+      "customers": "Abrir clientes",
+      "inventory": "Abrir inventario",
+      "purchases": "Abrir compras",
+      "quotations": "Abrir cotizaciones",
+      "operations": "Abrir centro de operaciones",
+      "company": "Abrir empresa",
+      "sites": "Abrir sucursales",
+      "users": "Abrir usuarios",
+      "peripherals": "Abrir periféricos",
+      "auditLogs": "Abrir auditoría",
+      "fiscalDocuments": "Abrir documentos fiscales",
+      "fiscalReports": "Abrir reportes fiscales"
+    },
+    "command": {
+      "newSale": "Nueva venta",
+      "logout": "Cerrar sesión"
+    }
+  },
+  "descriptions": {
+    "navigate": {
+      "dashboard": "Totales del día, alertas y atajos.",
+      "sales": "Cockpit de cajero del sitio activo.",
+      "products": "Catálogo, variantes, precios y stock.",
+      "customers": "Directorio de clientes, crédito y estado de cuenta.",
+      "inventory": "Movimientos de inventario y ajustes por sitio.",
+      "purchases": "Órdenes de compra y recepción.",
+      "quotations": "Crear cotizaciones y convertirlas en ventas.",
+      "operations": "Cola de operaciones y alertas entre sitios.",
+      "company": "Locale, fiscal, pagos, módulos, telemetría.",
+      "sites": "Configuración por sitio y secuenciales.",
+      "users": "Lista de operadores y roles.",
+      "peripherals": "Impresora, lector, cajón, hub.",
+      "auditLogs": "Historial de acciones sensibles del tenant.",
+      "fiscalDocuments": "Documentos fiscales emitidos por el tenant.",
+      "fiscalReports": "Reportes y descargas para la autoridad fiscal."
+    },
+    "command": {
+      "newSale": "Limpia el carrito activo y aterriza en /sales.",
+      "logout": "Cierra la sesión actual en este puesto."
+    }
+  }
+}

@@ -37,6 +37,8 @@ import enVoice from './locales/en/voice.json';
 import enRestaurants from './locales/en/restaurants.json';
 import enKds from './locales/en/kds.json';
 import enSetup from './locales/en/setup.json';
+import enShortcuts from './locales/en/shortcuts.json';
+import enPalette from './locales/en/palette.json';
 
 import esCommon from './locales/es/common.json';
 import esAuth from './locales/es/auth.json';
@@ -72,6 +74,8 @@ import esVoice from './locales/es/voice.json';
 import esRestaurants from './locales/es/restaurants.json';
 import esKds from './locales/es/kds.json';
 import esSetup from './locales/es/setup.json';
+import esShortcuts from './locales/es/shortcuts.json';
+import esPalette from './locales/es/palette.json';
 
 const preference = readLanguagePreference();
 const lng = resolveLocale(preference);
@@ -104,7 +108,7 @@ void i18next.use(initReactI18next).init({
     default: ['en'],
   },
   defaultNS: 'common',
-  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'delivery', 'posTouch', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants', 'kds', 'setup'],
+  ns: ['common', 'auth', 'nav', 'dashboard', 'sales', 'orders', 'purchases', 'inventory', 'products', 'customers', 'quotations', 'delivery', 'posTouch', 'receiptTemplates', 'auditLogs', 'fiscal', 'settings', 'errors', 'localeSettings', 'aiSettings', 'aiAnomalies', 'copilot', 'aiShared', 'invoiceOcr', 'semanticSearch', 'receipts', 'peripherals', 'operations', 'modules', 'surfaces', 'voice', 'restaurants', 'kds', 'setup', 'shortcuts', 'palette'],
   resources: {
     en: {
       common: enCommon,
@@ -141,6 +145,8 @@ void i18next.use(initReactI18next).init({
       restaurants: enRestaurants,
       kds: enKds,
       setup: enSetup,
+      shortcuts: enShortcuts,
+      palette: enPalette,
     },
     es: {
       common: esCommon,
@@ -177,6 +183,8 @@ void i18next.use(initReactI18next).init({
       restaurants: esRestaurants,
       kds: esKds,
       setup: esSetup,
+      shortcuts: esShortcuts,
+      palette: esPalette,
     },
   },
   interpolation: {

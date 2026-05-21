@@ -1,0 +1,56 @@
+{
+  "title": "Command palette",
+  "searchPlaceholder": "Search actions and destinations…",
+  "noResults": "No matches",
+  "noResultsHint": "Try a different keyword, or close the palette with Esc and use the sidebar.",
+  "groups": {
+    "navigate": "Go to",
+    "command": "Run"
+  },
+  "actions": {
+    "navigate": {
+      "dashboard": "Open dashboard",
+      "sales": "Open sales",
+      "products": "Open products",
+      "customers": "Open customers",
+      "inventory": "Open inventory",
+      "purchases": "Open purchases",
+      "quotations": "Open quotations",
+      "operations": "Open operations center",
+      "company": "Open company settings",
+      "sites": "Open sites",
+      "users": "Open users",
+      "peripherals": "Open peripherals",
+      "auditLogs": "Open audit log",
+      "fiscalDocuments": "Open fiscal documents",
+      "fiscalReports": "Open fiscal reports"
+    },
+    "command": {
+      "newSale": "New sale",
+      "logout": "Log out"
+    }
+  },
+  "descriptions": {
+    "navigate": {
+      "dashboard": "Today's totals, alerts, and shortcuts.",
+      "sales": "Cashier cockpit for the active site.",
+      "products": "Catalog, variants, prices, and stock.",
+      "customers": "Customer directory, credit, and ledger.",
+      "inventory": "Stock movements and adjustments per site.",
+      "purchases": "Inbound purchase orders and reception.",
+      "quotations": "Draft and convert quotations.",
+      "operations": "Cross-site operations queue and alerts.",
+      "company": "Locale, fiscal, payments, modules, telemetry.",
+      "sites": "Per-site configuration and sequentials.",
+      "users": "Operator roster and roles.",
+      "peripherals": "Printer, scanner, drawer, hub registration.",
+      "auditLogs": "Sensitive-action history for the tenant.",
+      "fiscalDocuments": "Fiscal documents emitted from this tenant.",
+      "fiscalReports": "Reports and downloads for fiscal authorities."
+    },
+    "command": {
+      "newSale": "Clear the active cart and land on /sales.",
+      "logout": "End the current session on this workstation."
+    }
+  }
+}

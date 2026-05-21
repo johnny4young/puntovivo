@@ -6,6 +6,7 @@ import {
   PageLoadingState,
 } from '@/components/feedback/LoadingState';
 import { AuthProvider } from '@/features/auth/AuthProvider';
+import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
 import { LocaleProvider } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesProvider, RequireModule } from '@/features/modules';
@@ -238,6 +239,7 @@ function ShellRoute({
 function App() {
   return (
     <AuthProvider>
+      <CommandPaletteProvider>
       <TenantProvider>
         <ModulesProvider>
         <LocaleProvider>
@@ -546,6 +548,7 @@ function App() {
         </LocaleProvider>
         </ModulesProvider>
       </TenantProvider>
+      </CommandPaletteProvider>
     </AuthProvider>
   );
 }

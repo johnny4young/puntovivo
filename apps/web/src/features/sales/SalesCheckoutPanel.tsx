@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
@@ -313,6 +314,7 @@ export function SalesCheckoutPanel({
           onClick={primaryAction}
           disabled={primaryActionDisabled}
           data-testid="checkout-primary-action"
+          aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
         >
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}
@@ -336,6 +338,7 @@ export function SalesCheckoutPanel({
                 onClick={onSuspend}
                 disabled={!canSuspend}
                 data-testid="checkout-suspend"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
               >
                 <PauseCircle className="h-4 w-4" />
                 {t('park.suspend')}
@@ -361,6 +364,7 @@ export function SalesCheckoutPanel({
             className="btn-ghost hidden w-full justify-between xl:inline-flex"
             onClick={onToggleSuspendedPanel}
             data-testid="checkout-open-suspended-panel"
+            aria-keyshortcuts={ariaKeyshortcutsFor('sales.toggleSuspended')}
           >
             <span className="inline-flex items-center gap-2">
               <ListTree className="h-4 w-4" />
