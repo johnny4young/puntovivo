@@ -230,6 +230,17 @@ Acceptance:
   command palette, or direct URL.
 - Browser smoke covers desktop, tablet, and mobile navigation.
 
+Status: Slice A shipped 2026-05-20. The workspace data model lives
+at `apps/web/src/components/layout/workspaces.ts` and the sidebar
+renders the 8 workspaces with WAI-ARIA disclosure widgets +
+per-workspace `localStorage` collapse persistence. Routes did NOT
+move, so every existing deep link still resolves through the
+unchanged `App.tsx` router. Remaining slices: Surface Switcher
+launcher, new workspace shell routes `/catalog` / `/procurement` /
+`/finance` with landing subnav, redirects from legacy child routes
+to the new workspace landing pages, mobile workspace nav redesign,
+Dashboard fold decision.
+
 ### ENG-132 - Screen simplification and progressive disclosure pass
 
 Scope:
