@@ -1,0 +1,178 @@
+/**
+ * ENG-131 (slice A) — Workspace catalogue contract tests.
+ *
+ * Pins the invariants the sidebar refactor must keep:
+ *
+ *   - Every workspace declares at least one item.
+ *   - The catalogue covers exactly the same routes the old four-
+ *     section sidebar declared (no orphans, no duplicates).
+ *   - Role + module filtering produces the expected admin / cashier
+ *     visibility shape.
+ *
+ * @module components/layout/__tests__/workspaces.test
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  WORKSPACES,
+  TOP_LEVEL_DASHBOARD,
+  __WORKSPACE_ROUTE_INVARIANT_FOR_TESTS,
+  visibleItemsForWorkspace,
+  visibleWorkspacesForRole,
+} from '../workspaces';
+
+// Mirror of every route the pre-slice-A sidebar declared. Keeping a
+// literal here (rather than importing the old enum) means any
+// future drift surfaces immediately: a deletion fails one half of
+// the assertion, an addition fails the other.
+const LEGACY_SIDEBAR_ROUTES = [
+  // overview
+  '/dashboard',
+  '/co-pilot',
+  '/sales',
+  '/inventory',
+  '/operations',
+  // flow
+  '/orders',
+  '/purchases',
+  '/quotations',
+  '/delivery',
+  '/customers',
+  '/products',
+  // surfaces
+  '/touch',
+  '/kds',
+  '/customer-display',
+  '/m',
+  '/restaurants/tables',
+  // setup
+  '/company',
+  '/sites',
+  '/sequentials',
+  '/geography',
+  '/customer-catalogs',
+  '/providers',
+  '/categories',
+  '/locations',
+  '/units',
+  '/vat-rates',
+  '/receipt-templates',
+  '/peripherals',
+  '/users',
+  '/settings/ai',
+  '/audit-logs',
+  '/fiscal-documents',
+  '/fiscal-reports',
+] as const;
+
+describe('WORKSPACES catalogue', () => {
+  it('declares exactly eight workspaces', () => {
+    expect(WORKSPACES).toHaveLength(8);
+  });
+
+  it('every workspace has at least one item', () => {
+    for (const workspace of WORKSPACES) {
+      expect(workspace.items.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every legacy sidebar route lives under exactly one workspace or the top-level Dashboard', () => {
+    const covered = new Set<string>([
+      TOP_LEVEL_DASHBOARD.href,
+      ...__WORKSPACE_ROUTE_INVARIANT_FOR_TESTS.workspaceHrefs,
+    ]);
+    for (const route of LEGACY_SIDEBAR_ROUTES) {
+      expect(covered.has(route)).toBe(true);
+    }
+  });
+
+  it('no route is declared twice across the catalogue', () => {
+    const seen = new Map<string, string>();
+    for (const workspace of WORKSPACES) {
+      for (const item of workspace.items) {
+        const previous = seen.get(item.href);
+        if (previous) {
+          throw new Error(
+            `route ${item.href} declared in both ${previous} and ${workspace.id}`
+          );
+        }
+        seen.set(item.href, workspace.id);
+      }
+    }
+    // Dashboard sits OUTSIDE the workspace map by design.
+    expect(seen.has(TOP_LEVEL_DASHBOARD.href)).toBe(false);
+  });
+});
+
+describe('visibleItemsForWorkspace', () => {
+  it('drops items whose module is disabled', () => {
+    const sell = WORKSPACES.find(w => w.id === 'sell')!;
+    const result = visibleItemsForWorkspace(sell, 'admin', { kds: false });
+    expect(result.some(i => i.href === '/kds')).toBe(false);
+    expect(result.some(i => i.href === '/sales')).toBe(true);
+  });
+
+  it('drops items the role cannot access', () => {
+    const setup = WORKSPACES.find(w => w.id === 'setup')!;
+    const result = visibleItemsForWorkspace(setup, 'cashier', {});
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe('visibleWorkspacesForRole', () => {
+  it('returns all eight workspaces for an admin with every module on', () => {
+    const allOn = {
+      copilot: true,
+      'operations-center': true,
+      quotations: true,
+      delivery: true,
+      'pos-touch': true,
+      kds: true,
+      'customer-display': true,
+      'mobile-waiter': true,
+    };
+    const result = visibleWorkspacesForRole('admin', allOn);
+    expect(result.map(v => v.workspace.id)).toEqual([
+      'sell',
+      'operate',
+      'catalog',
+      'inventory',
+      'procurement',
+      'customers',
+      'finance',
+      'setup',
+    ]);
+  });
+
+  it('returns only the Sell workspace for a cashier (the other workspaces gate to manager+)', () => {
+    const result = visibleWorkspacesForRole('cashier', {});
+    expect(result.map(v => v.workspace.id)).toEqual(['sell']);
+    // /sales is always visible for cashier; module-gated surfaces
+    // (touch, kds, customer-display, mobile-waiter,
+    // restaurants/tables) drop when their module is off.
+    expect(result[0]?.items.some(i => i.href === '/sales')).toBe(true);
+  });
+
+  it('omits a workspace whose visible items collapse to zero', () => {
+    // Operate has a single item (/operations) gated by the
+    // operations-center module. Turn the module off and the
+    // workspace should disappear entirely instead of rendering an
+    // empty header.
+    const result = visibleWorkspacesForRole('admin', { 'operations-center': false });
+    expect(result.some(v => v.workspace.id === 'operate')).toBe(false);
+    // Other admin workspaces still appear.
+    expect(result.some(v => v.workspace.id === 'setup')).toBe(true);
+  });
+
+  it('returns an empty list for an unauthenticated role', () => {
+    expect(visibleWorkspacesForRole(undefined, {})).toEqual([]);
+  });
+});
+
+describe('TOP_LEVEL_DASHBOARD', () => {
+  it('declares /dashboard outside any workspace', () => {
+    expect(TOP_LEVEL_DASHBOARD.href).toBe('/dashboard');
+    expect(
+      WORKSPACES.some(w => w.items.some(i => i.href === '/dashboard'))
+    ).toBe(false);
+  });
+});

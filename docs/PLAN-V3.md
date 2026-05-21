@@ -469,7 +469,7 @@ canonical reading order for sprint planning.
 | 4 | `ENG-134` | Pending | Accessibility rail before adding more components. |
 | 5 | `ENG-135` | Partial | Observability engine + opt-in shipped 2026-05-20; Sentry / GlitchTip adapter follow-up. |
 | 6 | `ENG-105` | Partial | Slice A (command palette + canonical shortcut map + aria-keyshortcuts hookup) shipped 2026-05-20; remaining slices (preflight, quick-create, fast-register, undo, ...) ride ENG-105b.. follow-ups. |
-| 7 | `ENG-131` | Pending | IA refactor before adding new screens. |
+| 7 | `ENG-131` | Partial | Slice A (workspace data model + collapsible sidebar) shipped 2026-05-20; Surface Switcher / new workspace shells / route redirects / mobile workspace nav stay Remaining as ENG-131b..d. |
 | 8 | `ENG-106` | Pending | Staff accountability before opening more sites. |
 | 9 | `ENG-123` | Pending | Launch migration before public pilot. |
 | 10 | `ENG-128` | Pending | Supportability before public pilot. |

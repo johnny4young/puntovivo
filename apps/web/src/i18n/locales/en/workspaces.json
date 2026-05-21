@@ -1,0 +1,34 @@
+{
+  "sell": {
+    "label": "Sell",
+    "description": "Cashier lane, surfaces, restaurant tables."
+  },
+  "operate": {
+    "label": "Operate",
+    "description": "Attention queue and system health."
+  },
+  "catalog": {
+    "label": "Catalog",
+    "description": "Products, providers, locations, taxes, geography."
+  },
+  "inventory": {
+    "label": "Inventory",
+    "description": "Stock health and movements."
+  },
+  "procurement": {
+    "label": "Procurement",
+    "description": "Orders, purchases, quotations, delivery."
+  },
+  "customers": {
+    "label": "Customers",
+    "description": "Directory, credit, account."
+  },
+  "finance": {
+    "label": "Finance",
+    "description": "Fiscal documents, reports, audit log."
+  },
+  "setup": {
+    "label": "Setup",
+    "description": "Company, sites, peripherals, users, AI."
+  }
+}

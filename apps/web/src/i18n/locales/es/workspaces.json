@@ -1,0 +1,34 @@
+{
+  "sell": {
+    "label": "Vender",
+    "description": "Carril del cajero, superficies, mesas de restaurante."
+  },
+  "operate": {
+    "label": "Operar",
+    "description": "Cola de atención y salud del sistema."
+  },
+  "catalog": {
+    "label": "Catálogo",
+    "description": "Productos, proveedores, ubicaciones, impuestos, geografía."
+  },
+  "inventory": {
+    "label": "Inventario",
+    "description": "Salud del stock y movimientos."
+  },
+  "procurement": {
+    "label": "Compras",
+    "description": "Órdenes, compras, cotizaciones, entregas."
+  },
+  "customers": {
+    "label": "Clientes",
+    "description": "Directorio, crédito, estado de cuenta."
+  },
+  "finance": {
+    "label": "Finanzas",
+    "description": "Documentos fiscales, reportes, auditoría."
+  },
+  "setup": {
+    "label": "Configuración",
+    "description": "Empresa, sucursales, periféricos, usuarios, IA."
+  }
+}
