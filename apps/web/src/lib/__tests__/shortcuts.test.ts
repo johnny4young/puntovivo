@@ -77,9 +77,11 @@ describe('formatKeysForDisplay', () => {
 });
 
 describe('formatKeysForAria', () => {
-  it('rewrites Mod to canonical Control', () => {
-    expect(formatKeysForAria(['Mod+K'])).toBe('Control+K');
-    expect(formatKeysForAria(['Mod+Shift+P'])).toBe('Control+Shift+P');
+  it('rewrites Mod to the actual platform modifier', () => {
+    expect(formatKeysForAria(['Mod+K'], false)).toBe('Control+K');
+    expect(formatKeysForAria(['Mod+Shift+P'], false)).toBe('Control+Shift+P');
+    expect(formatKeysForAria(['Mod+K'], true)).toBe('Meta+K');
+    expect(formatKeysForAria(['Mod+Shift+P'], true)).toBe('Meta+Shift+P');
   });
 
   it('joins multiple combos with a single space', () => {
@@ -89,8 +91,9 @@ describe('formatKeysForAria', () => {
 
 describe('ariaKeyshortcutsFor', () => {
   it('returns the formatted value for known ids', () => {
-    expect(ariaKeyshortcutsFor('sales.charge')).toBe('F1');
-    expect(ariaKeyshortcutsFor('sales.suspend')).toBe('Control+P');
+    expect(ariaKeyshortcutsFor('sales.charge', false)).toBe('F1');
+    expect(ariaKeyshortcutsFor('sales.suspend', false)).toBe('Control+P');
+    expect(ariaKeyshortcutsFor('sales.suspend', true)).toBe('Meta+P');
   });
 
   it('returns undefined when not registered', () => {

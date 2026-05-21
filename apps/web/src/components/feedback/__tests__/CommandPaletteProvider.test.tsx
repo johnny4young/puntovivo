@@ -17,10 +17,24 @@ import {
   useCommandPalette,
 } from '../CommandPaletteProvider';
 
+let mockIsAuthenticated = true;
+
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
+    isAuthenticated: mockIsAuthenticated,
     user: { id: 'user-1', email: 'admin@example.com', role: 'admin', tenantId: 't' },
     logout: vi.fn(async () => undefined),
+  }),
+}));
+
+vi.mock('@/features/modules', () => ({
+  useModulesSnapshot: () => ({
+    modules: {
+      'operations-center': true,
+      quotations: true,
+    },
+    isLoading: false,
+    isPlaceholder: false,
   }),
 }));
 
@@ -35,6 +49,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 beforeEach(() => {
+  mockIsAuthenticated = true;
   // Spoof a non-mac platform so the listener interprets `Mod` as
   // `Ctrl` and the dispatched KeyboardEvent below matches.
   Object.defineProperty(navigator, 'platform', {
@@ -45,6 +60,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete document.body.dataset.commandPaletteOpen;
+  document.querySelector('[data-test-owned-dialog]')?.remove();
 });
 
 function dispatchKey(init: KeyboardEventInit) {
@@ -77,6 +93,32 @@ describe('CommandPaletteProvider (ENG-105a)', () => {
     dispatchKey({ key: 'k', ctrlKey: true });
     expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
     expect(document.body.dataset.commandPaletteOpen).toBeUndefined();
+  });
+
+  it('does not open while unauthenticated', () => {
+    mockIsAuthenticated = false;
+    render(
+      <CommandPaletteProvider>
+        <div>login shell</div>
+      </CommandPaletteProvider>
+    );
+    dispatchKey({ key: 'k', ctrlKey: true });
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+
+  it('does not stack on top of another open modal', () => {
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('data-test-owned-dialog', 'true');
+    document.body.append(dialog);
+    render(
+      <CommandPaletteProvider>
+        <div>app shell</div>
+      </CommandPaletteProvider>
+    );
+    dispatchKey({ key: 'k', ctrlKey: true });
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
   });
 
   it('useCommandPalette throws outside the provider', () => {

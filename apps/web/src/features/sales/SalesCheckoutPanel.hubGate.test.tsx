@@ -75,6 +75,22 @@ function renderPanel(overrides: { hubReachable?: boolean | undefined } = {}) {
 }
 
 describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
+  it('renders shortcut chips from the canonical shortcut catalogue', () => {
+    Object.defineProperty(navigator, 'platform', {
+      value: 'Linux x86_64',
+      configurable: true,
+    });
+    renderPanel();
+    expect(screen.getByText('F5')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+P')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+R')).toBeInTheDocument();
+    expect(screen.getByText('F1')).toBeInTheDocument();
+    expect(screen.getByTestId('checkout-primary-action')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'F1'
+    );
+  });
+
   it('enables the primary action when hubReachable is undefined (device_local default)', () => {
     renderPanel({ hubReachable: undefined });
     const button = screen.getByTestId('checkout-primary-action');
