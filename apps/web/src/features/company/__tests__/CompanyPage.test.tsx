@@ -114,6 +114,14 @@ vi.mock('../CompanyModulesCard', () => ({
 vi.mock('../CompanyReadinessCard', () => ({
   CompanyReadinessCard: () => <div data-testid="card-readiness">Readiness</div>,
 }));
+// ENG-135 — Stub the telemetry card. The CompanyPage tab test does
+// not exercise the toggle round-trip; the dedicated
+// `CompanyTelemetryCard.test.tsx` pins that contract.
+vi.mock('../CompanyTelemetryCard', () => ({
+  CompanyTelemetryCard: () => (
+    <div data-testid="card-telemetry">Telemetry</div>
+  ),
+}));
 
 // Import after mocks so the page picks up the stubbed children.
 import { CompanyPage } from '../CompanyPage';

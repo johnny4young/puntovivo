@@ -52,5 +52,19 @@ const t = initTRPC.context<Context>().create({
 });
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
 export const middleware = t.middleware;
+
+// ENG-135 — tracing wraps the entire procedure chain
+// (`protectedProcedure`, `tenantProcedure`, `adminProcedure`, ...)
+// so every call carries `procedure / durationMs / outcome /
+// correlationId / tenantId / userId` on its server log line, and
+// failures route through `captureException` to the centralized
+// sink (when one is wired via `registerTelemetrySink`). The middleware
+// is imported as a bare function and wrapped with `t.middleware`
+// here so `tracing.ts` does not need to import from `init.ts` —
+// that import edge would create a circular module load.
+import { tracingMiddlewareFn } from './middleware/tracing.js';
+const tracingMiddleware = t.middleware(
+  tracingMiddlewareFn as Parameters<typeof t.middleware>[0]
+);
+export const publicProcedure = t.procedure.use(tracingMiddleware);

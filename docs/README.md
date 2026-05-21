@@ -118,6 +118,7 @@ operator idea → BACKLOG.md (unsized)
 | [`TEST-PLAN.md`](./TEST-PLAN.md) | E2E test inventory + automation status. |
 | [`PERF-BUDGETS.md`](./PERF-BUDGETS.md) | Performance budgets contract: bundle-size + tRPC p95 latency CI gates anchored on `perf-budget.json` (ENG-133). |
 | [`A11Y.md`](./A11Y.md) | Accessibility contract: axe-core component helper, contrast CI gate on theme tokens, ARIA conventions (ENG-134). |
+| [`OBSERVABILITY.md`](./OBSERVABILITY.md) | Production observability rail: sink interface + captureException/withSpan helpers, tRPC tracing middleware, per-tenant opt-in + audit, renderer-side captureRenderError; explains the adapter wiring recipe for the follow-up Sentry/GlitchTip install (ENG-135). |
 
 ### Long-term vision
 

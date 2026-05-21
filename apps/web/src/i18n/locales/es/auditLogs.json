@@ -65,7 +65,8 @@
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
-    "fiscal.xml.downloaded": "XML fiscal descargado"
+    "fiscal.xml.downloaded": "XML fiscal descargado",
+    "telemetry.opt_in.updated": "Preferencia de telemetría actualizada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -84,7 +85,8 @@
     "ai_feature": "Función de IA",
     "kds_order": "Orden de cocina",
     "customer": "Cliente",
-    "fiscal_document": "Documento fiscal"
+    "fiscal_document": "Documento fiscal",
+    "tenant": "Cuenta"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

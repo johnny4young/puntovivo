@@ -1,8 +1,10 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { z } from 'zod';
 import type { DatabaseInstance } from '../../db/index.js';
-import { companies, logos, tenants } from '../../db/schema.js';
+import { auditLogs, companies, logos, tenants } from '../../db/schema.js';
+import { clearTelemetryOptInCacheForTenant } from '../../observability/index.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -24,6 +26,54 @@ function buildCompanySelection() {
     createdAt: companies.createdAt,
     updatedAt: companies.updatedAt,
   };
+}
+
+/**
+ * ENG-135 — Resolve `tenants.settings.telemetryOptIn` for the
+ * active tenant. Returns false by default (opt-in is per-tenant and
+ * defaults off; the toggle is admin-driven via
+ * `companies.updateTelemetryOptIn`). The query is a single row read
+ * by primary key — sub-millisecond and never on the hot path of a
+ * write mutation.
+ */
+async function resolveTelemetryOptIn(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<boolean> {
+  const row = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  const settings = (row?.settings ?? {}) as Record<string, unknown>;
+  return settings.telemetryOptIn === true;
+}
+
+/**
+ * ENG-135 — Fetch a company row and stamp the tenant's
+ * `telemetryOptIn` flag in one consistent shape. Used by
+ * `getCurrent / upsert / setLogo` so every response surface carries
+ * the field; without it react-query `setData` would silently drop
+ * the flag on mutation cache writes.
+ */
+async function selectCompanyByIdWithTelemetry(
+  db: DatabaseInstance,
+  tenantId: string,
+  companyId: string
+) {
+  // ENG-135 multi-tenant invariant: scope by both id AND tenantId.
+  // Every caller already chained off a tenant-owned id, but pinning
+  // the predicate here keeps the helper safe if a future caller
+  // threads in a foreign id by mistake.
+  const company = await db
+    .select(buildCompanySelection())
+    .from(companies)
+    .leftJoin(logos, eq(companies.logoId, logos.id))
+    .where(and(eq(companies.id, companyId), eq(companies.tenantId, tenantId)))
+    .get();
+  if (!company) return null;
+  const telemetryOptIn = await resolveTelemetryOptIn(db, tenantId);
+  return { ...company, telemetryOptIn };
 }
 
 async function resolveLogoSelection(
@@ -61,7 +111,16 @@ export const companiesRouter = router({
       .where(eq(companies.tenantId, ctx.tenantId))
       .get();
 
-    return company ?? null;
+    if (!company) return null;
+    // ENG-135 — surface `telemetryOptIn` on the same response so
+    // the CompanyTelemetryCard renders without a second round-trip.
+    // Defensive default: false. The toggle is admin-driven via
+    // `companies.updateTelemetryOptIn` below.
+    return (await selectCompanyByIdWithTelemetry(
+      ctx.db,
+      ctx.tenantId,
+      company.id
+    ))!;
   }),
 
   upsert: adminProcedure.input(upsertCompanyInput).mutation(async ({ ctx, input }) => {
@@ -100,14 +159,7 @@ export const companiesRouter = router({
         data: { id: existing.id, ...updateData },
       });
 
-      return (
-        await ctx.db
-          .select(buildCompanySelection())
-          .from(companies)
-          .leftJoin(logos, eq(companies.logoId, logos.id))
-          .where(eq(companies.id, existing.id))
-          .get()
-      )!;
+      return (await selectCompanyByIdWithTelemetry(ctx.db, ctx.tenantId, existing.id))!;
     }
 
     const id = nanoid();
@@ -132,14 +184,7 @@ export const companiesRouter = router({
       data: { id, ...input, logoId: resolvedLogo?.id ?? null, logoUrl: resolvedLogo?.imageUrl ?? input.logoUrl ?? null },
     });
 
-    return (
-      await ctx.db
-        .select(buildCompanySelection())
-        .from(companies)
-        .leftJoin(logos, eq(companies.logoId, logos.id))
-        .where(eq(companies.id, id))
-        .get()
-    )!;
+    return (await selectCompanyByIdWithTelemetry(ctx.db, ctx.tenantId, id))!;
   }),
 
   setLogo: adminProcedure.input(setCompanyLogoInput).mutation(async ({ ctx, input }) => {
@@ -170,14 +215,7 @@ export const companiesRouter = router({
       data: { id: company.id, ...updateData },
     });
 
-    return (
-      await ctx.db
-        .select(buildCompanySelection())
-        .from(companies)
-        .leftJoin(logos, eq(companies.logoId, logos.id))
-        .where(eq(companies.id, company.id))
-        .get()
-    )!;
+    return (await selectCompanyByIdWithTelemetry(ctx.db, ctx.tenantId, company.id))!;
   }),
 
   /**
@@ -206,4 +244,65 @@ export const companiesRouter = router({
       .where(eq(tenants.id, ctx.tenantId));
     return { acknowledgedAt: now };
   }),
+
+  /**
+   * ENG-135 — Admin toggles per-tenant telemetry opt-in.
+   *
+   * Flips `tenants.settings.telemetryOptIn` and writes an audit row
+   * (`telemetry.opt_in.updated`) with `before` / `after` carrying the
+   * boolean state. The captureException / withSpan helpers read the
+   * flag at the next opt-in cache window (60s) — the value is the
+   * primary gate between the local pino log (always on) and the
+   * centralized telemetry sink (opt-in only).
+   *
+   * Idempotent: calling `updateTelemetryOptIn({ optedIn: true })`
+   * twice keeps the flag true; the audit row still records the
+   * call so the consent log is complete.
+   */
+  updateTelemetryOptIn: adminProcedure
+    .input(z.object({ optedIn: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const before = await resolveTelemetryOptIn(ctx.db, ctx.tenantId);
+      const now = new Date().toISOString();
+      // SQLite stores JSON booleans as integers (0/1) inside the
+      // packed text; `json('true')` / `json('false')` force the
+      // resulting JSON to use the canonical boolean literal so a
+      // downstream reader using `json_extract(... '$.telemetryOptIn')`
+      // gets `true` / `false`, not `1` / `0`. The fragment is
+      // selected here in TS so no string concatenation reaches the
+      // SQL layer — both branches are parametrized literals.
+      const optedInFragment = input.optedIn ? sql`json('true')` : sql`json('false')`;
+      await ctx.db.transaction(tx => {
+        tx
+          .update(tenants)
+          .set({
+            settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.telemetryOptIn', ${optedInFragment})`,
+            updatedAt: now,
+          })
+          .where(eq(tenants.id, ctx.tenantId))
+          .run();
+
+        tx
+          .insert(auditLogs)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            // adminProcedure guarantees ctx.user is non-null; the bang
+            // mirrors the convention in authority.ts / ai.ts.
+            actorId: ctx.user!.id,
+            action: 'telemetry.opt_in.updated',
+            resourceType: 'tenant',
+            resourceId: ctx.tenantId,
+            before: { telemetryOptIn: before },
+            after: { telemetryOptIn: input.optedIn },
+            metadata: null,
+            createdAt: now,
+          })
+          .run();
+      });
+
+      clearTelemetryOptInCacheForTenant(ctx.tenantId);
+
+      return { telemetryOptIn: input.optedIn, updatedAt: now };
+    }),
 });

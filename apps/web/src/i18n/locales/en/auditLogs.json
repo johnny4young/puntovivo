@@ -65,7 +65,8 @@
     "kds.order.recalled": "KDS order recalled to pending",
     "customer.credit_limit.update": "Customer credit limit updated",
     "sale.credit_override": "Sale completed with credit override",
-    "fiscal.xml.downloaded": "Fiscal XML downloaded"
+    "fiscal.xml.downloaded": "Fiscal XML downloaded",
+    "telemetry.opt_in.updated": "Telemetry preference updated"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -84,7 +85,8 @@
     "ai_feature": "AI feature",
     "kds_order": "KDS order",
     "customer": "Customer",
-    "fiscal_document": "Fiscal document"
+    "fiscal_document": "Fiscal document",
+    "tenant": "Tenant"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

@@ -25,6 +25,7 @@ import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
 import { CompanySyncCard } from './CompanySyncCard';
+import { CompanyTelemetryCard } from './CompanyTelemetryCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
@@ -411,6 +412,7 @@ export function CompanyPage() {
                   <div className="space-y-6">
                     <CompanySyncCard />
                     <CompanyBackupCard />
+                    <CompanyTelemetryCard />
                   </div>
                 )}
 

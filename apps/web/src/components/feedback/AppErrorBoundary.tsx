@@ -1,6 +1,7 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { captureRenderError } from '@/lib/observability';
 
 interface AppErrorFallbackProps {
   error: Error;
@@ -63,7 +64,14 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Unhandled application render error', error, errorInfo);
+    // ENG-135 — funnel render-tree errors through the observability
+    // pipe. The console fallback inside `captureRenderError` keeps
+    // the previous developer-tail behaviour while the future adapter
+    // (Sentry / GlitchTip) gets the same payload.
+    captureRenderError(error, {
+      source: 'render',
+      componentStack: errorInfo.componentStack ?? null,
+    });
   }
 
   render() {
