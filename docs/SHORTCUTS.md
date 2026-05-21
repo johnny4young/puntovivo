@@ -1,0 +1,162 @@
+# Keyboard shortcut catalogue
+
+> Status: shipped engine (canonical map + global Command Palette
+> + aria-keyshortcuts hookup on `/sales`).
+> Roadmap anchor: `ENG-105` (slice A).
+
+This doc is the operator and reviewer-facing source of truth for
+every keyboard shortcut the renderer exposes. The runtime catalogue
+lives in `apps/web/src/lib/shortcuts.ts` — that file is the
+machine-readable side; this doc is the human-readable side. Adding
+a shortcut to one without the other is a review-time flag.
+
+## What is enforced today
+
+| Surface | Where |
+| --- | --- |
+| Canonical map of every shortcut id, keys, scope, label | `apps/web/src/lib/shortcuts.ts` (`SHORTCUTS` array) |
+| Global Command Palette — opened by `Mod+K` | `apps/web/src/components/feedback/CommandPalette.tsx` + `CommandPaletteProvider.tsx` |
+| Imperative shortcuts on the cashier cockpit | `apps/web/src/features/sales/useSalesKeyboardShortcuts.ts` |
+| `aria-keyshortcuts` attribute on the real buttons in `/sales` | `apps/web/src/features/sales/SalesCheckoutPanel.tsx` (Charge / Suspend / Toggle Suspended) |
+
+The map is declarative — `SHORTCUTS` lists every shortcut even when
+the actual `keydown` handling lives in another file. That separation
+keeps three concerns aligned without coupling them:
+
+1. The Command Palette can show the hint on every action.
+2. Real buttons in the DOM can stamp `aria-keyshortcuts` from the
+   same source (closes the ENG-134 a11y remaining slice).
+3. Reviewers can audit the full set with one grep.
+
+## Current shortcuts
+
+| Id | Keys | Scope | Action |
+| --- | --- | --- | --- |
+| `palette.open` | `Mod+K` | global | Open the Command Palette. |
+| `sales.charge` | `F1` | sales | Open the payment modal for the active cart. |
+| `sales.productSearch` | `F5` | sales | Open the product search dialog. |
+| `sales.focusProduct` | `Alt+P` | sales | Focus the product / barcode input. |
+| `sales.focusQuantity` | `Alt+C` | sales | Focus the quantity field of the selected row. |
+| `sales.focusDiscount` | `Alt+D` | sales | Focus the discount field of the selected row. |
+| `sales.focusUnit` | `Alt+U` | modal | Focus the unit selector inside ProductSearchDialog. |
+| `sales.suspend` | `Mod+P` | sales | Park the active cart. |
+| `sales.toggleSuspended` | `Mod+R` | sales | Toggle the suspended-carts panel. |
+| `sales.reprint` | `Mod+Shift+P` | sales | Reprint the selected history row. |
+| `sales.removeItem` | `Delete` | sales | Drop the selected line from the cart. |
+
+`Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
+`Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts
+both `Ctrl` and `Meta` on non-macOS so an external mac keyboard
+plugged into a Linux workstation still fires.
+
+## Command Palette behaviour
+
+- **Open / close**: `Mod+K` toggles. `Esc` closes. The palette
+  short-circuits when another `data-command-palette-open="true"`
+  modal owns the body — the only modal-on-modal supported in V1
+  is the palette itself.
+- **Navigation inside the palette**: `ArrowDown` / `ArrowUp` move
+  the highlight. `Home` / `End` jump to the first / last item.
+  `Enter` fires the highlighted action and closes the palette.
+  Mouse hover sets the highlight; click fires the action.
+- **Wrap-around**: V1 does NOT wrap (selection clamps at the
+  endpoints). A future slice may revisit when the catalogue grows.
+- **Filtering**: case-insensitive substring match against the
+  translated label OR description.
+- **Role gating**: the catalogue is filtered against the active
+  `user.role` before render. A cashier never sees `/audit-logs`,
+  `/company`, `/users`, `/sites`, `/peripherals`, `/inventory`,
+  `/purchases`, or any admin / manager surface.
+- **Shortcut hints**: when an action declares `shortcutId`, the
+  palette renders the formatted keys on the right gutter. `⌘K` on
+  macOS, `Ctrl+K` elsewhere.
+
+## How to add a shortcut
+
+1. Add the entry to `SHORTCUTS` in
+   `apps/web/src/lib/shortcuts.ts` with an `id` that follows the
+   existing dotted-namespace convention (`sales.X`, `palette.X`,
+   `inventory.X`, ...).
+2. Add the i18n key under `apps/web/src/i18n/locales/en/shortcuts.json`
+   AND `es/shortcuts.json` — locale-parity gate blocks otherwise.
+3. If the shortcut maps to an existing UI button, stamp
+   `aria-keyshortcuts={ariaKeyshortcutsFor('<id>')}` on the button
+   so screen readers announce the binding.
+4. Wire the imperative handler in the most local owner (a feature-
+   specific hook like `useSalesKeyboardShortcuts.ts`, or a global
+   provider like `CommandPaletteProvider.tsx` for app-wide shortcuts).
+   The catalogue is declarative; the catalogue does NOT own the
+   event loop.
+5. Update the table in this doc in the same PR.
+
+## How to add a Command Palette action
+
+1. Append a `CommandAction` entry to `COMMAND_ACTIONS` in
+   `apps/web/src/lib/commandPaletteActions.ts`.
+2. Add `actions.<group>.<id>` + `descriptions.<group>.<id>` keys
+   to `palette.json` (en + es).
+3. Set the `roles` tuple to match the route's `ShellRoute`
+   `allowedRoles` (or the procedure's role guard for a command).
+   This keeps the palette in sync with the router — never show a
+   destination the router would redirect away from.
+
+## ARIA — aria-keyshortcuts contract
+
+- The attribute value comes from `ariaKeyshortcutsFor('<id>')` —
+  the helper rewrites `Mod` to canonical `Control`, which is what
+  the WAI-ARIA spec requires regardless of the operator's platform.
+- Screen readers (NVDA, VoiceOver, JAWS) translate the canonical
+  string to the local OS modifier when announcing the binding.
+- The buttons wired today (`/sales`):
+  - **Charge** button — `F1`.
+  - **Suspend** button — `Control+P`.
+  - **Toggle Suspended panel** button — `Control+R`.
+- Adding new wires follows the same pattern: import
+  `ariaKeyshortcutsFor` from `@/lib/shortcuts` and pass the id of
+  the matching catalogue entry.
+
+## Browser shortcut conflicts
+
+`Mod+K` collides with Chrome / Firefox's omnibox "search engine"
+shortcut. The palette captures the event with `preventDefault()`,
+so the omnibox does not steal focus. If a future shortcut competes
+with a critical browser binding (e.g. `Mod+W` to close the tab),
+the implementer must consult an operator before claiming it — the
+operator's session is more sacred than a feature.
+
+## Out-of-scope follow-ups
+
+The ENG-105 cell lists 11 deliverables; slice A ships 1 (the
+palette + map). The remaining 10 ride future slices `ENG-105b..`:
+
+- Checkout preflight panel.
+- Quick-create modals for product / customer / provider mid-flow.
+- Fast-register / rapid cash F2 layout.
+- Undo / recovery affordances for reversible actions.
+- Customer attach pre-checkout (today only inside the payment
+  modal).
+- Payment drawer redesign.
+- Focus rules tuned against barcode wedge input.
+- Layout stability tweaks across desktop and tablet smoke targets.
+- Most-used / recent-actions ordering in the palette (depends on
+  ENG-135 observability sink).
+- Wrap-around navigation inside the palette (open question for
+  the next slice).
+
+## Running the contract locally
+
+```
+# Unit tests for the shortcut helpers
+npm run test --workspace=@puntovivo/web -- --run \
+  src/lib/__tests__/shortcuts.test.ts \
+  src/components/feedback/__tests__/CommandPalette.test.tsx \
+  src/components/feedback/__tests__/CommandPaletteProvider.test.tsx
+
+# Full ci:web (typecheck + lint + coverage + build + bundle gate +
+# contrast gate)
+npm run ci:web
+```
+
+For the live smoke (Playwright MCP keyboard-only matrix) see the
+plan file at `~/.claude/plans/precious-pondering-pudding.md` —
+slice A pins 44 PASS/FAIL items.

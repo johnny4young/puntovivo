@@ -1,0 +1,50 @@
+{
+  "palette": {
+    "open": {
+      "label": "Abrir paleta de comandos",
+      "description": "Busca acciones y destinos desde cualquier pantalla."
+    }
+  },
+  "sales": {
+    "charge": {
+      "label": "Cobrar",
+      "description": "Abre el modal de pago del carrito activo."
+    },
+    "productSearch": {
+      "label": "Buscar producto",
+      "description": "Abre el buscador de productos dentro de la venta activa."
+    },
+    "focusProduct": {
+      "label": "Enfocar campo de producto",
+      "description": "Lleva el cursor al campo de código de barras o búsqueda en la venta."
+    },
+    "focusQuantity": {
+      "label": "Enfocar cantidad",
+      "description": "Lleva el cursor al campo de cantidad del renglón seleccionado."
+    },
+    "focusDiscount": {
+      "label": "Enfocar descuento",
+      "description": "Lleva el cursor al campo de descuento del renglón seleccionado."
+    },
+    "focusUnit": {
+      "label": "Enfocar selector de unidad",
+      "description": "Lleva el cursor al selector de unidad dentro del buscador de productos."
+    },
+    "suspend": {
+      "label": "Suspender carrito",
+      "description": "Aparca el carrito activo para arrancar una venta nueva."
+    },
+    "toggleSuspended": {
+      "label": "Mostrar carritos suspendidos",
+      "description": "Abre o cierra el panel con los carritos suspendidos."
+    },
+    "reprint": {
+      "label": "Reimprimir recibo",
+      "description": "Reimprime el recibo del renglón seleccionado en el historial."
+    },
+    "removeItem": {
+      "label": "Quitar renglón del carrito",
+      "description": "Elimina el renglón seleccionado del carrito activo."
+    }
+  }
+}

@@ -119,6 +119,7 @@ operator idea → BACKLOG.md (unsized)
 | [`PERF-BUDGETS.md`](./PERF-BUDGETS.md) | Performance budgets contract: bundle-size + tRPC p95 latency CI gates anchored on `perf-budget.json` (ENG-133). |
 | [`A11Y.md`](./A11Y.md) | Accessibility contract: axe-core component helper, contrast CI gate on theme tokens, ARIA conventions (ENG-134). |
 | [`OBSERVABILITY.md`](./OBSERVABILITY.md) | Production observability rail: sink interface + captureException/withSpan helpers, tRPC tracing middleware, per-tenant opt-in + audit, renderer-side captureRenderError; explains the adapter wiring recipe for the follow-up Sentry/GlitchTip install (ENG-135). |
+| [`SHORTCUTS.md`](./SHORTCUTS.md) | Canonical keyboard-shortcut catalogue + global Command Palette UX. Declarative `SHORTCUTS` array in `apps/web/src/lib/shortcuts.ts`, `Mod+K` palette with role-filtered actions, `aria-keyshortcuts` contract for screen readers, and the recipe for adding new shortcuts or palette actions (ENG-105 slice A). |
 
 ### Long-term vision
 

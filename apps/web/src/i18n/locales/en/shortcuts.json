@@ -1,0 +1,50 @@
+{
+  "palette": {
+    "open": {
+      "label": "Open command palette",
+      "description": "Search actions and destinations from anywhere in the app."
+    }
+  },
+  "sales": {
+    "charge": {
+      "label": "Charge",
+      "description": "Open the payment modal for the active cart."
+    },
+    "productSearch": {
+      "label": "Search product",
+      "description": "Open the product search dialog inside the active sale."
+    },
+    "focusProduct": {
+      "label": "Focus product input",
+      "description": "Jump the cursor to the barcode / search input on the sales page."
+    },
+    "focusQuantity": {
+      "label": "Focus quantity",
+      "description": "Jump the cursor to the quantity field of the selected cart row."
+    },
+    "focusDiscount": {
+      "label": "Focus discount",
+      "description": "Jump the cursor to the discount field of the selected cart row."
+    },
+    "focusUnit": {
+      "label": "Focus unit selector",
+      "description": "Jump the cursor to the unit selector inside the product search dialog."
+    },
+    "suspend": {
+      "label": "Suspend cart",
+      "description": "Park the active cart so you can start a new sale."
+    },
+    "toggleSuspended": {
+      "label": "Toggle suspended panel",
+      "description": "Show or hide the panel that lists suspended carts."
+    },
+    "reprint": {
+      "label": "Reprint receipt",
+      "description": "Reprint the receipt of the selected history row."
+    },
+    "removeItem": {
+      "label": "Remove cart item",
+      "description": "Drop the selected line from the active cart."
+    }
+  }
+}
