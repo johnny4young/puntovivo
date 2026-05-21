@@ -59,7 +59,7 @@ export function QuickDenominationSelector({
             : 'border-line-strong/60 bg-surface text-secondary-900 hover:border-primary-300 hover:bg-primary-50/60'
         )}
       >
-        <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-primary-600">
+        <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-primary-800">
           {t('payment.quickAmount.exactKicker')}
         </span>
         <span className="mt-0.5 block font-mono text-sm tabular-nums">{formatCurrency(total)}</span>

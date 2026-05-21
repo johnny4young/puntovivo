@@ -216,7 +216,7 @@ export function QuotationDetailsModal({
                 }}
               />
               <div className="relative">
-                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+                <p className="text-[0.62rem] font-semibold uppercase tracking-[0.3em] text-primary-800">
                   {t('details.validityKicker', { defaultValue: 'Vigencia' })}
                 </p>
                 <p className="mt-2 text-xl font-bold tracking-[-0.02em] text-secondary-950">

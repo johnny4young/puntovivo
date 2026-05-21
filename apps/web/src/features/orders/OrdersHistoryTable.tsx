@@ -43,7 +43,7 @@ export function OrdersHistoryTable({
         header: t('table.orderNumber'),
         size: 140,
         cell: ({ row }) => (
-          <span className="font-mono font-medium text-primary-600">{row.original.orderNumber}</span>
+          <span className="font-mono font-medium text-primary-800">{row.original.orderNumber}</span>
         ),
       },
       {

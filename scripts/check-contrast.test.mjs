@@ -127,6 +127,26 @@ test('evaluateScope keeps shared button token pairs on the 4.5:1 floor', () => {
   );
 });
 
+test('evaluateScope keeps the badge-warning pair on the 4.5:1 floor', () => {
+  // ENG-134c: warning-50 / warning-700 at ~4.27:1 must fail because
+  // `.badge-warning` ships uppercase tracking-wide labels that
+  // routinely render at body-text size on transactional surfaces.
+  const declarations = {
+    'warning-50': 'oklch(0.98 0.03 85)',
+    'warning-700': 'oklch(0.57 0.11 72)',
+  };
+  const result = evaluateScope({ selector: ':root', declarations });
+  const warningRow = [...result.regressions, ...result.ok].find(
+    r => r.pair === 'warning-50 / warning-700'
+  );
+  assert.ok(warningRow, 'expected warning-50 / warning-700 to be evaluated');
+  assert.equal(warningRow.floor, WCAG_AA_RATIO);
+  assert.ok(
+    result.regressions.some(r => r.pair === 'warning-50 / warning-700'),
+    'expected warning-50 / warning-700 to fail below 4.5:1'
+  );
+});
+
 test('evaluateScope warns when one side of a pair is missing', () => {
   const result = evaluateScope({
     selector: ':root',

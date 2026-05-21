@@ -35,16 +35,6 @@ interface A11yRoute {
    * the scan runs.
    */
   settled: (page: Page) => ReturnType<Page['locator']> | ReturnType<Page['getByRole']> | ReturnType<Page['getByText']>;
-  /**
-   * When set, the test runs as `test.skip(...)` with the string used
-   * as the explanatory reason. Slice B uses this for routes that the
-   * smoke caught with axe violations rooted in shared design tokens
-   * (the `--primary` button background, `text-primary-600` table
-   * links, the warning badge token) that ENG-134c will close. The
-   * smoke infrastructure ships; these routes activate as soon as
-   * ENG-134c lands the token bumps.
-   */
-  skipUntilEng134c?: string;
 }
 
 const a11yRoutes: readonly A11yRoute[] = [
@@ -66,8 +56,6 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'cashier',
     settled: (page) =>
       page.getByRole('heading', { name: /Charge summary|Resumen de cobro/i }),
-    skipUntilEng134c:
-      'F1 Charge button uses --primary (oklch L=0.55) on --primary-foreground at 2.81:1 — needs a token bump in ENG-134c',
   },
   {
     label: 'Sales (admin)',
@@ -75,8 +63,6 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'admin',
     settled: (page) =>
       page.getByRole('heading', { name: /Charge summary|Resumen de cobro/i }),
-    skipUntilEng134c:
-      'Sales history rows render the sale number with text-primary-600 (3.68:1) plus the F1 Charge button + badge-warning debt — ENG-134c sweep',
   },
   {
     label: 'Inventory (admin)',
@@ -98,8 +84,6 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'admin',
     settled: (page) =>
       page.getByRole('button', { name: /Add Product|Agregar producto/i }),
-    skipUntilEng134c:
-      'DataTable rows on /products use text-primary-600 for the SKU link (3.68:1) — ENG-134c sweep',
   },
   {
     label: 'Purchases (admin)',
@@ -109,8 +93,6 @@ const a11yRoutes: readonly A11yRoute[] = [
       page
         .getByRole('button', { name: /Record purchase|Nueva compra|Add product/i })
         .first(),
-    skipUntilEng134c:
-      'Purchase history rows render the purchase number with text-primary-600 (3.68:1) plus badge-warning debt — ENG-134c sweep',
   },
   {
     label: 'Orders (admin)',
@@ -150,16 +132,6 @@ const a11yRoutes: readonly A11yRoute[] = [
 test.describe('a11y smoke (WCAG 2 AA, serious-floor)', () => {
   for (const route of a11yRoutes) {
     test(`${route.label} has no serious axe violations`, async ({ page }) => {
-      // ENG-134 slice B: routes with shared-token contrast debt are
-      // marked `skipUntilEng134c` until the token sweep closes the
-      // gap. Once ENG-134c lands the `--primary` / primary-600 /
-      // badge-warning bumps, remove the field on each route to
-      // re-enable the assertion (no other change required).
-      test.skip(
-        route.skipUntilEng134c !== undefined,
-        route.skipUntilEng134c ?? ''
-      );
-
       const tracker = attachClientIssueTracker(page);
 
       if (route.role === 'anon') {

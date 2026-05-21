@@ -155,7 +155,7 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
     header: () => i18next.t('inventory:table.reference'),
     size: 150,
     cell: ({ row }) => (
-      <span className="font-mono text-sm text-primary-600">{row.original.reference || '—'}</span>
+      <span className="font-mono text-sm text-primary-800">{row.original.reference || '—'}</span>
     ),
   },
   {

@@ -66,6 +66,13 @@ export const ENFORCED_PAIRS = [
   ['background', 'muted-foreground'],
   ['card', 'muted-foreground'],
   ['popover', 'muted-foreground'],
+  // ENG-134c: the `.badge-warning` design-system surface renders
+  // `text-warning-700` on `bg-warning-50`. The Playwright a11y smoke
+  // caught this pair at 4.27:1 — below the 4.5:1 body-text floor —
+  // on the `/sales` admin and `/purchases` history rows. Adding the
+  // pair here means a future relax of either token surfaces as a CI
+  // failure, not as a route smoke regression.
+  ['warning-50', 'warning-700'],
 ];
 
 function floorForPair(pairLabel) {

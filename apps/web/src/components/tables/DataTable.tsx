@@ -181,7 +181,24 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="overflow-hidden rounded-[24px] border border-line/80 bg-card/82 shadow-[var(--shadow-card)]">
-        <div className="data-table-scroll">
+        {/* ENG-134c: the scrollable wrapper needs to satisfy axe rule
+         * `scrollable-region-focusable` on wide tables (/products +
+         * /purchases hit horizontal overflow under the seeded data).
+         * axe requires the wrapper to be tab-reachable, not just
+         * programmatically focusable, so we use `tabIndex={0}`.
+         * `role="region"` + i18n `aria-label` give the region a
+         * semantic name for screen readers; the label lives in
+         * `common:table.scrollableLabel` (en + es neutral LATAM).
+         * The first Tab now lands on the wrapper (screen-reader
+         * announces "Scrollable table region"), the next Tab steps
+         * into the first row that the roving tabindex on TR (line
+         * ~248) keeps at 0. */}
+        <div
+          className="data-table-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label={t('table.scrollableLabel')}
+        >
           <table className="data-table">
             <thead>
               {table.getHeaderGroups().map(headerGroup => (

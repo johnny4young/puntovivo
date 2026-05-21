@@ -89,7 +89,7 @@ export function RestaurantFloorMapPreview({
       <div className="relative mt-5 space-y-4">
         {grouped.map(([area, mesas]) => (
           <div key={area}>
-            <p className="text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-600">
+            <p className="text-[0.55rem] font-semibold uppercase tracking-[0.3em] text-primary-800">
               {area}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
