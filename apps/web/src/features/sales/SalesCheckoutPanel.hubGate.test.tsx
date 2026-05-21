@@ -12,6 +12,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
+import { PREFLIGHT_PRIMARY_ELEMENT_ID } from './CheckoutPreflightPanel';
+import type { PreflightItem } from './useCheckoutPreflight';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
 
 const SITE: Site = {
@@ -51,7 +53,12 @@ const DRAFT_SUMMARY = {
   total: 119,
 };
 
-function renderPanel(overrides: { hubReachable?: boolean | undefined } = {}) {
+function renderPanel(
+  overrides: {
+    hubReachable?: boolean | undefined;
+    preflightItems?: readonly PreflightItem[];
+  } = {}
+) {
   return render(
     <SalesCheckoutPanel
       currentSite={SITE}
@@ -70,6 +77,7 @@ function renderPanel(overrides: { hubReachable?: boolean | undefined } = {}) {
       onOpenMovement={vi.fn()}
       onRegisterAssignmentChange={vi.fn()}
       hubReachable={overrides.hubReachable}
+      preflightItems={overrides.preflightItems}
     />
   );
 }
@@ -112,5 +120,54 @@ describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
     const hint = screen.getByTestId('checkout-hub-gate-hint');
     expect(hint).toBeInTheDocument();
     expect(hint.textContent).toMatch(/hub/i);
+  });
+
+  it('ENG-105b — renders the preflight panel only when items are provided', () => {
+    const empty = renderPanel({ preflightItems: [] });
+    expect(empty.queryByTestId('checkout-preflight-panel')).not.toBeInTheDocument();
+    empty.unmount();
+
+    renderPanel({
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    expect(screen.getByTestId('checkout-preflight-panel')).toBeInTheDocument();
+  });
+
+  it('ENG-105b — disables the Cobrar button and links aria-describedby to the primary blocker', () => {
+    renderPanel({
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    const button = screen.getByTestId('checkout-primary-action');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-describedby', PREFLIGHT_PRIMARY_ELEMENT_ID);
+    expect(document.getElementById(PREFLIGHT_PRIMARY_ELEMENT_ID)).not.toBeNull();
+  });
+
+  it('ENG-105b — leaves Cobrar enabled when the only preflight item is a warning', () => {
+    renderPanel({
+      preflightItems: [
+        {
+          id: 'insufficient_stock',
+          severity: 'warning',
+          messageKey: 'preflight.items.insufficient_stock.message',
+          messageValues: { product: 'Aceite 1L', count: 1 },
+        },
+      ],
+    });
+    const button = screen.getByTestId('checkout-primary-action');
+    expect(button).not.toBeDisabled();
+    expect(button).not.toHaveAttribute('aria-describedby');
   });
 });

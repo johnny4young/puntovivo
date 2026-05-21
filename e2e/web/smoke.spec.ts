@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
   ensureLanguage,
@@ -6,21 +6,6 @@ import {
   loginAs,
   openUserMenu,
 } from './support/app';
-
-const setupRouteLabels = new Set([
-  'Providers',
-  'Categories',
-  'Locations',
-  'Company',
-  'Sites',
-  'Sequentials',
-  'Geography',
-  'Customer Catalogs',
-  'Units',
-  'VAT Rates',
-  'Users',
-  'Audit log',
-]);
 
 const adminRoutes = [
   {
@@ -53,10 +38,10 @@ const adminRoutes = [
   {
     label: 'Company',
     path: '/company',
-    // The Company page renders "Logo library" as the page h1 AND "Logo Library"
-    // as the h2 of the library card; pin the assertion to the h2 level to
-    // avoid a strict-mode collision on casing.
-    assertion: async (page) => page.getByRole('heading', { level: 2, name: /^Logo Library$|^Biblioteca de logos$/i }),
+    assertion: async (page) =>
+      page.getByRole('heading', {
+        name: /Setup readiness|Configuración inicial/i,
+      }),
   },
   { label: 'Sites', path: '/sites', assertion: async (page) => page.getByRole('button', { name: /Add Site|Agregar sede/i }) },
   {
@@ -76,21 +61,45 @@ const adminRoutes = [
   { label: 'Audit log', path: '/audit-logs', assertion: async (page) => page.getByText(/Recent audit events|Eventos recientes/i) },
 ] as const;
 
+const routeWorkspaceLabels = new Map<string, string>([
+  ['Sales', 'Sell'],
+  ['Inventory', 'Inventory'],
+  ['Orders', 'Procurement'],
+  ['Purchases', 'Procurement'],
+  ['Quotations', 'Procurement'],
+  ['Customers', 'Customers'],
+  ['Products', 'Catalog'],
+  ['Providers', 'Catalog'],
+  ['Categories', 'Catalog'],
+  ['Locations', 'Catalog'],
+  ['Geography', 'Catalog'],
+  ['Customer Catalogs', 'Catalog'],
+  ['Units', 'Catalog'],
+  ['VAT Rates', 'Catalog'],
+  ['Audit log', 'Finance'],
+  ['Company', 'Setup'],
+  ['Sites', 'Setup'],
+  ['Sequentials', 'Setup'],
+  ['Users', 'Setup'],
+]);
+
+async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
+  const link = page.getByRole('link', { name: label });
+  if ((await link.count()) === 0 && workspaceLabel) {
+    await page.getByRole('button', { name: workspaceLabel }).click();
+  }
+  await expect(link).toBeVisible();
+  return link;
+}
+
 test.describe('web smoke', () => {
   test('admin can navigate every sidebar module without client errors', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await loginAs(page, 'admin');
 
     for (const route of adminRoutes) {
-      if (setupRouteLabels.has(route.label)) {
-        const setupLink = page.getByRole('link', { name: route.label });
-        if ((await setupLink.count()) === 0) {
-          await page.getByRole('button', { name: 'Setup' }).click();
-          await expect(setupLink).toBeVisible();
-        }
-      }
-
-      await page.getByRole('link', { name: route.label }).click();
+      const link = await revealSidebarLink(page, route.label, routeWorkspaceLabels.get(route.label));
+      await link.click();
       await expect(page).toHaveURL(new RegExp(`${route.path}$`));
       await expect(await route.assertion(page)).toBeVisible();
     }
@@ -174,8 +183,8 @@ test.describe('web smoke', () => {
     await ensureLanguage(page, 'es');
 
     await expect(page.getByRole('link', { name: 'Panel' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Ventas' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Inventario' })).toBeVisible();
+    await revealSidebarLink(page, 'Ventas', 'Vender');
+    await revealSidebarLink(page, 'Inventario', 'Inventario');
     await expect(page.getByText('Ventas de hoy')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 

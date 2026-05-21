@@ -18,6 +18,7 @@ import {
 } from '@/features/sales/CashSessionOpenModal';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
+import { useCheckoutPreflight } from '@/features/sales/useCheckoutPreflight';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import {
@@ -521,6 +522,28 @@ export function SalesPage() {
   const activeSelectedCartItemKey = getActiveCartSelectionKey(cartItems, selectedCartItemKey);
   const hasActiveCashSession = !!activeCashSession;
   const canCharge = !!currentSite && hasActiveCashSession && cartItems.length > 0;
+
+  // ENG-105b — Checkout preflight. Surfaces actionable blockers above
+  // the Cobrar button so the cashier resolves them BEFORE pressing F1
+  // instead of bouncing off a server toast mid-checkout. Pre-modal
+  // primitives (paymentMethod, selectedCustomer, pendingDiscountAmount)
+  // are not yet wired from SalesPage — the hook silently skips those
+  // blocker families, leaving the current modal-level fallback toasts
+  // in place. Future slices will plumb pre-attach customer / cart-level
+  // discount through here.
+  const preflight = useCheckoutPreflight({
+    cartItems,
+    cartSummary: draftSummary,
+    cashSession: activeCashSession,
+    paymentMethod: null,
+    selectedCustomer: null,
+    pendingDiscountAmount: 0,
+    userRole: user?.role ?? 'cashier',
+    isResumedDraft: isResumedCart,
+    recovery: {
+      onOpenCashSession: () => handleOpenCashSessionModal(),
+    },
+  });
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
@@ -609,6 +632,26 @@ export function SalesPage() {
 
   const handleOpenPaymentModal = () => {
     if (!currentSite || cartItems.length === 0) {
+      return;
+    }
+
+    // ENG-105b — preflight gate. If any blocker is showing, surface a
+    // toast pointing at the first blocker instead of opening the
+    // payment modal blindly. The `cash_session_required` case keeps
+    // the legacy convenience of jumping to the cash session modal so
+    // F1 stays useful when the only blocker is the closed register.
+    if (!preflight.isReady && preflight.primaryBlocker) {
+      if (preflight.primaryBlocker.id === 'cash_session_required') {
+        handleOpenCashSessionModal();
+        return;
+      }
+      const blockerMessage = t(
+        preflight.primaryBlocker.messageKey,
+        preflight.primaryBlocker.messageValues
+      );
+      toast.error({
+        title: t('preflight.toast.blocked', { message: blockerMessage }),
+      });
       return;
     }
 
@@ -1293,6 +1336,7 @@ export function SalesPage() {
             suspendedDraftsCount={suspendedDraftsCount}
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
             hubReachable={hubReachable}
+            preflightItems={preflight.items}
           />
         </section>
 

@@ -515,5 +515,37 @@
     "toast": {
       "success": "Venta a crédito registrada"
     }
+  },
+  "preflight": {
+    "title": "Antes de cobrar",
+    "toast": {
+      "blocked": "Cobro bloqueado: {{message}}"
+    },
+    "items": {
+      "cash_session_required": {
+        "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
+        "recovery": "Abrir caja"
+      },
+      "credit_sale_forbidden": {
+        "message": "Sólo un manager o admin puede registrar ventas a crédito. Pídeselo a alguien con ese rol o cambia a contado."
+      },
+      "credit_sale_customer_required": {
+        "message": "Las ventas a crédito necesitan un cliente seleccionado.",
+        "recovery": "Seleccionar cliente"
+      },
+      "credit_limit_exceeded": {
+        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente.",
+        "recovery": "Cambiar a contado"
+      },
+      "discount_exceeds_total": {
+        "message": "El descuento de {{discount}} supera el total del carrito de {{total}}.",
+        "recovery": "Revisar el descuento"
+      },
+      "insufficient_stock": {
+        "message_one": "Stock insuficiente en {{product}} — verifica antes de cobrar.",
+        "message_other": "Stock insuficiente en {{product}} y {{otherCount}} artículos más — verifica antes de cobrar.",
+        "recovery": "Quitar ítem"
+      }
+    }
   }
 }

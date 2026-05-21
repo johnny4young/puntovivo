@@ -515,5 +515,37 @@
     "toast": {
       "success": "Credit sale recorded"
     }
+  },
+  "preflight": {
+    "title": "Before you charge",
+    "toast": {
+      "blocked": "Charge blocked: {{message}}"
+    },
+    "items": {
+      "cash_session_required": {
+        "message": "Your cash session is closed — open it before charging.",
+        "recovery": "Open cash session"
+      },
+      "credit_sale_forbidden": {
+        "message": "Only a manager or admin can register credit sales. Ask them to step in or switch to cash."
+      },
+      "credit_sale_customer_required": {
+        "message": "Credit sales need a customer attached.",
+        "recovery": "Pick a customer"
+      },
+      "credit_limit_exceeded": {
+        "message": "Projection {{projection}} exceeds the customer's credit limit of {{limit}}.",
+        "recovery": "Switch to cash"
+      },
+      "discount_exceeds_total": {
+        "message": "Discount {{discount}} is larger than the cart total {{total}}.",
+        "recovery": "Review the discount"
+      },
+      "insufficient_stock": {
+        "message_one": "Stock might run short on {{product}} — confirm before charging.",
+        "message_other": "Stock might run short on {{product}} and {{otherCount}} other items — confirm before charging.",
+        "recovery": "Remove item"
+      }
+    }
   }
 }
