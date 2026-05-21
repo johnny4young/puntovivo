@@ -525,6 +525,23 @@
         "restoreCancelledDetail": "La restauración fue cancelada."
       }
     },
+    "telemetry": {
+      "title": "Telemetría de errores y rendimiento",
+      "description": "Envía reportes de errores anonimizados y tiempos de operación al equipo de soporte cuando algo falla, para que podamos arreglar bugs sin necesidad de una llamada.",
+      "privacy": "La telemetría hereda la política de redacción local. Las contraseñas, los tokens y los encabezados de autorización nunca salen del dispositivo. Puedes revocar el consentimiento cuando quieras y el envío al pipeline se corta en la siguiente petición.",
+      "status": {
+        "enabled": "La telemetría está activa. Los reportes de error y los tiempos llegan al equipo de soporte.",
+        "disabled": "La telemetría está desactivada. Los errores se registran localmente, pero nada sale de este dispositivo."
+      },
+      "enable": "Activar telemetría",
+      "disable": "Desactivar telemetría",
+      "pending": "Guardando…",
+      "toast": {
+        "enabled": "Telemetría activada",
+        "disabled": "Telemetría desactivada",
+        "failed": "No se pudo actualizar la preferencia de telemetría"
+      }
+    },
     "theme": {
       "title": "Apariencia",
       "description": "Controla el tema del puesto de trabajo y si sigue las preferencias del sistema operativo.",

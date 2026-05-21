@@ -7,8 +7,14 @@ import { createTrpcBatchLink, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';
 import { ThemeProvider } from './components/feedback/ThemeProvider';
+import { installGlobalErrorListeners } from './lib/observability';
 import App from './App';
 import './index.css';
+
+// ENG-135 — install window-level error / unhandledrejection
+// listeners before the React tree mounts so even a crash in the
+// `Root` render still reaches the observability pipe.
+installGlobalErrorListeners();
 
 const queryClient = new QueryClient({
   defaultOptions: {

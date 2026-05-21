@@ -525,6 +525,23 @@
         "restoreCancelledDetail": "Restore was cancelled."
       }
     },
+    "telemetry": {
+      "title": "Crash & performance telemetry",
+      "description": "Send anonymized error reports and span timings to the support team when something fails, so we can fix bugs without a phone call.",
+      "privacy": "Telemetry data inherits the local redaction policy. Passwords, tokens and authorization headers never leave the device. You can revoke consent at any time and the centralized pipe is shut off on the next request.",
+      "status": {
+        "enabled": "Telemetry is on. Crash reports and span timings reach the support pipeline.",
+        "disabled": "Telemetry is off. Errors are still logged locally, but nothing leaves this device."
+      },
+      "enable": "Enable telemetry",
+      "disable": "Disable telemetry",
+      "pending": "Saving…",
+      "toast": {
+        "enabled": "Telemetry enabled",
+        "disabled": "Telemetry disabled",
+        "failed": "Unable to update telemetry preference"
+      }
+    },
     "theme": {
       "title": "Appearance",
       "description": "Control the workstation theme and whether it follows the operating system.",

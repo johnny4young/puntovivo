@@ -563,7 +563,12 @@ export type AuditLogAction =
   // ENG-103 — audit-grade export contract. Emitted by
   // `reports.fiscal.getXml` every time an admin / manager downloads
   // a signed XML body. Metadata carries `{ cufe, documentNumber }`.
-  | 'fiscal.xml.downloaded';
+  | 'fiscal.xml.downloaded'
+  // ENG-135 — production observability rail. Emitted every time an
+  // admin flips `tenants.settings.telemetryOptIn` via
+  // `companies.updateTelemetryOptIn`. before/after carry the boolean
+  // state so forensics can replay the consent timeline.
+  | 'telemetry.opt_in.updated';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -594,7 +599,10 @@ export type AuditLogResourceType =
   // ENG-103 — fiscal documents targeted by the `getXml` download
   // procedure. `resourceId` is the internal `fiscal_documents.id`,
   // not the cufe.
-  | 'fiscal_document';
+  | 'fiscal_document'
+  // ENG-135 — tenant-level settings rows targeted by the
+  // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
+  | 'tenant';
 
 export interface AuditLogEntry {
   id: string;

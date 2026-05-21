@@ -467,7 +467,7 @@ canonical reading order for sprint planning.
 | 2 | `ENG-104` | Pending | Onboarding is the longest install-to-first-sale path. |
 | 3 | `ENG-133` | Pending | Perf budget rails before adding more code. |
 | 4 | `ENG-134` | Pending | Accessibility rail before adding more components. |
-| 5 | `ENG-135` | Pending | Observability before scaling tenant fleet. |
+| 5 | `ENG-135` | Partial | Observability engine + opt-in shipped 2026-05-20; Sentry / GlitchTip adapter follow-up. |
 | 6 | `ENG-105` | Pending | Cashier speed is the daily value proposition. |
 | 7 | `ENG-131` | Pending | IA refactor before adding new screens. |
 | 8 | `ENG-106` | Pending | Staff accountability before opening more sites. |

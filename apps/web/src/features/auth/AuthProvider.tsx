@@ -24,6 +24,7 @@ import {
   getDefaultRouteForRoleWithSetup,
 } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
+import { setActiveTenantId } from '@/lib/observability';
 
 interface AuthContextType {
   user: User | null;
@@ -129,6 +130,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     setTenant(null);
     setError(null);
+    // ENG-135 — drop the cached tenantId used by window-level error
+    // listeners. Anonymous captures from then on emit with
+    // `tenantId: null`.
+    setActiveTenantId(null);
   };
 
   const handleAuthSessionExpired = useEffectEvent(() => {
@@ -189,6 +194,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(session.user);
         setTenant(session.tenant);
         setError(null);
+        // ENG-135 — stamp the tenantId on the observability surface
+        // so window-level error listeners can attribute crashes to
+        // the right tenant.
+        setActiveTenantId(session.user.tenantId);
       } catch (err) {
         const isUnauthorized =
           err instanceof TRPCClientError &&
@@ -292,6 +301,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       persistAuthSession(session);
       setUser(session.user);
       setTenant(session.tenant);
+      // ENG-135 — see init path; same tenant attribution applies on
+      // an interactive login.
+      setActiveTenantId(session.user.tenantId);
 
       // ENG-104 — Post-login routing considers setup readiness so
       // admins see the readiness checklist when there are unresolved

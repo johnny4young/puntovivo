@@ -181,6 +181,12 @@ export const auditLogActionEnum = [
   // tenant — emitted on the server side of the procedure right before
   // the response.
   'fiscal.xml.downloaded',
+  // ENG-135 — production observability foundation rail. Emitted every
+  // time an admin flips `tenants.settings.telemetryOptIn` via
+  // `companies.updateTelemetryOptIn`. `before` / `after` carry the
+  // boolean state so forensics can replay the consent timeline.
+  // Free-form text in the SQL layer — no migration needed.
+  'telemetry.opt_in.updated',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -220,6 +226,10 @@ export const auditLogResourceTypeEnum = [
   // (internal id, NOT cufe) so cross-tenant collapse stays consistent
   // with the rest of the resource catalog.
   'fiscal_document',
+  // ENG-135 — tenant-level settings rows targeted by
+  // `telemetry.opt_in.updated`. `resourceId` is the tenantId itself
+  // so cross-tenant collapse keeps the toggle history scoped.
+  'tenant',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 
