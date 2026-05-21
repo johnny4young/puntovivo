@@ -34,6 +34,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@electron/fuses": "^2.1.1",
     "@playwright/test": "^1.59.1",
     "@types/node": "^24.12.2",

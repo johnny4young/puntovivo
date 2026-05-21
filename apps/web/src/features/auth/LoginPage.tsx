@@ -37,7 +37,7 @@ export function LoginPage() {
             <h1 className="mt-4 max-w-lg font-display text-6xl leading-[0.92] text-balance text-secondary-950">
               {t('login.headline')}
             </h1>
-            <p className="mt-6 max-w-md text-base leading-7 text-secondary-600">
+            <p className="mt-6 max-w-md text-base leading-7 text-fg2">
               {t('login.description')}
             </p>
           </div>
@@ -45,7 +45,7 @@ export function LoginPage() {
           <div className="relative z-10 grid gap-4 xl:grid-cols-3">
             <div className="metric-tile">
               <ScanLine className="h-5 w-5 text-primary-600" />
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-fg2">
                 {t('login.checkoutTile.label')}
               </p>
               <p className="mt-2 text-lg font-semibold text-secondary-950">
@@ -54,7 +54,7 @@ export function LoginPage() {
             </div>
             <div className="metric-tile">
               <Warehouse className="h-5 w-5 text-warning-700" />
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-fg2">
                 {t('login.inventoryTile.label')}
               </p>
               <p className="mt-2 text-lg font-semibold text-secondary-950">
@@ -63,7 +63,7 @@ export function LoginPage() {
             </div>
             <div className="metric-tile">
               <ShieldCheck className="h-5 w-5 text-success-700" />
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-fg2">
                 {t('login.controlTile.label')}
               </p>
               <p className="mt-2 text-lg font-semibold text-secondary-950">
@@ -86,7 +86,7 @@ export function LoginPage() {
               </div>
             </div>
 
-            <p className="mt-6 max-w-sm text-sm leading-6 text-secondary-600">
+            <p className="mt-6 max-w-sm text-sm leading-6 text-fg2">
               {t('login.signInDescription')}
             </p>
 
@@ -171,7 +171,7 @@ export function LoginPage() {
             </form>
           </div>
 
-          <div className="mt-8 flex items-center justify-between gap-4 border-t border-line/70 pt-5 text-xs text-secondary-500">
+          <div className="mt-8 flex items-center justify-between gap-4 border-t border-line/70 pt-5 text-xs text-fg2">
             <span>{t('login.footer')}</span>
             <span>Puntovivo © {new Date().getFullYear()}</span>
           </div>

@@ -54,6 +54,18 @@ export const ENFORCED_PAIRS = [
   ['primary', 'primary-foreground'],
   ['secondary', 'secondary-foreground'],
   ['destructive', 'destructive-foreground'],
+  // ENG-134 slice B: `text-muted-foreground` is the canonical "dim
+  // body" text token in this codebase. It renders against three
+  // surface colors in practice — the page `--background`, the
+  // `--card` background of any Card-family component, and the
+  // `--popover` background of any floating panel. Auditing it only
+  // against its self-pair (`--muted`) missed the regression the
+  // Playwright a11y smoke caught. Add the three cross-surface pairs
+  // explicitly so a future token relax fails the gate, not a route
+  // smoke.
+  ['background', 'muted-foreground'],
+  ['card', 'muted-foreground'],
+  ['popover', 'muted-foreground'],
 ];
 
 function floorForPair(pairLabel) {

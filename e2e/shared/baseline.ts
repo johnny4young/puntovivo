@@ -362,7 +362,53 @@ export function cleanupPriorRunArtifacts(
      )`
   ).run(tenantId);
   db.prepare(
+    `delete from initial_inventory where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+  db.prepare(
     `delete from unit_x_product where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+  db.prepare(
+    `delete from product_x_provider where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+
+  // Order lines reference products; their parent orders may belong to
+  // any actor, not only E2E users, so scope by product id.
+  db.prepare(
+    `delete from order_items where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+
+  // Belt-and-braces: the actor-scoped deletes above only catch children
+  // whose parent (sale, purchase, purchase_return, transfer_order) is
+  // owned by an E2E user. If a prior run left orphaned line items that
+  // reference an E2E product through a non-E2E parent, the upcoming
+  // product delete would fail with a FOREIGN KEY constraint error. Scope
+  // the same children by product id so the cleanup is idempotent against
+  // any historical state.
+  db.prepare(
+    `delete from sale_items where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+  db.prepare(
+    `delete from purchase_items where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+  db.prepare(
+    `delete from purchase_return_items where product_id in (
+       select id from products where tenant_id = ? and name like 'E2E %'
+     )`
+  ).run(tenantId);
+  db.prepare(
+    `delete from transfer_order_items where product_id in (
        select id from products where tenant_id = ? and name like 'E2E %'
      )`
   ).run(tenantId);
@@ -380,6 +426,33 @@ export function cleanupPriorRunArtifacts(
     `delete from users
      where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}`
   ).run(tenantId, ...keepUserArgs);
+}
+
+/**
+ * ENG-104 added a post-login redirect that sends admin users to
+ * `/company?tab=readiness` when `tenants.settings.setupAcknowledgedAt`
+ * is null and the readiness aggregate reports blockers. E2E tests
+ * expect the admin to land on `/dashboard` (and every other test that
+ * navigates after login assumes the redirect is not active), so the
+ * baseline emulates an operator who has already acknowledged the
+ * readiness checklist. The flag stays set across runs; the upsert is
+ * idempotent.
+ */
+export function ensureSetupAcknowledged(
+  db: Database.Database,
+  tenantId: string
+): void {
+  db.prepare(
+    `update tenants
+        set settings = json_set(
+              coalesce(settings, '{}'),
+              '$.setupAcknowledgedAt',
+              ?
+            ),
+            updated_at = datetime('now')
+      where id = ?
+        and json_extract(coalesce(settings, '{}'), '$.setupAcknowledgedAt') is null`
+  ).run(new Date().toISOString(), tenantId);
 }
 
 /**
@@ -418,6 +491,7 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
 
   db.transaction(() => {
     cleanupPriorRunArtifacts(db, tenantId);
+    ensureSetupAcknowledged(db, tenantId);
   })();
 
   ensureSecondarySite(db, tenantId, companyId);
