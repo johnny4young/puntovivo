@@ -46,7 +46,7 @@ export function PurchasesHistoryTable({
         header: t('table.purchaseNumber'),
         size: 140,
         cell: ({ row }) => (
-          <span className="font-mono font-medium text-primary-600">
+          <span className="font-mono font-medium text-primary-800">
             {row.original.purchaseNumber}
           </span>
         ),

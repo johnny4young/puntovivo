@@ -105,12 +105,19 @@ describe('DataTable', () => {
       expect(screen.getByText('50')).toBeInTheDocument();
     });
 
-    it('should wrap the table in a horizontal scroll region', () => {
+    it('should wrap the table in a horizontal scroll region with keyboard access', () => {
       const products = createTestProducts(3);
 
       render(<DataTable columns={columns} data={products} />);
 
-      expect(screen.getByRole('table').parentElement).toHaveClass('data-table-scroll');
+      const scrollRegion = screen.getByRole('table').parentElement;
+      expect(scrollRegion).toHaveClass('data-table-scroll');
+      // ENG-134c: axe rule `scrollable-region-focusable` requires the
+      // wrapper to be tab-reachable (not just programmatically
+      // focusable), semantically named, and given a role.
+      expect(scrollRegion).toHaveAttribute('tabindex', '0');
+      expect(scrollRegion).toHaveAttribute('role', 'region');
+      expect(scrollRegion).toHaveAttribute('aria-label');
     });
   });
 
@@ -532,6 +539,10 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} />);
 
+      // ENG-134c: the scroll wrapper is now the first focusable
+      // stop (axe `scrollable-region-focusable`). Tab once to land
+      // on the wrapper, again to enter the row's roving tabindex.
+      await user.tab();
       await user.tab();
 
       const rows = getBodyRows();
@@ -550,6 +561,9 @@ describe('DataTable', () => {
 
       render(<DataTable columns={columns} data={products} />);
 
+      // ENG-134c: tab twice — once to the scroll wrapper, once into
+      // the first row.
+      await user.tab();
       await user.tab();
 
       const rows = getBodyRows();

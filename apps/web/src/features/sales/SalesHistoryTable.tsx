@@ -57,7 +57,7 @@ export function SalesHistoryTable({
         header: t('history.columns.invoiceNumber'),
         size: 130,
         cell: ({ row }) => (
-          <span className="font-mono font-medium text-primary-600">{row.original.saleNumber}</span>
+          <span className="font-mono font-medium text-primary-800">{row.original.saleNumber}</span>
         ),
       },
       {

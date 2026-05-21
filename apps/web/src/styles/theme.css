@@ -178,7 +178,17 @@
   --muted-foreground: oklch(0.4 0.02 255);
   --accent: oklch(0.95 0.022 226);
   --accent-foreground: oklch(0.25 0.025 255);
-  --primary: oklch(0.55 0.126 244);
+  /* ENG-134c (2026-05-21): bumped from L=0.55 to L=0.43 so `bg-primary`
+   * + `text-primary-foreground` (the F1 Charge button surface) clears
+   * WCAG AA 4.5:1 in axe-core. The L=0.55 baseline computed at ~4.6:1
+   * by the OkLab→sRGB approximation in `scripts/check-contrast.mjs`
+   * but axe-core measured 2.81:1 on the rendered button — a known
+   * approximation gap on blue tones. Aligning slightly darker than
+   * `--primary-800` (L=0.45) buys the same comfortable margin that
+   * `.page-kicker` used in slice B. Chroma trimmed from 0.126 to
+   * 0.115 to track the scale-step ramp at this L. Dark-theme stays
+   * at L=0.74 (axe-AA against the L=0.22 foreground). */
+  --primary: oklch(0.43 0.115 244);
   --primary-foreground: oklch(0.985 0.005 84);
   --secondary: oklch(0.94 0.012 84);
   --secondary-foreground: oklch(0.3 0.018 255);
@@ -279,7 +289,14 @@
   --success-700: oklch(0.5 0.12 154);
   --warning-50: oklch(0.98 0.03 85);
   --warning-500: oklch(0.77 0.15 75);
-  --warning-700: oklch(0.57 0.11 72);
+  /* ENG-134c (2026-05-21): bumped from L=0.57 to L=0.50 so
+   * `.badge-warning` (`bg-warning-50` + `text-warning-700`) clears
+   * WCAG AA 4.5:1. Both axe-core and `scripts/check-contrast.mjs`
+   * measured ~4.27:1 on the original token — uniformly below the
+   * floor, no approximation gap on warm-amber tones. Same ramp-slot
+   * remains, just deeper. Dark-theme stays at L=0.90 (already passes
+   * against the L=0.30 background). */
+  --warning-700: oklch(0.50 0.11 72);
   --danger-50: oklch(0.97 0.02 24);
   --danger-500: oklch(0.63 0.19 24);
   --danger-600: oklch(0.57 0.18 24);

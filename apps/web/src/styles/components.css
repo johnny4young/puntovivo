@@ -201,6 +201,11 @@
     transform: translateY(-1px);
   }
 
+  .btn-primary:disabled {
+    opacity: 1;
+    box-shadow: none;
+  }
+
   .btn-secondary {
     @apply border border-line-strong/70 bg-surface-2/84 text-secondary-950;
   }
@@ -448,7 +453,11 @@
 
   .input:disabled,
   .select-trigger:disabled {
-    @apply cursor-not-allowed border-line bg-surface-2 text-secondary-400;
+    @apply cursor-not-allowed border-line bg-surface-2 text-fg2;
+  }
+
+  .select-trigger:disabled .truncate {
+    @apply text-fg2;
   }
 
   /* ==========================================================================

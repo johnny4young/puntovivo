@@ -51,7 +51,8 @@
     "noEntries": "No entries to display",
     "showing": "Showing {{from}} to {{to}} of {{total}} entries",
     "page": "Page {{current}} of {{total}}",
-    "columns": "Columns"
+    "columns": "Columns",
+    "scrollableLabel": "Scrollable table region"
   },
   "notifications": "Notifications",
   "language": {

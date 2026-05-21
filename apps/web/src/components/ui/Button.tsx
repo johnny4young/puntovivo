@@ -12,12 +12,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-primary text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)] hover:-translate-y-0.5 hover:bg-primary-700',
+          'bg-primary text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklch,var(--primary)_70%,transparent)] hover:-translate-y-0.5 hover:bg-primary-900',
         secondary: 'bg-secondary-100 text-secondary-900 hover:bg-secondary-200',
-        outline: 'border border-line-strong/70 bg-surface/86 text-secondary-900 hover:border-primary-300 hover:bg-primary-50/80 hover:text-primary-700',
+        outline: 'border border-line-strong/70 bg-surface/86 text-secondary-900 hover:border-primary-300 hover:bg-primary-50/80 hover:text-primary-800',
         ghost: 'text-secondary-600 hover:bg-secondary-100/80 hover:text-secondary-900',
         destructive: 'bg-danger-600 text-white hover:-translate-y-0.5 hover:bg-danger-700',
-        link: 'text-primary-600 underline-offset-4 hover:underline',
+        link: 'text-primary-800 underline-offset-4 hover:underline',
       },
       size: {
         default: 'h-11 px-4 py-2.5',

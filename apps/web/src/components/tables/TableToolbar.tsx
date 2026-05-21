@@ -213,7 +213,7 @@ export function TableToolbar({
                     onShowAllColumns();
                     setColumnsDropdownOpen(false);
                   }}
-                  className="w-full px-2 py-1.5 text-sm text-left text-primary-600 hover:bg-primary-50 rounded"
+                  className="w-full px-2 py-1.5 text-sm text-left text-primary-800 hover:bg-primary-50 rounded"
                 >
                   {t('toolbar.showAllColumns')}
                 </button>

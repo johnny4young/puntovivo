@@ -193,7 +193,7 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
             {items.length > 0 && (
               <button
                 type="button"
-                className="text-xs font-medium text-primary-600 hover:underline"
+                className="text-xs font-medium text-primary-800 hover:underline"
                 onClick={() => {
                   if (allSelected) {
                     setSelectedItemIds(new Set());

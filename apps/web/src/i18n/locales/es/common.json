@@ -51,7 +51,8 @@
     "noEntries": "Sin entradas para mostrar",
     "showing": "Mostrando {{from}} a {{to}} de {{total}} entradas",
     "page": "Página {{current}} de {{total}}",
-    "columns": "Columnas"
+    "columns": "Columnas",
+    "scrollableLabel": "Región de tabla con desplazamiento"
   },
   "notifications": "Notificaciones",
   "language": {
