@@ -8,6 +8,10 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import {
+  CheckoutPreflightPanel,
+  PREFLIGHT_PRIMARY_ELEMENT_ID,
+} from '@/features/sales/CheckoutPreflightPanel';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import {
   ariaKeyshortcutsFor,
@@ -15,6 +19,7 @@ import {
   getShortcutById,
 } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
 
@@ -56,6 +61,13 @@ interface SalesCheckoutPanelProps {
    * that mode). `true` is the explicit reachable signal.
    */
   hubReachable?: boolean;
+  /**
+   * ENG-105b — checkout preflight items. Each entry blocks (severity
+   * `blocker`, disables Cobrar) or warns (severity `warning`, leaves
+   * Cobrar enabled). Default `[]` keeps legacy callers (Storybook,
+   * existing tests) rendering exactly like before.
+   */
+  preflightItems?: readonly PreflightItem[];
 }
 
 function shortcutLabel(id: string): string {
@@ -85,6 +97,7 @@ export function SalesCheckoutPanel({
   suspendedDraftsCount = 0,
   onToggleSuspendedPanel,
   hubReachable,
+  preflightItems = [],
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   // ENG-074 — when the parent passes `hubReachable === false`, every
@@ -93,12 +106,15 @@ export function SalesCheckoutPanel({
   // wire the prop there. `undefined` and `true` are both treated as
   // "do not gate" so existing flows are unchanged.
   const isHubGated = hubReachable === false;
+  // ENG-105b — preflight gate. Any blocker disables Cobrar; warnings
+  // do not (the operator still controls the call).
+  const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
   const primaryActionDisabled = isHubGated
     ? true
     : cashSession
-      ? !canCharge
+      ? !canCharge || preflightHasBlockers
       : !canOpenCashSession;
   const showSuspendControls = Boolean(onSuspend || onNewSale);
   const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
@@ -330,12 +346,19 @@ export function SalesCheckoutPanel({
           <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
         </div>
 
+        {preflightItems.length > 0 && (
+          <CheckoutPreflightPanel items={preflightItems} />
+        )}
+
         <button
           className="btn-primary hidden w-full justify-center xl:inline-flex"
           onClick={primaryAction}
           disabled={primaryActionDisabled}
           data-testid="checkout-primary-action"
           aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
+          aria-describedby={
+            preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined
+          }
         >
           {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
           {primaryActionLabel}
