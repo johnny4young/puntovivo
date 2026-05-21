@@ -19,6 +19,10 @@ import { CommandPalette } from '../CommandPalette';
 const navigateMock = vi.fn();
 const logoutMock = vi.fn(async () => undefined);
 let mockUserRole: 'admin' | 'manager' | 'cashier' | 'viewer' = 'admin';
+let mockModules = {
+  'operations-center': true,
+  quotations: true,
+} as Record<string, boolean>;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>(
@@ -42,10 +46,22 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   }),
 }));
 
+vi.mock('@/features/modules', () => ({
+  useModulesSnapshot: () => ({
+    modules: mockModules,
+    isLoading: false,
+    isPlaceholder: false,
+  }),
+}));
+
 beforeEach(() => {
   navigateMock.mockReset();
   logoutMock.mockClear();
   mockUserRole = 'admin';
+  mockModules = {
+    'operations-center': true,
+    quotations: true,
+  };
 });
 
 afterEach(() => {
@@ -118,5 +134,17 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.auditLogs')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.company')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.users')).not.toBeInTheDocument();
+  });
+
+  it('hides module-gated destinations when the tenant module is disabled', async () => {
+    mockModules = {
+      'operations-center': false,
+      quotations: false,
+    };
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    await screen.findByTestId('command-palette-search');
+    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
 });

@@ -22,6 +22,7 @@ import {
   managerOrAdminRoles,
   salesRoles,
 } from '@/features/auth/roleAccess';
+import type { ClientModuleId } from '@/features/modules';
 import type { UserRole } from '@/types';
 
 export interface CommandActionContext {
@@ -43,6 +44,8 @@ export interface CommandAction {
   shortcutId?: string;
   /** Roles allowed to see / fire this action. */
   roles: readonly UserRole[];
+  /** Optional feature module gate that mirrors the route's RequireModule. */
+  requiredModule?: ClientModuleId;
   /** Imperative effect when the user selects the entry. */
   perform(ctx: CommandActionContext): void | Promise<void>;
   /**
@@ -114,6 +117,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     labelKey: 'actions.navigate.quotations',
     descriptionKey: 'descriptions.navigate.quotations',
     roles: managerOrAdminRoles,
+    requiredModule: 'quotations',
     group: 'navigate',
     perform: ({ navigate }) => navigate('/quotations'),
   },
@@ -122,6 +126,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     labelKey: 'actions.navigate.operations',
     descriptionKey: 'descriptions.navigate.operations',
     roles: managerOrAdminRoles,
+    requiredModule: 'operations-center',
     group: 'navigate',
     perform: ({ navigate }) => navigate('/operations'),
   },
@@ -211,10 +216,17 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
  * useful inside an authenticated session.
  */
 export function visibleActionsForRole(
-  role: UserRole | undefined
+  role: UserRole | undefined,
+  modules: Partial<Record<ClientModuleId, boolean>> = {}
 ): readonly CommandAction[] {
   if (!role) return [];
-  return COMMAND_ACTIONS.filter(action => action.roles.includes(role));
+  return COMMAND_ACTIONS.filter(action => {
+    if (!action.roles.includes(role)) return false;
+    if (action.requiredModule && modules[action.requiredModule] === false) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /**

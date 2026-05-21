@@ -52,9 +52,10 @@ plugged into a Linux workstation still fires.
 ## Command Palette behaviour
 
 - **Open / close**: `Mod+K` toggles. `Esc` closes. The palette
-  short-circuits when another `data-command-palette-open="true"`
-  modal owns the body — the only modal-on-modal supported in V1
-  is the palette itself.
+  short-circuits when another modal already owns the screen, so
+  payment/search/confirm focus traps are not stacked. The only
+  modal-on-modal transition supported in V1 is closing the palette
+  itself with a second `Mod+K`.
 - **Navigation inside the palette**: `ArrowDown` / `ArrowUp` move
   the highlight. `Home` / `End` jump to the first / last item.
   `Enter` fires the highlighted action and closes the palette.
@@ -63,10 +64,12 @@ plugged into a Linux workstation still fires.
   endpoints). A future slice may revisit when the catalogue grows.
 - **Filtering**: case-insensitive substring match against the
   translated label OR description.
-- **Role gating**: the catalogue is filtered against the active
-  `user.role` before render. A cashier never sees `/audit-logs`,
-  `/company`, `/users`, `/sites`, `/peripherals`, `/inventory`,
-  `/purchases`, or any admin / manager surface.
+- **Role + module gating**: the catalogue is filtered against the
+  active `user.role` and the tenant module map before render. A
+  cashier never sees `/audit-logs`, `/company`, `/users`, `/sites`,
+  `/peripherals`, `/inventory`, `/purchases`, or any admin / manager
+  surface; tenants with a disabled module also do not see that
+  module's destination.
 - **Shortcut hints**: when an action declares `shortcutId`, the
   palette renders the formatted keys on the right gutter. `⌘K` on
   macOS, `Ctrl+K` elsewhere.
@@ -99,18 +102,20 @@ plugged into a Linux workstation still fires.
    `allowedRoles` (or the procedure's role guard for a command).
    This keeps the palette in sync with the router — never show a
    destination the router would redirect away from.
+4. If the route is wrapped in `RequireModule`, set
+   `requiredModule` to the same module id so the palette mirrors the
+   sidebar and route gate.
 
 ## ARIA — aria-keyshortcuts contract
 
 - The attribute value comes from `ariaKeyshortcutsFor('<id>')` —
-  the helper rewrites `Mod` to canonical `Control`, which is what
-  the WAI-ARIA spec requires regardless of the operator's platform.
-- Screen readers (NVDA, VoiceOver, JAWS) translate the canonical
-  string to the local OS modifier when announcing the binding.
+  the helper rewrites `Mod` to the actual platform modifier:
+  `Meta` on macOS and `Control` elsewhere.
 - The buttons wired today (`/sales`):
   - **Charge** button — `F1`.
-  - **Suspend** button — `Control+P`.
-  - **Toggle Suspended panel** button — `Control+R`.
+  - **Suspend** button — `Meta+P` on macOS, `Control+P` elsewhere.
+  - **Toggle Suspended panel** button — `Meta+R` on macOS,
+    `Control+R` elsewhere.
 - Adding new wires follows the same pattern: import
   `ariaKeyshortcutsFor` from `@/lib/shortcuts` and pass the id of
   the matching catalogue entry.
@@ -150,13 +155,14 @@ palette + map). The remaining 10 ride future slices `ENG-105b..`:
 npm run test --workspace=@puntovivo/web -- --run \
   src/lib/__tests__/shortcuts.test.ts \
   src/components/feedback/__tests__/CommandPalette.test.tsx \
-  src/components/feedback/__tests__/CommandPaletteProvider.test.tsx
+  src/components/feedback/__tests__/CommandPaletteProvider.test.tsx \
+  src/features/sales/SalesCheckoutPanel.hubGate.test.tsx
 
 # Full ci:web (typecheck + lint + coverage + build + bundle gate +
 # contrast gate)
 npm run ci:web
 ```
 
-For the live smoke (Playwright MCP keyboard-only matrix) see the
-plan file at `~/.claude/plans/precious-pondering-pudding.md` —
-slice A pins 44 PASS/FAIL items.
+Live smoke evidence for each shortcut slice belongs in the review
+handoff and in `docs/SPRINT-PLAN.md` when the slice ships; do not
+link repo docs to per-machine agent plan files.

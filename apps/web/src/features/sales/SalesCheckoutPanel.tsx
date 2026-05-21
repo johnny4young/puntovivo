@@ -9,7 +9,11 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
-import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
+import {
+  ariaKeyshortcutsFor,
+  formatKeysForDisplay,
+  getShortcutById,
+} from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
@@ -52,6 +56,11 @@ interface SalesCheckoutPanelProps {
    * that mode). `true` is the explicit reachable signal.
    */
   hubReachable?: boolean;
+}
+
+function shortcutLabel(id: string): string {
+  const shortcut = getShortcutById(id);
+  return shortcut ? formatKeysForDisplay(shortcut.keys) : '';
 }
 
 export function SalesCheckoutPanel({
@@ -289,10 +298,22 @@ export function SalesCheckoutPanel({
           <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px] sm:grid-cols-4">
             {(
               [
-                ['F2', t('checkout.shortcut.search', { defaultValue: 'Buscar' })],
-                ['F4', t('checkout.shortcut.suspend', { defaultValue: 'Pausar' })],
-                ['F5', t('checkout.shortcut.resume', { defaultValue: 'Retomar' })],
-                ['F12', t('checkout.shortcut.charge', { defaultValue: 'Cobrar' })],
+                [
+                  shortcutLabel('sales.productSearch'),
+                  t('checkout.shortcut.search', { defaultValue: 'Buscar' }),
+                ],
+                [
+                  shortcutLabel('sales.suspend'),
+                  t('checkout.shortcut.suspend', { defaultValue: 'Pausar' }),
+                ],
+                [
+                  shortcutLabel('sales.toggleSuspended'),
+                  t('checkout.shortcut.resume', { defaultValue: 'Retomar' }),
+                ],
+                [
+                  shortcutLabel('sales.charge'),
+                  t('checkout.shortcut.charge', { defaultValue: 'Cobrar' }),
+                ],
               ] as const
             ).map(([keyLabel, action]) => (
               <div

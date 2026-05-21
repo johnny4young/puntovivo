@@ -6,7 +6,8 @@
  * Ctrl or Meta elsewhere) that toggles the modal open / closed.
  *
  * The provider sits BELOW `AuthProvider` so it can read the active
- * user role + logout handler — both reside on the auth context.
+ * auth state. The palette body reads the active role + logout
+ * handler from the same context when it is mounted.
  *
  * @module components/feedback/CommandPaletteProvider
  */
@@ -20,6 +21,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { getShortcutById, matchesShortcut } from '@/lib/shortcuts';
 import { CommandPalette } from './CommandPalette';
 
@@ -35,42 +37,56 @@ const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
 );
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const openPalette = useCallback(() => setIsOpen(true), []);
+  const paletteIsOpen = isAuthenticated && isOpen;
+  const openPalette = useCallback(() => {
+    if (isAuthenticated) {
+      setIsOpen(true);
+    }
+  }, [isAuthenticated]);
   const closePalette = useCallback(() => setIsOpen(false), []);
-  const togglePalette = useCallback(() => setIsOpen(open => !open), []);
+  const togglePalette = useCallback(() => {
+    if (isAuthenticated) {
+      setIsOpen(open => !open);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const shortcut = getShortcutById('palette.open');
     if (!shortcut) return;
     const handler = (event: KeyboardEvent) => {
-      // Skip when an existing modal owns the focus — chaining a
-      // palette on top of another modal creates a focus-trap
-      // tangle. The shared `Modal` adds `data-modal-open="true"`
-      // on the document body when mounted; we read that flag and
-      // bail when set unless the open modal IS the palette itself.
-      if (document.body.dataset.commandPaletteOpen === 'true') {
-        // Allow toggle (close) when the palette is already open.
-        if (matchesShortcut(event, shortcut)) {
-          event.preventDefault();
-          setIsOpen(false);
-        }
+      if (!matchesShortcut(event, shortcut)) return;
+      if (paletteIsOpen) {
+        event.preventDefault();
+        setIsOpen(false);
         return;
       }
-      if (!matchesShortcut(event, shortcut)) return;
+
+      // Skip when another modal owns focus. Stacking the palette on
+      // top of a payment/search/confirm modal creates dueling focus
+      // traps; the palette itself is handled by the `isOpen` branch.
+      const anotherModalIsOpen = document.querySelector(
+        '[role="dialog"][aria-modal="true"]'
+      );
+      if (anotherModalIsOpen) {
+        return;
+      }
+
       event.preventDefault();
-      setIsOpen(open => !open);
+      setIsOpen(true);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [isAuthenticated, paletteIsOpen]);
 
   // Mark the body whenever the palette is open so the global
   // listener above knows to short-circuit. Pairs with the
   // shared `Modal`'s own focus management — we use a dedicated
   // dataset key to avoid colliding with future modal frameworks.
   useEffect(() => {
-    if (isOpen) {
+    if (paletteIsOpen) {
       document.body.dataset.commandPaletteOpen = 'true';
     } else {
       delete document.body.dataset.commandPaletteOpen;
@@ -78,17 +94,22 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     return () => {
       delete document.body.dataset.commandPaletteOpen;
     };
-  }, [isOpen]);
+  }, [paletteIsOpen]);
 
   const value = useMemo<CommandPaletteContextValue>(
-    () => ({ isOpen, openPalette, closePalette, togglePalette }),
-    [isOpen, openPalette, closePalette, togglePalette]
+    () => ({
+      isOpen: paletteIsOpen,
+      openPalette,
+      closePalette,
+      togglePalette,
+    }),
+    [paletteIsOpen, openPalette, closePalette, togglePalette]
   );
 
   return (
     <CommandPaletteContext.Provider value={value}>
       {children}
-      <CommandPalette isOpen={isOpen} onClose={closePalette} />
+      <CommandPalette isOpen={paletteIsOpen} onClose={closePalette} />
     </CommandPaletteContext.Provider>
   );
 }

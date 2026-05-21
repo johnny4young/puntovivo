@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useModulesSnapshot } from '@/features/modules';
 import {
   COMMAND_ACTIONS,
   filterActionsByQuery,
@@ -60,6 +61,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation(['palette', 'shortcuts']);
   const { user, logout } = useAuth();
+  const { modules } = useModulesSnapshot();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [rawSelectedIndex, setRawSelectedIndex] = useState(0);
@@ -84,8 +86,8 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   );
 
   const visibleActions = useMemo(
-    () => visibleActionsForRole(user?.role),
-    [user?.role]
+    () => visibleActionsForRole(user?.role, modules),
+    [user?.role, modules]
   );
 
   const filtered = useMemo(

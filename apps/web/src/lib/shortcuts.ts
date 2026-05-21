@@ -228,22 +228,25 @@ export function formatKeysForDisplay(
  * Render a key combination as a value suitable for
  * `aria-keyshortcuts`. The WAI-ARIA spec requires modifier names
  * in canonical CamelCase (`Control`, `Shift`, `Alt`, `Meta`) and
- * `+` as the join character. The `Mod` placeholder collapses to
- * `Control` (not platform-dependent — `aria-keyshortcuts`
- * advertises one shape that screen readers map to the local OS).
+ * `+` as the join character. The `Mod` placeholder resolves to the
+ * key the operator actually presses: `Meta` on macOS, `Control`
+ * elsewhere.
  *
  * @example
- *   formatKeysForAria(['Mod+P'])        → 'Control+P'
+ *   formatKeysForAria(['Mod+P'])        → 'Meta+P' (mac) / 'Control+P'
  *   formatKeysForAria(['F1'])           → 'F1'
- *   formatKeysForAria(['Mod+Shift+P'])  → 'Control+Shift+P'
+ *   formatKeysForAria(['Mod+Shift+P'])  → 'Meta+Shift+P' (mac) / 'Control+Shift+P'
  */
-export function formatKeysForAria(keys: ShortcutKey[]): string {
+export function formatKeysForAria(
+  keys: ShortcutKey[],
+  mac: boolean = isMacPlatform()
+): string {
   if (keys.length === 0) return '';
   return keys
     .map(k =>
       k
         .split('+')
-        .map(part => (part === 'Mod' ? 'Control' : part))
+        .map(part => (part === 'Mod' ? (mac ? 'Meta' : 'Control') : part))
         .join('+')
     )
     .join(' ');
@@ -255,10 +258,13 @@ export function formatKeysForAria(keys: ShortcutKey[]): string {
  * registered — callers should omit the attribute rather than
  * stamp an empty string.
  */
-export function ariaKeyshortcutsFor(id: string): string | undefined {
+export function ariaKeyshortcutsFor(
+  id: string,
+  mac: boolean = isMacPlatform()
+): string | undefined {
   const def = getShortcutById(id);
   if (!def) return undefined;
-  return formatKeysForAria(def.keys);
+  return formatKeysForAria(def.keys, mac);
 }
 
 /**

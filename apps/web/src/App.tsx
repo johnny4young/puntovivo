@@ -239,27 +239,27 @@ function ShellRoute({
 function App() {
   return (
     <AuthProvider>
-      <CommandPaletteProvider>
       <TenantProvider>
         <ModulesProvider>
-        <LocaleProvider>
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <LoginRoute>
-                <LoginPage />
-              </LoginRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }
-          >
+          <LocaleProvider>
+            <CommandPaletteProvider>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={
+                    <LoginRoute>
+                      <LoginPage />
+                    </LoginRoute>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout />
+                    </ProtectedRoute>
+                  }
+                >
             <Route index element={<HomeRedirect />} />
             <Route
               path="dashboard"
@@ -544,11 +544,11 @@ function App() {
             <Route index element={<MobileWaiterHome />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </LocaleProvider>
+              </Routes>
+            </CommandPaletteProvider>
+          </LocaleProvider>
         </ModulesProvider>
       </TenantProvider>
-      </CommandPaletteProvider>
     </AuthProvider>
   );
 }
