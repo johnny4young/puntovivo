@@ -78,7 +78,11 @@ function NavigationLink({
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_color-mix(in_oklch,var(--primary)_75%,transparent)]'
-            : 'text-secondary-600 hover:bg-secondary-100/80 hover:text-secondary-950'
+            // ENG-134 slice B: text-secondary-600 (oklch L=0.48)
+            // sat below WCAG AA 4.5:1 at body text size. text-fg2
+            // (semantic mid-contrast foreground, L=0.37) is the
+            // accessible default for inactive nav text.
+            : 'text-fg2 hover:bg-secondary-100/80 hover:text-secondary-950'
         )
       }
     >
@@ -161,6 +165,13 @@ function WorkspaceGroupHeader({
   // workspace icon, label, and a chevron that flips on collapse.
   // aria-expanded + aria-controls satisfy the WAI-ARIA disclosure
   // pattern documented in docs/A11Y.md.
+  //
+  // ENG-134 slice B (2026-05-21) — the label class moved from
+  // `text-secondary-500` (oklch L=0.61) to `text-fg2` (semantic
+  // mid-contrast foreground, oklch L=0.37). The original token
+  // rendered at 3.69:1 against `--background` on 7.8pt body text,
+  // failing WCAG AA 4.5:1. `text-fg2` is the canonical readable-
+  // muted token from the ENG-080b foreground ramp.
   return (
     <button
       type="button"
@@ -168,7 +179,7 @@ function WorkspaceGroupHeader({
       aria-expanded={isOpen}
       aria-controls={controlsId}
       data-testid={`sidebar-workspace-${workspace.id}`}
-      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-secondary-500 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-fg2 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
     >
       <span className="inline-flex min-w-0 items-center gap-2">
         <workspace.icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

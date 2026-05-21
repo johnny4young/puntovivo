@@ -81,14 +81,22 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           data-testid="header-page-heading"
           className="flex min-w-0 shrink-0 flex-col gap-0.5 border-r border-line/70 pr-3"
         >
-          <p className="truncate text-[9.5px] font-semibold uppercase tracking-[0.24em] text-primary-600">
+          {/* ENG-134 slice B: bumped the header page-kicker from
+              text-primary-600 (oklch L=0.61, axe 3.65:1) to
+              text-primary-800 (oklch L=0.45) so the brand-blue
+              uppercase kicker clears WCAG AA 4.5:1 against
+              --background. */}
+          <p className="truncate text-[9.5px] font-semibold uppercase tracking-[0.24em] text-primary-800">
             {t(kickerKey)}
           </p>
           <h2 className="truncate font-display text-[16px] leading-none tracking-[-0.02em] text-secondary-950 sm:text-[18px] lg:text-[22px] lg:tracking-[-0.03em]">
             {t(titleKey)}
           </h2>
           <p
-            className="hidden truncate text-[9.5px] font-semibold uppercase tracking-[0.2em] text-secondary-500 lg:block"
+            // ENG-134 slice B: bumped tenant-badge from
+            // text-secondary-500 to text-fg2 so the 9.5px uppercase
+            // tag clears WCAG AA 4.5:1 against --background.
+            className="hidden truncate text-[9.5px] font-semibold uppercase tracking-[0.2em] text-fg2 lg:block"
             data-testid="header-tenant-badge"
           >
             {currentTenant?.name ?? ''}
@@ -175,7 +183,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                 <span className="block max-w-[8.5rem] truncate text-[12.5px] font-semibold text-secondary-950">
                   {user?.name ?? t('common:user')}
                 </span>
-                <span className="block truncate text-[10.5px] leading-none text-secondary-500">
+                <span className="block truncate text-[10.5px] leading-none text-fg2">
                   {user?.role ?? t('common:session')}
                 </span>
               </span>
@@ -188,7 +196,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               >
                 <div className="card-inset px-4 py-3">
                   <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
-                  <p className="mt-1 text-xs text-secondary-500">{user?.email}</p>
+                  <p className="mt-1 text-xs text-fg2">{user?.email}</p>
                 </div>
                 <button
                   type="button"

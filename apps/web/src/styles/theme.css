@@ -169,7 +169,13 @@
   --input: oklch(0.92 0.014 84);
   --ring: oklch(0.63 0.126 244);
   --muted: oklch(0.94 0.011 84);
-  --muted-foreground: oklch(0.5 0.02 255);
+  /* ENG-134 slice B (2026-05-21): dropped from 0.5 to 0.4 so
+   * `text-muted-foreground` rendered against `--background`,
+   * `--card`, and `--popover` clears WCAG AA 4.5:1. The Playwright
+   * a11y smoke caught the old token at 3.69:1 across every
+   * authenticated route. The contrast gate now audits those three
+   * additional pairs so a future relax regresses the build. */
+  --muted-foreground: oklch(0.4 0.02 255);
   --accent: oklch(0.95 0.022 226);
   --accent-foreground: oklch(0.25 0.025 255);
   --primary: oklch(0.55 0.126 244);
@@ -250,7 +256,18 @@
   --secondary-200: oklch(0.94 0.011 84);
   --secondary-300: oklch(0.88 0.014 84);
   --secondary-400: oklch(0.74 0.018 84);
-  --secondary-500: oklch(0.61 0.02 255);
+  /* ENG-134 slice B (2026-05-21, operator-decided): the codebase
+   * historically used `text-secondary-500` as the canonical "muted
+   * label" semantic token rather than as a strict ramp step. At its
+   * original value (oklch L=0.61) it rendered at 3.69:1 against the
+   * page background — below WCAG AA 4.5:1. Dropping to L=0.42
+   * accepts a small break in the 400→500 ramp monotonicity in
+   * exchange for app-wide a11y compliance on the dozens of
+   * components (cards, tables, badges, headers, login) that use
+   * `text-secondary-500` for body text. The cleaner long-term fix
+   * is to migrate those usages to `text-fg2` (semantic token) and
+   * restore the ramp; tracked as ENG-134c follow-up. */
+  --secondary-500: oklch(0.42 0.02 255);
   --secondary-600: oklch(0.48 0.022 255);
   --secondary-700: oklch(0.37 0.022 255);
   --secondary-800: oklch(0.29 0.02 255);

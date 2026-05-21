@@ -419,7 +419,11 @@
    * ======================================================================== */
 
   .label {
-    @apply block text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-secondary-500;
+    /* ENG-134 slice B (2026-05-21): bumped from text-secondary-500
+     * (oklch L=0.61) to text-fg2 (oklch L=0.37, semantic
+     * mid-contrast foreground from the ENG-080b ramp) so labels
+     * rendered against the page background clear WCAG AA 4.5:1. */
+    @apply block text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-fg2;
   }
 
   .input,
@@ -497,7 +501,16 @@
   }
 
   .page-kicker {
-    @apply text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-primary-600;
+    /* ENG-134 slice B (2026-05-21): brand-blue uppercase kicker
+     * needed to clear WCAG AA 4.5:1 against the page background.
+     * Original `text-primary-600` rendered at 3.65:1 on 7.4pt body
+     * text. Use `var(--primary-800)` (oklch L=0.45) directly — the
+     * extra step darker than 700 gives a comfortable margin against
+     * the approximation gap of OkLab→sRGB. Setting color directly
+     * (not via @apply) avoids any chance that Tailwind's content-
+     * scanning leaves the utility ungenerated. */
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.3em];
+    color: var(--primary-800);
   }
 
   .page-title {

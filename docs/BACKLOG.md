@@ -31,6 +31,25 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
+- `[a11y][tokens]` **ENG-134c — Close inherited a11y contrast debt
+  on shared design tokens.** ENG-134 slice B (Playwright a11y smoke)
+  shipped 2026-05-21 with `test.skip(...)` on 4 of 12 routes —
+  `/sales` (cashier + admin), `/products`, `/purchases` — because
+  the smoke catches `--primary` background contrast (2.81:1 on the
+  F1 Charge button), `text-primary-600` on data-table number/SKU
+  links (3.68:1), and `.badge-warning` foreground on warning-50
+  background (4.27:1). Each is a single design-system token bump or
+  a per-component swap to a darker primary scale step. Acceptance:
+  remove every `skipUntilEng134c` field in `e2e/web/a11y.spec.ts`
+  and the smoke goes 12/12 green on the WCAG 2 A + AA serious floor
+  without any axe-rule exclusions. Sub-items: (a) decide whether
+  `--primary` itself moves darker or whether the `.btn-primary`
+  class swaps to a darker scale step (operator design call —
+  brand-color visual impact); (b) sweep `text-primary-600` usages
+  in `DataTable` cell renderers to `text-primary-800` or wrap them
+  in a `.data-table-emphasis` semantic class; (c) bump
+  `--warning-700` foreground or `--warning-50` background until the
+  badge pair clears 4.5:1. — 2026-05-21 (jy)
 - `[fiscal][refactor]` Move `services/fiscal/cufe.ts` into
   `packs/co/cufe.ts` once ENG-021 lands the real Colombia adapter.
   The CUFE algorithm is Colombia-specific (SHA-384 over a fixed

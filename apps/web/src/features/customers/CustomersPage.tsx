@@ -242,12 +242,24 @@ export function CustomersPage() {
               <BookOpen className="h-4 w-4" />
             </button>
           )}
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => handleOpenEdit(row.original)}>
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            // ENG-134 slice B: icon-only buttons must declare an
+            // accessible name. axe-core flagged the original button
+            // with `button-name [critical]`. Pair `aria-label` with
+            // `title` so the affordance is also visible to mouse
+            // users on hover.
+            aria-label={i18next.t('common:actions.edit')}
+            title={i18next.t('common:actions.edit')}
+            onClick={() => handleOpenEdit(row.original)}
+          >
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (
             <button
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+              aria-label={i18next.t('common:actions.delete')}
+              title={i18next.t('common:actions.delete')}
               onClick={() => setCustomerToDelete(row.original)}
             >
               <Trash2 className="h-4 w-4" />
