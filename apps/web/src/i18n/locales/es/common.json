@@ -227,6 +227,12 @@
     "availableStock": "Stock disponible",
     "fractionStep": "Paso fraccional",
     "fractionMinimum": "Cantidad mínima de venta",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "quickCreate": {
+      "emptyTitle": "Sin coincidencias para \"{{query}}\".",
+      "adminHint": "Puedes registrarlo ahora sin salir de la venta.",
+      "cashierHint": "Pídele a un manager que cree este producto antes de cobrar.",
+      "createCta": "Crear nuevo producto"
+    }
   }
 }

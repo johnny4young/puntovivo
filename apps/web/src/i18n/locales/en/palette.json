@@ -27,7 +27,9 @@
     },
     "command": {
       "newSale": "New sale",
-      "logout": "Log out"
+      "logout": "Log out",
+      "createProduct": "Create new product",
+      "createCustomer": "Create new customer"
     }
   },
   "descriptions": {
@@ -50,7 +52,9 @@
     },
     "command": {
       "newSale": "Clear the active cart and land on /sales.",
-      "logout": "End the current session on this workstation."
+      "logout": "End the current session on this workstation.",
+      "createProduct": "Open the product form pre-loaded in the active sale.",
+      "createCustomer": "Open the customer form pre-loaded in the active sale."
     }
   }
 }

@@ -206,7 +206,28 @@ interface ProductFormModalProps {
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (values: ProductFormValues) => Promise<void>;
+  /**
+   * Persists the form. May return the newly created product so the
+   * quick-create flow (ENG-105c) can hand it back to the caller via
+   * `onCreated`. Existing callers that ignore the return value stay
+   * backward compatible — TypeScript treats `Promise<Product | void>`
+   * as compatible with a `Promise<void>` consumer.
+   */
+  onSubmit: (values: ProductFormValues) => Promise<Product | void>;
+  /**
+   * ENG-105c — pre-fill the `name` field on `mode='create'`. Useful
+   * when the dialog is opened from the ProductSearchDialog empty
+   * state with the typed query. Ignored on `mode='edit'` (the
+   * existing product's name wins). Defaults to no pre-fill.
+   */
+  defaultName?: string;
+  /**
+   * ENG-105c — fired once `onSubmit` succeeds AND `mode='create'`
+   * AND the resolved value is a real product. Lets the caller add
+   * the new product to the cart, attach to a sale, etc. Skipped on
+   * error or on edit-mode submits.
+   */
+  onCreated?: (product: Product) => void;
 }
 
 type PricingField = 'price' | 'price2' | 'price3';
@@ -227,13 +248,32 @@ export function ProductFormModal({
   error,
   onClose,
   onSubmit,
+  defaultName,
+  onCreated,
 }: ProductFormModalProps) {
   const { t } = useTranslation('products');
   const form = useForm<ProductFormValues>({
-    defaultValues: mapProductToForm(product),
+    defaultValues: (() => {
+      const base = mapProductToForm(product);
+      // ENG-105c — only pre-fill on create mode; edit-mode never
+      // overwrites the product's existing name.
+      if (mode === 'create' && defaultName && defaultName.length > 0) {
+        return { ...base, name: defaultName };
+      }
+      return base;
+    })(),
   });
   const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
-  const handleSubmit = form.handleSubmit(onSubmit);
+  // ENG-105c — wrap onSubmit so we can fire onCreated with the
+  // returned product. handleSubmit from react-hook-form drops the
+  // resolved value of the handler, so we capture it inside the
+  // wrapper before the form library swallows it.
+  const handleSubmit = form.handleSubmit(async values => {
+    const result = await onSubmit(values);
+    if (mode === 'create' && result && onCreated) {
+      onCreated(result);
+    }
+  });
   const selectedVatRateId = useWatch({
     control: form.control,
     name: 'vatRateId',

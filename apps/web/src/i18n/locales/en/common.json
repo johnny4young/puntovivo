@@ -227,6 +227,12 @@
     "availableStock": "Available stock",
     "fractionStep": "Fraction step",
     "fractionMinimum": "Minimum sale quantity",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "quickCreate": {
+      "emptyTitle": "No matches for \"{{query}}\".",
+      "adminHint": "You can register it now without leaving the sale.",
+      "cashierHint": "Ask a manager to create this product before charging.",
+      "createCta": "Create new product"
+    }
   }
 }

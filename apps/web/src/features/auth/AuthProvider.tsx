@@ -24,6 +24,7 @@ import {
   getDefaultRouteForRoleWithSetup,
 } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
+import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { setActiveTenantId } from '@/lib/observability';
 
 interface AuthContextType {
@@ -119,6 +120,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // drafts. The ownerKey filter also prevents rendering, but clearing
     // the localStorage entry avoids the stale data sitting on disk.
     useCartWorkspaceStore.getState().resetAllWorkspaces();
+    // ENG-105c — quick-create requests are one-shot UI intents. Clear
+    // them with the session so a different user never inherits an
+    // in-flight product/customer modal after logout or token expiry.
+    useQuickCreateStore.getState().reset();
     // ENG-025 — clear the desktop session singleton so the main
     // process IPC handlers reject any subsequent db:* / sync:* call
     // until the next successful login. Best-effort: any failure here

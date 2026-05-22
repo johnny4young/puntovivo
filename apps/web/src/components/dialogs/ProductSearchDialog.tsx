@@ -1,6 +1,6 @@
 import { useDeferredValue, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
+import { PlusCircle, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
@@ -21,6 +21,26 @@ interface ProductSearchDialogProps {
   initialQuery?: string;
   title?: string;
   confirmLabel?: string;
+  /**
+   * ENG-105c — when set, the dialog renders a "Crear nuevo producto"
+   * CTA inside the empty-state block whenever the typed query returns
+   * zero results. The caller owns:
+   * - Whether the CTA is offered at all (omit the prop for surfaces
+   *   that should not surface quick-create).
+   * - The actual modal mounting (the dialog closes itself before
+   *   firing the callback so the caller can swap dialogs cleanly).
+   * The string handed to the callback is the trimmed search query
+   * the cashier typed, used as the default name in the form modal.
+   */
+  onQuickCreateRequested?: (defaultName: string) => void;
+  /**
+   * ENG-105c — defense-in-depth role gate. When `false`, the
+   * empty-state block renders an explanatory hint ("Pídele a un
+   * manager...") instead of the CTA button. Defaults to `true` to
+   * preserve backward compatibility — only callers wired to the
+   * quick-create flow pass `false` for cashier sessions.
+   */
+  canCreateProducts?: boolean;
 }
 
 interface ProductSelectionState {
@@ -57,6 +77,8 @@ export function ProductSearchDialog({
   initialQuery = '',
   title,
   confirmLabel,
+  onQuickCreateRequested,
+  canCreateProducts = true,
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -239,8 +261,52 @@ export function ProductSearchDialog({
 
                     {isEmptyState && (
                       <tr>
-                        <td className="px-4 py-6 text-sm text-secondary-500" colSpan={5}>
-                          {t('productSearch.noResults')}
+                        <td colSpan={5} className="px-4 py-6">
+                          {/* ENG-105c — empty state block. When the
+                            * caller wired `onQuickCreateRequested`,
+                            * surfaces a CTA gated by `canCreateProducts`
+                            * (typically manager/admin); cashiers see
+                            * an explanatory hint instead. Surfaces
+                            * without the prop keep the legacy text
+                            * exactly. */}
+                          {onQuickCreateRequested ? (
+                            <div
+                              className="flex flex-col items-start gap-3 text-sm"
+                              data-testid="product-search-empty-state"
+                            >
+                              <div>
+                                <p className="font-semibold text-secondary-900">
+                                  {t('productSearch.quickCreate.emptyTitle', {
+                                    query: deferredQuery,
+                                  })}
+                                </p>
+                                <p className="mt-1 text-secondary-500">
+                                  {canCreateProducts
+                                    ? t('productSearch.quickCreate.adminHint')
+                                    : t('productSearch.quickCreate.cashierHint')}
+                                </p>
+                              </div>
+                              {canCreateProducts && (
+                                <button
+                                  type="button"
+                                  className="btn-outline inline-flex items-center gap-2"
+                                  data-testid="product-search-quick-create-cta"
+                                  onClick={() => {
+                                    const requested = deferredQuery;
+                                    handleClose();
+                                    onQuickCreateRequested(requested);
+                                  }}
+                                >
+                                  <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                                  {t('productSearch.quickCreate.createCta')}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-secondary-500">
+                              {t('productSearch.noResults')}
+                            </p>
+                          )}
                         </td>
                       </tr>
                     )}
