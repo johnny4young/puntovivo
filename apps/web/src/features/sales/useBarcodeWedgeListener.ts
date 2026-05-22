@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 
 /**
@@ -69,6 +69,20 @@ export interface UseBarcodeWedgeListenerOptions {
    * `performance.now()`. Defaults to `performance.now`.
    */
   now?: () => number;
+  /**
+   * ENG-105f — Optional reference to the page-level search input that
+   * is allowed to remain focused without bailing the wedge listener.
+   * When the focused element matches this ref, the editable-target
+   * guard is bypassed: the scanner burst is processed and a
+   * successful scan flush clears the input's `value` so the cashier
+   * is not left with the barcode lingering in the search box.
+   *
+   * Manual typing still works because the inter-character gap (>30ms
+   * by default) prevents the buffer from accumulating enough chars
+   * to satisfy `minLength`, so the typed Enter falls through to the
+   * form submit instead of being intercepted as a scan.
+   */
+  scannerInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export const DEFAULT_WEDGE_CONFIG: WedgeConfig = {
@@ -83,10 +97,17 @@ interface BufferState {
   chars: string[];
   lastKeyAt: number;
   flushTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * Most recent keystroke origin, captured so the gap-only flush
+   * timer (which fires after the keystrokes stop) can report the
+   * target back to the flush logic that needs it (ENG-105f scanner
+   * input clear).
+   */
+  lastTarget: EventTarget | null;
 }
 
 function createEmptyBuffer(): BufferState {
-  return { chars: [], lastKeyAt: 0, flushTimer: null };
+  return { chars: [], lastKeyAt: 0, flushTimer: null, lastTarget: null };
 }
 
 function clearFlushTimer(buffer: BufferState) {
@@ -100,6 +121,7 @@ function resetBuffer(buffer: BufferState) {
   clearFlushTimer(buffer);
   buffer.chars = [];
   buffer.lastKeyAt = 0;
+  buffer.lastTarget = null;
 }
 
 function stripPrefixSuffix(code: string, prefix?: string, suffix?: string): string {
@@ -128,7 +150,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
     const buffer = createEmptyBuffer();
     const clock = () => (optionsRef.current.now ?? performance.now.bind(performance))();
 
-    function flushBuffer() {
+    function flushBuffer(originTarget: EventTarget | null) {
       const current = optionsRef.current;
       const { config, onScan } = current;
       const raw = buffer.chars.join('');
@@ -138,6 +160,15 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
       }
       const code = stripPrefixSuffix(raw, config.prefix, config.suffix);
       if (code.length === 0) return;
+      // ENG-105f — When the scan originated from the whitelisted
+      // scanner input, clear the lingering value so the cashier
+      // does not see the barcode in the search box. Same-tick so
+      // the cleared input is what the next render sees.
+      const scannerInput = current.scannerInputRef?.current;
+      if (scannerInput && originTarget === scannerInput) {
+        scannerInput.value = '';
+        scannerInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
       onScan(code);
     }
 
@@ -152,7 +183,9 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
         resetBuffer(buffer);
         return;
       }
-      if (isEditableShortcutTarget(event.target)) {
+      const scannerInput = current.scannerInputRef?.current;
+      const isScannerTarget = scannerInput !== undefined && event.target === scannerInput;
+      if (isEditableShortcutTarget(event.target) && !isScannerTarget) {
         // Cashier is typing into a text field — the scanner emits
         // a real keystroke into that field. We must not also
         // accumulate; reset to be safe so the next true scanner
@@ -171,7 +204,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
         if (ready) {
           event.preventDefault();
         }
-        flushBuffer();
+        flushBuffer(event.target);
         return;
       }
       if (event.key === 'Tab' && config.endOfScan === 'tab') {
@@ -179,7 +212,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
         if (ready) {
           event.preventDefault();
         }
-        flushBuffer();
+        flushBuffer(event.target);
         return;
       }
 
@@ -199,13 +232,14 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
 
       buffer.chars.push(event.key);
       buffer.lastKeyAt = now;
+      buffer.lastTarget = event.target;
 
       // Suffix-driven end-of-scan: if the recent tail matches the
       // configured suffix, flush.
       if (config.suffix && config.suffix.length > 0) {
         const tail = buffer.chars.slice(-config.suffix.length).join('');
         if (tail === config.suffix) {
-          flushBuffer();
+          flushBuffer(event.target);
           return;
         }
       }
@@ -224,7 +258,7 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
       if (config.endOfScan === 'gap-only') {
         clearFlushTimer(buffer);
         buffer.flushTimer = setTimeout(() => {
-          flushBuffer();
+          flushBuffer(buffer.lastTarget);
         }, config.interCharGapMs * 4);
       }
     }
