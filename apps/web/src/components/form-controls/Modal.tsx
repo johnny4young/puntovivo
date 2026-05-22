@@ -29,6 +29,20 @@ export interface ModalProps {
   contentClassName?: string;
   /** Custom class for the modal footer */
   footerClassName?: string;
+  /**
+   * ENG-105f — Optional override for focus restoration on close.
+   * When provided and returning a non-null element, that element
+   * receives focus instead of the element that was focused when the
+   * modal opened. Returning `null` falls back to the default
+   * "restore previously-focused element" behavior.
+   *
+   * Use this when the modal opener (a button, a palette action) is
+   * not the right place for the cursor to land after close — e.g.
+   * the cashier-speed flow on /sales wants focus on the page-level
+   * product search input regardless of whether the modal was opened
+   * via shortcut, palette, click, or programmatic trigger.
+   */
+  restoreFocusTo?: () => HTMLElement | null;
 }
 
 const sizeClasses = {
@@ -52,10 +66,22 @@ export function Modal({
   className,
   contentClassName,
   footerClassName,
+  restoreFocusTo,
 }: ModalProps) {
   const { t } = useTranslation('common');
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
+  // ENG-105f — keep the latest restoreFocusTo accessible from the
+  // focus-restore branch without including it in the effect deps
+  // (a parent that creates a fresh arrow on every render would
+  // otherwise re-fire focus restoration spuriously). The sync runs
+  // inside an effect to satisfy `react-hooks/refs` while staying
+  // current-render-fresh by the time the close transition fires.
+  const restoreFocusToRef = useRef(restoreFocusTo);
+  useEffect(() => {
+    restoreFocusToRef.current = restoreFocusTo;
+  }, [restoreFocusTo]);
 
   // Focus trap
   const handleTabKey = useCallback((e: KeyboardEvent) => {
@@ -97,6 +123,7 @@ export function Modal({
   // Focus management
   useEffect(() => {
     if (isOpen) {
+      wasOpenRef.current = true;
       // Store the currently focused element
       previousActiveElement.current = document.activeElement as HTMLElement;
 
@@ -120,8 +147,20 @@ export function Modal({
       }, 50);
 
       return () => clearTimeout(timer);
+    }
+
+    if (!wasOpenRef.current) {
+      return;
+    }
+    wasOpenRef.current = false;
+
+    // Restore focus on close. The optional override takes
+    // precedence when it returns a focusable element; otherwise
+    // fall back to the element that was focused at open time.
+    const override = restoreFocusToRef.current?.();
+    if (override) {
+      override.focus();
     } else {
-      // Restore focus to the previous element
       previousActiveElement.current?.focus();
     }
   }, [isOpen]);

@@ -155,4 +155,107 @@ describe('useBarcodeWedgeListener', () => {
     expect(onScan).not.toHaveBeenCalled();
     document.body.removeChild(input);
   });
+
+  describe('scannerInputRef whitelist (ENG-105f)', () => {
+    it('processes a scan whose target is the whitelisted scanner input', () => {
+      const onScan = vi.fn();
+      const scannerInput = document.createElement('input');
+      document.body.appendChild(scannerInput);
+      const scannerInputRef = { current: scannerInput };
+      renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan, scannerInputRef })));
+
+      scannerInput.focus();
+      const code = '7702049000031';
+      for (const char of code) {
+        advance(5);
+        scannerInput.dispatchEvent(
+          new KeyboardEvent('keydown', { key: char, bubbles: true })
+        );
+      }
+      advance(5);
+      scannerInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+
+      expect(onScan).toHaveBeenCalledWith('7702049000031');
+      document.body.removeChild(scannerInput);
+    });
+
+    it('clears the scanner input value after a successful scan flush', () => {
+      const onScan = vi.fn();
+      const scannerInput = document.createElement('input');
+      document.body.appendChild(scannerInput);
+      const scannerInputRef = { current: scannerInput };
+      renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan, scannerInputRef })));
+
+      // Simulate the native typing side-effect a wedge would produce
+      // alongside the keydown events.
+      scannerInput.focus();
+      scannerInput.value = '7702049000031';
+      for (const char of '7702049000031') {
+        advance(5);
+        scannerInput.dispatchEvent(
+          new KeyboardEvent('keydown', { key: char, bubbles: true })
+        );
+      }
+      advance(5);
+      scannerInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+
+      expect(onScan).toHaveBeenCalledTimes(1);
+      expect(scannerInput.value).toBe('');
+      document.body.removeChild(scannerInput);
+    });
+
+    it('still bails for editable targets that are not the whitelisted input', () => {
+      const onScan = vi.fn();
+      const scannerInput = document.createElement('input');
+      const otherInput = document.createElement('input');
+      document.body.appendChild(scannerInput);
+      document.body.appendChild(otherInput);
+      const scannerInputRef = { current: scannerInput };
+      renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan, scannerInputRef })));
+
+      otherInput.focus();
+      for (const char of '7702049000031') {
+        advance(5);
+        otherInput.dispatchEvent(
+          new KeyboardEvent('keydown', { key: char, bubbles: true })
+        );
+      }
+      otherInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+
+      expect(onScan).not.toHaveBeenCalled();
+      document.body.removeChild(scannerInput);
+      document.body.removeChild(otherInput);
+    });
+
+    it('does not interpret slow manual typing on the whitelisted input as a scan', () => {
+      const onScan = vi.fn();
+      const scannerInput = document.createElement('input');
+      document.body.appendChild(scannerInput);
+      const scannerInputRef = { current: scannerInput };
+      renderHook(() => useBarcodeWedgeListener(buildOptions({ onScan, scannerInputRef })));
+
+      scannerInput.focus();
+      // 200ms gaps between keystrokes — well above the 30ms threshold,
+      // so the buffer resets after every key and never accumulates
+      // enough chars to satisfy minLength on the trailing Enter.
+      for (const char of '7702049000031') {
+        advance(200);
+        scannerInput.dispatchEvent(
+          new KeyboardEvent('keydown', { key: char, bubbles: true })
+        );
+      }
+      scannerInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+
+      expect(onScan).not.toHaveBeenCalled();
+      document.body.removeChild(scannerInput);
+    });
+  });
 });

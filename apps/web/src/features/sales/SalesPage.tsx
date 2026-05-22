@@ -49,6 +49,7 @@ import {
 } from '@/features/sales/checkoutPayment';
 import { getActiveCartSelectionKey } from '@/features/sales/salesKeyboard';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
+import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import {
   DEFAULT_WEDGE_CONFIG,
@@ -238,6 +239,20 @@ export function SalesPage() {
     quantityInputRefFor,
     discountInputRefFor,
   } = useSalesInputFocus();
+
+  // ENG-105f — Keep the product search input focused across the
+  // cashier flow so a USB HID barcode scanner always lands on the
+  // right target. The hook handles initial mount + the open → close
+  // transition of ProductSearchDialog, SalePaymentModal, and the
+  // two quick-create gates. Editable-field guards stay in the wedge
+  // listener — a cashier who clicks a qty cell keeps focus there.
+  useScannerFocusRestoration({
+    productInputRef,
+    isProductSearchOpen,
+    isPaymentModalOpen,
+    isQuickCreateProductMounted: shouldRenderQuickCreateProductGate,
+    isQuickCreateCustomerMounted: shouldRenderQuickCreateCustomerGate,
+  });
   const salesQuery = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
   const summaryQuery = trpc.sales.summary.useQuery();
   const customersQuery = trpc.customers.list.useQuery({ page: 1, perPage: 100, isActive: true });
@@ -1229,6 +1244,12 @@ export function SalesPage() {
       isCashSessionCloseModalOpen ||
       isCashSessionMovementModalOpen,
     enabled: !!currentSite,
+    // ENG-105f — Whitelist the page-level search input so the wedge
+    // continues to fire even when the cashier sees focus on it
+    // (autofocus on mount + restore after modal close). Manual
+    // typing still works because the >30ms inter-character gap
+    // resets the buffer before it reaches `minLength`.
+    scannerInputRef: productInputRef,
   });
 
   return (

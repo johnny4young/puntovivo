@@ -11,7 +11,8 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#development">Development</a> •
   <a href="#building">Building</a> •
-  <a href="#security">Security</a>
+  <a href="#security">Security</a> •
+  <a href="#glossary">Glossary</a>
 </p>
 
 ---
@@ -494,6 +495,66 @@ If you discover a security vulnerability:
 2. Use the [security issue template](./.github/ISSUE_TEMPLATE/security.md) for guidance
 3. Contact the maintainers privately
 4. Follow responsible disclosure practices
+
+## Glossary
+
+Acronyms and short terms that appear throughout the README, docs, and source. Industry-standard terms (HTTP, SQL, URL, JSON, API) are omitted on purpose.
+
+### Business and domain
+
+| Term            | Stands for                                                  | What it means here                                                                                                                            |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **POS**         | Point of Sale                                               | The product category. A checkout/cashier application that records sales, prints receipts, and reports to the back office.                     |
+| **DIAN**        | Dirección de Impuestos y Aduanas Nacionales                 | Colombia's tax + customs authority. Owns the electronic-invoicing (Factura Electrónica) and electronic-payroll (Nómina Electrónica) mandates. |
+| **FE**          | Factura Electrónica                                         | DIAN-validated electronic invoice. P0 legal blocker for selling in Colombia (see [`docs/FISCAL-INTEGRATION.md`](./docs/FISCAL-INTEGRATION.md)).|
+| **NFe**         | Nota Fiscal Eletrônica                                      | Brazil's equivalent of FE. Tracked in PLAN-V3 for the Brazil expansion lane.                                                                  |
+| **ESC/POS**     | Epson Standard Code for POS printers                        | Receipt-printer command protocol used by virtually every thermal printer (see [`docs/HARDWARE-POS.md`](./docs/HARDWARE-POS.md)).               |
+| **KDS**         | Kitchen Display System                                      | The screen in the kitchen showing live preparation tickets. Part of the restaurant vertical.                                                  |
+| **MVP**         | Minimum Viable Product                                      | The "Generic retail MVP for Colombia" milestone tracked in [`docs/ROADMAP.md`](./docs/ROADMAP.md) §0.                                          |
+| **GA**          | General Availability                                        | Public release readiness (post-MVP, post-fiscal, post-hardware).                                                                              |
+| **P0 / P1**     | Priority 0 / 1                                              | P0 = blocker, must ship before GA. P1 = high priority but not a blocker.                                                                      |
+| **RFM**         | Recency, Frequency, Monetary                                | Customer-cohort scoring model used in the analytics / loyalty roadmap.                                                                        |
+| **LTV**         | Lifetime Value                                              | Projected revenue per customer over their relationship. Paired with RFM in BI surfaces.                                                       |
+| **BI**          | Business Intelligence                                       | Reporting and dashboards layer (cohorts, margins, day-close).                                                                                  |
+| **ENG-NNN**     | (not an acronym — ticket prefix)                            | The repo's ticket IDs in `docs/ROADMAP.md` §3b. Status column drives the work pool.                                                           |
+
+### Architecture and runtime
+
+| Term            | Stands for                                                  | What it means here                                                                                                                            |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **tRPC**        | TypeScript Remote Procedure Call                            | End-to-end-typed API between web/desktop renderer and the embedded Fastify server. `/api/trpc` is the canonical transport.                    |
+| **IPC**         | Inter-Process Communication                                 | Electron's main↔renderer channel. We expose capabilities via `contextBridge` → `ipcRenderer.invoke` → `ipcMain.handle`.                       |
+| **ORM**         | Object-Relational Mapper                                    | Drizzle ORM, used to talk to SQLite with typed schemas and generated migrations.                                                              |
+| **WAL**         | Write-Ahead Log                                             | SQLite journaling mode. A stale `tsx watch` process holding the WAL is the usual cause of `Exit 137` on `dev:server`.                          |
+| **SSE**         | Server-Sent Events                                          | One-way push channel used for live updates (sync status, realtime feeds) at `/api/realtime/*`.                                                |
+| **SSR / CSR**   | Server-Side / Client-Side Rendering                         | Not used here — the renderer is a CSR React SPA hosted by Electron / Vite.                                                                    |
+| **SPA**         | Single-Page Application                                     | The web frontend (`apps/web`) is a CSR SPA served by Vite in dev and by Fastify in the desktop build.                                          |
+| **CVA**         | Class Variance Authority                                    | Tailwind variant helper used to define typed component variants.                                                                              |
+| **HMR**         | Hot Module Replacement                                      | Vite's in-place code reload during development.                                                                                               |
+
+### Security and identity
+
+| Term            | Stands for                                                  | What it means here                                                                                                                            |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JWT**         | JSON Web Token                                              | Short-lived access tokens (hybrid auth) — kept in memory, never in localStorage.                                                              |
+| **CSRF**        | Cross-Site Request Forgery                                  | Protection layer applied to cookie-backed auth flows (refresh-token rotation).                                                                |
+| **CSP**         | Content Security Policy                                     | Browser security header controlling which scripts/styles/fonts a page may load.                                                               |
+| **MFA**         | Multi-Factor Authentication                                 | Planned identity hardening lane (ENG-103…ENG-165 batch in PLAN-V3).                                                                           |
+| **SSO**         | Single Sign-On                                              | Planned for multi-store enterprise tenants (OIDC / SAML upstream).                                                                            |
+| **RBAC**        | Role-Based Access Control                                   | `adminProcedure` / `managerOrAdminProcedure` / `createRoleGuard()` in `packages/server/src/trpc/middleware/roles.ts`.                          |
+| **SAST**        | Static Application Security Testing                         | CI-time source scanners (used by the CI/CD lane defined in `.github/workflows/`).                                                              |
+| **RUM**         | Real User Monitoring                                        | Browser-side telemetry — bundle-size budgets and tRPC p95 latency are gated against it (see `docs/PERF-BUDGETS.md`).                          |
+
+### CI / dev workflow
+
+| Term            | Stands for                                                  | What it means here                                                                                                                            |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI / CD**     | Continuous Integration / Continuous Delivery                | GitHub Actions pipelines under `.github/workflows/` (`ci.yml`, `build-desktop.yml`, `release.yml`).                                            |
+| **PR**          | Pull Request                                                | GitHub change-review unit. See "Required checks" in `AGENTS.md` for what must be green before merge.                                          |
+| **E2E**         | End-to-End                                                  | Full-stack browser-driven tests under `e2e/web/` and `e2e/electron/` (see [`e2e/README.md`](./e2e/README.md)).                                  |
+| **MCP**         | Model Context Protocol                                      | Tool-routing protocol used by agent tooling (Playwright MCP, computer-use MCP) referenced in `AGENTS.md`.                                     |
+| **DR**          | Disaster Recovery                                           | Chaos/DR lane planned in PLAN-V3 (backup/restore, data-portability, residency).                                                               |
+| **OS**          | Operating System                                            | Spelled out in docs as "OS" (English) — `process.platform === 'win32' \| 'darwin' \| 'linux'` is how we branch on it.                          |
 
 ## License
 
