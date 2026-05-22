@@ -23,6 +23,7 @@ import {
   salesRoles,
 } from '@/features/auth/roleAccess';
 import type { ClientModuleId } from '@/features/modules';
+import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import type { UserRole } from '@/types';
 
 export interface CommandActionContext {
@@ -206,6 +207,33 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     group: 'command',
     perform: async ({ logout }) => {
       await logout();
+    },
+  },
+  // ENG-105c — quick-create entry points. Both set a transient
+  // request in `useQuickCreateStore`; SalesPage subscribes to the
+  // store and mounts the corresponding form modal. Both navigate to
+  // `/sales` first so the mount actually happens (modals live inside
+  // SalesPage, not in the palette).
+  {
+    id: 'command.createProduct',
+    labelKey: 'actions.command.createProduct',
+    descriptionKey: 'descriptions.command.createProduct',
+    roles: managerOrAdminRoles,
+    group: 'command',
+    perform: ({ navigate }) => {
+      useQuickCreateStore.getState().requestCreateProduct({ defaultName: null });
+      navigate('/sales');
+    },
+  },
+  {
+    id: 'command.createCustomer',
+    labelKey: 'actions.command.createCustomer',
+    descriptionKey: 'descriptions.command.createCustomer',
+    roles: managerOrAdminRoles,
+    group: 'command',
+    perform: ({ navigate }) => {
+      useQuickCreateStore.getState().requestCreateCustomer({ defaultName: null });
+      navigate('/sales');
     },
   },
 ];

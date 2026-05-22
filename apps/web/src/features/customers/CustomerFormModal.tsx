@@ -83,7 +83,24 @@ interface CustomerFormModalProps {
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (values: CustomerFormValues) => Promise<void>;
+  /**
+   * Persists the form. May optionally return the newly created
+   * customer so the quick-create flow (ENG-105c) can attach it to
+   * the in-flight sale via `onCreated`. Existing callers that
+   * return `Promise<void>` stay backward compatible.
+   */
+  onSubmit: (values: CustomerFormValues) => Promise<Customer | void>;
+  /**
+   * ENG-105c — pre-fill the `name` field when opening in create
+   * mode from the empty-state CTA. Ignored on edit-mode submits.
+   */
+  defaultName?: string;
+  /**
+   * ENG-105c — fired once `onSubmit` succeeds in create mode AND
+   * resolves to a customer. The caller attaches the new customer
+   * to the active sale. Skipped on errors and on edit-mode submits.
+   */
+  onCreated?: (customer: Customer) => void;
 }
 
 export function CustomerFormModal({
@@ -98,14 +115,30 @@ export function CustomerFormModal({
   error,
   onClose,
   onSubmit,
+  defaultName,
+  onCreated,
 }: CustomerFormModalProps) {
   const { t } = useTranslation('customers');
+  const isCreate = !customer;
   const form = useForm<CustomerFormValues>({
-    defaultValues: mapCustomerToForm(customer),
+    defaultValues: (() => {
+      const base = mapCustomerToForm(customer);
+      // ENG-105c — pre-fill the name on create mode when caller
+      // supplied a defaultName (e.g. from the customer-picker
+      // empty-state in SalePaymentModal).
+      if (isCreate && defaultName && defaultName.length > 0) {
+        return { ...base, name: defaultName };
+      }
+      return base;
+    })(),
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
-  const isCreate = !customer;
+  const handleSubmit = form.handleSubmit(async values => {
+    const result = await onSubmit(values);
+    if (isCreate && result && onCreated) {
+      onCreated(result);
+    }
+  });
 
   return (
     <Modal

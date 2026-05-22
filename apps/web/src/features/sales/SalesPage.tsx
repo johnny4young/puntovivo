@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -19,6 +19,7 @@ import {
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import { useCheckoutPreflight } from '@/features/sales/useCheckoutPreflight';
+import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
 import {
@@ -83,6 +84,18 @@ import type {
   ProductSearchSelection,
 } from '@/types';
 
+const QuickCreateProductGate = lazy(() =>
+  import('@/features/sales/QuickCreateProductGate').then(module => ({
+    default: module.QuickCreateProductGate,
+  }))
+);
+
+const QuickCreateCustomerGate = lazy(() =>
+  import('@/features/sales/QuickCreateCustomerGate').then(module => ({
+    default: module.QuickCreateCustomerGate,
+  }))
+);
+
 export function SalesPage() {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const utils = trpc.useUtils();
@@ -93,6 +106,12 @@ export function SalesPage() {
   // retail tenants); positive values auto-apply on every checkout.
   const serviceChargeRate = tenantSettings?.restaurant?.serviceChargeRate ?? 0;
   const { user } = useAuth();
+  const shouldRenderQuickCreateProductGate = useQuickCreateStore(
+    state => state.requestedCreateProduct !== null
+  );
+  const shouldRenderQuickCreateCustomerGate = useQuickCreateStore(
+    state => state.requestedCreateCustomer !== null
+  );
   // ENG-074 — `useHubReachability` is a no-op outside `hub_client`
   // mode. In hub_client mode, `reachable === false` flips the
   // checkout primary action to disabled via the panel's gate prop.
@@ -1381,7 +1400,72 @@ export function SalesPage() {
           initialQuery={productSearchInitialQuery}
           title={t('checkout.addProduct')}
           confirmLabel={t('checkout.addToCart')}
+          // ENG-105c — surface the quick-create CTA in the empty
+          // state. The dialog closes itself before firing the
+          // callback so we just dispatch the request to the store;
+          // QuickCreateProductGate mounts the form modal.
+          onQuickCreateRequested={defaultName => {
+            useQuickCreateStore.getState().requestCreateProduct({ defaultName });
+          }}
+          canCreateProducts={
+            user?.role === 'admin' || user?.role === 'manager'
+          }
         />
+      )}
+      {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
+        <Suspense fallback={null}>
+          {/* ENG-105c — Quick-create gates stay split out of the hot
+            * SalesPage route chunk and only mount when the store flags
+            * a request. On success they invoke onCreated so SalesPage
+            * can fold the new entity into the active cart / sale, then
+            * they consume the store slot. */}
+          {shouldRenderQuickCreateProductGate && (
+            <QuickCreateProductGate
+              onCreated={created => {
+                // Fetch the freshly created product with its full unit
+                // assignments + price so we can merge into the cart with
+                // the exact shape mergeCartItem expects.
+                // The mutation returns the eager shape with unitAssignments
+                // already populated by the server.
+                const defaultUnit =
+                  created.unitAssignments?.find(assignment => assignment.isBase) ??
+                  created.unitAssignments?.[0];
+                if (!defaultUnit) {
+                  return;
+                }
+                setCartItems(currentItems =>
+                  mergeCartItem(currentItems, {
+                    product: {
+                      id: created.id,
+                      name: created.name,
+                      sku: created.sku,
+                      stock: created.stock,
+                      baseUnitPrice: defaultUnit.price,
+                      baseUnitAbbreviation: defaultUnit.unitAbbreviation,
+                      taxRate: created.taxRate ?? 0,
+                      sellByFraction: created.sellByFraction,
+                      fractionStep: created.fractionStep,
+                      fractionMinimum: created.fractionMinimum,
+                    } as Parameters<typeof mergeCartItem>[1]['product'],
+                    unit: defaultUnit,
+                    price: defaultUnit.price,
+                  })
+                );
+              }}
+            />
+          )}
+          {shouldRenderQuickCreateCustomerGate && (
+            <QuickCreateCustomerGate
+              onCreated={() => {
+                // ENG-105c — customer creation succeeded; the customers
+                // list cache is invalidated by the gate so the next render
+                // of SalePaymentModal's customer-picker shows it. Auto-
+                // attach to the in-flight sale lives in a follow-up slice
+                // that plumbs `prefillCustomerId` through SalePaymentModal.
+              }}
+            />
+          )}
+        </Suspense>
       )}
 
       {isPaymentModalOpen && (

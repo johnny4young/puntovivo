@@ -12,6 +12,7 @@ const {
   persistSessionMock,
   clearSessionMock,
   resetWorkspacesMock,
+  resetQuickCreateMock,
   refreshMutateMock,
   meQueryMock,
   loginMutateMock,
@@ -25,6 +26,7 @@ const {
   persistSessionMock: vi.fn(),
   clearSessionMock: vi.fn(),
   resetWorkspacesMock: vi.fn(),
+  resetQuickCreateMock: vi.fn(),
   refreshMutateMock: vi.fn(),
   meQueryMock: vi.fn(),
   loginMutateMock: vi.fn(),
@@ -68,6 +70,12 @@ vi.mock('@/features/sales/useCartWorkspaceStore', () => ({
   },
 }));
 
+vi.mock('@/features/sales/useQuickCreateStore', () => ({
+  useQuickCreateStore: {
+    getState: () => ({ reset: resetQuickCreateMock }),
+  },
+}));
+
 import { AuthProvider, useAuth } from './AuthProvider';
 
 const sessionPayload = {
@@ -106,6 +114,7 @@ beforeEach(() => {
   persistSessionMock.mockReset();
   clearSessionMock.mockReset();
   resetWorkspacesMock.mockReset();
+  resetQuickCreateMock.mockReset();
   refreshMutateMock.mockReset();
   meQueryMock.mockReset();
   loginMutateMock.mockReset();
@@ -186,6 +195,7 @@ describe('AuthProvider — bootstrap', () => {
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(clearSessionMock).toHaveBeenCalled();
     expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetQuickCreateMock).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
 
@@ -292,6 +302,7 @@ describe('AuthProvider — logout flow', () => {
     expect(logoutMutateMock).toHaveBeenCalledOnce();
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
@@ -314,6 +325,7 @@ describe('AuthProvider — logout flow', () => {
       await auth.logout();
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.isAuthenticated).toBe(false);
   });
@@ -357,6 +369,7 @@ describe('AuthProvider — session expiry hook', () => {
       lastHandler();
     });
     expect(auth.isAuthenticated).toBe(false);
+    expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
   });
 });
