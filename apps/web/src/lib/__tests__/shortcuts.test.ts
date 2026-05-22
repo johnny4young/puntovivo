@@ -50,6 +50,8 @@ describe('getShortcutById', () => {
       'sales.removeItem',
       // ENG-105d — undo binding.
       'sales.undo',
+      // ENG-105e — fast-cash binding.
+      'sales.fastCash',
     ];
     for (const id of required) {
       expect(SHORTCUTS.some(s => s.id === id)).toBe(true);
@@ -61,6 +63,17 @@ describe('getShortcutById', () => {
     const entry = getShortcutById('sales.undo');
     expect(entry).toBeDefined();
     expect(entry?.keys).toEqual(['Mod+Z']);
+    expect(entry?.scope).toBe('sales');
+    expect(entry?.roles).toContain('cashier');
+  });
+
+  // ENG-105e — fast-cash registration sanity check. F2 is a bare
+  // function key so the combo carries no Mod / Shift / Alt — the
+  // matcher must accept it without modifier interference.
+  it('exposes sales.fastCash on F2 with the cashier role', () => {
+    const entry = getShortcutById('sales.fastCash');
+    expect(entry).toBeDefined();
+    expect(entry?.keys).toEqual(['F2']);
     expect(entry?.scope).toBe('sales');
     expect(entry?.roles).toContain('cashier');
   });

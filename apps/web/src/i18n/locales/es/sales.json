@@ -47,7 +47,8 @@
       "search": "Buscar",
       "suspend": "Pausar",
       "resume": "Retomar",
-      "charge": "Cobrar"
+      "charge": "Cobrar",
+      "fastCash": "Cobro rápido"
     }
   },
   "cart": {
@@ -558,6 +559,11 @@
     "nothingToUndo": "No hay acciones para deshacer.",
     "button": {
       "label": "Deshacer"
+    }
+  },
+  "fastCash": {
+    "toast": {
+      "applied": "Cobro exacto preparado."
     }
   }
 }

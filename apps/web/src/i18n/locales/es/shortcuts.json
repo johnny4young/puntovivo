@@ -49,6 +49,10 @@
     "undo": {
       "label": "Deshacer última acción del carrito",
       "description": "Revierte el último cambio del carrito activo (alta, cantidad, descuento, eliminar)."
+    },
+    "fastCash": {
+      "label": "Cobrar en efectivo (exacto)",
+      "description": "Abre el modal de pago en efectivo con el monto exacto y enfoca el botón Confirmar."
     }
   }
 }

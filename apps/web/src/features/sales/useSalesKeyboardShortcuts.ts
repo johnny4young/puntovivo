@@ -58,6 +58,25 @@ interface SalesKeyboardShortcutsOptions {
    * user pressed Mod+Z or clicked the visible "Deshacer" button.
    */
   onUndo?: () => void;
+  /**
+   * ENG-105e — F2 rapid-cash. Unlike most shortcuts, F2 stays
+   * active even when the payment modal is open: outside the modal
+   * it opens it in fast-cash mode; inside the modal it re-applies
+   * the exact-cash amount on top of whatever was tipped. The
+   * caller (SalesPage) routes both cases and owns the toast.
+   *
+   * The hook still respects `isEditableShortcutTarget` outside the
+   * payment modal so typing F2 inside a product/search field keeps
+   * the browser default instead of stealing focus. Once the payment
+   * modal owns focus, F2 intentionally works from the amount input:
+   * that is the cashier's "reset to exact cash" recovery path after
+   * typing the wrong amount.
+   *
+   * F2 also stays suppressed when the product search dialog is
+   * open — that overlay owns its own keyboard contract and the
+   * cashier would not be reaching for "Cobrar" from inside it.
+   */
+  onFastCash?: () => void;
 }
 
 function focusPaymentForm() {
@@ -91,6 +110,7 @@ export function useSalesKeyboardShortcuts({
   canToggleSuspendedPanel = false,
   onReprintSelectedHistoryRow,
   onUndo,
+  onFastCash,
 }: SalesKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -105,7 +125,7 @@ export function useSalesKeyboardShortcuts({
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
         }
-        if (isEditableShortcutTarget(event.target)) {
+        if (!isPaymentModalOpen && isEditableShortcutTarget(event.target)) {
           return;
         }
 
@@ -185,6 +205,25 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
+      if (event.key === 'F2') {
+        // ENG-105e — F2 fast-cash. Active both with the modal open
+        // and closed; the caller decides whether to open the modal
+        // (closed-state) or re-apply exact cash on top of the
+        // form (open-state). Suppressed inside the product search
+        // overlay so the cashier does not jump out of mid-search.
+        if (isProductSearchOpen) {
+          return;
+        }
+        if (!isPaymentModalOpen && isEditableShortcutTarget(event.target)) {
+          return;
+        }
+        if (onFastCash) {
+          event.preventDefault();
+          onFastCash();
+        }
+        return;
+      }
+
       if (event.key === 'F5') {
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
@@ -241,6 +280,7 @@ export function useSalesKeyboardShortcuts({
     onSuspend,
     onToggleSuspendedPanel,
     onUndo,
+    onFastCash,
     selectedItemKey,
   ]);
 }

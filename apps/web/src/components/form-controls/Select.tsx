@@ -170,7 +170,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
             className={cn(
               'label mb-2',
               hasError && 'text-danger-700',
-              disabled && 'text-secondary-400'
+              disabled && 'text-secondary-500'
             )}
           >
             {label}

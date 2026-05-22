@@ -214,6 +214,10 @@ export function SalesPage() {
   >(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentModalKey, setPaymentModalKey] = useState(0);
+  // ENG-105e — F2 fast-cash signal routed to SalePaymentModal.
+  // Zero means normal F1 open; positive values apply exact cash on
+  // mount and each later increment re-applies while the modal is open.
+  const [fastCashTrigger, setFastCashTrigger] = useState(0);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
   const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
@@ -661,13 +665,24 @@ export function SalesPage() {
     }
   }, [isResumedCart, t, toast]);
 
+  // ENG-105e — F2 fast-cash entry point. Closed modal delegates to
+  // the same F1 payment-open gate with `fastCash=true`; open modal
+  // bumps the trigger so the modal re-applies exact cash.
+  const handleFastCash = () => {
+    if (isPaymentModalOpen) {
+      setFastCashTrigger(current => current + 1);
+      return;
+    }
+    handleOpenPaymentModal(true);
+  };
+
   const handleOpenProductSearch = (initialQuery = productSearchQuery) => {
     setProductSearchInitialQuery(initialQuery.trim());
     setProductSearchDialogKey(current => current + 1);
     setIsProductSearchOpen(true);
   };
 
-  const handleOpenPaymentModal = () => {
+  const handleOpenPaymentModal = (fastCash = false) => {
     if (!currentSite || cartItems.length === 0) {
       return;
     }
@@ -698,6 +713,7 @@ export function SalesPage() {
     }
 
     setSaleError(null);
+    setFastCashTrigger(fastCash ? current => current + 1 : 0);
     setPaymentModalKey(current => current + 1);
     setIsPaymentModalOpen(true);
   };
@@ -1024,6 +1040,11 @@ export function SalesPage() {
     // ENG-105d — Mod+Z routes through the same handler the visible
     // "Deshacer" button uses so the toast surface stays consistent.
     onUndo: handleUndoCart,
+    // ENG-105e — F2 routes through handleFastCash. Active both with
+    // the modal closed (opens in fast-cash mode) and open (bumps
+    // `fastCashTrigger` so the modal re-applies exact cash on top of
+    // whatever was typed).
+    onFastCash: handleFastCash,
   });
 
   // ENG-061 — barcode scanner pipeline.
@@ -1497,7 +1518,13 @@ export function SalesPage() {
           // additionally sees the override checkbox when cupo is
           // exceeded.
           userRole={user?.role}
-          onClose={() => setIsPaymentModalOpen(false)}
+          // ENG-105e — F2 fast-cash signal. Positive values apply
+          // at mount; later increments re-apply exact cash while open.
+          fastCashTrigger={fastCashTrigger}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setFastCashTrigger(0);
+          }}
           onSubmit={handleCheckout}
         />
       )}
