@@ -147,4 +147,49 @@ describe('CommandPalette (ENG-105a)', () => {
     expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
   });
+
+  // ENG-105d — wrap-around navigation.
+  describe('ENG-105d wrap-around', () => {
+    it('ArrowDown from the last item wraps back to the first', async () => {
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      const container = await screen.findByTestId('command-palette');
+      // Walk to the last item via End — the absolute-jump path stays
+      // intact and gives us a stable anchor to test wrap-around from.
+      fireEvent.keyDown(container, { key: 'End' });
+      const list = screen.getByRole('listbox');
+      const lastItem = list.querySelectorAll('[role="option"]')[
+        list.querySelectorAll('[role="option"]').length - 1
+      ] as HTMLElement;
+      expect(lastItem.getAttribute('aria-selected')).toBe('true');
+
+      // One more ArrowDown wraps back to the first item.
+      fireEvent.keyDown(container, { key: 'ArrowDown' });
+      const firstItem = list.querySelector('[role="option"]') as HTMLElement;
+      expect(firstItem.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('ArrowUp from the first item wraps to the last', async () => {
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      const container = await screen.findByTestId('command-palette');
+      // First item is selected on mount (index 0). ArrowUp must wrap.
+      fireEvent.keyDown(container, { key: 'ArrowUp' });
+      const list = screen.getByRole('listbox');
+      const items = list.querySelectorAll('[role="option"]');
+      const lastItem = items[items.length - 1] as HTMLElement;
+      expect(lastItem.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('Home/End remain absolute jumps after wrap-around lands on edges', async () => {
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      const container = await screen.findByTestId('command-palette');
+      // Hit ArrowUp once so the highlight wraps to the last item …
+      fireEvent.keyDown(container, { key: 'ArrowUp' });
+      // … then Home jumps back to the first item (NOT a wrap-around
+      // step but the legacy absolute behaviour).
+      fireEvent.keyDown(container, { key: 'Home' });
+      const list = screen.getByRole('listbox');
+      const firstItem = list.querySelector('[role="option"]') as HTMLElement;
+      expect(firstItem.getAttribute('aria-selected')).toBe('true');
+    });
+  });
 });

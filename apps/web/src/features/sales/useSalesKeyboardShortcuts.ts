@@ -44,6 +44,20 @@ interface SalesKeyboardShortcutsOptions {
    * something to reprint.
    */
   onReprintSelectedHistoryRow?: () => void;
+  /**
+   * ENG-105d — Ctrl/Cmd+Z undo for the active cart workspace.
+   *
+   * The hook never reads the undo stack itself; the callback is
+   * always invoked when the user presses the binding outside
+   * editable fields and the search / payment modals are closed.
+   * It is up to the caller (SalesPage) to look at the workspace
+   * store, decide whether anything is undoable, and surface the
+   * appropriate toast — success when something was popped, info
+   * when the stack was empty. This keeps the hook stateless and
+   * lets the caller emit one consistent set of toasts whether the
+   * user pressed Mod+Z or clicked the visible "Deshacer" button.
+   */
+  onUndo?: () => void;
 }
 
 function focusPaymentForm() {
@@ -76,6 +90,7 @@ export function useSalesKeyboardShortcuts({
   onToggleSuspendedPanel,
   canToggleSuspendedPanel = false,
   onReprintSelectedHistoryRow,
+  onUndo,
 }: SalesKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -128,6 +143,21 @@ export function useSalesKeyboardShortcuts({
           if (onToggleSuspendedPanel && canToggleSuspendedPanel) {
             event.preventDefault();
             onToggleSuspendedPanel();
+          }
+          return;
+        }
+
+        if (key === 'z') {
+          // ENG-105d — Ctrl/Cmd+Z undo. The
+          // `isEditableShortcutTarget` short-circuit above already
+          // preserved the browser-native text undo inside inputs,
+          // so reaching this branch means the focus is outside an
+          // editable field and the cashier intends a cart-level
+          // undo. The handler is always called when wired; it
+          // owns the "nothing to undo" toast / success toast.
+          if (onUndo) {
+            event.preventDefault();
+            onUndo();
           }
           return;
         }
@@ -210,6 +240,7 @@ export function useSalesKeyboardShortcuts({
     onReprintSelectedHistoryRow,
     onSuspend,
     onToggleSuspendedPanel,
+    onUndo,
     selectedItemKey,
   ]);
 }

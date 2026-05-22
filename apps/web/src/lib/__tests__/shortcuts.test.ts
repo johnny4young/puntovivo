@@ -48,10 +48,21 @@ describe('getShortcutById', () => {
       'sales.toggleSuspended',
       'sales.reprint',
       'sales.removeItem',
+      // ENG-105d — undo binding.
+      'sales.undo',
     ];
     for (const id of required) {
       expect(SHORTCUTS.some(s => s.id === id)).toBe(true);
     }
+  });
+
+  // ENG-105d — registration sanity check + chip rendering.
+  it('exposes sales.undo on Mod+Z with the cashier role', () => {
+    const entry = getShortcutById('sales.undo');
+    expect(entry).toBeDefined();
+    expect(entry?.keys).toEqual(['Mod+Z']);
+    expect(entry?.scope).toBe('sales');
+    expect(entry?.roles).toContain('cashier');
   });
 });
 

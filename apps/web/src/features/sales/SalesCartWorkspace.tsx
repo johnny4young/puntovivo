@@ -1,6 +1,12 @@
+import { Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import {
+  ariaKeyshortcutsFor,
+  formatKeysForDisplay,
+  getShortcutById,
+} from '@/lib/shortcuts';
 
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
@@ -14,6 +20,21 @@ interface SalesCartWorkspaceProps {
   onClearCart: () => void;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
+  /**
+   * ENG-105d — `true` when the active workspace has at least one
+   * undoable mutation in its history stack and the cart is not a
+   * locked resumed-draft. Drives the disabled state of the "Deshacer"
+   * button so the cashier sees the affordance even when nothing is
+   * undoable yet.
+   */
+  canUndo?: boolean;
+  /**
+   * ENG-105d — invoked from the visible "Deshacer" button. Optional
+   * so existing consumers that do not yet wire undo (component
+   * tests, future surfaces) keep compiling. When undefined the
+   * button is hidden entirely.
+   */
+  onUndo?: () => void;
 }
 
 export function SalesCartWorkspace({
@@ -28,8 +49,20 @@ export function SalesCartWorkspace({
   onClearCart,
   quantityInputRefFor,
   discountInputRefFor,
+  canUndo = false,
+  onUndo,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
+  // ENG-105d — visible shortcut chip pulled from the canonical
+  // catalogue so the surface stays in sync with `Mod+Z` (and any
+  // future rebind).
+  const undoShortcut = onUndo ? getShortcutById('sales.undo') : undefined;
+  const undoShortcutHint = undoShortcut
+    ? formatKeysForDisplay(undoShortcut.keys)
+    : null;
+  const undoAriaKeyshortcuts = onUndo
+    ? ariaKeyshortcutsFor('sales.undo')
+    : undefined;
   return (
     <div className="card p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -40,8 +73,29 @@ export function SalesCartWorkspace({
             {t('checkout.adjustHint')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="badge badge-secondary">{t('checkout.lineItems', { count: itemCount })}</span>
+          {onUndo && (
+            <button
+              className="btn-ghost flex items-center gap-2"
+              onClick={onUndo}
+              disabled={!canUndo}
+              aria-disabled={!canUndo}
+              aria-keyshortcuts={undoAriaKeyshortcuts}
+              data-testid="sales-cart-undo"
+            >
+              <Undo2 className="h-4 w-4" aria-hidden="true" />
+              <span>{t('undo.button.label')}</span>
+              {undoShortcutHint && (
+                <span
+                  className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
+                  aria-hidden="true"
+                >
+                  {undoShortcutHint}
+                </span>
+              )}
+            </button>
+          )}
           <button className="btn-ghost" onClick={onClearCart} disabled={items.length === 0}>
             {t('checkout.clearCart')}
           </button>

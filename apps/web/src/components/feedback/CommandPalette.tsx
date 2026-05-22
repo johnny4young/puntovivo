@@ -143,16 +143,23 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    // ENG-105d — ArrowDown/ArrowUp wrap around the listbox edges so
+    // the cashier can spin from "Cobrar" back to "Inicio" without
+    // detouring through Home/End. Empty-list guards stay no-op.
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSelectedIndex(i =>
-        filtered.length === 0 ? 0 : Math.min(i + 1, filtered.length - 1)
+      if (filtered.length === 0) return;
+      setSelectedIndex(
+        selectedIndex + 1 >= filtered.length ? 0 : selectedIndex + 1
       );
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setSelectedIndex(i => Math.max(i - 1, 0));
+      if (filtered.length === 0) return;
+      setSelectedIndex(
+        selectedIndex - 1 < 0 ? filtered.length - 1 : selectedIndex - 1
+      );
       return;
     }
     if (event.key === 'Home') {

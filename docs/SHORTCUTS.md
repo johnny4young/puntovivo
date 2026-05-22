@@ -43,6 +43,7 @@ keeps three concerns aligned without coupling them:
 | `sales.toggleSuspended` | `Mod+R` | sales | Toggle the suspended-carts panel. |
 | `sales.reprint` | `Mod+Shift+P` | sales | Reprint the selected history row. |
 | `sales.removeItem` | `Delete` | sales | Drop the selected line from the cart. |
+| `sales.undo` | `Mod+Z` | sales | Undo the last cart mutation (ENG-105d). Disabled inside editable fields so native text undo keeps working. |
 
 `Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
 `Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts
@@ -60,8 +61,10 @@ plugged into a Linux workstation still fires.
   the highlight. `Home` / `End` jump to the first / last item.
   `Enter` fires the highlighted action and closes the palette.
   Mouse hover sets the highlight; click fires the action.
-- **Wrap-around**: V1 does NOT wrap (selection clamps at the
-  endpoints). A future slice may revisit when the catalogue grows.
+- **Wrap-around** (ENG-105d): `ArrowDown` from the last item wraps
+  back to the first, and `ArrowUp` from the first wraps to the
+  last. `Home` / `End` keep their absolute-jump semantics. An empty
+  filter is a no-op (no selection to move).
 - **Filtering**: case-insensitive substring match against the
   translated label OR description.
 - **Role + module gating**: the catalogue is filtered against the
@@ -145,8 +148,6 @@ palette + map). The remaining 10 ride future slices `ENG-105b..`:
 - Layout stability tweaks across desktop and tablet smoke targets.
 - Most-used / recent-actions ordering in the palette (depends on
   ENG-135 observability sink).
-- Wrap-around navigation inside the palette (open question for
-  the next slice).
 
 ## Running the contract locally
 

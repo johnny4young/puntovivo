@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  HISTORY_CAP,
   selectActiveIsResumed,
+  selectActiveUndoDepth,
   selectActiveWorkspace,
   selectOwnedWorkspaces,
   useCartWorkspaceStore,
@@ -153,5 +155,160 @@ describe('useCartWorkspaceStore', () => {
     expect(
       Object.values(parsed.state?.workspaces ?? {}).length
     ).toBeGreaterThan(0);
+  });
+
+  // ENG-105d — undo/recovery history stack.
+  describe('ENG-105d undo history', () => {
+    it('starts a fresh draft with an empty historyStack and undo depth 0', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+      const ws = useCartWorkspaceStore.getState().workspaces[id];
+      expect(ws?.historyStack).toEqual([]);
+      expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(0);
+    });
+
+    it('pushes the previous items onto the stack on every real updateCart', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+
+      const itemsA = [sampleItem({ quantity: 1 })];
+      const itemsB = [sampleItem({ quantity: 2 })];
+      store.updateCart(id, itemsA);
+      store.updateCart(id, itemsB);
+
+      const ws = useCartWorkspaceStore.getState().workspaces[id];
+      expect(ws?.items).toBe(itemsB);
+      // First push captured the initial empty array; second push
+      // captured `itemsA`.
+      expect(ws?.historyStack).toHaveLength(2);
+      expect(ws?.historyStack[0]).toEqual([]);
+      expect(ws?.historyStack[1]).toBe(itemsA);
+    });
+
+    it('does NOT push a snapshot when updateCart is called with the same array reference', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+
+      const items = [sampleItem()];
+      store.updateCart(id, items);
+      const depthAfterFirst = useCartWorkspaceStore.getState().workspaces[id]
+        ?.historyStack.length;
+      // Re-applying the SAME reference is a no-op and must not
+      // inflate history.
+      store.updateCart(id, items);
+      const depthAfterSecond = useCartWorkspaceStore.getState().workspaces[id]
+        ?.historyStack.length;
+      expect(depthAfterSecond).toBe(depthAfterFirst);
+    });
+
+    it('undoCart pops the stack, restores items, and reports success', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+
+      const itemsA = [sampleItem({ quantity: 1 })];
+      const itemsB = [sampleItem({ quantity: 2 })];
+      store.updateCart(id, itemsA);
+      store.updateCart(id, itemsB);
+
+      const restored = store.undoCart(id);
+      expect(restored).toBe(true);
+      const ws = useCartWorkspaceStore.getState().workspaces[id];
+      expect(ws?.items).toBe(itemsA);
+      expect(ws?.historyStack).toHaveLength(1);
+      expect(ws?.historyStack[0]).toEqual([]);
+
+      const restoredAgain = store.undoCart(id);
+      expect(restoredAgain).toBe(true);
+      expect(useCartWorkspaceStore.getState().workspaces[id]?.items).toEqual(
+        []
+      );
+    });
+
+    it('undoCart returns false when the stack is empty', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+      expect(store.undoCart(id)).toBe(false);
+      expect(store.undoCart('does-not-exist')).toBe(false);
+    });
+
+    it('caps the stack at HISTORY_CAP via FIFO eviction', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+
+      // Push HISTORY_CAP + 3 unique snapshots — the first 3 must be
+      // evicted, the most-recent HISTORY_CAP survive.
+      for (let i = 0; i < HISTORY_CAP + 3; i += 1) {
+        store.updateCart(id, [sampleItem({ quantity: i + 1 })]);
+      }
+      const ws = useCartWorkspaceStore.getState().workspaces[id];
+      expect(ws?.historyStack).toHaveLength(HISTORY_CAP);
+      // The very first snapshot we recorded was an empty array
+      // (initial items). After 3 evictions it must be gone — the
+      // oldest survivor is the snapshot whose `items` came from the
+      // 3rd updateCart (qty=3).
+      expect(ws?.historyStack[0]?.[0]?.quantity).toBe(3);
+    });
+
+    it('hydrateFromResumed resets the history stack to empty', () => {
+      const store = useCartWorkspaceStore.getState();
+      const seed = store.createDraft('tenant-1:user-a');
+      store.updateCart(seed, [sampleItem({ quantity: 7 })]);
+      expect(
+        useCartWorkspaceStore.getState().workspaces[seed]?.historyStack
+      ).toHaveLength(1);
+
+      const id = store.hydrateFromResumed({
+        ownerKey: 'tenant-1:user-a',
+        serverSaleId: 'sale-xyz',
+        serverSaleNumber: 'VTA-9',
+        label: null,
+        items: [sampleItem()],
+      });
+      expect(useCartWorkspaceStore.getState().workspaces[id]?.historyStack).toEqual([]);
+    });
+
+    it('resetAllWorkspaces clears history along with the workspaces', () => {
+      const store = useCartWorkspaceStore.getState();
+      const id = store.createDraft('tenant-1:user-a');
+      store.updateCart(id, [sampleItem()]);
+      store.resetAllWorkspaces();
+      expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(0);
+    });
+
+    it('keeps history independent across two workspaces of the same owner', () => {
+      const store = useCartWorkspaceStore.getState();
+      const a = store.createDraft('tenant-1:user-a');
+      const b = store.createDraft('tenant-1:user-a');
+
+      store.updateCart(a, [sampleItem({ quantity: 1 })]);
+      store.updateCart(a, [sampleItem({ quantity: 2 })]);
+      store.updateCart(b, [sampleItem({ quantity: 9 })]);
+
+      const wsA = useCartWorkspaceStore.getState().workspaces[a];
+      const wsB = useCartWorkspaceStore.getState().workspaces[b];
+      expect(wsA?.historyStack).toHaveLength(2);
+      expect(wsB?.historyStack).toHaveLength(1);
+
+      store.undoCart(b);
+      const wsBAfter = useCartWorkspaceStore.getState().workspaces[b];
+      expect(wsBAfter?.items).toEqual([]);
+      // workspace A history untouched
+      expect(
+        useCartWorkspaceStore.getState().workspaces[a]?.historyStack
+      ).toHaveLength(2);
+    });
+
+    it('selectActiveUndoDepth tracks the active workspace', () => {
+      const store = useCartWorkspaceStore.getState();
+      const a = store.createDraft('tenant-1:user-a');
+      // Create a second draft so we can exercise switching.
+      store.createDraft('tenant-1:user-a');
+      store.updateCart(a, [sampleItem()]);
+      store.updateCart(a, [sampleItem({ quantity: 5 })]);
+      // The second createDraft is active and carries depth 0.
+      expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(0);
+      store.setActive(a);
+      expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(2);
+    });
   });
 });

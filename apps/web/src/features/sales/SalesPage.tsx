@@ -132,11 +132,6 @@ export function SalesPage() {
     currentTenant && user ? `${currentTenant.id}:${user.id}` : null;
   const activeWorkspace = useCartWorkspaceStore(selectActiveWorkspace);
   const allWorkspaces = useCartWorkspaceStore(state => state.workspaces);
-  const updateCartAction = useCartWorkspaceStore(state => state.updateCart);
-  const setSelectedItemAction = useCartWorkspaceStore(
-    state => state.setSelectedItem
-  );
-
   // Ensure SalesPage always has a cart ready for the signed-in cashier:
   // if no active workspace exists or the active one belongs to a
   // different owner (ex: a prior cashier signed out and a new one
@@ -171,6 +166,8 @@ export function SalesPage() {
     : [];
   const selectedCartItemKey = activeWorkspace?.selectedItemKey ?? null;
   const isResumedCart = activeWorkspace?.serverSaleId != null;
+  const canUndoActiveCart =
+    !isResumedCart && (activeWorkspace?.historyStack.length ?? 0) > 0;
 
   type SetCartItemsArg =
     | SaleCartItem[]
@@ -200,13 +197,6 @@ export function SalesPage() {
     },
     []
   );
-  // Silence unused-binding warnings for refs that Commit 2 consumers
-  // (Suspend button, resumed-cart banner) will wire into the UI. The
-  // store actions we only invoke via the `setCartItems` wrappers are
-  // named here so the API surface stays greppable.
-  void updateCartAction;
-  void setSelectedItemAction;
-  void isResumedCart;
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [productSearchInitialQuery, setProductSearchInitialQuery] = useState('');
@@ -643,6 +633,34 @@ export function SalesPage() {
     setSelectedCartItemKey(null);
   };
 
+  // ENG-105d — undo the last cart mutation on the active workspace.
+  // Routed by both the Mod+Z shortcut (via `useSalesKeyboardShortcuts`)
+  // and the visible "Deshacer" button on the cart toolbar so the
+  // toast surface is identical in both paths. Resumed-draft carts
+  // are locked (items cannot be edited), and the same lock applies
+  // to undo — there is no history to walk anyway, but we short-circuit
+  // explicitly to avoid surfacing the "nothing to undo" toast in a
+  // state where it could read as a UX bug.
+  const handleUndoCart = useCallback(() => {
+    if (isResumedCart) return;
+    const state = useCartWorkspaceStore.getState();
+    const activeId = state.activeId;
+    if (!activeId) return;
+    const popped = state.undoCart(activeId);
+    if (popped) {
+      // After an undo the previously-selected row may no longer
+      // exist (e.g. the user undid a "remove item" so the row is
+      // back, or the user undid an "add item" so the row is gone).
+      // Drop the selection — the user can re-select via click or
+      // Alt+P/Alt+C/Alt+D. Keeping it pointed at a deleted row
+      // makes the keyboard nav surfaces fail silently.
+      state.setSelectedItem(activeId, null);
+      toast.success({ title: t('sales:undo.cartActionUndone') });
+    } else {
+      toast.info({ title: t('sales:undo.nothingToUndo') });
+    }
+  }, [isResumedCart, t, toast]);
+
   const handleOpenProductSearch = (initialQuery = productSearchQuery) => {
     setProductSearchInitialQuery(initialQuery.trim());
     setProductSearchDialogKey(current => current + 1);
@@ -1003,6 +1021,9 @@ export function SalesPage() {
       selectedHistorySaleId !== null
         ? handleReprintSelectedHistoryRow
         : undefined,
+    // ENG-105d — Mod+Z routes through the same handler the visible
+    // "Deshacer" button uses so the toast surface stays consistent.
+    onUndo: handleUndoCart,
   });
 
   // ENG-061 — barcode scanner pipeline.
@@ -1331,6 +1352,8 @@ export function SalesPage() {
             onClearCart={handleClearCart}
             quantityInputRefFor={quantityInputRefFor}
             discountInputRefFor={discountInputRefFor}
+            canUndo={canUndoActiveCart}
+            onUndo={handleUndoCart}
           />
 
           <SalesCheckoutPanel

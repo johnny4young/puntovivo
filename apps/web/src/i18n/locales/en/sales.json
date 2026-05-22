@@ -552,5 +552,12 @@
         "recovery": "Remove item"
       }
     }
+  },
+  "undo": {
+    "cartActionUndone": "Action undone.",
+    "nothingToUndo": "Nothing to undo.",
+    "button": {
+      "label": "Undo"
+    }
   }
 }
