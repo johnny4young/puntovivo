@@ -160,6 +160,18 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.removeItem',
     roles: ['admin', 'manager', 'cashier'],
   },
+  // ENG-105d — undo the last cart mutation (add / qty / discount /
+  // remove). The imperative handler lives in
+  // `useSalesKeyboardShortcuts.ts`; the catalogue entry powers the
+  // visible chip on the SaleCartTable "Deshacer" button + the
+  // `aria-keyshortcuts` attribute on the same button.
+  {
+    id: 'sales.undo',
+    keys: ['Mod+Z'],
+    scope: 'sales',
+    labelKey: 'sales.undo',
+    roles: ['admin', 'manager', 'cashier'],
+  },
 ];
 
 /**

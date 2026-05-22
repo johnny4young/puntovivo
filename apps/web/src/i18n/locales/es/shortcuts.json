@@ -45,6 +45,10 @@
     "removeItem": {
       "label": "Quitar renglón del carrito",
       "description": "Elimina el renglón seleccionado del carrito activo."
+    },
+    "undo": {
+      "label": "Deshacer última acción del carrito",
+      "description": "Revierte el último cambio del carrito activo (alta, cantidad, descuento, eliminar)."
     }
   }
 }

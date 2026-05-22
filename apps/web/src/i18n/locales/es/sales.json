@@ -552,5 +552,12 @@
         "recovery": "Quitar ítem"
       }
     }
+  },
+  "undo": {
+    "cartActionUndone": "Acción deshecha.",
+    "nothingToUndo": "No hay acciones para deshacer.",
+    "button": {
+      "label": "Deshacer"
+    }
   }
 }

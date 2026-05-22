@@ -51,7 +51,32 @@ export interface CartWorkspace {
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
   createdAt: string;
+  /**
+   * ENG-105d — per-workspace undo history. Each entry is the
+   * `items` snapshot that existed BEFORE an `updateCart` mutation.
+   * The most recent change sits at the end of the array, so
+   * `pop()` restores the immediately previous state.
+   *
+   * Cap: {@link HISTORY_CAP}. When the stack exceeds the cap, the
+   * oldest entry is evicted (FIFO — `shift()`) so memory stays
+   * bounded even if the cashier never undoes.
+   *
+   * The stack resets to `[]` on `hydrateFromResumed`,
+   * `removeWorkspace`, and `resetAllWorkspaces` — undo never
+   * crosses the boundary of a hydrated server draft (the
+   * "first state" the cashier sees IS the server state) or the
+   * boundary of a completed/discarded workspace.
+   */
+  historyStack: SaleCartItem[][];
 }
+
+/**
+ * ENG-105d — bound the per-workspace undo stack. 20 reverts is
+ * the longest reasonable run before the cashier should restart
+ * the cart; bigger stacks burn memory without giving back useful
+ * affordance.
+ */
+export const HISTORY_CAP = 20;
 
 interface CartWorkspaceState {
   workspaces: Record<string, CartWorkspace>;
@@ -67,10 +92,29 @@ interface CartWorkspaceActions {
   createDraft(ownerKey: string): string;
   /** Swap the active workspace. Accepts `null` to leave the panel empty. */
   setActive(id: string | null): void;
-  /** Replace the items of a workspace. */
+  /**
+   * Replace the items of a workspace.
+   *
+   * ENG-105d — the current `items` array is pushed onto the
+   * workspace's `historyStack` BEFORE the mutation lands (capped
+   * via FIFO eviction at {@link HISTORY_CAP}). When the new array
+   * is referentially identical to the previous one, the push is
+   * skipped so no-op writes never inflate the stack.
+   */
   updateCart(id: string, items: SaleCartItem[]): void;
   /** Record the keyboard-selected row inside a workspace. */
   setSelectedItem(id: string, itemKey: string | null): void;
+  /**
+   * ENG-105d — pop the last entry off the workspace's undo
+   * history and reinstate it as the workspace's `items`.
+   *
+   * Returns `true` when an entry was actually popped, `false`
+   * when the stack was empty (caller surfaces a "nothing to
+   * undo" toast on the false branch). Does NOT push the
+   * currently-replaced `items` onto a redo stack — redo is out
+   * of scope for v1.
+   */
+  undoCart(id: string): boolean;
   /**
    * Drop a workspace entirely (e.g. after the server acknowledged the
    * suspend / complete / discard). If the removed workspace was
@@ -99,7 +143,11 @@ interface CartWorkspaceActions {
 type CartWorkspaceStore = CartWorkspaceState & CartWorkspaceActions;
 
 const PERSIST_KEY = 'cart-workspace-store';
-const PERSIST_VERSION = 1;
+// ENG-105d — bump to 2 to add `historyStack`. The migration below
+// backfills missing stacks to `[]` so previously-persisted
+// workspaces hydrate cleanly without surfacing a runtime error
+// for cashiers who upgrade mid-shift.
+const PERSIST_VERSION = 2;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -113,6 +161,17 @@ function generateId(): string {
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   return `ws-${uuid}-${generateIdCounter}`;
+}
+
+/**
+ * ENG-105d — bound the per-workspace undo stack. Returns a NEW
+ * array (never mutates the input) so React subscribers always see a
+ * fresh reference. When the input is already within `HISTORY_CAP`
+ * the function returns it unchanged for cheap referential equality.
+ */
+function trimHistory(stack: SaleCartItem[][]): SaleCartItem[][] {
+  if (stack.length <= HISTORY_CAP) return stack;
+  return stack.slice(stack.length - HISTORY_CAP);
 }
 
 export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
@@ -132,6 +191,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleNumber: null,
           label: null,
           createdAt: new Date().toISOString(),
+          historyStack: [],
         };
         set(state => ({
           workspaces: { ...state.workspaces, [id]: workspace },
@@ -155,14 +215,40 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           if (!existing) {
             return state;
           }
+          // ENG-105d — only record the previous snapshot when the
+          // mutation is a genuine change. Referential identity is
+          // enough — every cart mutation flows through helpers
+          // (`mergeCartItem`, `updateCartItem`, `filter`) that
+          // return a brand-new array on a real change.
+          const isRealChange = items !== existing.items;
+          const nextStack = isRealChange
+            ? trimHistory([...existing.historyStack, existing.items])
+            : existing.historyStack;
           return {
             ...state,
             workspaces: {
               ...state.workspaces,
-              [id]: { ...existing, items },
+              [id]: { ...existing, items, historyStack: nextStack },
             },
           };
         });
+      },
+
+      undoCart(id) {
+        const existing = get().workspaces[id];
+        if (!existing || existing.historyStack.length === 0) {
+          return false;
+        }
+        const nextStack = existing.historyStack.slice(0, -1);
+        const restored = existing.historyStack[existing.historyStack.length - 1]!;
+        set(state => ({
+          ...state,
+          workspaces: {
+            ...state.workspaces,
+            [id]: { ...existing, items: restored, historyStack: nextStack },
+          },
+        }));
+        return true;
       },
 
       setSelectedItem(id, itemKey) {
@@ -203,6 +289,11 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleNumber,
           label,
           createdAt: new Date().toISOString(),
+          // ENG-105d — resumed drafts arrive with the server state as
+          // their "first state". The cashier should NOT be able to
+          // undo past that baseline (it would delete persisted lines
+          // out of the UI without touching the server row).
+          historyStack: [],
         };
         set(state => ({
           workspaces: { ...state.workspaces, [id]: workspace },
@@ -219,6 +310,32 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       name: PERSIST_KEY,
       version: PERSIST_VERSION,
       storage: createJSONStorage(() => localStorage),
+      // ENG-105d — persist only serializable workspace state. Store
+      // actions stay runtime-only, and future transient flags cannot
+      // accidentally bloat localStorage.
+      partialize: state => ({
+        workspaces: state.workspaces,
+        activeId: state.activeId,
+      }),
+      // ENG-105d — migrate v1 → v2 by backfilling `historyStack: []`
+      // on every persisted workspace so a cashier signing in after
+      // upgrade does not surface a runtime error reading the
+      // missing field.
+      migrate: (persisted, fromVersion) => {
+        if (fromVersion < 2 && persisted && typeof persisted === 'object') {
+          const cast = persisted as Partial<CartWorkspaceState>;
+          const workspaces = cast.workspaces ?? {};
+          const next: Record<string, CartWorkspace> = {};
+          for (const [id, workspace] of Object.entries(workspaces)) {
+            next[id] = {
+              ...workspace,
+              historyStack: workspace.historyStack ?? [],
+            };
+          }
+          return { ...cast, workspaces: next } as CartWorkspaceState;
+        }
+        return persisted as CartWorkspaceState;
+      },
     }
   )
 );
@@ -258,4 +375,16 @@ export function selectOwnedWorkspaces(
 export function selectActiveIsResumed(state: CartWorkspaceStore): boolean {
   const active = selectActiveWorkspace(state);
   return active?.serverSaleId != null;
+}
+
+/**
+ * ENG-105d — depth of the undo stack on the active workspace.
+ * Returns `0` when no workspace is active or the stack is empty.
+ * Consumed by `SaleCartTable` / `SalesCartWorkspace` to drive the
+ * disabled state of the "Deshacer" button without forcing a
+ * subscription to the whole workspace object.
+ */
+export function selectActiveUndoDepth(state: CartWorkspaceStore): number {
+  const active = selectActiveWorkspace(state);
+  return active?.historyStack.length ?? 0;
 }

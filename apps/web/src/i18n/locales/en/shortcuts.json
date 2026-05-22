@@ -45,6 +45,10 @@
     "removeItem": {
       "label": "Remove cart item",
       "description": "Drop the selected line from the active cart."
+    },
+    "undo": {
+      "label": "Undo last cart action",
+      "description": "Revert the most recent change to the active cart (add, quantity, discount, remove)."
     }
   }
 }

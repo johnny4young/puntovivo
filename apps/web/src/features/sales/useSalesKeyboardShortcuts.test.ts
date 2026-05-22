@@ -177,4 +177,64 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
     fireKey('p', { altKey: true });
     expect(defaultOptions.focusProductInput).toHaveBeenCalledOnce();
   });
+
+  // ENG-105d — Mod+Z undo binding.
+  describe('Mod+Z undo (ENG-105d)', () => {
+    it('fires onUndo on Ctrl+Z and prevents the browser default', () => {
+      const onUndo = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({ ...defaultOptions, onUndo })
+      );
+      const event = fireKey('z', { ctrlKey: true });
+      expect(onUndo).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('does nothing when onUndo is omitted (no preventDefault)', () => {
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions }));
+      const event = fireKey('z', { ctrlKey: true });
+      // Without a handler the hook must not steal the browser default
+      // (text undo elsewhere, etc.). preventDefault stays false.
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('does not fire onUndo while the payment modal is open', () => {
+      const onUndo = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({
+          ...defaultOptions,
+          isPaymentModalOpen: true,
+          onUndo,
+        })
+      );
+      fireKey('z', { ctrlKey: true });
+      expect(onUndo).not.toHaveBeenCalled();
+    });
+
+    it('ignores Mod+Z when the focus is inside an editable input', () => {
+      // Browser-native text undo must keep working inside form fields
+      // (customer-picker, discount input, etc.). The hook returns
+      // early when `isEditableShortcutTarget(event.target)` matches.
+      const onUndo = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({ ...defaultOptions, onUndo })
+      );
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(event, 'target', { value: input });
+      document.dispatchEvent(event);
+
+      expect(onUndo).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+  });
 });
