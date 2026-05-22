@@ -516,6 +516,11 @@
       "success": "Venta a crédito registrada"
     }
   },
+  "quickCreate": {
+    "customer": {
+      "autoAttachToast": "Cliente creado y vinculado a la venta."
+    }
+  },
   "preflight": {
     "title": "Antes de cobrar",
     "toast": {

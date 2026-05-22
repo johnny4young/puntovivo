@@ -3,9 +3,11 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { sumBy } from '@/lib/numbers';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
+import { useQuickCreateStore } from './useQuickCreateStore';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { Customer, PaymentMethod } from '@/types';
 
@@ -145,6 +147,7 @@ export function SalePaymentModal({
   onSubmit,
 }: SalePaymentModalProps) {
   const { t } = useTranslation('sales');
+  const toast = useToast();
   const [splitMode, setSplitMode] = useState(false);
   // ENG-090 — credit method gating + projection.
   const canLendCredit = userRole === 'admin' || userRole === 'manager';
@@ -163,6 +166,47 @@ export function SalePaymentModal({
     control: form.control,
     name: 'tenders',
   });
+
+  // ENG-105c2 — auto-attach the customer that was just created via the
+  // quick-create flow (customer picker or palette dispatch route).
+  // The store holds a one-shot `pendingCustomerAttachId`; the gate
+  // sets it after a successful `customers.create`, and this effect
+  // consumes it on the open transition of the payment modal so the
+  // cashier does not have to re-pick from the dropdown.
+  //
+  // Why the dependency includes `pendingCustomerAttachId`: if the
+  // cashier opens the palette WHILE the payment modal is already open
+  // (creates the customer mid-flow), the `isOpen` boolean does not
+  // re-transition. Tracking the slot id directly catches that path
+  // too. The store guarantees consume returns `null` after the first
+  // call, so the effect is idempotent on subsequent re-renders.
+  //
+  // Keep the slot pending until the customer list contains the id. The
+  // create mutation invalidates `customers.list`, but the modal can
+  // render before the refetch lands; selecting a value with no matching
+  // `<option>` makes the native select display Walk-in while form state
+  // carries the new id.
+  const pendingCustomerAttachId = useQuickCreateStore(
+    state => state.pendingCustomerAttachId
+  );
+  const pendingCustomerReadyToAttach =
+    pendingCustomerAttachId !== null &&
+    customers.some(customer => customer.id === pendingCustomerAttachId);
+  useEffect(() => {
+    if (!isOpen || !pendingCustomerAttachId || !pendingCustomerReadyToAttach) {
+      return;
+    }
+    const store = useQuickCreateStore.getState();
+    if (store.pendingCustomerAttachId !== pendingCustomerAttachId) {
+      return;
+    }
+    const id = store.consumePendingCustomerAttach();
+    if (!id) {
+      return;
+    }
+    form.setValue('customerId', id, { shouldDirty: false, shouldValidate: false });
+    toast.success({ title: t('quickCreate.customer.autoAttachToast') });
+  }, [isOpen, pendingCustomerAttachId, pendingCustomerReadyToAttach, form, t, toast]);
 
   const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash';
   const amountReceived = useWatch({ control: form.control, name: 'amountReceived' });

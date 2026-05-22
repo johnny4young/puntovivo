@@ -36,6 +36,17 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+// ENG-105c2 — stub the toast pipeline so SalePaymentModal mounts
+// without needing ToastProvider in the credit-branch test wrappers.
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+}));
+
 function makeCustomer(overrides: Partial<Customer> = {}): Customer {
   return {
     id: 'cust-1',

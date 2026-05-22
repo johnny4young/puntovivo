@@ -32,10 +32,15 @@ import type { Customer, CustomerCatalogItem } from '@/types';
 interface QuickCreateCustomerGateProps {
   /**
    * Fired when a brand-new customer was persisted. The parent uses
-   * it to attach the customer to the in-flight sale (typically via
-   * `setSelectedCustomerId(customer.id)` inside SalePaymentModal).
+   * it for optional side effects; the in-flight sale auto-attach is
+   * handled through `pendingCustomerAttachId`.
    */
   onCreated?: (customer: Customer) => void;
+}
+
+function toOptionalString(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGateProps) {
@@ -88,13 +93,37 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
   };
 
   const handleSubmit = async (values: CustomerFormValues): Promise<Customer | void> => {
-    const created = await createMutation.mutateAsync(values);
+    const created = await createMutation.mutateAsync({
+      name: values.name,
+      email: toOptionalString(values.email),
+      phone: toOptionalString(values.phone),
+      address: toOptionalString(values.address),
+      city: toOptionalString(values.city),
+      state: toOptionalString(values.state),
+      postalCode: toOptionalString(values.postalCode),
+      country: toOptionalString(values.country),
+      taxId: toOptionalString(values.taxId),
+      identificationTypeId: toOptionalString(values.identificationTypeId),
+      personTypeId: toOptionalString(values.personTypeId),
+      regimeTypeId: toOptionalString(values.regimeTypeId),
+      clientTypeId: toOptionalString(values.clientTypeId),
+      commercialActivityId: toOptionalString(values.commercialActivityId),
+      notes: toOptionalString(values.notes),
+      creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
+      isActive: values.isActive,
+    });
     await utils.customers.list.invalidate();
     toast.success({ title: t('toast.created') });
     return created as Customer;
   };
 
   const handleCreated = (customer: Customer) => {
+    // ENG-105c2 — flag the new customer for auto-attach so the next
+    // SalePaymentModal mount selects it without a manual pick. The
+    // store action runs BEFORE the parent's onCreated callback so a
+    // SalesPage handler that observes the store sees the pending id
+    // already set.
+    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id);
     onCreated?.(customer);
     handleClose();
   };

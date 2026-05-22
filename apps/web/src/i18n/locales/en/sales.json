@@ -516,6 +516,11 @@
       "success": "Credit sale recorded"
     }
   },
+  "quickCreate": {
+    "customer": {
+      "autoAttachToast": "Customer created and attached to the sale."
+    }
+  },
   "preflight": {
     "title": "Before you charge",
     "toast": {
