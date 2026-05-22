@@ -92,6 +92,15 @@ interface SalePaymentModalProps {
    * `creditOverride: true`.
    */
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer';
+  /**
+   * ENG-105e — observable counter that triggers the fast-cash flow
+   * while opening the modal or while it is already open. The parent
+   * increments this on every F2 press; `0` means normal F1 open.
+   * The modal re-applies the exact amount + Confirm focus on each
+   * change, and captures the mount-time baseline so it never
+   * double-fires on the initial render.
+   */
+  fastCashTrigger?: number;
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
@@ -143,6 +152,7 @@ export function SalePaymentModal({
   error,
   serviceChargeRate = 0,
   userRole,
+  fastCashTrigger = 0,
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
@@ -220,6 +230,33 @@ export function SalePaymentModal({
   const grandTotal = roundCurrency(total + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
+
+  // ENG-105e — F2 fast-cash apply. Shared by mount-time F2 open
+  // and later in-modal F2 presses; always captures the freshest
+  // grand total for tip/service-charge edits.
+  const applyFastCash = () => {
+    if (grandTotal <= 0) return;
+    setSplitMode(false);
+    form.setValue('paymentMethod', 'cash', {
+      shouldDirty: true,
+    });
+    form.setValue('amountReceived', grandTotal, {
+      shouldDirty: true,
+    });
+    form.setValue('tenders', []);
+    toast.success({ title: t('fastCash.toast.applied') });
+    queueMicrotask(() => {
+      document.getElementById('sale-payment-confirm')?.focus();
+    });
+  };
+
+  // ENG-105e — apply on F2-open and re-apply when the parent
+  // increments the trigger while the modal is already open.
+  useEffect(() => {
+    if (fastCashTrigger > 0) queueMicrotask(applyFastCash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fastCashTrigger]);
+
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - amountReceivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
@@ -420,6 +457,7 @@ export function SalePaymentModal({
             variant="primary"
             onClick={handleSubmit}
             disabled={!canSubmit}
+            id="sale-payment-confirm"
           >
             {isSaving ? t('payment.processing') : t('payment.confirm')}
           </ModalButton>

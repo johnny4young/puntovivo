@@ -49,6 +49,10 @@
     "undo": {
       "label": "Undo last cart action",
       "description": "Revert the most recent change to the active cart (add, quantity, discount, remove)."
+    },
+    "fastCash": {
+      "label": "Charge in cash (exact)",
+      "description": "Open the payment modal in cash mode with the exact amount and focus the Confirm button."
     }
   }
 }

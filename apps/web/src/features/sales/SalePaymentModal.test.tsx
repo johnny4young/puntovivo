@@ -396,3 +396,80 @@ describe('SalePaymentModal — service charge / propina sugerida (ENG-039d3)', (
     expect(firstAmount.value).toBe('110');
   });
 });
+
+// ENG-105e — F2 fast-cash flow. Mount-time + trigger-while-open
+// behaviour, plus backward-compat (defaults do nothing).
+describe('SalePaymentModal — ENG-105e fast-cash', () => {
+  it('does not auto-fill when fastCashTrigger is omitted (backward compat)', () => {
+    render(<SalePaymentModal {...createProps({ total: 100 })} />);
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    // Default seed is total + serviceCharge (0 here) so the value is
+    // 100, but the toast must NOT have fired since fastCashTrigger=0.
+    expect(amountInput.value).toBe('100');
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it('auto-applies rapid-cash when fastCashTrigger is positive on mount', async () => {
+    render(
+      <SalePaymentModal
+        {...createProps({ total: 100, fastCashTrigger: 1 })}
+      />
+    );
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await waitFor(() => {
+      expect(amountInput.value).toBe('100');
+    });
+    // The success toast confirms the auto-fill landed (i18n key:
+    // sales:fastCash.toast.applied). Toast presence is the most
+    // robust signal of the flow firing — the form value alone could
+    // be the default seed.
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalled();
+    });
+  });
+
+  it('re-applies rapid-cash when fastCashTrigger increments while the modal is open', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <SalePaymentModal
+        {...createProps({ total: 100, fastCashTrigger: 0 })}
+      />
+    );
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    // Cashier types a wrong amount — simulate by clearing and typing.
+    await user.clear(amountInput);
+    await user.type(amountInput, '50');
+    expect(amountInput.value).toBe('50');
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+
+    // Parent increments the trigger (F2 pressed again).
+    rerender(
+      <SalePaymentModal
+        {...createProps({ total: 100, fastCashTrigger: 1 })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(amountInput.value).toBe('100');
+    });
+    expect(toastSuccessMock).toHaveBeenCalled();
+  });
+
+  it('does NOT re-apply when fastCashTrigger stays at its mount-time baseline', async () => {
+    const { rerender } = render(
+      <SalePaymentModal
+        {...createProps({ total: 100, fastCashTrigger: 5 })}
+      />
+    );
+    // Re-rendering with the SAME trigger value must not call the
+    // toast — only INCREMENTS fire the effect.
+    rerender(
+      <SalePaymentModal
+        {...createProps({ total: 100, fastCashTrigger: 5 })}
+      />
+    );
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+    });
+  });
+});

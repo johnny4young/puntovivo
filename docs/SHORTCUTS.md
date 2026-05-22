@@ -44,6 +44,7 @@ keeps three concerns aligned without coupling them:
 | `sales.reprint` | `Mod+Shift+P` | sales | Reprint the selected history row. |
 | `sales.removeItem` | `Delete` | sales | Drop the selected line from the cart. |
 | `sales.undo` | `Mod+Z` | sales | Undo the last cart mutation (ENG-105d). Disabled inside editable fields so native text undo keeps working. |
+| `sales.fastCash` | `F2` | sales | Fast-cash rapid checkout (ENG-105e). Opens the payment modal with cash pre-selected, amount = exact total, and the Confirm button focused. Still active while the modal is already open — re-applies the exact amount on top of whatever was typed, even from the amount field. Suppressed inside editable fields outside the payment modal and during product search. |
 
 `Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
 `Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts

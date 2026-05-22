@@ -330,6 +330,13 @@ export function SalesCheckoutPanel({
                   shortcutLabel('sales.charge'),
                   t('checkout.shortcut.charge', { defaultValue: 'Cobrar' }),
                 ],
+                // ENG-105e — F2 fast-cash chip lives next to the F1
+                // Cobrar chip so the cashier discovers the one-keystroke
+                // exact-cash flow without opening the Command Palette.
+                [
+                  shortcutLabel('sales.fastCash'),
+                  t('checkout.shortcut.fastCash', { defaultValue: 'Cobro rápido' }),
+                ],
               ] as const
             ).map(([keyLabel, action]) => (
               <div

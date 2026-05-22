@@ -217,6 +217,12 @@ export interface ModalButtonProps {
   disabled?: boolean;
   type?: 'button' | 'submit';
   className?: string;
+  /**
+   * Optional element id so a parent component can drive
+   * `aria-controls` / `aria-describedby` relationships or call
+   * `document.getElementById(...)?.focus()`.
+   */
+  id?: string;
 }
 
 export function ModalButton({
@@ -226,6 +232,7 @@ export function ModalButton({
   disabled = false,
   type = 'button',
   className,
+  id,
 }: ModalButtonProps) {
   const variantClasses = {
     primary: 'btn-primary',
@@ -238,6 +245,7 @@ export function ModalButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      id={id}
       className={cn(
         'w-full sm:w-auto sm:min-w-[9rem]',
         variantClasses[variant],

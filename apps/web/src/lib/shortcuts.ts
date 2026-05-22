@@ -172,6 +172,19 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.undo',
     roles: ['admin', 'manager', 'cashier'],
   },
+  // ENG-105e — fast-cash rapid checkout. F2 opens the payment
+  // modal in exact-cash mode (paymentMethod=cash + amountReceived
+  // = grand total + Confirmar focused) for a one-keystroke checkout
+  // on the most common LATAM-retail case. When the modal is already
+  // open, F2 re-applies the exact amount on top of whatever was
+  // tipped — the imperative handler decides the in-modal behaviour.
+  {
+    id: 'sales.fastCash',
+    keys: ['F2'],
+    scope: 'sales',
+    labelKey: 'sales.fastCash',
+    roles: ['admin', 'manager', 'cashier'],
+  },
 ];
 
 /**

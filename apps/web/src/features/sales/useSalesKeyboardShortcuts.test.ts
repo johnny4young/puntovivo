@@ -237,4 +237,104 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift (ENG-018b)', () => {
       expect(event.defaultPrevented).toBe(false);
     });
   });
+
+  // ENG-105e — F2 rapid-cash binding.
+  describe('F2 fast-cash (ENG-105e)', () => {
+    it('fires onFastCash on F2 and prevents the browser default outside the modal', () => {
+      const onFastCash = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash })
+      );
+      const event = fireKey('F2');
+      expect(onFastCash).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('still fires onFastCash while the payment modal is already open', () => {
+      // F2 doubles as a "re-apply exact cash" trigger inside the
+      // modal — unlike Mod-based shortcuts that suspend when the
+      // modal owns focus.
+      const onFastCash = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({
+          ...defaultOptions,
+          isPaymentModalOpen: true,
+          onFastCash,
+        })
+      );
+      const event = fireKey('F2');
+      expect(onFastCash).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('does nothing on F2 when onFastCash is not wired (no preventDefault)', () => {
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions }));
+      const event = fireKey('F2');
+      // Without a handler, the hook must NOT steal the browser
+      // default — preventDefault stays false.
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('ignores F2 inside an editable input outside the payment modal', () => {
+      const onFastCash = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({ ...defaultOptions, onFastCash })
+      );
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      const event = new KeyboardEvent('keydown', {
+        key: 'F2',
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(event, 'target', { value: input });
+      document.dispatchEvent(event);
+
+      expect(onFastCash).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('fires F2 from an editable input while the payment modal is open', () => {
+      const onFastCash = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({
+          ...defaultOptions,
+          isPaymentModalOpen: true,
+          onFastCash,
+        })
+      );
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      const event = new KeyboardEvent('keydown', {
+        key: 'F2',
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(event, 'target', { value: input });
+      document.dispatchEvent(event);
+
+      expect(onFastCash).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('does not fire onFastCash while the product search dialog is open', () => {
+      const onFastCash = vi.fn();
+      renderHook(() =>
+        useSalesKeyboardShortcuts({
+          ...defaultOptions,
+          isProductSearchOpen: true,
+          onFastCash,
+        })
+      );
+      const event = fireKey('F2');
+      expect(onFastCash).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+  });
 });

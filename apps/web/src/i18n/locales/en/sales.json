@@ -47,7 +47,8 @@
       "search": "Search",
       "suspend": "Suspend",
       "resume": "Resume",
-      "charge": "Charge"
+      "charge": "Charge",
+      "fastCash": "Fast cash"
     }
   },
   "cart": {
@@ -558,6 +559,11 @@
     "nothingToUndo": "Nothing to undo.",
     "button": {
       "label": "Undo"
+    }
+  },
+  "fastCash": {
+    "toast": {
+      "applied": "Exact cash ready."
     }
   }
 }
