@@ -1455,15 +1455,7 @@ export function SalesPage() {
             />
           )}
           {shouldRenderQuickCreateCustomerGate && (
-            <QuickCreateCustomerGate
-              onCreated={() => {
-                // ENG-105c — customer creation succeeded; the customers
-                // list cache is invalidated by the gate so the next render
-                // of SalePaymentModal's customer-picker shows it. Auto-
-                // attach to the in-flight sale lives in a follow-up slice
-                // that plumbs `prefillCustomerId` through SalePaymentModal.
-              }}
-            />
+            <QuickCreateCustomerGate />
           )}
         </Suspense>
       )}

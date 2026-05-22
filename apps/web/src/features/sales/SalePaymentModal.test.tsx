@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -8,6 +8,7 @@ import {
   SalePaymentModal,
   type SalePaymentValues,
 } from './SalePaymentModal';
+import { useQuickCreateStore } from './useQuickCreateStore';
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -19,7 +20,35 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+const toastSuccessMock = vi.hoisted(() => vi.fn());
+
+// ENG-105c2 — SalePaymentModal now consumes the toast pipeline to
+// surface the auto-attach confirmation. The existing test suite does
+// not mount ToastProvider, so we stub `useToast` with a stable mock for
+// the new assertions and no-op shapes for the unused methods.
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({
+    success: toastSuccessMock,
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+}));
+
 const customers: Customer[] = [];
+
+function makeCustomer(overrides: Partial<Customer> = {}): Customer {
+  return {
+    id: 'cust-new',
+    tenantId: 'tenant-1',
+    name: 'New Customer',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    creditLimit: 0,
+    ...overrides,
+  };
+}
 
 function createProps(overrides?: Partial<React.ComponentProps<typeof SalePaymentModal>>) {
   return {
@@ -33,6 +62,53 @@ function createProps(overrides?: Partial<React.ComponentProps<typeof SalePayment
     ...overrides,
   };
 }
+
+afterEach(() => {
+  useQuickCreateStore.getState().reset();
+  toastSuccessMock.mockClear();
+});
+
+describe('SalePaymentModal — quick-created customer auto-attach', () => {
+  beforeAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  it('selects the pending quick-created customer when the option is already loaded', async () => {
+    const customer = makeCustomer({ id: 'cust-ready', name: 'Ready Customer' });
+    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id);
+
+    render(<SalePaymentModal {...createProps({ customers: [customer] })} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Customer')).toHaveValue(customer.id);
+    });
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(toastSuccessMock).toHaveBeenCalledWith({
+      title: 'Customer created and attached to the sale.',
+    });
+  });
+
+  it('waits for the customers refetch before consuming the pending attach id', async () => {
+    const customer = makeCustomer({ id: 'cust-delayed', name: 'Delayed Customer' });
+    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id);
+
+    const { rerender } = render(<SalePaymentModal {...createProps({ customers: [] })} />);
+
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBe(customer.id);
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+
+    rerender(<SalePaymentModal {...createProps({ customers: [customer] })} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Customer')).toHaveValue(customer.id);
+    });
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(toastSuccessMock).toHaveBeenCalledWith({
+      title: 'Customer created and attached to the sale.',
+    });
+  });
+});
 
 describe('SalePaymentModal — split payments', () => {
   beforeAll(async () => {

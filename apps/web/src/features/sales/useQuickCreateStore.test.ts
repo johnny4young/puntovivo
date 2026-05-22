@@ -105,4 +105,50 @@ describe('useQuickCreateStore', () => {
     const result = useQuickCreateStore.getState().consumeCreateProduct();
     expect(result).toEqual({ defaultName: null });
   });
+
+  // ENG-105c2 — pendingCustomerAttachId slot lifecycle.
+
+  it('starts with pendingCustomerAttachId null', () => {
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+  });
+
+  it('setPendingCustomerAttach fills the slot leaving the other slots untouched', () => {
+    useQuickCreateStore.getState().requestCreateCustomer({ defaultName: 'pre-set' });
+    useQuickCreateStore.getState().setPendingCustomerAttach('cus-new-1');
+    const state = useQuickCreateStore.getState();
+    expect(state.pendingCustomerAttachId).toBe('cus-new-1');
+    // Other slots remain intact.
+    expect(state.requestedCreateCustomer).toEqual({ defaultName: 'pre-set' });
+    expect(state.requestedCreateProduct).toBeNull();
+  });
+
+  it('consumePendingCustomerAttach returns the id and clears the slot', () => {
+    useQuickCreateStore.getState().setPendingCustomerAttach('cus-x');
+    const result = useQuickCreateStore.getState().consumePendingCustomerAttach();
+    expect(result).toBe('cus-x');
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+  });
+
+  it('consumePendingCustomerAttach returns null and does not flip state when the slot is empty', () => {
+    const result = useQuickCreateStore.getState().consumePendingCustomerAttach();
+    expect(result).toBeNull();
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+  });
+
+  it('setPendingCustomerAttach overwrites a previous pending id (last-created wins)', () => {
+    useQuickCreateStore.getState().setPendingCustomerAttach('first');
+    useQuickCreateStore.getState().setPendingCustomerAttach('second');
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBe('second');
+  });
+
+  it('reset clears the pendingCustomerAttachId slot too', () => {
+    useQuickCreateStore.getState().requestCreateProduct({ defaultName: 'p' });
+    useQuickCreateStore.getState().requestCreateCustomer({ defaultName: 'c' });
+    useQuickCreateStore.getState().setPendingCustomerAttach('cus-y');
+    useQuickCreateStore.getState().reset();
+    const state = useQuickCreateStore.getState();
+    expect(state.requestedCreateProduct).toBeNull();
+    expect(state.requestedCreateCustomer).toBeNull();
+    expect(state.pendingCustomerAttachId).toBeNull();
+  });
 });
