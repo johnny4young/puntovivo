@@ -1,4 +1,4 @@
-import { useDeferredValue, useId, useState } from 'react';
+import { useDeferredValue, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PlusCircle, Search } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -89,6 +89,20 @@ export function ProductSearchDialog({
   const [categoryId, setCategoryId] = useState('');
   const [providerId, setProviderId] = useState('');
   const [selection, setSelection] = useState<ProductSelectionState | null>(null);
+  // ENG-134e — roving tabindex state for keyboard navigation across
+  // the product rows. The active row carries tabindex=0; every other
+  // row carries tabindex=-1 so Tab from the search input lands on the
+  // active row (and Tab from the active row lands on the unit select
+  // / Confirm footer). Arrow / Home / End / Enter wire below.
+  //
+  // `lastItemsKey` is a companion state used to detect "items
+  // changed across renders" and reset the roving index back to the
+  // first row — derived during render per the React 19 pattern for
+  // resetting state on prop / data change, which avoids the lint
+  // forbidding setState inside an effect.
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [lastItemsKey, setLastItemsKey] = useState('');
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
 
   const deferredQuery = useDeferredValue(query.trim());
   const deferredCategoryId = useDeferredValue(categoryId);
@@ -109,6 +123,18 @@ export function ProductSearchDialog({
   );
 
   const items = (productsQuery.data?.items ?? []) as ProductSearchItem[];
+  const itemsKey = items.map(product => product.id).join('\u0000');
+  // ENG-134e — when a new search returns a different result set, the
+  // roving tabindex must restart on the first row so a keyboard user
+  // does not jump into a stale position (or worse, an index past
+  // items.length-1 that focuses nothing). React 19 pattern: detect
+  // the change during render and queue a same-render setState — no
+  // useEffect cascade, no lint complaint. Guarded by an identity
+  // signature so equal-length result replacements reset too.
+  if (itemsKey !== lastItemsKey) {
+    setLastItemsKey(itemsKey);
+    setActiveRowIndex(0);
+  }
   const selectedProduct = selection
     ? items.find(product => product.id === selection.productId) ?? null
     : null;
@@ -119,6 +145,57 @@ export function ProductSearchDialog({
 
   const handleProductSelect = (product: ProductSearchItem) => {
     setSelection(getInitialSelection(product));
+  };
+
+  // ENG-134e — keyboard navigation handler for the roving tabindex.
+  // Mirrors the CommandPalette contract (no wrap-around — last row
+  // ArrowDown is a no-op, first row ArrowUp likewise) so muscle memory
+  // is consistent across the renderer. Enter and Space both select
+  // the active row, matching the existing mouse onClick semantics.
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    index: number,
+    product: ProductSearchItem
+  ) => {
+    switch (event.key) {
+      case 'ArrowDown': {
+        event.preventDefault();
+        const next = Math.min(index + 1, items.length - 1);
+        setActiveRowIndex(next);
+        rowRefs.current[next]?.focus();
+        return;
+      }
+      case 'ArrowUp': {
+        event.preventDefault();
+        const prev = Math.max(index - 1, 0);
+        setActiveRowIndex(prev);
+        rowRefs.current[prev]?.focus();
+        return;
+      }
+      case 'Home': {
+        event.preventDefault();
+        setActiveRowIndex(0);
+        rowRefs.current[0]?.focus();
+        return;
+      }
+      case 'End': {
+        event.preventDefault();
+        const last = Math.max(items.length - 1, 0);
+        setActiveRowIndex(last);
+        rowRefs.current[last]?.focus();
+        return;
+      }
+      case 'Enter':
+      case ' ': {
+        event.preventDefault();
+        handleProductSelect(product);
+        return;
+      }
+      // Default: let the event bubble. Alt+U (focus unit select) and
+      // any other document-level shortcut from useSalesKeyboardShortcuts
+      // continues to work because we only preventDefault for the keys
+      // we handle here.
+    }
   };
 
   const handleClose = () => {
@@ -313,16 +390,29 @@ export function ProductSearchDialog({
 
                     {!productsQuery.isLoading &&
                       !productsQuery.error &&
-                      items.map(product => {
+                      items.map((product, index) => {
                         const defaultUnit = getDefaultUnit(product);
                         const isSelected = selection?.productId === product.id;
+                        // ENG-134e — roving tabindex: only the active
+                        // row enters the Tab order. The Modal focus
+                        // trap (which excludes `tabindex="-1"` by its
+                        // query) skips inactive rows automatically.
+                        const isActiveRow = index === activeRowIndex;
 
                         return (
                           <tr
                             key={product.id}
-                            className="cursor-pointer"
+                            ref={el => {
+                              rowRefs.current[index] = el;
+                            }}
+                            className="cursor-pointer focus:outline-none focus-visible:bg-primary-50/60 focus-visible:ring-2 focus-visible:ring-primary-500/60"
                             data-state={isSelected ? 'selected' : undefined}
+                            tabIndex={isActiveRow ? 0 : -1}
+                            aria-selected={isSelected}
+                            data-testid={`product-search-row-${product.sku}`}
                             onClick={() => handleProductSelect(product)}
+                            onFocus={() => setActiveRowIndex(index)}
+                            onKeyDown={event => handleRowKeyDown(event, index, product)}
                           >
                             <td className="px-4 py-3 text-sm font-medium text-secondary-700">
                               {product.sku}

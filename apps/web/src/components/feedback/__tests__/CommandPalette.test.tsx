@@ -72,6 +72,9 @@ afterEach(() => {
 describe('CommandPalette (ENG-105a)', () => {
   it('renders with the search input present and the action listbox visible', async () => {
     render(<CommandPalette isOpen onClose={vi.fn()} />);
+    expect(
+      screen.getByRole('dialog', { name: /command palette/i })
+    ).toBeInTheDocument();
     const input = await screen.findByTestId('command-palette-search');
     expect(input).toBeInTheDocument();
     await waitFor(() => {

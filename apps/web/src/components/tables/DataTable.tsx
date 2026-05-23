@@ -45,6 +45,20 @@ interface DataTableProps<TData, TValue> {
    * highlight). The predicate is called with the row's original data.
    */
   isRowSelected?: (row: TData) => boolean;
+  /**
+   * ENG-134f — Called when the keyboard user activates a row via
+   * Enter or Space on the focused row. Mirrors what a mouse user
+   * achieves by clicking the row's primary action button (View,
+   * Edit, Open Details). When the prop is undefined, keyboard
+   * activation falls back to the existing TanStack `toggleSelected`
+   * behaviour (still gated by `enableRowSelection`).
+   *
+   * The activate path is unconditional — it does NOT require
+   * `enableRowSelection` to be set. The two are orthogonal concerns:
+   * `enableRowSelection` controls the multi-row checkbox state,
+   * `onRowActivate` controls the "open detail" primary action.
+   */
+  onRowActivate?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -57,6 +71,7 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   onRowFocusChange,
   isRowSelected,
+  onRowActivate,
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -121,6 +136,7 @@ export function DataTable<TData, TValue>({
     event: KeyboardEvent<HTMLTableRowElement>,
     rowIndex: number,
     rowCanSelect: boolean,
+    rowData: TData,
     toggleSelected: () => void
   ) => {
     if (event.target !== event.currentTarget) {
@@ -147,10 +163,21 @@ export function DataTable<TData, TValue>({
       case ' ':
       case 'Space':
       case 'Enter':
+        // ENG-134f — activate has priority over toggleSelected.
+        // If the consumer wired `onRowActivate`, fire it
+        // unconditionally (no enableRowSelection gate) — opening a
+        // detail / edit modal is the cashier's primary keyboard
+        // intent. Fall back to TanStack's row-selection toggle when
+        // no activate handler is provided AND the consumer enabled
+        // row selection (legacy checkbox-style workflow).
+        if (onRowActivate) {
+          event.preventDefault();
+          onRowActivate(rowData);
+          return;
+        }
         if (!enableRowSelection || !rowCanSelect) {
           return;
         }
-
         event.preventDefault();
         toggleSelected();
         break;
@@ -290,9 +317,15 @@ export function DataTable<TData, TValue>({
                         }
                       }}
                       onKeyDown={event => {
-                        handleRowKeyDown(event, rowIndex, row.getCanSelect(), () => {
-                          row.toggleSelected();
-                        });
+                        handleRowKeyDown(
+                          event,
+                          rowIndex,
+                          row.getCanSelect(),
+                          row.original,
+                          () => {
+                            row.toggleSelected();
+                          }
+                        );
                       }}
                     >
                       {row.getVisibleCells().map(cell => (

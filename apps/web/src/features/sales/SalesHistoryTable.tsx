@@ -157,6 +157,9 @@ export function SalesHistoryTable({
             isRowSelected={row =>
               selectedSaleId != null && row.id === selectedSaleId
             }
+            // ENG-134f — Enter / Space on the focused row opens the
+            // sale detail modal, mirroring the row's Eye button click.
+            onRowActivate={row => onView(row.id)}
           />
         </div>
       )}

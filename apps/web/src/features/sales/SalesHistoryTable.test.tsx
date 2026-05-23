@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import type { Sale } from '@/types';
@@ -37,5 +38,27 @@ describe('SalesHistoryTable', () => {
 
     expect(screen.getByText('Refunded')).toBeInTheDocument();
     expect(screen.getByText('Voided')).toBeInTheDocument();
+  });
+
+  it('fires onView with the sale id when Enter is pressed on a focused row (ENG-134f)', async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+
+    render(
+      <SalesHistoryTable
+        sales={[sale]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onView={onView}
+      />
+    );
+
+    const row = screen.getByRole('row', { name: /VTA-000001/ });
+    row.focus();
+    await user.keyboard('{Enter}');
+
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(onView).toHaveBeenCalledWith('sale-1');
   });
 });

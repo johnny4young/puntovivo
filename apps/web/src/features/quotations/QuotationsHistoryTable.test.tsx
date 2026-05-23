@@ -172,6 +172,20 @@ describe('QuotationsHistoryTable', () => {
     expect(onOpenDetails).toHaveBeenCalledWith('q-1');
   });
 
+  it('fires onOpenDetails when Enter is pressed on a focused row (ENG-134f)', async () => {
+    setListResult([draftEntry]);
+    const onOpenDetails = vi.fn();
+    render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} />);
+
+    const user = userEvent.setup();
+    const row = screen.getByRole('row', { name: /COT-000001/ });
+    row.focus();
+    await user.keyboard('{Enter}');
+
+    expect(onOpenDetails).toHaveBeenCalledTimes(1);
+    expect(onOpenDetails).toHaveBeenCalledWith('q-1');
+  });
+
   it('fires the status mutation with the chosen transition', async () => {
     setListResult([draftEntry]);
     statusMutationState.mutate.mockClear();

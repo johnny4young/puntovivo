@@ -76,4 +76,28 @@ describe('PurchasesHistoryTable', () => {
     await user.click(screen.getByRole('button', { name: 'View COM-000001' }));
     expect(onView).toHaveBeenCalledWith('purchase-1');
   });
+
+  it('fires onView with the purchase id when Enter is pressed on a focused row (ENG-134f)', async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+
+    render(
+      <PurchasesHistoryTable
+        purchases={[createPurchase()]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        canManageReturns={false}
+        onView={onView}
+        onReturn={vi.fn()}
+      />
+    );
+
+    const row = screen.getByRole('row', { name: /COM-000001/ });
+    row.focus();
+    await user.keyboard('{Enter}');
+
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(onView).toHaveBeenCalledWith('purchase-1');
+  });
 });

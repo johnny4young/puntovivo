@@ -24,6 +24,13 @@ interface ResourcePageProps<TData> {
   pageSize?: number;
   loadingMessage: string;
   onRetry?: () => void;
+  /**
+   * ENG-134f — Forwarded to the underlying DataTable. When set, the
+   * keyboard user pressing Enter or Space on the focused row fires
+   * this callback with the row data, mirroring the primary action
+   * button (Edit / View) on each row.
+   */
+  onRowActivate?: (row: TData) => void;
 }
 
 export function ResourcePage<TData>({
@@ -40,6 +47,7 @@ export function ResourcePage<TData>({
   pageSize = 10,
   loadingMessage,
   onRetry,
+  onRowActivate,
 }: ResourcePageProps<TData>) {
   return (
     <div className="space-y-6">
@@ -66,6 +74,7 @@ export function ResourcePage<TData>({
             searchPlaceholder={searchPlaceholder}
             enableRowSelection={enableRowSelection}
             pageSize={pageSize}
+            onRowActivate={onRowActivate}
           />
         )}
       </div>
