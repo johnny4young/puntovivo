@@ -116,6 +116,20 @@ export function useSalesKeyboardShortcuts({
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
 
+      // ENG-134d — Whitelist the page-level product search input from
+      // the editable-target guards below. ENG-105F restores focus to
+      // this input after every modal close, so the cashier's natural
+      // resting focus is here. Without the whitelist, Mod+Z / F2 from
+      // the search input get suppressed and the keyboard-first
+      // promise breaks. We keep the broader editable guard for every
+      // other input (qty cells, discount cells, payment amount, etc.)
+      // because text-level browser behaviours still take priority
+      // when the cashier is mid-edit on a numeric field.
+      const target = event.target;
+      const isSalesSearchInput =
+        target instanceof HTMLElement &&
+        target.id === 'sales-product-search-input';
+
       // ENG-018b — Ctrl/Cmd-based shortcuts. These compete with
       // browser defaults (print, reload, devtools) so we
       // `preventDefault()` aggressively when we accept the key. Modal
@@ -125,7 +139,11 @@ export function useSalesKeyboardShortcuts({
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
         }
-        if (!isPaymentModalOpen && isEditableShortcutTarget(event.target)) {
+        if (
+          !isPaymentModalOpen &&
+          !isSalesSearchInput &&
+          isEditableShortcutTarget(event.target)
+        ) {
           return;
         }
 
@@ -211,10 +229,17 @@ export function useSalesKeyboardShortcuts({
         // (closed-state) or re-apply exact cash on top of the
         // form (open-state). Suppressed inside the product search
         // overlay so the cashier does not jump out of mid-search.
+        // ENG-134d — the page-level search input is whitelisted (see
+        // isSalesSearchInput above): the cashier's natural focus
+        // after a scan is there, and F2 should still fire.
         if (isProductSearchOpen) {
           return;
         }
-        if (!isPaymentModalOpen && isEditableShortcutTarget(event.target)) {
+        if (
+          !isPaymentModalOpen &&
+          !isSalesSearchInput &&
+          isEditableShortcutTarget(event.target)
+        ) {
           return;
         }
         if (onFastCash) {

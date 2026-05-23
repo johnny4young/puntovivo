@@ -147,4 +147,27 @@ describe('SalesMobileCheckoutBar', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
+  it('hides the mobile Suspend action when it is wired but unavailable', async () => {
+    await i18next.changeLanguage('es');
+
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        canCloseCashSession
+        onOpenSearch={vi.fn()}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+        canSuspend={false}
+        onSuspend={vi.fn()}
+        onNewSale={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId('mobile-checkout-suspend')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-checkout-new-sale')).toBeEnabled();
+  });
 });

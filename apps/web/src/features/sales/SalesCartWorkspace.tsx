@@ -23,9 +23,9 @@ interface SalesCartWorkspaceProps {
   /**
    * ENG-105d — `true` when the active workspace has at least one
    * undoable mutation in its history stack and the cart is not a
-   * locked resumed-draft. Drives the disabled state of the "Deshacer"
-   * button so the cashier sees the affordance even when nothing is
-   * undoable yet.
+   * locked resumed-draft. The toolbar button only renders when this
+   * is true; the canonical shortcut catalogue owns discovery when
+   * there is nothing undoable yet.
    */
   canUndo?: boolean;
   /**
@@ -75,12 +75,18 @@ export function SalesCartWorkspace({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="badge badge-secondary">{t('checkout.lineItems', { count: itemCount })}</span>
-          {onUndo && (
+          {/* ENG-134d — only render Undo + Clear when actually usable.
+            * Disabled toolbar buttons tank WCAG AA contrast through the
+            * shared `disabled:opacity-45` rule on every btn variant; the
+            * cleaner UX is to hide affordances that have nothing to act
+            * on. The keyboard shortcut Mod+Z still fires from the
+            * document-level handler when there is something to undo,
+            * and CommandPalette (Mod+K) is the canonical place to
+            * discover keybindings. */}
+          {onUndo && canUndo && (
             <button
               className="btn-ghost flex items-center gap-2"
               onClick={onUndo}
-              disabled={!canUndo}
-              aria-disabled={!canUndo}
               aria-keyshortcuts={undoAriaKeyshortcuts}
               data-testid="sales-cart-undo"
             >
@@ -96,9 +102,11 @@ export function SalesCartWorkspace({
               )}
             </button>
           )}
-          <button className="btn-ghost" onClick={onClearCart} disabled={items.length === 0}>
-            {t('checkout.clearCart')}
-          </button>
+          {items.length > 0 && (
+            <button className="btn-ghost" onClick={onClearCart}>
+              {t('checkout.clearCart')}
+            </button>
+          )}
         </div>
       </div>
 

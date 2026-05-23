@@ -75,7 +75,9 @@ export function SalesMobileCheckoutBar({
         ? !canCharge
         : !canCloseCashSession
       : !canOpenCashSession;
-  const showParkActions = Boolean(onSuspend || onNewSale || onToggleSuspendedPanel);
+  const showSuspendAction = Boolean(onSuspend && canSuspend);
+  const showNewSaleAction = Boolean(onNewSale);
+  const showParkActions = showSuspendAction || showNewSaleAction || Boolean(onToggleSuspendedPanel);
 
   return (
     <div className="xl:hidden">
@@ -117,19 +119,18 @@ export function SalesMobileCheckoutBar({
             className="mx-auto mt-3 grid max-w-7xl grid-cols-3 gap-2"
             data-testid="mobile-park-controls"
           >
-            {onSuspend && (
+            {showSuspendAction && (
               <button
                 type="button"
                 className="btn-outline justify-center px-2 text-xs"
                 onClick={onSuspend}
-                disabled={!canSuspend}
                 data-testid="mobile-checkout-suspend"
               >
                 <PauseCircle className="h-4 w-4" />
                 {t('park.suspend')}
               </button>
             )}
-            {onNewSale && (
+            {showNewSaleAction && (
               <button
                 type="button"
                 className="btn-outline justify-center px-2 text-xs"

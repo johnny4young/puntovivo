@@ -57,6 +57,8 @@ function renderPanel(
   overrides: {
     hubReachable?: boolean | undefined;
     preflightItems?: readonly PreflightItem[];
+    canSuspend?: boolean;
+    onSuspend?: () => void;
   } = {}
 ) {
   return render(
@@ -76,6 +78,8 @@ function renderPanel(
       onCloseCashSession={vi.fn()}
       onOpenMovement={vi.fn()}
       onRegisterAssignmentChange={vi.fn()}
+      canSuspend={overrides.canSuspend}
+      onSuspend={overrides.onSuspend}
       hubReachable={overrides.hubReachable}
       preflightItems={overrides.preflightItems}
     />
@@ -169,5 +173,20 @@ describe('SalesCheckoutPanel hub gate (ENG-074)', () => {
     const button = screen.getByTestId('checkout-primary-action');
     expect(button).not.toBeDisabled();
     expect(button).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('hides Suspend when it is wired but unavailable', () => {
+    renderPanel({ canSuspend: false, onSuspend: vi.fn() });
+
+    expect(screen.queryByTestId('checkout-suspend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('checkout-park-controls')).not.toBeInTheDocument();
+  });
+
+  it('renders Suspend when it is wired and available', () => {
+    renderPanel({ canSuspend: true, onSuspend: vi.fn() });
+
+    const button = screen.getByTestId('checkout-suspend');
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('aria-keyshortcuts');
   });
 });
