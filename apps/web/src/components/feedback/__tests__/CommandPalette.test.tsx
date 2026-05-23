@@ -195,4 +195,120 @@ describe('CommandPalette (ENG-105a)', () => {
       expect(firstItem.getAttribute('aria-selected')).toBe('true');
     });
   });
+
+  // ENG-131b — Surface Switcher additions. Each surface action is
+  // module-gated to mirror the route's RequireModule + role-gated
+  // exactly like the matching sidebar item.
+  describe('ENG-131b Surface Switcher', () => {
+    function enableSurfaceModules() {
+      mockModules = {
+        ...mockModules,
+        'pos-touch': true,
+        kds: true,
+        'customer-display': true,
+        'mobile-waiter': true,
+      };
+    }
+
+    it('lists all 5 surface actions for an admin with surface modules enabled', async () => {
+      enableSurfaceModules();
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette-search');
+
+      expect(
+        screen.getByTestId('command-palette-item-navigate.posTouch')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.kds')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.customerDisplay')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.restaurantTables')
+      ).toBeInTheDocument();
+    });
+
+    it('hides restaurantTables for a cashier (admin-only gate) while keeping the 4 cashier surfaces', async () => {
+      mockUserRole = 'cashier';
+      enableSurfaceModules();
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette-search');
+
+      expect(
+        screen.getByTestId('command-palette-item-navigate.posTouch')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.kds')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.customerDisplay')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('command-palette-item-navigate.mobileWaiter')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.restaurantTables')
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides posTouch when the pos-touch module is disabled', async () => {
+      mockModules = {
+        ...mockModules,
+        'pos-touch': false,
+        kds: true,
+      };
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette-search');
+
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.posTouch')
+      ).not.toBeInTheDocument();
+      // restaurantTables shares the pos-touch module gate, so it
+      // hides alongside posTouch — verified here so a regression of
+      // the shared gate is caught.
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.restaurantTables')
+      ).not.toBeInTheDocument();
+      // kds stays visible because it has its own module flag.
+      expect(
+        screen.getByTestId('command-palette-item-navigate.kds')
+      ).toBeInTheDocument();
+    });
+
+    it('substring filter "touch" narrows to POS Touch only', async () => {
+      enableSurfaceModules();
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      const input = await screen.findByTestId('command-palette-search');
+      fireEvent.change(input, { target: { value: 'touch' } });
+
+      expect(
+        screen.getByTestId('command-palette-item-navigate.posTouch')
+      ).toBeInTheDocument();
+      // KDS / Customer Display / Mobile Waiter labels do not include
+      // the substring, so they fall out of the filter.
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.kds')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.customerDisplay')
+      ).not.toBeInTheDocument();
+    });
+
+    it('Enter on the posTouch action navigates to /touch and closes the palette', async () => {
+      enableSurfaceModules();
+      const onClose = vi.fn();
+      render(<CommandPalette isOpen onClose={onClose} />);
+      const container = await screen.findByTestId('command-palette');
+      const input = screen.getByTestId('command-palette-search');
+      fireEvent.change(input, { target: { value: 'touch' } });
+      fireEvent.keyDown(container, { key: 'Enter' });
+
+      expect(navigateMock).toHaveBeenCalledWith('/touch');
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
 });
