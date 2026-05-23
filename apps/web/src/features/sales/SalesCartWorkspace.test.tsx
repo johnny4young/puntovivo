@@ -32,16 +32,28 @@ describe('SalesCartWorkspace — ENG-105d undo button', () => {
     expect(screen.queryByTestId('sales-cart-undo')).toBeNull();
   });
 
-  it('renders the undo button disabled and aria-disabled when canUndo is false', () => {
+  // ENG-134d — the disabled-but-visible affordance was retired
+  // because `disabled:opacity-45` on the btn primitive collapsed the
+  // text contrast below WCAG AA. The discoverability of `Mod+Z`
+  // moved to the CommandPalette catalogue (Mod+K), which renders
+  // every shortcut chip on its own listing without an opacity gate.
+  // The toolbar button now follows the cleaner UX rule: "do not
+  // render affordances that have nothing to act on".
+  it('does not render the undo button when canUndo is false', () => {
     const onUndo = vi.fn();
     render(
       <SalesCartWorkspace {...baseProps} canUndo={false} onUndo={onUndo} />
     );
+    expect(screen.queryByTestId('sales-cart-undo')).toBeNull();
+  });
+
+  it('renders the undo button with the shortcut chip when canUndo is true', () => {
+    const onUndo = vi.fn();
+    render(<SalesCartWorkspace {...baseProps} canUndo onUndo={onUndo} />);
     const button = screen.getByTestId('sales-cart-undo');
-    expect(button).toBeDisabled();
-    expect(button.getAttribute('aria-disabled')).toBe('true');
-    // The shortcut chip renders even when the button is disabled
-    // so the cashier learns the keybinding in advance.
+    expect(button).not.toBeDisabled();
+    // The shortcut chip still renders next to the label so the
+    // cashier sees the keybinding when the button is reachable.
     expect(button).toHaveAttribute('aria-keyshortcuts');
     expect(button.getAttribute('aria-keyshortcuts')).toMatch(/\+Z$/);
   });
@@ -55,15 +67,5 @@ describe('SalesCartWorkspace — ENG-105d undo button', () => {
     expect(button).not.toBeDisabled();
     fireEvent.click(button);
     expect(onUndo).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not fire onUndo when the button is disabled', () => {
-    const onUndo = vi.fn();
-    render(
-      <SalesCartWorkspace {...baseProps} canUndo={false} onUndo={onUndo} />
-    );
-    const button = screen.getByTestId('sales-cart-undo');
-    fireEvent.click(button);
-    expect(onUndo).not.toHaveBeenCalled();
   });
 });

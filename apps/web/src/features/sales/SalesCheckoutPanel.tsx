@@ -116,7 +116,11 @@ export function SalesCheckoutPanel({
     : cashSession
       ? !canCharge || preflightHasBlockers
       : !canOpenCashSession;
-  const showSuspendControls = Boolean(onSuspend || onNewSale);
+  // Keep unavailable Suspend out of the tab order; the shortcut catalogue
+  // already owns discovery, and disabled button opacity fails contrast here.
+  const showSuspendAction = Boolean(onSuspend && canSuspend);
+  const showNewSaleAction = Boolean(onNewSale);
+  const showSuspendControls = showSuspendAction || showNewSaleAction;
   const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
 
   return (
@@ -382,12 +386,11 @@ export function SalesCheckoutPanel({
 
         {showSuspendControls && (
           <div className="hidden gap-2 xl:flex" data-testid="checkout-park-controls">
-            {onSuspend && (
+            {showSuspendAction && (
               <button
                 type="button"
                 className="btn-outline flex-1 justify-center"
                 onClick={onSuspend}
-                disabled={!canSuspend}
                 data-testid="checkout-suspend"
                 aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
               >
@@ -395,7 +398,7 @@ export function SalesCheckoutPanel({
                 {t('park.suspend')}
               </button>
             )}
-            {onNewSale && (
+            {showNewSaleAction && (
               <button
                 type="button"
                 className="btn-outline flex-1 justify-center"

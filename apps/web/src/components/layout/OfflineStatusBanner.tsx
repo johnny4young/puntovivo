@@ -122,7 +122,13 @@ export function OfflineStatusBanner() {
             <p className="text-sm font-semibold">{bannerCopy.title}</p>
             <p className="text-sm">{bannerCopy.description}</p>
             {lastSync && (
-              <p className="text-xs opacity-80">{t('offline.lastSync', { date: formatDateTime(lastSync) })}</p>
+              // ENG-134d — opacity-80 dropped the contrast on
+              // text-danger-700 over bg-danger-50/90 from 5.20:1 to
+              // 4.16:1, below WCAG AA. The hint already reads as
+              // de-emphasised via text-xs + the surrounding hierarchy,
+              // so removing the opacity keeps the same visual tier
+              // while satisfying the contrast gate.
+              <p className="text-xs">{t('offline.lastSync', { date: formatDateTime(lastSync) })}</p>
             )}
           </div>
         </div>
