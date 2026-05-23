@@ -131,6 +131,57 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     group: 'navigate',
     perform: ({ navigate }) => navigate('/operations'),
   },
+  // ENG-131b — Surface Switcher. Each surface is module-gated so the
+  // palette never offers a destination the tenant has disabled, and
+  // role-gated to mirror App.tsx route gates. POS Touch / KDS /
+  // Customer Display / Mobile Waiter are cashier-facing shells;
+  // Restaurant Tables is the admin catalog already listed in the
+  // "Sell" sidebar workspace.
+  {
+    id: 'navigate.posTouch',
+    labelKey: 'actions.navigate.posTouch',
+    descriptionKey: 'descriptions.navigate.posTouch',
+    roles: salesRoles,
+    requiredModule: 'pos-touch',
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/touch'),
+  },
+  {
+    id: 'navigate.kds',
+    labelKey: 'actions.navigate.kds',
+    descriptionKey: 'descriptions.navigate.kds',
+    roles: salesRoles,
+    requiredModule: 'kds',
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/kds'),
+  },
+  {
+    id: 'navigate.customerDisplay',
+    labelKey: 'actions.navigate.customerDisplay',
+    descriptionKey: 'descriptions.navigate.customerDisplay',
+    roles: salesRoles,
+    requiredModule: 'customer-display',
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/customer-display'),
+  },
+  {
+    id: 'navigate.mobileWaiter',
+    labelKey: 'actions.navigate.mobileWaiter',
+    descriptionKey: 'descriptions.navigate.mobileWaiter',
+    roles: salesRoles,
+    requiredModule: 'mobile-waiter',
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/m'),
+  },
+  {
+    id: 'navigate.restaurantTables',
+    labelKey: 'actions.navigate.restaurantTables',
+    descriptionKey: 'descriptions.navigate.restaurantTables',
+    roles: adminOnlyRoles,
+    requiredModule: 'pos-touch',
+    group: 'navigate',
+    perform: ({ navigate }) => navigate('/restaurants/tables'),
+  },
   // Admin-only surfaces.
   {
     id: 'navigate.company',
