@@ -614,4 +614,165 @@ describe('DataTable', () => {
       expect(rows[0]).toHaveAttribute('aria-selected', 'true');
     });
   });
+
+  describe('Row activation (ENG-134f)', () => {
+    it('fires onRowActivate with the row data when Enter is pressed on the focused row', async () => {
+      const user = userEvent.setup();
+      const onRowActivate = vi.fn();
+      const products = createTestProducts(3);
+
+      render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
+
+      const rows = getBodyRows();
+      rows[1].focus();
+
+      await user.keyboard('{Enter}');
+
+      expect(onRowActivate).toHaveBeenCalledTimes(1);
+      expect(onRowActivate).toHaveBeenCalledWith(products[1]);
+    });
+
+    it('fires onRowActivate when Space is pressed on the focused row', async () => {
+      const user = userEvent.setup();
+      const onRowActivate = vi.fn();
+      const products = createTestProducts(3);
+
+      render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
+
+      const rows = getBodyRows();
+      rows[2].focus();
+
+      await user.keyboard('{Space}');
+
+      expect(onRowActivate).toHaveBeenCalledTimes(1);
+      expect(onRowActivate).toHaveBeenCalledWith(products[2]);
+    });
+
+    it('does not require enableRowSelection — activate fires even when row selection is disabled', async () => {
+      const user = userEvent.setup();
+      const onRowActivate = vi.fn();
+      const products = createTestProducts(2);
+
+      render(
+        <DataTable
+          columns={columns}
+          data={products}
+          enableRowSelection={false}
+          onRowActivate={onRowActivate}
+        />
+      );
+
+      const rows = getBodyRows();
+      rows[0].focus();
+
+      await user.keyboard('{Enter}');
+
+      expect(onRowActivate).toHaveBeenCalledWith(products[0]);
+    });
+
+    it('falls back to toggleSelected when onRowActivate is undefined and selection is enabled', async () => {
+      // Regression guard for the legacy path (ENG-134c shipped roving
+      // tabindex; ENG-134f adds onRowActivate without breaking the
+      // existing toggleSelected branch).
+      const user = userEvent.setup();
+      const selectionColumns: ColumnDef<Product, unknown>[] = [
+        {
+          id: 'select',
+          header: ({ table }) => (
+            <input
+              type="checkbox"
+              checked={table.getIsAllPageRowsSelected()}
+              onChange={table.getToggleAllPageRowsSelectedHandler()}
+              aria-label="Select all"
+            />
+          ),
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              checked={row.getIsSelected()}
+              onChange={row.getToggleSelectedHandler()}
+              aria-label={`Select row ${row.index + 1}`}
+            />
+          ),
+          enableSorting: false,
+        },
+        ...columns,
+      ];
+
+      render(
+        <DataTable
+          columns={selectionColumns}
+          data={createTestProducts(3)}
+          enableRowSelection
+        />
+      );
+
+      const rows = getBodyRows();
+      rows[0].focus();
+
+      await user.keyboard('{Enter}');
+
+      // No onRowActivate provided → legacy toggleSelected path runs.
+      expect(screen.getByText('1 selected')).toBeInTheDocument();
+    });
+
+    it('does nothing on Enter when neither onRowActivate nor row selection is enabled', async () => {
+      const user = userEvent.setup();
+      const products = createTestProducts(2);
+
+      render(<DataTable columns={columns} data={products} />);
+
+      const rows = getBodyRows();
+      rows[0].focus();
+
+      await user.keyboard('{Enter}');
+
+      // No selection counter, no aria-selected change — the activate
+      // branch returns early without throwing.
+      expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+      expect(rows[0]).not.toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('ignores Enter when the event target is a nested interactive element (not the <tr>)', async () => {
+      // The existing `event.target !== event.currentTarget` guard
+      // prevents the row-level activate from firing when the user
+      // presses Enter while focus is on a column-rendered <button>
+      // or <input>. Mirrors the contract documented in handleRowKeyDown.
+      const user = userEvent.setup();
+      const onRowActivate = vi.fn();
+      const products = createTestProducts(2);
+      const interactiveColumns: ColumnDef<Product, unknown>[] = [
+        {
+          accessorKey: 'name',
+          header: 'Name',
+        },
+        {
+          id: 'action',
+          header: 'Action',
+          cell: ({ row }) => (
+            <button type="button" aria-label={`Edit ${row.original.name}`}>
+              Edit
+            </button>
+          ),
+        },
+      ];
+
+      render(
+        <DataTable
+          columns={interactiveColumns}
+          data={products}
+          onRowActivate={onRowActivate}
+        />
+      );
+
+      // Focus the inner button (not the row itself); Enter on the
+      // button should fire the button's own onClick semantics — not
+      // the row activate.
+      const editButton = screen.getByRole('button', { name: /Edit Product 01/ });
+      editButton.focus();
+      await user.keyboard('{Enter}');
+
+      expect(onRowActivate).not.toHaveBeenCalled();
+    });
+  });
 });

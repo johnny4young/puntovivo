@@ -45,6 +45,16 @@ describe('Modal', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('btn-danger');
   });
 
+  it('uses ariaLabel for titleless modal dialogs', () => {
+    render(
+      <Modal isOpen onClose={vi.fn()} ariaLabel="Command palette">
+        <input aria-label="Search actions" />
+      </Modal>
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+  });
+
   describe('focus restoration on close (ENG-105f)', () => {
     function FocusHarness({
       restoreFocusTo,

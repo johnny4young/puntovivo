@@ -12,7 +12,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/utils';
 import i18n from '@/i18n';
 import { ProductSearchDialog } from './ProductSearchDialog';
@@ -241,5 +241,270 @@ describe('<ProductSearchDialog /> empty-state CTA (ENG-105c)', () => {
     // handleClose resets internal state and calls onClose(); we assert
     // onClose fired which is the visible side effect for the caller.
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+/**
+ * ENG-134e — Coverage for the roving tabindex + ArrowDown/Up/Home/End/Enter
+ * keyboard navigation on product rows. Before this slice, rows had only
+ * `onClick` — a cashier with keyboard alone could not select a product.
+ * The slice adds:
+ *
+ * - `tabIndex={index === activeRowIndex ? 0 : -1}` on every row.
+ * - `aria-selected` reflecting the selection state for screen readers.
+ * - `onKeyDown` with switch on ArrowDown / ArrowUp / Home / End / Enter / Space.
+ * - `onFocus` that syncs `activeRowIndex` when a row receives focus via
+ *   mouse click or programmatic focus.
+ * - Same-render reset that returns `activeRowIndex` to 0 when the
+ *   product result identities change (new search query).
+ *
+ * The mouse-click path stays intact (existing `onClick` still fires).
+ */
+
+function buildProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'p-arroz',
+    name: 'Arroz Diana 500g',
+    sku: 'ABR-0001',
+    stock: 21,
+    baseUnitPrice: 3200,
+    baseUnitAbbreviation: 'UND',
+    categoryName: 'Abarrotes',
+    providerName: null,
+    unitAssignments: [
+      {
+        unitId: 'u-1',
+        unitName: 'Unidad',
+        unitAbbreviation: 'UND',
+        equivalence: 1,
+        price: 3200,
+        isBase: true,
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const THREE_PRODUCTS = [
+  buildProduct({ id: 'p-1', name: 'Arroz Diana 500g', sku: 'ABR-0001' }),
+  buildProduct({ id: 'p-2', name: 'Leche Entera 1L', sku: 'LAC-0001' }),
+  buildProduct({ id: 'p-3', name: 'Pan Tajado', sku: 'PAN-0001' }),
+];
+
+async function fillSearchAndAwaitRows(rowsCount: number) {
+  const user = userEvent.setup();
+  const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
+  await user.type(searchInput, 'arroz');
+  // Rows appear once the deferred query commits and the mock returns
+  // items; await the full set so timing stabilises before assertions.
+  const rows = await screen.findAllByTestId(/product-search-row-/i);
+  expect(rows).toHaveLength(rowsCount);
+  return user;
+}
+
+describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
+  beforeEach(() => {
+    trpcQueryState.data = { items: THREE_PRODUCTS, total: THREE_PRODUCTS.length };
+    trpcQueryState.isLoading = false;
+    trpcQueryState.error = null;
+  });
+
+  it('marks the first row with tabIndex=0 and the rest with tabIndex=-1 on initial render', async () => {
+    renderDialog({});
+    await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    expect(rows[0]).toHaveAttribute('tabindex', '0');
+    expect(rows[1]).toHaveAttribute('tabindex', '-1');
+    expect(rows[2]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('reflects selection through aria-selected', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    expect(rows[0]).toHaveAttribute('aria-selected', 'false');
+    expect(rows[1]).toHaveAttribute('aria-selected', 'false');
+
+    await user.click(rows[1]);
+
+    expect(rows[0]).toHaveAttribute('aria-selected', 'false');
+    expect(rows[1]).toHaveAttribute('aria-selected', 'true');
+    expect(rows[2]).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('ArrowDown moves focus and tabIndex roving forward', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[0].focus();
+    expect(rows[0]).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(rows[1]).toHaveFocus();
+    expect(rows[1]).toHaveAttribute('tabindex', '0');
+    expect(rows[0]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('ArrowDown on the last row is a no-op (no wrap-around)', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[2].focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(rows[2]).toHaveFocus();
+    expect(rows[2]).toHaveAttribute('tabindex', '0');
+  });
+
+  it('ArrowUp on the first row is a no-op (no wrap-around)', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[0].focus();
+
+    await user.keyboard('{ArrowUp}');
+
+    expect(rows[0]).toHaveFocus();
+    expect(rows[0]).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Home jumps focus to the first row from any index', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[2].focus();
+
+    await user.keyboard('{Home}');
+
+    expect(rows[0]).toHaveFocus();
+    expect(rows[0]).toHaveAttribute('tabindex', '0');
+    expect(rows[2]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('End jumps focus to the last row from any index', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[0].focus();
+
+    await user.keyboard('{End}');
+
+    expect(rows[2]).toHaveFocus();
+    expect(rows[2]).toHaveAttribute('tabindex', '0');
+    expect(rows[0]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('Enter on the active row selects the product (same effect as mouse click)', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[1].focus();
+
+    await user.keyboard('{Enter}');
+
+    // The selection panel renders a unit `<select>` only when a
+    // product is selected — its presence is a deterministic proof
+    // the selection state populated. Using the unit select id avoids
+    // the false-positive from `getByText` matching both the row and
+    // the selection panel rendering the same product name.
+    await waitFor(() =>
+      expect(document.getElementById('product-search-unit-select')).not.toBeNull()
+    );
+    expect(rows[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Space behaves like Enter for selection', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[2].focus();
+
+    await user.keyboard(' ');
+
+    await waitFor(() =>
+      expect(document.getElementById('product-search-unit-select')).not.toBeNull()
+    );
+    expect(rows[2]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('mouse click still updates selection (backward compat with the existing path)', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    await user.click(rows[1]);
+
+    await waitFor(() =>
+      expect(document.getElementById('product-search-unit-select')).not.toBeNull()
+    );
+    expect(rows[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('clicking a row also syncs activeRowIndex so subsequent ArrowDown starts from that row', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    await user.click(rows[1]);
+    // onFocus → setActiveRowIndex(1) is batched; await the re-render.
+    await waitFor(() => expect(rows[1]).toHaveAttribute('tabindex', '0'));
+    expect(rows[0]).toHaveAttribute('tabindex', '-1');
+
+    // ArrowDown from row 1 should move focus to row 2.
+    rows[1].focus();
+    await user.keyboard('{ArrowDown}');
+
+    expect(rows[2]).toHaveFocus();
+  });
+
+  it('resets activeRowIndex to the first row when items change to a same-length result set', async () => {
+    renderDialog({});
+    const user = await fillSearchAndAwaitRows(3);
+
+    const rows = screen.getAllByTestId(/product-search-row-/i);
+    rows[2].focus();
+    // onFocus is async; await the roving tabindex reflecting row 2 as active.
+    await waitFor(() => expect(rows[2]).toHaveAttribute('tabindex', '0'));
+
+    // Simulate the next typed character returning a different list.
+    trpcQueryState.data = {
+      items: [
+        buildProduct({ id: 'p-9', name: 'Mango Maduro', sku: 'FRU-0009' }),
+        buildProduct({ id: 'p-10', name: 'Banano Bocadillo', sku: 'FRU-0010' }),
+        buildProduct({ id: 'p-11', name: 'Manzana Roja', sku: 'FRU-0011' }),
+      ],
+      total: 3,
+    } as unknown as typeof trpcQueryState.data;
+
+    // Trigger a re-query by typing one more char so useDeferredValue
+    // updates while the result length stays 3. The mock returns the
+    // new identities on the next invocation of the hook.
+    const searchInput = screen.getByPlaceholderText(/Search by SKU/i);
+    await user.type(searchInput, 'm');
+
+    const newRows = await screen.findAllByTestId(/product-search-row-/i);
+    expect(newRows).toHaveLength(3);
+    expect(newRows[0]).toHaveAttribute('tabindex', '0');
+    expect(newRows[1]).toHaveAttribute('tabindex', '-1');
+    expect(newRows[2]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('does not throw when the list is empty (no rows, no key nav targets)', () => {
+    trpcQueryState.data = { items: [], total: 0 };
+    renderDialog({});
+    // Just rendering with an empty list should not throw — activeRowIndex
+    // stays at 0 with no rows to focus.
+    expect(screen.queryAllByTestId(/product-search-row-/i)).toHaveLength(0);
   });
 });

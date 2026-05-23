@@ -197,6 +197,9 @@ export function PurchasesHistoryTable({
             searchKey="purchaseNumber"
             searchPlaceholder={t('table.searchPlaceholder')}
             pageSize={8}
+            // ENG-134f — Enter / Space on the focused row opens the
+            // purchase detail modal, mirroring the row's Eye button click.
+            onRowActivate={row => onView(row.id)}
           />
         </div>
       )}

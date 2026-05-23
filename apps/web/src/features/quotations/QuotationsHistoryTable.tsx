@@ -261,6 +261,9 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
                 searchKey="customerName"
                 searchPlaceholder={t('history.search')}
                 pageSize={10}
+                // ENG-134f — Enter / Space on the focused row opens the
+                // quotation details, mirroring the row's primary View button.
+                onRowActivate={row => onOpenDetails(row.id)}
               />
             </div>
           )}

@@ -11,6 +11,8 @@ export interface ModalProps {
   onClose: () => void;
   /** Modal title */
   title?: string;
+  /** Accessible label used when the modal has no visible title */
+  ariaLabel?: string;
   /** Modal content */
   children: ReactNode;
   /** Footer content (typically action buttons) */
@@ -57,6 +59,7 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  ariaLabel,
   children,
   footer,
   size = 'md',
@@ -190,6 +193,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
+      aria-label={title ? undefined : ariaLabel}
     >
       {/* Backdrop */}
       <div

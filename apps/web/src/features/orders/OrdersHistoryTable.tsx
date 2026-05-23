@@ -151,6 +151,9 @@ export function OrdersHistoryTable({
           searchKey="orderNumber"
           searchPlaceholder={t('table.searchPlaceholder')}
           pageSize={8}
+          // ENG-134f — Enter / Space on the focused row opens the
+          // order detail modal, mirroring the row's Eye button click.
+          onRowActivate={row => onView(row.id)}
         />
       )}
     </div>

@@ -36,11 +36,14 @@ export interface CommandPaletteProps {
 }
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+  const { t } = useTranslation('palette');
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={undefined}
+      ariaLabel={t('title')}
       size="md"
       closeOnBackdrop
       closeOnEsc

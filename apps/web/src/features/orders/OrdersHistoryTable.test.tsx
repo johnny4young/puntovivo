@@ -68,4 +68,28 @@ describe('OrdersHistoryTable', () => {
     await user.click(screen.getByRole('button', { name: 'View PED-000001' }));
     expect(onView).toHaveBeenCalledWith('order-1');
   });
+
+  it('fires onView with the order id when Enter is pressed on a focused row (ENG-134f)', async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+
+    render(
+      <OrdersHistoryTable
+        orders={[createOrder()]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        canManageReceipts={false}
+        onView={onView}
+        onReceive={vi.fn()}
+      />
+    );
+
+    const row = screen.getByRole('row', { name: /PED-000001/ });
+    row.focus();
+    await user.keyboard('{Enter}');
+
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(onView).toHaveBeenCalledWith('order-1');
+  });
 });

@@ -297,6 +297,9 @@ export function CustomersPage() {
         onRetry={() => {
           void refetch();
         }}
+        // ENG-134f — Enter / Space on a focused row opens the edit
+        // modal, mirroring the row's Pencil button click.
+        onRowActivate={handleOpenEdit}
       />
 
       <CustomerFormModal

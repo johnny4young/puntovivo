@@ -162,6 +162,8 @@ const columns = (
           className="btn-ghost btn-icon h-8 w-8"
           onClick={() => onEdit(row.original)}
           disabled={!canEdit}
+          aria-label={i18next.t('common:actions.edit')}
+          title={i18next.t('common:actions.edit')}
         >
           <Pencil className="h-4 w-4" />
         </button>
@@ -169,6 +171,8 @@ const columns = (
           <button
             className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
             onClick={() => onDelete(row.original)}
+            aria-label={i18next.t('common:actions.delete')}
+            title={i18next.t('common:actions.delete')}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -566,23 +570,37 @@ export function ProductsPage() {
               </>
             )}
 
-            <DataTable
-              columns={columns(
-                product => {
-                  setEditingProduct(product);
-                  setModalInstanceKey(current => current + 1);
-                  setIsModalOpen(true);
-                },
-                product => setProductToDelete(product),
-                canManage,
-                canDelete,
-                semanticIsActive
-              )}
-              data={displayProducts}
-              searchKey={semanticModeEnabled ? undefined : 'name'}
-              searchPlaceholder={t('table.search')}
-              pageSize={10}
-            />
+            {(() => {
+              // ENG-134f — extract the row-edit action so we can wire
+              // it to both the column's Pencil button (mouse path) AND
+              // `onRowActivate` (keyboard Enter/Space path). Defining
+              // it inline as an IIFE keeps the existing canManage /
+              // canDelete / semanticIsActive closures intact.
+              const handleOpenEditRow = (product: Product) => {
+                setEditingProduct(product);
+                setModalInstanceKey(current => current + 1);
+                setIsModalOpen(true);
+              };
+              return (
+                <DataTable
+                  columns={columns(
+                    handleOpenEditRow,
+                    product => setProductToDelete(product),
+                    canManage,
+                    canDelete,
+                    semanticIsActive
+                  )}
+                  data={displayProducts}
+                  searchKey={semanticModeEnabled ? undefined : 'name'}
+                  searchPlaceholder={t('table.search')}
+                  pageSize={10}
+                  // ENG-134f — only manager / admin can edit; for
+                  // viewer / cashier roles the keyboard path stays
+                  // a no-op (no Pencil button to mirror).
+                  onRowActivate={canManage ? handleOpenEditRow : undefined}
+                />
+              );
+            })()}
 
             {semanticIsActive && displayProducts.length === 0 && !semanticSearchQuery.isFetching && (
               <p className="text-sm text-secondary-500">{t('semantic.noResults')}</p>
