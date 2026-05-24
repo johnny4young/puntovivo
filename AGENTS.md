@@ -249,3 +249,14 @@ The `Status` column in `ROADMAP.md §3b` is the single source of truth for what 
 - When closing a ticket, append `**Shipped**: <2-3 line summary>` to the end of the Scope cell AND change the Status column to `Shipped` in the same commit. Match the style of rows `ENG-003 / ENG-004 / ENG-008`.
 - When closing a Partial ticket: if sub-steps remain and they're worth doing later, either promote the "Remaining:" list into a fresh `ENG-NNNb` with `Pending` (then mark original `Shipped`), or keep the parent as `Partial` with the updated "Remaining:" list. Do not leave unstated remainders.
 - Agents skipping `Gated` / `Deferred` tickets report the gate back to the operator instead of guessing a workaround.
+
+### Follow-up capture rule
+
+Every Review Guide that ends with a "Follow-ups deferidos" / "Follow-ups deferred" / "Out-of-scope" / "MEDIUM observations" section MUST do one of these before the commit lands:
+
+1. **Capture inline** — write each follow-up as a bullet in `docs/BACKLOG.md` (Section 1 for items with implicit AC, Section 2 for cosmetic / polish, Section 3 for spikes, Section 4 for parked operator requests) with a `— YYYY-MM-DD (ENG-NNN follow-up)` date stamp, and stage that edit alongside the ticket diff. The operator can prune later; the cost of a stale BACKLOG bullet is one line.
+2. **OR explicitly ask** the operator in the same Review Guide ("Promote items 2-4 to BACKLOG?") before stopping the turn. Do not assume the operator will read the Review Guide and capture them manually.
+
+Follow-ups that live only in chat decay when the session compacts. If the next sprint picks up the parent ticket and never sees the follow-up list, that is a documentation failure on the agent's part — not the operator's. When in doubt, capture: pruning a stale BACKLOG bullet is one-line work; recovering a lost follow-up requires reconstructing context that may not survive a `/compact`.
+
+This rule applies to BOTH the `puntovivo-ship` (Phase 2 step 2.7) and `puntovivo-review` (final report) skills. The skill files mirror the rule, but AGENTS.md is the source of truth — any drift between the skill files and this section is a bug in the skill files.

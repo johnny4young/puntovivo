@@ -176,3 +176,26 @@ describe('TOP_LEVEL_DASHBOARD', () => {
     ).toBe(false);
   });
 });
+
+describe('workspace defaultRoute (ENG-131c)', () => {
+  it('catalog, procurement, finance workspaces default to their landing route', () => {
+    const landings: Record<string, string> = {
+      catalog: '/catalog',
+      procurement: '/procurement',
+      finance: '/finance',
+    };
+    for (const [id, expected] of Object.entries(landings)) {
+      const workspace = WORKSPACES.find(w => w.id === id);
+      expect(workspace?.defaultRoute).toBe(expected);
+    }
+  });
+
+  it('workspaces without a dedicated landing default to the first item href', () => {
+    const noLanding = ['sell', 'operate', 'inventory', 'customers', 'setup'];
+    for (const id of noLanding) {
+      const workspace = WORKSPACES.find(w => w.id === id);
+      expect(workspace).toBeDefined();
+      expect(workspace?.defaultRoute).toBe(workspace?.items[0]?.href);
+    }
+  });
+});

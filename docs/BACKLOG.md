@@ -316,6 +316,93 @@ research.
   cached query + capture a populated screenshot in one
   Playwright session. — 2026-05-18 (ENG-088)
 
+- `[sales][credit]` Refund-of-partial-credit reversal flow. The
+  defensive throw in `services/sales/refund.ts` blocks the path
+  today. A future ticket builds operator-facing copy + transactional
+  reversal of both the cash-session entry and the
+  `customer_ledger_entries` row when a partial-credit sale is
+  refunded. — 2026-05-23 (ENG-014 follow-up)
+
+- `[sales][credit][ux]` Richer partial-credit receipt footer copy.
+  V1 reuses the ENG-090 full-credit footer template
+  ("Pagado a crédito · saldo posterior $X"). A richer template
+  ("Cuota inicial: $X efectivo · A crédito: $Y · Saldo: $Z")
+  makes the split tender legible on the printed receipt. Reuses
+  the existing receipt-template engine; the new template variant
+  is the deliverable. — 2026-05-23 (ENG-014 follow-up)
+
+- `[sales][credit][sync]` Sync conflict semantics for
+  partial-credit sales. When a central server eventually
+  reconciles, the `customer_ledger_entries` row needs separate
+  conflict handling from the sale row (the sale row may resolve
+  via last-writer-wins while the ledger row needs an idempotent
+  upsert by (saleId, tender_index)). Out of scope for V1 (local-
+  store authority); revisit when the sync substrate ships
+  (ENG-040 / ENG-164). — 2026-05-23 (ENG-014 follow-up)
+
+- `[ai][infra]` Manager-without-siteId AI quota bypass. When
+  `ctx.siteId` is null for a manager (rare — happens when an admin
+  acts in a context that hasn't selected a site), the per-site
+  quota check in `services/ai/quotas.ts` is skipped while the
+  provider call still fires. The per-tenant USD budget gate
+  (`AI_BUDGET_EXCEEDED`) still applies, so it is a defense gap,
+  not a hole. A future ticket either throws a hard error or
+  requires a site context for every manager-level AI call.
+  — 2026-05-23 (ENG-102 follow-up)
+
+- `[ai][infra]` UTC vs local-time month boundary in
+  `services/ai/quotas.ts::monthBounds`. The current helper uses
+  `new Date(now.getFullYear(), now.getMonth(), 1)` — local-time
+  anchored, matching `currentMonthSpend`. In a cloud deployment
+  the boundary would be UTC midnight on day 1 instead of local
+  midnight, creating a window where "this month's spend" and
+  "this month's quota usage" point at different definitions of
+  "this month". Flip both helpers together. — 2026-05-23 (ENG-102 follow-up)
+
+- `[ai][settings]` Runtime-tunable `AI_QUOTAS`. V1 hardcodes
+  800 / 200 calls/month in `services/ai/quotas.ts`. Move to
+  `tenants.settings.ai.quotas.{copilot,invoiceOcr}` so an
+  operator can adjust per tenant without a rebuild. The web
+  surface lives next to the existing AI Settings card.
+  — 2026-05-23 (ENG-102 follow-up)
+
+- `[offline][testing]` Drift detection between
+  `OFFLINE_CAPABILITY_CATALOG` array (`OfflineCapabilityGrid.tsx`)
+  and the audit-doc table in `WEBSITE-CAPABILITY-AUDIT.md`. Today
+  only review catches a stale markdown table. A future test parses
+  the `## Tile Catalog` MD table and compares against the exported
+  constant. Low value/complexity ratio for a 6-row catalog —
+  size when the catalog grows past 10 rows or a markdown-drift
+  bug actually lands. — 2026-05-23 (ENG-100 follow-up)
+
+- `[ux][testing]` Permanent responsive smokes at 768 / 390
+  viewports for workspace navigation. ENG-131 slice A shipped
+  the sidebar refactor without a Playwright spec exercising the
+  mobile drawer + tablet break; slice C added an inline mobile
+  resize check but no E2E coverage that survives across sessions.
+  Future spec parametrizes the existing `business.spec.ts` or
+  `a11y.spec.ts` route catalogue with `page.setViewportSize` at
+  768 and 390 — same routes, different viewport, fresh DOM
+  assertions on the workspace header + drawer overlay.
+  — 2026-05-23 (ENG-131 follow-up)
+
+- `[nav][ux]` CommandPalette `navigate.catalog` /
+  `navigate.procurement` / `navigate.finance` actions. ENG-131c
+  shipped the three landing routes but the palette has no entry
+  for them — typing "catálogo" / "compras" / "finanzas" in `Mod+K`
+  returns no result. Three new actions mirroring the ENG-131b
+  pattern (label + description in en + es `palette.json` + role
+  gating per `workspace.allowedRoles`, no module gate since the
+  landing itself filters items). — 2026-05-23 (ENG-131c follow-up)
+
+- `[observability][perf]` `withSpan` error path triggers two
+  opt-in cache lookups on cold-cache (one via `captureException`,
+  one via `maybeRecordSpan` in `packages/server/src/observability/capture.ts`).
+  Benign because of the 60s cache, but could share a single
+  resolution by passing the resolved opt-in flag from the outer
+  to the inner call. Surfaced by the server reviewer as MEDIUM
+  during ENG-135 review. — 2026-05-23 (ENG-135 follow-up)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated
@@ -350,6 +437,42 @@ and want to batch them into one sprint.
   `useEffect(() => { if (pickedCountry === null && current?.countryCode) setPickedCountry(current.countryCode); }, [...])`
   pattern with a functional setState, a ref guard, or a derived
   `useMemo`. — 2026-04-24 (jy)
+
+- `[ux][a11y][nav]` ENG-131 a11y + DX polish batch. Seven micro-items
+  surfaced by reviewers across ENG-131 slices A, B, and C that are
+  too small for individual bullets but worth grouping for a single
+  follow-up sprint: (a) `Sidebar.tsx` chevron carries
+  `aria-label={title}` identical to its sibling Link text — refine
+  to `${title} (sección)` or visually-hidden suffix so a screen
+  reader announces the disclosure intent distinctly (not a WCAG
+  fail because `aria-expanded` already disambiguates, but it is
+  friction for screen-reader-only operators); (b)
+  `WorkspaceLandingPage.test.tsx` (ENG-131c) should call
+  `assertNoA11yViolations(container)` per the A11Y.md opt-in
+  pattern, closing the axe loop on the new landing component;
+  (c) when `docs/COMMAND-PALETTE.md` is eventually created,
+  document the coupling between `lib/commandPaletteActions.ts`
+  and `components/layout/workspaces.ts` so a future operator
+  adding a surface remembers to update both; (d) extract the 5
+  surface paths (`/touch`, `/kds`, `/customer-display`, `/m`,
+  `/restaurants/tables`) into a shared constant consumed by
+  palette + workspaces to prevent drift; (e) add a snapshot test
+  of the entire palette catalogue
+  (`expect(getCommandPaletteActions()).toMatchSnapshot()`) so an
+  accidental action deletion fails CI; (f) document in JSDoc on
+  `visibleItemsForWorkspace` (workspaces.ts) that
+  `modules[item.requiredModule] === false` is the only state that
+  hides an item — absent module keys default to "on" matching the
+  `CLIENT_MODULE_DEFAULTS` fallback used in the sidebar, so a
+  future maintainer adding a `requiredModule` item does not
+  expect opt-in (default off) semantics; (g) consolidate the 3
+  `lazyPage` wrappers (`CatalogLandingRoute` /
+  `ProcurementLandingRoute` / `FinanceLandingRoute`) into a
+  single `lazy(WorkspaceLandingPage)` invoked at route element
+  level with the `workspaceId` prop, mirroring the cleaner
+  `TouchVoiceRoute` pattern — eliminates 3 separate Suspense
+  boundary instances for the same chunk. — 2026-05-23 (ENG-131 /
+  ENG-131b / ENG-131c reviewer observations)
 
 ## 3. Spikes and research
 

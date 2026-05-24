@@ -172,3 +172,45 @@ describe('Sidebar workspaces (ENG-131a)', () => {
     expect(screen.getByRole('link', { name: /audit log/i })).toBeInTheDocument();
   });
 });
+
+describe('Sidebar workspace header navigation (ENG-131c)', () => {
+  it('catalog, procurement, finance workspace headers render an anchor link to their landing route', () => {
+    render(<Sidebar {...sidebarProps} />);
+    const cases: Array<[string, string]> = [
+      ['sidebar-workspace-link-catalog', '/catalog'],
+      ['sidebar-workspace-link-procurement', '/procurement'],
+      ['sidebar-workspace-link-finance', '/finance'],
+    ];
+    for (const [testId, expectedHref] of cases) {
+      const link = screen.getByTestId(testId);
+      expect(link.tagName).toBe('A');
+      expect(link.getAttribute('href')).toBe(expectedHref);
+    }
+  });
+
+  it('workspaces without a landing keep their header link pointing at the first item route', () => {
+    render(<Sidebar {...sidebarProps} />);
+    const cases: Array<[string, string]> = [
+      ['sidebar-workspace-link-sell', '/sales'],
+      ['sidebar-workspace-link-operate', '/operations'],
+      ['sidebar-workspace-link-inventory', '/inventory'],
+      ['sidebar-workspace-link-customers', '/customers'],
+      ['sidebar-workspace-link-setup', '/company'],
+    ];
+    for (const [testId, expectedHref] of cases) {
+      const link = screen.getByTestId(testId);
+      expect(link.tagName).toBe('A');
+      expect(link.getAttribute('href')).toBe(expectedHref);
+    }
+  });
+
+  it('the chevron button remains the canonical aria-expanded disclosure surface', () => {
+    render(<Sidebar {...sidebarProps} />);
+    const chevron = screen.getByTestId('sidebar-workspace-catalog');
+    expect(chevron.tagName).toBe('BUTTON');
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(chevron.getAttribute('aria-controls')).toBe(
+      'sidebar-workspace-panel-catalog'
+    );
+  });
+});

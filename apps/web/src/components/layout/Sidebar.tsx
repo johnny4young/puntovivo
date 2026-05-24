@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -152,12 +152,14 @@ function WorkspaceGroupHeader({
   title,
   isOpen,
   onToggle,
+  onNavigate,
   controlsId,
 }: {
   workspace: VisibleWorkspace['workspace'];
   title: string;
   isOpen: boolean;
   onToggle: () => void;
+  onNavigate: () => void;
   controlsId: string;
 }) {
   // ENG-131 (slice A) — generalises the ENG-079b collapsible
@@ -166,6 +168,17 @@ function WorkspaceGroupHeader({
   // aria-expanded + aria-controls satisfy the WAI-ARIA disclosure
   // pattern documented in docs/A11Y.md.
   //
+  // ENG-131c — the header splits into a `<Link>` (icon + label,
+  // navigates to the workspace `defaultRoute` — which for catalog /
+  // procurement / finance is the new landing route, and for the
+  // others stays the first item) and a sibling `<button>` (chevron,
+  // owns the disclosure state). Keeping them as two siblings
+  // preserves cmd+click + screen-reader semantics on the label
+  // (navigation) while keeping the chevron the canonical aria-
+  // expanded surface (disclosure). The chevron retains the
+  // pre-slice-C test id so existing tests + smoke selectors keep
+  // working unchanged.
+  //
   // ENG-134 slice B (2026-05-21) — the label class moved from
   // `text-secondary-500` (oklch L=0.61) to `text-fg2` (semantic
   // mid-contrast foreground, oklch L=0.37). The original token
@@ -173,26 +186,34 @@ function WorkspaceGroupHeader({
   // failing WCAG AA 4.5:1. `text-fg2` is the canonical readable-
   // muted token from the ENG-080b foreground ramp.
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={isOpen}
-      aria-controls={controlsId}
-      data-testid={`sidebar-workspace-${workspace.id}`}
-      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-fg2 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-    >
-      <span className="inline-flex min-w-0 items-center gap-2">
+    <div className="flex w-full items-center gap-1">
+      <Link
+        to={workspace.defaultRoute}
+        onClick={onNavigate}
+        data-testid={`sidebar-workspace-link-${workspace.id}`}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-fg2 transition-colors hover:bg-secondary-100/60 hover:text-secondary-950 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+      >
         <workspace.icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span className="truncate">{title}</span>
-      </span>
-      <ChevronDown
-        className={cn(
-          'h-3.5 w-3.5 shrink-0 transition-transform duration-150',
-          !isOpen && '-rotate-90'
-        )}
-        aria-hidden="true"
-      />
-    </button>
+      </Link>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={controlsId}
+        aria-label={title}
+        data-testid={`sidebar-workspace-${workspace.id}`}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg2 transition-colors hover:bg-secondary-100/60 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+      >
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 transition-transform duration-150',
+            !isOpen && '-rotate-90'
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    </div>
   );
 }
 
@@ -306,6 +327,7 @@ function SidebarWorkspaceSection({
           title={headerTitle}
           isOpen={isOpen}
           onToggle={toggle}
+          onNavigate={onNavigate}
           controlsId={controlsId}
         />
       )}

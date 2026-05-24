@@ -199,7 +199,10 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'catalog.label',
     icon: Package,
     allowedRoles: managerOrAdminRoles,
-    defaultRoute: '/products',
+    // ENG-131c — workspace landing route. Header click navigates here;
+    // deep links to leaf routes (/products, /categories, …) keep
+    // working unchanged.
+    defaultRoute: '/catalog',
     items: [
       { nameKey: 'items.products', href: '/products', icon: Package, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.categories', href: '/categories', icon: FolderTree, allowedRoles: adminOnlyRoles },
@@ -227,7 +230,8 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'procurement.label',
     icon: ShoppingBasket,
     allowedRoles: managerOrAdminRoles,
-    defaultRoute: '/orders',
+    // ENG-131c — workspace landing route. Header click navigates here.
+    defaultRoute: '/procurement',
     items: [
       { nameKey: 'items.orders', href: '/orders', icon: ClipboardList, allowedRoles: managerOrAdminRoles },
       { nameKey: 'items.purchases', href: '/purchases', icon: ShoppingBasket, allowedRoles: managerOrAdminRoles },
@@ -262,7 +266,8 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'finance.label',
     icon: HandCoins,
     allowedRoles: adminOnlyRoles,
-    defaultRoute: '/fiscal-documents',
+    // ENG-131c — workspace landing route. Header click navigates here.
+    defaultRoute: '/finance',
     items: [
       { nameKey: 'items.fiscalDocuments', href: '/fiscal-documents', icon: FileSignature, allowedRoles: adminOnlyRoles },
       { nameKey: 'items.fiscalReports', href: '/fiscal-reports', icon: PieChart, allowedRoles: adminOnlyRoles },
