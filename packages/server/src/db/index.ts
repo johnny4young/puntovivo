@@ -96,6 +96,29 @@ export async function initDatabase(
   }
   sqlite.pragma('foreign_keys = ON');
 
+  // ENG-174 — pinned PRAGMA cluster for concurrent-read performance and
+  // WAL-file health. Five readers/writers compete for the writer slot on
+  // a busy POS (HTTP, SSE, sync worker, hardware worker, fiscal worker,
+  // payment worker); without busy_timeout a lock collision aborts a
+  // request immediately. The cache_size / mmap / temp_store trio reduces
+  // syscall and disk pressure on the hot read paths (audit_logs listing,
+  // fiscal_outbox + payment_outbox polling). wal_autocheckpoint keeps the
+  // WAL file from growing unbounded between cold reboots. Settings sized
+  // against the 4 GB-device floor documented in PERF-BUDGETS.md.
+  //
+  // busy_timeout, foreign_keys, temp_store, and cache_size apply to
+  // every connection (including `:memory:`); mmap_size and
+  // wal_autocheckpoint are no-ops on in-memory databases because there
+  // is no underlying file to map or checkpoint, so we skip them when
+  // dbPath is `:memory:` to keep the pragma list honest.
+  sqlite.pragma('busy_timeout = 5000');
+  sqlite.pragma('cache_size = -64000');
+  sqlite.pragma('temp_store = MEMORY');
+  if (dbPath !== ':memory:') {
+    sqlite.pragma('mmap_size = 268435456');
+    sqlite.pragma('wal_autocheckpoint = 1000');
+  }
+
   // Create Drizzle instance
   db = drizzle(sqlite, { schema });
 

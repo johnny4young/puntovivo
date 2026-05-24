@@ -46,6 +46,9 @@
     "node": ">=24.0.0"
   },
   "overrides": {
-    "@electron/fuses": "$@electron/fuses"
+    "@electron/fuses": "$@electron/fuses",
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }
