@@ -155,9 +155,21 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             />
           </div>
 
+          {/*
+            ENG-131c colateral — at 375×667 the bell button (40px) plus
+            gap-2 (8px) plus the user avatar pill (52px wide on mobile)
+            overflowed the header pill by 6px and the rounded-[28px]
+            corner clipped the avatar. The bell currently has no onClick
+            handler (placeholder for a future notifications feature), so
+            we hide it on mobile and match the same `sm:`-breakpoint
+            precedent already used by the language + site selectors
+            immediately above. When the notifications feature ships, the
+            mobile surface can be re-exposed via the user menu or as a
+            dedicated mobile affordance.
+          */}
           <button
             type="button"
-            className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line/70 bg-surface-2/70 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700"
+            className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line/70 bg-surface-2/70 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700 sm:inline-flex"
             aria-label={t('common:notifications')}
           >
             <Bell className="h-4 w-4" />

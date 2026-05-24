@@ -168,6 +168,21 @@ const MobileWaiterShell = lazyPage(async () => ({
 const MobileWaiterHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/MobileWaiterHome')).default,
 }));
+// ENG-131c — workspace landing pages for /catalog, /procurement,
+// and /finance. Each lazy wrapper pins the workspaceId so the same
+// generic component renders the right workspace catalogue.
+const CatalogLandingRoute = lazyPage(async () => {
+  const mod = await import('@/features/workspaces/WorkspaceLandingPage');
+  return { default: () => <mod.WorkspaceLandingPage workspaceId="catalog" /> };
+});
+const ProcurementLandingRoute = lazyPage(async () => {
+  const mod = await import('@/features/workspaces/WorkspaceLandingPage');
+  return { default: () => <mod.WorkspaceLandingPage workspaceId="procurement" /> };
+});
+const FinanceLandingRoute = lazyPage(async () => {
+  const mod = await import('@/features/workspaces/WorkspaceLandingPage');
+  return { default: () => <mod.WorkspaceLandingPage workspaceId="finance" /> };
+});
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -490,6 +505,36 @@ function App() {
               element={
                 <ShellRoute allowedRoles={adminOnlyRoles}>
                   <FiscalReportsPage />
+                </ShellRoute>
+              }
+            />
+            {/* ENG-131c — workspace landing routes. Each `/catalog`,
+                `/procurement`, `/finance` URL now resolves to a
+                grid-of-cards landing page that mirrors the workspace
+                items the operator can see, filtered by role and
+                active modules. Deep links to leaf routes (/products,
+                /audit-logs, etc.) continue to resolve as before. */}
+            <Route
+              path="catalog"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                  <CatalogLandingRoute />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="procurement"
+              element={
+                <ShellRoute allowedRoles={managerOrAdminRoles}>
+                  <ProcurementLandingRoute />
+                </ShellRoute>
+              }
+            />
+            <Route
+              path="finance"
+              element={
+                <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <FinanceLandingRoute />
                 </ShellRoute>
               }
             />
