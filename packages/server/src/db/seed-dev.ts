@@ -30,8 +30,8 @@
  * @module db/seed-dev
  */
 
-import * as argon2 from 'argon2';
 import { and, eq, sql } from 'drizzle-orm';
+import { hashPasswordSecurely } from '../security/passwords.js';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from './index.js';
@@ -300,7 +300,7 @@ export async function seedDevData(
     id: nanoid(),
     ...profile,
   }));
-  const passwordHash = await argon2.hash(DEV_USER_PASSWORD);
+  const passwordHash = await hashPasswordSecurely(DEV_USER_PASSWORD);
   for (const u of seedUsers) {
     await db
       .insert(users)

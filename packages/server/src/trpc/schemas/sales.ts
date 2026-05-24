@@ -29,19 +29,21 @@ export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided
 // Input Schemas
 // ============================================================================
 
-export const saleItemInput = z.object({
-  productId: z.string().min(1, 'Product ID is required'),
-  unitId: z.string().min(1, 'Unit ID is required'),
-  quantity: z.number().positive('Quantity must be greater than zero'),
-  unitPrice: z.number().min(0, 'Unit price must be non-negative'),
-  discount: z.number().min(0).max(100).default(0),
-  taxRate: z.number().min(0).max(100).optional(),
-  // ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
-  // 280-char cap mirrors restaurantTables.notes. Empty / whitespace
-  // strings collapse to null at the resolver to keep the column
-  // semantically two-state: present (real note) or absent.
-  notes: z.string().trim().max(280).nullable().optional(),
-});
+export const saleItemInput = z
+  .object({
+    productId: z.string().min(1, 'Product ID is required'),
+    unitId: z.string().min(1, 'Unit ID is required'),
+    quantity: z.number().positive('Quantity must be greater than zero'),
+    unitPrice: z.number().min(0, 'Unit price must be non-negative'),
+    discount: z.number().min(0).max(100).default(0),
+    taxRate: z.number().min(0).max(100).optional(),
+    // ENG-039d2 — per-line modifier ("sin cebolla", "extra queso").
+    // 280-char cap mirrors restaurantTables.notes. Empty / whitespace
+    // strings collapse to null at the resolver to keep the column
+    // semantically two-state: present (real note) or absent.
+    notes: z.string().trim().max(280).nullable().optional(),
+  })
+  .strict();
 
 export const listSalesInput = paginationInput.extend({
   customerId: z.string().optional(),
@@ -61,14 +63,16 @@ export const getSaleInput = z.object({
  * fields, which the server normalizes into a single payment row. Credit sales
  * stay on the legacy path until Phase 5 adds on-account balances and abonos.
  */
-export const salePaymentInput = z.object({
-  method: splitPaymentMethodEnum,
-  amount: z
-    .number()
-    .finite('Amount must be a finite number')
-    .positive('Amount must be greater than zero'),
-  reference: z.string().trim().max(120).optional(),
-});
+export const salePaymentInput = z
+  .object({
+    method: splitPaymentMethodEnum,
+    amount: z
+      .number()
+      .finite('Amount must be a finite number')
+      .positive('Amount must be greater than zero'),
+    reference: z.string().trim().max(120).optional(),
+  })
+  .strict();
 
 /**
  * ENG-039d — restaurant tip / propina method enum. `tipAmount` defaults
@@ -123,6 +127,7 @@ export const createSaleInput = z
      */
     creditOverride: z.boolean().optional(),
   })
+  .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
@@ -154,22 +159,28 @@ export const createSaleInput = z
     }
   );
 
-export const updateSaleInput = z.object({
-  id: z.string().min(1, 'ID is required'),
-  paymentMethod: paymentMethodEnum.optional(),
-  paymentStatus: paymentStatusEnum.optional(),
-  notes: z.string().nullable().optional(),
-});
+export const updateSaleInput = z
+  .object({
+    id: z.string().min(1, 'ID is required'),
+    paymentMethod: paymentMethodEnum.optional(),
+    paymentStatus: paymentStatusEnum.optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .strict();
 
-export const voidSaleInput = z.object({
-  id: z.string().min(1, 'ID is required'),
-  reason: z.string().optional(),
-});
+export const voidSaleInput = z
+  .object({
+    id: z.string().min(1, 'ID is required'),
+    reason: z.string().optional(),
+  })
+  .strict();
 
-export const returnSaleInput = z.object({
-  id: z.string().min(1, 'ID is required'),
-  reason: z.string().optional(),
-});
+export const returnSaleInput = z
+  .object({
+    id: z.string().min(1, 'ID is required'),
+    reason: z.string().optional(),
+  })
+  .strict();
 
 // ============================================================================
 // ENG-018 — park-and-resume inputs
@@ -182,16 +193,18 @@ export const returnSaleInput = z.object({
  * hint ("Table 5", "Customer Juan") so cashiers can recognize drafts
  * in the resume panel without opening each one.
  */
-export const suspendSaleInput = z.object({
-  saleId: z.string().min(1, 'Sale ID is required'),
-  label: z.string().trim().max(80).optional(),
-  /**
-   * ENG-039c — optional restaurant table FK. When present, the server
-   * validates against the tenant catalog and refreshes `suspendedLabel`
-   * to the resolved table name so the panel display stays in sync.
-   */
-  tableId: z.string().min(1).optional(),
-});
+export const suspendSaleInput = z
+  .object({
+    saleId: z.string().min(1, 'Sale ID is required'),
+    label: z.string().trim().max(80).optional(),
+    /**
+     * ENG-039c — optional restaurant table FK. When present, the server
+     * validates against the tenant catalog and refreshes `suspendedLabel`
+     * to the resolved table name so the panel display stays in sync.
+     */
+    tableId: z.string().min(1).optional(),
+  })
+  .strict();
 
 /**
  * ENG-039c — Input for `sales.changeTable`. Moves a suspended draft
@@ -199,11 +212,13 @@ export const suspendSaleInput = z.object({
  * passing `null`. The mutation gates on the existing owner-or-manager
  * rule mirrored from `sales.resume`.
  */
-export const changeSaleTableInput = z.object({
-  saleId: z.string().min(1, 'Sale ID is required'),
-  /** `null` clears the FK (back to free-text label). */
-  tableId: z.string().min(1).nullable(),
-});
+export const changeSaleTableInput = z
+  .object({
+    saleId: z.string().min(1, 'Sale ID is required'),
+    /** `null` clears the FK (back to free-text label). */
+    tableId: z.string().min(1).nullable(),
+  })
+  .strict();
 
 /**
  * ENG-039c3 — Input for `sales.splitDraft`. Moves the chosen sale items
@@ -222,14 +237,16 @@ export const changeSaleTableInput = z.object({
  *   table name takes precedence so the panel display stays in sync
  *   with the FK, matching `suspend`/`changeTable`).
  */
-export const splitDraftInput = z.object({
-  sourceSaleId: z.string().min(1, 'Source sale ID is required'),
-  saleItemIds: z
-    .array(z.string().min(1))
-    .min(1, 'At least one sale item must be selected'),
-  tableId: z.string().min(1).nullable(),
-  label: z.string().trim().max(80).optional(),
-});
+export const splitDraftInput = z
+  .object({
+    sourceSaleId: z.string().min(1, 'Source sale ID is required'),
+    saleItemIds: z
+      .array(z.string().min(1))
+      .min(1, 'At least one sale item must be selected'),
+    tableId: z.string().min(1).nullable(),
+    label: z.string().trim().max(80).optional(),
+  })
+  .strict();
 
 /** Input for `sales.resume`. Returns the full sale record + items + payments. */
 export const resumeSaleInput = z.object({
@@ -260,9 +277,11 @@ export const listDraftsInput = z.object({
  * debits on any status. ENG-018c fix restores the symmetry with
  * `sales.void`.
  */
-export const discardDraftInput = z.object({
-  saleId: z.string().min(1, 'Sale ID is required'),
-});
+export const discardDraftInput = z
+  .object({
+    saleId: z.string().min(1, 'Sale ID is required'),
+  })
+  .strict();
 
 /**
  * Input for `sales.completeDraft` (ENG-018c). Transitions an existing
@@ -304,6 +323,7 @@ export const completeDraftInput = z
      */
     creditOverride: z.boolean().optional(),
   })
+  .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
     message: 'tipMethod requires a positive tipAmount',
     path: ['tipAmount'],
@@ -340,12 +360,14 @@ export const reprintReasonEnum = z.enum([
   'prior_print_error',
   'other',
 ]);
-export const getForReprintInput = z.object({
-  saleId: z.string().min(1, 'Sale ID is required'),
-  reason: reprintReasonEnum.optional(),
-  /** Free-text detail when `reason === 'other'`. */
-  reasonDetail: z.string().trim().max(240).optional(),
-});
+export const getForReprintInput = z
+  .object({
+    saleId: z.string().min(1, 'Sale ID is required'),
+    reason: reprintReasonEnum.optional(),
+    /** Free-text detail when `reason === 'other'`. */
+    reasonDetail: z.string().trim().max(240).optional(),
+  })
+  .strict();
 
 export type ReprintReason = z.infer<typeof reprintReasonEnum>;
 export type GetForReprintInput = z.infer<typeof getForReprintInput>;

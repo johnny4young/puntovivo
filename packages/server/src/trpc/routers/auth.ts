@@ -17,7 +17,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
-import * as argon2 from 'argon2';
 import { router, publicProcedure } from '../init.js';
 import { protectedProcedure } from '../middleware/auth.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -49,6 +48,13 @@ import {
   registerSuccess as registerLoginSuccess,
 } from '../../security/loginRateLimit.js';
 import { shouldUseSecureCookies } from '../../security/cookies.js';
+import {
+  getDummyPasswordHash,
+  hashPasswordSecurely,
+  needsRehash,
+  verifyPasswordSecurely,
+} from '../../security/passwords.js';
+import { rateLimitFor } from '../middleware/procedureRateLimit.js';
 
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
@@ -59,7 +65,7 @@ function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: s
 
   reply.setCookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     secure: shouldUseSecureCookies(request),
     path: '/',
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
@@ -73,7 +79,7 @@ function setRealtimeCookie(request: FastifyRequest, reply: FastifyReply, token: 
 
   reply.setCookie(REALTIME_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     secure: shouldUseSecureCookies(request),
     path: '/api/realtime',
     maxAge: REALTIME_TOKEN_MAX_AGE_SECONDS,
@@ -114,6 +120,12 @@ export const authRouter = router({
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
     if (!user) {
+      // ENG-166 — equalise login timing. Burn roughly one Argon2 verify on
+      // the not-found branch against a cached dummy hash so an attacker
+      // cannot enumerate accounts by measuring response time. The result
+      // is intentionally ignored; the surrounding error is still raised.
+      const dummyHash = await getDummyPasswordHash();
+      await verifyPasswordSecurely(dummyHash, password);
       registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
@@ -122,24 +134,29 @@ export const authRouter = router({
       });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      registerLoginFailure(ctx.db, ip, email);
-      throwServerError({
-        trpcCode: 'UNAUTHORIZED',
-        errorCode: 'AUTH_USER_DISABLED',
-        message: 'Your account has been disabled. Please contact an administrator.',
-      });
-    }
-
-    // Verify password
-    const isValidPassword = await argon2.verify(user.passwordHash, password);
+    // Verify password (ENG-166 — wrapped helper pins Argon2 params).
+    // The verify runs BEFORE the `isActive` check so a disabled-account
+    // probe pays the same Argon2 cost as the not-found probe. Without
+    // this re-ordering, an attacker could distinguish "user exists but
+    // is disabled" from "user does not exist" via response timing.
+    const isValidPassword = await verifyPasswordSecurely(user.passwordHash, password);
     if (!isValidPassword) {
       registerLoginFailure(ctx.db, ip, email);
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
         message: 'Email or password is incorrect',
+      });
+    }
+
+    // Check if user is active (after the password verify so the
+    // disabled-account branch carries the same latency profile).
+    if (!user.isActive) {
+      registerLoginFailure(ctx.db, ip, email);
+      throwServerError({
+        trpcCode: 'UNAUTHORIZED',
+        errorCode: 'AUTH_USER_DISABLED',
+        message: 'Your account has been disabled. Please contact an administrator.',
       });
     }
 
@@ -157,6 +174,23 @@ export const authRouter = router({
 
     // ENG-008 — clear the username bucket after every field cleared.
     registerLoginSuccess(ctx.db, email);
+
+    // ENG-166 — lazy rehash: if the stored hash was produced with
+    // weaker Argon2 params (or a legacy library default), upgrade it
+    // now while we have the plaintext. Failure of the rehash itself
+    // must never block a valid login — it is best-effort hardening.
+    if (needsRehash(user.passwordHash)) {
+      try {
+        const upgradedHash = await hashPasswordSecurely(password);
+        await ctx.db
+          .update(users)
+          .set({ passwordHash: upgradedHash, updatedAt: new Date().toISOString() })
+          .where(eq(users.id, user.id));
+      } catch {
+        // Swallow — the user is already authenticated; the next login
+        // will retry the rehash.
+      }
+    }
 
     const token = signAccessToken(ctx.req.server, user);
     const refreshToken = signRefreshToken(ctx.req.server, user);
@@ -201,9 +235,14 @@ export const authRouter = router({
   }),
 
   /**
-   * Refresh the JWT token
+   * Refresh the JWT token. ENG-166 — per-IP cap of 30/min to blunt
+   * refresh-storm probing without affecting normal session lifecycles
+   * (a renderer refreshes every ~14 minutes against the 15-min access
+   * token TTL).
    */
-  refresh: publicProcedure.mutation(async ({ ctx }) => {
+  refresh: publicProcedure
+    .use(rateLimitFor({ name: 'auth.refresh', max: 30, windowMs: 60_000, keyBy: ['ip'] }))
+    .mutation(async ({ ctx }) => {
     const refreshPayload = await verifyRefreshToken(ctx.req);
     if (!refreshPayload) {
       throwServerError({
@@ -315,7 +354,17 @@ export const authRouter = router({
    * return the cached result; mismatched payload hash raises
    * `IDEMPOTENCY_KEY_CONFLICT`.
    */
-  changePassword: criticalCommandProcedure.input(changePasswordInput).mutation(async ({ ctx, input }) => {
+  changePassword: criticalCommandProcedure
+    .use(
+      rateLimitFor({
+        name: 'auth.changePassword',
+        max: 5,
+        windowMs: 15 * 60_000,
+        keyBy: ['userId'],
+      })
+    )
+    .input(changePasswordInput)
+    .mutation(async ({ ctx, input }) => {
     const { currentPassword, newPassword } = input;
 
     // Defensive narrowing — the criticalCommandProcedure chain
@@ -354,8 +403,8 @@ export const authRouter = router({
       });
     }
 
-    // Verify current password
-    const isValidPassword = await argon2.verify(user.passwordHash, currentPassword);
+    // Verify current password (ENG-166 — pinned Argon2 params).
+    const isValidPassword = await verifyPasswordSecurely(user.passwordHash, currentPassword);
     if (!isValidPassword) {
       throwServerError({
         trpcCode: 'UNAUTHORIZED',
@@ -364,8 +413,8 @@ export const authRouter = router({
       });
     }
 
-    // Hash new password
-    const newPasswordHash = await argon2.hash(newPassword);
+    // Hash new password (ENG-166 — pinned Argon2 params).
+    const newPasswordHash = await hashPasswordSecurely(newPassword);
 
     // Update password
     await ctx.db
@@ -393,6 +442,17 @@ export const authRouter = router({
    * called once after `auth.login` succeeds.
    */
   registerDevice: tenantProcedure
+    .use(
+      // ENG-166 — cap pairing-flow registration at 10/hour per IP. The
+      // legitimate flow registers once per device install; bursts above
+      // that indicate enumeration or pairing-code probing.
+      rateLimitFor({
+        name: 'auth.registerDevice',
+        max: 10,
+        windowMs: 60 * 60_000,
+        keyBy: ['ip'],
+      })
+    )
     .input(
       z.object({
         // ENG-074 — `hub_client` discriminates a cashier terminal

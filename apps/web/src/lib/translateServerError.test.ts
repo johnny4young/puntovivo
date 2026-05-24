@@ -132,7 +132,7 @@ describe('translateServerError', () => {
   it('translates the new auth rate-limit code instead of showing the raw server message', () => {
     const t = makeFakeT({
       'errors:server.AUTH_RATE_LIMIT_EXCEEDED':
-        'Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.',
+        'Demasiados intentos. Espera un momento y vuelve a intentarlo.',
     });
     const error = {
       data: { errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' },
@@ -140,7 +140,7 @@ describe('translateServerError', () => {
     };
 
     expect(translateServerError(error, t, fallback)).toBe(
-      'Demasiados intentos de inicio de sesión. Espera un momento y vuelve a intentarlo.'
+      'Demasiados intentos. Espera un momento y vuelve a intentarlo.'
     );
   });
 

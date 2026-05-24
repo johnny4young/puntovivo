@@ -15,6 +15,7 @@ import Fastify, {
 } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { initDatabase, closeDatabase, type DatabaseInstance } from './db/index.js';
@@ -44,6 +45,8 @@ import { INVOICE_OCR_MAX_BYTES } from './services/ai/vision/invoice-ocr.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
 import { warmCacheFromDb } from './security/loginRateLimit.js';
+import { warmUpPasswordSecurity } from './security/passwords.js';
+import { startProcedureRateLimitSweeper } from './trpc/middleware/procedureRateLimit.js';
 import {
   CSRF_HEADER_NAME,
   csrfTokensMatch,
@@ -327,6 +330,18 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // against an adopted DB missing migration 0006 (no-op + warn).
   warmCacheFromDb(db);
 
+  // ENG-166 — pre-compute the dummy Argon2 hash used by `auth.login` to
+  // equalise response time on the not-found branch. Without this the
+  // first not-found login attempt pays an extra 50-100 ms (a small but
+  // real timing leak); warming once at boot amortises the cost.
+  await warmUpPasswordSecurity();
+
+  // ENG-166 — schedule the periodic sweep of the in-memory rate-limit
+  // bucket map so a long-running Electron session (or hub) does not
+  // accumulate entries indefinitely. The handle is released via the
+  // server's onClose hook below so tests do not leak timers.
+  const stopRateLimitSweep = startProcedureRateLimitSweeper();
+
   // ENG-006 — Fastify adopts the shared pino rootLogger so HTTP request
   // logs and application logs share one NDJSON stream with the same
   // redact config. Kept behind the existing `verbose` toggle so
@@ -364,11 +379,64 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     routerOptions: {
       maxParamLength: 1024,
     },
+    // ENG-166 — only trust X-Forwarded-* headers when the server is
+    // running as a site_hub (the only deployment shape that legitimately
+    // sits behind a reverse proxy). On the device_local loopback the
+    // renderer could otherwise inject a spoofed X-Forwarded-For and
+    // dodge the IP-keyed rate-limit buckets. See docs/SECURITY.md for
+    // the deployment contract.
+    trustProxy: resolvedRuntime.authorityMode === 'site_hub',
   });
   app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
   app.server.headersTimeout = SERVER_HEADERS_TIMEOUT_MS;
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
   app.server.setTimeout(SERVER_SOCKET_TIMEOUT_MS);
+
+  // ENG-166 — security headers. helmet ships sane defaults for
+  // X-Frame-Options (DENY), X-Content-Type-Options (nosniff),
+  // Referrer-Policy (no-referrer), Cross-Origin-Resource-Policy, etc.
+  // The CSP is overridden so the renderer (web + Electron) can pull
+  // Google Fonts and the Vite dev server can inject HMR scripts in
+  // development. The renderer additionally mirrors the same CSP at the
+  // HTML <meta http-equiv> level so static-host deployments keep the
+  // policy even when an upstream CDN strips response headers.
+  const isProduction = process.env.NODE_ENV === 'production';
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // 'data:' images cover receipt previews + chart sprites; blob:
+        // covers OCR upload thumbnails. Both are same-origin payloads.
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        connectSrc: ["'self'"],
+        // Dev / Electron renderer keeps inline + eval because Vite HMR
+        // and React DevTools inject inline scripts. Production locks the
+        // policy down to same-origin scripts; bundled assets all sit
+        // under '/'.
+        scriptSrc: isProduction ? ["'self'"] : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
+    // Strict-Transport-Security is left off for the Electron-loopback
+    // deployment (HTTP on 127.0.0.1) so a misconfigured browser cannot
+    // pin a missing-HTTPS upgrade across sessions. Hosted deployments
+    // re-enable HSTS at the CDN tier where TLS is terminated.
+    strictTransportSecurity: false,
+    // Cross-origin embedder policy would block the OCR pipeline (data:
+    // URLs sourced from the renderer's File input). Re-enable when the
+    // renderer migrates to module workers — captured in ENG-170.
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'no-referrer' },
+    // CSP already pins `frame-ancestors 'none'`; X-Frame-Options is the
+    // legacy-browser fallback. DENY matches the audit's exact ask.
+    frameguard: { action: 'deny' },
+  });
 
   // Register CORS
   await app.register(cors, {
@@ -531,6 +599,12 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   app.addHook('onClose', async () => {
     await fiscalWorker.stop();
     setDefaultFiscalWorker(null);
+  });
+
+  // ENG-166 — release the rate-limit sweeper timer on server close so
+  // tests do not leak timers when they tear down a server instance.
+  app.addHook('onClose', async () => {
+    stopRateLimitSweep();
   });
 
   // ENG-062 — boot the hardware outbox worker daemon parallel to the

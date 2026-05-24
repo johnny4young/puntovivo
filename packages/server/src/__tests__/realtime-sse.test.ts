@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { users } from '../db/schema.js';
-import { SseManager, type SseClient } from '../realtime/sse.js';
+import { SseManager, generateClientId, type SseClient } from '../realtime/sse.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import {
@@ -61,6 +61,23 @@ function createClient(args: {
     writes,
   };
 }
+
+describe('SSE client id generator (ENG-166)', () => {
+  it('emits 32-hex-char ids with the sse_ prefix', () => {
+    for (let i = 0; i < 5; i++) {
+      const id = generateClientId();
+      expect(id).toMatch(/^sse_[0-9a-f]{32}$/);
+    }
+  });
+
+  it('produces 1000 unique ids in a row', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      seen.add(generateClientId());
+    }
+    expect(seen.size).toBe(1000);
+  });
+});
 
 describe('SSE realtime tenant boundary', () => {
   it('does not deliver tenant-scoped broadcasts to anonymous or foreign-tenant clients', () => {
@@ -117,7 +134,7 @@ describe('SSE realtime tenant boundary', () => {
         httpOnly: true,
         maxAge: REALTIME_TOKEN_MAX_AGE_SECONDS,
         path: '/api/realtime',
-        sameSite: 'lax',
+        sameSite: 'strict',
         secure: false,
       })
     );

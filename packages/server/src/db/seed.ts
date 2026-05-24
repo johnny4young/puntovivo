@@ -11,7 +11,7 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { randomBytes } from 'crypto';
-import * as argon2 from 'argon2';
+import { hashPasswordSecurely } from '../security/passwords.js';
 import type { DatabaseInstance } from './index.js';
 import { createModuleLogger } from '../logging/logger.js';
 
@@ -182,7 +182,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
 
   if (!existingAdmin) {
     const resolvedAdminPassword = resolveSeedAdminPassword();
-    const passwordHash = await argon2.hash(resolvedAdminPassword.password);
+    const passwordHash = await hashPasswordSecurely(resolvedAdminPassword.password);
     seededAdminPassword = {
       value: resolvedAdminPassword.password,
       isFixed: resolvedAdminPassword.isFixed,
