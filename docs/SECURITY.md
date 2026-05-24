@@ -1,6 +1,6 @@
 # Security Notes
 
-> Updated: May 24, 2026 (ENG-166 closure)
+> Updated: May 24, 2026 (ENG-166 + ENG-174 closure)
 
 ## Current Security Posture
 
@@ -376,6 +376,62 @@ slice. Each item below is now pinned by a regression test under
   so a staging deploy with a stray env var leak cannot expose DevTools.
   The existing `isDev` gate inside `createWindow` stays as the second
   layer.
+
+## SQLite tuning + WAL backup safety (ENG-174)
+
+The local SQLite database is the durability anchor for every tenant's
+sales, cash sessions, fiscal outbox, and audit log. ENG-174 closes three
+gaps that the audit 2026-05-24 identified on the DB open path:
+
+### PRAGMA cluster (concurrent read performance + WAL hygiene)
+
+`packages/server/src/db/index.ts` now applies a pinned PRAGMA cluster
+after `journal_mode = WAL` and `foreign_keys = ON`:
+
+| PRAGMA | Value | Why |
+| --- | --- | --- |
+| `busy_timeout` | `5000` | 5s wait instead of immediate error on lock contention. Five workers (HTTP, SSE, sync, hardware, fiscal, payment) routinely contend for the writer slot on a busy POS. |
+| `cache_size` | `-64000` | ~64 MiB page cache per connection. The negative `-N` convention means "N kibibytes". |
+| `mmap_size` | `268435456` (256 MiB) | Memory-mapped I/O for hot reads (audit_logs listing, fiscal_outbox + payment_outbox polling). Reduces syscalls under concurrent load. |
+| `temp_store` | `MEMORY` | Sort and intermediate index spills stay in RAM. |
+| `wal_autocheckpoint` | `1000` | Checkpoint every ~4 MiB of WAL; explicit pin documents intent against silent default drift. |
+
+The `busy_timeout`, `cache_size`, and `temp_store` apply to every
+connection (including `:memory:` in tests). The `mmap_size` and
+`wal_autocheckpoint` are skipped for `:memory:` (no underlying file
+to map or checkpoint). Memory ceiling sized against the 4 GB-device
+floor documented in [PERF-BUDGETS.md](./PERF-BUDGETS.md): 256 MiB
+mmap + 64 MiB cache = ~320 MiB SQLite footprint, comfortable on a 4 GB
+AIO.
+
+### WAL flush before backup
+
+`apps/desktop/src/main/backup/backup-bundle.ts::createBackupBundle`
+now runs `PRAGMA wal_checkpoint(FULL)` and `PRAGMA synchronous = FULL`
+through a short-lived writable source connection BEFORE calling
+`sourceDb.backup(stagingDbPath)`. This needs a writable handle because
+SQLite must merge WAL frames into the main DB file before the readonly backup
+handle snapshots it. Without the checkpoint, a power loss
+between when the online backup resolves and the OS finishes flushing
+the bundle ZIP to disk could leave the source `.db` and its `.db-wal`
+sidecar out of sync — and the integrity check after backup would
+report a corrupt restore. The checkpoint is file-level so it works
+even while the embedded server keeps its own writer connection open. The
+post-backup `assertSqliteIntegrity` remains as a complementary
+post-condition.
+
+### Preflight guard: migrations bundled
+
+New `scripts/ensure-migrations-bundled.mjs` verifies that
+`packages/server/dist/db/migrations/` exists and carries a valid
+`meta/_journal.json` plus every journal-referenced `.sql` migration BEFORE
+Electron Forge packages the app or launches in dev. Exit 1 with
+actionable remediation lines when any check fails. Wired in
+`apps/desktop/package.json` as `electron:ensure:migrations` between
+`prepare:server` and `electron:ensure:binary` in `preflight:desktop`,
+`package:desktop`, and `make:desktop`. The CLI exports
+`checkMigrationsBundle({migrationsDir})` so the colocated test can
+drive every failure path directly.
 
 ## Current Open Risks
 

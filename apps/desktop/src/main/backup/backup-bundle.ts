@@ -100,9 +100,35 @@ export async function createBackupBundle(
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);
 
   try {
-    // Open the LIVE DB read-only. better-sqlite3 will OPEN_READONLY +
-    // attach to existing WAL transparently. The .backup() method
-    // handles the atomic snapshot under SQLite's online backup API.
+    // ENG-174 — flush the WAL into the main DB file BEFORE the online
+    // backup snapshots the bytes. Without this, a power loss between
+    // when the backup resolves and when the OS finishes flushing the
+    // bundle ZIP to disk could leave the .db file and its .db-wal
+    // sidecar out of sync, and the integrity_check below would still
+    // report a corrupt restore.
+    //
+    // The checkpoint requires write access to the .db file (it copies
+    // frames from the WAL into the main file), so we open a separate
+    // writable connection ONLY for the PRAGMA and close it before
+    // opening the readonly reader the online backup runs against. A
+    // partial checkpoint (busy > 0 because a concurrent writer held
+    // the WAL lock past busy_timeout) does not abort the backup — the
+    // WAL frames left behind are still safely captured by db.backup()
+    // under SQLite's online backup API; the integrity_check
+    // post-condition is what guarantees the restore is usable. The
+    // module stays pure (no logger) so the caller can decide whether
+    // to surface the partial result via its own observability stack.
+    const checkpointer = new Database(dbPath, { fileMustExist: true });
+    checkpointer.pragma('busy_timeout = 5000');
+    checkpointer.pragma('synchronous = FULL');
+    try {
+      checkpointer.pragma('wal_checkpoint(FULL)');
+    } finally {
+      checkpointer.close();
+    }
+
+    // Open the LIVE DB read-only for the online backup. better-sqlite3
+    // will OPEN_READONLY + attach to the (now flushed) WAL transparently.
     const sourceDb = new Database(dbPath, { readonly: true, fileMustExist: true });
     try {
       await sourceDb.backup(stagingDbPath);
