@@ -7,15 +7,21 @@
  */
 
 import { z } from 'zod';
+import { emailField } from './common.js';
 
 // ============================================================================
 // Input Schemas
 // ============================================================================
 
-export const loginInput = z.object({
-  email: z.string().min(3, 'Email must be at least 3 characters'),
-  password: z.string().min(1, 'Password is required'),
-});
+export const loginInput = z
+  .object({
+    // login historically accepts `admin@localhost` (no TLD) for the
+    // seeded admin account. Normalise to lowercase + trim but skip the
+    // strict `.email()` regex so a legacy install can still authenticate.
+    email: emailField('Invalid email address', { strict: false }),
+    password: z.string().min(1, 'Password is required'),
+  })
+  .strict();
 
 export const strongPasswordSchema = z.string().superRefine((password, ctx) => {
   const validation = validatePasswordStrength(password);
@@ -32,10 +38,12 @@ export const strongPasswordSchema = z.string().superRefine((password, ctx) => {
   }
 });
 
-export const changePasswordInput = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: strongPasswordSchema,
-});
+export const changePasswordInput = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: strongPasswordSchema,
+  })
+  .strict();
 
 // ============================================================================
 // Output Schemas

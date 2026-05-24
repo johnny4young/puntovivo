@@ -1,6 +1,5 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, like, or, sql } from 'drizzle-orm';
-import * as argon2 from 'argon2';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -15,6 +14,8 @@ import {
   updateUserInput,
 } from '../schemas/users.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { hashPasswordSecurely } from '../../security/passwords.js';
+import { rateLimitFor } from '../middleware/procedureRateLimit.js';
 
 export const usersRouter = router({
   list: adminProcedure.input(listUsersInput).query(async ({ ctx, input }) => {
@@ -63,7 +64,19 @@ export const usersRouter = router({
     };
   }),
 
-  create: criticalCommandAdminProcedure.input(createUserInput).mutation(async ({ ctx, input }) => {
+  create: criticalCommandAdminProcedure
+    .use(
+      // ENG-166 — cap admin user creation at 20/hour per actor so a
+      // stolen admin token cannot enumerate or seed accounts quickly.
+      rateLimitFor({
+        name: 'users.create',
+        max: 20,
+        windowMs: 60 * 60_000,
+        keyBy: ['userId'],
+      })
+    )
+    .input(createUserInput)
+    .mutation(async ({ ctx, input }) => {
     const existing = await ctx.db.select().from(users).where(eq(users.email, input.email)).get();
     if (existing) {
       throw new TRPCError({
@@ -76,7 +89,7 @@ export const usersRouter = router({
     const id = nanoid();
     // Must hash BEFORE the sync transaction — better-sqlite3 transactions
     // are synchronous and cannot await argon2.
-    const passwordHash = await argon2.hash(input.password);
+    const passwordHash = await hashPasswordSecurely(input.password);
     const actorId = ctx.user!.id;
 
     // ENG-007 — user lifecycle writes plus their audit row share a single
@@ -251,6 +264,17 @@ export const usersRouter = router({
   }),
 
   resetPassword: adminProcedure
+    .use(
+      // ENG-166 — cap admin password resets at 10/hour per actor. Same
+      // rationale as `users.create`: throttles credential spraying via a
+      // compromised admin session.
+      rateLimitFor({
+        name: 'users.resetPassword',
+        max: 10,
+        windowMs: 60 * 60_000,
+        keyBy: ['userId'],
+      })
+    )
     .input(resetUserPasswordInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db
@@ -264,7 +288,7 @@ export const usersRouter = router({
       }
 
       const now = new Date().toISOString();
-      const passwordHash = await argon2.hash(input.newPassword);
+      const passwordHash = await hashPasswordSecurely(input.newPassword);
 
       await ctx.db
         .update(users)

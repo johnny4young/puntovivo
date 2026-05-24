@@ -772,7 +772,10 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
 
     it('writes a user.create audit row with email/role/isActive in the after snapshot but no password hash', async () => {
       const caller = appRouter.createCaller(createTestContext());
-      const email = `aud-uc-${nanoid(4)}@example.com`;
+      // ENG-166 — email normalisation lowercases at parse time so the
+      // stored value never matches a nanoid that happens to include
+      // uppercase characters; pre-lowercase the test value.
+      const email = `aud-uc-${nanoid(4).toLowerCase()}@example.com`;
 
       const created = await caller.users.create({
         email,
@@ -806,7 +809,7 @@ describe('Audit Logs (Phase 8 / Tier-2 #8)', () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const created = await caller.users.create({
-        email: `aud-uu-${nanoid(4)}@example.com`,
+        email: `aud-uu-${nanoid(4).toLowerCase()}@example.com`,
         name: 'Audit Manager',
         password: 'Temp-Password-1',
         role: 'cashier',

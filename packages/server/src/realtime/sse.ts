@@ -16,6 +16,7 @@
  * @module realtime/sse
  */
 
+import { randomBytes } from 'node:crypto';
 import { FastifyReply, FastifyPluginCallback } from 'fastify';
 import fp from 'fastify-plugin';
 import { createModuleLogger } from '../logging/logger.js';
@@ -182,10 +183,15 @@ function formatSseMessage(event: SseEvent): string {
 }
 
 /**
- * Generate a unique client ID
+ * Generate a unique client ID using crypto-strong entropy (ENG-166).
+ *
+ * Replaces the legacy `Date.now()` + `Math.random()` recipe — both
+ * components were predictable enough for an attacker who could guess a
+ * recent connection to attempt channel hijack. `randomBytes(16)` yields
+ * 128 bits of unguessable entropy, encoded as 32 hex chars.
  */
-function generateClientId(): string {
-  return `sse_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+export function generateClientId(): string {
+  return `sse_${randomBytes(16).toString('hex')}`;
 }
 
 function getCorsHeaders(

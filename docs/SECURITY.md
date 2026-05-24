@@ -1,6 +1,6 @@
 # Security Notes
 
-> Updated: April 10, 2026
+> Updated: May 24, 2026 (ENG-166 closure)
 
 ## Current Security Posture
 
@@ -260,6 +260,122 @@ lockfile now resolves `fastify@5.8.5`, `fast-jwt@6.2.2`,
 `dompurify@3.4.0`. Reverting the lockfile to the pre-bump state and
 running `npm run ci:audit` produces exit code 1 with the three vulns
 reported — proof the gate fires, not just passes.
+
+## Critical security closure (ENG-166)
+
+Eleven findings from the 2026-05-24 cross-cutting audit
+([AUDIT-2026-05-24.md](./AUDIT-2026-05-24.md)) shipped as a single
+slice. Each item below is now pinned by a regression test under
+`packages/server/src/__tests__/` or `apps/desktop/src/main/__tests__/`.
+
+### Transport + headers
+
+- **`@fastify/helmet` is registered** before CORS in
+  `packages/server/src/index.ts`. The CSP allows Google Fonts hosts,
+  inline styles, and `data:` images for receipt rendering; `script-src`
+  drops to `'self'` in production and admits `'unsafe-inline'` +
+  `'unsafe-eval'` only when `NODE_ENV !== 'production'` so Vite HMR
+  works. `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy:
+  same-origin` round out the headers. Strict-Transport-Security stays
+  off because the embedded server runs on HTTP loopback; hosted
+  deployments add HSTS at the CDN tier where TLS is terminated.
+- **`apps/web/index.html` carries a matching `<meta http-equiv>` CSP**
+  so a static-host deployment that strips response headers still has
+  the same posture.
+- **Electron renderer requests get the same CSP** via
+  `session.defaultSession.webRequest.onHeadersReceived` in
+  `apps/desktop/src/main/index.ts`. The hook skips API responses
+  (helmet already wrote a CSP there) to avoid double-comma'd directive
+  lists, which would invalidate every directive.
+- **`trustProxy` is scoped to `site_hub` mode only**. On the Fastify
+  factory it reads `resolvedRuntime.authorityMode === 'site_hub'`, so
+  the embedded `device_local` loopback ignores `X-Forwarded-*` headers
+  entirely (no spoofing surface) and the LAN-reachable Store Hub
+  honors them. The per-IP rate-limit buckets (`auth.login`,
+  `auth.refresh`, `auth.registerDevice`) therefore key on the actual
+  socket address on a device_local install and on the originating
+  client behind a reverse proxy on a site_hub. **Operator contract for
+  site_hub**: only proxies you control may set `X-Forwarded-*` headers,
+  and the operator-defined `PUNTOVIVO_ALLOWED_LAN_ORIGINS` already gates
+  who can talk to the hub.
+
+### Cookies
+
+- `puntovivo_refresh` and `puntovivo_realtime` cookies promoted from
+  `sameSite: 'lax'` to `'strict'`. Default web/dev traffic is same-site
+  on loopback, and supported refresh flows do not rely on cross-site
+  top-level navigations. Cross-origin `hub_client` refresh remains a
+  documented Authority Node gap until a future HTTPS `SameSite=None`
+  or Bearer-only refresh design lands.
+- `puntovivo_csrf` stays `sameSite: 'lax'` and `httpOnly: false` on
+  purpose — it is the double-submit cookie the renderer must read and
+  echo back as `x-csrf-token`.
+
+### Auth flow
+
+- **SSE client id is now crypto-strong**:
+  `sse_${randomBytes(16).toString('hex')}` replaces the previous
+  `Math.random()` recipe. Pinned in `realtime-sse.test.ts`.
+- **Login timing equalised on user-not-found**: the missing-user
+  branch in `auth.login` calls `verifyPasswordSecurely(DUMMY_HASH,
+  input.password)` so the response cost matches the password-check
+  branch. The dummy hash is pre-computed at boot
+  (`warmUpPasswordSecurity()`) so the first not-found attempt pays no
+  extra latency.
+- **Argon2 parameters pinned** in a single helper module:
+  `packages/server/src/security/passwords.ts` exports
+  `hashPasswordSecurely`, `verifyPasswordSecurely`, and `needsRehash`.
+  The pinned params (argon2id, memoryCost=65_536, timeCost=3,
+  parallelism=4) follow the OWASP Password Storage Cheat Sheet (2025).
+  Existing user hashes upgrade lazily on the next successful login via
+  `needsRehash`.
+- **Per-procedure rate-limit caps** on the auth-critical subset live
+  in `packages/server/src/trpc/middleware/procedureRateLimit.ts`:
+
+  | Procedure              | Cap          | Window | Key by  |
+  | ---------------------- | ------------ | ------ | ------- |
+  | `auth.refresh`         | 30           | 1 min  | IP      |
+  | `auth.changePassword`  | 5            | 15 min | userId  |
+  | `auth.registerDevice`  | 10           | 1 h    | IP      |
+  | `users.create`         | 20           | 1 h    | userId  |
+  | `users.resetPassword`  | 10           | 1 h    | userId  |
+
+  Stricter caps for the rest of the tRPC surface (and a tenant-scoped
+  bucket plan) ship in ENG-165. The middleware bypasses entirely under
+  `NODE_ENV === 'test'` so existing high-volume suites do not trip.
+
+### Input boundary
+
+- **Email normalisation** lives in a shared `emailField()` helper in
+  `packages/server/src/trpc/schemas/common.ts`. Every auth and users
+  schema runs `.trim().toLowerCase()` before the `.email()` check,
+  preventing two operators from registering `Admin@x.com` and
+  `admin@x.com` as different accounts (and pre-staging consistent
+  keys for future SSO / IdP mappings).
+- **Zod `.strict()`** added to every input schema in `auth.ts`,
+  `users.ts`, `payments.ts`, plus every mutation input in `sales.ts`
+  (`createSaleInput`, `updateSaleInput`, `voidSaleInput`,
+  `returnSaleInput`, `suspendSaleInput`, `discardDraftInput`,
+  `completeDraftInput`, `changeSaleTableInput`, `splitDraftInput`,
+  `getForReprintInput`, plus nested `saleItemInput` and
+  `salePaymentInput`). Extra keys raise a `ZodError` instead of being
+  silently stripped. ENG-181 will roll this across the remaining
+  schemas.
+
+### Electron main process
+
+- **Print receipt HTML is now sanitised** at the IPC trust boundary:
+  `apps/desktop/src/main/print-html-sanitizer.ts` runs every
+  `print-receipt` payload through `sanitize-html` with an allow-list
+  tuned for receipt layout (block + inline + tables + inline `<style>`
+  + `data:`-only image srcs). The ephemeral print window already ran
+  `sandbox: true`; the sanitiser is defense-in-depth so a corrupted
+  template is inert even if it slipped past the renderer.
+- **`PUNTOVIVO_OPEN_DEVTOOLS` env var is gated by `!app.isPackaged`**
+  so a staging deploy with a stray env var leak cannot expose DevTools.
+  The existing `isDev` gate inside `createWindow` stays as the second
+  layer.
 
 ## Current Open Risks
 

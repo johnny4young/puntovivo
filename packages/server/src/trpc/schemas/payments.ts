@@ -9,14 +9,18 @@ import { z } from 'zod';
 
 import { PAYMENT_RAIL_IDS } from '../../services/payments/manifest.js';
 
-export const peekPaymentOutboxInput = z.object({
-  limit: z.number().int().positive().max(200).default(50),
-});
+export const peekPaymentOutboxInput = z
+  .object({
+    limit: z.number().int().positive().max(200).default(50),
+  })
+  .strict();
 export type PeekPaymentOutboxInput = z.infer<typeof peekPaymentOutboxInput>;
 
-export const paymentReconciliationInput = z.object({
-  limit: z.number().int().positive().max(200).default(50),
-});
+export const paymentReconciliationInput = z
+  .object({
+    limit: z.number().int().positive().max(200).default(50),
+  })
+  .strict();
 export type PaymentReconciliationInput = z.infer<typeof paymentReconciliationInput>;
 
 /**
@@ -32,10 +36,12 @@ const credentialValueSchema = z
   .union([z.string().max(2048), z.null()])
   .optional();
 
-export const updatePaymentRailSettingsInput = z.object({
-  railId: z.enum(PAYMENT_RAIL_IDS),
-  credentials: z.record(z.string().min(1), credentialValueSchema),
-});
+export const updatePaymentRailSettingsInput = z
+  .object({
+    railId: z.enum(PAYMENT_RAIL_IDS),
+    credentials: z.record(z.string().min(1), credentialValueSchema),
+  })
+  .strict();
 export type UpdatePaymentRailSettingsInput = z.infer<
   typeof updatePaymentRailSettingsInput
 >;
@@ -45,9 +51,11 @@ export type UpdatePaymentRailSettingsInput = z.infer<
  * narrowed at the procedure boundary by a tenant-scoped lookup; the
  * Zod-level `nanoid` shape just rejects empty strings.
  */
-export const retryPaymentOutboxInput = z.object({
-  outboxId: z.string().min(1).max(64),
-});
+export const retryPaymentOutboxInput = z
+  .object({
+    outboxId: z.string().min(1).max(64),
+  })
+  .strict();
 export type RetryPaymentOutboxInput = z.infer<typeof retryPaymentOutboxInput>;
 
 /**
@@ -56,15 +64,17 @@ export type RetryPaymentOutboxInput = z.infer<typeof retryPaymentOutboxInput>;
  * value at override time; an empty string is normalised to omitted
  * (no update on the column).
  */
-export const markPaymentOutboxSettledInput = z.object({
-  outboxId: z.string().min(1).max(64),
-  providerTransactionId: z
-    .string()
-    .trim()
-    .max(256)
-    .transform(value => (value.length === 0 ? undefined : value))
-    .optional(),
-});
+export const markPaymentOutboxSettledInput = z
+  .object({
+    outboxId: z.string().min(1).max(64),
+    providerTransactionId: z
+      .string()
+      .trim()
+      .max(256)
+      .transform(value => (value.length === 0 ? undefined : value))
+      .optional(),
+  })
+  .strict();
 export type MarkPaymentOutboxSettledInput = z.infer<
   typeof markPaymentOutboxSettledInput
 >;
@@ -75,9 +85,11 @@ export type MarkPaymentOutboxSettledInput = z.infer<
  * lightweight). The router groups by `(rail_id, status)` so the panel
  * renders one row per bucket.
  */
-export const paymentMethodBreakdownInput = z.object({
-  windowDays: z.number().int().min(1).max(90).default(7),
-});
+export const paymentMethodBreakdownInput = z
+  .object({
+    windowDays: z.number().int().min(1).max(90).default(7),
+  })
+  .strict();
 export type PaymentMethodBreakdownInput = z.infer<
   typeof paymentMethodBreakdownInput
 >;

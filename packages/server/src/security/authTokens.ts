@@ -166,7 +166,7 @@ export function clearRefreshCookie(request: FastifyRequest, reply: FastifyReply)
 
   reply.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     secure: shouldUseSecureCookies(request),
     path: '/',
   });

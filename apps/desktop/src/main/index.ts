@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
+  session,
   Tray,
   nativeImage,
   type OpenDialogOptions,
@@ -17,6 +18,7 @@ import { access, copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DEVICE_ID_FILENAME, readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
+import { sanitisePrintHtml } from './print-html-sanitizer.js';
 import {
   createBackupBundle,
   createBackupFileName as createBackupZipFileName,
@@ -69,6 +71,10 @@ import {
 } from './auto-updater';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
 import { buildMainWindowWebPreferences } from './window-config.js';
+import {
+  buildRendererSecurityHeaders,
+  isFastifyApiResponse,
+} from './renderer-security-headers.js';
 // ENG-025 — single source of truth for the authenticated identity at
 // the IPC boundary. Every db:* / sync:* handler reads tenantId from
 // here instead of trusting the renderer-supplied argument. The
@@ -87,7 +93,12 @@ if (require('electron-squirrel-startup')) {
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 // Check if we're in development mode - electron-forge start sets app.isPackaged = false
 const isDev = !app.isPackaged;
-const shouldOpenDevTools = process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
+// ENG-166 — devtools must NEVER auto-open in a packaged build, even if the
+// env var leaks (e.g. an accidental release with developer shell vars in
+// the environment). Gating on `!app.isPackaged` short-circuits before the
+// env-var check so a staged install cannot expose the DevTools surface.
+const shouldOpenDevTools =
+  !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
 
 mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
@@ -1885,6 +1896,34 @@ app.whenReady().then(async () => {
   setMainLocale(normalizeMainLocale(app.getLocale()));
   refreshAutoUpdateTranslations();
 
+  // ENG-166 — apply a baseline CSP to every renderer-loaded response.
+  // The embedded Fastify already emits its own CSP via @fastify/helmet
+  // for /api/* requests; this hook only kicks in for renderer-served
+  // pages (file:// in production, http://localhost:3000 in dev), which
+  // bypass the Fastify pipeline. The directives mirror helmet's server
+  // policy so a hosted-staticfile deployment carries the same posture.
+  const isPackagedBuild = app.isPackaged;
+  const rendererSecurityRuntime = resolveRuntimeConfig({ env: process.env });
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const url = details.url ?? '';
+    // /api/* responses already carry helmet's CSP — do not double-apply
+    // (Electron concatenates duplicate headers with commas, which makes
+    // every directive list invalid).
+    if (isFastifyApiResponse(url, rendererSecurityRuntime)) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
+    const responseHeaders = {
+      ...(details.responseHeaders ?? {}),
+      ...buildRendererSecurityHeaders({
+        isPackagedBuild,
+        runtime: rendererSecurityRuntime,
+        webDevServerUrl: WEB_DEV_SERVER_URL,
+      }),
+    };
+    callback({ responseHeaders });
+  });
+
   // Initialize auto-updater (configurable via env)
   initAutoUpdater();
 
@@ -2151,9 +2190,23 @@ ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
     };
   }
 
+  // ENG-166 — strip every active HTML construct (scripts, iframes,
+  // event-handler attributes, non-data: image srcs) at the IPC trust
+  // boundary BEFORE the HTML is loaded into the ephemeral print window.
+  // The print window already runs sandbox: true, but defense-in-depth
+  // makes a corrupted template harmless even if it slipped past the
+  // renderer.
+  const sanitisedHtml = sanitisePrintHtml(receiptHtml);
+  if (sanitisedHtml.trim().length === 0) {
+    return {
+      success: false,
+      error: 'A receipt document is required before printing',
+    };
+  }
+
   try {
     const settings = await getReceiptPrintSettings();
-    await printReceipt(receiptHtml, settings);
+    await printReceipt(sanitisedHtml, settings);
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Receipt printing failed';

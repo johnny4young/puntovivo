@@ -211,20 +211,22 @@ protection keeps working with `credentials: true` cross-origin.
 
 ### Known gap — cross-origin refresh cookies (deferred after ENG-074)
 
-The CSRF and refresh cookies set by `packages/server/src/security/csrf.ts`
-and the auth flow use `SameSite=Lax`. With `Lax`, browsers do not
-send those cookies on cross-origin sub-resource requests, so a
+The CSRF cookie set by `packages/server/src/security/csrf.ts` uses
+`SameSite=Lax`; the refresh cookie is stricter after ENG-166
+(`SameSite=Strict`). Browsers do not send either cookie on cross-origin
+sub-resource requests, so a
 cashier terminal at `http://192.168.1.50:3000` POSTing to
 `http://192.168.1.1:8090/api/trpc/...` will not transmit the
-session cookies even with `credentials: 'include'`. ENG-073 ships
-the hub bind hardening + LAN CORS surface, and ENG-074 ships the
-renderer tRPC base URL switch + reachability UI, but neither ticket
-flips the cookie SameSite policy.
+session cookies even with `credentials: 'include'`. ENG-073 ships the
+hub bind hardening + LAN CORS surface, ENG-074 ships the renderer tRPC
+base URL switch + reachability UI, and ENG-166 tightens the default
+cookie posture, but none of those tickets adds the HTTPS or Bearer-only
+refresh design needed for cross-origin hub refresh.
 
 Operationally this means: a hub-client cashier can work against the
 hub with the Bearer access token issued at login, but the
 cross-origin refresh cookie remains unavailable. Cashiers re-login
-when that access token expires (7 days today). A future iter must
+when that access token expires. A future iter must
 choose either `SameSite=None; Secure` (which requires HTTPS on the
 hub origin) or a Bearer-only refresh path.
 
@@ -313,16 +315,15 @@ hub-client terminals without guessing from `kind` alone.
 
 ### Known gaps and follow-ups
 
-**Cookie SameSite refresh (deferred)**: the existing CSRF and
-refresh cookies are set with `SameSite=Lax`, so cross-origin LAN
-requests from a `hub_client` terminal cannot transmit them. The
-practical effect is that the access token (7-day lifetime) is the
-de-facto session length: hub-client cashiers re-login when the
-token expires. This was documented as a "Known gap" in the
-ENG-073 ship and the same constraint applies here. Fixing
-requires either flipping the cookie attributes to `SameSite=None;
-Secure` (which forces HTTPS on the hub box) or moving to a
-Bearer-only refresh path. Captured for a future iter.
+**Cookie SameSite refresh (deferred)**: the CSRF cookie uses
+`SameSite=Lax` and the refresh cookie uses `SameSite=Strict`, so
+cross-origin LAN requests from a `hub_client` terminal cannot transmit
+them. The practical effect is that the access token is the de-facto
+session length: hub-client cashiers re-login when the token expires.
+This was documented as a "Known gap" in the ENG-073 ship and the same
+constraint applies here. Fixing requires either flipping the cookie
+attributes to `SameSite=None; Secure` (which forces HTTPS on the hub box)
+or moving to a Bearer-only refresh path. Captured for a future iter.
 
 **Client-local hardware bridge (`ENG-074b`) — Shipped 2026-05-09**.
 A `hub_client` terminal with a USB / TCP / serial printer attached
