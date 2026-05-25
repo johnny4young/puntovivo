@@ -9,10 +9,16 @@ export default defineConfig({
       // v8 is the cheapest provider for a Node-only workspace; istanbul
       // would add an instrumentation pass we don't need.
       provider: 'v8',
-      // `lcov` is the machine-readable format uploaded as a CI artifact;
-      // the others stay for local developer ergonomics (text in the
-      // terminal, json for programmatic checks, html for drill-down).
-      reporter: ['text', 'text-summary', 'json', 'html', 'lcov'],
+      // `lcov` is the machine-readable format CI uploads as an artifact;
+      // `text-summary` is the four-line floor counters the operator
+      // reads at the end of the run. The verbose `text` / `json` /
+      // `html` reporters are dev-only ergonomics — they write 1000+ HTML
+      // files on every server run and pinned ci:server at 42 s wall on
+      // a warm MacBook. Run them on demand via:
+      //   npx vitest run --coverage --coverage.reporter=html
+      //   npx vitest run --coverage --coverage.reporter=json
+      // Restoring them to the default list re-adds the disk-I/O cost.
+      reporter: ['text-summary', 'lcov'],
       exclude: [
         'node_modules/',
         'dist/',

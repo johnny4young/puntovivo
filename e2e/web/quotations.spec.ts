@@ -19,11 +19,18 @@ import {
 //   QUOT-09 — accept a sent quotation (Sent → Accepted)
 //   QUOT-15 — inventory unchanged across the whole lifecycle
 //   QUOT-19 — mark accepted as converted (terminal state)
-//   QUOT-12 — delete a draft from the history
-//   QUOT-13 — delete action is hidden for non-drafts (negative gating)
 //
-// The three tests below collapse those eight ids into focused flows so
-// each one verifies one behaviour and stays independent of the others.
+// The lifecycle test below collapses those six ids into a single focused
+// flow that walks draft → sent → accepted → converted and re-checks
+// inventory at every transition. QUOT-12 (delete a draft) and QUOT-13
+// (delete action hidden on non-drafts) used to live here as separate
+// E2E tests; they were retired in favour of the equivalent component
+// tests in `apps/web/src/features/quotations/QuotationsHistoryTable.test.tsx`
+// (cases "exposes Delete on draft rows" + "omits Delete on non-draft
+// rows"). Component-level coverage runs ~1000× faster and pins the same
+// UI invariant without booting a browser. The lifecycle E2E stays
+// because it crosses frontend + tRPC + DB with inventory invariants
+// that component tests cannot reach.
 
 async function openNewQuotationModal(page: Page) {
   await page.goto('/quotations');
@@ -131,73 +138,4 @@ test.describe('web quotations', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('manager deletes a draft quotation from the history', async ({
-    page,
-  }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedSaleScenario(`quot-delete-${testInfo.parallelIndex}-${Date.now()}`);
-
-    await login(page, {
-      email: scenario.manager.email,
-      password: scenario.manager.password,
-      defaultPath: '/dashboard',
-    });
-
-    const createDialog = await openNewQuotationModal(page);
-    await fillQuotationLine(createDialog, { productId: scenario.product.id, quantity: 1 });
-    await createDialog.getByRole('button', { name: 'Save quotation' }).click();
-    await expect(createDialog).toBeHidden({ timeout: 15_000 });
-
-    const quotationNumber = await readQuotationNumberFromHistory(page);
-    const row = getHistoryRow(page, quotationNumber);
-    await expect(row).toContainText('Draft');
-
-    await row.getByRole('button', { name: 'Delete' }).click();
-    const confirmDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Delete quotation?' }) })
-      .last();
-    await expect(confirmDialog).toBeVisible();
-    await confirmDialog.getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(confirmDialog).toBeHidden({ timeout: 15_000 });
-    await expectSuccessToast(page, 'Quotation deleted');
-
-    // The number is gone from the table (the row may have been the only
-    // one or there may be others — what matters is this specific number).
-    await expect(page.locator('tr', { hasText: quotationNumber })).toHaveCount(0);
-
-    await expectNoClientIssues(tracker);
-  });
-
-  test('a sent quotation hides the Delete action (UI gating per QUOT-13)', async ({
-    page,
-  }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedSaleScenario(`quot-no-delete-${testInfo.parallelIndex}-${Date.now()}`);
-
-    await login(page, {
-      email: scenario.manager.email,
-      password: scenario.manager.password,
-      defaultPath: '/dashboard',
-    });
-
-    const createDialog = await openNewQuotationModal(page);
-    await fillQuotationLine(createDialog, { productId: scenario.product.id, quantity: 1 });
-    await createDialog.getByRole('button', { name: 'Save quotation' }).click();
-    await expect(createDialog).toBeHidden({ timeout: 15_000 });
-
-    const quotationNumber = await readQuotationNumberFromHistory(page);
-    const row = getHistoryRow(page, quotationNumber);
-
-    // Move it out of draft — sending suffices to exercise the negative
-    // gating. The row should still show Details but Delete disappears.
-    await row.getByRole('button', { name: 'Send' }).click();
-    await expect(getHistoryRow(page, quotationNumber)).toContainText('Sent');
-
-    const sentRow = getHistoryRow(page, quotationNumber);
-    await expect(sentRow.getByRole('button', { name: 'Details' })).toBeVisible();
-    await expect(sentRow.getByRole('button', { name: 'Delete' })).toHaveCount(0);
-
-    await expectNoClientIssues(tracker);
-  });
 });

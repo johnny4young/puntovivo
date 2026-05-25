@@ -403,6 +403,30 @@ research.
   to the inner call. Surfaced by the server reviewer as MEDIUM
   during ENG-135 review. — 2026-05-23 (ENG-135 follow-up)
 
+- `[perf][ci]` `ci:server` could win another ~2x via `vitest run
+  --pool=threads --no-isolate` (measured 18.6 s vs 35-45 s baseline).
+  Blocker: `packages/server/src/__tests__/ai-vision.test.ts` and
+  `ai-copilot-cache.test.ts` both register top-level `vi.mock('ai',
+  ...)`. With isolation off, the first file's mock leaks into the
+  second one and 7 cases fail with `AI_PROVIDER_ERROR` where they
+  expect `AI_VISION_PARSE_FAILED`. Fix shape: refactor both files to
+  use `vi.doMock` inside `beforeAll` (NOT hoisted), or carve them
+  into their own vitest workspace project with `isolate: true`. ~2 h
+  refactor + verify with `npx vitest run --pool=threads --no-isolate`.
+  — 2026-05-24 (ci:server perf follow-up)
+
+- `[perf][search]` `users.list` autocomplete still runs
+  `or(like(users.name, '%${search}%'), like(users.email, '%${search}%'))`
+  in `packages/server/src/trpc/routers/users.ts`. Both wildcards prevent
+  any B-tree index from helping; on a tenant with 10 k+ users the query
+  full-scans. The audit recommended switching to a SQLite FTS5 virtual
+  table populated by triggers (alternative: prefix-only LIKE which
+  breaks the substring UX operators rely on today). Apply the same lens
+  to `customers`, `products`, and `providers` autocompletes once the
+  approach is decided. Deferred from ENG-175 because the choice is a
+  UX/architectural decision that warrants its own ticket. —
+  2026-05-24 (ENG-175 follow-up)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

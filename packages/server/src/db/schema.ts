@@ -2158,6 +2158,16 @@ export const restaurantTables = sqliteTable(
   },
   table => [
     index('idx_restaurant_tables_tenant_site').on(table.tenantId, table.siteId),
+    // ENG-175 — partial unique on the active name so archived (isActive=0)
+    // rows free the name for re-use without colliding. The index itself
+    // was first introduced by migration `0023_restaurant_tables.sql` as a
+    // hand-appended `CREATE UNIQUE INDEX ... WHERE is_active = 1`;
+    // ENG-175 brings the declaration into Drizzle's schema source-of-truth
+    // (reusing the existing index name) so `drizzle-kit generate` does
+    // not drift on future schema edits.
+    uniqueIndex('idx_restaurant_tables_unique_active_name')
+      .on(table.tenantId, table.siteId, table.name)
+      .where(sql`${table.isActive} = 1`),
   ]
 );
 
@@ -2257,6 +2267,8 @@ export const inventoryMovements = sqliteTable(
     index('idx_inventory_tenant').on(table.tenantId),
     index('idx_inventory_product').on(table.productId),
     index('idx_inventory_created_by').on(table.createdBy),
+    // ENG-175 — traceability listings filter by tenant + order by date.
+    index('idx_inventory_movements_tenant_created').on(table.tenantId, table.createdAt),
   ]
 );
 
@@ -2555,6 +2567,13 @@ export const quotations = sqliteTable(
     index('idx_quotations_status').on(table.status),
     index('idx_quotations_created_by').on(table.createdBy),
     uniqueIndex('idx_quotations_tenant_number').on(table.tenantId, table.quotationNumber),
+    // ENG-175 — "expiring soon" dashboard filters by tenant + status and
+    // sorts/limits by valid_until.
+    index('idx_quotations_tenant_status_valid_until').on(
+      table.tenantId,
+      table.status,
+      table.validUntil
+    ),
   ]
 );
 
@@ -2666,6 +2685,14 @@ export const auditLogs = sqliteTable(
     index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),
     index('idx_audit_logs_created_at').on(table.createdAt),
     index('idx_audit_logs_operation_id').on(table.operationId),
+    // ENG-175 — listing query filters by tenant + a createdAt range.
+    index('idx_audit_logs_tenant_created').on(table.tenantId, table.createdAt),
+    // ENG-175 — listing query optionally narrows by action.
+    index('idx_audit_logs_tenant_action_created').on(
+      table.tenantId,
+      table.action,
+      table.createdAt
+    ),
   ]
 );
 
@@ -2944,6 +2971,10 @@ export const operationEvents = sqliteTable(
     index('idx_operation_events_kind_status').on(table.operationKind, table.status),
     index('idx_operation_events_device').on(table.deviceId),
     index('idx_operation_events_user').on(table.userId),
+    // ENG-175 — kernel worker polls WHERE status IN ('started','failed','partial')
+    // ORDER BY created_at. The existing status index supports the filter but
+    // not the sort; this composite covers both.
+    index('idx_operation_events_status_created').on(table.status, table.createdAt),
   ]
 );
 
@@ -4105,8 +4136,11 @@ export const syncOutbox = sqliteTable(
       table.nextRetryAt
     ),
     // Per-entity drilldown for "what's pending for this customer
-    // record" surfaces (Operations Center).
-    index('idx_sync_outbox_entity').on(table.entityType, table.entityId),
+    // record" surfaces (Operations Center). ENG-175 widened this from
+    // (entity_type, entity_id) to include status so the Operations
+    // Center peek query "pending syncs for entity X" can resolve via
+    // the index without a status post-filter.
+    index('idx_sync_outbox_entity').on(table.entityType, table.entityId, table.status),
     // Operations Center listing + peek.
     index('idx_sync_outbox_tenant_created').on(table.tenantId, table.createdAt),
     // Coalesce duplicate enqueues at the queue layer when an

@@ -422,6 +422,33 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         cost_at_sale real DEFAULT 0 NOT NULL,
         total real DEFAULT 0 NOT NULL
       );
+
+      -- ENG-175 — stub the four tables that 0034 creates composite
+      -- indexes on. The real bridge-build DB carries these from
+      -- migration 0000; the stubs only need the columns the indexes
+      -- reference so CREATE INDEX parses against a real table.
+      CREATE TABLE audit_logs (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        action text NOT NULL,
+        created_at text NOT NULL
+      );
+      CREATE TABLE inventory_movements (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        created_at text NOT NULL
+      );
+      CREATE TABLE operation_events (
+        id text PRIMARY KEY NOT NULL,
+        status text NOT NULL,
+        created_at text NOT NULL
+      );
+      CREATE TABLE quotations (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        status text NOT NULL,
+        valid_until text
+      );
     `);
 
     // ENG-067b — drizzle-kit's better-sqlite3 migrator decides which
