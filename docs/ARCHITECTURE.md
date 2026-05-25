@@ -275,6 +275,49 @@ That means:
 - remote-authoritative deployments are conceptually possible through the existing tRPC and sync boundaries
 - PostgreSQL support would require deliberate abstraction work rather than a simple driver swap
 
+## FK `onDelete` policy (ENG-175b)
+
+Every foreign-key reference in `packages/server/src/db/schema.ts` falls
+under one of three onDelete behaviours. The policy resolves the audit
+2026-05-24 finding that 80% of FKs were defaulting to RESTRICT without
+an explicit declaration, which produced confusing UX ("cannot delete
+provider; 3 products reference it") and made the intent of each FK
+opaque to a future maintainer.
+
+| Behaviour | When to apply | Examples |
+| --- | --- | --- |
+| **`cascade`** | Parent-of-child relations where the child row has no meaning without the parent. Deleting the parent must atomically delete the children. | `sale_items.sale_id → sales`, `quotation_items.quotation_id → quotations`, `purchase_items.purchase_id → purchases`, `transfer_order_items.transfer_order_id → transfer_orders`, `fiscal_document_items.fiscal_document_id → fiscal_documents`, `sale_payments.sale_id → sales` |
+| **`set null`** | Optional pointers to context that may legitimately disappear. The nullable column stores the historical link; clearing it preserves the parent row's audit value. | `sync_outbox.device_id → devices`, `*.operation_event_id → operation_events`, `sales.last_reprinted_by → users` |
+| **`restrict`** (default) | Cross-aggregate references where deleting the parent would orphan business-meaningful data. The default SQLite behaviour matches this policy; the absence of an explicit `onDelete` in `references()` means RESTRICT applies. | `sales.customer_id → customers`, `products.category_id → categories`, every `*.tenant_id → tenants` (multi-tenant invariant), every `*.site_id → sites`, every `audit_logs.*` (immutability invariant), every `*.created_by → users` (users are deactivated via `is_active`, never hard-deleted) |
+
+### Operational notes
+
+- **Multi-tenant invariant**: a tenant row must NEVER cascade-delete the
+  data that points to it. Every `*.tenant_id → tenants` reference is
+  RESTRICT (explicit or implicit). The cleanup story for an offboarded
+  tenant is a `tenants.is_active = 0` flip + a separate scheduled-purge
+  job (out of scope for this policy).
+- **Audit log immutability**: `audit_logs.*` references are RESTRICT.
+  Deleting a user or a tenant must fail while audit rows reference
+  them. The operator workaround is `users.is_active = 0`.
+- **Backwards-compat**: SQLite treats `ON DELETE NO ACTION` (Drizzle's
+  default when `onDelete` is omitted) and `ON DELETE RESTRICT`
+  identically at runtime — the policy's "implicit RESTRICT" rule does
+  not change behaviour on any existing install. Migration recreation
+  pressure is therefore zero for the RESTRICT majority; only the
+  cascade and set-null relations triggered table-recreation migrations
+  when they were originally introduced.
+- **New FK declarations**: when adding a new `references()` in
+  `schema.ts`, default to RESTRICT (omit `onDelete`). Add an explicit
+  `onDelete: 'cascade'` or `'set null'` only when the new relation
+  falls under the cascade or set-null category above. The reviewer
+  flags any new cascade introduction in the Review Guide so the
+  semantic shift gets operator sign-off.
+- **Cascade audit**: the cascade and set-null cases shipped today
+  remain intact and are pinned by regression tests in
+  `packages/server/src/__tests__/db-fk-policy.test.ts`. Any new cascade
+  added in a later ticket must extend that suite.
+
 ## Future Data Topology Direction
 
 The strongest forward path is:

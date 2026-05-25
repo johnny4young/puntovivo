@@ -22,6 +22,7 @@
     "test": "npm run native:ensure:node && vitest run",
     "test:watch": "npm run native:ensure:node && vitest",
     "test:coverage": "npm run native:ensure:node && vitest run --coverage",
+    "test:coverage:html": "npm run native:ensure:node && vitest run --coverage --coverage.reporter=text --coverage.reporter=text-summary --coverage.reporter=html --coverage.reporter=json --coverage.reporter=lcov",
     "lint": "eslint src --ext .ts",
     "format": "prettier --check \"src/**/*.ts\"",
     "format:fix": "prettier --write \"src/**/*.ts\"",
