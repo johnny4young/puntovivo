@@ -70,12 +70,34 @@ export interface CreateBackupBundleArgs {
   outZipPath: string;
   /** Optional metadata for the manifest entry. */
   manifest?: Partial<BackupManifest>;
+  /**
+   * ENG-167 — SQLCipher key for encrypted local.db files. When supplied,
+   * every read connection applies SQLCipher v4 before touching the file,
+   * and the staged backup DB remains encrypted with the same key.
+   */
+  encryptionKey?: string;
 }
 
 export interface CreateBackupBundleResult {
   zipPath: string;
   zipBytes: number;
   manifest: BackupManifest;
+}
+
+function assertEncryptionKeyShape(key: string): void {
+  if (!/^[0-9a-f]{64}$/i.test(key)) {
+    throw new Error('encryptionKey must be a 64-character hex string');
+  }
+}
+
+function applySqlCipherKey(db: Database.Database, encryptionKey?: string): void {
+  if (encryptionKey === undefined) {
+    return;
+  }
+  assertEncryptionKeyShape(encryptionKey);
+  db.pragma("cipher = 'sqlcipher'");
+  db.pragma('legacy = 4');
+  db.pragma(`key = "x'${encryptionKey}'"`);
 }
 
 /**
@@ -94,7 +116,7 @@ export interface CreateBackupBundleResult {
 export async function createBackupBundle(
   args: CreateBackupBundleArgs
 ): Promise<CreateBackupBundleResult> {
-  const { dbPath, deviceIdPath, outZipPath } = args;
+  const { dbPath, deviceIdPath, outZipPath, encryptionKey } = args;
 
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-backup-'));
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);
@@ -119,6 +141,7 @@ export async function createBackupBundle(
     // module stays pure (no logger) so the caller can decide whether
     // to surface the partial result via its own observability stack.
     const checkpointer = new Database(dbPath, { fileMustExist: true });
+    applySqlCipherKey(checkpointer, encryptionKey);
     checkpointer.pragma('busy_timeout = 5000');
     checkpointer.pragma('synchronous = FULL');
     try {
@@ -128,10 +151,19 @@ export async function createBackupBundle(
     }
 
     // Open the LIVE DB read-only for the online backup. better-sqlite3
-    // will OPEN_READONLY + attach to the (now flushed) WAL transparently.
+    // will OPEN_READONLY + attach to the (now flushed) WAL transparently
+    // for cleartext DBs. SQLite3MultipleCiphers rejects the backup API
+    // when source and target cipher configs differ, so encrypted DBs use
+    // VACUUM INTO from a keyed connection, which produces an encrypted
+    // destination with the same SQLCipher v4 key.
     const sourceDb = new Database(dbPath, { readonly: true, fileMustExist: true });
+    applySqlCipherKey(sourceDb, encryptionKey);
     try {
-      await sourceDb.backup(stagingDbPath);
+      if (encryptionKey === undefined) {
+        await sourceDb.backup(stagingDbPath);
+      } else {
+        sourceDb.prepare('VACUUM INTO ?').run(stagingDbPath);
+      }
     } finally {
       sourceDb.close();
     }
@@ -139,7 +171,7 @@ export async function createBackupBundle(
     // Integrity-check the staging file BEFORE we promise the operator
     // a usable backup. PRAGMA integrity_check returns 'ok' on success
     // or one or more error rows on corruption.
-    await assertSqliteIntegrity(stagingDbPath);
+    await assertSqliteIntegrity(stagingDbPath, { encryptionKey });
 
     // Read DB bytes for the manifest.
     const dbBuffer = await readFile(stagingDbPath);
@@ -300,10 +332,14 @@ export async function extractBackupBundle(
  * The error message is kept generic so callers can wrap it in a
  * translated user-facing string without coupling to SQLite internals.
  */
-export async function assertSqliteIntegrity(dbPath: string): Promise<void> {
+export async function assertSqliteIntegrity(
+  dbPath: string,
+  options: { encryptionKey?: string } = {}
+): Promise<void> {
   let db: Database.Database | null = null;
   try {
     db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    applySqlCipherKey(db, options.encryptionKey);
     const rows = db.prepare('PRAGMA integrity_check').all() as Array<{
       integrity_check?: string;
     }>;

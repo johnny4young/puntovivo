@@ -93,6 +93,15 @@ export interface ServerOptions {
    * so tests do not need to wire it.
    */
   appVersion?: string;
+  /**
+   * ENG-167 — 64-char hex SQLCipher key forwarded to `initDatabase`.
+   * Electron resolves it through `safeStorage` (see
+   * `apps/desktop/src/main/db-key-store.ts`); the standalone server
+   * accepts `process.env.PUNTOVIVO_DB_KEY` as a parity escape hatch.
+   * Tests omit it (in-memory and unkeyed file fixtures both opt out).
+   * See `DatabaseOptions.encryptionKey` for the wire format.
+   */
+  encryptionKey?: string;
 }
 
 export interface PuntovivoServer {
@@ -322,6 +331,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     seedData: true,
     verbose,
     migrationsFolder,
+    encryptionKey: options.encryptionKey,
   });
 
   // ENG-008b — prime the loginRateLimit in-memory cache from the persisted

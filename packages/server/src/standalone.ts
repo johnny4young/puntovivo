@@ -63,6 +63,13 @@ async function main(): Promise<void> {
   const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
   const jwtSecret = process.env.JWT_SECRET;
   const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
+  // ENG-167 — optional SQLCipher key. Electron resolves it through
+  // `safeStorage`; the standalone binary accepts it via env so the
+  // standalone dev workflow (`npm run dev:server`) can exercise the
+  // encrypted code path without booting Electron. Omitted by default,
+  // which keeps the legacy cleartext dev DB working until ENG-167b
+  // ships the one-shot migration UX.
+  const encryptionKey = process.env.PUNTOVIVO_DB_KEY;
   process.env.PUNTOVIVO_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
   banner('==========================================');
@@ -83,6 +90,7 @@ async function main(): Promise<void> {
       // `'unknown'` inside createServer when this is undefined (e.g.
       // a direct `node dist/standalone.js` invocation).
       appVersion: process.env.npm_package_version,
+      encryptionKey,
     });
 
     const shutdown = createGracefulShutdownHandler({

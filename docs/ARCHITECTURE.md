@@ -318,6 +318,57 @@ opaque to a future maintainer.
   `packages/server/src/__tests__/db-fk-policy.test.ts`. Any new cascade
   added in a later ticket must extend that suite.
 
+## Database open path + encryption (ENG-167)
+
+`local.db` opens through a single ordered sequence in
+`packages/server/src/db/index.ts`. Step-1 of ENG-167 inserts the
+SQLCipher key application as the very first PRAGMA so every later
+read or write speaks to a keyed page cipher:
+
+1. **Connection.** `new Database(dbPath, { verbose })` via the
+   `better-sqlite3` alias that resolves to
+   `better-sqlite3-multiple-ciphers@^12.10.0` (root `package.json`
+   declares the alias; the fork ships SQLite3MultipleCiphers in the
+   prebuilt native binary).
+2. **Encryption key (skipped for `:memory:`).** When
+   `DatabaseOptions.encryptionKey` is supplied:
+   `PRAGMA cipher='sqlcipher'`, `PRAGMA legacy=4`, then
+   `PRAGMA key = "x'<hex64>'"`.
+   The fork rejects keys on transient DBs, so the in-memory test
+   fleet keeps working unkeyed.
+3. **WAL + FK** (ENG-002 baseline): `journal_mode = WAL` (skipped
+   for `:memory:`), then `foreign_keys = ON`.
+4. **ENG-174 PRAGMA cluster:** `busy_timeout`, `cache_size`,
+   `temp_store`, then (file-only) `mmap_size` and
+   `wal_autocheckpoint`.
+5. **Drizzle handle + migrations** (ENG-002): `drizzle(sqlite,
+   { schema })` then `drizzleMigrate(...)` against the explicit
+   migrations folder.
+6. **Catalogue seed** (ENG-002 Step 3): `seedCatalogs(db)`.
+7. **Optional default-data seed.**
+
+**Where the key comes from.** Electron main
+(`apps/desktop/src/main/index.ts`) calls
+`getOrCreateDbKey(getDbKeyDir(DB_PATH), safeStorage)` from
+`apps/desktop/src/main/db-key-store.ts` BEFORE `createServer`. The
+key is sealed at `<userData>/data/.dbkey.enc` via Electron's
+`safeStorage` (macOS Keychain, Windows DPAPI, Linux libsecret /
+gnome-keyring / KWallet). The standalone `dev:server` reads
+`process.env.PUNTOVIVO_DB_KEY` instead — when unset, the legacy
+cleartext path stays in effect. The renderer never sees the key:
+the Chromium sandbox bars all Node access (ENG-004), and queries
+travel through tRPC to the in-process Fastify, which is the only
+holder of the live connection.
+
+**What ENG-167 Step-1 deliberately leaves for ENG-167b.** Pre-Step-1
+cleartext DBs require a one-shot migration on first boot of the
+upgraded build; restore from a different device needs a key prompt
+UX; cross-OS validation must run through
+[`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
+Until ENG-167b lands, the ticket stays `Status: Partial` and the
+production rollout is gated on the migration UX so existing
+installs do not break.
+
 ## Future Data Topology Direction
 
 The strongest forward path is:

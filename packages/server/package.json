@@ -46,7 +46,7 @@
     "@trpc/server": "^11.9.0",
     "ai": "^6.0.170",
     "argon2": "^0.44.0",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.10.0",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^5.7.2",
     "fastify": "^5.2.0",

@@ -427,6 +427,30 @@ research.
   UX/architectural decision that warrants its own ticket. —
   2026-05-24 (ENG-175 follow-up)
 
+- `[security][db] ENG-167b — SQLCipher migration UX + restore prompt
+  + cross-OS validation`. Step-1 of ENG-167 (2026-05-25) shipped the
+  library swap, the `safeStorage`-sealed key bootstrap, and the
+  PRAGMA `key` plumbing. ENG-167b owns the three remaining pieces:
+  (a) **one-shot migration of pre-Step-1 cleartext DBs on first boot
+  of the upgraded build** — detect a cleartext header, mint the new
+  key via `getOrCreateDbKey`, `ATTACH DATABASE` the cleartext source,
+  copy every table into an encrypted target, swap atomically; surface
+  an operator-visible progress banner because the copy is O(rows) and
+  large tenants will see seconds-of-blocking; (b) **restore-from-different-device
+  key prompt UX in `apps/desktop/src/main/backup/backup-bundle.ts`**
+  — when `assertSqliteIntegrity` fails post-extraction (a backup
+  sealed by a different machine's key), prompt the operator for the
+  source key via an Electron dialog, retry the integrity check with
+  the supplied key, persist the new envelope on success; (c) **cross-OS
+  matrix validation** by running the manual
+  [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml)
+  on Linux + macOS + Windows to confirm the prebuilt SQLCipher binary
+  loads under signed Electron 41 packages. Production rollout of
+  Step-1 + Step-1b is gated on this ticket — until then, the
+  encrypted code path runs in dev/CI but must not be advertised to
+  end users (existing cleartext DBs would fail to open). — 2026-05-25
+  (ENG-167 follow-up)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated
