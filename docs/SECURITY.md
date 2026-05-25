@@ -1,6 +1,6 @@
 # Security Notes
 
-> Updated: May 24, 2026 (ENG-166 + ENG-174 closure)
+> Updated: May 25, 2026 (ENG-166 + ENG-174 closure + ENG-167 Step-1)
 
 ## Current Security Posture
 
@@ -432,6 +432,100 @@ actionable remediation lines when any check fails. Wired in
 `package:desktop`, and `make:desktop`. The CLI exports
 `checkMigrationsBundle({migrationsDir})` so the colocated test can
 drive every failure path directly.
+
+## Database encryption at rest (ENG-167 Step-1)
+
+Until now the embedded SQLite database under
+`app.getPath('userData')/data/local.db` held every sale, customer,
+fiscal document, and Argon2 hash in cleartext on disk. A stolen
+laptop, a forensic disk image, or a backup left on shared storage
+exposed the full tenant — running `sqlite3 local.db ".dump"` against
+the file returned the entire table list. ENG-167 closes that hole
+with SQLite3MultipleCiphers in SQLCipher v4 compatibility mode,
+keyed from the OS keychain.
+
+**Threat model defended.** Encryption at rest blocks two concrete
+attacks: (1) **device theft** — a stolen device or recovered drive
+no longer surrenders the DB without the OS user's keychain unlock,
+and (2) **disk side-channel** — a forensic image or shared-storage
+backup is unreadable without the matching `safeStorage` envelope. It
+does NOT defend against a malicious agent inside the running
+process: once Electron has the key in memory, anything attached to
+that process can read it. Lateral process attacks are out of scope
+for ENG-167 and remain the OS-level trust boundary.
+
+**Wire path.** The Electron main process (`apps/desktop/src/main/index.ts`)
+calls `getOrCreateDbKey(<userData>/data, safeStorage)` from
+`apps/desktop/src/main/db-key-store.ts` BEFORE `createServer`. The
+helper:
+
+- Aborts the boot when `safeStorage.isEncryptionAvailable()` returns
+  `false` (e.g. a Linux box without libsecret / gnome-keyring /
+  KWallet). We refuse to write a cleartext fallback — an unreachable
+  keychain is an operator-visible error, not a silent
+  confidentiality downgrade.
+- On first boot, mints a fresh 256-bit key with
+  `crypto.randomBytes(32)`, seals it via
+  `safeStorage.encryptString()`, and persists the envelope at
+  `<userData>/data/.dbkey.enc` with `0600` permissions (POSIX best
+  effort; Windows uses ACL semantics).
+- On subsequent boots, reads the envelope and recovers the same hex
+  via `safeStorage.decryptString()`.
+
+The 64-character hex key flows into `createServer({ encryptionKey })`,
+through `ServerOptions`, into `initDatabase({ encryptionKey })` at
+`packages/server/src/db/index.ts:89`. The init code applies
+`PRAGMA cipher='sqlcipher'`, `PRAGMA legacy=4`, and
+`PRAGMA key = "x'<hex64>'"` **before** any other file-touching PRAGMA
+so the ENG-174 cluster
+(`journal_mode = WAL`, `foreign_keys`, `busy_timeout`,
+`cache_size`, `mmap_size`, `temp_store`, `wal_autocheckpoint`) talks
+to a keyed page cipher from the first read. `assertEncryptionKeyShape`
+rejects truncated or non-hex keys at boot rather than at the first
+SELECT.
+
+**Native dependency.** `packages/server` (and transitively the
+desktop bundle) now consumes `better-sqlite3-multiple-ciphers@^12.10.0`
+under the `better-sqlite3` alias declared in
+[`package.json`](../package.json) at root and in
+[`packages/server/package.json`](../packages/server/package.json). The
+fork preserves the synchronous better-sqlite3 API surface 1:1 and
+ships prebuilds for Node v137 (Node 24) and Electron v145 (Electron
+41) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
+`win32-x64`, and `win32-arm64`. `scripts/ensure-native-runtime.mjs`
+includes the package name in the cache key so the swap invalidates
+stale plain-better-sqlite3 binaries automatically.
+
+**Standalone server (`dev:server`).** The standalone binary reads
+`process.env.PUNTOVIVO_DB_KEY` and forwards it as `encryptionKey`.
+When unset the legacy cleartext path remains in effect — required
+for the existing dev workflow against
+`packages/server/data/local.db` until ENG-167b ships the one-shot
+migration UX. Document this as a dev-only surface; production
+Electron builds always encrypt because the main process never omits
+the key.
+
+**Tests.** Two regression suites pin the boot:
+[`packages/server/src/__tests__/db-encryption.test.ts`](../packages/server/src/__tests__/db-encryption.test.ts)
+covers the encrypted round-trip, SQLCipher mode selection, the
+plain-open failure (`SQLITE_NOTADB`), wrong-key failure, key-shape
+rejection, the `:memory:` skip path, and the ENG-174 PRAGMAs
+co-existing with the keyed connection.
+[`apps/desktop/src/main/__tests__/db-key-store.test.ts`](../apps/desktop/src/main/__tests__/db-key-store.test.ts)
+covers the safeStorage stub on first boot vs reboot vs the
+unavailable-keychain abort, plus the two error paths for a
+corrupt envelope. `backup-restore.test.ts` also verifies that backup
+ZIPs produced from encrypted DBs keep `local.db` encrypted.
+
+**What Step-1 explicitly does NOT cover.** ENG-167b will land the
+one-shot migration of pre-encryption cleartext DBs, the
+restore-from-different-device key prompt UX, and cross-OS matrix
+validation through
+[`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
+ENG-167 stays in `Status: Partial` until those land. **Pre-Step-1
+cleartext DBs on dev machines will fail to open on first boot
+post-merge** — wipe the data directory or restore from a Step-1
+backup. Production rollout is therefore gated on ENG-167b.
 
 ## Current Open Risks
 

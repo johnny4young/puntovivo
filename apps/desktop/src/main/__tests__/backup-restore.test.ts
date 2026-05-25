@@ -40,6 +40,7 @@ import {
 import JSZip from 'jszip';
 
 let scratchDir: string;
+const ENCRYPTION_KEY = 'a'.repeat(64);
 
 before(() => {
   scratchDir = mkdtempSync(join(tmpdir(), 'puntovivo-backup-test-'));
@@ -55,6 +56,23 @@ function seedSourceDb(path: string): { count: number } {
   db.exec("INSERT INTO sales VALUES ('s-1', 100.5);");
   db.exec("INSERT INTO sales VALUES ('s-2', 250.0);");
   db.exec("INSERT INTO sales VALUES ('s-3', 999.99);");
+  const row = db.prepare('SELECT COUNT(*) AS n FROM sales').get() as { n: number };
+  db.close();
+  return { count: row.n };
+}
+
+function applySqlCipherKey(db: Database.Database): void {
+  db.pragma("cipher = 'sqlcipher'");
+  db.pragma('legacy = 4');
+  db.pragma(`key = "x'${ENCRYPTION_KEY}'"`);
+}
+
+function seedEncryptedSourceDb(path: string): { count: number } {
+  const db = new Database(path);
+  applySqlCipherKey(db);
+  db.exec('CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);');
+  db.exec("INSERT INTO sales VALUES ('s-1', 100.5);");
+  db.exec("INSERT INTO sales VALUES ('s-2', 250.0);");
   const row = db.prepare('SELECT COUNT(*) AS n FROM sales').get() as { n: number };
   db.close();
   return { count: row.n };
@@ -140,6 +158,41 @@ describe('createBackupBundle + assertSqliteIntegrity (ENG-066)', () => {
       null,
       'device-id.txt must be absent when not supplied'
     );
+  });
+
+  it('backs up encrypted DBs without emitting a cleartext local.db entry', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'bundle-encrypted-'));
+    const sourceDbPath = join(dir, 'live.db');
+    const outZip = join(dir, 'out.zip');
+
+    const { count } = seedEncryptedSourceDb(sourceDbPath);
+
+    await createBackupBundle({
+      dbPath: sourceDbPath,
+      outZipPath: outZip,
+      encryptionKey: ENCRYPTION_KEY,
+    });
+
+    const zip = await JSZip.loadAsync(await readFile(outZip));
+    const extractedDb = join(dir, 'encrypted-extracted.db');
+    await writeFile(extractedDb, await zip.file(ZIP_DB_ENTRY)!.async('nodebuffer'));
+    await assertSqliteIntegrity(extractedDb, { encryptionKey: ENCRYPTION_KEY });
+
+    const plain = new Database(extractedDb, { readonly: true });
+    assert.throws(
+      () => plain.prepare('SELECT COUNT(*) AS n FROM sales').get(),
+      /file is not a database|SQLITE_NOTADB/i,
+      'backup ZIP must not carry a plaintext DB'
+    );
+    plain.close();
+
+    const verifier = new Database(extractedDb, { readonly: true });
+    applySqlCipherKey(verifier);
+    const rows = verifier.prepare('SELECT COUNT(*) AS n FROM sales').get() as {
+      n: number;
+    };
+    verifier.close();
+    assert.equal(rows.n, count, 'encrypted backup must carry every source row');
   });
 
   it('throws when the source DB is corrupted', async () => {

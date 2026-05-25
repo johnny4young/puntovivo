@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
+  safeStorage,
   session,
   Tray,
   nativeImage,
@@ -18,6 +19,7 @@ import { access, copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DEVICE_ID_FILENAME, readDeviceIdFromDir, writeDeviceIdToDir } from './device-id-store.js';
+import { getDbKeyDir, getOrCreateDbKey } from './db-key-store.js';
 import { sanitisePrintHtml } from './print-html-sanitizer.js';
 import {
   createBackupBundle,
@@ -106,6 +108,7 @@ mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected')
 let mainWindow: BrowserWindow | null = null;
 let server: PuntovivoServer | null = null;
 let tray: Tray | null = null;
+let databaseEncryptionKey: string | null = null;
 let isQuitting = false;
 let currentTraySettings: TraySettings = {
   enabled: true,
@@ -398,12 +401,23 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
   // a clear message that bubbles up through Electron's startup error
   // handling instead of silently sliding into defaults.
   const runtime: RuntimeConfig = resolveRuntimeConfig({ env: process.env });
+
+  // ENG-167 — resolve the SQLCipher key BEFORE `createServer` so the
+  // very first PRAGMA inside `initDatabase` can use it. Fresh installs
+  // mint a new 256-bit key sealed by `safeStorage`; subsequent boots
+  // recover the same key from the envelope file next to `local.db`.
+  // A keychain failure (e.g. revoked Keychain access on macOS, missing
+  // libsecret on Linux) throws here and aborts the boot instead of
+  // sliding into a cleartext fallback.
+  const encryptionKey = await resolveDatabaseEncryptionKey();
+
   mainLog.info(
     {
       dbPath: DB_PATH,
       authorityMode: runtime.authorityMode,
       bindHost: runtime.bindHost,
       bindPort: runtime.bindPort,
+      encryptionEnabled: true,
     },
     'starting embedded server'
   );
@@ -419,12 +433,37 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
     // /api/health so the Operations Center Authority tab (ENG-075)
     // can render it without a separate IPC round-trip.
     appVersion: app.getVersion(),
+    encryptionKey,
   });
 
   await nextServer.listen();
   mainLog.info({ url: nextServer.getUrl() }, 'embedded server started');
 
   return nextServer;
+}
+
+async function resolveDatabaseEncryptionKey(): Promise<string> {
+  if (databaseEncryptionKey) {
+    return databaseEncryptionKey;
+  }
+  const e2eKey = resolveE2eDatabaseEncryptionKey();
+  databaseEncryptionKey =
+    e2eKey ?? (await getOrCreateDbKey(getDbKeyDir(DB_PATH), safeStorage));
+  return databaseEncryptionKey;
+}
+
+function resolveE2eDatabaseEncryptionKey(): string | undefined {
+  if (app.isPackaged || process.env.PUNTOVIVO_E2E !== '1') {
+    return undefined;
+  }
+  const key = process.env.PUNTOVIVO_DB_KEY;
+  if (key === undefined) {
+    return undefined;
+  }
+  if (!/^[0-9a-f]{64}$/i.test(key)) {
+    throw new Error('PUNTOVIVO_DB_KEY must be a 64-character hex string in Electron E2E');
+  }
+  return key;
 }
 
 async function stopEmbeddedServer(): Promise<void> {
@@ -1770,10 +1809,12 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
       await access(DB_PATH);
       await ensureParentDirectoryExists(filePath);
       const deviceIdPath = getDeviceIdPath();
+      const encryptionKey = await resolveDatabaseEncryptionKey();
       return createBackupBundle({
         dbPath: DB_PATH,
         deviceIdPath,
         outZipPath: filePath,
+        encryptionKey,
         manifest: { appVersion: app.getVersion() },
       });
     });
@@ -1832,7 +1873,8 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
     await access(selectedBackupPath);
 
     const extracted = await extractBackupBundle(selectedBackupPath, stagingDir);
-    await assertSqliteIntegrity(extracted.dbPath);
+    const encryptionKey = await resolveDatabaseEncryptionKey();
+    await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
 
     await runWithServerRestart(
       async () => {

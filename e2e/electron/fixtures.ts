@@ -27,6 +27,7 @@
 import { test as base, _electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { ChildProcess } from 'node:child_process';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
 /**
@@ -42,6 +43,8 @@ export const ELECTRON_E2E_USER_DATA_DIR = resolve(
   'test-results',
   'electron-userdata'
 );
+export const ELECTRON_E2E_DB_KEY =
+  'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
 /**
  * Compiled Electron main entry. Electron Forge's Vite plugin emits
@@ -53,6 +56,10 @@ const ELECTRON_MAIN_ENTRY = resolve(
   process.cwd(),
   'apps/desktop/.vite/build/index.cjs'
 );
+const requireFromDesktopWorkspace = createRequire(
+  resolve(process.cwd(), 'apps/desktop/package.json')
+);
+const ELECTRON_EXECUTABLE_PATH = requireFromDesktopWorkspace('electron') as string;
 
 function ensureNativeRuntime(runtime: 'node' | 'electron'): void {
   const result = spawnSync(
@@ -123,6 +130,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
 
       try {
         electronApp = await _electron.launch({
+          executablePath: ELECTRON_EXECUTABLE_PATH,
           args: [
             ELECTRON_MAIN_ENTRY,
             `--user-data-dir=${ELECTRON_E2E_USER_DATA_DIR}`,
@@ -133,6 +141,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
             ...process.env,
             ELECTRON_ENABLE_LOGGING: '1',
             ELECTRON_ENABLE_STACK_DUMPING: '1',
+            PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
             PUNTOVIVO_E2E: '1',
           },
         });

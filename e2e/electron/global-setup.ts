@@ -38,7 +38,13 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { prepareBaseline } from '../shared/baseline.js';
-import { ELECTRON_E2E_USER_DATA_DIR } from './fixtures.js';
+import { ELECTRON_E2E_DB_KEY, ELECTRON_E2E_USER_DATA_DIR } from './fixtures.js';
+
+function applyE2eSqlCipherKey(db: Database.Database): void {
+  db.pragma("cipher='sqlcipher'");
+  db.pragma('legacy = 4');
+  db.pragma(`key = "x'${ELECTRON_E2E_DB_KEY}'"`);
+}
 
 export default async function globalSetup(_config: FullConfig) {
   // Reset the userData dir so the schema + baseline are deterministic
@@ -68,12 +74,14 @@ export default async function globalSetup(_config: FullConfig) {
     runMigrations: true,
     seedData: true,
     verbose: false,
+    encryptionKey: ELECTRON_E2E_DB_KEY,
   });
   closeDatabase();
 
   // Now upsert the E2E template users + ensure the secondary site.
   const db = new Database(dbPath);
   try {
+    applyE2eSqlCipherKey(db);
     await prepareBaseline(db);
   } finally {
     db.close();

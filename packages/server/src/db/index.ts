@@ -52,6 +52,42 @@ export interface DatabaseOptions {
    * ship separately via Forge `extraResource`.
    */
   migrationsFolder?: string;
+  /**
+   * ENG-167 — 64-char hex string (32 raw bytes) used as the SQLCipher
+   * page-encryption key. When supplied, the runtime issues
+   * `PRAGMA cipher='sqlcipher'`, `PRAGMA legacy=4`, and `PRAGMA key`
+   * immediately after the native `Database` constructor and before any
+   * other PRAGMA, so the on-disk file is unreadable without it. The
+   * SQLCipher mode is selected via
+   * SQLite3MultipleCiphers' `cipher='sqlcipher'` + `legacy=4` pragmas.
+   * When omitted (tests, the standalone
+   * `dev:server`), the database opens in cleartext for backwards-compat
+   * with pre-encryption installs and existing fixtures. The key is
+   * forwarded from Electron `safeStorage` (see
+   * `apps/desktop/src/main/db-key-store.ts`); the standalone server
+   * accepts `process.env.PUNTOVIVO_DB_KEY` for parity testing.
+   *
+   * Has no effect when `dbPath === ':memory:'` — the SQLCipher fork
+   * rejects `PRAGMA key` on in-memory or temporary databases
+   * (`SqliteError: Setting key not supported for in-memory or temporary databases`),
+   * and there is no on-disk surface to protect either way.
+   */
+  encryptionKey?: string;
+}
+
+/**
+ * ENG-167 — Validate the SQLCipher key. We accept only the raw-bytes
+ * form (`x'<hex64>'`) to keep the boot path KDF-free and to surface
+ * obviously-broken keys (truncated hex, accidental passphrase) as a
+ * boot-time error instead of a `SQLITE_NOTADB` later when the first
+ * `.prepare()` runs.
+ */
+function assertEncryptionKeyShape(key: string): void {
+  if (!/^[0-9a-f]{64}$/i.test(key)) {
+    throw new Error(
+      'encryptionKey must be a 64-character hex string (32 raw bytes); reject the safeStorage payload before boot'
+    );
+  }
 }
 
 /**
@@ -69,6 +105,7 @@ export async function initDatabase(
     seedData = true,
     verbose = false,
     migrationsFolder,
+    encryptionKey,
   } = options;
   const effectiveMigrationsFolder = migrationsFolder ?? getDefaultMigrationsFolder();
 
@@ -89,6 +126,25 @@ export async function initDatabase(
   sqlite = new Database(dbPath, {
     verbose: verbose ? (statement: unknown) => dbLog.trace({ statement }, 'sqlite') : undefined,
   });
+
+  // ENG-167 — Apply the SQLCipher key BEFORE any other PRAGMA so the
+  // very first read (including `journal_mode`, which the next line
+  // touches) speaks to a successfully-keyed page cipher. The fork
+  // (`better-sqlite3-multiple-ciphers`) defaults to a non-SQLCipher
+  // cipher, so we explicitly select SQLCipher v4 compatibility before
+  // applying the key. Skipped for `:memory:` because the fork rejects
+  // keys on transient DBs (SqliteError: Setting key not supported for
+  // in-memory or temporary databases) and a RAM-backed surface has no
+  // cleartext to protect anyway — the standalone `dev:server`
+  // therefore boots unkeyed when `PUNTOVIVO_DB_KEY` is unset,
+  // preserving the legacy cleartext dev flow until ENG-167b ships the
+  // one-shot migration UX.
+  if (encryptionKey !== undefined && dbPath !== ':memory:') {
+    assertEncryptionKeyShape(encryptionKey);
+    sqlite.pragma("cipher = 'sqlcipher'");
+    sqlite.pragma('legacy = 4');
+    sqlite.pragma(`key = "x'${encryptionKey}'"`);
+  }
 
   // Enable WAL mode for better concurrent access (skip for in-memory)
   if (dbPath !== ':memory:') {
