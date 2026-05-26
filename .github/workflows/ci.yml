@@ -63,7 +63,7 @@ jobs:
       # consume it without re-running the suite.
       - name: Upload web LCOV coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-web
           path: apps/web/coverage/lcov.info
@@ -141,7 +141,7 @@ jobs:
       # is uploaded as an artifact for downstream coverage tooling.
       - name: Upload backend LCOV coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-server
           path: packages/server/coverage/lcov.info
@@ -183,7 +183,7 @@ jobs:
       # and invalidates the cache automatically.
       - name: Cache Playwright browser binary
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .playwright-browsers
           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -202,7 +202,7 @@ jobs:
       # Playwright config.
       - name: Upload Playwright HTML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-web
           path: playwright-report/web
@@ -211,7 +211,7 @@ jobs:
 
       - name: Upload Playwright test-results (traces, screenshots, videos)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results-web
           path: test-results/playwright-web
