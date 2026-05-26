@@ -18,6 +18,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { cashSessions } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   assertOpeningFloatMatchesDenominations,
@@ -58,6 +59,7 @@ export async function openCashSession(
 
   const registerName = normalizeRegisterName(input.registerName);
   assertOpeningFloatMatchesDenominations(input.openingFloat, input.denominations);
+  const openingFloat = roundMoney(input.openingFloat);
 
   const existingCashierSession = await getActiveCashSessionForCashier(
     ctx.db,
@@ -110,9 +112,9 @@ export async function openCashSession(
         siteId: ctx.siteId as string,
         cashierId: ctx.user.id,
         registerName,
-        openingFloat: input.openingFloat,
+        openingFloat,
         openingCountDenominations: input.denominations,
-        expectedBalance: input.openingFloat,
+        expectedBalance: openingFloat,
         actualCount: null,
         actualCountDenominations: null,
         overShort: null,
@@ -134,7 +136,7 @@ export async function openCashSession(
       after: {
         status: 'open',
         registerName,
-        openingFloat: input.openingFloat,
+        openingFloat,
         openedAt: now,
       },
       metadata: {
@@ -152,7 +154,7 @@ export async function openCashSession(
     tenantId: ctx.tenantId,
     siteId: ctx.siteId,
     registerName,
-    openingFloat: input.openingFloat,
+    openingFloat,
     denominations: input.denominations,
   });
 
@@ -180,7 +182,7 @@ export async function openCashSession(
         effectData: {
           siteId: ctx.siteId,
           registerName,
-          openingFloat: input.openingFloat,
+          openingFloat,
         },
       },
     ];

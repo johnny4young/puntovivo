@@ -6,6 +6,7 @@ import {
   type PaymentRailId,
 } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { roundMoney } from '../../lib/money.js';
 import { PAYMENT_RAIL_IDS } from './manifest.js';
 import type { TiebreakContext, TiebreakFn } from './ai-tiebreak.js';
 
@@ -245,10 +246,6 @@ function buildOrphanProviderRow(row: PaymentOutboxRow): PaymentReconciliationMis
     createdAt: row.createdAt,
     suggestedAction: 'link_tender',
   };
-}
-
-function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function sumReviewAmount(mismatches: PaymentReconciliationMismatch[]): number {

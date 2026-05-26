@@ -8,6 +8,7 @@ import {
   denominationTemplates,
   type CashSessionDenomination,
 } from '../db/schema.js';
+import { roundMoney } from '../lib/money.js';
 import { throwServerError } from '../lib/errorCodes.js';
 
 const CASH_SESSION_EPSILON = 1e-6;
@@ -121,7 +122,7 @@ export function getClosingCountTotal(
 }
 
 export function getCashSessionOverShort(expectedBalance: number, actualCount: number): number {
-  return Math.round((actualCount - expectedBalance) * 100) / 100;
+  return roundMoney(actualCount - expectedBalance);
 }
 
 export function getCashMovementSignedAmount(type: CashMovementType, amount: number): number {
@@ -223,7 +224,20 @@ export function insertCashMovement(args: {
   createdBy: string;
   createdAt: string;
 }): string | null {
-  if (args.amount <= 0) {
+  // ENG-176a-rounding — round BEFORE the positivity guard so the
+  // `<= 0` test runs against the cents-precision value that will be
+  // persisted, not the raw float. Pre-Step-b the guard ran on the
+  // raw input, which let sub-cent positives (e.g. 0.001) pass — they
+  // were inserted as-is and later crashed the new
+  // `chk_cash_movements_amount_2dec` CHECK. With the rounding here
+  // those sub-cent positives collapse to 0 and silently skip, which
+  // is the right contract: a cash movement smaller than one cent is
+  // not a legal monetary event under the audit's "money columns are
+  // two decimals" invariant. If a caller ever needs sub-cent
+  // granularity it must use a different column type, not a real
+  // column under the precision CHECK.
+  const amount = roundMoney(args.amount);
+  if (amount <= 0) {
     return null;
   }
 
@@ -235,7 +249,7 @@ export function insertCashMovement(args: {
       tenantId: args.tenantId,
       sessionId: args.sessionId,
       type: args.type,
-      amount: args.amount,
+      amount,
       referenceId: args.referenceId,
       note: args.note,
       createdBy: args.createdBy,
@@ -243,10 +257,15 @@ export function insertCashMovement(args: {
     })
     .run();
 
+  // ENG-176a-rounding — `expected_balance + signedAmount` runs at the
+  // SQLite layer, where IEEE-754 addition can produce sub-cent drift
+  // that the precision CHECK (`chk_cash_sessions_expected_2dec`) would
+  // reject on the next update. Wrap in `round(..., 2)` so the stored
+  // value always lands on a clean cent boundary.
   args.tx
     .update(cashSessions)
     .set({
-      expectedBalance: sql`${cashSessions.expectedBalance} + ${getCashMovementSignedAmount(args.type, args.amount)}`,
+      expectedBalance: sql`round(${cashSessions.expectedBalance} + ${getCashMovementSignedAmount(args.type, amount)}, 2)`,
       updatedAt: args.createdAt,
     })
     .where(and(eq(cashSessions.id, args.sessionId), eq(cashSessions.tenantId, args.tenantId)))
@@ -387,13 +406,14 @@ export async function ensureRegisterAssignmentTemplate(
     .get();
 
   const now = new Date().toISOString();
+  const openingFloat = roundMoney(args.openingFloat);
 
   if (existing) {
     await db
       .update(denominationTemplates)
       .set({
         label: registerName,
-        openingFloat: args.openingFloat,
+        openingFloat,
         denominations: args.denominations,
         isActive: true,
         updatedAt: now,
@@ -412,7 +432,7 @@ export async function ensureRegisterAssignmentTemplate(
     siteId: args.siteId,
     registerName,
     label: registerName,
-    openingFloat: args.openingFloat,
+    openingFloat,
     denominations: args.denominations,
     sortOrder,
     isActive: true,

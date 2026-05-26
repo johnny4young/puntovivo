@@ -37,6 +37,7 @@ import {
 } from '../schemas/purchases.js';
 import type { CreatePurchaseInput } from '../schemas/purchases.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { roundMoney } from '../../lib/money.js';
 
 type ResolvedPurchaseItem = {
   id: string;
@@ -301,17 +302,18 @@ async function resolvePurchaseItems(
     }
 
     const normalizedQuantity = getNormalizedPurchaseQuantity(item.quantity, assignment.equivalence);
-    const baseUnitCost = item.costPerUnit / assignment.equivalence;
-    const total = item.costPerUnit * item.quantity;
+    const costPerUnit = roundMoney(item.costPerUnit);
+    const baseUnitCost = roundMoney(costPerUnit / assignment.equivalence);
+    const total = roundMoney(costPerUnit * item.quantity);
 
-    subtotal += total;
+    subtotal = roundMoney(subtotal + total);
     rows.push({
       id: nanoid(),
       productId: item.productId,
       quantity: item.quantity,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
-      costPerUnit: item.costPerUnit,
+      costPerUnit,
       baseUnitCost,
       total,
       normalizedQuantity,
@@ -416,7 +418,9 @@ async function resolvePurchaseReturnItems(
       inputItem.quantity,
       purchaseItem.unitEquivalence
     );
-    const total = inputItem.quantity * purchaseItem.costPerUnit;
+    const costPerUnit = roundMoney(purchaseItem.costPerUnit);
+    const baseUnitCost = roundMoney(purchaseItem.baseUnitCost);
+    const total = roundMoney(inputItem.quantity * costPerUnit);
     const nextReturnedQuantity = alreadyReturnedQuantity + inputItem.quantity;
 
     rows.push({
@@ -426,12 +430,12 @@ async function resolvePurchaseReturnItems(
       quantity: inputItem.quantity,
       unitId: purchaseItem.unitId,
       unitEquivalence: purchaseItem.unitEquivalence,
-      costPerUnit: purchaseItem.costPerUnit,
-      baseUnitCost: purchaseItem.baseUnitCost,
+      costPerUnit,
+      baseUnitCost,
       total,
       normalizedQuantity,
     });
-    returnAmount += total;
+    returnAmount = roundMoney(returnAmount + total);
     returnedQuantityMap.set(inputItem.purchaseItemId, nextReturnedQuantity);
   }
 
@@ -571,8 +575,10 @@ async function resolveOrderReceiptItems(
       inputItem.quantity,
       orderLine.unitEquivalence
     );
-    const total = inputItem.quantity * orderLine.costPerUnit;
-    subtotal += total;
+    const costPerUnit = roundMoney(orderLine.costPerUnit);
+    const baseUnitCost = roundMoney(orderLine.baseUnitCost);
+    const total = roundMoney(inputItem.quantity * costPerUnit);
+    subtotal = roundMoney(subtotal + total);
 
     rows.push({
       id: nanoid(),
@@ -581,8 +587,8 @@ async function resolveOrderReceiptItems(
       quantity: inputItem.quantity,
       unitId: orderLine.unitId,
       unitEquivalence: orderLine.unitEquivalence,
-      costPerUnit: orderLine.costPerUnit,
-      baseUnitCost: orderLine.baseUnitCost,
+      costPerUnit,
+      baseUnitCost,
       total,
       normalizedQuantity,
     });

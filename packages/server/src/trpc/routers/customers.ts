@@ -31,6 +31,7 @@ import {
 } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { roundMoney } from '../../lib/money.js';
 import {
   listCustomersInput,
   getCustomerInput,
@@ -194,7 +195,7 @@ export const customersRouter = router({
       notes: input.notes,
       // ENG-089 — default cupo to 0 (sin cupo) when the operator did
       // not pick a value; persistence-layer NOT NULL guards the column.
-      creditLimit: input.creditLimit ?? 0,
+      creditLimit: roundMoney(input.creditLimit ?? 0),
       isActive: input.isActive,
       syncStatus: 'pending',
       syncVersion: 1,
@@ -314,7 +315,7 @@ export const customersRouter = router({
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     // ENG-089 — `creditLimit` can be set to 0 to remove the cupo so an
     // explicit `undefined` is the only way to skip the update.
-    if (updates.creditLimit !== undefined) updateData.creditLimit = updates.creditLimit;
+    if (updates.creditLimit !== undefined) updateData.creditLimit = roundMoney(updates.creditLimit);
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     // ENG-007 closure — credit-limit changes must leave an audit trail.
@@ -323,7 +324,7 @@ export const customersRouter = router({
     // name / phone / address never writes a credit-policy audit row.
     const priorCreditLimit = existing.creditLimit ?? 0;
     const nextCreditLimit =
-      updates.creditLimit !== undefined ? updates.creditLimit : priorCreditLimit;
+      updates.creditLimit !== undefined ? roundMoney(updates.creditLimit) : priorCreditLimit;
     const creditLimitChanged =
       updates.creditLimit !== undefined && nextCreditLimit !== priorCreditLimit;
 

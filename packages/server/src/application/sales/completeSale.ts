@@ -50,6 +50,7 @@ import { enqueueSync } from '../../services/sync/enqueue.js';
 import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
 import type { KdsHookContext } from '../../services/kds/types.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   assertCashSessionStillOpen,
@@ -353,29 +354,37 @@ async function resolveSaleItems(
 
     remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
 
-    const grossAmount = item.unitPrice * item.quantity;
-    const discountAmount = grossAmount * (item.discount / 100);
-    const lineTotal = grossAmount - discountAmount;
+    // ENG-176a-rounding — round each derived monetary quantity to two
+    // decimals BEFORE accumulating into the running totals or pushing
+    // into the row buffer. Without this, a tax-exclusive split
+    // (`lineTotal / (1 + taxRate)`) produces non-terminating decimals
+    // that the storage layer's `chk_*_2dec` CHECK would reject, and
+    // a long line list would stack sub-cent drift across iterations.
+    const grossAmount = roundMoney(item.unitPrice * item.quantity);
+    const discountAmount = roundMoney(grossAmount * (item.discount / 100));
+    const lineTotal = roundMoney(grossAmount - discountAmount);
     const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const lineBase = taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal;
-    const lineTax = lineTotal - lineBase;
+    const lineBase = roundMoney(
+      taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal
+    );
+    const lineTax = roundMoney(lineTotal - lineBase);
 
-    subtotal += lineBase;
-    taxAmount += lineTax;
+    subtotal = roundMoney(subtotal + lineBase);
+    taxAmount = roundMoney(taxAmount + lineTax);
 
     rows.push({
       id: nanoid(),
       productId: item.productId,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
+      unitPrice: roundMoney(item.unitPrice),
       referenceUnitPrice: assignment.price,
       productName: product.name,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
-      discount: item.discount,
+      discount: roundMoney(item.discount),
       taxRate,
       taxAmount: lineTax,
-      costAtSale: product.cost,
+      costAtSale: roundMoney(product.cost),
       total: lineTotal,
       normalizedQuantity,
       // ENG-039d2 — empty / whitespace-only notes collapse to null so
@@ -501,9 +510,13 @@ async function runFreshSale(
   const saleSiteId = activeCashSession.siteId;
   const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items);
 
-  const subtotal = resolvedItems.subtotal;
-  const taxAmount = resolvedItems.taxAmount;
-  const baseTotal = subtotal + taxAmount - (input.discountAmount ?? 0);
+  // ENG-176a-rounding — resolveSaleItems already rounded the per-line
+  // accumulations; we round again at the header level so any external
+  // discount applied here cannot reintroduce sub-cent drift.
+  const subtotal = roundMoney(resolvedItems.subtotal);
+  const taxAmount = roundMoney(resolvedItems.taxAmount);
+  const headerDiscount = roundMoney(input.discountAmount ?? 0);
+  const baseTotal = roundMoney(subtotal + taxAmount - headerDiscount);
   if (baseTotal < 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -516,13 +529,13 @@ async function runFreshSale(
   // a special case downstream. The Zod refinement already rejects
   // `tipMethod` without a positive amount; we additionally clamp to 0
   // here as a defensive belt against any non-Zod caller.
-  const tipAmount = Math.max(0, input.tipAmount ?? 0);
+  const tipAmount = roundMoney(Math.max(0, input.tipAmount ?? 0));
   const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
   // ENG-039d3 — restaurant service charge / propina sugerida. Rolls
   // into `total` after tip so multi-tender Σ stays consistent. The
   // tenant-settings drift check fires below once we know the resolved
   // subtotal.
-  const serviceChargeAmount = Math.max(0, input.serviceChargeAmount ?? 0);
+  const serviceChargeAmount = roundMoney(Math.max(0, input.serviceChargeAmount ?? 0));
   // Draft creation is not checkout yet: it may persist a frozen cart
   // before the customer sees payment. Enforce the mandatory service
   // charge on completed fresh sales, and still validate any draft that
@@ -539,7 +552,7 @@ async function runFreshSale(
     serviceChargeRate =
       serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   }
-  const total = baseTotal + tipAmount + serviceChargeAmount;
+  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
@@ -576,12 +589,18 @@ async function runFreshSale(
 
   // Cash collected is the sum of cash-method tenders when split, or the
   // legacy amountReceived-minus-change when single-tender.
+  // ENG-176a-rounding — each `payment.amount` is already two-decimal
+  // (resolveSalePayments rounded it), but IEEE-754 addition of two
+  // 2-decimal values can drift (10.10 + 10.20 = 20.299999…). The
+  // downstream `insertCashMovement` re-rounds, but defend at the
+  // source so a future refactor that bypasses that downstream rounder
+  // cannot silently leak drift into cash_movements.amount.
   const cashCollectedAmount =
     input.status === 'completed'
       ? isSplitPayment
         ? resolvedPayments.rows
             .filter(payment => payment.method === 'cash')
-            .reduce((acc, payment) => acc + payment.amount, 0)
+            .reduce((acc, payment) => roundMoney(acc + payment.amount), 0)
         : getCashCollectedAmount({
             paymentMethod: input.paymentMethod,
             amountReceived: input.amountReceived,
@@ -683,7 +702,7 @@ async function runFreshSale(
         tableId: input.tableId ?? null,
         subtotal,
         taxAmount,
-        discountAmount: input.discountAmount ?? 0,
+        discountAmount: headerDiscount,
         // ENG-039d — tip persisted alongside the existing money columns.
         tipAmount,
         tipMethod,
@@ -711,13 +730,18 @@ async function runFreshSale(
     // Phase 2 Tier-2 step 5 — persist one row per tender.
     for (const payment of resolvedPayments.rows) {
       const paymentId = nanoid();
+      // ENG-176a-rounding — sale_payments.amount carries a precision
+      // CHECK; round at the write boundary because split-payment
+      // resolvers can compute fractional shares
+      // (`total * weight`) that leave sub-cent drift.
+      const tenderAmount = roundMoney(payment.amount);
       tx.insert(salePayments)
         .values({
           id: paymentId,
           tenantId: ctx.tenantId,
           saleId,
           method: payment.method,
-          amount: payment.amount,
+          amount: tenderAmount,
           reference: payment.reference,
           syncStatus: 'pending',
           syncVersion: 1,
@@ -727,7 +751,7 @@ async function runFreshSale(
       paymentEffects.push({
         id: paymentId,
         method: payment.method,
-        amount: payment.amount,
+        amount: tenderAmount,
       });
     }
 
@@ -943,7 +967,7 @@ async function runFreshSale(
         customerId: input.customerId,
         subtotal,
         taxAmount,
-        discountAmount: input.discountAmount ?? 0,
+        discountAmount: headerDiscount,
         total,
         paymentMethod: resolvedPayments.dominantMethod,
       });
@@ -1106,17 +1130,18 @@ async function runCompleteDraft(
   // was created with a tip already baked into `total` would otherwise
   // see the second tip compound on top of the first, leaving
   // `total` out of sync with the new `tipAmount` column.
-  const tipAmount = Math.max(0, input.tipAmount ?? 0);
+  const tipAmount = roundMoney(Math.max(0, input.tipAmount ?? 0));
   const tipMethod = tipAmount > 0 ? input.tipMethod ?? null : null;
   // ENG-039d3 — service charge layered onto the frozen draft base. The
   // same baseTotal-from-frozen-pieces logic that prevents tip compounding
   // (a draft that was opened with a service charge already in `total`
   // would otherwise see the new charge double-stacked) applies here too.
-  const serviceChargeAmount = Math.max(0, input.serviceChargeAmount ?? 0);
-  const baseTotal =
+  const serviceChargeAmount = roundMoney(Math.max(0, input.serviceChargeAmount ?? 0));
+  const baseTotal = roundMoney(
     (existing.subtotal ?? 0) +
     (existing.taxAmount ?? 0) -
-    (existing.discountAmount ?? 0);
+    (existing.discountAmount ?? 0)
+  );
   const restaurantSettings = await assertServiceChargeMatchesTenant({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -1125,7 +1150,7 @@ async function runCompleteDraft(
   });
   const serviceChargeRate =
     serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
-  const total = baseTotal + tipAmount + serviceChargeAmount;
+  const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
     method: payment.method,
     amount: payment.amount,
@@ -1157,10 +1182,12 @@ async function runCompleteDraft(
     input.amountReceived !== undefined && input.amountReceived > total
       ? input.amountReceived - total
       : 0;
+  // ENG-176a-rounding — see the resumeDraft path for the rationale:
+  // accumulating two 2-decimal floats can drift, defend at the source.
   const cashCollectedAmount = isSplitPayment
     ? resolvedPayments.rows
         .filter(payment => payment.method === 'cash')
-        .reduce((acc, payment) => acc + payment.amount, 0)
+        .reduce((acc, payment) => roundMoney(acc + payment.amount), 0)
     : getCashCollectedAmount({
         paymentMethod: input.paymentMethod,
         amountReceived: input.amountReceived,
@@ -1230,13 +1257,14 @@ async function runCompleteDraft(
 
     for (const payment of resolvedPayments.rows) {
       const paymentId = nanoid();
+      const tenderAmount = roundMoney(payment.amount);
       tx.insert(salePayments)
         .values({
           id: paymentId,
           tenantId: ctx.tenantId,
           saleId: input.saleId,
           method: payment.method,
-          amount: payment.amount,
+          amount: tenderAmount,
           reference: payment.reference,
           syncStatus: 'pending',
           syncVersion: 1,
@@ -1246,7 +1274,7 @@ async function runCompleteDraft(
       paymentEffects.push({
         id: paymentId,
         method: payment.method,
-        amount: payment.amount,
+        amount: tenderAmount,
       });
     }
 

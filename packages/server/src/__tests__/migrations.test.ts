@@ -252,6 +252,52 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         created_at numeric
       );
 
+      -- ENG-176a — stub every FK target referenced by the
+      -- __new_X recreation blocks in 0035. The SQLCipher fork
+      -- validates that referenced tables exist at INSERT-from-SELECT
+      -- parse time, even inside the foreign_keys=OFF window the
+      -- migration opens.
+      CREATE TABLE tenants (
+        id text PRIMARY KEY NOT NULL,
+        name text NOT NULL,
+        slug text NOT NULL
+      );
+      CREATE TABLE users (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        email text NOT NULL,
+        password_hash text NOT NULL,
+        name text NOT NULL,
+        role text NOT NULL
+      );
+      CREATE TABLE sites (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        company_id text,
+        name text NOT NULL
+      );
+      CREATE TABLE categories (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL
+      );
+      CREATE TABLE providers (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL
+      );
+      CREATE TABLE vat_rates (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL,
+        rate real DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE units (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL
+      );
+
       CREATE TABLE sync_queue (
         id text PRIMARY KEY NOT NULL,
         tenant_id text NOT NULL,
@@ -446,8 +492,235 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       CREATE TABLE quotations (
         id text PRIMARY KEY NOT NULL,
         tenant_id text NOT NULL,
+        site_id text NOT NULL,
+        quotation_number text NOT NULL,
+        customer_id text,
         status text NOT NULL,
-        valid_until text
+        subtotal real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        discount_amount real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL,
+        valid_until text,
+        notes text,
+        created_by text NOT NULL,
+        status_changed_at text,
+        status_changed_by text,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+
+      -- ENG-176a — stub the 13 monetary tables that 0035 recreates
+      -- via the __new_X table-recreation pattern. The bridge-build
+      -- fixture needs each one in place before 0035 can ALTER +
+      -- RENAME against an existing target. Columns mirror the
+      -- post-baseline shape; only the columns the 0035 INSERT-from-
+      -- SELECT touches need to be present, but we include the full
+      -- known set for forward compatibility with future ENG-176b
+      -- column additions.
+      CREATE TABLE products (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        name text NOT NULL,
+        sku text NOT NULL,
+        description text,
+        category_id text,
+        price real DEFAULT 0 NOT NULL,
+        price2 real DEFAULT 0 NOT NULL,
+        price3 real DEFAULT 0 NOT NULL,
+        cost real DEFAULT 0 NOT NULL,
+        margin_percent1 real DEFAULT 0 NOT NULL,
+        margin_percent2 real DEFAULT 0 NOT NULL,
+        margin_percent3 real DEFAULT 0 NOT NULL,
+        margin_amount1 real DEFAULT 0 NOT NULL,
+        margin_amount2 real DEFAULT 0 NOT NULL,
+        margin_amount3 real DEFAULT 0 NOT NULL,
+        tax_rate real DEFAULT 0 NOT NULL,
+        vat_rate_id text,
+        provider_id text,
+        location_id text,
+        initial_cost real DEFAULT 0 NOT NULL,
+        stock real DEFAULT 0 NOT NULL,
+        min_stock real DEFAULT 0 NOT NULL,
+        sell_by_fraction integer DEFAULT 0 NOT NULL,
+        fraction_step real,
+        fraction_minimum real,
+        is_active integer DEFAULT 1,
+        barcode text,
+        image_url text,
+        embedding text,
+        embedding_model text,
+        embedded_at text,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE purchases (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        purchase_number text NOT NULL,
+        provider_id text NOT NULL,
+        site_id text NOT NULL,
+        order_id text,
+        status text NOT NULL,
+        subtotal real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL,
+        notes text,
+        received_at text,
+        created_by text NOT NULL,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE purchase_items (
+        id text PRIMARY KEY NOT NULL,
+        purchase_id text NOT NULL,
+        product_id text NOT NULL,
+        source_order_item_id text,
+        quantity real DEFAULT 1 NOT NULL,
+        unit_id text NOT NULL,
+        unit_equivalence real DEFAULT 1 NOT NULL,
+        cost_per_unit real DEFAULT 0 NOT NULL,
+        base_unit_cost real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE purchase_returns (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        purchase_id text NOT NULL,
+        return_amount real DEFAULT 0 NOT NULL,
+        reason text,
+        created_by text NOT NULL,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE orders (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        order_number text NOT NULL,
+        provider_id text NOT NULL,
+        site_id text NOT NULL,
+        status text NOT NULL,
+        subtotal real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL,
+        notes text,
+        created_by text NOT NULL,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE order_items (
+        id text PRIMARY KEY NOT NULL,
+        order_id text NOT NULL,
+        product_id text NOT NULL,
+        quantity real DEFAULT 1 NOT NULL,
+        unit_id text NOT NULL,
+        unit_equivalence real DEFAULT 1 NOT NULL,
+        cost_per_unit real DEFAULT 0 NOT NULL,
+        base_unit_cost real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL
+      );
+      CREATE TABLE cash_sessions (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        site_id text NOT NULL,
+        cashier_id text NOT NULL,
+        register_name text NOT NULL,
+        opening_float real DEFAULT 0 NOT NULL,
+        opening_count_denominations text NOT NULL,
+        expected_balance real DEFAULT 0 NOT NULL,
+        actual_count real,
+        actual_count_denominations text,
+        over_short real,
+        status text NOT NULL,
+        opened_at text NOT NULL,
+        closed_at text,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE denomination_templates (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        site_id text NOT NULL,
+        register_name text NOT NULL,
+        label text NOT NULL,
+        opening_float real DEFAULT 0 NOT NULL,
+        denominations text NOT NULL,
+        sort_order integer DEFAULT 0 NOT NULL,
+        is_active integer DEFAULT 1 NOT NULL,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE cash_movements (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        session_id text NOT NULL,
+        type text NOT NULL,
+        amount real DEFAULT 0 NOT NULL,
+        reference_id text,
+        note text,
+        created_by text NOT NULL,
+        created_at text NOT NULL
+      );
+      CREATE TABLE sale_payments (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        sale_id text NOT NULL,
+        method text NOT NULL,
+        amount real NOT NULL,
+        reference text,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL
+      );
+      CREATE TABLE sale_returns (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        sale_id text NOT NULL,
+        refund_amount real DEFAULT 0 NOT NULL,
+        reason text,
+        created_by text NOT NULL,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE initial_inventory (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        product_id text NOT NULL,
+        unit_id text NOT NULL,
+        site_id text,
+        mode text NOT NULL,
+        quantity real NOT NULL,
+        unit_equivalence real DEFAULT 1 NOT NULL,
+        normalized_quantity real NOT NULL,
+        cost real DEFAULT 0 NOT NULL,
+        previous_stock real NOT NULL,
+        new_stock real NOT NULL,
+        notes text,
+        created_by text NOT NULL,
+        sync_status text DEFAULT 'pending',
+        sync_version integer DEFAULT 0,
+        created_at text NOT NULL
+      );
+      CREATE TABLE quotation_items (
+        id text PRIMARY KEY NOT NULL,
+        quotation_id text NOT NULL,
+        product_id text NOT NULL,
+        quantity real DEFAULT 1 NOT NULL,
+        unit_price real DEFAULT 0 NOT NULL,
+        discount real DEFAULT 0 NOT NULL,
+        tax_rate real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        total real DEFAULT 0 NOT NULL,
+        created_at text NOT NULL
       );
     `);
 

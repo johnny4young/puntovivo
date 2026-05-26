@@ -15,6 +15,7 @@ import {
 } from '../../services/cash-session.js';
 import type { Context } from '../context.js';
 import { router } from '../init.js';
+import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import {
@@ -60,9 +61,7 @@ function isPrivilegedCashSessionRole(role: string | undefined) {
   return role === 'admin' || role === 'manager';
 }
 
-function roundCurrencyAmount(value: number) {
-  return Math.round(value * 100) / 100;
-}
+const roundCurrencyAmount = roundMoney;
 
 function getCashSessionDiscrepancy(value: number | null | undefined) {
   return Math.abs(value ?? 0);

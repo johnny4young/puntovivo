@@ -420,6 +420,61 @@ describe('completeSale (fresh path)', () => {
     });
   });
 
+  it('rounds monetary write-boundary inputs before hitting precision CHECKs', async () => {
+    const productId = await seedProduct({
+      name: 'CS Precision Fresh',
+      sku: 'CS-PRECISION-FRESH',
+      stock: 5,
+      price: 100,
+      taxRate: 0,
+    });
+
+    const result = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+          taxRate: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 100,
+      discountAmount: 0.105,
+    });
+    const saleId = (result.sale as { id: string }).id;
+
+    const persisted = await getDatabase()
+      .select({
+        discountAmount: sales.discountAmount,
+        total: sales.total,
+      })
+      .from(sales)
+      .where(eq(sales.id, saleId))
+      .get();
+    const payment = await getDatabase()
+      .select({ amount: salePayments.amount })
+      .from(salePayments)
+      .where(eq(salePayments.saleId, saleId))
+      .get();
+    const movement = await getDatabase()
+      .select({ amount: cashMovements.amount })
+      .from(cashMovements)
+      .where(eq(cashMovements.referenceId, saleId))
+      .get();
+
+    expect(persisted?.discountAmount).toBe(0.11);
+    expect(persisted?.total).toBe(99.89);
+    expect(payment?.amount).toBe(99.89);
+    expect(movement?.amount).toBe(99.89);
+  });
+
   it('does not move cash, sync_outbox completion, or fiscal docs when status=draft', async () => {
     const productId = await seedProduct({
       name: 'CS Draft no fiscal',
@@ -639,6 +694,64 @@ describe('completeSale (fromDraft path)', () => {
     ).rejects.toMatchObject({
       message: expect.stringMatching(/items/i),
     });
+  });
+
+  it('rounds draft-completion tips and payments before precision CHECK writes', async () => {
+    const productId = await seedProduct({
+      name: 'CS Precision Draft',
+      sku: 'CS-PRECISION-DRAFT',
+      stock: 5,
+      price: 10,
+      taxRate: 0,
+    });
+    const draft = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 10,
+          discount: 0,
+          taxRate: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+    const draftId = (draft.sale as { id: string }).id;
+
+    await completeSale(buildContext(), {
+      mode: 'fromDraft',
+      saleId: draftId,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      amountReceived: 10.11,
+      tipAmount: 0.105,
+      tipMethod: 'fixed',
+    });
+
+    const persisted = await getDatabase()
+      .select({
+        tipAmount: sales.tipAmount,
+        total: sales.total,
+      })
+      .from(sales)
+      .where(eq(sales.id, draftId))
+      .get();
+    const payment = await getDatabase()
+      .select({ amount: salePayments.amount })
+      .from(salePayments)
+      .where(eq(salePayments.saleId, draftId))
+      .get();
+
+    expect(persisted?.tipAmount).toBe(0.11);
+    expect(persisted?.total).toBe(10.11);
+    expect(payment?.amount).toBe(10.11);
   });
 });
 

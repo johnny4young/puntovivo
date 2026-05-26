@@ -451,6 +451,49 @@ research.
   end users (existing cleartext DBs would fail to open). — 2026-05-25
   (ENG-167 follow-up)
 
+- `[migration-style][polish] ENG-176-prelude-drift-predicate`. Migration
+  0035's defensive UPDATE prelude uses `WHERE round(col, 2) != col` for
+  single-column tables but `WHERE 1=1` for multi-column tables (sales,
+  sale_items, quotations, quotation_items, cash_sessions, purchases,
+  purchase_items, orders, order_items, products). The 1=1 form is
+  semantically safe (round on a 2-decimal value is a no-op and no
+  triggers exist on these tables), but on a tenant with tens of
+  thousands of sale_items it issues a full-table write that triggers a
+  WAL flush during the migration window. When ENG-176b emits its own
+  recreation prelude, use `WHERE round(a,2) != a OR round(b,2) != b OR
+  ...` per table to skip the write on clean databases. Pattern
+  recommendation only — no functional issue today. — 2026-05-25
+  (ENG-176a polish)
+
+- `[money][schema] ENG-176b — currency_code + exchange_rate seam on
+  transactional tables`. Add `currency_code` (FK to
+  `currency_catalog`), `exchange_rate_at_sale`, and nullable
+  `settle_currency_code` columns to `sales`, `sale_items`,
+  `quotations`, `quotation_items`, `products`, and
+  `customers.creditLimit`. Default `currency_code` to the tenant
+  locale via a transitional DEFAULT + a one-shot backfill from
+  `tenants.settings.currency`. Recreate `fiscal_documents`,
+  `fiscal_document_items`, and `payment_outbox` to add their
+  `_nonneg` CHECKs (skipped in ENG-176a Step-a because the Drizzle
+  snapshot chain does not list them — adding currency_code forces a
+  recreation anyway, so the CHECKs slot in for free). **Blocker for
+  ENG-156 (multi-currency operations) and ENG-161 (NFe Brazil)**. —
+  2026-05-25 (ENG-176 follow-up)
+
+- `[fiscal][schema] ENG-176c — fiscal_identification_types catalog
+  rename + status enum expansion`. (1) Rename
+  `dian_identification_types` to `fiscal_identification_types` and
+  reshape to `(code, country_code, abbr, name_en, name_es,
+  natural_person)`; backfill existing rows with `country_code = 'CO'`;
+  seed SAT (MX), SUNAT (PE), and SII (CL). (2) Expand
+  `fiscal_documents.status` enum (or migrate to `text('status')` +
+  a per-country lookup table) so SAT / SUNAT / SII / AFIP states
+  (`voided`, `notified_correction`, `partial_send`, …) can be
+  expressed. Fiscal adapter contracts in `services/fiscal/registry.ts`
+  must look up by `country_code` after the rename. Audit
+  recommendation in [AUDIT-2026-05-24.md §ENG-176](./AUDIT-2026-05-24.md).
+  — 2026-05-25 (ENG-176 follow-up)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

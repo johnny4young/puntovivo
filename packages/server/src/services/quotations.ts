@@ -22,6 +22,7 @@ import {
   type QuotationStatus,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { roundMoney } from '../lib/money.js';
 import { writeAuditLog } from './audit-logs.js';
 
 export interface QuotationItemInput {
@@ -91,27 +92,32 @@ export function computeQuotationTotals(
   let taxAmount = 0;
   let discountAmount = 0;
 
+  // ENG-176a-rounding — mirror completeSale.ts: round every derived
+  // monetary quantity to two decimals before accumulation, and round
+  // the running totals after each iteration so a long line list does
+  // not stack sub-cent drift.
   const rows: ResolvedQuotationLine[] = rawLines.map(line => {
-    const grossLine = line.unitPrice * line.quantity;
-    const lineDiscountAmount = grossLine * (line.discount / 100);
-    const lineTotal = grossLine - lineDiscountAmount;
+    const grossLine = roundMoney(line.unitPrice * line.quantity);
+    const lineDiscountAmount = roundMoney(grossLine * (line.discount / 100));
+    const lineTotal = roundMoney(grossLine - lineDiscountAmount);
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
     const effectiveTaxRate =
       line.taxRate > 0 ? line.taxRate : productTaxRateById.get(line.productId) ?? 0;
-    const lineBase =
-      effectiveTaxRate > 0 ? lineTotal / (1 + effectiveTaxRate / 100) : lineTotal;
-    const lineTax = lineTotal - lineBase;
+    const lineBase = roundMoney(
+      effectiveTaxRate > 0 ? lineTotal / (1 + effectiveTaxRate / 100) : lineTotal
+    );
+    const lineTax = roundMoney(lineTotal - lineBase);
 
-    subtotal += lineBase;
-    taxAmount += lineTax;
-    discountAmount += lineDiscountAmount;
+    subtotal = roundMoney(subtotal + lineBase);
+    taxAmount = roundMoney(taxAmount + lineTax);
+    discountAmount = roundMoney(discountAmount + lineDiscountAmount);
 
     return {
       id: nanoid(),
       productId: line.productId,
       quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      discount: line.discount,
+      unitPrice: roundMoney(line.unitPrice),
+      discount: roundMoney(line.discount),
       taxRate: effectiveTaxRate,
       taxAmount: lineTax,
       total: lineTotal,
@@ -122,7 +128,7 @@ export function computeQuotationTotals(
     subtotal,
     taxAmount,
     discountAmount,
-    total: subtotal + taxAmount,
+    total: roundMoney(subtotal + taxAmount),
     rows,
   };
 }

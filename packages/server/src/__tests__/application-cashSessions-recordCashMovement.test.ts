@@ -116,6 +116,19 @@ describe('recordCashMovement', () => {
     expect(after - before).toBeCloseTo(25, 2);
   });
 
+  it('rounds sub-cent movement input before cash CHECK writes', async () => {
+    const before = await readSessionExpectedBalance();
+    const result = await recordCashMovement(buildContext(), {
+      type: 'paid_in',
+      amount: 0.1 + 0.2,
+      note: 'Floating point drift top up',
+    });
+
+    expect(result.movement.amount).toBe(0.3);
+    const after = await readSessionExpectedBalance();
+    expect(after - before).toBeCloseTo(0.3, 2);
+  });
+
   it('paid_out decreases expectedBalance', async () => {
     const before = await readSessionExpectedBalance();
     await recordCashMovement(buildContext(), {

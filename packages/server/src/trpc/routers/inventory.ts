@@ -53,6 +53,7 @@ import {
   summarizeInventoryBalances,
 } from '../../services/inventory-balances.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { roundMoney } from '../../lib/money.js';
 
 async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
   const product = await db
@@ -402,6 +403,7 @@ export const inventoryRouter = router({
     const product = await getProductForInventory(ctx.db, ctx.tenantId, input.productId);
     const unitAssignment = await getProductUnitAssignment(ctx.db, input.productId, input.unitId);
     const normalizedQuantity = getNormalizedInventoryQuantity(input.quantity, unitAssignment.equivalence);
+    const cost = roundMoney(input.cost);
     const now = new Date().toISOString();
     const entryId = nanoid();
     const movementId = nanoid();
@@ -421,7 +423,7 @@ export const inventoryRouter = router({
           quantity: input.quantity,
           unitEquivalence: unitAssignment.equivalence,
           normalizedQuantity,
-          cost: input.cost,
+          cost,
           previousStock: product.stock,
           newStock,
           notes: input.notes,
@@ -455,7 +457,7 @@ export const inventoryRouter = router({
       tx.update(products)
         .set({
           stock: newStock,
-          initialCost: input.cost,
+          initialCost: cost,
           syncStatus: 'pending',
           syncVersion: (product.syncVersion ?? 0) + 1,
           updatedAt: now,

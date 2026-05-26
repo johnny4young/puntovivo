@@ -24,6 +24,7 @@ import {
   voidOrderInput,
 } from '../schemas/orders.js';
 import type { CreateOrderInput } from '../schemas/orders.js';
+import { roundMoney } from '../../lib/money.js';
 
 type ResolvedOrderItem = {
   id: string;
@@ -170,17 +171,18 @@ async function resolveOrderItems(
       });
     }
 
-    const baseUnitCost = item.costPerUnit / assignment.equivalence;
-    const total = item.costPerUnit * item.quantity;
+    const costPerUnit = roundMoney(item.costPerUnit);
+    const baseUnitCost = roundMoney(costPerUnit / assignment.equivalence);
+    const total = roundMoney(costPerUnit * item.quantity);
 
-    subtotal += total;
+    subtotal = roundMoney(subtotal + total);
     rows.push({
       id: nanoid(),
       productId: item.productId,
       quantity: item.quantity,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
-      costPerUnit: item.costPerUnit,
+      costPerUnit,
       baseUnitCost,
       total,
     });
