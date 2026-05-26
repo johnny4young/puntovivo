@@ -32,6 +32,7 @@ import {
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { roundMoney } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import {
   listCustomersInput,
   getCustomerInput,
@@ -175,6 +176,14 @@ export const customersRouter = router({
         ),
       ]);
 
+    // ENG-176b — stamp credit_limit_currency_code only when the
+    // customer actually has a credit limit. `0 = sin cupo` is the
+    // legacy sentinel; setting a currency on a customer with no
+    // active limit would be misleading metadata.
+    const normalizedCreditLimit = roundMoney(input.creditLimit ?? 0);
+    const creditLimitCurrencyCode =
+      normalizedCreditLimit > 0 ? resolveTenantCurrency(ctx.db, ctx.tenantId) : null;
+
     await ctx.db.insert(customers).values({
       id,
       tenantId: ctx.tenantId,
@@ -195,7 +204,8 @@ export const customersRouter = router({
       notes: input.notes,
       // ENG-089 — default cupo to 0 (sin cupo) when the operator did
       // not pick a value; persistence-layer NOT NULL guards the column.
-      creditLimit: roundMoney(input.creditLimit ?? 0),
+      creditLimit: normalizedCreditLimit,
+      creditLimitCurrencyCode,
       isActive: input.isActive,
       syncStatus: 'pending',
       syncVersion: 1,
@@ -315,7 +325,16 @@ export const customersRouter = router({
     if (updates.notes !== undefined) updateData.notes = updates.notes;
     // ENG-089 — `creditLimit` can be set to 0 to remove the cupo so an
     // explicit `undefined` is the only way to skip the update.
-    if (updates.creditLimit !== undefined) updateData.creditLimit = roundMoney(updates.creditLimit);
+    if (updates.creditLimit !== undefined) {
+      const nextLimit = roundMoney(updates.creditLimit);
+      updateData.creditLimit = nextLimit;
+      // ENG-176b — keep credit_limit_currency_code in lockstep with
+      // creditLimit. When the limit drops to 0 ("sin cupo") we clear
+      // the currency to avoid stale metadata; when it rises from 0
+      // we stamp the tenant default.
+      updateData.creditLimitCurrencyCode =
+        nextLimit > 0 ? resolveTenantCurrency(ctx.db, ctx.tenantId) : null;
+    }
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     // ENG-007 closure — credit-limit changes must leave an audit trail.

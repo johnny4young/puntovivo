@@ -23,6 +23,7 @@ import {
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { roundMoney } from '../lib/money.js';
+import { resolveTenantCurrency } from '../lib/currency.js';
 import { writeAuditLog } from './audit-logs.js';
 
 export interface QuotationItemInput {
@@ -301,6 +302,11 @@ export function createQuotation(
       .where(eq(sequentials.id, sequential.id))
       .run();
 
+    // ENG-176b — stamp the tenant default currency on the quotation
+    // header and on every item. If a future conversion path creates a
+    // sale, it can carry this seam verbatim instead of re-resolving.
+    const quotationCurrencyCode = resolveTenantCurrency(tx, args.tenantId);
+
     tx.insert(quotations)
       .values({
         id: quotationId,
@@ -313,6 +319,9 @@ export function createQuotation(
         taxAmount: totals.taxAmount,
         discountAmount: totals.discountAmount,
         total: totals.total,
+        currencyCode: quotationCurrencyCode,
+        exchangeRateAtSale: 1,
+        settleCurrencyCode: null,
         validUntil: args.validUntil,
         notes: args.notes,
         createdBy: args.createdBy,
@@ -337,6 +346,9 @@ export function createQuotation(
           taxRate: row.taxRate,
           taxAmount: row.taxAmount,
           total: row.total,
+          currencyCode: quotationCurrencyCode,
+          exchangeRateAtSale: 1,
+          settleCurrencyCode: null,
           createdAt: now,
         })
         .run();

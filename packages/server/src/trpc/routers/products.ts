@@ -49,6 +49,7 @@ import { parseScan } from '../../services/peripherals/barcode/parser.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { roundMoney } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import {
   regenerateProductEmbeddings,
   resolveActiveEmbeddingModelId,
@@ -654,6 +655,12 @@ export const productsRouter = router({
       fractionMinimum: input.fractionMinimum,
     });
 
+    // ENG-176b — products carry their own currency_code so an
+    // imported product priced in USD can live inside a COP tenant.
+    // Default to the tenant currency; future input schemas can add
+    // an explicit override for the import-product flow.
+    const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+
     await ctx.db.insert(products).values({
       id,
       tenantId: ctx.tenantId,
@@ -676,6 +683,7 @@ export const productsRouter = router({
       providerId: normalizedProviderState?.providerId ?? null,
       locationId: resolvedLocationId,
       initialCost: roundMoney(input.initialCost),
+      currencyCode: productCurrencyCode,
       stock: input.stock,
       minStock: input.minStock,
       sellByFraction: resolvedFractionPolicy.sellByFraction,

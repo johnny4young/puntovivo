@@ -14,10 +14,12 @@
  * `SQLITE_CONSTRAINT_CHECK` so a future refactor that accidentally
  * drops a constraint surfaces at the test suite, not in production.
  *
- * Fiscal_documents, fiscal_document_items, and payment_outbox are
- * intentionally NOT covered here: their CHECKs are deferred to
- * ENG-176b alongside the currency_code recreation (see the migration
- * 0035 prelude comment for the snapshot-chain reason).
+ * ENG-176b (migration 0037) reinstates both invariants on the three
+ * tables the snapshot chain had skipped (fiscal_documents,
+ * fiscal_document_items, payment_outbox) while adding the
+ * currency_code seam to transactional tables. New cases below cover
+ * those three tables; the schema-level sentinel keeps the signed-only
+ * list intact since none of the newly covered columns are signed.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -236,6 +238,113 @@ describe('money CHECK invariants (ENG-176a)', () => {
     });
   });
 
+  describe('fiscal tables — ENG-176b retro-fitted CHECKs', () => {
+    // The migration-0037 recreation finally attaches both invariants to
+    // the three tables the Drizzle snapshot chain had skipped. These
+    // cases pin SQLite rejects negative + sub-cent writes on each
+    // column category so a future feature cannot silently drop them.
+
+    it('fiscal_documents.subtotal rejects a negative write', async () => {
+      await initDatabase({ dbPath: ':memory:', seedData: false });
+      const c = liveClient();
+      // Minimal FK skeleton — fiscal_documents needs tenants + user +
+      // resolution + identification type. Skip resolution by passing
+      // an arbitrary id with FK enforcement deferred.
+      c.pragma('foreign_keys = OFF');
+      c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
+      c.prepare(
+        "INSERT INTO users (id, tenant_id, email, password_hash, name, role) VALUES ('u1', 't1', 'a@b', 'x', 'a', 'admin')"
+      ).run();
+      expectCheckViolation(
+        () =>
+          c
+            .prepare(
+              `INSERT INTO fiscal_documents (id, tenant_id, source, source_id, kind, resolution_id, consecutive, document_number, cufe, buyer_tax_id, buyer_tax_id_type_code, buyer_name, subtotal, tax_amount, discount_amount, total_amount, currency_code, locale_code, provider_id, emitted_by_user_id)
+               VALUES ('fd1', 't1', 'sale', 's1', 'invoice', 'r1', 1, 'F-001', 'cufe', '900', '13', 'Buyer', -10, 0, 0, 0, 'COP', 'es-CO', 'mock', 'u1')`
+            )
+            .run(),
+        'chk_fiscal_documents_subtotal_nonneg'
+      );
+    });
+
+    it('fiscal_documents.subtotal rejects > 2-decimal precision', async () => {
+      await initDatabase({ dbPath: ':memory:', seedData: false });
+      const c = liveClient();
+      c.pragma('foreign_keys = OFF');
+      c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
+      c.prepare(
+        "INSERT INTO users (id, tenant_id, email, password_hash, name, role) VALUES ('u1', 't1', 'a@b', 'x', 'a', 'admin')"
+      ).run();
+      expectCheckViolation(
+        () =>
+          c
+            .prepare(
+              `INSERT INTO fiscal_documents (id, tenant_id, source, source_id, kind, resolution_id, consecutive, document_number, cufe, buyer_tax_id, buyer_tax_id_type_code, buyer_name, subtotal, tax_amount, discount_amount, total_amount, currency_code, locale_code, provider_id, emitted_by_user_id)
+               VALUES ('fd2', 't1', 'sale', 's2', 'invoice', 'r1', 1, 'F-002', 'cufe2', '900', '13', 'Buyer', 100.005, 0, 0, 0, 'COP', 'es-CO', 'mock', 'u1')`
+            )
+            .run(),
+        'chk_fiscal_documents_subtotal_2dec'
+      );
+    });
+
+    it('fiscal_document_items.unit_price rejects a negative write', async () => {
+      await initDatabase({ dbPath: ':memory:', seedData: false });
+      const c = liveClient();
+      c.pragma('foreign_keys = OFF');
+      c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
+      c.prepare(
+        "INSERT INTO users (id, tenant_id, email, password_hash, name, role) VALUES ('u1', 't1', 'a@b', 'x', 'a', 'admin')"
+      ).run();
+      c.prepare(
+        `INSERT INTO fiscal_documents (id, tenant_id, source, source_id, kind, resolution_id, consecutive, document_number, cufe, buyer_tax_id, buyer_tax_id_type_code, buyer_name, currency_code, locale_code, provider_id, emitted_by_user_id)
+         VALUES ('fd3', 't1', 'sale', 's3', 'invoice', 'r1', 1, 'F-003', 'cufe3', '900', '13', 'Buyer', 'COP', 'es-CO', 'mock', 'u1')`
+      ).run();
+      expectCheckViolation(
+        () =>
+          c
+            .prepare(
+              "INSERT INTO fiscal_document_items (id, fiscal_document_id, line_number, product_name, quantity, unit_price, line_total) VALUES ('fdi1', 'fd3', 1, 'p', 1, -10, 0)"
+            )
+            .run(),
+        'chk_fiscal_document_items_unit_price_nonneg'
+      );
+    });
+
+    it('payment_outbox.amount rejects a negative write', async () => {
+      await initDatabase({ dbPath: ':memory:', seedData: false });
+      const c = liveClient();
+      c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
+      const now = '2026-05-26T00:00:00Z';
+      expectCheckViolation(
+        () =>
+          c
+            .prepare(
+              `INSERT INTO payment_outbox (id, tenant_id, rail_id, kind, status, amount, reference, payload, created_at, updated_at)
+               VALUES ('po1', 't1', 'card', 'charge', 'queued', -50, 'ref', '{}', '${now}', '${now}')`
+            )
+            .run(),
+        'chk_payment_outbox_amount_nonneg'
+      );
+    });
+
+    it('payment_outbox.amount rejects > 2-decimal precision', async () => {
+      await initDatabase({ dbPath: ':memory:', seedData: false });
+      const c = liveClient();
+      c.prepare("INSERT INTO tenants (id, name, slug) VALUES ('t1', 't', 's')").run();
+      const now = '2026-05-26T00:00:00Z';
+      expectCheckViolation(
+        () =>
+          c
+            .prepare(
+              `INSERT INTO payment_outbox (id, tenant_id, rail_id, kind, status, amount, reference, payload, created_at, updated_at)
+               VALUES ('po2', 't1', 'card', 'charge', 'queued', 12.345, 'ref', '{}', '${now}', '${now}')`
+            )
+            .run(),
+        'chk_payment_outbox_amount_2dec'
+      );
+    });
+  });
+
   describe('schema-level CHECK declarations', () => {
     // Parameterized constraint-presence audit. Each row in the table
     // below is one expected `chk_<prefix>_nonneg` constraint that
@@ -338,6 +447,43 @@ describe('money CHECK invariants (ENG-176a)', () => {
       {
         table: 'initial_inventory',
         constraint: 'chk_initial_inventory_cost_nonneg',
+      },
+      // ENG-176b — fiscal tables + payment_outbox CHECKs landed in 0037.
+      {
+        table: 'fiscal_documents',
+        constraint: 'chk_fiscal_documents_subtotal_nonneg',
+      },
+      {
+        table: 'fiscal_documents',
+        constraint: 'chk_fiscal_documents_tax_nonneg',
+      },
+      {
+        table: 'fiscal_documents',
+        constraint: 'chk_fiscal_documents_discount_nonneg',
+      },
+      {
+        table: 'fiscal_documents',
+        constraint: 'chk_fiscal_documents_total_nonneg',
+      },
+      {
+        table: 'fiscal_document_items',
+        constraint: 'chk_fiscal_document_items_unit_price_nonneg',
+      },
+      {
+        table: 'fiscal_document_items',
+        constraint: 'chk_fiscal_document_items_discount_nonneg',
+      },
+      {
+        table: 'fiscal_document_items',
+        constraint: 'chk_fiscal_document_items_tax_nonneg',
+      },
+      {
+        table: 'fiscal_document_items',
+        constraint: 'chk_fiscal_document_items_total_nonneg',
+      },
+      {
+        table: 'payment_outbox',
+        constraint: 'chk_payment_outbox_amount_nonneg',
       },
     ];
 

@@ -51,12 +51,12 @@ import { relations, sql } from 'drizzle-orm';
 //     variance) where negative values are semantically meaningful but
 //     decimal drift beyond two digits is not.
 //
-// The 2-decimal rule is hard-coded for now. ENG-176b will add
-// `currency_code` to transactional rows; at that point a future
-// iteration can refine the CHECK to honour the per-currency decimal
-// count from `currency_catalog` (JPY = 0, BHD = 3). For the current
-// LATAM-only deployment window every active currency uses 2 decimals,
-// so the simple form is correct.
+// The 2-decimal rule is hard-coded for now. ENG-176b stores
+// `currency_code` on transactional rows, and a future iteration can
+// refine the CHECK to honour the per-currency decimal count from
+// `currency_catalog` (JPY = 0, BHD = 3). For the current LATAM-only
+// deployment window every active currency uses 2 decimals, so the
+// simple form is correct.
 //
 // The precision invariant relies on the application layer rounding
 // every monetary value to two decimals at the write boundary using
@@ -351,6 +351,17 @@ export const tenants = sqliteTable(
     name: text('name').notNull(),
     slug: text('slug').notNull().unique(),
     settings: text('settings', { mode: 'json' }).$type<Record<string, unknown>>().default({}),
+    // ENG-176b — canonical default currency for the tenant. Filled by
+    // migration 0037 via COALESCE(tenant_locale_settings.currency_override,
+    // country_catalog.default_currency_code via tenant_locale_settings.country_code,
+    // json_extract(settings, '$.currency'), 'COP'). Read by
+    // `resolveTenantCurrency()` at every monetary write boundary so app code
+    // never has to parse tenants.settings JSON on the hot path. FK to
+    // currency_catalog so the value is always a known ISO-4217 code.
+    defaultCurrencyCode: text('default_currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -968,6 +979,16 @@ export const products = sqliteTable(
     providerId: text('provider_id').references(() => providers.id),
     locationId: text('location_id'),
     initialCost: real('initial_cost').notNull().default(0),
+    // ENG-176b — currency for every monetary column on this row (price /
+    // price2 / price3 / cost / margin amounts / initialCost). Default
+    // 'COP' for backfill; the application sets this from
+    // `resolveTenantCurrency(ctx.tenantId)` or from the operator's
+    // explicit override in product create/update (imported products
+    // priced in USD inside a COP tenant).
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
     // Phase 1 DB-050: stock is `real` so ferreterías (2.5 m cable)
     // and supermarkets (0.75 kg produce) can sell by fraction. Existing
     // integer values round-trip unchanged because SQLite stores both in the
@@ -1346,6 +1367,14 @@ export const customers = sqliteTable(
     // layer. ENG-090's `requireCreditLimitNotExceeded()` invariant
     // gates the "Cargar a cuenta" payment method against this column.
     creditLimit: real('credit_limit').notNull().default(0),
+    // ENG-176b — currency for the creditLimit column. Nullable so
+    // customers without an active credit limit (creditLimit = 0) do
+    // not have to carry a currency. When `creditLimit > 0` the
+    // application sets this either to the explicit operator override
+    // or to `resolveTenantCurrency(ctx.tenantId)`.
+    creditLimitCurrencyCode: text('credit_limit_currency_code').references(
+      () => currencyCatalog.code
+    ),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
@@ -1356,9 +1385,10 @@ export const customers = sqliteTable(
   table => [
     index('idx_customers_tenant').on(table.tenantId),
     index('idx_customers_email').on(table.email),
-    // ENG-176a — credit limit cannot be negative (ENG-089 also enforces this
-    // at the Zod layer); two-decimal precision matches the LATAM-currency
-    // window. A future ENG-176b can refine per currency_code.
+    // ENG-176a/ENG-176b — credit limit cannot be negative (ENG-089 also
+    // enforces this at the Zod layer); ENG-176b stores the credit-limit
+    // currency while per-currency decimal precision remains a future
+    // refinement.
     ...moneyPositiveChecks('customers_credit_limit', table.creditLimit),
   ]
 );
@@ -1776,6 +1806,22 @@ export const sales = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-176b — multi-currency seam. `currencyCode` is the currency
+    // the sale was priced in (subtotal/taxAmount/tipAmount/total are
+    // all denominated in it). `exchangeRateAtSale` is the factor that
+    // converts `settleCurrencyCode → currencyCode`; 1.0 when settle
+    // matches sale (most flows today). `settleCurrencyCode` is set
+    // only when ENG-156 lands multi-currency settle: a sale priced
+    // in USD but cashed in COP carries currencyCode='USD',
+    // settleCurrencyCode='COP', exchangeRateAtSale=4200.
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
+    settleCurrencyCode: text('settle_currency_code').references(
+      () => currencyCatalog.code
+    ),
     // ENG-039d — restaurant tip / propina. `tipAmount` is the resolved
     // currency value added on top of `subtotal + tax - discount` (it
     // rolls into `total` so payment validation stays unchanged).
@@ -1843,6 +1889,11 @@ export const sales = sqliteTable(
     ...moneyPositiveChecks('sales_tip', table.tipAmount),
     ...moneyPositiveChecks('sales_service', table.serviceChargeAmount),
     moneyTwoDecimalCheck('sales_discount', table.discountAmount),
+    // ENG-176b — exchange rate must be strictly positive. 1.0 for
+    // single-currency sales (currencyCode === settleCurrencyCode or
+    // settleCurrencyCode IS NULL). A negative or zero rate has no
+    // accounting meaning and would silently zero out totals.
+    check('chk_sales_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
   ]
 );
 
@@ -2056,6 +2107,22 @@ export const saleItems = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-176b — line-level currency seam. By contract these three
+    // columns mirror the parent `sales.currency_code` /
+    // `exchange_rate_at_sale` / `settle_currency_code`. The redundant
+    // storage avoids a join on every line render and keeps the
+    // invariant CHECK-able on this row alone (cross-table CHECKs are
+    // not supported in SQLite). `completeSale` propagates the header
+    // value to every item; a future multi-currency feature can
+    // refine.
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
+    settleCurrencyCode: text('settle_currency_code').references(
+      () => currencyCatalog.code
+    ),
     // ENG-039d2 — per-line free-form modifier note ("sin cebolla",
     // "extra queso", etc.). Captured at sale creation time by the
     // voice-ordering surface and snapshotted into the KDS card so
@@ -2076,6 +2143,11 @@ export const saleItems = sqliteTable(
     ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
     ...moneyPositiveChecks('sale_items_total', table.total),
     moneyTwoDecimalCheck('sale_items_discount', table.discount),
+    // ENG-176b — exchange rate must be strictly positive (mirror sales).
+    check(
+      'chk_sale_items_exchange_rate_positive',
+      sql`${table.exchangeRateAtSale} > 0`
+    ),
   ]
 );
 
@@ -2252,12 +2324,11 @@ export const paymentOutbox = sqliteTable(
     uniqueIndex('idx_payment_outbox_idempotent')
       .on(table.tenantId, table.railId, table.kind, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
-    // ENG-176a — payment_outbox.amount CHECK is deferred to ENG-176b
-    // alongside the currency_code recreation. The Drizzle snapshot
-    // chain (`meta/0001_snapshot.json` → next `0035_snapshot.json`)
-    // is missing this table, so drizzle-kit cannot emit a clean
-    // recreation block today; the Zod boundary at the tRPC layer
-    // already enforces the precision before any write.
+    // ENG-176b — payment_outbox.amount is always positive: both
+    // `charge` and `refund` kinds store the absolute amount being
+    // moved (the direction is encoded in `kind`, not the sign of
+    // amount). Precision must match the rest of the money model.
+    ...moneyPositiveChecks('payment_outbox_amount', table.amount),
   ]
 );
 
@@ -2709,6 +2780,18 @@ export const quotations = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     discountAmount: real('discount_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-176b — mirror sales currency seam. When the quotation is
+    // promoted to a sale (`quotations.convert`), these three fields
+    // are copied into the new `sales` row verbatim so the customer's
+    // quoted price stays denominated in the same currency.
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
+    settleCurrencyCode: text('settle_currency_code').references(
+      () => currencyCatalog.code
+    ),
     /** ISO timestamp at which the quotation expires. Optional. */
     validUntil: text('valid_until'),
     notes: text('notes'),
@@ -2742,6 +2825,11 @@ export const quotations = sqliteTable(
     ...moneyPositiveChecks('quotations_tax', table.taxAmount),
     ...moneyPositiveChecks('quotations_total', table.total),
     moneyTwoDecimalCheck('quotations_discount', table.discountAmount),
+    // ENG-176b — exchange rate must be strictly positive.
+    check(
+      'chk_quotations_exchange_rate_positive',
+      sql`${table.exchangeRateAtSale} > 0`
+    ),
   ]
 );
 
@@ -2761,6 +2849,15 @@ export const quotationItems = sqliteTable(
     taxRate: real('tax_rate').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
     total: real('total').notNull().default(0),
+    // ENG-176b — line-level mirror of sale_items currency seam.
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    exchangeRateAtSale: real('exchange_rate_at_sale').notNull().default(1),
+    settleCurrencyCode: text('settle_currency_code').references(
+      () => currencyCatalog.code
+    ),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
@@ -2771,6 +2868,11 @@ export const quotationItems = sqliteTable(
     ...moneyPositiveChecks('quotation_items_tax', table.taxAmount),
     ...moneyPositiveChecks('quotation_items_total', table.total),
     moneyTwoDecimalCheck('quotation_items_discount', table.discount),
+    // ENG-176b — exchange rate must be strictly positive (mirror sales).
+    check(
+      'chk_quotation_items_exchange_rate_positive',
+      sql`${table.exchangeRateAtSale} > 0`
+    ),
   ]
 );
 
@@ -3754,13 +3856,14 @@ export const fiscalDocuments = sqliteTable(
       table.documentNumber
     ),
     index('idx_fiscal_documents_status').on(table.status),
-    // ENG-176a — fiscal_documents CHECK invariants deferred to ENG-176b
-    // alongside the currency_code recreation. The Drizzle snapshot
-    // chain skipped this table (added by migration 0005 outside the
-    // snapshot lineage), so drizzle-kit cannot emit a clean recreation
-    // block today. Same trade-off as `payment_outbox`. Application-
-    // layer Zod schemas in `trpc/schemas/fiscal*.ts` already enforce
-    // precision + non-negative amounts at the write boundary.
+    // ENG-176b — pin both invariants (nonneg + 2dec precision) on the
+    // sale-header snapshot stored on the fiscal document. Recreation
+    // of this table by migration 0037 also retro-fits the CHECKs the
+    // Drizzle snapshot chain could not emit during ENG-176a.
+    ...moneyPositiveChecks('fiscal_documents_subtotal', table.subtotal),
+    ...moneyPositiveChecks('fiscal_documents_tax', table.taxAmount),
+    ...moneyPositiveChecks('fiscal_documents_discount', table.discountAmount),
+    ...moneyPositiveChecks('fiscal_documents_total', table.totalAmount),
   ]
 );
 
@@ -3790,9 +3893,15 @@ export const fiscalDocumentItems = sqliteTable(
   },
   table => [
     index('idx_fiscal_document_items_doc').on(table.fiscalDocumentId),
-    // ENG-176a — fiscal_document_items CHECK invariants deferred to
-    // ENG-176b (same snapshot-chain limitation as `fiscal_documents`).
-    // Zod boundary handles precision + non-negative on the write path.
+    // ENG-176b — line-level invariants on the fiscal snapshot.
+    // currency_code is inherited implicitly from
+    // `fiscal_documents.currency_code` via the `fiscal_document_id`
+    // FK (no per-item column to avoid duplication; an item never
+    // outlives its parent header).
+    ...moneyPositiveChecks('fiscal_document_items_unit_price', table.unitPrice),
+    ...moneyPositiveChecks('fiscal_document_items_discount', table.discountAmount),
+    ...moneyPositiveChecks('fiscal_document_items_tax', table.taxAmount),
+    ...moneyPositiveChecks('fiscal_document_items_total', table.lineTotal),
   ]
 );
 

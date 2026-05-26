@@ -260,6 +260,13 @@
 			"when": 1784419200000,
 			"tag": "0036_eng176a_rounding_precision",
 			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "6",
+			"when": 1784505600000,
+			"tag": "0037_eng176b_currency_seam",
+			"breakpoints": true
 		}
 	]
 }

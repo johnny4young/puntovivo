@@ -465,20 +465,28 @@ research.
   recommendation only — no functional issue today. — 2026-05-25
   (ENG-176a polish)
 
-- `[money][schema] ENG-176b — currency_code + exchange_rate seam on
-  transactional tables`. Add `currency_code` (FK to
-  `currency_catalog`), `exchange_rate_at_sale`, and nullable
-  `settle_currency_code` columns to `sales`, `sale_items`,
-  `quotations`, `quotation_items`, `products`, and
-  `customers.creditLimit`. Default `currency_code` to the tenant
-  locale via a transitional DEFAULT + a one-shot backfill from
-  `tenants.settings.currency`. Recreate `fiscal_documents`,
-  `fiscal_document_items`, and `payment_outbox` to add their
-  `_nonneg` CHECKs (skipped in ENG-176a Step-a because the Drizzle
-  snapshot chain does not list them — adding currency_code forces a
-  recreation anyway, so the CHECKs slot in for free). **Blocker for
-  ENG-156 (multi-currency operations) and ENG-161 (NFe Brazil)**. —
-  2026-05-25 (ENG-176 follow-up)
+- `[currency][customers][polish] ENG-176b-customer-currency-update-clobber`.
+  `customers.update` in `trpc/routers/customers.ts:328-335` clobbers
+  the operator-supplied `creditLimitCurrencyCode` whenever the
+  `creditLimit` amount is mutated — the helper unconditionally writes
+  `resolveTenantCurrency(ctx.db, ctx.tenantId)` when the new limit is
+  positive, regardless of the prior currency. NOT a production bug
+  today because no admin surface lets the operator pick a non-tenant
+  currency for the limit, but the path will silently overwrite once
+  ENG-156 ships the multi-currency credit-limit admin field.
+  Mitigation: only stamp the currency when `existing.creditLimitCurrencyCode`
+  is null OR `input.creditLimitCurrencyCode` is explicitly in the
+  payload. — 2026-05-26 (ENG-176b follow-up, gated on ENG-156).
+
+- `[currency][products][polish] ENG-176b-products-update-currency-override`.
+  `products.update` in `trpc/routers/products.ts` does NOT accept a
+  `currencyCode` field on the update Zod schema, so a product that
+  was imported in USD cannot later be re-priced to COP without a
+  manual SQL update. Create path stamps the tenant currency by
+  default; update path leaves the column untouched. NOT a bug today
+  (no UI to change product currency), but worth a small input-schema
+  + handler patch when ENG-156's import-product flow lands. —
+  2026-05-26 (ENG-176b follow-up, gated on ENG-156).
 
 - `[fiscal][schema] ENG-176c — fiscal_identification_types catalog
   rename + status enum expansion`. (1) Rename

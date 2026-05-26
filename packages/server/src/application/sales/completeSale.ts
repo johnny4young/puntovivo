@@ -51,6 +51,7 @@ import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
 import type { KdsHookContext } from '../../services/kds/types.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   assertCashSessionStillOpen,
@@ -679,6 +680,12 @@ async function runFreshSale(
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
 
+  // ENG-176b — resolve the tenant default currency once per sale and
+  // propagate it to every row written below (sales header + each
+  // sale_item). settle = sale and rate = 1.0 until ENG-156 lights up
+  // multi-currency operations.
+  const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+
   ctx.db.transaction(tx => {
     // ENG-042 TOCTOU defense — see helper jsdoc.
     assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
@@ -703,6 +710,13 @@ async function runFreshSale(
         subtotal,
         taxAmount,
         discountAmount: headerDiscount,
+        // ENG-176b — currency seam: every row stamps the tenant
+        // default currency. ENG-156 will replace these defaults with
+        // explicit operator-supplied currency + rate when the sale
+        // crosses currencies.
+        currencyCode: saleCurrencyCode,
+        exchangeRateAtSale: 1,
+        settleCurrencyCode: null,
         // ENG-039d — tip persisted alongside the existing money columns.
         tipAmount,
         tipMethod,
@@ -770,6 +784,12 @@ async function runFreshSale(
           taxAmount: row.taxAmount,
           costAtSale: row.costAtSale,
           total: row.total,
+          // ENG-176b — line inherits the header currency seam so a
+          // future row-level join can answer "what currency was this
+          // line in?" without re-joining to sales.
+          currencyCode: saleCurrencyCode,
+          exchangeRateAtSale: 1,
+          settleCurrencyCode: null,
           // ENG-039d2 — per-line modifier captured at sale creation.
           notes: row.notes,
         })
