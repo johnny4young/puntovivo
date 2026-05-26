@@ -1,3 +1,5 @@
+import { roundMoney as round } from '../lib/money.js';
+
 export interface PricingInput {
   cost: number;
   marginPercent?: number | null;
@@ -9,10 +11,6 @@ export interface PricingResult {
   price: number;
   marginPercent: number;
   marginAmount: number;
-}
-
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 export function calculatePricing(input: PricingInput): PricingResult {

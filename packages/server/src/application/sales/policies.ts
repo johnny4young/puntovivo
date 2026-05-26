@@ -16,6 +16,7 @@
  */
 
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import type {
   CompleteSaleTender,
   SalePaymentMethod,
@@ -107,7 +108,7 @@ export function getCashCollectedAmount({
     return total;
   }
 
-  return Math.max(0, amountReceived - change);
+  return roundMoney(Math.max(0, amountReceived - change));
 }
 
 export interface ResolvedSalePayments {
@@ -137,7 +138,12 @@ export function resolveSalePayments(args: {
   total: number;
 }): ResolvedSalePayments {
   if (args.payments && args.payments.length > 0) {
-    const sum = args.payments.reduce((acc, payment) => acc + payment.amount, 0);
+    const rows = args.payments.map(payment => ({
+      method: payment.method,
+      amount: roundMoney(payment.amount),
+      reference: payment.reference ?? null,
+    }));
+    const sum = rows.reduce((acc, payment) => roundMoney(acc + payment.amount), 0);
     if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -155,17 +161,13 @@ export function resolveSalePayments(args: {
     // least one non-credit tender exists; otherwise keep the legacy
     // behavior (single-tender credit OR all-credit split still echoes
     // 'credit').
-    const nonCreditTenders = args.payments.filter(p => p.method !== 'credit');
-    const dominantPool = nonCreditTenders.length > 0 ? nonCreditTenders : args.payments;
+    const nonCreditTenders = rows.filter(p => p.method !== 'credit');
+    const dominantPool = nonCreditTenders.length > 0 ? nonCreditTenders : rows;
     const dominant = dominantPool.reduce((best, payment) =>
       payment.amount > best.amount ? payment : best
     );
     return {
-      rows: args.payments.map(payment => ({
-        method: payment.method,
-        amount: payment.amount,
-        reference: payment.reference ?? null,
-      })),
+      rows,
       dominantMethod: dominant.method,
     };
   }
@@ -182,7 +184,7 @@ export function resolveSalePayments(args: {
     rows: [
       {
         method: args.legacyMethod,
-        amount: legacyAmount,
+        amount: roundMoney(legacyAmount),
         reference: null,
       },
     ],

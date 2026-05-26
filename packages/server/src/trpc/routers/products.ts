@@ -48,6 +48,7 @@ import {
 import { parseScan } from '../../services/peripherals/barcode/parser.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
+import { roundMoney } from '../../lib/money.js';
 import {
   regenerateProductEmbeddings,
   resolveActiveEmbeddingModelId,
@@ -674,7 +675,7 @@ export const productsRouter = router({
       vatRateId: resolvedTax.vatRateId,
       providerId: normalizedProviderState?.providerId ?? null,
       locationId: resolvedLocationId,
-      initialCost: input.initialCost,
+      initialCost: roundMoney(input.initialCost),
       stock: input.stock,
       minStock: input.minStock,
       sellByFraction: resolvedFractionPolicy.sellByFraction,
@@ -828,7 +829,7 @@ export const productsRouter = router({
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
     if (normalizedProviderState) updateData.providerId = normalizedProviderState.providerId;
     if (updates.locationId !== undefined) updateData.locationId = resolvedLocationId;
-    if (updates.initialCost !== undefined) updateData.initialCost = updates.initialCost;
+    if (updates.initialCost !== undefined) updateData.initialCost = roundMoney(updates.initialCost);
     if (updates.stock !== undefined) updateData.stock = updates.stock;
     if (updates.minStock !== undefined) updateData.minStock = updates.minStock;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;

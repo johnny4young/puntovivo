@@ -7,8 +7,90 @@
  * @module db/schema
  */
 
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
+
+// ============================================================================
+// MONEY INVARIANTS (ENG-176a)
+// ============================================================================
+//
+// Every monetary column in the schema is stored as `real()` (SQLite IEEE-754
+// double). The application layer rounds to two decimals at the Zod boundary
+// (ENG-166 hardened that with `.strict()`), but the storage layer itself had
+// no defence against an unrounded write — a bug in a future feature, a raw
+// SQL CLI session, or a botched import could persist values like
+// `100.005000000001` or a negative `total = -50`. The audit
+// (`docs/AUDIT-2026-05-24.md §ENG-176`) names this as a data-integrity gap
+// that blocks ENG-156 (multi-currency operations) and ENG-161 (NFe Brazil).
+//
+// ENG-176a closes the gap with table-level CHECK constraints. The
+// decision is documented in `docs/architecture/0009-money-storage-and-validation.md`
+// (real + CHECK invariants chosen over integer minor units; the latter
+// remains a future option if rounding bugs surface at the IEEE-754 layer).
+//
+// Two helpers cover the two categories of monetary columns:
+//
+//   - `moneyPositiveChecks(name, col)` — emits BOTH a non-negative
+//     (`>= 0`) CHECK AND a two-decimal precision (`round(col, 2) = col`)
+//     CHECK. Apply to columns that can NEVER hold a negative value
+//     (totals, subtotals, taxes, costs, tips, service charges, opening
+//     floats, credit limits, refund amounts).
+//
+//   - `moneyTwoDecimalCheck(name, col)` — emits ONLY the precision
+//     CHECK. Apply to signed columns (discounts, cash-movement
+//     amounts, sale-payment reverses, cash-session over/short
+//     variance) where negative values are semantically meaningful but
+//     decimal drift beyond two digits is not.
+//
+// The 2-decimal rule is hard-coded for now. ENG-176b will add
+// `currency_code` to transactional rows; at that point a future
+// iteration can refine the CHECK to honour the per-currency decimal
+// count from `currency_catalog` (JPY = 0, BHD = 3). For the current
+// LATAM-only deployment window every active currency uses 2 decimals,
+// so the simple form is correct.
+//
+// The precision invariant relies on the application layer rounding
+// every monetary value to two decimals at the write boundary using
+// `roundMoney()` from `lib/money.ts`. ENG-176a Step-a shipped the
+// `_nonneg` invariant alone; ENG-176a-rounding Step-b extended the
+// schema to both invariants once the application sweep landed (see
+// `lib/money.ts` for the canonical helper and the call-site policy:
+// every `db.insert/update` to a monetary column passes through
+// `roundMoney()` first).
+//
+// Naming: every constraint is prefixed `chk_<table>_<column>_<kind>`
+// so the SQLite error message ("CHECK constraint failed:
+// chk_sales_total_nonneg" or "chk_sale_items_discount_2dec") is
+// self-describing in operator dashboards and log lines.
+const moneyPositiveChecks = (
+  constraintPrefix: string,
+  col: AnySQLiteColumn
+) => [
+  check(`chk_${constraintPrefix}_nonneg`, sql`${col} >= 0`),
+  check(`chk_${constraintPrefix}_2dec`, sql`round(${col}, 2) = ${col}`),
+];
+
+/**
+ * Signed-column precision invariant. Emits only `chk_<prefix>_2dec`
+ * (`round(col, 2) = col`). Use for monetary columns that legitimately
+ * hold negative values: discounts represented as deltas
+ * (`sales.discountAmount`, `sale_items.discount`), cash-movement
+ * amounts (paid_out / refund / skim), reverse sale payments, and
+ * cash-session over/short variance.
+ */
+const moneyTwoDecimalCheck = (
+  constraintPrefix: string,
+  col: AnySQLiteColumn
+) => check(`chk_${constraintPrefix}_2dec`, sql`round(${col}, 2) = ${col}`);
 
 // ============================================================================
 // ENUMS (as string literals for SQLite)
@@ -920,6 +1002,18 @@ export const products = sqliteTable(
     index('idx_products_provider').on(table.providerId),
     index('idx_products_vat_rate').on(table.vatRateId),
     uniqueIndex('idx_products_tenant_sku').on(table.tenantId, table.sku),
+    // ENG-176a — money invariants. Margin amounts are derived from
+    // (cost * margin_percent / 100), so they share the same non-negative
+    // contract as cost itself; if a future feature needs a negative
+    // margin (loss leader) the schema can be re-categorised then.
+    ...moneyPositiveChecks('products_price', table.price),
+    ...moneyPositiveChecks('products_price2', table.price2),
+    ...moneyPositiveChecks('products_price3', table.price3),
+    ...moneyPositiveChecks('products_cost', table.cost),
+    ...moneyPositiveChecks('products_margin1', table.marginAmount1),
+    ...moneyPositiveChecks('products_margin2', table.marginAmount2),
+    ...moneyPositiveChecks('products_margin3', table.marginAmount3),
+    ...moneyPositiveChecks('products_init_cost', table.initialCost),
   ]
 );
 
@@ -1262,6 +1356,10 @@ export const customers = sqliteTable(
   table => [
     index('idx_customers_tenant').on(table.tenantId),
     index('idx_customers_email').on(table.email),
+    // ENG-176a — credit limit cannot be negative (ENG-089 also enforces this
+    // at the Zod layer); two-decimal precision matches the LATAM-currency
+    // window. A future ENG-176b can refine per currency_code.
+    ...moneyPositiveChecks('customers_credit_limit', table.creditLimit),
   ]
 );
 
@@ -1312,6 +1410,10 @@ export const purchases = sqliteTable(
     index('idx_purchases_site').on(table.siteId),
     index('idx_purchases_created_by').on(table.createdBy),
     uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
+    // ENG-176a — purchase totals are always positive (a refund creates a
+    // separate purchase_returns row, never a negative purchase).
+    ...moneyPositiveChecks('purchases_subtotal', table.subtotal),
+    ...moneyPositiveChecks('purchases_total', table.total),
   ]
 );
 
@@ -1410,6 +1512,10 @@ export const purchaseItems = sqliteTable(
     index('idx_purchase_items_purchase').on(table.purchaseId),
     index('idx_purchase_items_product').on(table.productId),
     index('idx_purchase_items_source_order_item').on(table.sourceOrderItemId),
+    // ENG-176a — purchase-item costs are always positive.
+    ...moneyPositiveChecks('purchase_items_cost_per_unit', table.costPerUnit),
+    ...moneyPositiveChecks('purchase_items_base_cost', table.baseUnitCost),
+    ...moneyPositiveChecks('purchase_items_total', table.total),
   ]
 );
 
@@ -1462,6 +1568,8 @@ export const purchaseReturns = sqliteTable(
     index('idx_purchase_returns_tenant').on(table.tenantId),
     index('idx_purchase_returns_purchase').on(table.purchaseId),
     index('idx_purchase_returns_created_by').on(table.createdBy),
+    // ENG-176a — refund amount is the absolute value being returned.
+    ...moneyPositiveChecks('purchase_returns_amount', table.returnAmount),
   ]
 );
 
@@ -1570,6 +1678,9 @@ export const orders = sqliteTable(
     index('idx_orders_site').on(table.siteId),
     index('idx_orders_created_by').on(table.createdBy),
     uniqueIndex('idx_orders_tenant_number').on(table.tenantId, table.orderNumber),
+    // ENG-176a — orders are planning artifacts; totals never go negative.
+    ...moneyPositiveChecks('orders_subtotal', table.subtotal),
+    ...moneyPositiveChecks('orders_total', table.total),
   ]
 );
 
@@ -1620,6 +1731,10 @@ export const orderItems = sqliteTable(
   table => [
     index('idx_order_items_order').on(table.orderId),
     index('idx_order_items_product').on(table.productId),
+    // ENG-176a — order-item costs are always positive.
+    ...moneyPositiveChecks('order_items_cost_per_unit', table.costPerUnit),
+    ...moneyPositiveChecks('order_items_base_cost', table.baseUnitCost),
+    ...moneyPositiveChecks('order_items_total', table.total),
   ]
 );
 
@@ -1717,6 +1832,17 @@ export const sales = sqliteTable(
     // `restaurantTables.listWithDraftStatus`.
     index('idx_sales_tenant_table').on(table.tenantId, table.tableId),
     uniqueIndex('idx_sales_tenant_number').on(table.tenantId, table.saleNumber),
+    // ENG-176a — sale amounts: subtotal, tax, tip, and service charge are
+    // always positive; total is the rolled-up sum (also positive in every
+    // legitimate flow — a return is a sale_return row, not a negative
+    // sale). discountAmount is signed: a negative discount (additional
+    // charge) is rare but legal and must round-trip cleanly.
+    ...moneyPositiveChecks('sales_subtotal', table.subtotal),
+    ...moneyPositiveChecks('sales_tax', table.taxAmount),
+    ...moneyPositiveChecks('sales_total', table.total),
+    ...moneyPositiveChecks('sales_tip', table.tipAmount),
+    ...moneyPositiveChecks('sales_service', table.serviceChargeAmount),
+    moneyTwoDecimalCheck('sales_discount', table.discountAmount),
   ]
 );
 
@@ -1788,6 +1914,13 @@ export const cashSessions = sqliteTable(
     index('idx_cash_sessions_status').on(table.status),
     index('idx_cash_sessions_site_status').on(table.siteId, table.status),
     index('idx_cash_sessions_register_status').on(table.siteId, table.registerName, table.status),
+    // ENG-176a — opening float and the running expected balance can never
+    // go negative without indicating either a robbery or a runtime bug
+    // (Counter must net cash inflows). over_short is the variance at
+    // close and is intentionally signed (positive over, negative short).
+    ...moneyPositiveChecks('cash_sessions_opening', table.openingFloat),
+    ...moneyPositiveChecks('cash_sessions_expected', table.expectedBalance),
+    moneyTwoDecimalCheck('cash_sessions_over_short', table.overShort),
   ]
 );
 
@@ -1835,6 +1968,8 @@ export const denominationTemplates = sqliteTable(
     index('idx_denomination_templates_site').on(table.siteId),
     index('idx_denomination_templates_site_active').on(table.siteId, table.isActive, table.sortOrder),
     uniqueIndex('idx_denomination_templates_site_register').on(table.siteId, table.registerName),
+    // ENG-176a — template opening float is non-negative.
+    ...moneyPositiveChecks('denomination_templates_opening', table.openingFloat),
   ]
 );
 
@@ -1875,6 +2010,11 @@ export const cashMovements = sqliteTable(
     index('idx_cash_movements_type').on(table.type),
     index('idx_cash_movements_created_by').on(table.createdBy),
     index('idx_cash_movements_session_created').on(table.sessionId, table.createdAt),
+    // ENG-176a-rounding — cash_movements.amount is intentionally
+    // signed (paid_out / refund / skim store negative deltas). Only
+    // the precision invariant applies; the application uses
+    // roundMoney() before every write.
+    moneyTwoDecimalCheck('cash_movements_amount', table.amount),
   ]
 );
 
@@ -1927,6 +2067,15 @@ export const saleItems = sqliteTable(
   table => [
     index('idx_sale_items_sale').on(table.saleId),
     index('idx_sale_items_product').on(table.productId),
+    // ENG-176a — line totals, prices, tax, and snapshot cost are always
+    // positive; discount is signed (per-line discount represented as a
+    // negative delta in some legacy fixtures, positive in newer flows —
+    // both shapes round-trip safely with only the precision invariant).
+    ...moneyPositiveChecks('sale_items_unit_price', table.unitPrice),
+    ...moneyPositiveChecks('sale_items_tax', table.taxAmount),
+    ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
+    ...moneyPositiveChecks('sale_items_total', table.total),
+    moneyTwoDecimalCheck('sale_items_discount', table.discount),
   ]
 );
 
@@ -1981,6 +2130,10 @@ export const salePayments = sqliteTable(
     index('idx_sale_payments_tenant').on(table.tenantId),
     index('idx_sale_payments_sale').on(table.saleId),
     index('idx_sale_payments_method').on(table.method),
+    // ENG-176a-rounding — sale_payments.amount is intentionally
+    // signed (reverse-payment + split-refund flows). Only precision
+    // enforced; application rounds via roundMoney() before writing.
+    moneyTwoDecimalCheck('sale_payments_amount', table.amount),
   ]
 );
 
@@ -2099,6 +2252,12 @@ export const paymentOutbox = sqliteTable(
     uniqueIndex('idx_payment_outbox_idempotent')
       .on(table.tenantId, table.railId, table.kind, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
+    // ENG-176a — payment_outbox.amount CHECK is deferred to ENG-176b
+    // alongside the currency_code recreation. The Drizzle snapshot
+    // chain (`meta/0001_snapshot.json` → next `0035_snapshot.json`)
+    // is missing this table, so drizzle-kit cannot emit a clean
+    // recreation block today; the Zod boundary at the tRPC layer
+    // already enforces the precision before any write.
   ]
 );
 
@@ -2215,6 +2374,8 @@ export const saleReturns = sqliteTable(
     index('idx_sale_returns_sale').on(table.saleId),
     index('idx_sale_returns_created_by').on(table.createdBy),
     uniqueIndex('idx_sale_returns_sale_unique').on(table.saleId),
+    // ENG-176a — refund amount stores the absolute value being returned.
+    ...moneyPositiveChecks('sale_returns_refund', table.refundAmount),
   ]
 );
 
@@ -2327,6 +2488,8 @@ export const initialInventory = sqliteTable(
     index('idx_initial_inventory_unit').on(table.unitId),
     index('idx_initial_inventory_site').on(table.siteId),
     index('idx_initial_inventory_created_by').on(table.createdBy),
+    // ENG-176a — opening cost is always positive.
+    ...moneyPositiveChecks('initial_inventory_cost', table.cost),
   ]
 );
 
@@ -2574,6 +2737,11 @@ export const quotations = sqliteTable(
       table.status,
       table.validUntil
     ),
+    // ENG-176a — mirror sales: subtotal/tax/total positive, discount signed.
+    ...moneyPositiveChecks('quotations_subtotal', table.subtotal),
+    ...moneyPositiveChecks('quotations_tax', table.taxAmount),
+    ...moneyPositiveChecks('quotations_total', table.total),
+    moneyTwoDecimalCheck('quotations_discount', table.discountAmount),
   ]
 );
 
@@ -2598,6 +2766,11 @@ export const quotationItems = sqliteTable(
   table => [
     index('idx_quotation_items_quotation').on(table.quotationId),
     index('idx_quotation_items_product').on(table.productId),
+    // ENG-176a — line-level mirror of sale_items.
+    ...moneyPositiveChecks('quotation_items_unit_price', table.unitPrice),
+    ...moneyPositiveChecks('quotation_items_tax', table.taxAmount),
+    ...moneyPositiveChecks('quotation_items_total', table.total),
+    moneyTwoDecimalCheck('quotation_items_discount', table.discount),
   ]
 );
 
@@ -3581,6 +3754,13 @@ export const fiscalDocuments = sqliteTable(
       table.documentNumber
     ),
     index('idx_fiscal_documents_status').on(table.status),
+    // ENG-176a — fiscal_documents CHECK invariants deferred to ENG-176b
+    // alongside the currency_code recreation. The Drizzle snapshot
+    // chain skipped this table (added by migration 0005 outside the
+    // snapshot lineage), so drizzle-kit cannot emit a clean recreation
+    // block today. Same trade-off as `payment_outbox`. Application-
+    // layer Zod schemas in `trpc/schemas/fiscal*.ts` already enforce
+    // precision + non-negative amounts at the write boundary.
   ]
 );
 
@@ -3610,6 +3790,9 @@ export const fiscalDocumentItems = sqliteTable(
   },
   table => [
     index('idx_fiscal_document_items_doc').on(table.fiscalDocumentId),
+    // ENG-176a — fiscal_document_items CHECK invariants deferred to
+    // ENG-176b (same snapshot-chain limitation as `fiscal_documents`).
+    // Zod boundary handles precision + non-negative on the write path.
   ]
 );
 

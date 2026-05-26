@@ -19,10 +19,7 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+import { roundMoney as roundCurrency } from '../../lib/money.js';
 
 export interface RestaurantSettings {
   /** Percentage applied to the cart subtotal on every checkout (0 disables). */

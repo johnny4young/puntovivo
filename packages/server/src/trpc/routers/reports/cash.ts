@@ -23,16 +23,13 @@ import { router } from '../../init.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { cashSessions, sites, users } from '../../../db/schema.js';
 import { cashReconciliationInput } from '../../schemas/reports.js';
+import { roundMoney as roundCurrency } from '../../../lib/money.js';
 
 /** Sessions are flagged for review when |overShort| exceeds this. */
 const CASH_OVER_SHORT_EPSILON = 0.009;
 
 /** Aggregation window for closed sessions (days). */
 const RECENT_CLOSURE_WINDOW_DAYS = 30;
-
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 function isoDaysAgo(days: number): string {
   const ms = Date.now() - days * 24 * 60 * 60 * 1000;

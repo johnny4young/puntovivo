@@ -1209,9 +1209,9 @@ export const salesRouter = router({
         const recompute = (saleId: string) => {
           const totals = tx
             .select({
-              subtotal: sql<number>`COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0)`,
-              taxAmount: sql<number>`COALESCE(SUM(${saleItems.taxAmount}), 0)`,
-              total: sql<number>`COALESCE(SUM(${saleItems.total}), 0)`,
+              subtotal: sql<number>`round(COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0), 2)`,
+              taxAmount: sql<number>`round(COALESCE(SUM(${saleItems.taxAmount}), 0), 2)`,
+              total: sql<number>`round(COALESCE(SUM(${saleItems.total}), 0), 2)`,
             })
             .from(saleItems)
             .where(eq(saleItems.saleId, saleId))
