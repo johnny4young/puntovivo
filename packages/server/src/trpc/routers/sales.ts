@@ -1161,6 +1161,13 @@ export const salesRouter = router({
             taxAmount: 0,
             discountAmount: 0,
             total: 0,
+            // ENG-176b — split drafts inherit the source draft's
+            // currency seam verbatim. A split that crossed currencies
+            // would not make business sense (you cannot move items
+            // priced in USD into a COP draft without re-pricing).
+            currencyCode: existing.currencyCode,
+            exchangeRateAtSale: existing.exchangeRateAtSale,
+            settleCurrencyCode: existing.settleCurrencyCode,
             paymentMethod: existing.paymentMethod,
             paymentStatus: 'pending',
             status: 'draft',

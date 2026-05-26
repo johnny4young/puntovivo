@@ -260,7 +260,14 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
       CREATE TABLE tenants (
         id text PRIMARY KEY NOT NULL,
         name text NOT NULL,
-        slug text NOT NULL
+        slug text NOT NULL,
+        -- ENG-176b -- migration 0037 reads settings/is_active/created_at
+        -- and updated_at from the legacy tenants shape during the
+        -- recreation backfill. Stub them so the SELECT chain compiles.
+        settings text,
+        is_active integer DEFAULT 1,
+        created_at text,
+        updated_at text
       );
       CREATE TABLE users (
         id text PRIMARY KEY NOT NULL,
@@ -721,6 +728,143 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         tax_amount real DEFAULT 0 NOT NULL,
         total real DEFAULT 0 NOT NULL,
         created_at text NOT NULL
+      );
+      -- ENG-176b -- migration 0037 recreates tenants, three fiscal
+      -- tables, and payment_outbox while back-filling currency_code
+      -- from the locale catalogs (added by migration 0003, also
+      -- skipped on the bridge). Stub the minimum set of tables the
+      -- migration touches so the recreation runs against this
+      -- fixture cleanly.
+      CREATE TABLE currency_catalog (
+        code text PRIMARY KEY NOT NULL,
+        name_en text NOT NULL,
+        name_es text NOT NULL,
+        symbol text NOT NULL,
+        decimals integer NOT NULL,
+        display_decimals integer NOT NULL
+      );
+      CREATE TABLE country_catalog (
+        code text PRIMARY KEY NOT NULL,
+        name_en text NOT NULL,
+        name_es text NOT NULL,
+        default_locale text NOT NULL,
+        general_locale text NOT NULL,
+        default_currency_code text NOT NULL,
+        additional_currency_codes text,
+        default_timezone text NOT NULL,
+        first_day_of_week integer NOT NULL,
+        date_format_short text NOT NULL,
+        date_format_long text NOT NULL,
+        tax_id_types_hint text,
+        ui_locale_ready integer DEFAULT 1 NOT NULL
+      );
+      CREATE TABLE tenant_locale_settings (
+        tenant_id text PRIMARY KEY NOT NULL,
+        country_code text NOT NULL,
+        locale_override text,
+        currency_override text,
+        timezone_override text,
+        first_day_of_week_override integer,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE dian_identification_types (
+        code text PRIMARY KEY NOT NULL,
+        abbr text NOT NULL,
+        name_es text NOT NULL,
+        name_en text NOT NULL,
+        natural_person integer NOT NULL
+      );
+      CREATE TABLE fiscal_numbering_resolutions (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        site_id text NOT NULL,
+        kind text NOT NULL,
+        resolution_number text NOT NULL,
+        prefix text NOT NULL,
+        from_number integer NOT NULL,
+        to_number integer NOT NULL,
+        current_number integer NOT NULL,
+        technical_key text NOT NULL,
+        valid_from text NOT NULL,
+        valid_until text NOT NULL,
+        is_active integer DEFAULT 1 NOT NULL,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE fiscal_documents (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        source text NOT NULL,
+        source_id text NOT NULL,
+        kind text NOT NULL,
+        resolution_id text NOT NULL,
+        consecutive integer NOT NULL,
+        document_number text NOT NULL,
+        cufe text NOT NULL,
+        status text DEFAULT 'pending' NOT NULL,
+        customer_id text,
+        buyer_tax_id text NOT NULL,
+        buyer_tax_id_type_code text NOT NULL,
+        buyer_name text NOT NULL,
+        buyer_email text,
+        buyer_address text,
+        buyer_city text,
+        buyer_department text,
+        buyer_country text,
+        subtotal real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        discount_amount real DEFAULT 0 NOT NULL,
+        total_amount real DEFAULT 0 NOT NULL,
+        currency_code text NOT NULL,
+        locale_code text NOT NULL,
+        original_cufe text,
+        reason_code text,
+        provider_id text NOT NULL,
+        provider_response text,
+        xml_ref text,
+        retries integer DEFAULT 0 NOT NULL,
+        emitted_by_user_id text NOT NULL,
+        emitted_at text NOT NULL,
+        updated_at text NOT NULL
+      );
+      CREATE TABLE fiscal_document_items (
+        id text PRIMARY KEY NOT NULL,
+        fiscal_document_id text NOT NULL,
+        line_number integer NOT NULL,
+        product_id text,
+        product_name text NOT NULL,
+        product_sku text,
+        unit_measure_code text DEFAULT 'EA' NOT NULL,
+        quantity real NOT NULL,
+        unit_price real NOT NULL,
+        discount_amount real DEFAULT 0 NOT NULL,
+        tax_rate real DEFAULT 0 NOT NULL,
+        tax_amount real DEFAULT 0 NOT NULL,
+        tax_category_code text DEFAULT '01' NOT NULL,
+        line_total real NOT NULL
+      );
+      CREATE TABLE payment_outbox (
+        id text PRIMARY KEY NOT NULL,
+        tenant_id text NOT NULL,
+        sale_payment_id text,
+        rail_id text NOT NULL,
+        kind text DEFAULT 'charge' NOT NULL,
+        status text DEFAULT 'queued' NOT NULL,
+        amount real NOT NULL,
+        currency_code text DEFAULT 'COP' NOT NULL,
+        reference text NOT NULL,
+        provider_transaction_id text,
+        payload text DEFAULT '{}' NOT NULL,
+        payload_version integer DEFAULT 1 NOT NULL,
+        attempts integer DEFAULT 0 NOT NULL,
+        next_retry_at text,
+        last_error text,
+        priority real DEFAULT 0 NOT NULL,
+        claim_token text,
+        locked_at text,
+        idempotency_key text,
+        created_at text NOT NULL,
+        updated_at text NOT NULL
       );
     `);
 

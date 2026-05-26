@@ -163,6 +163,10 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
       name: DEFAULT_TENANT.name,
       slug: DEFAULT_TENANT.slug,
       settings: {},
+      // ENG-176b — explicit default so the type-required column lands
+      // with a known value during seed; matches the schema-level
+      // DEFAULT used by migration 0037 for legacy backfill.
+      defaultCurrencyCode: 'COP',
       isActive: true,
       createdAt: now,
       updatedAt: now,

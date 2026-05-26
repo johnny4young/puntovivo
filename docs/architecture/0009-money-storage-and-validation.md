@@ -1,9 +1,97 @@
 # 0009 - Money Storage and Validation
 
 > Status: Accepted
-> Date: 2026-05-25 (Step-a) → 2026-05-25 (Step-b precision invariant reinstated)
-> Owner: ENG-176a
+> Date: 2026-05-25 (Step-a) → 2026-05-25 (Step-b precision invariant reinstated) → 2026-05-26 (ENG-176b currency seam + fiscal CHECK coverage)
+> Owner: ENG-176a / ENG-176b
 > Supersedes: none
+
+## Status Update — 2026-05-26 (ENG-176b)
+
+The currency seam landed in migration `0037_eng176b_currency_seam.sql`,
+closing the second axis ADR-0009 had deferred ("which currency is this
+amount denominated in?") and the third gap left over from Step-a/Step-b
+(CHECK invariants on the three fiscal-domain tables the Drizzle
+snapshot chain could not emit a recreation for).
+
+What landed:
+
+- **`tenants.default_currency_code`** — new column, `TEXT NOT NULL`,
+  FK to `currency_catalog.code`, DEFAULT `'COP'`. Back-filled by the
+  migration via a COALESCE chain that walks
+  `tenant_locale_settings.currency_override` →
+  `country_catalog.default_currency_code` via the tenant locale's
+  `country_code` → `json_extract(tenants.settings, '$.currency')` →
+  `'COP'`. After this migration application code never needs to parse
+  the `tenants.settings` JSON on the hot path again.
+- **`currency_code` + `exchange_rate_at_sale` + `settle_currency_code`**
+  on `sales`, `sale_items`, `quotations`, `quotation_items`. Each
+  table carries a `chk_<table>_exchange_rate_positive` CHECK so a
+  zero or negative multiplier cannot silently zero out totals. Items
+  store the same triplet as their parent (no cross-row CHECK; the
+  invariant is enforced at the application layer because SQLite
+  cannot express it efficiently).
+- **`products.currency_code`** — NOT NULL, FK, DEFAULT `'COP'`. An
+  imported product priced in USD can live inside a COP tenant.
+- **`customers.credit_limit_currency_code`** — nullable, FK. Set only
+  when `creditLimit > 0` (the legacy "sin cupo" sentinel of `0` keeps
+  the column null to avoid misleading metadata).
+- **Fiscal CHECK coverage** — `fiscal_documents`,
+  `fiscal_document_items`, and `payment_outbox` get their `_nonneg`
+  and `_2dec` invariants in the same recreation pass that adds the
+  currency seam elsewhere, closing the snapshot-chain gap Step-a/b
+  documented as deferred. The defensive UPDATE prelude rounds any
+  historical drift on the four signed-by-convention columns
+  (subtotal, tax, discount, total on fiscal_documents; the four
+  money columns on fiscal_document_items; amount on payment_outbox).
+- **Canonical helper `packages/server/src/lib/currency.ts`** —
+  exports `resolveTenantCurrency(db, tenantId)` (single-query
+  primary-key lookup, sync — `better-sqlite3` is sync) plus an
+  ergonomic `withCurrency(amount, currencyCode)` builder. The helper
+  is consumed by `application/sales/completeSale.ts` (stamps every
+  `sales` + `sale_items` row), `services/quotations.ts` (header +
+  every item), `trpc/routers/products.ts` (defaults at create),
+  `trpc/routers/customers.ts` (sets the column in lockstep with
+  `creditLimit`), and `trpc/routers/sales.ts:splitDraft` (inherits
+  from the source draft so a split cannot silently cross
+  currencies).
+- **Regression coverage** —
+  `packages/server/src/__tests__/currency-seam.test.ts` (11 cases:
+  backfill defaults, explicit overrides, cross-currency settle pair,
+  exchange-rate CHECK rejection, multi-tenant isolation). Plus 5 new
+  fiscal-table rejection cases extending
+  `db-money-checks.test.ts`, including the precision-invariant
+  sentinel for `fiscal_documents`, `fiscal_document_items`, and
+  `payment_outbox`.
+
+### What stays out of scope here
+
+- **ENG-156 (multi-currency operations)** — actually using the seam
+  to sell in one currency and settle in another. The infrastructure
+  is in place; the UX, exchange-rate sourcing, FX-spread accounting,
+  and reporting belong to that ticket.
+- **ENG-161 (NFe Brazil)** — Brazil fiscal documents emitted in BRL.
+  The seam is the structural prerequisite; the fiscal adapter is the
+  feature ticket.
+- **Per-currency exponent in `roundMoney()`** — every LATAM currency
+  Puntovivo ships uses 2 decimals; CLP (0) and BHD (3) belong to the
+  same refinement window as ENG-156, where the helper signature can
+  evolve to `roundMoney(value, currencyCode)` reading
+  `currency_catalog.decimals`.
+
+### Behavioural notes
+
+- Application code that previously assumed "everything is in the
+  tenant's default currency" now stamps that currency explicitly at
+  every write boundary. Read paths that previously inferred currency
+  from the tenant (`formatCurrency(amount, tenant.currency)`) can
+  continue to do so — the per-row column is forward-looking and only
+  matters once a tenant operates in more than one currency.
+- Migration `0037` runs inside `PRAGMA foreign_keys = OFF/ON`; the
+  `currency_catalog` table may be empty at migration time (the
+  `seedLocaleCatalogs()` step in `db/index.ts` runs AFTER migrations
+  on a fresh install). SQLite does not re-validate FKs at PRAGMA
+  toggle time, so the deferred-validation pattern is safe; the seed
+  populates the catalog right after migration finishes.
 
 ## Status Update — 2026-05-25 (Step-b)
 
