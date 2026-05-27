@@ -21,6 +21,7 @@
 import { nanoid } from 'nanoid';
 import { customerLedgerEntries } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 
 export interface RecordCreditSaleLedgerInput {
   db: DatabaseInstance;
@@ -46,7 +47,17 @@ export async function recordCreditSaleLedger(
   input: RecordCreditSaleLedgerInput
 ): Promise<{ id: string }> {
   if (!Number.isFinite(input.creditAmount) || input.creditAmount <= 0) {
-    throw new Error('creditAmount must be a positive finite number');
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CREDIT_LEDGER_INVALID_AMOUNT',
+      message: 'creditAmount must be a positive finite number',
+      details: {
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        saleId: input.saleId ?? null,
+        creditAmount: input.creditAmount,
+      },
+    });
   }
   const id = nanoid();
   await input.db.insert(customerLedgerEntries).values({

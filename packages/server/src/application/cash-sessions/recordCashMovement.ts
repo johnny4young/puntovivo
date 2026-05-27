@@ -118,7 +118,18 @@ export async function recordCashMovement(
       // Unreachable: the Zod schema enforces amount > 0, so
       // insertCashMovement always returns a row id. Throwing inside the
       // tx aborts cleanly if the precondition ever drifts.
-      throw new Error('insertCashMovement returned null despite amount > 0');
+      throwServerError({
+        trpcCode: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
+        message: 'insertCashMovement returned null despite amount > 0',
+        details: {
+          tenantId: ctx.tenantId,
+          sessionId: activeSession.id,
+          type: input.type,
+          amount: input.amount,
+          stage: 'insert',
+        },
+      });
     }
 
     auditLogId = writeAuditLog({
@@ -142,7 +153,18 @@ export async function recordCashMovement(
   });
 
   if (!movementId) {
-    throw new Error('Failed to record cash movement');
+    throwServerError({
+      trpcCode: 'INTERNAL_SERVER_ERROR',
+      errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
+      message: 'Failed to record cash movement',
+      details: {
+        tenantId: ctx.tenantId,
+        sessionId: activeSession.id,
+        type: input.type,
+        amount: input.amount,
+        stage: 'post-tx',
+      },
+    });
   }
 
   const movement = await ctx.db
@@ -169,7 +191,17 @@ export async function recordCashMovement(
     .get();
 
   if (!movement) {
-    throw new Error('Failed to load the created cash movement');
+    throwServerError({
+      trpcCode: 'INTERNAL_SERVER_ERROR',
+      errorCode: 'CASH_MOVEMENT_PERSIST_FAILED',
+      message: 'Failed to load the created cash movement',
+      details: {
+        tenantId: ctx.tenantId,
+        sessionId: activeSession.id,
+        movementId,
+        stage: 'reload',
+      },
+    });
   }
 
   const journalEventId = await lookupCashSessionJournalEventId(

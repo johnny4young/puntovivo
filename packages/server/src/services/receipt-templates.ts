@@ -143,7 +143,12 @@ export function createReceiptTemplate(
       .get();
 
     if (!created) {
-      throw new Error('Receipt template insert returned no row');
+      throwServerError({
+        trpcCode: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'RECEIPT_TEMPLATE_PERSIST_FAILED',
+        message: 'Receipt template insert returned no row',
+        details: { tenantId: args.tenantId, templateId: id, operation: 'insert' },
+      });
     }
     return toRecord(created);
   });
@@ -219,7 +224,12 @@ export function updateReceiptTemplate(
       .get();
 
     if (!updated) {
-      throw new Error('Receipt template update returned no row');
+      throwServerError({
+        trpcCode: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'RECEIPT_TEMPLATE_PERSIST_FAILED',
+        message: 'Receipt template update returned no row',
+        details: { tenantId: args.tenantId, templateId: args.templateId, operation: 'update' },
+      });
     }
     return toRecord(updated);
   });
@@ -410,7 +420,12 @@ export function setDefaultReceiptTemplate(
       .get();
 
     if (!refreshed) {
-      throw new Error('Receipt template setDefault returned no row');
+      throwServerError({
+        trpcCode: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'RECEIPT_TEMPLATE_PERSIST_FAILED',
+        message: 'Receipt template setDefault returned no row',
+        details: { tenantId: args.tenantId, templateId: args.templateId, operation: 'setDefault' },
+      });
     }
     return toRecord(refreshed);
   });

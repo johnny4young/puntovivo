@@ -165,7 +165,12 @@ export async function openCashSession(
     .get();
 
   if (!created) {
-    throw new Error('Failed to load the created cash session');
+    throwServerError({
+      trpcCode: 'INTERNAL_SERVER_ERROR',
+      errorCode: 'CASH_SESSION_LOAD_FAILED',
+      message: 'Failed to load the created cash session',
+      details: { tenantId: ctx.tenantId, sessionId: id, operation: 'open' },
+    });
   }
 
   const journalEventId = await lookupCashSessionJournalEventId(

@@ -203,7 +203,12 @@ export async function closeCashSession(
     .get();
 
   if (!closedSession) {
-    throw new Error('Failed to load the closed cash session');
+    throwServerError({
+      trpcCode: 'INTERNAL_SERVER_ERROR',
+      errorCode: 'CASH_SESSION_LOAD_FAILED',
+      message: 'Failed to load the closed cash session',
+      details: { tenantId: ctx.tenantId, sessionId: activeSession.id, operation: 'close' },
+    });
   }
 
   const journalEventId = await lookupCashSessionJournalEventId(

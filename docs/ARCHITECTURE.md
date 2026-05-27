@@ -382,6 +382,77 @@ The active roadmap for this work lives in:
 
 - [ROADMAP.md](./ROADMAP.md)
 
+## Error code policy (ENG-181)
+
+Every error that crosses the tRPC boundary toward the frontend carries
+a stable `errorCode` so the web client can translate it via
+`errors.server.<CODE>` in the i18n catalogs. The canonical helper
+lives at `packages/server/src/lib/errorCodes.ts`:
+
+```ts
+throwServerError({
+  trpcCode: 'CONFLICT',
+  errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+  message: 'Fiscal numbering resolution was not advanced',
+  details: { resolutionId, tenantId, siteId, kind, expectedConsecutive },
+});
+```
+
+This raises a `TRPCError` whose `cause` is a `ServerErrorWithCode`
+instance carrying the `errorCode` enum value and the `details`
+object. The frontend `translateServerError` reads `cause.errorCode`
+through the formatter-projected `data.errorCode` field and looks up the
+matching i18n key; `error-codes-coverage.test.ts` fails CI if a code
+lands without both locale keys.
+
+### Categoría A vs Categoría B — when to use which
+
+Not every literal throw needs to become a `throwServerError`. The
+split:
+
+- **Categoría A — user-facing failures.** A real operator-or-tenant
+  precondition has failed and the UI should toast a translated
+  message. Examples: cash movement amount out of range, fiscal
+  numbering TOCTOU loss, defensive post-INSERT reload that returned
+  no row, credit ledger amount validation, pairing code allocation
+  exhaustion. **→ Use `throwServerError({ trpcCode, errorCode,
+  message, details })`.**
+
+- **Categoría B — programmer asserts in internal helpers.** A pure
+  helper (XML serializer, byte builder, manifest type guard) detected
+  an invariant violation that the orchestrator upstream catches and
+  re-emits with the right `errorCode`. Examples: CFDI 4.0 / DTE 1.0
+  validators ("CFDI requires RFC in tenant settings"), ESC/POS
+  unsupported character set, surfaces / events manifest unknown
+  module / event type, sync contract unknown entity type. **→ Use
+  `new Error(message, { cause: { country, document, missing, …
+  tenantId } })`.** The structured `cause` flows through pino logs
+  for operational diagnosis; the orchestrator's try/catch is the
+  funnel that translates the inner error into a customer-facing
+  `errorCode` via `throwServerError`.
+
+### Pino redact policy
+
+`logger.ts` preserves the `cause` chain for operational fields
+(`cause.tenantId`, `cause.siteId`, `cause.errorCode`, `cause.kind`,
+`cause.details.*`) so operators can grep an NDJSON log and see which
+tenant + site + document triggered the failure. Sensitive nested
+fields are still censored: `cause.password`, `cause.token`,
+`cause.refreshToken`, `cause.email`, plus the one-level-deep
+wildcards `cause.*.password` etc. The `logger.test.ts` ENG-181
+describe block pins this contract.
+
+### Frontend funnel — `onErrorToast`
+
+Every mutation `onError` must funnel through `onErrorToast(toast, t,
+options)` from `@/lib/mutationHelpers`. This single helper resolves
+the `cause.errorCode` against the i18n catalog and emits a
+translated toast. Inline patterns like `onError: (err) =>
+toast.error({ title, description: err.message })` skip translation
+and silently drop the cause chain — an ESLint `no-restricted-syntax`
+rule in `apps/web/eslint.config.js` blocks the regression at lint
+time.
+
 ## Design Constraints That Matter
 
 - Fastify is embedded in Electron main for desktop mode. It is not a child process.

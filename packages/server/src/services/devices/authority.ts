@@ -227,7 +227,12 @@ export async function createPairingCode(
     return { id, code, siteId: args.siteId, expiresAt };
   }
 
-  throw new Error('Unable to allocate unique device pairing code');
+  throwServerError({
+    trpcCode: 'INTERNAL_SERVER_ERROR',
+    errorCode: 'DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED',
+    message: 'Unable to allocate unique device pairing code',
+    details: { tenantId: args.tenantId, siteId: args.siteId, attempts: 3 },
+  });
 }
 
 export async function claimPairingCodeForDevice(

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  KNOWN_SERVER_ERROR_CODES,
   extractServerErrorCode,
   isNetworkConnectivityError,
   translateServerError,
@@ -16,7 +19,28 @@ function makeFakeT(map: Record<string, string>): TFunction {
   return t;
 }
 
+function loadServerErrorCodesFromSource(): string[] {
+  const workspaceRelativePath = resolve(
+    process.cwd(),
+    '../../packages/server/src/lib/errorCodes.ts'
+  );
+  const rootRelativePath = resolve(process.cwd(), 'packages/server/src/lib/errorCodes.ts');
+  const path = existsSync(workspaceRelativePath) ? workspaceRelativePath : rootRelativePath;
+  const source = readFileSync(path, 'utf8');
+  const match = source.match(/export const SERVER_ERROR_CODES = \{([\s\S]*?)\n\} as const;/);
+  if (!match) {
+    throw new Error('Could not locate SERVER_ERROR_CODES in packages/server/src/lib/errorCodes.ts');
+  }
+  return [...match[1].matchAll(/:\s*'([A-Z0-9_]+)'/g)].map(([, code]) => code);
+}
+
 describe('extractServerErrorCode', () => {
+  it('keeps the duplicated web known-code allowlist in sync with the server enum', () => {
+    expect([...KNOWN_SERVER_ERROR_CODES].sort()).toEqual(
+      loadServerErrorCodesFromSource().sort()
+    );
+  });
+
   it('returns the code from `data.errorCode` (typical tRPC client shape)', () => {
     const error = { data: { errorCode: 'AUTH_INVALID_CREDENTIALS' } };
     expect(extractServerErrorCode(error)).toBe('AUTH_INVALID_CREDENTIALS');

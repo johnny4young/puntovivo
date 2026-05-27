@@ -144,4 +144,81 @@ describe('logger (ENG-006)', () => {
       }
     });
   });
+
+  // ENG-181 — Error.cause chain redaction. Plain operational context
+  // (tenantId, siteId, errorCode, kind) survives so diagnostics keep
+  // working; sensitive nested fields get censored.
+  describe('ENG-181 — cause chain redaction', () => {
+    it('preserves operational context inside cause (tenantId / siteId / errorCode)', () => {
+      const { logger, records } = createCapturingLogger();
+      logger.error(
+        {
+          cause: {
+            tenantId: 't-acme',
+            siteId: 'site-mx-01',
+            errorCode: 'FISCAL_TENANT_SETTINGS_MISSING',
+            kind: 'cfdi_40',
+          },
+        },
+        'fiscal emit failed'
+      );
+      const first = records[0] as CapturedRecord;
+      const cause = first.cause as Record<string, unknown>;
+      expect(cause.tenantId).toBe('t-acme');
+      expect(cause.siteId).toBe('site-mx-01');
+      expect(cause.errorCode).toBe('FISCAL_TENANT_SETTINGS_MISSING');
+      expect(cause.kind).toBe('cfdi_40');
+    });
+
+    it.each([
+      'password',
+      'passwordHash',
+      'token',
+      'refreshToken',
+      'email',
+      'jwtSecret',
+      'authorization',
+    ])('redacts cause.%s when it leaks through', field => {
+      const { logger, records } = createCapturingLogger();
+      logger.error({ cause: { [field]: 'plaintext-leak', tenantId: 't-ok' } }, 'leak');
+      const cause = (records[0] as CapturedRecord).cause as Record<string, unknown>;
+      expect(cause[field]).toBe('[Redacted]');
+      expect(cause.tenantId).toBe('t-ok');
+    });
+
+    it('redacts one-level-deep wildcards under cause (cause.details.password)', () => {
+      const { logger, records } = createCapturingLogger();
+      logger.error(
+        {
+          cause: {
+            tenantId: 't-99',
+            details: {
+              password: 'plaintext',
+              token: 'tok',
+              jwtSecret: 'secret',
+              authorization: 'Bearer secret',
+              note: 'safe operational text',
+            },
+          },
+        },
+        'leak inside cause.details'
+      );
+      const cause = (records[0] as CapturedRecord).cause as Record<string, unknown>;
+      const details = cause.details as Record<string, unknown>;
+      expect(cause.tenantId).toBe('t-99');
+      expect(details.password).toBe('[Redacted]');
+      expect(details.token).toBe('[Redacted]');
+      expect(details.jwtSecret).toBe('[Redacted]');
+      expect(details.authorization).toBe('[Redacted]');
+      expect(details.note).toBe('safe operational text');
+    });
+
+    // Note on shape: pino's default error serializer (pino.stdSerializers.err)
+    // emits `{ type, message, stack }` and intentionally drops `cause` from
+    // Error instances. App code that wants `cause` redaction goes through
+    // `logger.error({ cause }, ...)` (Categoría A: ServerErrorWithCode bound
+    // to a plain `details` object; Categoría B: helpers wrap a plain object
+    // literal under `cause`). Both reach the redact policy as top-level
+    // `cause.*` and `cause.*.*` paths — which is what the cases above pin.
+  });
 });

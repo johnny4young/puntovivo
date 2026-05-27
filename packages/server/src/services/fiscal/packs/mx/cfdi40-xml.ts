@@ -125,26 +125,71 @@ export function serializeCfdi40(
   // Validaciones defensivas.
   // -----------------------------------------------------------
   if (input.lines.length === 0) {
-    throw new Error('CFDI 4.0 requiere al menos un concepto; lines vacío.');
+    throw new Error('CFDI 4.0 requiere al menos un concepto; lines vacío.', {
+      cause: {
+        country: 'MX',
+        document: 'CFDI40',
+        missing: 'lines',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (input.currencyCode !== 'MXN') {
     throw new Error(
-      `CFDI 4.0 requiere Moneda='MXN'. Recibido: ${input.currencyCode}. Foreign currency requiere TipoCambio (ENG-035c).`
+      `CFDI 4.0 requiere Moneda='MXN'. Recibido: ${input.currencyCode}. Foreign currency requiere TipoCambio (ENG-035c).`,
+      {
+        cause: {
+          country: 'MX',
+          document: 'CFDI40',
+          unsupportedCurrency: input.currencyCode,
+          tenantId: input.tenantId,
+        },
+      }
     );
   }
   if (!settings.rfc) {
-    throw new Error('CFDI 4.0 requiere RFC del emisor en tenant settings.');
+    throw new Error('CFDI 4.0 requiere RFC del emisor en tenant settings.', {
+      cause: {
+        country: 'MX',
+        document: 'CFDI40',
+        missing: 'settings.rfc',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (!settings.regimenFiscalCode) {
-    throw new Error('CFDI 4.0 requiere RegimenFiscal del emisor en tenant settings.');
+    throw new Error('CFDI 4.0 requiere RegimenFiscal del emisor en tenant settings.', {
+      cause: {
+        country: 'MX',
+        document: 'CFDI40',
+        missing: 'settings.regimenFiscalCode',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (!settings.lugarExpedicion) {
-    throw new Error('CFDI 4.0 requiere LugarExpedicion del emisor en tenant settings.');
+    throw new Error('CFDI 4.0 requiere LugarExpedicion del emisor en tenant settings.', {
+      cause: {
+        country: 'MX',
+        document: 'CFDI40',
+        missing: 'settings.lugarExpedicion',
+        tenantId: input.tenantId,
+      },
+    });
   }
   const regimen = findRegimenFiscal(settings.regimenFiscalCode);
   if (!regimen) {
     throw new Error(
-      `RegimenFiscal ${settings.regimenFiscalCode} no existe en el catálogo SAT.`
+      `RegimenFiscal ${settings.regimenFiscalCode} no existe en el catálogo SAT.`,
+      {
+        cause: {
+          country: 'MX',
+          document: 'CFDI40',
+          catalog: 'c_RegimenFiscal',
+          missingCode: settings.regimenFiscalCode,
+          tenantId: input.tenantId,
+        },
+      }
     );
   }
 

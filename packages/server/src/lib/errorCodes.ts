@@ -35,6 +35,38 @@ export const SERVER_ERROR_CODES = {
   CASH_SESSION_OPENING_FLOAT_INVALID: 'CASH_SESSION_OPENING_FLOAT_INVALID',
   CASH_SESSION_COUNT_MISMATCH: 'CASH_SESSION_COUNT_MISMATCH',
   CASH_SESSION_COUNT_INVALID: 'CASH_SESSION_COUNT_INVALID',
+  /**
+   * ENG-181 — defensive load failure right after creating / closing a
+   * cash session. Should never reach a happy-path UI; surfaces if the
+   * SELECT-after-INSERT pattern is broken (DB closed, replication lag,
+   * etc.). `details` carries
+   * `{ tenantId, sessionId, operation: 'open' | 'close' }`.
+   */
+  CASH_SESSION_LOAD_FAILED: 'CASH_SESSION_LOAD_FAILED',
+  /**
+   * ENG-181 — `services/cash-session.ts:insertCashMovement` rejected a
+   * non-positive / non-finite amount. ENG-176a-rounding already rounds
+   * at the boundary; this code surfaces if a future caller bypasses
+   * `roundMoney()` and feeds a sub-cent or negative value. `details`
+   * carries `{ amount }`.
+   */
+  CASH_MOVEMENT_INVALID_AMOUNT: 'CASH_MOVEMENT_INVALID_AMOUNT',
+  /**
+   * ENG-181 — unknown / unhandled `cash_movements.type` reached
+   * `getCashMovementSignedAmount`. Indicates a schema enum value the
+   * helper has not been taught about. `details` carries `{ type }`.
+   */
+  CASH_MOVEMENT_UNSUPPORTED_TYPE: 'CASH_MOVEMENT_UNSUPPORTED_TYPE',
+  /**
+   * ENG-181 — defensive guard on the SELECT-after-INSERT pattern in
+   * `application/cash-sessions/recordCashMovement.ts`. Surfaces when
+   * the freshly inserted cash movement row cannot be re-read; almost
+   * always points to an underlying DB / FK issue. `details` carries
+   * `{ tenantId, sessionId, type, amount, stage: 'insert' | 'post-tx' | 'reload', movementId? }`
+   * — `stage` discriminates the three guard sites (in-transaction
+   * insert, post-tx null-id check, post-tx reload-row check).
+   */
+  CASH_MOVEMENT_PERSIST_FAILED: 'CASH_MOVEMENT_PERSIST_FAILED',
 
   // --- fraction policy domain (Phase 1 DB-050) ---
   /** Admin config: sellByFraction=true but fractionStep is missing / ≤ 0. */
@@ -114,6 +146,14 @@ export const SERVER_ERROR_CODES = {
   RECEIPT_TEMPLATE_LAST_FOR_KIND: 'RECEIPT_TEMPLATE_LAST_FOR_KIND',
   /** A duplicate's resolved name collides with an existing one for the same kind. */
   RECEIPT_TEMPLATE_NAME_DUPLICATE: 'RECEIPT_TEMPLATE_NAME_DUPLICATE',
+  /**
+   * ENG-181 — defensive guard on the INSERT-RETURNING / UPDATE-RETURNING
+   * pattern in `services/receipt-templates.ts`. Surfaces when a row
+   * mutation succeeds but the returned row is missing; almost always
+   * points to a tenant-scope mismatch or a transaction abort.
+   * `details` carries `{ operation: 'insert' | 'update' | 'setDefault', templateId? }`.
+   */
+  RECEIPT_TEMPLATE_PERSIST_FAILED: 'RECEIPT_TEMPLATE_PERSIST_FAILED',
 
   // --- sales domain ---
   // Added during ENG-018 + ENG-019 while sweeping sales.ts for raw
@@ -324,6 +364,17 @@ export const SERVER_ERROR_CODES = {
    * el operador intenta persistir un RUT malformado.
    */
   FISCAL_RUT_INVALID: 'FISCAL_RUT_INVALID',
+  /**
+   * ENG-181 — `services/fiscal/orchestrator.ts` TOCTOU guard: the
+   * UPDATE that advances `fiscal_numbering_resolutions.current_number`
+   * reported zero rows changed, meaning a concurrent emitter raced
+   * past the same sequential window. The orchestrator aborts and the
+   * caller should retry with a fresh resolution lookup. `details`
+   * carries `{ resolutionId, tenantId, siteId, kind, expectedConsecutive }`
+   * — full coordinates so operators can pinpoint the (tenant, site,
+   * document-kind) triple that raced.
+   */
+  FISCAL_SEQUENTIAL_NOT_ADVANCED: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
 
   // --- ENG-042 sync resolve TOCTOU close-out ---
   /**
@@ -350,6 +401,15 @@ export const SERVER_ERROR_CODES = {
   AUTHORITY_PAIRING_CODE_EXPIRED: 'AUTHORITY_PAIRING_CODE_EXPIRED',
   AUTHORITY_PAIRING_CODE_USED: 'AUTHORITY_PAIRING_CODE_USED',
   AUTHORITY_DEVICE_NOT_REVOKABLE: 'AUTHORITY_DEVICE_NOT_REVOKABLE',
+  /**
+   * ENG-181 — pairing-code generator exhausted its allocation retries
+   * without finding a unique value. `services/devices/authority.ts`
+   * picks a random 6-character code, and a saturated keyspace under
+   * heavy onboarding load could cause this. `details` carries
+   * `{ attempts, siteId }`.
+   */
+  DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED:
+    'DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED',
   /**
    * A procedure decorated with `criticalCommandProcedure` (per ADR-0002)
    * received an empty or malformed Command Envelope header. Renderers
@@ -630,6 +690,14 @@ export const SERVER_ERROR_CODES = {
    * code so an operator cannot leave a half-reversed sale in the DB.
    */
   REFUND_PARTIAL_CREDIT_NOT_SUPPORTED: 'REFUND_PARTIAL_CREDIT_NOT_SUPPORTED',
+  /**
+   * ENG-181 — `recordCreditSaleLedger` refused a non-positive /
+   * non-finite credit amount. The completeSale resolver already
+   * rounds + validates earlier, so this surfaces as a defensive
+   * guard against a caller that bypasses the application service.
+   * `details` carries `{ creditAmount, customerId }`.
+   */
+  CREDIT_LEDGER_INVALID_AMOUNT: 'CREDIT_LEDGER_INVALID_AMOUNT',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];
