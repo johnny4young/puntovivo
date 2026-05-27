@@ -127,7 +127,12 @@ export function getCashSessionOverShort(expectedBalance: number, actualCount: nu
 
 export function getCashMovementSignedAmount(type: CashMovementType, amount: number): number {
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error('Cash movement amount must be greater than zero');
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CASH_MOVEMENT_INVALID_AMOUNT',
+      message: 'Cash movement amount must be greater than zero',
+      details: { amount },
+    });
   }
 
   if (CASH_MOVEMENT_POSITIVE_TYPES.has(type)) {
@@ -138,7 +143,12 @@ export function getCashMovementSignedAmount(type: CashMovementType, amount: numb
     return -amount;
   }
 
-  throw new Error(`Unsupported cash movement type: ${type}`);
+  throwServerError({
+    trpcCode: 'BAD_REQUEST',
+    errorCode: 'CASH_MOVEMENT_UNSUPPORTED_TYPE',
+    message: `Unsupported cash movement type: ${type}`,
+    details: { type },
+  });
 }
 
 /**

@@ -162,7 +162,14 @@ export function encodeForCharset(text: string, charset: EscPosCharset): Uint8Arr
  * possible; fall back to hard-cutting long tokens.
  */
 export function wrapToColumns(text: string, cols: number): string[] {
-  if (cols <= 0) throw new Error('columns must be a positive integer');
+  if (cols <= 0) {
+    throw new Error('columns must be a positive integer', {
+      cause: {
+        helper: 'wrapToColumns',
+        receivedCols: cols,
+      },
+    });
+  }
   if (text.length === 0) return [''];
   const out: string[] = [];
   for (const paragraph of text.split('\n')) {
@@ -235,11 +242,23 @@ export function buildEscPosBytes(
   const charset = opts.characterSet ?? 'cp858';
   const charsetCode = CHARSET_CODES[charset];
   if (typeof charsetCode !== 'number') {
-    throw new Error(`Unsupported character set: ${charset}`);
+    throw new Error(`Unsupported character set: ${charset}`, {
+      cause: {
+        helper: 'buildEscPosBytes',
+        unsupportedCharset: charset,
+        supported: Object.keys(CHARSET_CODES),
+      },
+    });
   }
   const cols = COLUMNS_BY_PAPER_WIDTH[opts.paperWidth];
   if (typeof cols !== 'number') {
-    throw new Error(`Unsupported paper width: ${opts.paperWidth}`);
+    throw new Error(`Unsupported paper width: ${opts.paperWidth}`, {
+      cause: {
+        helper: 'buildEscPosBytes',
+        unsupportedPaperWidth: opts.paperWidth,
+        supported: Object.keys(COLUMNS_BY_PAPER_WIDTH),
+      },
+    });
   }
 
   const chunks: Uint8Array[] = [];

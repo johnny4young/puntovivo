@@ -92,7 +92,15 @@ export function mapPaymentMethodToFormaPago(internal: string): FormaPagoEntry {
   const entry = findFormaPago(code);
   if (!entry) {
     throw new Error(
-      `Catálogo SAT c_FormaPago no contiene el código ${code}; revisa formaPago.ts`
+      `Catálogo SAT c_FormaPago no contiene el código ${code}; revisa formaPago.ts`,
+      {
+        cause: {
+          country: 'MX',
+          catalog: 'c_FormaPago',
+          missingCode: code,
+          internal,
+        },
+      }
     );
   }
   return entry;
@@ -157,7 +165,15 @@ export function mapUnitToClaveUnidad(unitCode: string): ClaveUnidadEntry {
   const entry = findClaveUnidad(code);
   if (!entry) {
     throw new Error(
-      `Catálogo SAT c_ClaveUnidad no contiene el código ${code}; revisa claveUnidad.ts`
+      `Catálogo SAT c_ClaveUnidad no contiene el código ${code}; revisa claveUnidad.ts`,
+      {
+        cause: {
+          country: 'MX',
+          catalog: 'c_ClaveUnidad',
+          missingCode: code,
+          unitCode,
+        },
+      }
     );
   }
   return entry;
@@ -284,7 +300,15 @@ export function inferProductClaveProdServ(ctx: {
   const fallback = findClaveProdServ(CLAVE_PROD_SERV_FALLBACK);
   if (!fallback) {
     throw new Error(
-      `Catálogo SAT c_ClaveProdServ no contiene el fallback ${CLAVE_PROD_SERV_FALLBACK}`
+      `Catálogo SAT c_ClaveProdServ no contiene el fallback ${CLAVE_PROD_SERV_FALLBACK}`,
+      {
+        cause: {
+          country: 'MX',
+          catalog: 'c_ClaveProdServ',
+          missingCode: CLAVE_PROD_SERV_FALLBACK,
+          kind: 'fallback',
+        },
+      }
     );
   }
   return fallback;
@@ -305,7 +329,14 @@ export function inferProductClaveProdServ(ctx: {
  */
 export function formatDecimal(value: number, precision: number): string {
   if (!Number.isFinite(value)) {
-    throw new Error(`formatDecimal: valor no finito recibido (${value})`);
+    throw new Error(`formatDecimal: valor no finito recibido (${value})`, {
+      cause: {
+        country: 'MX',
+        helper: 'formatDecimal',
+        value,
+        precision,
+      },
+    });
   }
   const safePrecision = Math.max(0, Math.min(precision, 20));
   return value.toFixed(safePrecision);

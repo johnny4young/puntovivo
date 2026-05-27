@@ -172,7 +172,14 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
   const policy = (SYNC_CONFLICT_POLICY as Record<string, SyncConflictPolicy | undefined>)[entityType];
   if (!policy) {
     throw new Error(
-      `[sync.contract] Unknown entityType '${entityType}'. Add it to SYNC_ENTITY_TYPES + SYNC_CONFLICT_POLICY in services/sync/contract.ts.`
+      `[sync.contract] Unknown entityType '${entityType}'. Add it to SYNC_ENTITY_TYPES + SYNC_CONFLICT_POLICY in services/sync/contract.ts.`,
+      {
+        cause: {
+          manifest: 'sync.contract',
+          helper: 'resolveConflictPolicy',
+          unknownEntityType: entityType,
+        },
+      }
     );
   }
   return policy;

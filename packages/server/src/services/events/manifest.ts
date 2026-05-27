@@ -180,7 +180,14 @@ export function isPublicEventType(value: string): value is PublicEventType {
 export function getPayloadSchema(type: PublicEventType): z.ZodSchema {
   const schema = PUBLIC_EVENT_PAYLOAD_SCHEMAS[type];
   if (!schema) {
-    throw new Error(`Unknown public event type: ${type}`);
+    throw new Error(`Unknown public event type: ${type}`, {
+      cause: {
+        manifest: 'events',
+        helper: 'getPayloadSchema',
+        unknownType: type,
+        known: PUBLIC_EVENT_TYPES,
+      },
+    });
   }
   return schema;
 }

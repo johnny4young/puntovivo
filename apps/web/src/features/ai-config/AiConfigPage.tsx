@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { cn } from '@/lib/utils';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 type FeatureKey = 'copilot' | 'anomalies' | 'semanticSearch' | 'invoiceOcr';
 
@@ -31,12 +32,7 @@ export default function AiConfigPage() {
         title: t('aiSettings:toast.saveSuccessTitle'),
       });
     },
-    onError: err => {
-      toast.error({
-        title: t('common:status.error'),
-        description: err.message,
-      });
-    },
+    onError: onErrorToast(toast, t, { titleKey: 'common:status.error' }),
   });
 
   const features = settingsQuery.data?.features;

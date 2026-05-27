@@ -12,7 +12,6 @@ import type { Sequential, Site, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { translateServerError } from '@/lib/translateServerError';
 
 interface SequentialFormValues {
   siteId: string;
@@ -213,20 +212,16 @@ export function SequentialsPage() {
       setEditingSequential(null);
       toast.success({ title: editingSequential ? t('sequentials.toast.updated') : t('sequentials.toast.created') });
     },
-    // Title flips between create / update depending on the dialog mode, so
-    // the helper-built variant cannot capture this dynamically — keep a
-    // custom onError but route the description through translateServerError
-    // for locale-aware code resolution.
-    onError: error => {
-      const fallback = editingSequential
-        ? t('sequentials.toast.updateError')
-        : t('sequentials.toast.createError');
-
-      toast.error({
-        title: fallback,
-        description: translateServerError(error, t, fallback),
-      });
-    },
+    // Title flips between create / update depending on the dialog mode.
+    // The helper's `titleKey` resolves at call time, so closing over the
+    // current `editingSequential` is enough — we build a fresh handler
+    // per emission to pick the right copy.
+    onError: error =>
+      onErrorToast(toast, t, {
+        titleKey: editingSequential
+          ? 'sequentials.toast.updateError'
+          : 'sequentials.toast.createError',
+      })(error),
   });
 
   const deleteMutation = trpc.sequentials.delete.useMutation({

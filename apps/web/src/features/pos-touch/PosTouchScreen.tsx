@@ -45,6 +45,7 @@ import {
 } from '@/features/sales/saleCart';
 import type { Product, ProductSearchSelection } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 import {
   PosTouchCategoryTabs,
   type PosTouchCategoryOption,
@@ -182,12 +183,10 @@ export function PosTouchScreen() {
       });
       setCartItems([]);
     },
-    onError: err => {
-      toast.error({
-        title: t('toast.chargeError'),
-        description: translateServerError(err, t, t('toast.chargeError')),
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'toast.chargeError',
+      fallbackKey: 'toast.chargeError',
+    }),
   });
 
   async function handleAddToCart(product: Product) {

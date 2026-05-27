@@ -131,7 +131,14 @@ export function assertSurfaceManifestIntegrity(): void {
     if (descriptor.moduleId === null) continue;
     if (!(descriptor.moduleId in MODULES_MANIFEST)) {
       throw new Error(
-        `surfaces manifest: surface ${id} references unknown module ${descriptor.moduleId}`
+        `surfaces manifest: surface ${id} references unknown module ${descriptor.moduleId}`,
+        {
+          cause: {
+            manifest: 'surfaces',
+            surfaceId: id,
+            unknownModuleId: descriptor.moduleId,
+          },
+        }
       );
     }
   }

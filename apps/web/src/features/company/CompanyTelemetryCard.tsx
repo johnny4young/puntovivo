@@ -2,7 +2,7 @@ import { CloudUpload, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import { translateServerError } from '@/lib/translateServerError';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 /**
  * ENG-135 — Per-tenant telemetry opt-in toggle.
@@ -32,13 +32,9 @@ export function CompanyTelemetryCard() {
           : t('company.telemetry.toast.disabled'),
       });
     },
-    onError: error => {
-      const message = translateServerError(error, t, t('errors:server.unknown'));
-      toast.error({
-        title: t('company.telemetry.toast.failed'),
-        description: message,
-      });
-    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'company.telemetry.toast.failed',
+    }),
   });
 
   const isLoading = companyQuery.isLoading || updateMutation.isPending;

@@ -106,24 +106,67 @@ export function serializeDte10(
   // Validaciones defensivas.
   // -----------------------------------------------------------
   if (input.lines.length === 0) {
-    throw new Error('DTE 1.0 requiere al menos un Detalle; lines vacío.');
+    throw new Error('DTE 1.0 requiere al menos un Detalle; lines vacío.', {
+      cause: {
+        country: 'CL',
+        document: 'DTE10',
+        missing: 'lines',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (input.currencyCode !== 'CLP') {
     throw new Error(
-      `DTE 1.0 requiere Moneda='CLP'. Recibido: ${input.currencyCode}. Foreign currency requiere extensión SII (ENG-036c).`
+      `DTE 1.0 requiere Moneda='CLP'. Recibido: ${input.currencyCode}. Foreign currency requiere extensión SII (ENG-036c).`,
+      {
+        cause: {
+          country: 'CL',
+          document: 'DTE10',
+          unsupportedCurrency: input.currencyCode,
+          tenantId: input.tenantId,
+        },
+      }
     );
   }
   if (!settings.rut) {
-    throw new Error('DTE 1.0 requiere RUT del emisor en tenant settings.');
+    throw new Error('DTE 1.0 requiere RUT del emisor en tenant settings.', {
+      cause: {
+        country: 'CL',
+        document: 'DTE10',
+        missing: 'settings.rut',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (!settings.giroCode) {
-    throw new Error('DTE 1.0 requiere giro comercial del emisor en tenant settings.');
+    throw new Error('DTE 1.0 requiere giro comercial del emisor en tenant settings.', {
+      cause: {
+        country: 'CL',
+        document: 'DTE10',
+        missing: 'settings.giroCode',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (!settings.casaMatriz) {
-    throw new Error('DTE 1.0 requiere casa matriz del emisor en tenant settings.');
+    throw new Error('DTE 1.0 requiere casa matriz del emisor en tenant settings.', {
+      cause: {
+        country: 'CL',
+        document: 'DTE10',
+        missing: 'settings.casaMatriz',
+        tenantId: input.tenantId,
+      },
+    });
   }
   if (!settings.comunaCode) {
-    throw new Error('DTE 1.0 requiere comuna del emisor en tenant settings.');
+    throw new Error('DTE 1.0 requiere comuna del emisor en tenant settings.', {
+      cause: {
+        country: 'CL',
+        document: 'DTE10',
+        missing: 'settings.comunaCode',
+        tenantId: input.tenantId,
+      },
+    });
   }
 
   // -----------------------------------------------------------
@@ -137,7 +180,18 @@ export function serializeDte10(
     // Defensive: orchestrator debería haber pasado el tipoDte
     // correcto. Si no, levantamos para detectar el bug en tests.
     throw new Error(
-      `DTE allocation tipoDte=${allocation.tipoDte} no coincide con expected ${expectedTipoDte} (source=${input.source}, buyerHasRut=${buyerHasRut}).`
+      `DTE allocation tipoDte=${allocation.tipoDte} no coincide con expected ${expectedTipoDte} (source=${input.source}, buyerHasRut=${buyerHasRut}).`,
+      {
+        cause: {
+          country: 'CL',
+          document: 'DTE10',
+          tenantId: input.tenantId,
+          allocatedTipoDte: allocation.tipoDte,
+          expectedTipoDte,
+          source: input.source,
+          buyerHasRut,
+        },
+      }
     );
   }
 
@@ -147,7 +201,16 @@ export function serializeDte10(
 
   if (isFactura && !buyerHasRut) {
     throw new Error(
-      `DTE TipoDTE ${allocation.tipoDte} (factura) requiere receptor con RUT identificado.`
+      `DTE TipoDTE ${allocation.tipoDte} (factura) requiere receptor con RUT identificado.`,
+      {
+        cause: {
+          country: 'CL',
+          document: 'DTE10',
+          tenantId: input.tenantId,
+          tipoDte: allocation.tipoDte,
+          missing: 'buyer.taxId',
+        },
+      }
     );
   }
 

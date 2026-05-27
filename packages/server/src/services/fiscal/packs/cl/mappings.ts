@@ -164,7 +164,13 @@ export function mapInternalKindToTipoDte(
  */
 export function roundClp(value: number): number {
   if (!Number.isFinite(value)) {
-    throw new Error(`roundClp: valor no finito recibido (${value})`);
+    throw new Error(`roundClp: valor no finito recibido (${value})`, {
+      cause: {
+        country: 'CL',
+        helper: 'roundClp',
+        value,
+      },
+    });
   }
   return Math.round(value);
 }

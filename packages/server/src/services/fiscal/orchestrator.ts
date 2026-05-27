@@ -56,6 +56,7 @@ import type {
   FiscalAdapterIssueInput,
   FiscalAdapterLine,
 } from './adapter.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from './cufe.js';
 import { tickDefaultFiscalWorker } from './fiscal-worker.js';
 import { allocateNextFolio } from './packs/cl/caf-allocator.js';
@@ -600,7 +601,18 @@ export async function emitFiscalDocument(
       .run();
 
     if (updateResult.changes !== 1) {
-      throw new Error('Fiscal numbering resolution was not advanced');
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+        message: 'Fiscal numbering resolution was not advanced',
+        details: {
+          resolutionId: resolution.id,
+          tenantId,
+          siteId: saleSite.siteId,
+          kind,
+          expectedConsecutive: consecutive,
+        },
+      });
     }
 
     return {
@@ -991,7 +1003,18 @@ export async function enqueueFiscalEmission(args: {
       )
       .run();
     if (updateResult.changes !== 1) {
-      throw new Error('Fiscal numbering resolution was not advanced');
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+        message: 'Fiscal numbering resolution was not advanced',
+        details: {
+          resolutionId: resolution.id,
+          tenantId,
+          siteId: saleSite.siteId,
+          kind,
+          expectedConsecutive: consecutive,
+        },
+      });
     }
 
     // Enqueue the outbox row last so a constraint-violation roll-back

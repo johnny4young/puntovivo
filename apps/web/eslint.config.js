@@ -28,6 +28,16 @@ const NO_LITERAL_JSX_ATTRS = [
     message:
       'Hardcoded JSX `aria-label` attribute. Wrap with `t(\'namespace:key\')` from useTranslation.',
   },
+  // ENG-181 — every mutation `onError` must funnel through `onErrorToast(...)` so
+  // server `errorCode` values get translated via the i18n parity contract and so
+  // structured error logging stays consistent. Inline `onError: (err) => toast.x(...)`
+  // bypasses translation and silently drops the `cause` chain context.
+  {
+    selector:
+      'Property[key.name="onError"][value.type="ArrowFunctionExpression"]:has(CallExpression[callee.object.name="toast"])',
+    message:
+      'Use `onErrorToast(toast, t, options)` from `@/lib/mutationHelpers` instead of inline `onError` that calls `toast.*` directly. ENG-181 — single funnel for translation + tracing.',
+  },
 ];
 
 export default tseslint.config(

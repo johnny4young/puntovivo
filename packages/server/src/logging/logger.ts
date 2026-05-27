@@ -52,6 +52,30 @@ const REDACT_PATHS: readonly string[] = [
   '*.token',
   '*.refreshToken',
   '*.email',
+  // ENG-181 — preserve Error.cause chain for diagnostic context
+  // (cause.tenantId, cause.siteId, cause.errorCode, ...) while
+  // censoring sensitive nested fields. Pino does not support
+  // recursive wildcards, so we list explicit paths covering the
+  // realistic surface where credentials might leak through cause.
+  // Note: pino's default `err` serializer drops `cause` from Error
+  // instances, so `err.cause.*` paths would never match — app code
+  // logs cause via `logger.{info,error}({ cause }, msg)` directly
+  // (Categoría A bound to ServerErrorWithCode.details, Categoría B
+  // helpers wrapping a plain object literal under `cause`).
+  'cause.password',
+  'cause.passwordHash',
+  'cause.token',
+  'cause.refreshToken',
+  'cause.email',
+  'cause.jwtSecret',
+  'cause.authorization',
+  'cause.*.password',
+  'cause.*.passwordHash',
+  'cause.*.token',
+  'cause.*.refreshToken',
+  'cause.*.email',
+  'cause.*.jwtSecret',
+  'cause.*.authorization',
 ];
 
 function resolveLevel(): string {
