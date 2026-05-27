@@ -488,20 +488,6 @@ research.
   + handler patch when ENG-156's import-product flow lands. —
   2026-05-26 (ENG-176b follow-up, gated on ENG-156).
 
-- `[fiscal][schema] ENG-176c — fiscal_identification_types catalog
-  rename + status enum expansion`. (1) Rename
-  `dian_identification_types` to `fiscal_identification_types` and
-  reshape to `(code, country_code, abbr, name_en, name_es,
-  natural_person)`; backfill existing rows with `country_code = 'CO'`;
-  seed SAT (MX), SUNAT (PE), and SII (CL). (2) Expand
-  `fiscal_documents.status` enum (or migrate to `text('status')` +
-  a per-country lookup table) so SAT / SUNAT / SII / AFIP states
-  (`voided`, `notified_correction`, `partial_send`, …) can be
-  expressed. Fiscal adapter contracts in `services/fiscal/registry.ts`
-  must look up by `country_code` after the rename. Audit
-  recommendation in [AUDIT-2026-05-24.md §ENG-176](./AUDIT-2026-05-24.md).
-  — 2026-05-25 (ENG-176 follow-up)
-
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

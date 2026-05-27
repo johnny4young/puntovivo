@@ -386,13 +386,15 @@ function seedCatalogs(database: DatabaseInstance): void {
     );
   }
 
-  // ENG-020 Phase A — DIAN identification types, 10 regulated codes.
-  if (tableExists('dian_identification_types')) {
-    seedDianIdentificationTypes(client);
+  // ENG-176c — fiscal identification types (renamed from
+  // `dian_identification_types` in 0038). Now keyed by composite
+  // (country_code, code) so DIAN + SAT + SUNAT + SII rows coexist.
+  if (tableExists('fiscal_identification_types')) {
+    seedFiscalIdentificationTypes(client);
   } else {
     dbLog.warn(
-      { reason: 'catalog_tables_missing', seeder: 'seedDianIdentificationTypes' },
-      'skipping dian identification types seed because dian_identification_types is absent; adopt a transitional version that runs migration 0004 against this DB'
+      { reason: 'catalog_tables_missing', seeder: 'seedFiscalIdentificationTypes' },
+      'skipping fiscal identification types seed because fiscal_identification_types is absent; adopt a transitional version that runs migration 0038 against this DB'
     );
   }
 }
@@ -490,30 +492,57 @@ function seedLocaleCatalogs(client: Database.Database): void {
 }
 
 /**
- * Seed the global `dian_identification_types` catalog with the 10
- * official codes that Colombia's DIAN publishes. Primary-key-gated so
- * the seed is idempotent across reboots. These rows are regulated —
- * the `code` column feeds directly into the fiscal XML DIAN accepts,
- * so operators cannot edit them.
+ * Seed the global `fiscal_identification_types` catalog with the
+ * official codes that Colombia's DIAN, México's SAT, Perú's SUNAT,
+ * and Chile's SII publish. Composite-PK-gated (country_code, code)
+ * so the seed is idempotent across reboots. These rows are
+ * regulated — the `code` column feeds directly into the fiscal XML
+ * each authority accepts, so operators cannot edit them.
  *
- * Source: DIAN Resolución 042/2020 Anexo Técnico, Codificación Tipos
- * de Documento de Identificación.
+ * Sources:
+ * - CO (DIAN): Resolución 042/2020 Anexo Técnico — Codificación Tipos
+ *   de Documento de Identificación.
+ * - MX (SAT): Anexo 20 CFDI 4.0 — c_RegimenFiscal + complemento de
+ *   identificación de receptor.
+ * - PE (SUNAT): Catálogo Nº 6 — Tipo de Documento de Identidad.
+ * - CL (SII): Catálogo Nº 11 — Tipo de RUT / RUN.
+ *
+ * The MX/PE/CL subsets are minimal viable sets that cover the
+ * common cases. ENG-156 (multi-currency operations) and ENG-161
+ * (NFe Brazil) may extend per business need.
  */
-function seedDianIdentificationTypes(client: Database.Database): void {
+function seedFiscalIdentificationTypes(client: Database.Database): void {
   const insert = client.prepare(
-    'INSERT OR IGNORE INTO dian_identification_types (code, abbr, name_es, name_en, natural_person) VALUES (?, ?, ?, ?, ?)'
+    'INSERT OR IGNORE INTO fiscal_identification_types (country_code, code, abbr, name_es, name_en, natural_person) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  const rows: Array<[string, string, string, string, number]> = [
-    ['11', 'RC', 'Registro civil', 'Civil registry', 1],
-    ['12', 'TI', 'Tarjeta de identidad', 'Identity card', 1],
-    ['13', 'CC', 'Cédula de ciudadanía', 'Citizenship ID', 1],
-    ['21', 'TE', 'Tarjeta de extranjería', 'Foreigner card', 1],
-    ['22', 'CE', 'Cédula de extranjería', 'Foreigner ID', 1],
-    ['31', 'NIT', 'Número de identificación tributaria', 'Tax identification number', 0],
-    ['41', 'PA', 'Pasaporte', 'Passport', 1],
-    ['42', 'TDE', 'Tipo de documento extranjero', 'Foreign document type', 1],
-    ['47', 'PEP', 'Permiso especial de permanencia', 'Special stay permit', 1],
-    ['91', 'NUIP', 'Número único de identificación personal', 'Unique personal identification number', 1],
+  const rows: Array<[string, string, string, string, string, number]> = [
+    // Colombia — DIAN (10 codes, regulated)
+    ['CO', '11', 'RC', 'Registro civil', 'Civil registry', 1],
+    ['CO', '12', 'TI', 'Tarjeta de identidad', 'Identity card', 1],
+    ['CO', '13', 'CC', 'Cédula de ciudadanía', 'Citizenship ID', 1],
+    ['CO', '21', 'TE', 'Tarjeta de extranjería', 'Foreigner card', 1],
+    ['CO', '22', 'CE', 'Cédula de extranjería', 'Foreigner ID', 1],
+    ['CO', '31', 'NIT', 'Número de identificación tributaria', 'Tax identification number', 0],
+    ['CO', '41', 'PA', 'Pasaporte', 'Passport', 1],
+    ['CO', '42', 'TDE', 'Tipo de documento extranjero', 'Foreign document type', 1],
+    ['CO', '47', 'PEP', 'Permiso especial de permanencia', 'Special stay permit', 1],
+    ['CO', '91', 'NUIP', 'Número único de identificación personal', 'Unique personal identification number', 1],
+    // México — SAT (4 codes, minimal viable set)
+    ['MX', 'RFC', 'RFC', 'Registro Federal de Contribuyentes', 'Federal taxpayer registry', 0],
+    ['MX', 'CURP', 'CURP', 'Clave Única de Registro de Población', 'Unique population registry code', 1],
+    ['MX', 'IFE', 'IFE', 'Credencial para Votar', 'Voter credential', 1],
+    ['MX', 'PA', 'PA', 'Pasaporte', 'Passport', 1],
+    // Perú — SUNAT Catálogo Nº 6 (5 codes, minimal viable set)
+    ['PE', '0', 'NDOM', 'No domiciliado, sin RUC', 'Non-domiciled, no RUC', 0],
+    ['PE', '1', 'DNI', 'Documento Nacional de Identidad', 'National identity document', 1],
+    ['PE', '4', 'CE', 'Carné de Extranjería', 'Foreigner card', 1],
+    ['PE', '6', 'RUC', 'Registro Único de Contribuyentes', 'Unique taxpayer registry', 0],
+    ['PE', '7', 'PA', 'Pasaporte', 'Passport', 1],
+    // Chile — SII Catálogo Nº 11 (4 codes, minimal viable set)
+    ['CL', 'RUT', 'RUT', 'Rol Único Tributario', 'Unique tax registry', 0],
+    ['CL', 'RUN', 'RUN', 'Rol Único Nacional', 'Unique national registry', 1],
+    ['CL', 'EXT', 'EXT', 'Extranjero', 'Foreigner', 1],
+    ['CL', 'PA', 'PA', 'Pasaporte', 'Passport', 1],
   ];
   for (const row of rows) {
     insert.run(...row);

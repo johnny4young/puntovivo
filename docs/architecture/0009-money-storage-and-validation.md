@@ -1,9 +1,97 @@
 # 0009 - Money Storage and Validation
 
 > Status: Accepted
-> Date: 2026-05-25 (Step-a) → 2026-05-25 (Step-b precision invariant reinstated) → 2026-05-26 (ENG-176b currency seam + fiscal CHECK coverage)
-> Owner: ENG-176a / ENG-176b
+> Date: 2026-05-25 (Step-a) → 2026-05-25 (Step-b precision invariant reinstated) → 2026-05-26 (ENG-176b currency seam + fiscal CHECK coverage) → 2026-05-26 (ENG-176c fiscal identification catalog + status enum expansion — ENG-176 thread closed)
+> Owner: ENG-176a / ENG-176b / ENG-176c
 > Supersedes: none
+
+## Status Update — 2026-05-26 (ENG-176c)
+
+The fiscal identification catalog rename and status enum expansion
+landed in migration `0038_eng176c_fiscal_identification_catalog.sql`,
+closing the third and final axis of the ENG-176 thread that the audit
+flagged: "the catalog is hard-coded to DIAN" + "the status enum is
+closed to DIAN states". The ENG-176 story arc — money precision,
+currency seam, and identification catalog — is now Shipped end-to-end.
+
+What landed:
+
+- **Catalog rename `dian_identification_types` → `fiscal_identification_types`**
+  with composite primary key `(country_code, code)`. DIAN '13' (CC) and
+  SUNAT '1' (DNI) and SAT 'RFC' coexist without collision because
+  every row carries its issuing country. Legacy DIAN rows back-fill
+  to `country_code = 'CO'` verbatim — code / abbr / names / natural_person
+  preserved.
+- **`fiscal_documents.buyer_country_code TEXT NOT NULL DEFAULT 'CO'`**
+  with FK to `country_catalog`. The identification FK on
+  `fiscal_documents` shifts from single-column
+  `buyer_tax_id_type_code → dian_identification_types.code` to
+  composite `(buyer_country_code, buyer_tax_id_type_code) →
+  fiscal_identification_types(country_code, code)`. Legacy
+  fiscal_documents rows back-fill `buyer_country_code = 'CO'`
+  (single-country MVP era through ENG-176b).
+- **Multi-country seed** in
+  `packages/server/src/db/index.ts:seedFiscalIdentificationTypes()`.
+  Total seed grows from 10 to 23 rows: CO/10 (DIAN preserved) +
+  MX/4 (SAT — RFC, CURP, IFE, PA) + PE/5 (SUNAT — DNI, RUC, CE,
+  Pasaporte, no domiciliado) + CL/4 (SII — RUT, RUN, EXT,
+  Pasaporte). `INSERT OR IGNORE` keeps idempotent across reboots.
+- **`fiscalDocumentStatusEnum` expansion from 5 to 8 values.** The
+  DIAN-native subset (`pending`, `sent`, `accepted`, `rejected`,
+  `contingency`) stays canonical; three new values cover the
+  acknowledgement language of every LATAM authority Puntovivo plans
+  to integrate: `voided` (SAT cancelación + SII anulación + NFe
+  cancelamento — terminal), `notified_correction` (SAT acuse de
+  notificación de corrección — action required), and `partial_send`
+  (SUNAT envío parcial — non-terminal, batch with mixed acceptance).
+  Adapters map their provider-specific code to the closest canonical
+  value.
+- **Frontend mirror**:
+  `apps/web/src/components/fiscal/FiscalStatusBadge.tsx` extends the
+  `FiscalDocumentStatus` union to 8 values with tone mapping
+  (`voided` → danger, `notified_correction` → warning, `partial_send`
+  → primary). EN/ES i18n keys land in `fiscal.json` under
+  `status.*` (neutral LATAM register, no voseo — sustantivos /
+  participios).
+- **Adapter integration**: the single catalog-lookup site in
+  `services/fiscal/orchestrator.ts` now filters by both
+  `countryCode` and `code` against the composite PK. The orchestrator
+  hard-codes `buyerCountryCode = 'CO'` until ENG-156 / ENG-161 wire
+  per-tenant country routing through the adapter; the seam is in
+  place so future tickets only need to pass the country through.
+- **Regression coverage**:
+  `packages/server/src/__tests__/fiscal-identification-types-catalog.test.ts`
+  (11 cases: per-country counts, DIAN row preservation, composite PK
+  no-collision, composite FK enforcement on `fiscal_documents`),
+  plus `packages/server/src/__tests__/fiscal-document-status.test.ts`
+  (sentinel + persist-all-8 happy path). Bridge fixture in
+  `migrations.test.ts` updated for the renamed table shape.
+
+### Why "expand the enum" and not "lookup table per country"
+
+Two options were on the table for sub-issue (4). The enum-expansion
+path won on minimal blast radius: extending the union by three values
+touches the schema declaration, the `FiscalStatusBadge` mirror, three
+i18n keys per locale, and the FiscalStatusBadge test — nothing else.
+A per-country lookup table would have required a new schema, a join
+on every fiscal-document read, and a refactor of every adapter call
+site. The enum stays the single source of truth; adapters do the
+provider→canonical mapping inside their pack (`packs/co/`, `packs/mx/`,
+`packs/cl/`) when ENG-156 / ENG-161 land.
+
+### What stays out of scope here
+
+- **ENG-156 (multi-currency operations)** — actually using
+  `settle_currency_code` and the per-row `currency_code` to sell in
+  one currency and settle in another. The schema is ready; the UX
+  + FX-spread accounting + reporting belong to that ticket.
+- **ENG-161 (NFe Brazil)** — Brazil fiscal documents. The catalog
+  now accepts BR-country rows; the adapter pack + fiscal seeds for
+  Brazil belong to that ticket.
+- **Per-country adapter routing** — the orchestrator's hard-coded
+  `'CO'` is the minimum viable change. Multi-country emission needs
+  tenant-locale → country resolution in
+  `services/fiscal/registry.ts`.
 
 ## Status Update — 2026-05-26 (ENG-176b)
 

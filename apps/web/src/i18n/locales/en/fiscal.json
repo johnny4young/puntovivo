@@ -21,7 +21,10 @@
     "sent": "Sent",
     "accepted": "Accepted",
     "rejected": "Rejected",
-    "contingency": "Contingency"
+    "contingency": "Contingency",
+    "voided": "Voided",
+    "notified_correction": "Correction notified",
+    "partial_send": "Partially sent"
   },
   "source": {
     "sale": "Sale",

@@ -17,7 +17,7 @@
  * regress (the catalog tables and the ENG-020 fiscal tables).
  *
  * If a future diff breaks parity — e.g. a migration stops creating
- * `dian_identification_types` or `seedCatalogs` is accidentally
+ * `fiscal_identification_types` or `seedCatalogs` is accidentally
  * disconnected — this test fires with a concrete row-count assertion.
  *
  * @module __tests__/migrations-parity
@@ -104,7 +104,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
     for (const required of [
       'country_catalog',
       'currency_catalog',
-      'dian_identification_types',
+      'fiscal_identification_types',
       'tenants',
       'users',
       'sites',
@@ -127,14 +127,14 @@ describe('schema parity (ENG-002 Step 3)', () => {
     const live = getDatabase() as unknown as { $client: Database.Database };
 
     // Row counts match the seed matrices in `db/index.ts`
-    // (`seedLocaleCatalogs` + `seedDianIdentificationTypes`).
+    // (`seedLocaleCatalogs` + `seedFiscalIdentificationTypes`).
     expect(countRows(live.$client, 'currency_catalog')).toBeGreaterThanOrEqual(
       18
     );
     expect(countRows(live.$client, 'country_catalog')).toBeGreaterThanOrEqual(
       21
     );
-    expect(countRows(live.$client, 'dian_identification_types')).toBe(10);
+    expect(countRows(live.$client, 'fiscal_identification_types')).toBe(23);
   });
 
   it('produces identical row counts across two independent fresh boots (determinism)', async () => {
@@ -145,7 +145,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
     };
     const firstCurrencies = countRows(firstLive.$client, 'currency_catalog');
     const firstCountries = countRows(firstLive.$client, 'country_catalog');
-    const firstDian = countRows(firstLive.$client, 'dian_identification_types');
+    const firstDian = countRows(firstLive.$client, 'fiscal_identification_types');
 
     // `:memory:` handles reset when `closeDatabase()` fires, so the
     // second boot is effectively a separate DB — this case proves the
@@ -162,14 +162,14 @@ describe('schema parity (ENG-002 Step 3)', () => {
     expect(countRows(secondLive.$client, 'country_catalog')).toBe(
       firstCountries
     );
-    expect(countRows(secondLive.$client, 'dian_identification_types')).toBe(
+    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(
       firstDian
     );
   });
 
   it('is idempotent on a persistent DB: re-booting the same file does not mutate catalog rows', async () => {
     // ENG-002 Step 3 regression pin: the `INSERT OR IGNORE` clauses
-    // inside `seedLocaleCatalogs` + `seedDianIdentificationTypes` are
+    // inside `seedLocaleCatalogs` + `seedFiscalIdentificationTypes` are
     // the only guard against double-insert on every boot. A future
     // diff that accidentally swapped either seeder to
     // `INSERT OR REPLACE` would silently overwrite existing rows and
@@ -188,7 +188,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
       $client: Database.Database;
     };
     const firstCountries = countRows(firstLive.$client, 'country_catalog');
-    const firstDian = countRows(firstLive.$client, 'dian_identification_types');
+    const firstDian = countRows(firstLive.$client, 'fiscal_identification_types');
 
     // Tweak a sentinel field that the seed would overwrite if it used
     // `INSERT OR REPLACE`. Currency `decimals` is a numeric column the
@@ -210,7 +210,7 @@ describe('schema parity (ENG-002 Step 3)', () => {
     expect(countRows(secondLive.$client, 'country_catalog')).toBe(
       firstCountries
     );
-    expect(countRows(secondLive.$client, 'dian_identification_types')).toBe(
+    expect(countRows(secondLive.$client, 'fiscal_identification_types')).toBe(
       firstDian
     );
 

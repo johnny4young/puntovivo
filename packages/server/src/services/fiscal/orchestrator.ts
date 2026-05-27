@@ -36,7 +36,7 @@ import {
   companies,
   customers,
   cashSessions,
-  dianIdentificationTypes,
+  fiscalIdentificationTypes,
   fiscalDocumentItems,
   fiscalDocuments,
   fiscalNumberingResolutions,
@@ -199,11 +199,21 @@ async function resolveBuyer(
   }
 
   // Sanity: confirm the resolved code exists in the global catalog so
-  // the FK on `fiscal_documents.buyer_tax_id_type_code` does not fail.
+  // the composite FK on `fiscal_documents.(buyer_country_code,
+  // buyer_tax_id_type_code)` does not fail. ENG-176c — the orchestrator
+  // emits DIAN documents (Colombia) today; multi-country support
+  // arrives with ENG-156 / ENG-161 when the adapter routes carry the
+  // tenant locale through. Until then, hard-code 'CO' for the lookup.
+  const buyerCountryCode = 'CO';
   const catalog = await tx
-    .select({ code: dianIdentificationTypes.code })
-    .from(dianIdentificationTypes)
-    .where(eq(dianIdentificationTypes.code, taxIdTypeCode))
+    .select({ code: fiscalIdentificationTypes.code })
+    .from(fiscalIdentificationTypes)
+    .where(
+      and(
+        eq(fiscalIdentificationTypes.countryCode, buyerCountryCode),
+        eq(fiscalIdentificationTypes.code, taxIdTypeCode)
+      )
+    )
     .get();
   if (!catalog) {
     taxIdTypeCode = '13';
