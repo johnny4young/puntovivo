@@ -9,8 +9,10 @@
 
 import {
   check,
+  foreignKey,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -3654,25 +3656,32 @@ export const tenantLocaleSettingsRelations = relations(
 // DIAN IDENTIFICATION TYPES CATALOG (ENG-020 Phase A)
 // ============================================================================
 //
-// Global, read-only catalog of the 10 identification types recognised by
-// Colombia's DIAN (Dirección de Impuestos y Aduanas Nacionales). Seeded
-// on boot by `seedDianIdentificationTypes()` in `db/index.ts`. Keyed by
-// the DIAN-issued numeric code (`11`, `13`, `22`, …) which is what the
-// fiscal XML needs, while `abbr` is the human-friendly label operators
-// know ("CC", "NIT", "CE") and that buyer snapshots carry verbatim.
+// ENG-176c — Global, read-only catalog of fiscal identification types
+// scoped by ISO-3166 country code. Renamed from `dian_identification_types`
+// (Colombia DIAN, ENG-020 Phase A) to `fiscal_identification_types` so SAT
+// México (CFDI), SUNAT Perú (Catálogo Nº 6), and SII Chile (RUT/RUN) rows
+// can coexist with DIAN entries without code collisions — DIAN '13'
+// (Cédula de Ciudadanía) and SUNAT '1' (DNI) are different codes that
+// happen to occupy the same single-column PK space pre-rename.
+// Seeded on boot by `seedFiscalIdentificationTypes()` in `db/index.ts`.
+// Keyed by composite (country_code, code).
 //
-// Distinct from the existing `identification_types` table, which is
-// tenant-scoped and stores each tenant's custom catalog for UX flows.
-// The two link only via `abbr` when a tenant wires up their identificationTypes
-// row to a DIAN code (that mapping is out of scope for ENG-020 Phase A
-// and is handled by operator choice in the admin fiscal settings later).
+// Distinct from the existing tenant-scoped `identification_types` table,
+// which stores each tenant's custom catalog for UX flows. The two link
+// only via `abbr` when a tenant wires up their identificationTypes row
+// to a fiscal code (that mapping is out of scope for ENG-176c and is
+// handled by operator choice in the admin fiscal settings later).
 
-/** Global, read-only DIAN identification type catalog. Seeded at boot. */
-export const dianIdentificationTypes = sqliteTable(
-  'dian_identification_types',
+/** Global, read-only fiscal identification type catalog. Seeded at boot. */
+export const fiscalIdentificationTypes = sqliteTable(
+  'fiscal_identification_types',
   {
-    /** DIAN-issued 2-digit code ('11', '13', '22'). Primary key. */
-    code: text('code').primaryKey(),
+    /** ISO-3166 alpha-2 country code ('CO', 'MX', 'PE', 'CL'). */
+    countryCode: text('country_code')
+      .notNull()
+      .references(() => countryCatalog.code),
+    /** Authority-issued code ('13' for DIAN CC, 'RFC' for SAT, '1' for SUNAT DNI). */
+    code: text('code').notNull(),
     /** Short human-friendly abbreviation ('CC', 'NIT', 'CE'). */
     abbr: text('abbr').notNull(),
     nameEs: text('name_es').notNull(),
@@ -3681,11 +3690,16 @@ export const dianIdentificationTypes = sqliteTable(
     naturalPerson: integer('natural_person', { mode: 'boolean' })
       .notNull()
       .default(true),
-  }
+  },
+  table => [
+    primaryKey({ columns: [table.countryCode, table.code] }),
+  ]
 );
 
-export type DianIdentificationType = typeof dianIdentificationTypes.$inferSelect;
-export type NewDianIdentificationType = typeof dianIdentificationTypes.$inferInsert;
+export type FiscalIdentificationType =
+  typeof fiscalIdentificationTypes.$inferSelect;
+export type NewFiscalIdentificationType =
+  typeof fiscalIdentificationTypes.$inferInsert;
 
 // ============================================================================
 // FISCAL DOCUMENTS (ENG-020 Phase A — Colombia DIAN MVP)
@@ -3716,13 +3730,36 @@ export type NewDianIdentificationType = typeof dianIdentificationTypes.$inferIns
 export const fiscalDocumentKindEnum = ['DEE', 'FEV', 'NC', 'ND'] as const;
 export type FiscalDocumentKind = (typeof fiscalDocumentKindEnum)[number];
 
-/** Lifecycle states a fiscal document can occupy. */
+/**
+ * Lifecycle states a fiscal document can occupy.
+ *
+ * ENG-176c extended the set so the same enum can carry the
+ * acknowledgement language of every LATAM authority Puntovivo plans to
+ * integrate, not just DIAN:
+ * - `pending` / `sent` / `accepted` / `rejected` / `contingency` —
+ *   DIAN-native states from ENG-020 Phase A.
+ * - `voided` — terminal state for SAT CFDI cancelaciones, SII DTE
+ *   anulaciones, and NFe (Brazil) cancelamento; the original
+ *   document is unrecoverable.
+ * - `notified_correction` — SAT acuse de notificación de corrección;
+ *   the authority asks the emitter to fix and re-submit. Non-terminal.
+ * - `partial_send` — SUNAT batch acknowledgement where a subset of
+ *   the lote's comprobantes was accepted and the rest must be
+ *   resent. Non-terminal.
+ *
+ * Adapters map their provider-specific status code to the closest
+ * canonical value here. The frontend (`FiscalStatusBadge.tsx`) keeps
+ * a parallel union that mirrors this list one-for-one.
+ */
 export const fiscalDocumentStatusEnum = [
   'pending',
   'sent',
   'accepted',
   'rejected',
   'contingency',
+  'voided',
+  'notified_correction',
+  'partial_send',
 ] as const;
 export type FiscalDocumentStatus = (typeof fiscalDocumentStatusEnum)[number];
 
@@ -3819,9 +3856,23 @@ export const fiscalDocuments = sqliteTable(
     /** null when consumidor final; otherwise the source customer id. */
     customerId: text('customer_id').references(() => customers.id),
     buyerTaxId: text('buyer_tax_id').notNull(),
-    buyerTaxIdTypeCode: text('buyer_tax_id_type_code')
+    /**
+     * ENG-176c — country whose authority issued the buyer's
+     * identification type. Defaults to `'CO'` for legacy rows
+     * (DIAN-only era). FK composes with `buyerTaxIdTypeCode` to
+     * resolve a row in `fiscal_identification_types`.
+     */
+    buyerCountryCode: text('buyer_country_code')
       .notNull()
-      .references(() => dianIdentificationTypes.code),
+      .default('CO')
+      .references(() => countryCatalog.code),
+    /**
+     * Authority code for the identification type. Composes with
+     * `buyerCountryCode` against `fiscal_identification_types`.
+     * No standalone `.references(...)` — the composite FK is declared
+     * in the table-config callback below.
+     */
+    buyerTaxIdTypeCode: text('buyer_tax_id_type_code').notNull(),
     buyerName: text('buyer_name').notNull(),
     buyerEmail: text('buyer_email'),
     buyerAddress: text('buyer_address'),
@@ -3874,6 +3925,18 @@ export const fiscalDocuments = sqliteTable(
     ...moneyPositiveChecks('fiscal_documents_tax', table.taxAmount),
     ...moneyPositiveChecks('fiscal_documents_discount', table.discountAmount),
     ...moneyPositiveChecks('fiscal_documents_total', table.totalAmount),
+    // ENG-176c — composite FK against `fiscal_identification_types`
+    // PK (country_code, code). Replaces the legacy single-column FK
+    // to `dian_identification_types.code` so SAT / SUNAT / SII rows
+    // can resolve without colliding with DIAN codes.
+    foreignKey({
+      columns: [table.buyerCountryCode, table.buyerTaxIdTypeCode],
+      foreignColumns: [
+        fiscalIdentificationTypes.countryCode,
+        fiscalIdentificationTypes.code,
+      ],
+      name: 'fiscal_documents_buyer_fiscal_identification_fk',
+    }),
   ]
 );
 

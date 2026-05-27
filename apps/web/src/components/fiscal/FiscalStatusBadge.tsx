@@ -1,11 +1,18 @@
 /**
  * ENG-058 — Reusable fiscal status chip.
  *
- * Maps each of the 5 fiscal-document statuses (`pending`, `sent`,
- * `accepted`, `rejected`, `contingency`) to a colored Badge variant
- * and the existing `fiscal:status.<status>` i18n label. Surfaces
- * are: `SaleDetailsModal`, the admin `FiscalDocumentListPage` row,
- * and (in the future) the Operations Center.
+ * Maps each of the 8 fiscal-document statuses (`pending`, `sent`,
+ * `accepted`, `rejected`, `contingency`, `voided`,
+ * `notified_correction`, `partial_send`) to a colored Badge variant
+ * and the existing `fiscal:status.<status>` i18n label. Surfaces are:
+ * `SaleDetailsModal`, the admin `FiscalDocumentListPage` row, and (in
+ * the future) the Operations Center.
+ *
+ * ENG-176c extended the union from 5 to 8 values so SAT CFDI
+ * cancelaciones, SUNAT envíos parciales, and SII/NFe void lifecycles
+ * can be expressed alongside the DIAN-native states. The union here
+ * mirrors `fiscalDocumentStatusEnum` in `packages/server/src/db/schema.ts`
+ * one-for-one — keep them in lockstep.
  *
  * The badge is the SINGLE source of truth for fiscal status copy on
  * any web surface — never infer "Aceptado" from CUFE presence.
@@ -19,7 +26,10 @@ export type FiscalDocumentStatus =
   | 'sent'
   | 'accepted'
   | 'rejected'
-  | 'contingency';
+  | 'contingency'
+  | 'voided'
+  | 'notified_correction'
+  | 'partial_send';
 
 const STATUS_TO_VARIANT: Record<FiscalDocumentStatus, BadgeProps['variant']> = {
   accepted: 'success',
@@ -27,6 +37,14 @@ const STATUS_TO_VARIANT: Record<FiscalDocumentStatus, BadgeProps['variant']> = {
   pending: 'secondary',
   contingency: 'warning',
   rejected: 'danger',
+  // ENG-176c — `voided` is terminal (the document is unrecoverable),
+  // same tone as `rejected`. `notified_correction` is non-terminal but
+  // demands operator action, so it shares the warning tone with
+  // `contingency`. `partial_send` is in-progress (subset accepted),
+  // matching the primary tone of `sent`.
+  voided: 'danger',
+  notified_correction: 'warning',
+  partial_send: 'primary',
 };
 
 export interface FiscalStatusBadgeProps {

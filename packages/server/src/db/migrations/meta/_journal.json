@@ -267,6 +267,13 @@
 			"when": 1784505600000,
 			"tag": "0037_eng176b_currency_seam",
 			"breakpoints": true
+		},
+		{
+			"idx": 38,
+			"version": "6",
+			"when": 1784592000000,
+			"tag": "0038_eng176c_fiscal_identification_catalog",
+			"breakpoints": true
 		}
 	]
 }

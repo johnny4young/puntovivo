@@ -3,19 +3,25 @@ import { useTranslation } from 'react-i18next';
 import { FileCode2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import {
+  FiscalStatusBadge,
+  type FiscalDocumentStatus,
+} from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
-type FiscalStatus = 'pending' | 'sent' | 'accepted' | 'rejected' | 'contingency';
 type FiscalSource = 'sale' | 'void' | 'return';
 
 const KIND_OPTIONS: readonly FiscalKind[] = ['DEE', 'FEV', 'NC', 'ND'];
-const STATUS_OPTIONS: readonly FiscalStatus[] = [
+const STATUS_OPTIONS: readonly FiscalDocumentStatus[] = [
   'pending',
   'sent',
   'accepted',
   'rejected',
   'contingency',
+  'voided',
+  'notified_correction',
+  'partial_send',
 ];
 const SOURCE_OPTIONS: readonly FiscalSource[] = ['sale', 'void', 'return'];
 
@@ -33,7 +39,7 @@ export function FiscalDocumentListPage() {
   const { t } = useTranslation('fiscal');
 
   const [kind, setKind] = useState<FiscalKind | ''>('');
-  const [status, setStatus] = useState<FiscalStatus | ''>('');
+  const [status, setStatus] = useState<FiscalDocumentStatus | ''>('');
   const [source, setSource] = useState<FiscalSource | ''>('');
   // ENG-035b: documento seleccionado para mostrar el XML CFDI 4.0
   // del adapter MX en un modal admin-only.
@@ -90,7 +96,9 @@ export function FiscalDocumentListPage() {
             <select
               className="input mt-1"
               value={status}
-              onChange={event => setStatus(event.target.value as FiscalStatus | '')}
+              onChange={event =>
+                setStatus(event.target.value as FiscalDocumentStatus | '')
+              }
               aria-label={t('filters.status')}
             >
               <option value="">{t('filters.all')}</option>
@@ -162,7 +170,7 @@ export function FiscalDocumentListPage() {
                       {t(`kind.${row.kind as FiscalKind}`)}
                     </td>
                     <td className="py-2 pr-4 text-secondary-800">
-                      {t(`status.${row.status as FiscalStatus}`)}
+                      <FiscalStatusBadge status={row.status} />
                     </td>
                     <td className="py-2 pr-4 font-mono text-xs text-secondary-700">
                       {row.documentNumber}

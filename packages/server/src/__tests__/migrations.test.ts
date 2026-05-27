@@ -1122,13 +1122,18 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
         "tax_id_types_hint TEXT NOT NULL DEFAULT '[]', " +
         'ui_locale_ready INTEGER NOT NULL DEFAULT 1)'
     );
+    // ENG-176c — adopted DBs that ran through every migration up to
+    // 0038 carry the renamed `fiscal_identification_types` (composite
+    // PK) shape; the bridge shim keeps that name intact on rollout.
     runDdl(
-      'CREATE TABLE IF NOT EXISTS dian_identification_types (' +
-        'code TEXT PRIMARY KEY, ' +
+      'CREATE TABLE IF NOT EXISTS fiscal_identification_types (' +
+        'country_code TEXT NOT NULL, ' +
+        'code TEXT NOT NULL, ' +
         'abbr TEXT NOT NULL, ' +
         'name_es TEXT NOT NULL, ' +
         'name_en TEXT NOT NULL, ' +
-        'natural_person INTEGER NOT NULL)'
+        'natural_person INTEGER NOT NULL, ' +
+        'PRIMARY KEY (country_code, code))'
     );
     legacy.close();
 
@@ -1145,12 +1150,22 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     const countryCount = (liveDb.$client
       .prepare('SELECT COUNT(*) AS count FROM country_catalog')
       .get() as { count: number } | undefined)?.count ?? 0;
-    const dianCount = (liveDb.$client
-      .prepare('SELECT COUNT(*) AS count FROM dian_identification_types')
+    // ENG-176c — `dian_identification_types` renamed to
+    // `fiscal_identification_types` in migration 0038. The catalog now
+    // carries CO + MX + PE + CL rows; CO still owns the 10 DIAN rows
+    // verbatim post-rename.
+    const fiscalIdentCount = (liveDb.$client
+      .prepare('SELECT COUNT(*) AS count FROM fiscal_identification_types')
+      .get() as { count: number } | undefined)?.count ?? 0;
+    const fiscalIdentCoCount = (liveDb.$client
+      .prepare(
+        "SELECT COUNT(*) AS count FROM fiscal_identification_types WHERE country_code = 'CO'"
+      )
       .get() as { count: number } | undefined)?.count ?? 0;
 
     expect(currencyCount).toBeGreaterThanOrEqual(18);
     expect(countryCount).toBeGreaterThanOrEqual(21);
-    expect(dianCount).toBe(10);
+    expect(fiscalIdentCount).toBe(23);
+    expect(fiscalIdentCoCount).toBe(10);
   });
 });
