@@ -98,7 +98,11 @@ export class SseManager {
    * @param tenantId - Optional tenant ID to filter recipients
    */
   broadcast(eventName: string, data: unknown, tenantId?: string): void {
-    const collection = eventName.split('.')[0];
+    // String.prototype.split always returns a non-empty array (even an
+    // empty input yields ['']), so the first element is guaranteed to
+    // be a string. The `?? eventName` is a no-op defensive fallback that
+    // satisfies `noUncheckedIndexedAccess` without an assertion.
+    const collection = eventName.split('.')[0] ?? eventName;
     const eventId = ++this.eventId;
 
     const message = formatSseMessage({

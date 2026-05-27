@@ -92,7 +92,9 @@ describe('AnomalyDetailsModal', () => {
       .getAllByRole('button')
       .filter(btn => btn.closest('th') !== null);
     expect(headerButtons.length).toBeGreaterThan(0);
-    fireEvent.click(headerButtons[0]);
-    fireEvent.click(headerButtons[0]);
+    // `length > 0` guard above guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
+    fireEvent.click(headerButtons[0]!);
+    fireEvent.click(headerButtons[0]!);
   });
 });

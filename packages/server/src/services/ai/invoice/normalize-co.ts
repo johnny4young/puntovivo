@@ -33,7 +33,13 @@ export function extractNit(raw: string | null | undefined): string | null {
   const cleaned = raw.replace(/[.\s]/g, '');
   const match = NIT_DIGITS_RE.exec(cleaned);
   if (!match) return null;
-  return match[2] ? `${match[1]}-${match[2]}` : match[1];
+  // The regex `NIT_DIGITS_RE` has group 1 as a required capture
+  // `(\d{9,10})`, so when `match` is truthy `match[1]` is guaranteed.
+  // Group 2 `(\d)` is inside an optional group `(?:-(\d))?` so the
+  // truthy check before `${...}` is enough. ENG-179a — narrow for
+  // `noUncheckedIndexedAccess` without weakening the contract.
+  const base = match[1] ?? null;
+  return match[2] && base ? `${base}-${match[2]}` : base;
 }
 
 export function detectColombianIvaRate(

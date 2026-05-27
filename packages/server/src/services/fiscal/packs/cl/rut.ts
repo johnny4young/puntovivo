@@ -86,13 +86,16 @@ function normalizeRut(input: string): string {
  * según el algoritmo del SII.
  */
 function computeVerifierDigit(body: number): string {
-  const weights = [2, 3, 4, 5, 6, 7];
+  const weights = [2, 3, 4, 5, 6, 7] as const;
   let sum = 0;
   let n = body;
   let i = 0;
   while (n > 0) {
     const digit = n % 10;
-    sum += digit * weights[i % weights.length];
+    // `i % weights.length` is always in [0, weights.length) so the
+    // lookup is guaranteed; `!` narrows for `noUncheckedIndexedAccess`.
+    // reason: modulo on a fixed-length tuple.
+    sum += digit * weights[i % weights.length]!;
     n = Math.floor(n / 10);
     i += 1;
   }
@@ -130,8 +133,11 @@ export function validateRut(input: unknown): RutValidationResult {
     };
   }
 
-  const bodyStr = match[1];
-  const dv = match[2];
+  // Regex `/^([0-9]{1,8})-([0-9K])$/u` has groups 1 + 2 both required;
+  // when `match` is truthy both are present. `!` narrows the lookup for
+  // `noUncheckedIndexedAccess`. reason: regex enforces both groups.
+  const bodyStr = match[1]!;
+  const dv = match[2]!;
   const body = Number.parseInt(bodyStr, 10);
 
   if (!Number.isFinite(body) || body < 1) {

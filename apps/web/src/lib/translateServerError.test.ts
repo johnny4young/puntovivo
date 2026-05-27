@@ -31,7 +31,12 @@ function loadServerErrorCodesFromSource(): string[] {
   if (!match) {
     throw new Error('Could not locate SERVER_ERROR_CODES in packages/server/src/lib/errorCodes.ts');
   }
-  return [...match[1].matchAll(/:\s*'([A-Z0-9_]+)'/g)].map(([, code]) => code);
+  // The outer `if (!match)` guard guarantees match is defined; group 1
+  // is required by the regex `\{([\s\S]*?)\n\} as const;` so `match[1]`
+  // is non-undefined when `match` is truthy. Each inner match has group
+  // 1 as the required `([A-Z0-9_]+)` capture. `!` narrows for
+  // `noUncheckedIndexedAccess`. reason: required-capture invariant.
+  return [...match[1]!.matchAll(/:\s*'([A-Z0-9_]+)'/g)].map(([, code]) => code!);
 }
 
 describe('extractServerErrorCode', () => {

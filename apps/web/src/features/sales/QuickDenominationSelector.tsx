@@ -39,7 +39,15 @@ export function QuickDenominationSelector({
     // Smart suggestions: the smallest denomination >= total, then a
     // bigger one, then 2× the total rounded up to the nearest 1k.
     const sorted = [...denominations].sort((a, b) => a - b);
+    // Under `noUncheckedIndexedAccess`, both `find()` and `sorted[i]`
+    // return `T | undefined`. Bail to the doubled-total fallback when
+    // `denominations` is empty so the rest of the math stays typed
+    // as `number`.
     const nextBill = sorted.find(d => d >= total) ?? sorted[sorted.length - 1];
+    if (nextBill === undefined) {
+      const doubledOnly = Math.ceil((total * 2) / 1_000) * 1_000;
+      return [doubledOnly];
+    }
     const biggerBill = sorted.find(d => d > nextBill) ?? Math.ceil((nextBill * 1.5) / 1_000) * 1_000;
     const doubled = Math.ceil((total * 2) / 1_000) * 1_000;
     return Array.from(new Set([nextBill, biggerBill, doubled])).filter(v => v >= total).slice(0, 3);

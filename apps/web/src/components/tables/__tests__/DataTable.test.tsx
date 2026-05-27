@@ -53,7 +53,10 @@ function createTestProducts(count: number): Product[] {
 describe('DataTable', () => {
   function getBodyRows() {
     const table = screen.getByRole('table');
-    const tbody = within(table).getAllByRole('rowgroup')[1];
+    // DataTable renders header `<thead>` (rowgroup 0) + body `<tbody>`
+    // (rowgroup 1). `!` narrows the lookup for
+    // `noUncheckedIndexedAccess`. reason: known DOM structure.
+    const tbody = within(table).getAllByRole('rowgroup')[1]!;
     return within(tbody).getAllByRole('row');
   }
 
@@ -81,7 +84,9 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} />);
 
       const table = screen.getByRole('table');
-      const tbody = within(table).getAllByRole('rowgroup')[1]; // tbody is second rowgroup
+      // tbody is second rowgroup (thead = 0, tbody = 1). `!` narrows the
+      // lookup for `noUncheckedIndexedAccess`. reason: known DOM structure.
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
       const rows = within(tbody).getAllByRole('row');
 
       expect(rows).toHaveLength(5);
@@ -150,11 +155,11 @@ describe('DataTable', () => {
 
       // Get all name cells
       const table = screen.getByRole('table');
-      const tbody = within(table).getAllByRole('rowgroup')[1];
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
       const rows = within(tbody).getAllByRole('row');
 
       // First row should have Product 01 (ascending)
-      expect(within(rows[0]).getByText('Product 01')).toBeInTheDocument();
+      expect(within(rows[0]!).getByText('Product 01')).toBeInTheDocument();
     });
 
     it('should toggle sort direction on subsequent clicks', async () => {
@@ -172,11 +177,11 @@ describe('DataTable', () => {
       await user.click(nameHeader);
 
       const table = screen.getByRole('table');
-      const tbody = within(table).getAllByRole('rowgroup')[1];
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
       const rows = within(tbody).getAllByRole('row');
 
       // First row should have Product 03 (descending)
-      expect(within(rows[0]).getByText('Product 03')).toBeInTheDocument();
+      expect(within(rows[0]!).getByText('Product 03')).toBeInTheDocument();
     });
 
     it('should sort numeric columns correctly', async () => {
@@ -195,7 +200,7 @@ describe('DataTable', () => {
       await user.click(priceHeader);
 
       const table = screen.getByRole('table');
-      const tbody = within(table).getAllByRole('rowgroup')[1];
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
       const rows = within(tbody).getAllByRole('row');
 
       // Verify all items are present in the table (sorting works without errors)
@@ -315,7 +320,7 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} pageSize={5} />);
 
       const table = screen.getByRole('table');
-      const tbody = within(table).getAllByRole('rowgroup')[1];
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
       const rows = within(tbody).getAllByRole('row');
 
       expect(rows).toHaveLength(5);
@@ -329,7 +334,10 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
       // Find and click next page button (single chevron right)
-      const nextButton = screen.getAllByRole('button')[2]; // Third button is next
+      // `noUncheckedIndexedAccess`: `getAllByRole` returns `HTMLElement[]`;
+      // pagination renders 4 buttons (first / prev / next / last) so [2]
+      // is guaranteed. reason: known pagination button order.
+      const nextButton = screen.getAllByRole('button')[2]!;
       await user.click(nextButton);
 
       expect(screen.getByText(/Page 2 of 2/)).toBeInTheDocument();
@@ -342,11 +350,11 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
       // Go to page 2 first
-      const nextButton = screen.getAllByRole('button')[2];
+      const nextButton = screen.getAllByRole('button')[2]!;
       await user.click(nextButton);
 
       // Go back to page 1
-      const prevButton = screen.getAllByRole('button')[1];
+      const prevButton = screen.getAllByRole('button')[1]!;
       await user.click(prevButton);
 
       expect(screen.getByText(/Page 1 of 2/)).toBeInTheDocument();
@@ -359,13 +367,13 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
       // Go to last page
-      const lastButton = screen.getAllByRole('button')[3];
+      const lastButton = screen.getAllByRole('button')[3]!;
       await user.click(lastButton);
 
       expect(screen.getByText(/Page 3 of 3/)).toBeInTheDocument();
 
       // Jump to first page
-      const firstButton = screen.getAllByRole('button')[0];
+      const firstButton = screen.getAllByRole('button')[0]!;
       await user.click(firstButton);
 
       expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
@@ -388,7 +396,7 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} pageSize={10} />);
 
       // Go to last page
-      const lastButton = screen.getAllByRole('button')[3];
+      const lastButton = screen.getAllByRole('button')[3]!;
       await user.click(lastButton);
 
       const buttons = screen.getAllByRole('button');
@@ -454,7 +462,7 @@ describe('DataTable', () => {
       );
 
       const rowCheckboxes = screen.getAllByRole('checkbox').slice(1); // Skip header checkbox
-      await user.click(rowCheckboxes[0]);
+      await user.click(rowCheckboxes[0]!);
 
       expect(onSelectionChange).toHaveBeenCalled();
       expect(screen.getByText('1 selected')).toBeInTheDocument();
@@ -474,7 +482,7 @@ describe('DataTable', () => {
         />
       );
 
-      const selectAllCheckbox = screen.getAllByRole('checkbox')[0];
+      const selectAllCheckbox = screen.getAllByRole('checkbox')[0]!;
       await user.click(selectAllCheckbox);
 
       expect(screen.getByText('3 selected')).toBeInTheDocument();
@@ -486,7 +494,7 @@ describe('DataTable', () => {
 
       render(<DataTable columns={selectionColumns} data={products} enableRowSelection />);
 
-      const selectAllCheckbox = screen.getAllByRole('checkbox')[0];
+      const selectAllCheckbox = screen.getAllByRole('checkbox')[0]!;
 
       // Select all
       await user.click(selectAllCheckbox);
@@ -520,14 +528,15 @@ describe('DataTable', () => {
       );
 
       const rowCheckboxes = screen.getAllByRole('checkbox').slice(1);
-      await user.click(rowCheckboxes[0]);
-      await user.click(rowCheckboxes[1]);
+      await user.click(rowCheckboxes[0]!);
+      await user.click(rowCheckboxes[1]!);
 
       // Should have been called twice
       expect(onSelectionChange).toHaveBeenCalledTimes(2);
 
-      // Last call should have 2 products
-      const lastCall = onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1];
+      // Last call should have 2 products. `mock.calls` is non-empty
+      // because `toHaveBeenCalledTimes(2)` above guarantees two entries.
+      const lastCall = onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1]!;
       expect(lastCall[0]).toHaveLength(2);
     });
   });
@@ -605,7 +614,7 @@ describe('DataTable', () => {
       render(<DataTable columns={selectionColumns} data={createTestProducts(3)} enableRowSelection />);
 
       const rows = getBodyRows();
-      rows[0].focus();
+      rows[0]!.focus();
       expect(rows[0]).toHaveFocus();
 
       await user.keyboard('{Space}');
@@ -624,7 +633,7 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
 
       const rows = getBodyRows();
-      rows[1].focus();
+      rows[1]!.focus();
 
       await user.keyboard('{Enter}');
 
@@ -640,7 +649,7 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} onRowActivate={onRowActivate} />);
 
       const rows = getBodyRows();
-      rows[2].focus();
+      rows[2]!.focus();
 
       await user.keyboard('{Space}');
 
@@ -663,7 +672,7 @@ describe('DataTable', () => {
       );
 
       const rows = getBodyRows();
-      rows[0].focus();
+      rows[0]!.focus();
 
       await user.keyboard('{Enter}');
 
@@ -708,7 +717,7 @@ describe('DataTable', () => {
       );
 
       const rows = getBodyRows();
-      rows[0].focus();
+      rows[0]!.focus();
 
       await user.keyboard('{Enter}');
 
@@ -723,7 +732,7 @@ describe('DataTable', () => {
       render(<DataTable columns={columns} data={products} />);
 
       const rows = getBodyRows();
-      rows[0].focus();
+      rows[0]!.focus();
 
       await user.keyboard('{Enter}');
 

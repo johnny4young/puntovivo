@@ -142,7 +142,11 @@ function verifyHomoclave(rfc: string, isPersonaMoral: boolean): boolean {
   // legítimos con caracteres que el catálogo no cubre.
   let weightedSum = 0;
   for (let i = 0; i < fullForChecksum.length; i += 1) {
+    // `i < length` guarantees `[i]` is defined; the explicit `if` keeps
+    // the narrowing visible to `noUncheckedIndexedAccess` without a
+    // non-null assertion.
     const ch = fullForChecksum[i];
+    if (ch === undefined) return true;
     const value = SAT_CHARACTER_VALUES[ch];
     if (value === undefined) return true;
     const weight = 13 - i;
