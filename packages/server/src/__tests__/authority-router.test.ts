@@ -287,6 +287,87 @@ describe('authority router (ENG-075)', () => {
     expect(audit).toBeDefined();
   });
 
+  // ENG-168 — pin the sessionVersion bump on revoke + the device.pairing.claimed
+  // audit row. Both close the audit's "token + session lifecycle" gaps.
+  it('bumps the registering user sessionVersion when its device is revoked (ENG-168)', async () => {
+    const caller = appRouter.createCaller(buildCtx(tenantA, 'admin'));
+    const registered = await caller.auth.registerDevice({
+      kind: 'hub_client',
+      name: `Caja session-bump ${nanoid(4)}`,
+      siteId: tenantA.siteId,
+    });
+
+    const before = await getDatabase()
+      .select({ sessionVersion: users.sessionVersion })
+      .from(users)
+      .where(eq(users.id, tenantA.adminId))
+      .get();
+    const baseline = before?.sessionVersion ?? 0;
+
+    await caller.authority.revokeDevice({ deviceId: registered.deviceId });
+
+    const after = await getDatabase()
+      .select({ sessionVersion: users.sessionVersion })
+      .from(users)
+      .where(eq(users.id, tenantA.adminId))
+      .get();
+    expect(after?.sessionVersion).toBe(baseline + 1);
+
+    // Audit metadata must record the bump so forensics can reconstruct
+    // why a user got logged out.
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantA.tenantId),
+          eq(auditLogs.action, 'device.revoke'),
+          eq(auditLogs.resourceId, registered.deviceId)
+        )
+      )
+      .get();
+    expect(audit?.metadata).toMatchObject({
+      registeredByUserId: tenantA.adminId,
+      sessionVersionBumped: true,
+    });
+  });
+
+  it('writes a device.pairing.claimed audit row inside the same tx (ENG-168)', async () => {
+    const caller = appRouter.createCaller(buildCtx(tenantA, 'admin'));
+    const pairing = await caller.authority.createPairingCode({
+      siteId: tenantA.siteId,
+      expiresInMinutes: 10,
+    });
+
+    const registered = await caller.auth.registerDevice({
+      kind: 'hub_client',
+      name: `Caja audit ${nanoid(4)}`,
+      pairingCode: pairing.code,
+    });
+
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantA.tenantId),
+          eq(auditLogs.action, 'device.pairing.claimed'),
+          eq(auditLogs.resourceId, registered.deviceId)
+        )
+      )
+      .get();
+    expect(audit).toBeDefined();
+    expect(audit?.actorId).toBe(tenantA.adminId);
+    // pairing.code shape is `XXXX-XXXX`; the audit row masks down to
+    // the last 4 chars so the full code never lands in the log.
+    const expectedSuffix = pairing.code.slice(-4);
+    expect(audit?.metadata).toMatchObject({
+      pairingCodeMasked: expectedSuffix,
+      siteId: tenantA.siteId,
+      kind: 'hub_client',
+    });
+  });
+
   it('keeps status tenant scoped', async () => {
     const callerA = appRouter.createCaller(buildCtx(tenantA, 'admin'));
     const callerB = appRouter.createCaller(buildCtx(tenantB, 'admin'));

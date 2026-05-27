@@ -535,6 +535,8 @@ export type AuditLogAction =
   | 'module.toggle'
   // ENG-075 — hub-client terminal revocation.
   | 'device.revoke'
+  // ENG-168 — fresh device claims its pairing code (handover trail).
+  | 'device.pairing.claimed'
   // ENG-065d — Operations Center payment admin gestures.
   | 'payment.retry'
   | 'payment.mark_settled'

@@ -20,7 +20,11 @@ import { randomBytes } from 'node:crypto';
 import { FastifyReply, FastifyPluginCallback } from 'fastify';
 import fp from 'fastify-plugin';
 import { createModuleLogger } from '../logging/logger.js';
-import { REALTIME_COOKIE_NAME, verifyRealtimeToken } from '../security/authTokens.js';
+import {
+  REALTIME_COOKIE_NAME,
+  REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS,
+  verifyRealtimeToken,
+} from '../security/authTokens.js';
 
 const sseLog = createModuleLogger('sse');
 
@@ -278,8 +282,23 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
       };
       manager.addClient(client);
 
+      let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+      let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+      const cleanupConnection = () => {
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        if (tokenRefreshInterval) {
+          clearInterval(tokenRefreshInterval);
+          tokenRefreshInterval = null;
+        }
+        manager.removeClient(clientId);
+      };
+
       // Send heartbeat every 30 seconds to keep connection alive
-      const heartbeatInterval = setInterval(() => {
+      heartbeatInterval = setInterval(() => {
         try {
           const heartbeat = formatSseMessage({
             event: 'heartbeat',
@@ -287,16 +306,30 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
           });
           reply.raw.write(heartbeat);
         } catch {
-          clearInterval(heartbeatInterval);
-          manager.removeClient(clientId);
+          cleanupConnection();
         }
       }, 30000);
 
+      // ENG-168 — emit `token-refresh-needed` on a 10-minute cadence so
+      // the client can mint a fresh realtime cookie before the 15-minute
+      // TTL elapses. The client listens for this event and calls
+      // `auth.realtimeToken.mutate()` without dropping the SSE socket —
+      // the cookie is replaced on the same origin and the next
+      // reconnect (if it ever happens) already carries the fresh value.
+      tokenRefreshInterval = setInterval(() => {
+        try {
+          const refresh = formatSseMessage({
+            event: 'token-refresh-needed',
+            data: { timestamp: new Date().toISOString() },
+          });
+          reply.raw.write(refresh);
+        } catch {
+          cleanupConnection();
+        }
+      }, REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS);
+
       // Handle client disconnect
-      request.raw.on('close', () => {
-        clearInterval(heartbeatInterval);
-        manager.removeClient(clientId);
-      });
+      request.raw.on('close', cleanupConnection);
 
       // Keep connection open (don't call reply.send())
       // The response is managed manually via reply.raw

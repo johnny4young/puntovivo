@@ -124,6 +124,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  delete window.session;
 });
 
 describe('useAuth — context guard', () => {
@@ -286,6 +287,11 @@ describe('AuthProvider — logout flow', () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
     logoutMutateMock.mockResolvedValue(undefined);
+    const clearDesktopSessionMock = vi.fn(async () => undefined);
+    Object.defineProperty(window, 'session', {
+      configurable: true,
+      value: { clear: clearDesktopSessionMock },
+    });
     window.localStorage.setItem('puntovivo:deviceId', 'registered-device-1');
 
     let auth!: ReturnType<typeof useAuth>;
@@ -301,6 +307,7 @@ describe('AuthProvider — logout flow', () => {
     });
     expect(logoutMutateMock).toHaveBeenCalledOnce();
     expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');

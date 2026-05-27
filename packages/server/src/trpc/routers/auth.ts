@@ -500,6 +500,7 @@ export const authRouter = router({
           tenantId: ctx.tenantId,
           code: input.pairingCode,
           deviceId: result.deviceId,
+          actorUserId: ctx.user.id,
         });
       }
       return result;

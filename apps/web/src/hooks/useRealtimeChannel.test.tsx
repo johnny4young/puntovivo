@@ -6,9 +6,10 @@
  * - Routes named events through `onEvent` with parsed JSON data.
  * - Tears the EventSource down on unmount.
  * - Skips `heartbeat` + `connected` housekeeping events.
+ * - Refreshes the realtime token when the server asks for rotation.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import {
   useRealtimeChannel,
@@ -124,6 +125,24 @@ describe('useRealtimeChannel', () => {
     source.emit('heartbeat', '{"ts":1}');
     source.emit('connected', '{"clientId":"x"}');
     expect(received).toHaveLength(0);
+  });
+
+  it('refreshes the realtime token when token-refresh-needed arrives', async () => {
+    const authorize = vi.fn(async () => undefined);
+    renderHook(() =>
+      useRealtimeChannel({
+        collection: 'kds',
+        onEvent: () => {},
+        apiBaseUrl: 'http://test-host',
+        authorize,
+      })
+    );
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    expect(authorize).toHaveBeenCalledTimes(1);
+
+    FakeEventSource.instances[0].emit('token-refresh-needed', '{"timestamp":"2026-05-26T00:00:00.000Z"}');
+
+    await waitFor(() => expect(authorize).toHaveBeenCalledTimes(2));
   });
 
   it('closes the EventSource on unmount', async () => {

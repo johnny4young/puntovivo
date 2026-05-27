@@ -23,6 +23,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { countActiveDevices, getCurrentSchemaVersion } from '../../lib/runtimeMetadata.js';
+import { writeAuditLog } from '../audit-logs.js';
 
 const PAIRING_CODE_TTL_MINUTES = 10;
 const MAX_PAIRING_CODE_TTL_MINUTES = 60;
@@ -231,7 +232,21 @@ export async function createPairingCode(
 
 export async function claimPairingCodeForDevice(
   db: DatabaseInstance,
-  args: { tenantId: string; code: string; deviceId: string },
+  args: {
+    tenantId: string;
+    code: string;
+    deviceId: string;
+    /**
+     * ENG-168 — the authenticated user who is claiming the pairing
+     * code on behalf of the device. When supplied, a
+     * `device.pairing.claimed` audit row lands inside the same
+     * transaction as the device + pairing_code mutations. Made
+     * optional so callers that already have a tenant context but
+     * no user (currently none in-tree, future automation) do not
+     * break; the audit row is simply skipped in that case.
+     */
+    actorUserId?: string;
+  },
   now: Date = new Date()
 ): Promise<{ deviceId: string; siteId: string }> {
   const codeHash = hashPairingCode(args.tenantId, args.code);
@@ -273,7 +288,7 @@ export async function claimPairingCodeForDevice(
     await db
       .update(devicePairingCodes)
       .set({ status: 'expired', updatedAt: now.toISOString() })
-      .where(eq(devicePairingCodes.id, row.id));
+      .where(and(eq(devicePairingCodes.tenantId, args.tenantId), eq(devicePairingCodes.id, row.id)));
     throwServerError({
       trpcCode: 'CONFLICT',
       errorCode: 'AUTHORITY_PAIRING_CODE_EXPIRED',
@@ -315,7 +330,13 @@ export async function claimPairingCodeForDevice(
         claimedAt: nowIso,
         updatedAt: nowIso,
       })
-      .where(and(eq(devicePairingCodes.id, row.id), eq(devicePairingCodes.status, 'pending')))
+      .where(
+        and(
+          eq(devicePairingCodes.tenantId, args.tenantId),
+          eq(devicePairingCodes.id, row.id),
+          eq(devicePairingCodes.status, 'pending')
+        )
+      )
       .run();
 
     if (claimResult.changes !== 1) {
@@ -336,6 +357,28 @@ export async function claimPairingCodeForDevice(
       })
       .where(and(eq(devices.tenantId, args.tenantId), eq(devices.id, args.deviceId)))
       .run();
+
+    // ENG-168 — emit the audit row inside the same transaction so a
+    // claim that ultimately rolls back (e.g. constraint violation on
+    // the devices UPDATE above) does not leave an orphan audit
+    // entry. Mask the pairing code down to its last 4 characters in
+    // metadata so the audit trail can correlate a handover ticket
+    // without leaking the full secret.
+    if (args.actorUserId) {
+      writeAuditLog({
+        tx,
+        tenantId: args.tenantId,
+        actorId: args.actorUserId,
+        action: 'device.pairing.claimed',
+        resourceType: 'device',
+        resourceId: args.deviceId,
+        metadata: {
+          pairingCodeMasked: args.code.slice(-4),
+          siteId: row.siteId,
+          kind: device.kind,
+        },
+      });
+    }
   });
 
   return { deviceId: args.deviceId, siteId: row.siteId };

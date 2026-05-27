@@ -356,6 +356,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // not a bug.
       console.warn('auth.logout server call failed; clearing local state anyway:', err);
     } finally {
+      // ENG-168 — clear the Electron main-process desktopSession
+      // singleton so any subsequent `db:*` IPC call from the renderer
+      // fails with UNAUTHORIZED. The bridge is exposed by the preload
+      // (`apps/desktop/src/preload/index.ts:sessionAPI`) as
+      // `window.session.clear()` and dispatches to the
+      // `session:clear` handler registered by
+      // `apps/desktop/src/main/index.ts`. In the pure web target the
+      // bridge is undefined; the optional chain + try/catch keeps the
+      // failure silent so a browser logout still completes cleanly.
+      try {
+        const sessionBridge = (
+          window as unknown as {
+            session?: { clear?: () => Promise<unknown> };
+          }
+        ).session;
+        await sessionBridge?.clear?.();
+      } catch (clearErr) {
+        console.warn('session:clear IPC failed; web logout continuing:', clearErr);
+      }
       clearLocalSession();
       setIsLoading(false);
       navigate('/login');

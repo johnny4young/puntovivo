@@ -162,6 +162,18 @@ export function useRealtimeChannel(options: UseRealtimeChannelOptions): void {
         next.addEventListener(name, ev => dispatchEvent(ev as MessageEvent, name));
       }
       next.addEventListener('message', ev => dispatchEvent(ev as MessageEvent, 'message'));
+      // ENG-168 — the server emits `token-refresh-needed` every 10
+      // minutes (under the 15-minute realtime cookie TTL) so a long-
+      // lived SSE connection can rotate its bearer without dropping.
+      // The mutation refreshes the puntovivo_realtime cookie on the
+      // same origin; the next EventSource reconnect (if one ever
+      // happens) automatically carries the fresh value. Errors are
+      // swallowed because a single refresh failure does not warrant
+      // tearing down the channel — the next interval retries, and an
+      // actually expired session surfaces via a regular API call.
+      next.addEventListener('token-refresh-needed', () => {
+        void authorize().catch(() => {});
+      });
     }
 
     function scheduleRetry(): void {

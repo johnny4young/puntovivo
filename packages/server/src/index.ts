@@ -41,6 +41,7 @@ import {
   createPaymentWorker,
   setDefaultPaymentWorker,
 } from './services/payments/payment-worker.js';
+import { createLoginAttemptsCleanup } from './services/cleanup/loginAttemptsCleanup.js';
 import { INVOICE_OCR_MAX_BYTES } from './services/ai/vision/invoice-ocr.js';
 import { ssePlugin } from './realtime/sse.js';
 import { REFRESH_COOKIE_NAME } from './security/authTokens.js';
@@ -130,6 +131,13 @@ export interface PuntovivoServer {
    * `createPaymentWorker` to drive deterministic imports.
    */
   paymentWorker: import('./services/payments/payment-worker.js').PaymentWorker;
+  /**
+   * ENG-168 — login_attempts cleanup worker. Sweeps rate-limit
+   * buckets whose `expires_at` is older than 24 h on a 1 h cadence.
+   * Tests call `.tickOnce()` to assert delete counts without waiting
+   * for the periodic interval.
+   */
+  loginAttemptsCleanup: import('./services/cleanup/loginAttemptsCleanup.js').LoginAttemptsCleanupHandle;
   /** Start listening for requests */
   listen: () => Promise<string>;
   /** Stop the server and close database */
@@ -641,6 +649,14 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     setDefaultPaymentWorker(null);
   });
 
+  // ENG-168 — login_attempts cleanup worker. Same pattern as the
+  // outbox workers above: the factory builds the handle, the periodic
+  // timer is armed only inside listen(), and onClose releases it.
+  const loginAttemptsCleanup = createLoginAttemptsCleanup({ db });
+  app.addHook('onClose', async () => {
+    loginAttemptsCleanup.stop();
+  });
+
   const serverLog = createModuleLogger('server');
   return {
     app,
@@ -648,6 +664,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     fiscalWorker,
     hardwareWorker,
     paymentWorker,
+    loginAttemptsCleanup,
     listen: async () => {
       const address = await app.listen({ port: bindPort, host: bindHost });
       serverUrl = address;
@@ -673,6 +690,19 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       fiscalWorker.start();
       hardwareWorker.start();
       paymentWorker.start();
+      // ENG-168 — sweep stale login_attempts rows on a 1 h cadence;
+      // the boot-time `tickOnce` runs the first pass synchronously so
+      // a freshly-restarted POS that accumulated rows during downtime
+      // clears them immediately.
+      (loginAttemptsCleanup as { start: () => void }).start();
+      try {
+        loginAttemptsCleanup.tickOnce();
+      } catch (err) {
+        serverLog.warn(
+          { err: err instanceof Error ? { message: err.message } : err },
+          'login_attempts cleanup boot tick failed; will retry next interval'
+        );
+      }
       // ENG-038c — kick the boot catch-up sweep after the timers
       // are armed so a long-offline POS reconciles missed statement
       // windows before the first regular Timer B tick fires.
