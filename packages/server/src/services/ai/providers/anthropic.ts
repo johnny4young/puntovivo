@@ -53,10 +53,42 @@ const PRICING_TABLE: Readonly<Record<string, ModelPricing>> = {
 
 const FALLBACK_MODEL_ID = 'claude-haiku-4-5';
 
+/**
+ * Returns the pricing row for `modelId` or falls back to
+ * `FALLBACK_MODEL_ID`. Throws (Categoría B per ENG-181) when the
+ * fallback itself is missing — that is a programmer-assert: the
+ * registry is statically defined above, so this branch only fires
+ * if someone removes the fallback row without updating
+ * `FALLBACK_MODEL_ID`. ENG-179a — added the explicit guard so
+ * `noUncheckedIndexedAccess` can narrow the lookup to a defined row.
+ */
+function resolvePricingRow(modelId: string): {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+} {
+  const row = PRICING_TABLE[modelId] ?? PRICING_TABLE[FALLBACK_MODEL_ID];
+  if (!row) {
+    throw new Error(
+      `anthropic provider: PRICING_TABLE missing fallback model ${FALLBACK_MODEL_ID}`,
+      {
+        cause: {
+          provider: 'anthropic',
+          requestedModel: modelId,
+          fallbackModel: FALLBACK_MODEL_ID,
+          catalog: 'PRICING_TABLE',
+        },
+      }
+    );
+  }
+  return row;
+}
+
 const PRICING: ProviderPricing = {
   models: PRICING_TABLE,
   calculateCostUsd(modelId: string, usage: TokenUsage): number {
-    const row = PRICING_TABLE[modelId] ?? PRICING_TABLE[FALLBACK_MODEL_ID];
+    const row = resolvePricingRow(modelId);
     return (
       (usage.inputTokens / 1_000_000) * row.input +
       (usage.outputTokens / 1_000_000) * row.output +

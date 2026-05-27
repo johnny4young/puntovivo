@@ -220,7 +220,9 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     return normalizedQuantity > item.availableStock;
   });
   if (stockShortItems.length > 0) {
-    const firstShortItem = stockShortItems[0];
+    // `length > 0` guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
+    const firstShortItem = stockShortItems[0]!;
     const shortItemCount = stockShortItems.length;
     items.push({
       id: 'insufficient_stock',

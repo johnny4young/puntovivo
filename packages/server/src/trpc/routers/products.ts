@@ -129,7 +129,10 @@ function validateUnitAssignments(
     });
   }
 
-  if (baseAssignments[0].equivalence !== 1) {
+  // The `length !== 1` guard above asserts exactly one base assignment,
+  // so `[0]` is guaranteed; `!` narrows for `noUncheckedIndexedAccess`.
+  // reason: post-length-check invariant.
+  if (baseAssignments[0]!.equivalence !== 1) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: 'The base unit must use an equivalence of 1',

@@ -129,13 +129,15 @@ describe('useCheckoutPreflight', () => {
     );
     expect(result.current.isReady).toBe(false);
     expect(result.current.blockerCount).toBe(1);
-    expect(result.current.items[0].id).toBe('cash_session_required');
-    expect(result.current.items[0].severity).toBe('blocker');
-    expect(result.current.items[0].recoveryAction?.labelKey).toBe(
+    // `blockerCount === 1` above guarantees `items[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-count-check invariant.
+    expect(result.current.items[0]!.id).toBe('cash_session_required');
+    expect(result.current.items[0]!.severity).toBe('blocker');
+    expect(result.current.items[0]!.recoveryAction?.labelKey).toBe(
       'preflight.items.cash_session_required.recovery'
     );
 
-    result.current.items[0].recoveryAction?.onClick();
+    result.current.items[0]!.recoveryAction?.onClick();
     expect(onOpenCashSession).toHaveBeenCalledTimes(1);
   });
 

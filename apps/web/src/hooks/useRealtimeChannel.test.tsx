@@ -83,10 +83,12 @@ describe('useRealtimeChannel', () => {
       })
     );
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    expect(FakeEventSource.instances[0].url).toBe(
+    // The `toHaveLength(1)` waitFor above guarantees `instances[0]`;
+    // `!` narrows for `noUncheckedIndexedAccess`. reason: post-length-check.
+    expect(FakeEventSource.instances[0]!.url).toBe(
       'http://test-host/api/realtime/subscribe?collections=kds'
     );
-    expect(FakeEventSource.instances[0].init).toMatchObject({ withCredentials: true });
+    expect(FakeEventSource.instances[0]!.init).toMatchObject({ withCredentials: true });
   });
 
   it('routes a named event with parsed JSON data through onEvent', async () => {
@@ -100,14 +102,16 @@ describe('useRealtimeChannel', () => {
       })
     );
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    const source = FakeEventSource.instances[0];
+    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
+    const source = FakeEventSource.instances[0]!;
     source.emit('kds.order.created', '{"saleId":"sale-1"}', 'evt-1');
     expect(received).toHaveLength(1);
-    expect(received[0]).toMatchObject({
+    expect(received[0]!).toMatchObject({
       type: 'kds.order.created',
       id: 'evt-1',
     });
-    expect((received[0].data as { saleId: string }).saleId).toBe('sale-1');
+    expect((received[0]!.data as { saleId: string }).saleId).toBe('sale-1');
   });
 
   it('does not fire onEvent for heartbeat or connected events', async () => {
@@ -121,7 +125,9 @@ describe('useRealtimeChannel', () => {
       })
     );
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    const source = FakeEventSource.instances[0];
+    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
+    const source = FakeEventSource.instances[0]!;
     source.emit('heartbeat', '{"ts":1}');
     source.emit('connected', '{"clientId":"x"}');
     expect(received).toHaveLength(0);
@@ -140,7 +146,7 @@ describe('useRealtimeChannel', () => {
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
     expect(authorize).toHaveBeenCalledTimes(1);
 
-    FakeEventSource.instances[0].emit('token-refresh-needed', '{"timestamp":"2026-05-26T00:00:00.000Z"}');
+    FakeEventSource.instances[0]!.emit('token-refresh-needed', '{"timestamp":"2026-05-26T00:00:00.000Z"}');
 
     await waitFor(() => expect(authorize).toHaveBeenCalledTimes(2));
   });
@@ -155,7 +161,9 @@ describe('useRealtimeChannel', () => {
       })
     );
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
-    const source = FakeEventSource.instances[0];
+    // `toHaveLength(1)` waitFor above guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
+    const source = FakeEventSource.instances[0]!;
     unmount();
     expect(source.closed).toBe(true);
   });

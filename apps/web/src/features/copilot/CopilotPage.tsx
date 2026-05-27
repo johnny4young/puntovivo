@@ -203,7 +203,12 @@ function ResultTable({
                     key={column}
                     className="whitespace-nowrap px-4 py-3 text-secondary-700"
                   >
-                    {formatValue(column, row[column], formatCurrency)}
+                    {/* Under `noUncheckedIndexedAccess`, `row[column]` is
+                        `CopilotCellValue | undefined`; the server contract
+                        guarantees a value for every declared column but the
+                        `?? null` keeps `formatValue` honest if a row ever
+                        drops a key. */}
+                    {formatValue(column, row[column] ?? null, formatCurrency)}
                   </td>
                 ))}
               </tr>

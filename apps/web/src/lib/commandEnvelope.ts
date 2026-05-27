@@ -40,8 +40,11 @@ function generateUuid(): string {
   // RFC4122 v4 fallback.
   const hex = (n: number) => Math.floor(n).toString(16).padStart(2, '0');
   const bytes = Array.from({ length: 16 }, () => Math.random() * 256);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  // `Array.from({ length: 16 }, …)` builds a length-16 array so indices
+  // 6 + 8 are guaranteed; `!` narrows for `noUncheckedIndexedAccess`.
+  // reason: fixed-length seed buffer.
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   return [
     bytes.slice(0, 4).map(hex).join(''),
     bytes.slice(4, 6).map(hex).join(''),

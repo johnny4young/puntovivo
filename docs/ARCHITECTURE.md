@@ -453,6 +453,53 @@ and silently drop the cause chain — an ESLint `no-restricted-syntax`
 rule in `apps/web/eslint.config.js` blocks the regression at lint
 time.
 
+## TypeScript strict-mode floor (ENG-179)
+
+Every workspace's `tsconfig.json` enables `strict: true` plus an
+explicit set of stricter flags that catch classes of bugs the
+default strict profile leaves through. The floor is enforced in
+three landings (ENG-179a / b / c) so each flag's blast radius
+stays observable in a single staged commit:
+
+| Workspace | `strict` | `noUncheckedIndexedAccess` | `exactOptionalPropertyTypes` | `noImplicitOverride` |
+| --- | --- | --- | --- | --- |
+| `packages/server` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
+| `apps/web` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
+| `apps/desktop` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
+
+### `noUncheckedIndexedAccess` (ENG-179a, 2026-05-27)
+
+The flag promotes every array / record index access from `T` to
+`T | undefined`. Catches:
+
+- `arr[i]` when the array could be empty (most common: result of
+  a filter, a regex `match[N]` group that's actually optional, the
+  first element of a `screen.getAllByRole(...)` query in tests).
+- `record[key]` when the key might not exist (most common: looking
+  up a pricing row by model id, a catalog row by code).
+
+Fix patterns the codebase uses:
+
+1. **Explicit `if (value === undefined)` narrow** — preferred when
+   the path can be reached at runtime. Keeps the falsy branch
+   observable for code review.
+2. **`?? fallback` coalesce** — preferred when the undefined case
+   has a safe default (e.g. `eventName.split('.')[0] ?? eventName`).
+3. **`!` non-null assertion with `// reason:` comment** — only when
+   the invariant is observable in the surrounding code (post
+   `length > 0` check, fixed-length tuple modulo, regex required
+   capture group). The comment must name the invariant.
+
+### Lint + style guardrails
+
+- **No `@ts-ignore` / `@ts-expect-error` without a `// reason:`
+  comment.** The reviewer rejects unguarded escape hatches.
+- **No `as any`** introduced to silence a strict-mode flag — that
+  cosmetic cleanup is ENG-179c. New code uses explicit types or
+  type guards instead.
+- **Filter to narrow** for arrays of `T | undefined`:
+  `.filter((x): x is T => x !== undefined)`.
+
 ## Design Constraints That Matter
 
 - Fastify is embedded in Electron main for desktop mode. It is not a child process.

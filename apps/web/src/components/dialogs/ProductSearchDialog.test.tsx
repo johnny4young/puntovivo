@@ -327,7 +327,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     expect(rows[0]).toHaveAttribute('aria-selected', 'false');
     expect(rows[1]).toHaveAttribute('aria-selected', 'false');
 
-    await user.click(rows[1]);
+    await user.click(rows[1]!);
 
     expect(rows[0]).toHaveAttribute('aria-selected', 'false');
     expect(rows[1]).toHaveAttribute('aria-selected', 'true');
@@ -339,7 +339,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0].focus();
+    rows[0]!.focus();
     expect(rows[0]).toHaveFocus();
 
     await user.keyboard('{ArrowDown}');
@@ -354,7 +354,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2].focus();
+    rows[2]!.focus();
 
     await user.keyboard('{ArrowDown}');
 
@@ -367,7 +367,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0].focus();
+    rows[0]!.focus();
 
     await user.keyboard('{ArrowUp}');
 
@@ -380,7 +380,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2].focus();
+    rows[2]!.focus();
 
     await user.keyboard('{Home}');
 
@@ -394,7 +394,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[0].focus();
+    rows[0]!.focus();
 
     await user.keyboard('{End}');
 
@@ -408,7 +408,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[1].focus();
+    rows[1]!.focus();
 
     await user.keyboard('{Enter}');
 
@@ -428,7 +428,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2].focus();
+    rows[2]!.focus();
 
     await user.keyboard(' ');
 
@@ -443,7 +443,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    await user.click(rows[1]);
+    await user.click(rows[1]!);
 
     await waitFor(() =>
       expect(document.getElementById('product-search-unit-select')).not.toBeNull()
@@ -456,13 +456,13 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    await user.click(rows[1]);
+    await user.click(rows[1]!);
     // onFocus → setActiveRowIndex(1) is batched; await the re-render.
     await waitFor(() => expect(rows[1]).toHaveAttribute('tabindex', '0'));
     expect(rows[0]).toHaveAttribute('tabindex', '-1');
 
     // ArrowDown from row 1 should move focus to row 2.
-    rows[1].focus();
+    rows[1]!.focus();
     await user.keyboard('{ArrowDown}');
 
     expect(rows[2]).toHaveFocus();
@@ -473,7 +473,7 @@ describe('<ProductSearchDialog /> keyboard navigation (ENG-134e)', () => {
     const user = await fillSearchAndAwaitRows(3);
 
     const rows = screen.getAllByTestId(/product-search-row-/i);
-    rows[2].focus();
+    rows[2]!.focus();
     // onFocus is async; await the roving tabindex reflecting row 2 as active.
     await waitFor(() => expect(rows[2]).toHaveAttribute('tabindex', '0'));
 

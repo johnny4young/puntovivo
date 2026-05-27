@@ -138,9 +138,11 @@ export function useTableExport<T extends object>(
             next.delete(key);
           }
         });
-        // Ensure at least one column is visible
+        // Ensure at least one column is visible.
+        // `length > 0` guarantees `[0]`; `!` narrows for
+        // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
         if (next.size === 0 && columns.length > 0) {
-          next.add(columns[0].key);
+          next.add(columns[0]!.key);
         }
         return next;
       });
@@ -153,9 +155,11 @@ export function useTableExport<T extends object>(
   }, [columns]);
 
   const hideAllColumns = useCallback(() => {
-    // Keep at least the first column visible
+    // Keep at least the first column visible.
+    // `length > 0` guarantees `[0]`; `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: post-length-check invariant.
     if (columns.length > 0) {
-      setVisibleColumns(new Set([columns[0].key]));
+      setVisibleColumns(new Set([columns[0]!.key]));
     }
   }, [columns]);
 

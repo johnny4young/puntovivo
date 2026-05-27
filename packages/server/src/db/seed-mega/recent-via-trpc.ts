@@ -96,7 +96,7 @@ export async function seedRecentViaTrpc(
 
       try {
         await caller.sales.create({
-          customerId: customer?.id ?? null,
+          customerId: customer?.id ?? undefined,
           paymentMethod: 'cash',
           status: 'completed',
           notes: 'Venta reciente seed mega — vía tRPC envelope path',

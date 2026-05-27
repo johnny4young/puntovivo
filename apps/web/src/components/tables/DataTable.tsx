@@ -96,9 +96,15 @@ export function DataTable<TData, TValue>({
       const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
       setRowSelection(newSelection);
       if (onRowSelectionChange) {
+        // Selection keys are array indices stringified by react-table.
+        // Under `noUncheckedIndexedAccess`, `data[i]` is `TData | undefined`;
+        // a stale key (race between data update + selection map) would
+        // produce undefined. Filter those out so the callback contract
+        // (`TData[]`) is honored.
         const selectedRows = Object.keys(newSelection)
           .filter(key => newSelection[key])
-          .map(key => data[parseInt(key)]);
+          .map(key => data[parseInt(key)])
+          .filter((row): row is TData => row !== undefined);
         onRowSelectionChange(selectedRows);
       }
     },
