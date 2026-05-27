@@ -5,9 +5,9 @@
  * create pairing codes and revoke hub-client terminals.
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getActiveRuntimeConfig } from '../../config/runtime.js';
-import { devices } from '../../db/schema.js';
+import { devices, users } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -51,6 +51,7 @@ export const authorityRouter = router({
         tenantId: ctx.tenantId,
         code: input.code,
         deviceId: input.deviceId,
+        actorUserId: ctx.user!.id,
       })
     ),
 
@@ -65,6 +66,7 @@ export const authorityRouter = router({
           authorityRole: devices.authorityRole,
           pairedSiteId: devices.pairedSiteId,
           isActive: devices.isActive,
+          registeredByUserId: devices.registeredByUserId,
         })
         .from(devices)
         .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
@@ -96,6 +98,22 @@ export const authorityRouter = router({
           .where(and(eq(devices.tenantId, ctx.tenantId), eq(devices.id, input.deviceId)))
           .run();
 
+        // ENG-168 — bump the registering user's sessionVersion in the
+        // same transaction so every access + refresh token they hold
+        // fails verification on the next request. The current schema
+        // does not track session-per-device (no `device_sessions`
+        // table), so this is the closest proxy to "kick the device's
+        // owner out everywhere it is signed in". A finer-grained
+        // device-scoped revocation requires a session-binding table
+        // — captured as a follow-up; out of scope for this slice.
+        tx.update(users)
+          .set({
+            sessionVersion: sql`${users.sessionVersion} + 1`,
+            updatedAt: nowIso,
+          })
+          .where(and(eq(users.tenantId, ctx.tenantId), eq(users.id, existing.registeredByUserId)))
+          .run();
+
         writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -111,7 +129,11 @@ export const authorityRouter = router({
             isActive: existing.isActive,
           },
           after: { isActive: false },
-          metadata: { reason: 'authority_hub_client_revoke' },
+          metadata: {
+            reason: 'authority_hub_client_revoke',
+            registeredByUserId: existing.registeredByUserId,
+            sessionVersionBumped: true,
+          },
         });
       });
 

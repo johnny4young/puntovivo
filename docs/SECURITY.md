@@ -527,6 +527,62 @@ cleartext DBs on dev machines will fail to open on first boot
 post-merge** — wipe the data directory or restore from a Step-1
 backup. Production rollout is therefore gated on ENG-167b.
 
+## Token + session lifecycle (ENG-168)
+
+The session model bookends ENG-008 (login rate-limit) + ENG-025
+(Electron session capabilities) + ENG-166 (Argon2 + timing equality)
+with five lifecycle invariants:
+
+- **Realtime token freshness** — the EventSource cookie (`puntovivo_realtime`)
+  carries a 15-minute TTL (`REALTIME_TOKEN_MAX_AGE_SECONDS = 900` in
+  `packages/server/src/security/authTokens.ts`). Every SSE connection
+  receives a `token-refresh-needed` event on a 10-minute cadence; the
+  renderer's `useRealtimeChannel` hook invokes
+  `vanillaClient.auth.realtimeToken.mutate()` on that event to mint a
+  fresh cookie on the same origin, so a long-lived SSE socket never
+  drops because the bearer expired. Heartbeat (30 s) and the refresh
+  signal (10 min) ride the same `setInterval` pattern in
+  `packages/server/src/realtime/sse.ts`.
+- **Device revocation invalidates active sessions** —
+  `authority.revokeDevice` flips `devices.isActive=false` and, in the
+  same transaction, bumps `users.sessionVersion` for
+  `devices.registeredByUserId`. The next call to
+  `verifyTokenWithServer` for that user fails because the recorded
+  `sessionVersion` no longer matches the JWT payload. Audit metadata
+  records `sessionVersionBumped: true` for forensics. Per-device (not
+  per-user) session revocation requires a future `device_sessions`
+  binding table; the current model is a "kick the device's
+  registered owner out everywhere" approximation, which is the
+  closest the data model supports without expanding scope.
+- **Electron desktopSession clears post-logout** —
+  `AuthProvider.logout` calls `window.session?.clear()` (the preload
+  bridge exposed in `apps/desktop/src/preload/index.ts` to the
+  `session:clear` IPC handler in `apps/desktop/src/main/index.ts`)
+  inside a try/catch. The handler resets the
+  `apps/desktop/src/main/session/desktopSession.ts` singleton so
+  subsequent `db:*` IPC calls fail with UNAUTHORIZED. The optional
+  chain leaves a pure-web logout silent.
+- **login_attempts garbage collection** — the rate-limit buckets
+  written by ENG-008 / ENG-166 used to grow monotonically. A new
+  `services/cleanup/loginAttemptsCleanup.ts` worker runs every hour
+  (and once at boot via `tickOnce`) and removes rows whose
+  `expires_at` is older than 24 h. The 24-hour grace keeps recent
+  buckets available for incident correlation without unbounded
+  growth.
+- **Pairing claim audit row** — every successful
+  `claimPairingCodeForDevice` emits a `device.pairing.claimed` audit
+  entry inside the same transaction as the `devices` +
+  `device_pairing_codes` mutations, scoped to the claiming
+  `actorUserId` (the tRPC routers always pass `ctx.user.id`).
+  Metadata carries `{ pairingCodeMasked: code.slice(-4), siteId,
+  kind }` so device handovers leave a paper trail without leaking
+  the full pairing secret.
+
+Regression coverage lives in
+`packages/server/src/__tests__/login-attempts-cleanup.test.ts` (4
+cases) and the extended `authority-router.test.ts` (sessionVersion
+bump + pairing audit emission).
+
 ## Current Open Risks
 
 ### Auditability

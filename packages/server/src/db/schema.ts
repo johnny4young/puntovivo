@@ -207,6 +207,16 @@ export const auditLogActionEnum = [
   // ENG-075 — Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
+  // ENG-168 — every successful pairing claim (the moment a fresh
+  // Electron install consumes its short-lived pairing code) leaves an
+  // audit row scoped to the claiming user. `metadata` carries the
+  // last 4 chars of the code + the resolved siteId + kind so an
+  // operator can reconcile a device handover after-the-fact without
+  // re-running the pairing flow. Emitted by
+  // `services/devices/authority.ts:claimPairingCodeForDevice` only
+  // when the caller passes an `actorUserId` (the tRPC routers always
+  // do).
+  'device.pairing.claimed',
   // ENG-065d — Operations Center payment reconciliation admin gestures.
   // `payment.retry` resets a `payment_outbox` row back to `queued` so
   // the worker re-dispatches it. `payment.mark_settled` is a manual

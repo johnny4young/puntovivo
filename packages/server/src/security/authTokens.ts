@@ -5,7 +5,19 @@ import { shouldUseSecureCookies } from './cookies.js';
 
 export const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
 export const REALTIME_COOKIE_NAME = 'puntovivo_realtime';
-export const REALTIME_TOKEN_MAX_AGE_SECONDS = 120;
+// ENG-168 — realtime token TTL aligned with access-token TTL (15min).
+// Previously 120s, which expired well before the typical SSE connection
+// lifetime (heartbeats keep the socket open for hours). The cookie
+// stays httpOnly + sameSite=strict + secure (in production); the
+// extended lifetime does not widen the attack surface — it removes a
+// reconnect cliff that masked legitimate sessions as dropped.
+export const REALTIME_TOKEN_MAX_AGE_SECONDS = 900;
+// ENG-168 — server-side SSE heartbeat emits a `token-refresh-needed`
+// event this many seconds AFTER the connection opens (and every cycle
+// thereafter), so the client can proactively re-mint the realtime
+// cookie before the 15-minute window elapses. Pegged at 10 minutes so
+// every refresh leaves at least 5 minutes of slack on the cookie.
+export const REALTIME_TOKEN_REFRESH_NEEDED_INTERVAL_MS = 10 * 60 * 1000;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 const REALTIME_TOKEN_TTL = `${REALTIME_TOKEN_MAX_AGE_SECONDS}s`;

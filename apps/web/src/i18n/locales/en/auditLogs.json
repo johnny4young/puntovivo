@@ -56,6 +56,7 @@
     "ai.semantic_search.regenerate_embeddings": "Embeddings regenerated",
     "module.toggle": "Module toggled",
     "device.revoke": "Device revoked",
+    "device.pairing.claimed": "Device pairing claimed",
     "restaurant_table.create": "Restaurant table created",
     "restaurant_table.update": "Restaurant table updated",
     "restaurant_table.archive": "Restaurant table archived",
