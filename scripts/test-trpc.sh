@@ -39,7 +39,7 @@ echo ""
 echo "2. Checking dependencies..."
 if [ ! -d "node_modules" ]; then
     echo "   Installing dependencies..."
-    npm install
+    pnpm install
 else
     echo "   ✓ Dependencies found"
 fi
@@ -49,9 +49,9 @@ echo ""
 # Build the server
 echo "3. Building server package..."
 cd packages/server
-if ! npm run build; then
+if ! pnpm run build; then
     echo "   ❌ Server build failed"
-    echo "   Try: npm install && npm run build"
+    echo "   Try: pnpm install && pnpm run build"
     exit 1
 fi
 echo "   ✓ Server built successfully"
@@ -62,7 +62,7 @@ echo ""
 # Start the server in background
 echo "4. Starting tRPC server..."
 cd packages/server
-npm run dev > /tmp/trpc-server.log 2>&1 &
+pnpm run dev > /tmp/trpc-server.log 2>&1 &
 SERVER_PID=$!
 cd ../..
 

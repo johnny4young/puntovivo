@@ -6,7 +6,7 @@
 // Windows, electron on Linux) from GitHub Releases. Under flaky networks,
 // aggressive caches, or with npm's default behaviour of treating
 // postinstall failures as soft warnings, the download can fail silently
-// during `npm install`. The package stays on disk but `dist/` and
+// during `pnpm install`. The package stays on disk but `dist/` and
 // `path.txt` are missing — so the next `require('electron')` throws
 //
 //     Error: Electron failed to install correctly, please delete
@@ -133,7 +133,7 @@ function runAdHocCodesign() {
 }
 
 if (!existsSync(electronDir)) {
-  log('node_modules/electron is missing — run `npm install` first');
+  log('node_modules/electron is missing — run `pnpm install` first');
   process.exit(1);
 }
 
@@ -146,7 +146,7 @@ if (!initialIssue) {
 log(`${initialIssue}; attempting auto-repair`);
 
 if (!existsSync(installJs)) {
-  log('node_modules/electron/install.js not found — run `npm install` to reinstall the package');
+  log('node_modules/electron/install.js not found — run `pnpm install` to reinstall the package');
   process.exit(1);
 }
 
@@ -159,12 +159,12 @@ if (existsSync(pathTxt)) {
 
 if (!runInstall()) {
   log('auto-repair failed. Try:');
-  log('  1) rm -rf node_modules/electron && npm install');
+  log('  1) rm -rf node_modules/electron && pnpm install');
   log('  2) if the download keeps failing, clear the Electron cache:');
   log('       rm -rf "$HOME/Library/Caches/electron"   # macOS');
   log('       rm -rf "$HOME/.cache/electron"           # Linux');
   log('       rm -rf "$LOCALAPPDATA\\electron\\Cache"  # Windows');
-  log('     then re-run `npm install`');
+  log('     then re-run `pnpm install`');
   process.exit(1);
 }
 
@@ -174,12 +174,12 @@ if (healthIssue() && !runAdHocCodesign()) {
 
 if (healthIssue()) {
   log('auto-repair failed. Try:');
-  log('  1) rm -rf node_modules/electron && npm install');
+  log('  1) rm -rf node_modules/electron && pnpm install');
   log('  2) if the download keeps failing, clear the Electron cache:');
   log('       rm -rf "$HOME/Library/Caches/electron"   # macOS');
   log('       rm -rf "$HOME/.cache/electron"           # Linux');
   log('       rm -rf "$LOCALAPPDATA\\electron\\Cache"  # Windows');
-  log('     then re-run `npm install`');
+  log('     then re-run `pnpm install`');
   process.exit(1);
 }
 

@@ -13,7 +13,7 @@ name: Build Desktop (manual)
 # signal.
 #
 # Modes:
-#   - validate_only: runs `npm run ci:desktop` per chosen OS (no packaging).
+#   - validate_only: runs `pnpm run ci:desktop` per chosen OS (no packaging).
 #                    ~5-8 minutes per OS.
 #   - full build:    runs `make:desktop` per chosen OS and uploads the
 #                    artifacts. Unsigned (signing material lives only in
@@ -66,14 +66,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Linux system dependencies
         run: |
@@ -81,19 +84,19 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
 
       - name: Validate desktop workspace
-        run: npm run ci:desktop
+        run: pnpm run ci:desktop
 
       - name: Build server package
         if: ${{ !inputs.validate_only }}
-        run: npm run build --workspace=@puntovivo/server
+        run: pnpm --filter @puntovivo/server run build
 
       - name: Rebuild native modules
         if: ${{ !inputs.validate_only }}
-        run: npm run rebuild --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run rebuild
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: npm run make:desktop --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -116,29 +119,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Validate desktop workspace
-        run: npm run ci:desktop
+        run: pnpm run ci:desktop
 
       - name: Build server package
         if: ${{ !inputs.validate_only }}
-        run: npm run build --workspace=@puntovivo/server
+        run: pnpm --filter @puntovivo/server run build
 
       - name: Rebuild native modules
         if: ${{ !inputs.validate_only }}
-        run: npm run rebuild --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run rebuild
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: npm run make:desktop --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -161,29 +167,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Validate desktop workspace
-        run: npm run ci:desktop
+        run: pnpm run ci:desktop
 
       - name: Build server package
         if: ${{ !inputs.validate_only }}
-        run: npm run build --workspace=@puntovivo/server
+        run: pnpm --filter @puntovivo/server run build
 
       - name: Rebuild native modules
         if: ${{ !inputs.validate_only }}
-        run: npm run rebuild --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run rebuild
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
-        run: npm run make:desktop --workspace=@puntovivo/desktop
+        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

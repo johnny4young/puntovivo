@@ -10,7 +10,7 @@
  * can update the baseline in the same PR.
  *
  * The script lives outside vitest because it consumes the artifacts
- * vite emitted in `npm run build` and the CI chain wires it after
+ * vite emitted in `pnpm run build` and the CI chain wires it after
  * the build step (see root `package.json::ci:web`).
  *
  * Exit codes:

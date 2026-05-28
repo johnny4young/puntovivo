@@ -4,9 +4,9 @@
  * to run without the Vite main-process build in place.
  *
  * The Electron smoke suite (`playwright.electron.config.ts`) launches
- * `apps/desktop/.vite/build/index.cjs`. `npm run test:e2e:electron`
+ * `apps/desktop/.vite/build/index.cjs`. `pnpm run test:e2e:electron`
  * rebuilds these artefacts through
- * `npm run build:main --workspace=@puntovivo/desktop` before invoking
+ * `pnpm --filter @puntovivo/desktop run build:main` before invoking
  * Playwright. This script remains as the fast failure path for direct
  * Playwright invocations or stale local workflows that skipped the
  * build step.
@@ -51,9 +51,9 @@ const lines = [
   '',
   '  Rebuild the Electron main + preload bundles with:',
   '',
-  '    npm run build:main --workspace=@puntovivo/desktop',
+  '    pnpm --filter @puntovivo/desktop run build:main',
   '',
-  '  Then re-run: npm run test:e2e:electron',
+  '  Then re-run: pnpm run test:e2e:electron',
   '',
 ];
 

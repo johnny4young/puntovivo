@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Modern POS Solutions System - Desktop Application",
   "private": true,
-  "packageManager": "npm@10.8.2",
+  "packageManager": "pnpm@11.4.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -15,22 +15,22 @@
     "dev:desktop": "node ./scripts/dev-launcher.mjs desktop",
     "dev:desktop-shell": "node ./scripts/dev-launcher.mjs desktop-only",
     "dev:stop": "node ./scripts/dev-launcher.mjs stop",
-    "build:web": "npm run build --workspace=@puntovivo/web",
-    "build:desktop": "npm run build --workspace=@puntovivo/web && npm run make:desktop",
-    "package:desktop": "npm run package:desktop --workspace=@puntovivo/desktop",
-    "make:desktop": "npm run make:desktop --workspace=@puntovivo/desktop",
-    "publish:desktop": "npm run publish:desktop --workspace=@puntovivo/desktop",
-    "ci:release": "npm run test:release-script",
-    "ci:audit": "npm audit --production --audit-level=high",
-    "ci:web": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/web && npm run lint --workspace=@puntovivo/web && npm run test:coverage --workspace=@puntovivo/web -- --run && npm run build --workspace=@puntovivo/web && node --test scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs",
-    "ci:desktop": "npm run ci:audit && npm run build --workspace=@puntovivo/server && npm run build --workspace=@puntovivo/web && npm run typecheck --workspace=@puntovivo/desktop && npm run lint --workspace=@puntovivo/desktop && npm run test --workspace=@puntovivo/desktop",
-    "ci:server": "npm run ci:audit && npm run typecheck --workspace=@puntovivo/server && npm run lint --workspace=@puntovivo/server && npm run test:coverage --workspace=@puntovivo/server",
-    "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.web.config.ts",
-    "test:e2e:electron": "npm run build --workspace=@puntovivo/server && npm run electron:ensure:binary --workspace=@puntovivo/desktop && npm run build:main --workspace=@puntovivo/desktop && node scripts/ensure-electron-main-build.mjs && npm run native:ensure:node --workspace=@puntovivo/server && playwright test --config=playwright.electron.config.ts",
-    "test:e2e": "npm run test:e2e:web && npm run test:e2e:electron",
+    "build:web": "pnpm --filter @puntovivo/web run build",
+    "build:desktop": "pnpm --filter @puntovivo/web run build && pnpm run make:desktop",
+    "package:desktop": "pnpm --filter @puntovivo/desktop run package:desktop",
+    "make:desktop": "pnpm --filter @puntovivo/desktop run make:desktop",
+    "publish:desktop": "pnpm --filter @puntovivo/desktop run publish:desktop",
+    "ci:release": "pnpm run test:release-script",
+    "ci:audit": "pnpm audit --prod --audit-level high",
+    "ci:web": "pnpm run ci:audit && pnpm --filter @puntovivo/web run typecheck && pnpm --filter @puntovivo/web run lint && pnpm --filter @puntovivo/web run test:coverage -- --run && pnpm --filter @puntovivo/web run build && node --test scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs",
+    "ci:desktop": "pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test",
+    "ci:server": "pnpm run ci:audit && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run test:coverage",
+    "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts",
+    "test:e2e:electron": "pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/desktop run electron:ensure:binary && pnpm --filter @puntovivo/desktop run build:main && node scripts/ensure-electron-main-build.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.electron.config.ts",
+    "test:e2e": "pnpm run test:e2e:web && pnpm run test:e2e:electron",
     "test:release-script": "node --test scripts/prepare-release-tag.test.mjs scripts/upload-release-assets.test.mjs scripts/ensure-github-release.test.mjs scripts/github-cli-utils.test.mjs",
-    "seed:dev": "npm run seed:dev --workspace=@puntovivo/server",
-    "clean": "rm -rf node_modules apps/*/node_modules",
+    "seed:dev": "pnpm --filter @puntovivo/server run seed:dev",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
@@ -45,12 +45,5 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "overrides": {
-    "@electron/fuses": "$@electron/fuses",
-    "exceljs": {
-      "uuid": "11.1.1"
-    },
-    "tmp": "0.2.6"
   }
 }

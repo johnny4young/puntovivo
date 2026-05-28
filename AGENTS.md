@@ -9,30 +9,30 @@ Operational guidance for AI agents working on this repo (Claude Code, Codex, Cop
 Run workspace commands from the repo root:
 
 ```
-npm run dev:desktop      # Launch web dev server + Electron desktop
-npm run dev:desktop-shell # Electron only; expects web dev server on port 3000
-npm run dev:web          # Web only on port 3000
-npm run dev:web-stack    # Web app + standalone backend
-npm run dev:server       # Backend only on port 8090
-npm run build:desktop    # Build web + create desktop packages
+ppnpm run dev:desktop      # Launch web dev server + Electron desktop
+ppnpm run dev:desktop-shell # Electron only; expects web dev server on port 3000
+ppnpm run dev:web          # Web only on port 3000
+ppnpm run dev:web-stack    # Web app + standalone backend
+ppnpm run dev:server       # Backend only on port 8090
+ppnpm run build:desktop    # Build web + create desktop packages
 ```
 
 Run tests per workspace:
 
 ```
-npm run test --workspace=@puntovivo/web     # React + Vitest (watch mode)
-npm run test --workspace=@puntovivo/server  # Server + Vitest
+pnpm --filter @puntovivo/web run test     # React + Vitest (watch mode)
+pnpm --filter @puntovivo/server run test  # Server + Vitest
 ```
 
 ## Native module rebuild (non-obvious requirement)
 
-After `npm install`, you **must** rebuild native modules for Electron:
+After `pnpm install`, you **must** rebuild native modules for Electron:
 
 ```
-npx electron-rebuild -m apps/desktop
+pnpm exec electron-rebuild -m apps/desktop
 ```
 
-Or use the workspace shortcut: `npm run rebuild --workspace=@puntovivo/desktop`
+Or use the workspace shortcut: `pnpm --filter @puntovivo/desktop run rebuild`
 
 If you see `NODE_MODULE_VERSION mismatch` errors on `better-sqlite3` or `argon2`, this is why.
 
@@ -50,23 +50,24 @@ node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 
 Electron 41 uses MODULE_VERSION 145 (its own embedded Node.js runtime). Standalone Node.js 24.x uses MODULE_VERSION 137. These are different runtimes — there is no public Node.js release with MODULE_VERSION 145, and you cannot make the system Node.js match Electron's internal version.
 
-The `scripts/ensure-native-runtime.mjs` script handles this by caching both compiled versions of `better-sqlite3` under `node_modules/.cache/puntovivo/native-binaries/` and swapping between them automatically at startup. This cache can become stale if workspace symlinks break (e.g. after a fresh `npm install` with no rebuild). When that happens, re-run the rebuild commands above.
+The `scripts/ensure-native-runtime.mjs` script handles this by caching both compiled versions of `better-sqlite3` under `node_modules/.cache/puntovivo/native-binaries/` and swapping between them automatically at startup. This cache can become stale if workspace symlinks break (e.g. after a fresh `pnpm install` with no rebuild). When that happens, re-run the rebuild commands above.
 
 **Long-term fix to track:** Migrate `better-sqlite3` to a build that uses N-API. N-API is ABI-stable across Node.js and Electron versions, meaning a single compiled binary would work everywhere without the dual-binary swap. However, `better-sqlite3` v12 does not use N-API in its critical bindings — this depends on an upstream change in that library.
 
-## npm install with `ignore-scripts=true` (silent onboarding failure)
+## pnpm build-script approval (silent onboarding failure)
 
-A hardened global `~/.npmrc` containing `ignore-scripts=true` is a common supply-chain defence — but it disables **every** `postinstall`. Puntovivo genuinely needs three of those to run for a usable checkout:
+pnpm 11 blocks dependency build (install/postinstall) scripts by default as a supply-chain defence (it replaced the v10 `onlyBuiltDependencies` list with an `allowBuilds` map). Puntovivo genuinely needs four of those scripts to run for a usable checkout:
 
-- `node_modules/electron` → downloads the platform runtime (Electron.app / electron.exe / electron binary)
-- `node_modules/better-sqlite3` → compiles the native SQLite binding for the host Node ABI
-- `node_modules/argon2` → compiles its native password-hashing binding
+- `electron` → downloads the platform runtime (Electron.app / electron.exe / electron binary)
+- `better-sqlite3-multiple-ciphers` → compiles the native SQLite binding for the host ABI
+- `argon2` → compiles its native password-hashing binding
+- `esbuild` → fetches/links its platform binary (consumed by vite)
 
-Skipping them leaves `npm install` exiting green while `npm run dev:desktop` crashes later with `Error: Electron failed to install correctly` and the server dies with `NODE_MODULE_VERSION mismatch`. The project `.npmrc` now explicitly sets `ignore-scripts=false` + `foreground-scripts=true` to override the global and surface failures at install time, and `./scripts/check-setup.sh` flags the mismatch when it appears. If you see the failure mode, run `npm install --ignore-scripts=false` to recover.
+These are explicitly allowlisted in `pnpm-workspace.yaml` under `allowBuilds:` (`electron-winstaller` is also allowed for Windows packaging; `core-js` is denied — its postinstall only prints a funding banner). If a needed build is skipped, `pnpm install` prints `ERR_PNPM_IGNORED_BUILDS` and the app later crashes with `Error: Electron failed to install correctly` or `NODE_MODULE_VERSION mismatch`; add the package to `allowBuilds` (or run `pnpm approve-builds`) and re-install. A hardened global `~/.npmrc` with `ignore-scripts=true` is also honoured by pnpm, so the repo `.npmrc` sets `ignore-scripts=false` to override it for the workspace's own packages. `./scripts/check-setup.sh` flags the mismatch when it appears.
 
 ## Electron runtime binary (non-obvious failure mode)
 
-The `electron` npm package downloads its platform runtime (Electron.app on macOS, `electron.exe` on Windows, `electron` on Linux) from GitHub Releases during its `postinstall` hook. On a flaky network or a corrupt `~/Library/Caches/electron` entry the download can fail **silently** — the package stays on disk but `node_modules/electron/dist/` and `node_modules/electron/path.txt` are missing. Every subsequent `npm run dev:desktop` dies at:
+The `electron` npm package downloads its platform runtime (Electron.app on macOS, `electron.exe` on Windows, `electron` on Linux) from GitHub Releases during its `postinstall` hook. On a flaky network or a corrupt `~/Library/Caches/electron` entry the download can fail **silently** — the package stays on disk but `node_modules/electron/dist/` and `node_modules/electron/path.txt` are missing. Every subsequent `pnpm run dev:desktop` dies at:
 
 ```
 An unhandled rejection has occurred inside Forge:
@@ -75,7 +76,7 @@ Error: Electron failed to install correctly, please delete node_modules/electron
 
 Three defences cover this:
 
-1. Root `.npmrc` sets `foreground-scripts=true`. Any postinstall that exits non-zero now fails the whole `npm install`, surfacing the problem immediately instead of leaving a broken tree behind.
+1. Root `.npmrc` sets `foreground-scripts=true`. Any postinstall that exits non-zero now fails the whole `pnpm install`, surfacing the problem immediately instead of leaving a broken tree behind.
 2. `scripts/ensure-electron-binary.mjs` runs as part of the desktop `preflight:desktop` script before Electron Forge boots. It checks `path.txt` + the executable under `dist/`, and on macOS also verifies the local app signature; if anything is missing or invalid it re-runs `node_modules/electron/install.js` once and applies local ad-hoc signing when needed. If the repair itself fails it prints the exact recovery commands and exits non-zero.
 3. The `@puntovivo/desktop` package's `dev:desktop`, `dev:desktop:debug`, `dev:desktop:debug-brk`, `package:desktop`, and `make:desktop` scripts all chain through `preflight:desktop`, so every entry point sees the check.
 
@@ -85,7 +86,7 @@ If the auto-heal still loses (genuinely dead cache, offline box, proxy):
 rm -rf node_modules/electron
 rm -rf "$HOME/Library/Caches/electron"   # macOS
 rm -rf "$HOME/.cache/electron"           # Linux
-npm install
+pnpm install
 ```
 
 ## Architecture landmine: embedded backend
@@ -106,11 +107,11 @@ Before committing, every change must pass the per-workspace CI script that corre
 
 | Area                                                                  | Command                                                                                                                     |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Any React or TypeScript in `apps/web`                                 | `npm run ci:web`                                                                                                            |
-| Any Node.js / backend in `packages/server`                            | `npm run ci:server`                                                                                                         |
-| Any Electron main-process code in `apps/desktop/src/main`             | `npm run ci:desktop`                                                                                                        |
-| Anything under `e2e/web/` or the login / sales / inventory flows      | `npm run test:e2e:web` (runs in CI automatically via the `e2e-web` job, but keep it green locally when you touch the suite) |
-| Anything under `e2e/electron/` or the Electron main-process bootstrap | `npm run test:e2e:electron` (local-only; prerequisite `.vite/build/` bundle — see `e2e/README.md`)                          |
+| Any React or TypeScript in `apps/web`                                 | `pnpm run ci:web`                                                                                                            |
+| Any Node.js / backend in `packages/server`                            | `pnpm run ci:server`                                                                                                         |
+| Any Electron main-process code in `apps/desktop/src/main`             | `pnpm run ci:desktop`                                                                                                        |
+| Anything under `e2e/web/` or the login / sales / inventory flows      | `pnpm run test:e2e:web` (runs in CI automatically via the `e2e-web` job, but keep it green locally when you touch the suite) |
+| Anything under `e2e/electron/` or the Electron main-process bootstrap | `pnpm run test:e2e:electron` (local-only; prerequisite `.vite/build/` bundle — see `e2e/README.md`)                          |
 
 Run both `ci:web` and `ci:server` in parallel when a change touches both frontend and backend. Each script performs `typecheck + lint + test` (and `build` for the web/desktop workspaces). Treat their output as mandatory, not suggestions.
 
@@ -148,7 +149,7 @@ The smoke check obligation applies to any of these, however small:
 
 Minimum acceptable proof:
 
-1. Boot the relevant target (`npm run dev:web` + `npm run dev:server`, or the Electron dev entry).
+1. Boot the relevant target (`pnpm run dev:web` + `pnpm run dev:server`, or the Electron dev entry).
 2. Drive the affected screen through Playwright MCP (`browser_navigate`, `browser_click`, `browser_evaluate`). Assert the concrete user-visible strings and/or round-trip behavior — do not stop at screenshots.
 3. For changes that cross the Electron main/renderer boundary, ALSO validate the Electron target (the embedded Fastify server is in-process; the renderer is a chromium webview). If Electron validation is infeasible (e.g. requires a native-signed build), declare it explicitly in the task report and flag the gap.
 
@@ -160,10 +161,10 @@ Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chor
 
 ## Adding new features — checklist
 
-1. Schema change → update `packages/server/src/db/schema.ts` (Drizzle) and run `npx drizzle-kit generate` to emit a new `0NNN_<name>.sql` migration. Register the entry in `packages/server/src/db/migrations/meta/_journal.json`. Migrations are the single schema path (the raw-DDL mirror in `db/index.ts` was retired in `ENG-002` Step 3). **When Drizzle's SQLite dialect cannot emit what you need** (partial unique indexes with `WHERE`, dialect-specific defaults), hand-append the statement to the generated `0NNN_<name>.sql` with `IF NOT EXISTS` / `IF NOT EXISTS ... WHERE ...` so the migration is idempotent against DBs that already carry the target shape through the ENG-002 adoption shim. Example: `packages/server/src/db/migrations/0001_receipt_templates.sql`. Catalog data that must exist on every boot (DIAN identification types, country / currency catalogs) goes into `seedCatalogs()` in `db/index.ts` — table-existence-gated, `INSERT OR IGNORE` idempotent.
+1. Schema change → update `packages/server/src/db/schema.ts` (Drizzle) and run `pnpm --filter @puntovivo/server exec drizzle-kit generate` to emit a new `0NNN_<name>.sql` migration. Register the entry in `packages/server/src/db/migrations/meta/_journal.json`. Migrations are the single schema path (the raw-DDL mirror in `db/index.ts` was retired in `ENG-002` Step 3). **When Drizzle's SQLite dialect cannot emit what you need** (partial unique indexes with `WHERE`, dialect-specific defaults), hand-append the statement to the generated `0NNN_<name>.sql` with `IF NOT EXISTS` / `IF NOT EXISTS ... WHERE ...` so the migration is idempotent against DBs that already carry the target shape through the ENG-002 adoption shim. Example: `packages/server/src/db/migrations/0001_receipt_templates.sql`. Catalog data that must exist on every boot (DIAN identification types, country / currency catalogs) goes into `seedCatalogs()` in `db/index.ts` — table-existence-gated, `INSERT OR IGNORE` idempotent.
 2. New tRPC procedure → add Zod schema in `packages/server/src/trpc/schemas/`, wire it in the router, and add a unit/integration test in `packages/server/src/__tests__/`. Frontend types are inferred end-to-end via the `AppRouter` export — only add entries to `apps/web/src/types/index.ts` for domain models that don't flow through tRPC.
 3. New frontend page → add a lazy route in `apps/web/src/App.tsx`, add a sidebar entry in `apps/web/src/components/layout/Sidebar.tsx`, and wire any role gating through `ProtectedRoute`. All user-visible strings must live in `apps/web/src/i18n/locales/*` (an ESLint rule blocks hardcoded strings in `title`, `placeholder`, and `aria-label`). The parity test `apps/web/src/i18n/locale-parity.test.ts` blocks PRs that introduce a key in one locale without the other — add a new namespace by importing it in `apps/web/src/i18n/index.ts`, registering it in the `ns` array, and adding both `en/<ns>.json` and `es/<ns>.json`.
-4. Run `npm run ci:web` and/or `npm run ci:server` (see "Required checks" above) before committing.
+4. Run `pnpm run ci:web` and/or `pnpm run ci:server` (see "Required checks" above) before committing.
 
 ### Spanish copy dialect — neutral Latin American, never voseo
 
@@ -208,7 +209,7 @@ Web component tests use the custom `render()` wrapper in `apps/web/src/test/util
 
 ## Troubleshooting
 
-- **Exit 137 (SIGKILL) when starting `tsx` or running tests**: almost always stale `tsx watch` processes from prior `npm run dev:server` sessions holding the SQLite WAL lock. Run `pkill -f "tsx watch src/standalone.ts"; pkill -f "dev-launcher.mjs server"` and retry. `lsof packages/server/data/local.db` lists the offenders. See [docs/DEV-SEED.md](./docs/DEV-SEED.md) §Troubleshooting.
+- **Exit 137 (SIGKILL) when starting `tsx` or running tests**: almost always stale `tsx watch` processes from prior `pnpm run dev:server` sessions holding the SQLite WAL lock. Run `pkill -f "tsx watch src/standalone.ts"; pkill -f "dev-launcher.mjs server"` and retry. `lsof packages/server/data/local.db` lists the offenders. See [docs/DEV-SEED.md](./docs/DEV-SEED.md) §Troubleshooting.
 - **`UNIQUE constraint failed: ...sale_number`** across multiple sites: sequentials are per-site but `(tenant_id, sale_number)` is tenant-unique. Sites must use different prefixes (e.g. `VTA-N-` vs `VTA-S-`). The dev seed does this automatically.
 
 ## Commit conventions (beyond the basics)

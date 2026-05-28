@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const require = createRequire(import.meta.url);
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const stateFile = path.join(
   repoRoot,
   'node_modules',
@@ -259,8 +259,8 @@ async function main() {
     );
   } else {
     runCommand(
-      npmCommand,
-      ['run', 'rebuild', '--workspace=@puntovivo/desktop'],
+      pnpmCommand,
+      ['--filter', '@puntovivo/desktop', 'run', 'rebuild'],
       'Rebuilding better-sqlite3 for Electron'
     );
   }

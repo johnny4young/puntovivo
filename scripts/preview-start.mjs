@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const BACKEND_PORT = 8090;
 const BACKEND_HEALTH = `http://127.0.0.1:${BACKEND_PORT}/api/health`;
@@ -73,8 +73,8 @@ log(`Starting backend server on port ${BACKEND_PORT}...`);
 const backendEnv = { PORT: String(BACKEND_PORT) };
 delete backendEnv.PORT; // let standalone.ts use its own default
 const backend = spawnInherit(
-  npmCommand,
-  ['run', 'dev', '--workspace=@puntovivo/server'],
+  pnpmCommand,
+  ['--filter', '@puntovivo/server', 'run', 'dev'],
   { PORT: String(BACKEND_PORT) }   // force 8090 even if preview injected 3000
 );
 processes.push(backend);
@@ -99,8 +99,8 @@ log('Backend ready.');
 // ── 3. Start Vite frontend on port 3000
 log('Starting web dev server on port 3000...');
 const frontend = spawnInherit(
-  npmCommand,
-  ['run', 'dev', '--workspace=@puntovivo/web'],
+  pnpmCommand,
+  ['--filter', '@puntovivo/web', 'run', 'dev'],
   { PORT: undefined }   // Vite reads its own config; don't override
 );
 processes.push(frontend);
