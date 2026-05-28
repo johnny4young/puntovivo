@@ -186,7 +186,12 @@ export function createTrpcFetch(fetchImpl: typeof fetch = fetch): typeof fetch {
 type HeaderFactory = () => Record<string, string>;
 
 export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
-  return httpBatchLink({
+  // ENG-179b — tRPC's `FetchEsque` accepts `RequestInitEsque` where
+  // `signal?: AbortSignal | undefined`; the lib DOM `RequestInit.signal`
+  // is `AbortSignal | null`. Under exactOptionalPropertyTypes these are
+  // not bidirectionally assignable, so route through `unknown` at the
+  // options object boundary (single contained cast — no `as any` leak).
+  const linkOptions = {
     url: `${API_URL}/api/trpc`,
     fetch: createTrpcFetch(),
     headers() {
@@ -195,7 +200,8 @@ export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
         ...(extraHeaders?.() ?? {}),
       };
     },
-  });
+  };
+  return httpBatchLink(linkOptions as unknown as Parameters<typeof httpBatchLink>[0]);
 }
 
 export function createTrpcClientWithHeaders(headers: Record<string, string>) {

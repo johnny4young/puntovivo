@@ -24,9 +24,10 @@ async function ensureLocationUniqueness(
     code,
     name,
   }: {
-    id?: string;
-    code?: string;
-    name?: string;
+    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    id?: string | undefined;
+    code?: string | undefined;
+    name?: string | undefined;
   }
 ) {
   if (code) {

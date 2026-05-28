@@ -661,9 +661,10 @@ export interface ReceiveTransferArgs {
    * at its shipped quantity (legacy one-click receive behaviour). When
    * supplied, unknown ids or `received > shipped` are rejected.
    */
-  lines?: readonly ReceiveTransferLine[];
+  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  lines?: readonly ReceiveTransferLine[] | undefined;
   /** Optional receiver-side note captured when variance is present. */
-  discrepancyNotes?: string | null;
+  discrepancyNotes?: string | null | undefined;
 }
 
 export interface ReceivedTransfer {
@@ -963,7 +964,8 @@ export interface TransferHistoryEntry {
 export async function listRecentTransfers(
   db: DatabaseInstance,
   tenantId: string,
-  options: { limit?: number } = {}
+  // ENG-179b — explicit `| undefined`.
+  options: { limit?: number | undefined } = {}
 ): Promise<TransferHistoryEntry[]> {
   const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
 

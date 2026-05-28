@@ -96,10 +96,11 @@ export function CompanySyncCard() {
       resolution,
       mergedData,
     }: {
+      // ENG-179b — explicit `| undefined` on optional fields.
       id: string;
       resolution: ConflictResolution;
-      mergedData?: Record<string, unknown>;
-      localRecordExists?: boolean | null;
+      mergedData?: Record<string, unknown> | undefined;
+      localRecordExists?: boolean | null | undefined;
     }) => vanillaClient.sync.resolve.mutate({ id, resolution, mergedData }),
     onSuccess: async (_result, variables) => {
       await refreshSyncSnapshot();

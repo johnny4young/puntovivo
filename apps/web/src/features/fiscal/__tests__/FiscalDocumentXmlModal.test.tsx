@@ -33,7 +33,8 @@ interface GetXmlEnvelope {
 
 // Ref-based pattern (same as KdsBoard.test.tsx) so each test case can
 // swap the mocked tRPC query state without re-mocking the module.
-const xmlQueryRef: { current: { data?: GetXmlEnvelope; isLoading: boolean } } = {
+// ENG-179b — explicit `| undefined` on optional fields.
+const xmlQueryRef: { current: { data?: GetXmlEnvelope | undefined; isLoading: boolean } } = {
   current: { data: undefined, isLoading: false },
 };
 

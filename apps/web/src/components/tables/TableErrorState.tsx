@@ -1,10 +1,11 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface TableErrorStateProps {
   title: string;
   message: string;
-  onRetry?: () => void;
-  retryLabel?: string;
+  onRetry?: (() => void) | undefined;
+  retryLabel?: string | undefined;
 }
 
 export function TableErrorState({

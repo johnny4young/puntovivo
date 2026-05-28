@@ -1,12 +1,15 @@
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { AlertTriangle, CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/hooks';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { OfflineModePanel } from '@/features/offline/OfflineModePanel';
 import { cn, formatDateTime } from '@/lib/utils';
 
+// ENG-179b — use i18next's `TFunction` directly so its branded overloads
+// match the call sites without needing a structural-shim signature.
 function getBannerCopy(
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   {
     isOnline,
     pendingItems,

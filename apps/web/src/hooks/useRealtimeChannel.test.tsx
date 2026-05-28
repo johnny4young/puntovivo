@@ -21,7 +21,8 @@ type Listener = (ev: MessageEvent) => void;
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
   url: string;
-  init?: EventSourceInit;
+  // ENG-179b — explicit `| undefined` on optional fields.
+  init?: EventSourceInit | undefined;
   readyState = 0;
   listeners = new Map<string, Listener[]>();
   closed = false;

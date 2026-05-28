@@ -317,18 +317,21 @@ export function buildEscPosBytes(
 // Convenience builder for sale receipts
 // =============================================================================
 
+// ENG-179b — explicit `| undefined` on every optional field so the
+// caller can spread partial sale data without violating
+// `exactOptionalPropertyTypes`.
 export interface SaleReceiptInput {
-  header: { tenantName: string; siteName?: string; address?: string };
+  header: { tenantName: string; siteName?: string | undefined; address?: string | undefined };
   saleNumber: string;
-  cashierName?: string;
-  customerName?: string;
+  cashierName?: string | undefined;
+  customerName?: string | undefined;
   items: Array<{ name: string; quantity: number; unitPrice: number; total: number }>;
   subtotal: number;
-  taxAmount?: number;
+  taxAmount?: number | undefined;
   total: number;
   totalLabel: string;
-  paymentSummary?: string;
-  footer?: string;
+  paymentSummary?: string | undefined;
+  footer?: string | undefined;
   formatCurrency: (value: number) => string;
 }
 

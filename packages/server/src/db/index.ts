@@ -35,14 +35,17 @@ let db: DatabaseInstance | null = null;
 let sqlite: Database.Database | null = null;
 
 export interface DatabaseOptions {
+  // ENG-179b — explicit `| undefined` on every optional field so
+  // callers can forward `ServerOptions.X` (which carry
+  // explicit-undefined under `exactOptionalPropertyTypes`) cleanly.
   /** Path to the SQLite database file */
   dbPath: string;
   /** Whether to run migrations on startup (default: true) */
-  runMigrations?: boolean;
+  runMigrations?: boolean | undefined;
   /** Whether to seed default data if database is empty (default: true) */
-  seedData?: boolean;
+  seedData?: boolean | undefined;
   /** Enable verbose logging (default: false) */
-  verbose?: boolean;
+  verbose?: boolean | undefined;
   /**
    * Override the folder that holds the generated Drizzle SQL files +
    * `meta/_journal.json`. Defaults to the `migrations/` directory adjacent
@@ -51,7 +54,7 @@ export interface DatabaseOptions {
    * Vite bundles the server into a single `.cjs` and the `.sql` assets
    * ship separately via Forge `extraResource`.
    */
-  migrationsFolder?: string;
+  migrationsFolder?: string | undefined;
   /**
    * ENG-167 — 64-char hex string (32 raw bytes) used as the SQLCipher
    * page-encryption key. When supplied, the runtime issues
@@ -72,7 +75,7 @@ export interface DatabaseOptions {
    * (`SqliteError: Setting key not supported for in-memory or temporary databases`),
    * and there is no on-disk surface to protect either way.
    */
-  encryptionKey?: string;
+  encryptionKey?: string | undefined;
 }
 
 /**

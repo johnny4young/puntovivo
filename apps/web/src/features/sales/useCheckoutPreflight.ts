@@ -54,14 +54,15 @@ export interface PreflightRecoveryAction {
   onClick: () => void;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface PreflightItem {
   id: PreflightBlockerId;
   severity: PreflightSeverity;
   /** i18n key under `sales:preflight.items.<id>.message`. */
   messageKey: string;
   /** Values interpolated into the message (e.g. projection numbers). */
-  messageValues?: Record<string, string | number>;
-  recoveryAction?: PreflightRecoveryAction;
+  messageValues?: Record<string, string | number> | undefined;
+  recoveryAction?: PreflightRecoveryAction | undefined;
 }
 
 export interface PreflightCustomerInput {
@@ -72,12 +73,13 @@ export interface PreflightCustomerInput {
   creditLimit: number | null;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface PreflightRecoveryWiring {
-  onOpenCashSession?: () => void;
-  onFocusCustomerPicker?: () => void;
-  onFocusMethodPicker?: () => void;
-  onFocusDiscountField?: () => void;
-  onRemoveCartItem?: (itemKey: string) => void;
+  onOpenCashSession?: (() => void) | undefined;
+  onFocusCustomerPicker?: (() => void) | undefined;
+  onFocusMethodPicker?: (() => void) | undefined;
+  onFocusDiscountField?: (() => void) | undefined;
+  onRemoveCartItem?: ((itemKey: string) => void) | undefined;
 }
 
 export interface PreflightInput {
@@ -93,7 +95,7 @@ export interface PreflightInput {
   userRole: string;
   /** `true` when the workspace was hydrated from a resumed server draft. */
   isResumedDraft: boolean;
-  recovery?: PreflightRecoveryWiring;
+  recovery?: PreflightRecoveryWiring | undefined;
 }
 
 export interface PreflightResult {

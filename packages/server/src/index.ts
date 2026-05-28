@@ -59,18 +59,21 @@ import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
 
 export interface ServerOptions {
+  // ENG-179b — explicit `| undefined` on every optional field so
+  // callers can pass `field: process.env.X` (where the env-var read is
+  // `string | undefined`) without violating `exactOptionalPropertyTypes`.
   /** Path to the SQLite database file */
   dbPath: string;
   /** Port to listen on (default: 8090) */
-  port?: number;
+  port?: number | undefined;
   /** Host to bind to (default: '127.0.0.1') */
-  host?: string;
+  host?: string | undefined;
   /** JWT secret for authentication (default: auto-generated) */
-  jwtSecret?: string;
+  jwtSecret?: string | undefined;
   /** Enable verbose logging (default: false) */
-  verbose?: boolean;
+  verbose?: boolean | undefined;
   /** CORS origins (default: ['http://localhost:3000', 'http://localhost:5173']) */
-  corsOrigins?: string[];
+  corsOrigins?: string[] | undefined;
   /**
    * Override the folder that holds the generated Drizzle SQL migrations.
    * Defaults to the `migrations/` directory next to the compiled server
@@ -78,7 +81,7 @@ export interface ServerOptions {
    * because the `.sql` files ship alongside the bundle via Forge
    * `extraResource`, not inside the Vite output.
    */
-  migrationsFolder?: string;
+  migrationsFolder?: string | undefined;
   /**
    * ENG-072 — resolved Authority Node runtime config. Standalone and
    * Electron callers resolve this via `resolveRuntimeConfig` and pass
@@ -86,14 +89,14 @@ export interface ServerOptions {
    * a `device_local` runtime from `host`/`port` so existing tests stay
    * unchanged.
    */
-  runtime?: RuntimeConfig;
+  runtime?: RuntimeConfig | undefined;
   /**
    * ENG-073 — installed app version surfaced on `/api/health`.
    * Standalone reads from `process.env.npm_package_version`; Electron
    * passes `app.getVersion()`. Defaults to `'unknown'` when omitted
    * so tests do not need to wire it.
    */
-  appVersion?: string;
+  appVersion?: string | undefined;
   /**
    * ENG-167 — 64-char hex SQLCipher key forwarded to `initDatabase`.
    * Electron resolves it through `safeStorage` (see
@@ -102,7 +105,7 @@ export interface ServerOptions {
    * Tests omit it (in-memory and unkeyed file fixtures both opt out).
    * See `DatabaseOptions.encryptionKey` for the wire format.
    */
-  encryptionKey?: string;
+  encryptionKey?: string | undefined;
 }
 
 export interface PuntovivoServer {
@@ -564,7 +567,9 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     trpcOptions: {
       router: appRouter,
       createContext,
-      onError({ path, error }: { path?: string; error: unknown }) {
+      // ENG-179b — `path?: string | undefined` matches the trpc plugin
+      // contract under `exactOptionalPropertyTypes`.
+      onError({ path, error }: { path?: string | undefined; error: unknown }) {
         trpcLog.error({ path: path ?? 'unknown', err: error }, 'tRPC procedure error');
       },
     },

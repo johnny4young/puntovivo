@@ -31,19 +31,20 @@ export interface EditorMetaTableRow {
   value: string;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export type EditorReceiptBlock =
-  | { type: 'logo'; align?: 'left' | 'center' | 'right'; maxHeightMm?: number }
+  | { type: 'logo'; align?: 'left' | 'center' | 'right' | undefined; maxHeightMm?: number | undefined }
   | {
       type: 'text';
       value: string;
-      style?: 'title' | 'subtitle' | 'normal' | 'muted' | 'monospace';
-      align?: 'left' | 'center' | 'right';
-      bold?: boolean;
+      style?: 'title' | 'subtitle' | 'normal' | 'muted' | 'monospace' | undefined;
+      align?: 'left' | 'center' | 'right' | undefined;
+      bold?: boolean | undefined;
     }
   | {
       type: 'itemsTable';
       columns: Array<'name' | 'qty' | 'unitPrice' | 'taxPercent' | 'discount' | 'total'>;
-      showHeader?: boolean;
+      showHeader?: boolean | undefined;
     }
   | {
       type: 'totalsBlock';
@@ -56,17 +57,17 @@ export type EditorReceiptBlock =
         | 'grandTotal'
       >;
     }
-  | { type: 'tendersTable'; showChange?: boolean }
-  | { type: 'qr'; source: string; sizeMm?: number }
-  | { type: 'separator'; char?: string }
-  | { type: 'barcode128'; source: string; heightMm?: number }
+  | { type: 'tendersTable'; showChange?: boolean | undefined }
+  | { type: 'qr'; source: string; sizeMm?: number | undefined }
+  | { type: 'separator'; char?: string | undefined }
+  | { type: 'barcode128'; source: string; heightMm?: number | undefined }
   // ENG-016 pass 1 (item #5) — Puntovivo-branded footer block.
   // `show` defaults to `true`; setting it `false` keeps the block
   // in the layout but hides its rendered output (soft toggle).
-  | { type: 'appFooter'; show?: boolean; align?: 'left' | 'center' | 'right' }
+  | { type: 'appFooter'; show?: boolean | undefined; align?: 'left' | 'center' | 'right' | undefined }
   // ENG-086 — Brand wordmark. No editable content; `show: false`
   // collapses the block without removing it from the layout.
-  | { type: 'wordmark'; show?: boolean; align?: 'left' | 'center' | 'right' }
+  | { type: 'wordmark'; show?: boolean | undefined; align?: 'left' | 'center' | 'right' | undefined }
   // ENG-086 — Compact key/value band. Each row's `key` and `value`
   // accept the same `{{...}}` whitelist as `text.value`.
   | { type: 'metaTable'; rows: EditorMetaTableRow[] };

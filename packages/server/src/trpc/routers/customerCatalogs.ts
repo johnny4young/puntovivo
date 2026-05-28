@@ -49,9 +49,10 @@ async function ensureCatalogUniqueness(
     code,
     name,
   }: {
-    id?: string;
-    code?: string;
-    name?: string;
+    // ENG-179b — explicit `| undefined` on Zod-derived optional fields.
+    id?: string | undefined;
+    code?: string | undefined;
+    name?: string | undefined;
   }
 ) {
   if (code) {

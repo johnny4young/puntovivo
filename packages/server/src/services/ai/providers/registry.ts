@@ -52,7 +52,10 @@ export interface ProviderListing {
   defaultModelId: string;
   isImplemented: boolean;
   /** Ticket id where the implementation lands; only set for stubs. */
-  availableInTicket?: string;
+  // ENG-179b — explicit `| undefined` so callers can build the row
+  // with `availableInTicket: provider.availableInTicket` (which is
+  // typed `string | undefined`) under `exactOptionalPropertyTypes`.
+  availableInTicket?: string | undefined;
 }
 
 export function listProviders(): ReadonlyArray<ProviderListing> {

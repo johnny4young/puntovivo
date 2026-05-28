@@ -1952,7 +1952,15 @@ app.whenReady().then(async () => {
     // (Electron concatenates duplicate headers with commas, which makes
     // every directive list invalid).
     if (isFastifyApiResponse(url, rendererSecurityRuntime)) {
-      callback({ responseHeaders: details.responseHeaders });
+      // ENG-179b — Electron's `HeadersReceivedResponse.responseHeaders`
+      // is `Record<string, string[]>` (no `| undefined`); when
+      // `details.responseHeaders` is undefined we must omit the field
+      // rather than pass `undefined` explicitly.
+      callback(
+        details.responseHeaders === undefined
+          ? {}
+          : { responseHeaders: details.responseHeaders }
+      );
       return;
     }
     const responseHeaders = {

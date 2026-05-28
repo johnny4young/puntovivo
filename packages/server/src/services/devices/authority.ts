@@ -187,8 +187,9 @@ export async function createPairingCode(
     tenantId: string;
     siteId: string;
     createdByUserId: string;
-    deviceName?: string;
-    expiresInMinutes?: number;
+    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    deviceName?: string | undefined;
+    expiresInMinutes?: number | undefined;
   },
   now: Date = new Date()
 ): Promise<PairingCodeCreated> {

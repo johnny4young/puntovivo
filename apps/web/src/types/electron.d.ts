@@ -169,12 +169,13 @@ export interface DesktopBridgeAPI extends ElectronAPI {
 }
 
 declare global {
+  // ENG-179b — explicit `| undefined` on optional fields.
   interface Window {
-    electron?: ElectronAPI;
-    db?: DatabaseAPI;
-    sync?: SyncAPI;
-    session?: SessionAPI;
-    api?: DesktopBridgeAPI;
+    electron?: ElectronAPI | undefined;
+    db?: DatabaseAPI | undefined;
+    sync?: SyncAPI | undefined;
+    session?: SessionAPI | undefined;
+    api?: DesktopBridgeAPI | undefined;
   }
 }
 

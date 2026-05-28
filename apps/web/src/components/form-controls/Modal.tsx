@@ -4,33 +4,36 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
+// ENG-179b — explicit `| undefined` on every optional field so React
+// callers can spread props from a parent state shape that carries
+// explicit-undefined fields under `exactOptionalPropertyTypes`.
 export interface ModalProps {
   /** Whether the modal is open */
   isOpen: boolean;
   /** Callback when modal should close */
   onClose: () => void;
   /** Modal title */
-  title?: string;
+  title?: string | undefined;
   /** Accessible label used when the modal has no visible title */
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   /** Modal content */
   children: ReactNode;
   /** Footer content (typically action buttons) */
-  footer?: ReactNode;
+  footer?: ReactNode | undefined;
   /** Modal size */
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | undefined;
   /** Close on backdrop click */
-  closeOnBackdrop?: boolean;
+  closeOnBackdrop?: boolean | undefined;
   /** Close on ESC key */
-  closeOnEsc?: boolean;
+  closeOnEsc?: boolean | undefined;
   /** Show close button in header */
-  showCloseButton?: boolean;
+  showCloseButton?: boolean | undefined;
   /** Custom class for the modal container */
-  className?: string;
+  className?: string | undefined;
   /** Custom class for the modal content */
-  contentClassName?: string;
+  contentClassName?: string | undefined;
   /** Custom class for the modal footer */
-  footerClassName?: string;
+  footerClassName?: string | undefined;
   /**
    * ENG-105f — Optional override for focus restoration on close.
    * When provided and returning a non-null element, that element
@@ -44,7 +47,7 @@ export interface ModalProps {
    * product search input regardless of whether the modal was opened
    * via shortcut, palette, click, or programmatic trigger.
    */
-  restoreFocusTo?: () => HTMLElement | null;
+  restoreFocusTo?: (() => HTMLElement | null) | undefined;
 }
 
 const sizeClasses = {

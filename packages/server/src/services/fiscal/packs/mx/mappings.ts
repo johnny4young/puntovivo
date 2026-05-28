@@ -196,12 +196,14 @@ export interface TrasladoData {
    * IVA, '0.080000' para frontera. Ausente cuando TipoFactor =
    * 'Exento'.
    */
-  TasaOCuota?: string;
+  // ENG-179b — explicit `| undefined` so the impuestos consolidator
+  // can spread partial entries under `exactOptionalPropertyTypes`.
+  TasaOCuota?: string | undefined;
   /**
    * Importe del impuesto formateado con 2 decimales. Ausente
    * cuando TipoFactor = 'Exento'.
    */
-  Importe?: string;
+  Importe?: string | undefined;
 }
 
 /**

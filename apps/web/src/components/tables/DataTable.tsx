@@ -24,27 +24,30 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// ENG-179b — explicit `| undefined` on every optional field so callers
+// can spread Props from parent state shapes carrying explicit-undefined
+// fields under `exactOptionalPropertyTypes`.
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  searchKey?: string;
-  searchPlaceholder?: string;
-  enableRowSelection?: boolean;
-  onRowSelectionChange?: (rows: TData[]) => void;
-  pageSize?: number;
+  searchKey?: string | undefined;
+  searchPlaceholder?: string | undefined;
+  enableRowSelection?: boolean | undefined;
+  onRowSelectionChange?: ((rows: TData[]) => void) | undefined;
+  pageSize?: number | undefined;
   /**
    * Fires when the keyboard-focused row changes (click, ArrowUp/Down,
    * Home/End). `null` is emitted when focus leaves the table body. Used
    * by ENG-018b to let SalesHistoryTable surface the currently selected
    * sale id to Ctrl+Shift+P reprint.
    */
-  onRowFocusChange?: (row: TData | null) => void;
+  onRowFocusChange?: ((row: TData | null) => void) | undefined;
   /**
    * Extra class applied to the `<tr>` when a predicate says the row is
    * in an app-level "selected" state (ENG-018b history-table
    * highlight). The predicate is called with the row's original data.
    */
-  isRowSelected?: (row: TData) => boolean;
+  isRowSelected?: ((row: TData) => boolean) | undefined;
   /**
    * ENG-134f — Called when the keyboard user activates a row via
    * Enter or Space on the focused row. Mirrors what a mouse user
@@ -58,7 +61,7 @@ interface DataTableProps<TData, TValue> {
    * `enableRowSelection` controls the multi-row checkbox state,
    * `onRowActivate` controls the "open detail" primary action.
    */
-  onRowActivate?: (row: TData) => void;
+  onRowActivate?: ((row: TData) => void) | undefined;
 }
 
 export function DataTable<TData, TValue>({

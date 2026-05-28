@@ -712,10 +712,10 @@ export function SalesPage() {
         handleOpenCashSessionModal();
         return;
       }
-      const blockerMessage = t(
-        preflight.primaryBlocker.messageKey,
-        preflight.primaryBlocker.messageValues
-      );
+      // ENG-179b — exactOptional rejects `t(key, undefined)`; gate on the values.
+      const blockerMessage = preflight.primaryBlocker.messageValues
+        ? t(preflight.primaryBlocker.messageKey, preflight.primaryBlocker.messageValues)
+        : t(preflight.primaryBlocker.messageKey);
       toast.error({
         title: t('preflight.toast.blocked', { message: blockerMessage }),
       });

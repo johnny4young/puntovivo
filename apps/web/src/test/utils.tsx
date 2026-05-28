@@ -147,9 +147,10 @@ export function createMockSaleItem(overrides?: Partial<SaleItem>): SaleItem {
 // All Providers Wrapper
 // ============================================================================
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface AllProvidersProps {
   children: ReactNode;
-  initialEntries?: string[];
+  initialEntries?: string[] | undefined;
 }
 
 function AllProviders({ children, initialEntries = ['/'] }: AllProvidersProps) {

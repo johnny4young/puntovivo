@@ -82,7 +82,10 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
               <Icon className={iconClass} aria-hidden="true" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <p className="text-sm">
-                  {t(item.messageKey, item.messageValues)}
+                  {/* ENG-179b — exactOptional rejects `t(key, undefined)`; gate on the values. */}
+                  {item.messageValues
+                    ? t(item.messageKey, item.messageValues)
+                    : t(item.messageKey)}
                 </p>
                 {item.recoveryAction && (
                   <button

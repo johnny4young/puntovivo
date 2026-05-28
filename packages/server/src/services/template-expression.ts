@@ -684,12 +684,13 @@ export interface ValidationIssue {
   raw: string;
 }
 
+// ENG-179b — explicit `| undefined` on each optional field.
 export interface ValidateOptions {
-  allowedNamespaces?: ReadonlySet<string>;
+  allowedNamespaces?: ReadonlySet<string> | undefined;
   /** Restrict which namespaces are allowed (e.g. `qr.source` may exclude `tender`). */
-  rejectedNamespaces?: ReadonlySet<string>;
+  rejectedNamespaces?: ReadonlySet<string> | undefined;
   /** When set, string literal nodes whose trimmed value matches this regex raise an issue. */
-  rejectStringScheme?: RegExp;
+  rejectStringScheme?: RegExp | undefined;
 }
 
 function walkExpression(

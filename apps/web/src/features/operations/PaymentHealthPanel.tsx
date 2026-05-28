@@ -527,9 +527,10 @@ function SummaryTile({
   value,
   variant,
 }: {
+  // ENG-179b — explicit `| undefined` on optional fields.
   label: string;
   value: string;
-  variant?: 'success' | 'warning' | 'danger';
+  variant?: 'success' | 'warning' | 'danger' | undefined;
 }) {
   const accent =
     variant === 'danger'

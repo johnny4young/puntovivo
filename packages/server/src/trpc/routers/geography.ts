@@ -32,9 +32,10 @@ async function ensureCountryUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    id?: string;
-    code?: string;
-    name?: string;
+    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    id?: string | undefined;
+    code?: string | undefined;
+    name?: string | undefined;
   }
 ) {
   if (values.code) {
@@ -89,9 +90,10 @@ async function ensureDepartmentUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    id?: string;
-    code?: string;
-    name?: string;
+    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    id?: string | undefined;
+    code?: string | undefined;
+    name?: string | undefined;
   }
 ) {
   if (values.code) {
@@ -150,10 +152,11 @@ async function ensureCityUniqueness(
   db: DatabaseInstance,
   tenantId: string,
   values: {
-    id?: string;
+    // ENG-179b — explicit `| undefined` on Zod-optional fields.
+    id?: string | undefined;
     departmentId: string;
-    code?: string;
-    name?: string;
+    code?: string | undefined;
+    name?: string | undefined;
   }
 ) {
   if (values.code) {

@@ -239,11 +239,12 @@ export function CompanySyncConflictPreview({
   );
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface SyncTechnicalDetailsProps {
   entityType: string;
   entityId: string;
-  operation?: string;
-  lastError?: string | Record<string, unknown> | null;
+  operation?: string | undefined;
+  lastError?: string | Record<string, unknown> | null | undefined;
 }
 
 function SyncTechnicalDetails({

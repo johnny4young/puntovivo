@@ -46,10 +46,11 @@ interface RefundLineSummary {
   total: number;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface RefundConfirmOverlayProps {
   isOpen: boolean;
   isPending: boolean;
-  saleNumber?: string;
+  saleNumber?: string | undefined;
   refundTotal: number;
   /**
    * Optional line summary used to surface the V8 per-line checkbox
@@ -58,14 +59,14 @@ interface RefundConfirmOverlayProps {
    * baked into the free-text `reason` string so the audit log keeps
    * the operator's intent.
    */
-  lines?: ReadonlyArray<RefundLineSummary>;
+  lines?: ReadonlyArray<RefundLineSummary> | undefined;
   /**
    * Refund threshold (tenant currency). When `refundTotal` exceeds it,
    * the overlay surfaces an admin-approval warning lock per the V8
    * design. The server-side authorization is enforced separately by
    * `managerOrAdminProcedure`; this is purely a visual heads-up.
    */
-  adminApprovalThreshold?: number;
+  adminApprovalThreshold?: number | undefined;
   onClose: () => void;
   onConfirm: (reason: string | undefined) => void;
 }

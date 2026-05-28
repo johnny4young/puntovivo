@@ -94,13 +94,14 @@ interface CustomerFormModalProps {
    * ENG-105c — pre-fill the `name` field when opening in create
    * mode from the empty-state CTA. Ignored on edit-mode submits.
    */
-  defaultName?: string;
+  // ENG-179b — explicit `| undefined` on optional fields.
+  defaultName?: string | undefined;
   /**
    * ENG-105c — fired once `onSubmit` succeeds in create mode AND
    * resolves to a customer. The caller attaches the new customer
    * to the active sale. Skipped on errors and on edit-mode submits.
    */
-  onCreated?: (customer: Customer) => void;
+  onCreated?: ((customer: Customer) => void) | undefined;
 }
 
 export function CustomerFormModal({

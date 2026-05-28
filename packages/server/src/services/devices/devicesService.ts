@@ -26,19 +26,20 @@ import { inferAuthorityRole } from './authority.js';
 
 const log = createModuleLogger('devices');
 
+// ENG-179b — explicit `| undefined` on Zod-optional fields.
 export interface RegisterDeviceInput {
   tenantId: string;
   userId: string;
   kind: DeviceKind;
   name: string;
   /** Optional client hint — server still re-checks uniqueness. */
-  deviceId?: string;
+  deviceId?: string | undefined;
   /** Free-form JSON metadata (OS, browser UA, install path, etc.). */
-  metadata?: Record<string, unknown>;
-  authorityRole?: DeviceAuthorityRole;
-  pairedSiteId?: string | null;
-  appVersion?: string | null;
-  dbSchemaVersion?: number | null;
+  metadata?: Record<string, unknown> | undefined;
+  authorityRole?: DeviceAuthorityRole | undefined;
+  pairedSiteId?: string | null | undefined;
+  appVersion?: string | null | undefined;
+  dbSchemaVersion?: number | null | undefined;
 }
 
 export interface RegisteredDevice {

@@ -26,15 +26,18 @@ import type {
  *   - `cancelled` → operator dismissed; allow another tender.
  *   - `manual` → ENG-060 fallback; render the manual entry modal.
  */
+// ENG-179b — explicit `| undefined` on every optional field so each
+// driver variant can spread partial data without violating
+// `exactOptionalPropertyTypes`.
 export type PaymentResult =
-  | { status: 'approved'; authCode: string; reference?: string; last4?: string; brand?: string }
+  | { status: 'approved'; authCode: string; reference?: string | undefined; last4?: string | undefined; brand?: string | undefined }
   | { status: 'declined'; reason: string }
   | { status: 'cancelled' }
-  | { status: 'manual'; requiresOperatorInput: true; prompt?: string };
+  | { status: 'manual'; requiresOperatorInput: true; prompt?: string | undefined };
 
 export interface VoidResult {
   status: 'ok' | 'error';
-  error?: NormalizedHardwareError;
+  error?: NormalizedHardwareError | undefined;
 }
 
 export interface PaymentTerminalAdapter extends BasePeripheralAdapter {

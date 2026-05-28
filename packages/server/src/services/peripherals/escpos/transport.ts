@@ -30,15 +30,19 @@ import type { NormalizedHardwareError } from '../types.js';
 
 export type EscPosChannel = 'usb' | 'tcp' | 'serial' | 'mock';
 
+// ENG-179b — explicit `| undefined` on every optional field so device
+// drivers (`escpos-cash-drawer`, `escpos-receipt-printer`) can build
+// the config by spreading nullable DB rows under
+// `exactOptionalPropertyTypes`.
 export interface EscPosTransportConfig {
   channel: EscPosChannel;
-  host?: string;
-  port?: number;
-  vendorId?: number;
-  productId?: number;
-  devicePath?: string;
+  host?: string | undefined;
+  port?: number | undefined;
+  vendorId?: number | undefined;
+  productId?: number | undefined;
+  devicePath?: string | undefined;
   /** Connect timeout in milliseconds. Defaults to 3000 ms. */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
 }
 
 export interface EscPosTransport {

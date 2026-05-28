@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { ExportColumn } from '@/services/export/exportService';
 import { formatDateTime } from '@/lib/utils';
 import type { AuditLogEntry } from '@/types';
@@ -8,7 +9,10 @@ import type { AuditLogEntry } from '@/types';
  * regenerate localized headers and enum labels when the operator switches
  * languages without duplicating export formatting logic in the component.
  */
-type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+// ENG-179b — accept i18next's `TFunction` directly so any namespace
+// projection from `useTranslation([...])` flows in without per-test
+// casts.
+type TranslateFn = TFunction;
 
 export function getAuditLogsExportColumns(
   t: TranslateFn

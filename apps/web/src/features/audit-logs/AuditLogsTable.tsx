@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -141,9 +142,11 @@ export function AuditLogsTable({
   );
 }
 
+// ENG-179b — use i18next's `TFunction` directly so the multi-namespace
+// projection from `useTranslation([...])` flows in without per-call casts.
 function translateQuotationStatus(
   status: unknown,
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TFunction
 ): string {
   return typeof status === 'string'
     ? t(`quotations:status.${status}`, { defaultValue: status })
