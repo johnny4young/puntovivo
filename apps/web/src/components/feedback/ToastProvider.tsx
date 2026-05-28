@@ -14,10 +14,11 @@ import { cn } from '@/lib/utils';
 
 type ToastTone = 'success' | 'error' | 'info' | 'warning';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface ToastInput {
   title: string;
-  description?: string;
-  durationMs?: number;
+  description?: string | undefined;
+  durationMs?: number | undefined;
 }
 
 interface ToastRecord extends ToastInput {

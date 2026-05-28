@@ -101,7 +101,8 @@ describe('checkoutPayment', () => {
     }
 
     it('returns false when payments is missing or empty', () => {
-      expect(hasSplitPayments({ payments: undefined })).toBe(false);
+      // ENG-179b — exactOptional rejects `{ payments: undefined }`; pass the bare object instead.
+      expect(hasSplitPayments({} as { payments?: SalePayment[] })).toBe(false);
       expect(hasSplitPayments({ payments: [] })).toBe(false);
     });
 

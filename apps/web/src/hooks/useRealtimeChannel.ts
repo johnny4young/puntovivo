@@ -30,13 +30,14 @@ import { useEffect, useRef } from 'react';
 import { resolveApiBaseUrl } from '@/lib/runtimeConfigClient';
 import { vanillaClient } from '@/lib/trpc';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface RealtimeEvent {
   /** Event name from the SSE stream (e.g. `kds.order.created`). */
   type: string;
   /** Parsed JSON data; raw string when the payload is not JSON. */
   data: unknown;
   /** Monotonic event id sent by the server. */
-  id?: string;
+  id?: string | undefined;
 }
 
 export interface UseRealtimeChannelOptions {

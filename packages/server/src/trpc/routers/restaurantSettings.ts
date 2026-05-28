@@ -50,7 +50,15 @@ export const restaurantSettingsRouter = router({
   update: adminProcedure
     .input(updateRestaurantSettingsInput)
     .mutation(async ({ ctx, input }) => {
-      const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, input);
+      // ENG-179b — `input.serviceChargeRate` may be `undefined` under
+      // Zod's optional; `exactOptionalPropertyTypes` rejects spreading
+      // an explicit-undefined field into `Partial<RestaurantSettings>`.
+      // Build the patch with a conditional spread so absent input
+      // truly omits the field.
+      const patch = input.serviceChargeRate !== undefined
+        ? { serviceChargeRate: input.serviceChargeRate }
+        : {};
+      const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, patch);
       return { serviceChargeRate: next.serviceChargeRate };
     }),
 });

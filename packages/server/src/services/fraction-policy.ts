@@ -13,10 +13,12 @@ export interface FractionPolicy {
   fractionMinimum: number | null;
 }
 
+// ENG-179b — explicit `| undefined` so tRPC `products.create / update`
+// can forward Zod-optional fields.
 export interface FractionPolicyInput {
-  sellByFraction?: boolean | null;
-  fractionStep?: number | null;
-  fractionMinimum?: number | null;
+  sellByFraction?: boolean | null | undefined;
+  fractionStep?: number | null | undefined;
+  fractionMinimum?: number | null | undefined;
 }
 
 interface QuantityPolicyProduct extends FractionPolicy {

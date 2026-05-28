@@ -29,19 +29,22 @@ export type PrintJobKind =
   | 'quotation'
   | 'kitchen-ticket';
 
+// ENG-179b — explicit `| undefined` on every optional field so the
+// hardware-worker can compose a `PrintJob` from partial sources without
+// violating `exactOptionalPropertyTypes`.
 export interface PrintJob {
   kind: PrintJobKind;
   /** Server-rendered HTML body (the system driver path) — see receipt-renderer.ts. */
-  html?: string;
+  html?: string | undefined;
   /** Pre-built ESC/POS byte buffer (the escpos driver path, ENG-062). */
-  escposBytes?: Uint8Array;
+  escposBytes?: Uint8Array | undefined;
   /** Free-form metadata (saleId, fiscalDocumentId) for logging / journal correlation. */
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface PrintResult {
   status: 'ok' | 'error';
-  error?: NormalizedHardwareError;
+  error?: NormalizedHardwareError | undefined;
 }
 
 export interface ReceiptPrinterAdapter extends BasePeripheralAdapter {

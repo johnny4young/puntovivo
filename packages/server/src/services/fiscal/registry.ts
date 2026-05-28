@@ -116,7 +116,8 @@ export function __clearFiscalAdapterOverridesForTest(): void {
 export function listFiscalAdapterCountries(): ReadonlyArray<{
   code: SupportedFiscalCountry;
   isImplemented: boolean;
-  availableInTicket?: string;
+  // ENG-179b — explicit `| undefined`.
+  availableInTicket?: string | undefined;
 }> {
   return (Object.keys(ADAPTER_FACTORIES) as SupportedFiscalCountry[]).map(code => {
     const adapter = ADAPTER_FACTORIES[code]();

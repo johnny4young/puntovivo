@@ -67,13 +67,15 @@ function toRecord(row: ReceiptTemplate): ReceiptTemplateRecord {
   };
 }
 
+// ENG-179b — explicit `| undefined` so the tRPC router can forward
+// Zod-optional flag fields.
 export interface CreateReceiptTemplateArgs {
   tenantId: string;
   kind: ReceiptTemplateKind;
   name: string;
   layout: ReceiptLayout;
-  isDefault?: boolean;
-  isActive?: boolean;
+  isDefault?: boolean | undefined;
+  isActive?: boolean | undefined;
   createdBy: string;
 }
 
@@ -157,9 +159,10 @@ export function createReceiptTemplate(
 export interface UpdateReceiptTemplateArgs {
   tenantId: string;
   templateId: string;
-  name?: string;
-  layout?: ReceiptLayout;
-  isActive?: boolean;
+  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  name?: string | undefined;
+  layout?: ReceiptLayout | undefined;
+  isActive?: boolean | undefined;
   actorId: string;
 }
 
@@ -434,7 +437,8 @@ export function setDefaultReceiptTemplate(
 export interface DuplicateReceiptTemplateArgs {
   tenantId: string;
   templateId: string;
-  name?: string;
+  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  name?: string | undefined;
   actorId: string;
 }
 
@@ -486,10 +490,11 @@ export function duplicateReceiptTemplate(
   });
 }
 
+// ENG-179b — explicit `| undefined` on Zod-optional filter fields.
 export interface ListReceiptTemplatesOptions {
-  kind?: ReceiptTemplateKind;
-  includeInactive?: boolean;
-  limit?: number;
+  kind?: ReceiptTemplateKind | undefined;
+  includeInactive?: boolean | undefined;
+  limit?: number | undefined;
 }
 
 export function listReceiptTemplates(

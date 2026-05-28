@@ -138,7 +138,8 @@ export function freshCriticalContext(input: {
   role: 'admin' | 'manager' | 'cashier' | 'viewer';
   siteId: string;
   deviceId: string;
-  envelope?: CommandEnvelope;
+  // ENG-179b — explicit `| undefined` on optional fixture override.
+  envelope?: CommandEnvelope | undefined;
 }): Context {
   const envelope: CommandEnvelope = input.envelope ?? {
     operationId: randomUUID(),

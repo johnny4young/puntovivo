@@ -32,14 +32,15 @@ import {
   type AvailabilityMap,
 } from './templateUnavailableDecorations';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface TextBlockEditorProps {
   value: string;
   onChange: (value: string) => void;
   /** Maximum allowed characters in the buffer. Default: 500. */
-  maxLength?: number;
-  placeholder?: string;
-  className?: string;
-  ariaLabel?: string;
+  maxLength?: number | undefined;
+  placeholder?: string | undefined;
+  className?: string | undefined;
+  ariaLabel?: string | undefined;
   /**
    * ENG-016 pass 5 — per-tenant variable availability map. When
    * supplied, every `{{namespace.field}}` token whose path resolves
@@ -47,13 +48,13 @@ export interface TextBlockEditorProps {
    * hover tooltip. Pass `null` (default) to disable the feature
    * entirely (e.g. while the parent's tRPC query is loading).
    */
-  unavailableVariables?: AvailabilityMap | null;
+  unavailableVariables?: AvailabilityMap | null | undefined;
   /**
    * Test hook: invoked once after the underlying CodeMirror EditorView
    * mounts. Tests use it to capture the view and dispatch transactions
    * directly. Production callers should not need this.
    */
-  onCreateView?: (view: EditorView) => void;
+  onCreateView?: ((view: EditorView) => void) | undefined;
 }
 
 const BASE_THEME = EditorView.theme({

@@ -82,7 +82,7 @@ interface SalePaymentModalProps {
    * into the grand total. Defaults to 0 so non-restaurant tenants pay
    * zero contract cost.
    */
-  serviceChargeRate?: number;
+  serviceChargeRate?: number | undefined;
   /**
    * ENG-090 — caller's role drives credit-method gating. Cashier never
    * sees the credit tile; manager + admin do. Admin additionally sees
@@ -91,7 +91,7 @@ interface SalePaymentModalProps {
    * entirely. The server still enforces the gate on
    * `creditOverride: true`.
    */
-  userRole?: 'admin' | 'manager' | 'cashier' | 'viewer';
+  userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
   /**
    * ENG-105e — observable counter that triggers the fast-cash flow
    * while opening the modal or while it is already open. The parent
@@ -100,7 +100,7 @@ interface SalePaymentModalProps {
    * change, and captures the mount-time baseline so it never
    * double-fires on the initial render.
    */
-  fastCashTrigger?: number;
+  fastCashTrigger?: number | undefined;
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }

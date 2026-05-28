@@ -55,7 +55,7 @@ interface BoundaryInnerState {
 }
 
 class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
-  state: BoundaryInnerState = {
+  override state: BoundaryInnerState = {
     error: null,
   };
 
@@ -63,7 +63,7 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
     return { error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // ENG-135 — funnel render-tree errors through the observability
     // pipe. The console fallback inside `captureRenderError` keeps
     // the previous developer-tail behaviour while the future adapter
@@ -74,7 +74,7 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
     });
   }
 
-  render() {
+  override render() {
     if (this.state.error) {
       return <AppErrorFallback error={this.state.error} onRetry={this.props.onRetry} />;
     }

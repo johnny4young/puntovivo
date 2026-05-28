@@ -581,7 +581,9 @@ function consolidateImpuestos(
       importe: number;
       impuesto: string;
       tipoFactor: 'Tasa' | 'Exento';
-      tasaOCuota?: string;
+      // ENG-179b — explicit `| undefined` so `TrasladoData.TasaOCuota`
+      // (which carries explicit-undefined for exento rows) maps cleanly.
+      tasaOCuota?: string | undefined;
     }
   >();
 

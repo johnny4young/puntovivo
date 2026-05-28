@@ -78,7 +78,8 @@ export interface AISettings {
   /** null = use `provider.defaultModelId`. */
   modelId: string | null;
   /** Per-feature opt-in flags. Added 2026-05-15. */
-  features?: AIFeatureFlags;
+  // ENG-179b — explicit `| undefined` on optional features field.
+  features?: AIFeatureFlags | undefined;
 }
 
 /** Defaults applied to a tenant that has no `ai` block in settings yet. */

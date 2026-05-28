@@ -51,15 +51,17 @@ export interface CopilotChatMessage {
   content: string;
 }
 
+// ENG-179b — explicit `| undefined` so the tRPC router input (Zod-
+// parsed; optional fields decode as `T | undefined`) assigns cleanly.
 export interface CopilotContextInput {
-  from?: string;
-  to?: string;
-  siteId?: string | null;
+  from?: string | undefined;
+  to?: string | undefined;
+  siteId?: string | null | undefined;
 }
 
 export interface CopilotChatInput {
   messages: CopilotChatMessage[];
-  context?: CopilotContextInput;
+  context?: CopilotContextInput | undefined;
 }
 
 export interface CopilotWindow {
@@ -98,7 +100,7 @@ export interface CopilotChatResult extends CopilotSQLResult {
 
 interface SnapshotOptions {
   query: string;
-  context?: CopilotContextInput;
+  context?: CopilotContextInput | undefined;
 }
 
 interface SnapshotRow {

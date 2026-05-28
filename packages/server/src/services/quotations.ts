@@ -581,10 +581,11 @@ export interface QuotationListEntry {
   createdBy: string;
 }
 
+// ENG-179b — explicit `| undefined` on Zod-optional filter fields.
 export interface ListQuotationsOptions {
-  limit?: number;
-  status?: QuotationStatus;
-  customerId?: string;
+  limit?: number | undefined;
+  status?: QuotationStatus | undefined;
+  customerId?: string | undefined;
 }
 
 export function listQuotations(

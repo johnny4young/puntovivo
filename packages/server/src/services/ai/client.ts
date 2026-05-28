@@ -119,24 +119,51 @@ function mergePatchFeatures(
 ): AIFeatureFlags {
   const base = current ?? DEFAULT_AI_FEATURE_FLAGS;
   if (!patch) return base;
+  // ENG-179b — patch fields are `T | undefined` under
+  // `exactOptionalPropertyTypes`; `stripUndefined` drops the
+  // explicit-undefined keys so the spread merges only defined values
+  // (matching the historical pre-flag runtime behavior).
+  const stripUndefined = <T extends Record<string, unknown>>(value: T | undefined): Partial<T> => {
+    if (!value) return {};
+    const out: Partial<T> = {};
+    for (const key of Object.keys(value) as Array<keyof T>) {
+      if (value[key] !== undefined) {
+        out[key] = value[key];
+      }
+    }
+    return out;
+  };
+  // The spread of a `Partial<T>` includes optional `| undefined` fields
+  // at the type level even after `stripUndefined` removes them at
+  // runtime. The structural compatibility check is satisfied because
+  // every potentially-undefined slot is backed by the corresponding
+  // `base.*` value, so the merged shape is always complete; the
+  // assertion captures that runtime invariant for the type-checker.
   return {
-    copilot: { ...base.copilot, ...patch.copilot },
-    anomalies: {
-      ...base.anomalies,
-      ...patch.anomalies,
-    },
-    semanticSearch: { ...base.semanticSearch, ...patch.semanticSearch },
-    invoiceOcr: { ...base.invoiceOcr, ...patch.invoiceOcr },
-    privacy: { ...base.privacy, ...patch.privacy, piiRedaction: true },
+    copilot: { ...base.copilot, ...stripUndefined(patch.copilot) } as AIFeatureFlags['copilot'],
+    anomalies: { ...base.anomalies, ...stripUndefined(patch.anomalies) } as AIFeatureFlags['anomalies'],
+    semanticSearch: { ...base.semanticSearch, ...stripUndefined(patch.semanticSearch) } as AIFeatureFlags['semanticSearch'],
+    invoiceOcr: { ...base.invoiceOcr, ...stripUndefined(patch.invoiceOcr) } as AIFeatureFlags['invoiceOcr'],
+    privacy: { ...base.privacy, ...stripUndefined(patch.privacy), piiRedaction: true } as AIFeatureFlags['privacy'],
   };
 }
 
+// ENG-179b — explicit `| undefined` on every optional field, including
+// inside the nested feature partials, so Zod-decoded payloads (which
+// carry explicit-undefined fields) assign under
+// `exactOptionalPropertyTypes`. Plain `Partial<T>` makes fields
+// `T | undefined` only at the type-system level; the assignability
+// rules under exactOptional require the explicit annotation here.
+type PartialWithExplicitUndefined<T> = {
+  [K in keyof T]?: T[K] | undefined;
+};
+
 type PartialAIFeatureFlags = {
-  copilot?: Partial<AIFeatureFlags['copilot']>;
-  anomalies?: Partial<AIFeatureFlags['anomalies']>;
-  semanticSearch?: Partial<AIFeatureFlags['semanticSearch']>;
-  invoiceOcr?: Partial<AIFeatureFlags['invoiceOcr']>;
-  privacy?: Partial<AIFeatureFlags['privacy']>;
+  copilot?: PartialWithExplicitUndefined<AIFeatureFlags['copilot']> | undefined;
+  anomalies?: PartialWithExplicitUndefined<AIFeatureFlags['anomalies']> | undefined;
+  semanticSearch?: PartialWithExplicitUndefined<AIFeatureFlags['semanticSearch']> | undefined;
+  invoiceOcr?: PartialWithExplicitUndefined<AIFeatureFlags['invoiceOcr']> | undefined;
+  privacy?: PartialWithExplicitUndefined<AIFeatureFlags['privacy']> | undefined;
 };
 
 /**
@@ -146,8 +173,15 @@ type PartialAIFeatureFlags = {
  * sends the leaves that the operator touched. `mergePatchFeatures`
  * merges shallowly while preserving the rest of the resolved shape.
  */
-export type WriteAISettingsPatch = Omit<Partial<AISettings>, 'features'> & {
-  features?: PartialAIFeatureFlags;
+// ENG-179b — explicit `| undefined` on each optional field so the
+// tRPC router can forward Zod-optional fields (which decode to
+// `T | null | undefined` for `.nullable().optional()` schemas).
+export type WriteAISettingsPatch = {
+  enabled?: boolean | undefined;
+  monthlyBudgetUsd?: number | undefined;
+  providerId?: AISettings['providerId'] | undefined;
+  modelId?: AISettings['modelId'] | undefined;
+  features?: PartialAIFeatureFlags | undefined;
 };
 
 export async function writeAISettings(
@@ -201,14 +235,19 @@ const defaultFactory: ProviderFactory = id => {
   return provider;
 };
 
+// ENG-179b — explicit `| undefined` on all optionals so the Vercel AI
+// SDK's `LanguageModelUsage` shape (which carries explicit-undefined
+// fields) assigns cleanly under `exactOptionalPropertyTypes`.
 interface UsageForPricing {
-  inputTokens?: number;
-  outputTokens?: number;
-  inputTokenDetails?: {
-    noCacheTokens?: number;
-    cacheReadTokens?: number;
-    cacheWriteTokens?: number;
-  };
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+  inputTokenDetails?:
+    | {
+        noCacheTokens?: number | undefined;
+        cacheReadTokens?: number | undefined;
+        cacheWriteTokens?: number | undefined;
+      }
+    | undefined;
 }
 
 function tokenCount(value: number | undefined): number {

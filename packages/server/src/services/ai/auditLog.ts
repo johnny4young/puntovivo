@@ -70,7 +70,9 @@ export async function currentMonthSpend(
 export interface ListUsageOptions {
   limit: number;
   /** Opaque cursor returned by the previous page. */
-  cursor?: string;
+  // ENG-179b — explicit `| undefined` so the tRPC router can forward
+  // a Zod-optional `cursor` field.
+  cursor?: string | undefined;
 }
 
 export interface ListUsagePage {
@@ -148,7 +150,8 @@ export async function byBreakdown(
   db: DatabaseInstance,
   tenantId: string,
   scope: BreakdownScope,
-  opts?: { from?: Date; to?: Date }
+  // ENG-179b — explicit `| undefined` on every optional date field.
+  opts?: { from?: Date | undefined; to?: Date | undefined } | undefined
 ): Promise<BreakdownEntry[]> {
   const column = SCOPE_COLUMN[scope];
   const filters = [eq(aiAuditLog.tenantId, tenantId)];

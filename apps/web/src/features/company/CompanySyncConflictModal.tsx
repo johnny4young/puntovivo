@@ -4,15 +4,16 @@ import { getSyncEntityLabel } from './companySyncDisplay';
 
 export type ConflictResolution = 'local_wins' | 'remote_wins' | 'merged';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface PendingResolution {
   id: string;
   entityId: string;
   entityType: string;
-  entityLabel?: string;
+  entityLabel?: string | undefined;
   resolution: ConflictResolution;
-  localData?: Record<string, unknown> | null;
-  remoteData?: Record<string, unknown> | null;
-  localRecordExists?: boolean | null;
+  localData?: Record<string, unknown> | null | undefined;
+  remoteData?: Record<string, unknown> | null | undefined;
+  localRecordExists?: boolean | null | undefined;
 }
 
 interface CompanySyncConflictModalProps {

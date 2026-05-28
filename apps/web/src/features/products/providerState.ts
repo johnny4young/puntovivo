@@ -4,9 +4,10 @@ export interface ProviderAssignmentValue {
   providerId: string;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface NormalizeProductProvidersInput {
-  providerId?: string | null;
-  providerAssignments?: ProviderAssignmentValue[] | null;
+  providerId?: string | null | undefined;
+  providerAssignments?: ProviderAssignmentValue[] | null | undefined;
 }
 
 export interface NormalizedProductProviders {

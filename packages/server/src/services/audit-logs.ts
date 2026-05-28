@@ -91,16 +91,19 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
   return id;
 }
 
+// ENG-179b — explicit `| undefined` so the tRPC `auditLogs.list`
+// router can forward Zod-optional filter fields without violating
+// `exactOptionalPropertyTypes`.
 export interface ListAuditLogsOptions {
-  limit?: number;
-  action?: AuditLogAction;
-  resourceType?: AuditLogResourceType;
-  resourceId?: string;
-  actorId?: string;
+  limit?: number | undefined;
+  action?: AuditLogAction | undefined;
+  resourceType?: AuditLogResourceType | undefined;
+  resourceId?: string | undefined;
+  actorId?: string | undefined;
   /** ISO datetime; rows with `created_at >= createdAfter` are kept. */
-  createdAfter?: string;
+  createdAfter?: string | undefined;
   /** ISO datetime; rows with `created_at <= createdBefore` are kept. */
-  createdBefore?: string;
+  createdBefore?: string | undefined;
 }
 
 export interface AuditLogEntry {

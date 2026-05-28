@@ -45,10 +45,12 @@ export interface ParsedScan {
   /** SKU prefix to look up in the products table when the scan
    * carries embedded data. For non-GS1 codes this equals `code`. */
   lookupCode: string;
+  // ENG-179b — explicit `| undefined` lets builders assign these
+  // fields conditionally without violating `exactOptionalPropertyTypes`.
   /** When `kind === 'gs1-weight'`: kilograms. */
-  weightKg?: number;
+  weightKg?: number | undefined;
   /** When `kind === 'gs1-price'`: currency major units (e.g. 19.95). */
-  priceMajor?: number;
+  priceMajor?: number | undefined;
   /** Whether the checksum (when one applies) verified. */
   checksumValid: boolean;
 }

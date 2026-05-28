@@ -52,8 +52,9 @@ async function assertValidParentCategory({
   parentId,
 }: {
   ctx: Context;
-  categoryId?: string;
-  parentId?: string | null;
+  // ENG-179b — explicit `| undefined` on Zod-optional fields.
+  categoryId?: string | undefined;
+  parentId?: string | null | undefined;
 }) {
   if (!parentId) {
     return null;

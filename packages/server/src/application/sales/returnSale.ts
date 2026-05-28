@@ -111,7 +111,8 @@ async function safeUpdateSaleRefundedSummary(
 
 export interface ReturnSaleInput {
   id: string;
-  reason?: string | null;
+  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  reason?: string | null | undefined;
 }
 
 export async function returnSale(

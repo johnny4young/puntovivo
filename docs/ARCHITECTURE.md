@@ -463,9 +463,9 @@ stays observable in a single staged commit:
 
 | Workspace | `strict` | `noUncheckedIndexedAccess` | `exactOptionalPropertyTypes` | `noImplicitOverride` |
 | --- | --- | --- | --- | --- |
-| `packages/server` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
-| `apps/web` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
-| `apps/desktop` | ✅ | ✅ (ENG-179a) | parked (ENG-179b) | parked (ENG-179b) |
+| `packages/server` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
+| `apps/web` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
+| `apps/desktop` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
 
 ### `noUncheckedIndexedAccess` (ENG-179a, 2026-05-27)
 
@@ -489,6 +489,68 @@ Fix patterns the codebase uses:
    the invariant is observable in the surrounding code (post
    `length > 0` check, fixed-length tuple modulo, regex required
    capture group). The comment must name the invariant.
+
+### `exactOptionalPropertyTypes` (ENG-179b, 2026-05-28)
+
+The flag changes how the compiler matches `{ foo?: T }`: pre-flag a
+caller could pass `{ foo: undefined }` and it would type-check;
+post-flag the compiler rejects that because "field absent" and "field
+present with value undefined" are no longer the same. Catches:
+
+- Mutation builders that spread a partial state into a shape the
+  consumer expects to be exactly-typed (`{ envelope: ctx.envelope }`
+  where `ctx.envelope` is `Envelope | undefined`).
+- tRPC routers destructuring a Zod-decoded `input` and forwarding the
+  resulting fields into service helpers whose declared signatures used
+  bare `?` optionals.
+- Test fixtures with `{ data: undefined, isLoading: true }` standing in
+  for a tRPC query result whose `data?` field is shape-strict.
+
+Fix patterns the codebase uses (default to Patrón A unless the
+consumer genuinely needs an exact-shape distinction):
+
+1. **Widen target — Patrón A**: declare the optional field with an
+   explicit `| undefined` so the type accepts both "absent" and
+   "present-but-undefined":
+   ```ts
+   interface KdsHookContext {
+     log?: Logger | undefined;
+   }
+   ```
+   Use this for >95% of sites. Simpler, less invasive, preserves
+   runtime semantics.
+2. **Conditional spread — Patrón B**: when the consumer's type is
+   third-party / immovable (e.g. Electron `HeadersReceivedResponse`,
+   strict-shape DTOs that reject extra keys) and you cannot widen the
+   target, omit the field instead of passing `undefined`:
+   ```ts
+   callback(
+     details.responseHeaders === undefined
+       ? {}
+       : { responseHeaders: details.responseHeaders }
+   );
+   ```
+   Lives at the call site only — the type stays narrow for everyone
+   else.
+
+i18next interop carve-out: utility helpers that take a `t` function
+parameter use `import type { TFunction } from 'i18next'` rather than a
+hand-rolled `(key: string, options?: …) => string` shim. The branded
+generic overloads in `TFunction` do not structurally match a widened
+options signature under exactOptional, so the explicit import keeps the
+call sites assignable without per-namespace casts.
+
+### `noImplicitOverride` (ENG-179b, 2026-05-28)
+
+The flag requires every subclass method that overrides a parent to
+carry the `override` keyword. Catches typos in the override chain —
+when someone renames the parent's method, the subclass silently stops
+overriding instead of failing the compile.
+
+Fix is mechanical: add `override` before the field / method modifier.
+The codebase has one class-component hot spot (`AppErrorBoundary`'s
+React 19 lifecycle methods) plus the Electron `BrowserWindow` event
+handler subclasses. No call-site impact, zero runtime change.
 
 ### Lint + style guardrails
 

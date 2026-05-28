@@ -714,7 +714,7 @@ export class ServerErrorWithCode extends Error {
   constructor(
     errorCode: ServerErrorCode,
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown> | undefined
   ) {
     super(message);
     this.name = 'ServerErrorWithCode';
@@ -740,7 +740,10 @@ export function throwServerError(args: {
   trpcCode: TRPC_ERROR_CODE_KEY;
   errorCode: ServerErrorCode;
   message: string;
-  details?: Record<string, unknown>;
+  // ENG-179b — explicit `| undefined` so callers can spread
+  // `{ details: maybeDetails }` (where maybeDetails is built from a
+  // partial source) without violating `exactOptionalPropertyTypes`.
+  details?: Record<string, unknown> | undefined;
 }): never {
   throw new TRPCError({
     code: args.trpcCode,

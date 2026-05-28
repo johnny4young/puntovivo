@@ -85,14 +85,17 @@ export interface FiscalAdapterIssueInput {
   environment: FiscalEnvironment;
   issuerNit: string;
   /** Legal name of the issuer — read from `companies.legalName`. ENG-035b reads this for CFDI cfdi:Emisor.Nombre. */
-  issuerName?: string;
+  // ENG-179b — explicit `| undefined` on optional fields lets callers
+  // pass `field: undefined` (typical when destructuring a parent ctx)
+  // without violating `exactOptionalPropertyTypes`.
+  issuerName?: string | undefined;
   currencyCode: string;
   localeCode: string;
   /**
    * Dominant sale tender from `sales.paymentMethod`. Country packs use
    * this to map to their fiscal payment catalog (MX c_FormaPago, etc.).
    */
-  paymentMethod?: string;
+  paymentMethod?: string | undefined;
   resolution: FiscalAdapterResolution;
   buyer: FiscalAdapterBuyer;
   /** Header totals — already computed by the orchestrator. */
@@ -104,15 +107,15 @@ export interface FiscalAdapterIssueInput {
   totalAmount: number;
   lines: FiscalAdapterLine[];
   /** Set when `source` is 'void' or 'return'. */
-  originalCufe?: string;
-  reasonCode?: string;
+  originalCufe?: string | undefined;
+  reasonCode?: string | undefined;
   /**
    * Raw `tenants.settings` blob so country packs (MX, CL, ...) can
    * read their pack-specific settings (`fiscal.mx.*`, `fiscal.cl.*`)
    * without coupling the adapter to the DB. ENG-035b adopted this
    * pattern; `ColombiaMockAdapter` ignores it.
    */
-  tenantSettings?: Record<string, unknown>;
+  tenantSettings?: Record<string, unknown> | undefined;
   /**
    * ENG-036b — Pre-allocated Chile CAF folio. The orchestrator
    * detects `adapter.countryCode === 'CL'`, runs the CAF allocator
@@ -134,7 +137,7 @@ export interface FiscalAdapterIssueInput {
     rutEmisor: string;
     rawCafXml: string;
     rangeRemaining: number;
-  };
+  } | undefined;
 }
 
 /** Result the orchestrator persists into `fiscal_documents`. */

@@ -32,9 +32,10 @@ const HIGH_CONFIDENCE = 0.7;
 const MEDIUM_CONFIDENCE_FLOOR = 0.3;
 const SUGGEST_DEBOUNCE_MS = 800;
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface SuggestCategoryInput {
   name: string;
-  description?: string | null;
+  description?: string | null | undefined;
 }
 
 function normalizeSuggestionDescription(value: string | null | undefined): string | null {
@@ -220,14 +221,15 @@ interface ProductFormModalProps {
    * state with the typed query. Ignored on `mode='edit'` (the
    * existing product's name wins). Defaults to no pre-fill.
    */
-  defaultName?: string;
+  // ENG-179b — explicit `| undefined` on optional fields.
+  defaultName?: string | undefined;
   /**
    * ENG-105c — fired once `onSubmit` succeeds AND `mode='create'`
    * AND the resolved value is a real product. Lets the caller add
    * the new product to the cart, attach to a sale, etc. Skipped on
    * error or on edit-mode submits.
    */
-  onCreated?: (product: Product) => void;
+  onCreated?: ((product: Product) => void) | undefined;
 }
 
 type PricingField = 'price' | 'price2' | 'price3';

@@ -75,12 +75,15 @@ export interface EmitFiscalDocumentArgs {
   saleId: string;
   kind: FiscalDocumentKind;
   /** When source is void/return, pass the original sale's fiscal doc CUFE. */
-  originalCufe?: string;
-  reasonCode?: string;
+  // ENG-179b — explicit `| undefined` so callers can pass
+  // `originalCufe: maybeCufe` (built from a nullable DB row) without
+  // violating `exactOptionalPropertyTypes`.
+  originalCufe?: string | undefined;
+  reasonCode?: string | undefined;
   /** Country-specific adapter selected by the sale lifecycle caller. */
   adapter: FiscalAdapter;
   /** Environment flag. Fase A defaults to '2' (sandbox). */
-  environment?: FiscalEnvironment;
+  environment?: FiscalEnvironment | undefined;
 }
 
 export interface EmitFiscalDocumentResult {
@@ -687,9 +690,12 @@ export async function enqueueFiscalEmission(args: {
   sourceId: string;
   saleId: string;
   kind: FiscalDocumentKind;
-  originalCufe?: string;
-  reasonCode?: string;
-  environment?: FiscalEnvironment;
+  // ENG-179b — explicit `| undefined` on optional fields so the
+  // sale lifecycle can forward `args.originalCufe` (typed
+  // `string | undefined`) without violating `exactOptionalPropertyTypes`.
+  originalCufe?: string | undefined;
+  reasonCode?: string | undefined;
+  environment?: FiscalEnvironment | undefined;
 }): Promise<EmitFiscalDocumentResult | null> {
   const { db, tenantId, userId, source, sourceId, saleId, kind } = args;
 
@@ -1087,8 +1093,9 @@ export async function safelyEmitFiscalDocument(args: {
   sourceId: string;
   saleId: string;
   kind: FiscalDocumentKind;
-  originalCufe?: string;
-  reasonCode?: string;
+  // ENG-179b — explicit `| undefined` per the optional-args pattern.
+  originalCufe?: string | undefined;
+  reasonCode?: string | undefined;
 }): Promise<EmitFiscalDocumentResult | null> {
   try {
     const result = await enqueueFiscalEmission({

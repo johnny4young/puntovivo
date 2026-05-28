@@ -33,11 +33,12 @@ interface SalesOverviewProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
+  // ENG-179b — explicit `| undefined` on optional fields.
   /** ENG-062 — manager-gated cash drawer kick. When undefined the
    * button is hidden (cashier role or no escpos drawer registered). */
-  onKickCashDrawer?: () => void;
+  onKickCashDrawer?: (() => void | Promise<void>) | undefined;
   /** Whether the kick mutation is in flight. */
-  isKickingCashDrawer?: boolean;
+  isKickingCashDrawer?: boolean | undefined;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
   productInputRef: RefObject<HTMLInputElement | null>;
   /**
@@ -46,7 +47,7 @@ interface SalesOverviewProps {
    * behavior so a `hub_client` terminal cannot bypass the gate by
    * triggering checkout from the overview hero.
    */
-  hubReachable?: boolean;
+  hubReachable?: boolean | undefined;
 }
 
 export function SalesOverview({

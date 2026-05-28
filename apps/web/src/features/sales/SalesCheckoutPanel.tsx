@@ -23,6 +23,7 @@ import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site } from '@/types';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface SalesCheckoutPanelProps {
   currentSite: Site | null;
   cashSession: CashSession | null;
@@ -42,16 +43,16 @@ interface SalesCheckoutPanelProps {
   // ENG-018b — optional multi-cart affordances. When `onSuspend` /
   // `onNewSale` are omitted the panel renders exactly like before so
   // legacy callers (Storybook, tests) stay green.
-  canSuspend?: boolean;
-  onSuspend?: () => void;
-  onNewSale?: () => void;
+  canSuspend?: boolean | undefined;
+  onSuspend?: (() => void) | undefined;
+  onNewSale?: (() => void) | undefined;
   /**
    * When wired, renders a badge-button that toggles the
    * SuspendedSalesPanel. The badge count makes the feature
    * discoverable even for operators who do not know Ctrl+R.
    */
-  suspendedDraftsCount?: number;
-  onToggleSuspendedPanel?: () => void;
+  suspendedDraftsCount?: number | undefined;
+  onToggleSuspendedPanel?: (() => void) | undefined;
   /**
    * ENG-074 — when the renderer runs in `hub_client` mode and the
    * Store Hub is unreachable, this prop is set to `false` to
@@ -60,14 +61,14 @@ interface SalesCheckoutPanelProps {
    * `device_local` installs (the parent never wires the prop in
    * that mode). `true` is the explicit reachable signal.
    */
-  hubReachable?: boolean;
+  hubReachable?: boolean | undefined;
   /**
    * ENG-105b — checkout preflight items. Each entry blocks (severity
    * `blocker`, disables Cobrar) or warns (severity `warning`, leaves
    * Cobrar enabled). Default `[]` keeps legacy callers (Storybook,
    * existing tests) rendering exactly like before.
    */
-  preflightItems?: readonly PreflightItem[];
+  preflightItems?: readonly PreflightItem[] | undefined;
 }
 
 function shortcutLabel(id: string): string {

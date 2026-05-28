@@ -2,13 +2,14 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface InventoryAdjustmentProduct {
   id: string;
   name: string;
   sku: string;
   stock: number;
   minStock: number;
-  categoryName?: string | null;
+  categoryName?: string | null | undefined;
 }
 
 export interface InventoryAdjustmentFormValues {
@@ -19,7 +20,7 @@ export interface InventoryAdjustmentFormValues {
 interface InventoryAdjustmentModalProps {
   isOpen: boolean;
   product: InventoryAdjustmentProduct | null;
-  siteName?: string | null;
+  siteName?: string | null | undefined;
   isSaving: boolean;
   error: string | null;
   onClose: () => void;

@@ -202,13 +202,14 @@ export interface AuthResponse {
 
 // Domain Models
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface Product {
   id: string;
   tenantId: string;
   name: string;
   sku: string;
-  description?: string | null;
-  categoryId?: string | null;
+  description?: string | null | undefined;
+  categoryId?: string | null | undefined;
   price: number;
   price2: number;
   price3: number;
@@ -220,29 +221,29 @@ export interface Product {
   marginAmount2: number;
   marginAmount3: number;
   taxRate: number;
-  vatRateId?: string | null;
-  providerId?: string | null;
-  locationId?: string | null;
-  locationCode?: string | null;
-  locationName?: string | null;
+  vatRateId?: string | null | undefined;
+  providerId?: string | null | undefined;
+  locationId?: string | null | undefined;
+  locationCode?: string | null | undefined;
+  locationName?: string | null | undefined;
   initialCost: number;
   stock: number;
   minStock: number;
   sellByFraction: boolean;
-  fractionStep?: number | null;
-  fractionMinimum?: number | null;
+  fractionStep?: number | null | undefined;
+  fractionMinimum?: number | null | undefined;
   isActive: boolean;
-  barcode?: string | null;
-  imageUrl?: string | null;
-  categoryName?: string | null;
-  providerName?: string | null;
-  vatRateName?: string | null;
-  unitAssignments?: ProductUnitAssignment[];
-  providerAssignments?: ProductProviderAssignment[];
+  barcode?: string | null | undefined;
+  imageUrl?: string | null | undefined;
+  categoryName?: string | null | undefined;
+  providerName?: string | null | undefined;
+  vatRateName?: string | null | undefined;
+  unitAssignments?: ProductUnitAssignment[] | undefined;
+  providerAssignments?: ProductProviderAssignment[] | undefined;
   createdAt: string;
   updatedAt: string;
-  syncStatus?: SyncStatus | null;
-  syncVersion?: number | null;
+  syncStatus?: SyncStatus | null | undefined;
+  syncVersion?: number | null | undefined;
 }
 
 export interface ProductUnitAssignment {
@@ -944,6 +945,7 @@ export interface InitialInventoryEntry {
 
 export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface SyncQueueItem {
   id: string;
   entityType: string;
@@ -960,7 +962,7 @@ export interface SyncQueueItem {
    * shapes — see `normalizeSyncLastError` in
    * `apps/web/src/features/company/companySyncDisplay.ts`.
    */
-  lastError?: string | Record<string, unknown> | null;
+  lastError?: string | Record<string, unknown> | null | undefined;
 }
 
 export interface SyncConflict {

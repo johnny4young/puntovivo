@@ -623,21 +623,22 @@ async function openBrowserPrintWindow(receiptHtml: string): Promise<void> {
 export type EscPosDispatchOutcome =
   | { status: 'printed' }
   | { status: 'system-fallback' }
-  | { status: 'fallback'; error?: string; errorMessage?: string };
+  | { status: 'fallback'; error?: string | undefined; errorMessage?: string | undefined };
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface PrintSaleReceiptOptions {
   /**
    * When supplied, called first to attempt the ESC/POS path. Returns
    * the server's dispatch outcome which steers whether to also
    * trigger the legacy HTML path.
    */
-  escposDispatcher?: () => Promise<EscPosDispatchOutcome>;
+  escposDispatcher?: (() => Promise<EscPosDispatchOutcome>) | undefined;
   /**
    * Called when the ESC/POS attempt fails and the renderer falls
    * back to the legacy HTML path. The SalesPage uses this to fire a
    * translated toast.
    */
-  onEscposFallback?: (outcome: { error?: string; errorMessage?: string }) => void;
+  onEscposFallback?: ((outcome: { error?: string | undefined; errorMessage?: string | undefined }) => void) | undefined;
 }
 
 export async function printSaleReceipt(
@@ -788,12 +789,13 @@ export function createEscposReceiptDispatcher({
   };
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 /** Cash-drawer kick outcome shape mirrored from server `kickCashDrawer`. */
 export type DrawerKickOutcome =
   | { status: 'ok' }
   | { status: 'no-drawer-registered' }
-  | { status: 'error'; error?: string; errorMessage?: string }
-  | { status: 'failed'; error?: string; errorMessage?: string };
+  | { status: 'error'; error?: string | undefined; errorMessage?: string | undefined }
+  | { status: 'failed'; error?: string | undefined; errorMessage?: string | undefined };
 
 export interface DispatchDrawerKickInput {
   /** Server-managed drawer kick. Used in `device_local` / `site_hub`. */

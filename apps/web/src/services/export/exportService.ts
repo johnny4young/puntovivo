@@ -13,13 +13,14 @@ export interface ExportColumn<T = unknown> {
   formatter?: (value: unknown, row: T) => string;
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface ExportOptions {
   /** Title for the export (used in PDF/Excel headers) */
-  title?: string;
+  title?: string | undefined;
   /** Include timestamp in filename */
-  includeTimestamp?: boolean;
+  includeTimestamp?: boolean | undefined;
   /** Date format for timestamps */
-  dateFormat?: string;
+  dateFormat?: string | undefined;
 }
 
 const DOWNLOAD_URL_REVOKE_DELAY_MS = 1000;

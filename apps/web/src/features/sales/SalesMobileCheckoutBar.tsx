@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface SalesMobileCheckoutBarProps {
   draftSummary: SaleCartSummary;
   cashSession: CashSession | null;
@@ -21,18 +22,18 @@ interface SalesMobileCheckoutBarProps {
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
-  canSuspend?: boolean;
-  onSuspend?: () => void;
-  onNewSale?: () => void;
-  suspendedDraftsCount?: number;
-  onToggleSuspendedPanel?: () => void;
+  canSuspend?: boolean | undefined;
+  onSuspend?: (() => void) | undefined;
+  onNewSale?: (() => void) | undefined;
+  suspendedDraftsCount?: number | undefined;
+  onToggleSuspendedPanel?: (() => void) | undefined;
   /**
    * ENG-074 — same hub-reachability gate as `SalesCheckoutPanel`. The
    * mobile bar mirrors the desktop panel's behavior so a `hub_client`
    * terminal on a phone or tablet cannot bypass the gate by routing
    * checkout through the mobile-width primary action.
    */
-  hubReachable?: boolean;
+  hubReachable?: boolean | undefined;
 }
 
 export function SalesMobileCheckoutBar({

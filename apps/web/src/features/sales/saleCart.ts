@@ -1,5 +1,6 @@
 import type { ProductSearchSelection } from '@/types';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface SaleCartItem {
   key: string;
   productId: string;
@@ -14,8 +15,8 @@ export interface SaleCartItem {
   taxRate: number;
   availableStock: number;
   sellByFraction: boolean;
-  fractionStep?: number | null;
-  fractionMinimum?: number | null;
+  fractionStep?: number | null | undefined;
+  fractionMinimum?: number | null | undefined;
 }
 
 export interface SaleCartSummary {

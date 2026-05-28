@@ -80,7 +80,8 @@ async function lookupJournalEventId(
 
 export interface VoidSaleInput {
   id: string;
-  reason?: string | null;
+  // ENG-179b — explicit `| undefined` on Zod-optional field.
+  reason?: string | null | undefined;
 }
 
 export type VoidedSaleRecord = typeof sales.$inferSelect;

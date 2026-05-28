@@ -16,17 +16,20 @@ import i18next from '@/i18n';
 import { CompanyReadinessCard } from '../CompanyReadinessCard';
 import { assertNoA11yViolations } from '@/test/a11y';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface ReadinessQueryState {
-  data?: {
-    score: number;
-    blockerCount: number;
-    sections: Array<{
-      id: string;
-      status: string;
-      cta: { route: string; tab?: string } | null;
-    }>;
-    acknowledgedAt: string | null;
-  };
+  data?:
+    | {
+        score: number;
+        blockerCount: number;
+        sections: Array<{
+          id: string;
+          status: string;
+          cta: { route: string; tab?: string | undefined } | null;
+        }>;
+        acknowledgedAt: string | null;
+      }
+    | undefined;
   isLoading: boolean;
   error: { message: string } | null;
   refetch: () => Promise<void>;

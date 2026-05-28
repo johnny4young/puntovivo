@@ -247,13 +247,14 @@ export async function detectBackupFormat(
   }
 }
 
+// ENG-179b — explicit `| undefined` on optional fields.
 export interface ExtractBackupBundleResult {
   /** Path of the extracted (or as-is) DB file. */
   dbPath: string;
   /** Path of the extracted device-id, if the bundle carried one. */
-  deviceIdPath?: string;
+  deviceIdPath?: string | undefined;
   /** Parsed manifest, when the bundle is a ZIP carrying one. */
-  manifest?: BackupManifest;
+  manifest?: BackupManifest | undefined;
   /** Format detected at the boundary. */
   format: 'zip' | 'sqlite';
 }
@@ -332,9 +333,10 @@ export async function extractBackupBundle(
  * The error message is kept generic so callers can wrap it in a
  * translated user-facing string without coupling to SQLite internals.
  */
+// ENG-179b — explicit `| undefined` on optional fields.
 export async function assertSqliteIntegrity(
   dbPath: string,
-  options: { encryptionKey?: string } = {}
+  options: { encryptionKey?: string | undefined } = {}
 ): Promise<void> {
   let db: Database.Database | null = null;
   try {

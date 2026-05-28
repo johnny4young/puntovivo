@@ -4,6 +4,7 @@ import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 const SALE_PAYMENT_FORM_ID = 'sale-payment-form';
 const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
 
+// ENG-179b — explicit `| undefined` on optional fields.
 interface SalesKeyboardShortcutsOptions {
   selectedItemKey: string | null;
   canCharge: boolean;
@@ -24,9 +25,9 @@ interface SalesKeyboardShortcutsOptions {
    * resumed server draft" (resumed drafts are finalized, not
    * re-suspended).
    */
-  canSuspend?: boolean;
-  onSuspend?: () => void;
-  onToggleSuspendedPanel?: () => void;
+  canSuspend?: boolean | undefined;
+  onSuspend?: (() => void) | undefined;
+  onToggleSuspendedPanel?: (() => void) | undefined;
   /**
    * `canToggleSuspendedPanel` must be `true` for Ctrl/Cmd+R to call
    * `onToggleSuspendedPanel` and preventDefault (blocking browser
@@ -35,7 +36,7 @@ interface SalesKeyboardShortcutsOptions {
    * cashiers who reflexively hit reload. Callers set it to
    * `suspendedDraftsCount > 0 || isSuspendedPanelOpen`.
    */
-  canToggleSuspendedPanel?: boolean;
+  canToggleSuspendedPanel?: boolean | undefined;
   /**
    * Ctrl/Cmd+Shift+P — triggers the reprint flow for the selected
    * history row. The callback is only invoked if wired; the hook
@@ -43,7 +44,7 @@ interface SalesKeyboardShortcutsOptions {
    * caller (history table / sales page) knows whether there is
    * something to reprint.
    */
-  onReprintSelectedHistoryRow?: () => void;
+  onReprintSelectedHistoryRow?: (() => void) | undefined;
   /**
    * ENG-105d — Ctrl/Cmd+Z undo for the active cart workspace.
    *
@@ -57,7 +58,7 @@ interface SalesKeyboardShortcutsOptions {
    * lets the caller emit one consistent set of toasts whether the
    * user pressed Mod+Z or clicked the visible "Deshacer" button.
    */
-  onUndo?: () => void;
+  onUndo?: (() => void) | undefined;
   /**
    * ENG-105e — F2 rapid-cash. Unlike most shortcuts, F2 stays
    * active even when the payment modal is open: outside the modal

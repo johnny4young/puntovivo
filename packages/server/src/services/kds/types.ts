@@ -38,10 +38,14 @@ export interface KdsHookContext {
    * `list` always re-scopes by `ctx.siteId` so the data is safe even
    * when the broadcast crosses sites; this is purely an optimisation.
    */
-  siteId?: string | null;
-  user?: { id: string } | null;
-  sse?: KdsSseBroadcaster | null;
-  log?: KdsHookLogger;
+  // ENG-179b — explicit `| undefined` on optional fields satisfies
+  // `exactOptionalPropertyTypes`: callers can pass either `field:
+  // undefined` (often the case when destructuring a parent context
+  // that may not carry the field) or omit the key entirely.
+  siteId?: string | null | undefined;
+  user?: { id: string } | null | undefined;
+  sse?: KdsSseBroadcaster | null | undefined;
+  log?: KdsHookLogger | undefined;
 }
 
 /**

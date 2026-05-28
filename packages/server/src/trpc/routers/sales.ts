@@ -123,7 +123,10 @@ function assertCanCreateCreditSale(ctx: Context): void {
 
 function inputCarriesCreditTender(input: {
   paymentMethod: string;
-  payments?: Array<{ method: string }>;
+  // ENG-179b — explicit `| undefined` so the Zod-parsed input shape
+  // (which carries an explicit-undefined `payments` field when absent)
+  // assigns cleanly under `exactOptionalPropertyTypes`.
+  payments?: Array<{ method: string }> | undefined;
 }): boolean {
   return (
     input.paymentMethod === 'credit' ||
