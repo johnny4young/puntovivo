@@ -487,6 +487,18 @@ research.
   (no UI to change product currency), but worth a small input-schema
   + handler patch when ENG-156's import-product flow lands. —
   2026-05-26 (ENG-176b follow-up, gated on ENG-156).
+- **Remove the `apps/web/src/types/index.ts` re-export shim + finish the
+  DTO → `inferRouterOutputs` migration.** ENG-179c split the monolith
+  into `types/domain.ts` + `types/ui.ts` + `types/api.ts` and kept
+  `index.ts` as a pure re-export shim for one release so the ~142
+  `@/types` import sites resolved unchanged. Next release: migrate those
+  import sites to the specific module (`@/types/domain`, `@/types/ui`),
+  delete the shim, and move the hand-written domain DTOs that genuinely
+  mirror a tRPC output to `inferRouterOutputs<AppRouter>[…]` in
+  `types/api.ts` (skipped in ENG-179c because the domain models are also
+  consumed by the offline / IndexedDB layer, so a wholesale migration
+  risked coupling the offline buffer's types to the wire contract). —
+  2026-05-28 (ENG-179c follow-up).
 
 ## 2. Small bugs / polish
 

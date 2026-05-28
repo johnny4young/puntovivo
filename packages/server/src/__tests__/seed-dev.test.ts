@@ -219,7 +219,7 @@ describe('Dev seed (`seedDevData`)', () => {
 
 async function count(
   db: DatabaseInstance,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: test count() helper accepts any tenant-scoped Drizzle table; parametric-table ref. Test fixture, exempt per ENG-179c.
   table: any,
   tenantId: string
 ): Promise<number> {

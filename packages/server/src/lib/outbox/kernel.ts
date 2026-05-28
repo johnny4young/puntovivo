@@ -32,7 +32,7 @@
  */
 
 import { and, asc, desc, eq, isNull, lte, or, sql } from 'drizzle-orm';
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
+import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import type {
@@ -40,6 +40,31 @@ import type {
   OutboxRetryPolicy,
   OutboxRow,
 } from './types.js';
+
+/**
+ * ENG-179c — Drizzle's `insert` / `select` / `update` query builders
+ * do not accept a *parametric* `SQLiteTable` (their generics infer
+ * from a concrete table literal, not a type parameter), so calling
+ * `db.insert(table)` where `table: SQLiteTable` is a generic ref
+ * fails to type-check. The three boundary helpers below isolate the
+ * single unavoidable cast per operation; every call site stays fully
+ * typed on the values / predicates it passes, and the `.run()` /
+ * `.get()` / `.all()` results are re-narrowed at the call site.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- reason: Drizzle insert/select/update builders reject a parametric SQLiteTable; cast isolated to this single alias consumed only by the boundary helpers below.
+type AnyBuilder = any;
+
+function insertInto(db: DatabaseInstance, table: SQLiteTable): AnyBuilder {
+  return db.insert(table);
+}
+
+function selectAll(db: DatabaseInstance): AnyBuilder {
+  return db.select();
+}
+
+function updateOf(db: DatabaseInstance, table: SQLiteTable): AnyBuilder {
+  return db.update(table);
+}
 
 /**
  * Columns the kernel expects on every outbox table. Concrete
@@ -75,8 +100,7 @@ export interface OutboxBaseColumns {
  */
 export interface OutboxKernelOptions<TStatus extends string> {
   /** The Drizzle table reference for the concrete outbox. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  table: SQLiteTable & { [K in keyof OutboxBaseColumns]: any };
+  table: SQLiteTable & { [K in keyof OutboxBaseColumns]: SQLiteColumn };
   /**
    * Human-readable kind for logs + the `outbox_metadata` row
    * (`'sync'|'fiscal'|'payment'|'webhook'|'hardware'`).
@@ -158,8 +182,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
     async enqueue(db, args) {
       const id = nanoid();
       const nowIso = new Date().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db.insert(table) as any)
+      await insertInto(db, table)
         .values({
           id,
           tenantId: args.tenantId,
@@ -188,8 +211,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       // guard — if another worker grabbed or completed the row
       // between our SELECT and UPDATE, `changes` comes back 0 and
       // we return null.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let candidate = (await (db.select() as any)
+      let candidate = (await selectAll(db)
         .from(table)
         .where(
           and(
@@ -205,8 +227,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
       if (!candidate) {
         // Also consider rows in `retrying` whose nextRetryAt is due.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        candidate = (await (db.select() as any)
+        candidate = (await selectAll(db)
           .from(table)
           .where(
             and(
@@ -225,8 +246,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
       const claimToken = `${args.workerId}:${nanoid(8)}`;
       const candidateStatus = candidate.status as string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updateResult = (await (db.update(table) as any)
+      const updateResult = (await updateOf(db, table)
         .set({
           status: opts.processingStatus,
           claimToken,
@@ -262,15 +282,13 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async complete(db, args) {
       const nowIso = new Date().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const current = (await (db.select() as any)
+      const current = (await selectAll(db)
         .from(table)
         .where(eq(table.id, args.id))
         .get()) as Record<string, unknown> | undefined;
       if (!current) return;
       if (terminalSet.has(current.status as string)) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db.update(table) as any)
+      await updateOf(db, table)
         .set({
           status: opts.succeededStatus,
           claimToken: null,
@@ -284,8 +302,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async fail(db, args) {
       const nowIso = args.nowIso ?? new Date().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const row = (await (db.select() as any)
+      const row = (await selectAll(db)
         .from(table)
         .where(eq(table.id, args.id))
         .get()) as Record<string, unknown> | undefined;
@@ -299,8 +316,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       // policy budget. This is the canonical handling per
       // ADR-0003 §normalized errors.
       if (!args.error.recoverable) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.update(table) as any)
+        await updateOf(db, table)
           .set({
             status: opts.deadLetterStatus,
             attempts: nextAttempts,
@@ -319,8 +335,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       // budget is exhausted and we dead-letter.
       const delayMs = opts.retryPolicy.nextDelayMs(attempts);
       if (delayMs === null || nextAttempts >= opts.retryPolicy.maxAttempts) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.update(table) as any)
+        await updateOf(db, table)
           .set({
             status: opts.deadLetterStatus,
             attempts: nextAttempts,
@@ -336,8 +351,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       }
 
       const nextRetryAt = new Date(Date.parse(nowIso) + delayMs).toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db.update(table) as any)
+      await updateOf(db, table)
         .set({
           status: opts.retryingStatus,
           attempts: nextAttempts,
@@ -354,8 +368,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async deadLetter(db, args) {
       const nowIso = new Date().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db.update(table) as any)
+      await updateOf(db, table)
         .set({
           status: opts.deadLetterStatus,
           claimToken: null,
@@ -369,8 +382,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
 
     async peek(db, args) {
       const limit = args.limit ?? 10;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = (await (db.select() as any)
+      const rows = (await selectAll(db)
         .from(table)
         .where(eq(table.tenantId, args.tenantId))
         .orderBy(desc(table.priority), asc(table.createdAt))
