@@ -54,6 +54,18 @@ research.
   storage-CHECK implications (integer CLP would need its own column
   precision rule). Sized when the operator opens a CL or PE market. —
   2026-05-28 (ENG-180 follow-up)
+- `[security][deps]` Clear the 7 dev-only `pnpm audit` advisories (1
+  moderate + 6 high) once upstream build tooling updates its transitive
+  chains. All are build-time only — production audit (`pnpm audit --prod`,
+  the `ci:audit` gate) is clean. (a) `tar` (GHSA-r6q2-hw4h-h46w) enters via
+  `@electron-forge/cli > @electron/rebuild > @electron/node-gyp` (100 paths,
+  all electron-forge packaging). (b) `esbuild` <=0.24.2 dev-server-CORS
+  (GHSA-67mh-4wv8-2f99) enters via `drizzle-kit > @esbuild-kit/esm-loader`
+  (a deprecated loader drizzle-kit still bundles). Forcing pnpm overrides on
+  these deep transitives risks breaking electron-forge packaging /
+  drizzle-kit migration generation for no production-security gain — revisit
+  when @electron-forge bumps node-gyp's tar and drizzle-kit drops the
+  deprecated @esbuild-kit chain. — 2026-05-28 (pnpm migration follow-up)
 - `[fiscal][ux]` Admin card surfacing `listFiscalAdapterCountries()`
   readiness. La función shippea en ENG-034 con consumer parcial:
   ENG-035a usa el adapter MX directo en `CompanyMxFiscalCard`.
