@@ -334,9 +334,46 @@ async function isDianEnabled(
 }
 
 /**
- * Emit a fiscal document for a sale-lifecycle event. Idempotent by
- * `(tenantId, source, sourceId, kind)`. Returns `null` when the
- * tenant has not opted in or when prerequisites are missing.
+ * Emit a fiscal document for a sale-lifecycle event (legacy synchronous
+ * path — the live sale lifecycle now routes through `enqueueFiscalEmission`
+ * since ENG-057; this entry point is retained for adapters/tests that need
+ * the in-band issue + persist in a single call).
+ *
+ * Invariants:
+ * - Idempotent by `(tenantId, source, sourceId, kind)`: a replay returns
+ *   the existing row instead of issuing a second document. The check runs
+ *   twice — once before the adapter call (fast path) and once again INSIDE
+ *   the write transaction (`duplicate` probe at the top of `writeTx`) so a
+ *   concurrent emitter that won the race is honoured rather than producing a
+ *   duplicate insert.
+ * - Buyer + line data are SNAPSHOT into `fiscal_documents` /
+ *   `fiscal_document_items` at emission time. Editing the customer or the
+ *   product later never mutates an already-emitted document — the legal
+ *   record reflects the state at the instant of issue, per Resolución DIAN
+ *   165/2023 (the CUFE is computed over this frozen payload).
+ * - The numbering consecutive advances INSIDE the same write transaction as
+ *   the document insert (`update(fiscalNumberingResolutions)` with a
+ *   versioned WHERE on the resolution row). The post-update guard
+ *   `updateResult.changes !== 1` throws `FISCAL_SEQUENTIAL_NOT_ADVANCED`
+ *   (CONFLICT) when a concurrent emitter advanced the same resolution first
+ *   — a TOCTOU guard that rolls the whole transaction back rather than
+ *   burning a gapped/duplicated consecutive.
+ *
+ * Preconditions:
+ * - The tenant has opted into DIAN (`fiscal_dian_enabled`) AND the country
+ *   pack is enabled for `adapter.countryCode`; otherwise returns `null`.
+ * - The sale exists, carries a `cashSessionId` (the site is resolved through
+ *   it), has an active numbering resolution for its `(site, kind)`, and has
+ *   at least one line. Any missing prerequisite returns `null` cleanly — the
+ *   caller treats `null` as "no document for this sale", never an error.
+ *
+ * Postconditions:
+ * - On success: one `fiscal_documents` row + N `fiscal_document_items` rows
+ *   committed, the resolution consecutive advanced by exactly 1, and the
+ *   `{ id, cufe, documentNumber, status }` summary returned.
+ * - On idempotent replay: the existing summary, no new rows, no consecutive
+ *   advance.
+ * - On any prerequisite miss: `null`, no rows, no consecutive advance.
  */
 export async function emitFiscalDocument(
   args: EmitFiscalDocumentArgs
@@ -628,58 +665,53 @@ export async function emitFiscalDocument(
 }
 
 /**
- * ENG-020 / ENG-054 — best-effort fiscal emission post-transaction.
- *
- * The sale lifecycle tx has already committed by the time this runs;
- * an emission failure (PT outage, missing resolution, malformed input)
- * MUST NOT roll back the sale. The orchestrator itself is idempotent
- * by `(tenantId, source, sourceId, kind)`, so a later retry (from the
- * contingency daemon planned in ENG-021) picks the dropped emission
- * back up without duplicating it.
- *
- * When the tenant has not opted into DIAN (feature flag off) the
- * orchestrator returns `null` without throwing. Errors are logged
- * but swallowed — this function never throws.
- *
- * Originally lived inline in `trpc/routers/sales.ts`. Moved here in
- * ENG-054 so application services (`completeSale`, future
- * `returnSale` / `voidSale` in ENG-055) can call it without depending
- * on the router file.
- *
- * Returns the emitted fiscal document row when one was produced, null
- * otherwise. Callers can use the return to emit a `fiscal_emit`
- * journal effect, but must NOT make business-critical decisions on
- * it — a null return is the normal flow for a non-DIAN tenant.
- */
-/**
  * ENG-057 — Pre-create the `fiscal_documents` row + enqueue a
- * `fiscal_outbox` row in ONE local transaction. The fiscal worker
- * (`services/fiscal/fiscal-worker.ts`) drains the outbox, calls the
- * adapter, and mirrors the verdict back to `fiscal_documents.status`.
+ * `fiscal_outbox` row in ONE local transaction (the ENG-057 inversion of
+ * the legacy `emitFiscalDocument`: the adapter is NOT called inline here —
+ * the fiscal worker `services/fiscal/fiscal-worker.ts` drains the outbox,
+ * calls the adapter out-of-band, and mirrors the verdict back to
+ * `fiscal_documents.status`).
  *
- * Behavior contract for the acceptance criterion of ENG-057:
+ * Invariants:
+ * - Idempotent by `(tenantId, source, sourceId, kind)`: replay of the same
+ *   envelope returns the existing summary. The check runs twice — once on
+ *   the outer connection (fast path) and once again INSIDE the write
+ *   transaction (`duplicate` probe) so a concurrent enqueue that won the
+ *   race is honoured rather than double-inserting.
+ * - Buyer + line data are SNAPSHOT into `fiscal_documents` /
+ *   `fiscal_document_items` (and embedded in the outbox `adapterInput`
+ *   payload) at enqueue time. The worker issues against this frozen payload
+ *   without re-querying the customer/products, so a later edit to the
+ *   customer or a product never alters the in-flight legal document.
+ * - The numbering consecutive advances INSIDE the same write transaction as
+ *   the pre-create. The post-update guard `updateResult.changes !== 1`
+ *   throws `FISCAL_SEQUENTIAL_NOT_ADVANCED` (CONFLICT) on a concurrent
+ *   advance — a TOCTOU guard that rolls the whole transaction back (no row
+ *   inserted, no outbox enqueued, no folio burned). Trade-off: a
+ *   dead-lettered emission burns a consecutive DIAN never sees — accepted
+ *   per ADR-0003 §Fiscal outbox; ENG-058 may revisit with reserve-on-enqueue.
+ * - The CUFE column is seeded with a `pending-<nanoid>` placeholder that
+ *   satisfies the `fiscal_documents.cufe` UNIQUE constraint at insert; the
+ *   worker overwrites it with the adapter-returned CUFE on `accepted`.
+ * - Chile only (ENG-036b): the next CAF folio is allocated inside the same
+ *   write transaction (`allocateNextFolio`), so the folio cursor advance,
+ *   the document insert, and the outbox enqueue commit atomically — a
+ *   `CAF_NOT_AVAILABLE` / `CAF_EXHAUSTED` throw rolls all three back.
  *
- * - Returns `null` when DIAN is disabled, the sale has no cash
- *   session, no resolution, or no items — exactly the same null path
- *   as the legacy `emitFiscalDocument`. Callers (sale lifecycle
- *   services) tolerate null without throwing.
- * - Idempotent on `(tenantId, source, sourceId, kind)` — replay of
- *   the same envelope returns the existing row + outbox lookup.
- * - The CUFE column is filled with a temporary placeholder
- *   (`pending-<nanoid>`) at enqueue. The unique constraint on
- *   `fiscal_documents.cufe` is satisfied by the random nanoid; the
- *   worker overwrites with the adapter-returned CUFE on `accepted`.
- * - The numbering consecutive is advanced inside the same tx as the
- *   pre-create. Trade-off: a dead-lettered emission burns a
- *   consecutive that DIAN never sees. Acceptable per ADR-0003 §Fiscal
- *   outbox; ENG-058 may revisit with reserve-on-enqueue if pilot
- *   data shows this is a problem.
+ * Preconditions:
+ * - Same null surface as `emitFiscalDocument`: returns `null` when DIAN is
+ *   disabled, the country pack is disabled, the sale has no cash session /
+ *   no active resolution / no items, OR the country pack's `validateConfig`
+ *   rejects (config error → skip enqueue; the operator must fix settings).
+ *   Callers (sale lifecycle services) tolerate `null` without throwing.
  *
- * Errors thrown by this function MUST NOT propagate past the back-
- * compat shim `safelyEmitFiscalDocument` so the sale lifecycle stays
- * unaffected. The orchestrator's only known error path is a missing
- * resolution / DIAN-disabled tenant, both of which already return
- * `null` cleanly.
+ * Postconditions:
+ * - On success: a `fiscal_documents` row at `status='pending'`, its items,
+ *   the advanced consecutive, and a `queued` `fiscal_outbox` row — all in
+ *   one commit. Returns `{ id, cufe: placeholderCufe, documentNumber,
+ *   status: 'pending' }`.
+ * - Errors thrown here MUST NOT propagate past the back-compat shim
+ *   `safelyEmitFiscalDocument` so the sale lifecycle stays unaffected.
  */
 export async function enqueueFiscalEmission(args: {
   db: DatabaseInstance;
@@ -1064,25 +1096,36 @@ export async function enqueueFiscalEmission(args: {
 }
 
 /**
- * ENG-020 / ENG-054 / ENG-057 — best-effort fiscal emission entry
- * point used by sale-lifecycle services. Backwards-compatible wrapper
- * around `enqueueFiscalEmission` (ENG-057).
+ * ENG-020 / ENG-054 / ENG-057 — best-effort fiscal emission entry point
+ * used by sale-lifecycle services (`completeSale`, `voidSale`,
+ * `returnSale`). Backwards-compatible wrapper around `enqueueFiscalEmission`.
  *
- * The ENG-057 inversion: the function no longer calls the adapter
- * synchronously. It pre-creates a `fiscal_documents` row with
- * `status='pending'` and enqueues a `fiscal_outbox` row that the
- * worker daemon drains. A provider outage NEVER throws past this
- * function (the adapter call has moved out-of-band) and ALWAYS
- * leaves a visible pending document — meeting the acceptance
- * criterion of ENG-057.
+ * Invariants:
+ * - Best-effort, NON-BLOCKING relative to the sale. The sale-lifecycle
+ *   transaction has already committed by the time this runs; an emission
+ *   failure (provider outage, missing resolution, malformed input) MUST NOT
+ *   roll back the sale. This wrapper catches every throw from
+ *   `enqueueFiscalEmission` and returns `null` — it NEVER throws.
+ * - Idempotent for retry: because `enqueueFiscalEmission` is keyed on
+ *   `(tenantId, source, sourceId, kind)`, a later replay (the fiscal worker
+ *   re-tick, or a contingency retry) picks a dropped emission back up
+ *   without duplicating the document.
+ * - The shape of the returned object is preserved so existing callers read
+ *   `result.id` for `fiscal_emit` journal-effect emission without edits.
  *
- * The shape of the returned object is preserved so existing callers
- * (`completeSale.ts`, `voidSale.ts`, `returnSale.ts`) continue to
- * read `result.id` for journal effect emission without any edits.
+ * Preconditions: the sale lifecycle has already committed the source sale,
+ * and the caller provides the tenant/user/source tuple needed to enqueue or
+ * idempotently find the fiscal document.
  *
- * Returns `null` when the tenant has not opted into DIAN, the sale
- * has no cash session / resolution / items — same null surface as
- * before.
+ * Postconditions:
+ * - On a produced document: fires a fire-and-forget worker tick to drain the
+ *   new outbox row immediately (the worker's claim_token guards against
+ *   double-processing) and returns the `{ id, cufe, documentNumber, status }`
+ *   summary.
+ * - On a non-DIAN tenant / missing prerequisite / swallowed error: returns
+ *   `null`. A `null` return is the NORMAL flow for a non-DIAN tenant — the
+ *   caller may emit a journal effect off the return but MUST NOT make a
+ *   business-critical decision on it.
  */
 export async function safelyEmitFiscalDocument(args: {
   db: DatabaseInstance;

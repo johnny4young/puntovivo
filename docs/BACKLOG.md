@@ -40,6 +40,20 @@ research.
   swap `ColombiaMockAdapter` for `FactureAdapter` / `HkaAdapter`
   anyway and is the natural moment to relocate the helper. —
   2026-05-01 (jy)
+- `[fiscal][money]` Per-country transactional rounding in the money
+  path. Today `application/sales/completeSale.ts` rounds EVERY country
+  through the uniform 2-decimal `roundMoney()` (`lib/money.ts`); there
+  is no per-country branch. The only integer rounding is `roundClp`,
+  exclusive to the Chile DTE XML serializer — it never touches the live
+  POS money columns. The AUDIT §ENG-180 AC assumed CO 2-dec / CL
+  integer peso / PE ICBPER per-bag in the transactional path; ENG-180
+  documented the uniform reality and marked this as future work. When a
+  CL/PE pilot needs it, this is a real code ticket: a country-aware
+  rounding seam in `lib/money.ts` (CLP → integer, PE ICBPER per-bag
+  surcharge) wired through completeSale + quotations, plus the
+  storage-CHECK implications (integer CLP would need its own column
+  precision rule). Sized when the operator opens a CL or PE market. —
+  2026-05-28 (ENG-180 follow-up)
 - `[fiscal][ux]` Admin card surfacing `listFiscalAdapterCountries()`
   readiness. La función shippea en ENG-034 con consumer parcial:
   ENG-035a usa el adapter MX directo en `CompanyMxFiscalCard`.

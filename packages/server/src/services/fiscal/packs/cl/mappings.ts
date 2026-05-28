@@ -155,12 +155,23 @@ export function mapInternalKindToTipoDte(
 }
 
 /**
- * Redondeo CLP (sin decimales). El SII rechaza fracciones en la
- * mayoría de los nodos numéricos — los montos van como enteros.
+ * Redondeo CLP a entero (sin decimales) para la serialización del DTE.
  *
- * Usa Math.round() para banker's rounding-friendly comportamiento
- * sobre 0.5 hacia arriba (el SII no especifica regla; este es el
- * default JS).
+ * Invariantes:
+ * - Redondea a entero con Math.round() (0.5 hacia arriba; el SII no
+ *   especifica regla, este es el default de JS). Es la regla de redondeo
+ *   del SII: el organismo rechaza fracciones en la mayoría de los nodos
+ *   numéricos del DTE, así que los montos viajan como pesos enteros.
+ * - Es EXCLUSIVO de la serialización XML del DTE (computeDteTotals y
+ *   dte10-xml.ts). NO toca la ruta transaccional de dinero: las columnas
+ *   de dinero del POS siguen guardándose con dos decimales vía roundMoney
+ *   (lib/money.ts), país-agnóstico. El redondeo a entero por país (peso
+ *   chileno) vive solo aquí, en el serializador, no en completeSale.
+ * - Lanza Error con cause en valor no finito — un total mal calculado
+ *   corriente arriba aborta la emisión en vez de escribir un DTE inválido.
+ *
+ * Precondición: value es finito. Postcondición: devuelve el entero CLP
+ * listo para el nodo numérico del DTE.
  */
 export function roundClp(value: number): number {
   if (!Number.isFinite(value)) {

@@ -260,3 +260,50 @@ Every Review Guide that ends with a "Follow-ups deferidos" / "Follow-ups deferre
 Follow-ups that live only in chat decay when the session compacts. If the next sprint picks up the parent ticket and never sees the follow-up list, that is a documentation failure on the agent's part — not the operator's. When in doubt, capture: pruning a stale BACKLOG bullet is one-line work; recovering a lost follow-up requires reconstructing context that may not survive a `/compact`.
 
 This rule applies to BOTH the `puntovivo-ship` (Phase 2 step 2.7) and `puntovivo-review` (final report) skills. The skill files mirror the rule, but AGENTS.md is the source of truth — any drift between the skill files and this section is a bug in the skill files.
+
+## `// ENG-NNN` comment marker convention (ENG-180)
+
+The codebase carries inline `// ENG-NNN` markers (e.g. `// ENG-176a-rounding`, `// ENG-057`). The convention is deliberate and non-obvious, so it is documented here:
+
+- A marker pins a **non-obvious invariant or design decision** to the ticket that introduced it. It answers "why is this line here / why is it written this way?" with a traceable ticket id, not a TODO. Markers are NOT task reminders, NOT dead code, and should NOT be stripped during cleanup — removing one erases the only link between a subtle line of code and the reasoning recorded in `docs/ROADMAP.md` / `docs/SPRINT-PLAN.md` / the relevant ADR.
+- When you touch code under a marker, preserve the marker unless the invariant it pins genuinely no longer holds. If you change the invariant, update the marker to the new ticket rather than deleting it.
+- Sub-ids (`176a`, `039d2`, `176a-rounding`) are real: a parent ticket split into sub-steps keeps each step's marker distinct so the provenance stays precise.
+
+**Scale (measured 2026-05-28):** roughly **2,900 marker occurrences across ~160 distinct ticket ids** in `packages/server/src`, `apps/web/src`, and `apps/desktop/src`. The index below is deliberately **curated to the load-bearing, invariant-pinning markers** — it is NOT an exhaustive dump of all ~160 ids. The goal is navigability: as tickets close, this stays a short map of the rules that sustain fiscal correctness, audit defensibility, and cash reliability, not a generated table that rots.
+
+### Curated index of load-bearing markers
+
+Format: `ENG-NNN → invariant it pins → primary file`.
+
+**Fiscal correctness**
+- `ENG-057` → fiscal document pre-create + `fiscal_outbox` enqueue + numbering advance in ONE write transaction; emission is out-of-band via the worker → `services/fiscal/orchestrator.ts`
+- `ENG-020` / `ENG-054` → best-effort POST-commit emission; a fiscal failure never rolls back the sale → `services/fiscal/orchestrator.ts`
+- `FISCAL_SEQUENTIAL_NOT_ADVANCED` (TOCTOU guard, no marker — error code) → numbering consecutive advances inside the write tx; a concurrent advance throws CONFLICT → `services/fiscal/orchestrator.ts`
+- `ENG-036b` → Chile CAF folio allocated inside the same write tx as the document insert → `services/fiscal/orchestrator.ts` + `services/fiscal/packs/cl/mappings.ts`
+- buyer + line **snapshot immutability** → an emitted document freezes its buyer/line data; later edits never mutate it (Resolución DIAN 165/2023 CUFE rule) → `services/fiscal/orchestrator.ts`
+
+**Cash session**
+- `ENG-042` / `ENG-055` → `assertCashSessionStillOpen` in-tx TOCTOU re-check before any sale write binds `cashSessionId` → `services/cash-session.ts`
+- `ENG-055` / `ENG-056` → `insertCashMovement` advances `expected_balance` in lockstep; sign convention lives only in `getCashMovementSignedAmount` → `services/cash-session.ts`
+- `ENG-056` → cash-session use-cases (open / close / recordMovement) relocated to `application/cash-sessions/`; close emits warning-only `pending_warning` effects and never blocks → `application/cash-sessions/`
+- one open session per (tenant, site, cashier) AND per register → `requireActiveCashSession` / `openCashSession` preconditions → `services/cash-session.ts`
+
+**Money rounding**
+- `ENG-176a` / `ENG-176a-rounding` → uniform 2-decimal `roundMoney()` (half-away-from-zero) for EVERY monetary intermediate + accumulation, country-agnostic → `lib/money.ts` + `application/sales/completeSale.ts`
+- `ENG-176b` → currency-code seam stored alongside money columns → `application/sales/completeSale.ts`
+- `roundClp` (XML-only integer rounding) → CLP amounts serialize as whole pesos in the DTE; does NOT touch the transactional money path → `services/fiscal/packs/cl/mappings.ts`
+- NOTE: per-country transactional rounding (Chile integer peso, Peru ICBPER) is **NOT implemented** today — all countries round to 2 decimals in the money path; CL integer rounding exists only in the DTE serializer.
+
+**Optimistic version / conflict policy**
+- `ENG-177a` → `version` integer column + race-safe versioned-WHERE UPDATE raising `STALE_VERSION` on the catalog mutation path → `lib/optimisticVersion.ts`
+- `ADR-0004` → sync layer auto-resolves with LWW; the mutation layer surfaces `STALE_VERSION` to the user — two different conflict policies by design → `trpc/routers/sync.ts`
+
+**Multi-tenant**
+- every router query scopes by `ctx.tenantId`; site-scoped procedures call `ensureTenantSite` → `trpc/routers/inventory.ts` (helper) + all routers
+- role guards composed via `createRoleGuard` / `adminProcedure` / `managerOrAdminProcedure` — never bespoke middleware → `trpc/middleware/roles.ts`
+
+**Sync / outbox kernel**
+- `ADR-0003` → durable outbox pattern (fiscal / hardware / webhook / payment outboxes share the kernel) → `lib/outbox/kernel.ts`
+- atomic `claimNext` / `complete` / `fail` / `deadLetter` state machine guards against double-processing under concurrent workers → `lib/outbox/kernel.ts`
+
+To regenerate the scale figure: `grep -rohE "ENG-[0-9]+[a-z]?[0-9]?" packages/server/src apps/web/src apps/desktop/src --include="*.ts" --include="*.tsx"` (pipe to `wc -l` for occurrences, `| sort -u | wc -l` for distinct ids).

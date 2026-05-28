@@ -58,6 +58,32 @@ export interface RecordedCashMovement {
   createdAt: string;
 }
 
+/**
+ * Record a manual cash movement against the cashier's open session.
+ *
+ * Invariants:
+ * - Manual movement types ONLY (`paid_in` / `paid_out` / `skim` /
+ *   `replenishment`); `sale` and `refund` flow through the sale-lifecycle
+ *   use-cases and never enter here. The drawer-balance math + sign
+ *   convention are delegated to the shared `insertCashMovement` /
+ *   `getCashMovementSignedAmount`, so this is the only manual entry point and
+ *   it never re-implements the `cash_movements` INSERT.
+ * - `input.note` is OPERATOR-FACING free text persisted verbatim and carried
+ *   into the audit-log metadata — it is never auto-translated or normalized.
+ * - The movement insert + the `cash_session.movement` audit-log row are
+ *   written in ONE transaction, fronted by `assertCashSessionStillOpen`
+ *   (in-tx TOCTOU re-check), giving open / close / recordMovement parity with
+ *   the sale-lifecycle services.
+ *
+ * Preconditions: `ctx.user` authenticated (`CASH_SESSION_REQUIRED`),
+ * `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`), an open session
+ * exists, and the Zod schema has already enforced `amount > 0` (so the
+ * null-movement branch is unreachable and treated as a persist failure).
+ *
+ * Postconditions: returns the reloaded movement (joined with the actor name);
+ * best-effort `cash_movement` + `audit_log` journal effects are emitted
+ * post-commit and never block the movement.
+ */
 export async function recordCashMovement(
   ctx: CashSessionContext,
   input: RecordCashMovementInput
