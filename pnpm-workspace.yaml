@@ -1,0 +1,42 @@
+# pnpm workspace manifest (migrated from npm workspaces, ENG-182).
+# Mirrors the previous package.json "workspaces" globs.
+#
+# NOTE (pnpm 11): the package.json "pnpm" field is no longer read; all
+# pnpm settings that are not npm-compatible (.npmrc) live here.
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 11 blocks dependency lifecycle (install/postinstall) scripts by
+# default as a supply-chain defence, and replaced the v10 list-style
+# onlyBuiltDependencies with this allowBuilds map (pkg -> bool). Puntovivo
+# genuinely needs the natives below to produce a usable checkout:
+#   - electron                        -> downloads the platform runtime
+#   - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
+#   - argon2                          -> compiles the native hashing binding
+#   - esbuild                         -> fetches/links its platform binary (vite)
+#   - electron-winstaller            -> Windows packaging build (make:desktop)
+# core-js is denied: its postinstall only prints a funding/ads banner.
+allowBuilds:
+  electron: true
+  better-sqlite3-multiple-ciphers: true
+  argon2: true
+  esbuild: true
+  electron-winstaller: true
+  core-js: false
+
+# Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not
+# in package.json). "$@electron/fuses" pins the transitive copy to the direct
+# devDependency version; "exceljs>uuid" is the pnpm selector for the npm
+# nested { exceljs: { uuid } } form.
+overrides:
+  '@electron/fuses': '$@electron/fuses'
+  'exceljs>uuid': '11.1.1'
+  tmp: '0.2.6'
+
+# @electron-forge/cli bundles @electron/rebuild@3.7.2, which depends on
+# @electron/node-gyp resolved via a git repository. pnpm 11 blocks
+# git-resolved subdependencies by default (blockExoticSubdeps). npm allowed
+# it, so relax the guard to keep the electron-forge toolchain installable.
+# Scope is limited to a build-time devDependency of the desktop workspace.
+blockExoticSubdeps: false

@@ -21,17 +21,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run release automation validation
-        run: npm run ci:release
+        run: pnpm run ci:release
 
   # ============================================================================
   # Web Application Tests & Build
@@ -44,17 +47,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run web validation
-        run: npm run ci:web
+        run: pnpm run ci:web
 
       # ENG-003 — ci:web now runs vitest with --coverage and the
       # thresholds declared in apps/web/vitest.config.ts. A regression
@@ -101,17 +107,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run desktop validation
-        run: npm run ci:desktop
+        run: pnpm run ci:desktop
 
   # ============================================================================
   # Backend Server Tests & Build (Node.js)
@@ -124,17 +133,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run backend validation
-        run: npm run ci:server
+        run: pnpm run ci:server
 
       # ENG-003 — ci:server now runs vitest with --coverage and the
       # thresholds declared in packages/server/vitest.config.ts. LCOV
@@ -168,17 +180,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # Cache the Playwright browser binary across runs. The key
-      # uses the package-lock.json hash — any bump to @playwright/test
+      # uses the pnpm-lock.yaml hash — any bump to @playwright/test
       # (and therefore to the browser binary pin) changes the lockfile
       # and invalidates the cache automatically.
       - name: Cache Playwright browser binary
@@ -186,15 +201,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .playwright-browsers
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright chromium + system deps
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
 
       - name: Run web E2E suite
-        run: npm run test:e2e:web
+        run: pnpm run test:e2e:web
 
       # Artefacts: HTML report is always useful (pass shows green runs,
       # fail shows the failure). The test-results folder (traces +

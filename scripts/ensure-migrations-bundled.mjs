@@ -39,13 +39,13 @@ const DEFAULT_MIGRATIONS_DIR = join(
 );
 
 const REMEDIATION_REBUILD = [
-  'npm run build --workspace=@puntovivo/server',
+  'pnpm --filter @puntovivo/server run build',
   'then retry preflight:desktop',
 ];
 
 const REMEDIATION_CLEAN_REBUILD = [
   'rm -rf packages/server/dist',
-  'npm run build --workspace=@puntovivo/server',
+  'pnpm --filter @puntovivo/server run build',
   'then retry preflight:desktop',
 ];
 

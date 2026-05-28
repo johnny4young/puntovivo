@@ -20,13 +20,13 @@ else
     exit 1
 fi
 
-# Check npm version
-echo "Checking npm version..."
-NPM_VERSION=$(npm -v 2>/dev/null)
+# Check pnpm version (this repo migrated from npm to pnpm)
+echo "Checking pnpm version..."
+PNPM_VERSION=$(pnpm -v 2>/dev/null)
 if [ $? -eq 0 ]; then
-    echo "✓ npm: $NPM_VERSION"
+    echo "✓ pnpm: $PNPM_VERSION"
 else
-    echo "✗ npm not found"
+    echo "✗ pnpm not found. Enable it with: corepack enable"
     exit 1
 fi
 
@@ -35,7 +35,7 @@ echo "Checking if dependencies are installed..."
 if [ -d "node_modules" ]; then
     echo "✓ Dependencies installed"
 else
-    echo "✗ Dependencies not installed. Run: npm install"
+    echo "✗ Dependencies not installed. Run: pnpm install"
     exit 1
 fi
 
@@ -45,31 +45,31 @@ echo "  Checking Postinstall Artefacts"
 echo "======================================"
 echo ""
 
-# A global ~/.npmrc with `ignore-scripts=true` (a common security-hardened
-# default) skips every package's postinstall — including the ones this
-# repo genuinely needs. The project's own .npmrc sets
-# `ignore-scripts=false` to override, but only `npm install` runs that are
-# started from inside the repo see it. Double-check that the artefacts
-# are on disk so later `npm run dev:desktop` doesn't crash at
+# pnpm 11 blocks dependency build scripts by default; the needed natives
+# are allowlisted in pnpm-workspace.yaml under `allowBuilds:`. A global
+# ~/.npmrc with `ignore-scripts=true` is also honoured by pnpm and skips
+# the repo's own packages' postinstalls — the project .npmrc sets
+# `ignore-scripts=false` to override. Double-check that the artefacts are
+# on disk so later `pnpm run dev:desktop` doesn't crash at
 # `require('electron')` or with `NODE_MODULE_VERSION mismatch`.
 
-GLOBAL_IGNORE=$(npm config get ignore-scripts --global 2>/dev/null || echo "")
-PROJECT_IGNORE=$(npm config get ignore-scripts 2>/dev/null || echo "")
+GLOBAL_IGNORE=$(pnpm config get ignore-scripts --global 2>/dev/null || echo "")
+PROJECT_IGNORE=$(pnpm config get ignore-scripts 2>/dev/null || echo "")
 if [ "$GLOBAL_IGNORE" = "true" ] && [ "$PROJECT_IGNORE" != "false" ]; then
     echo "⚠ Your global ~/.npmrc has ignore-scripts=true and this repo's"
     echo "   .npmrc override is not being picked up."
-    echo "   Re-run: npm install --ignore-scripts=false"
+    echo "   Re-run: pnpm install (and check pnpm-workspace.yaml allowBuilds)"
 fi
 
 # Electron runtime binary — populated by node_modules/electron/install.js
 # as a postinstall step. Missing means the download was skipped or failed
-# and `npm run dev:desktop` will crash at "Electron failed to install correctly".
-if [ -f "node_modules/electron/path.txt" ]; then
+# and `pnpm run dev:desktop` will crash at "Electron failed to install correctly".
+if [ -f "node_modules/electron/path.txt" ] || [ -f "apps/desktop/node_modules/electron/path.txt" ]; then
     echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
 else
     echo "✗ Electron runtime binary missing."
     echo "  Auto-repair:   node scripts/ensure-electron-binary.mjs"
-    echo "  Nuclear:       rm -rf node_modules/electron && npm install"
+    echo "  Nuclear:       rm -rf node_modules/electron && pnpm install"
 fi
 
 # better-sqlite3 compiled binding for the host Node ABI. Electron uses
@@ -80,7 +80,7 @@ if [ -f "node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
     echo "✓ better-sqlite3 native binding compiled"
 else
     echo "✗ better-sqlite3 native binding missing."
-    echo "  Auto-repair:   npm rebuild better-sqlite3"
+    echo "  Auto-repair:   pnpm --filter @puntovivo/server run native:rebuild:node"
 fi
 
 echo ""
@@ -95,7 +95,7 @@ if curl -s http://localhost:8090/api/health > /dev/null 2>&1; then
     echo "✓ Backend server is running at http://localhost:8090"
 else
     echo "✗ Backend server is NOT running"
-    echo "  Start it with: npm run dev:server"
+    echo "  Start it with: pnpm run dev:server"
 fi
 
 # Check frontend server
@@ -104,7 +104,7 @@ if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "✓ Frontend server is running at http://localhost:3000"
 else
     echo "✗ Frontend server is NOT running"
-    echo "  Start it with: npm run dev:web"
+    echo "  Start it with: pnpm run dev:web"
 fi
 
 echo ""
@@ -113,10 +113,10 @@ echo "  Quick Start Commands"
 echo "======================================"
 echo ""
 echo "Desktop App (Electron):"
-echo "  npm run dev:desktop"
+echo "  pnpm run dev:desktop"
 echo ""
 echo "Web App (Browser):"
-echo "  npm run dev:web-stack"
+echo "  pnpm run dev:web-stack"
 echo ""
 echo "Default Login:"
 echo "  Email: admin@localhost"

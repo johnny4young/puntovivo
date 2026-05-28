@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const isWindows = process.platform === 'win32';
 
 const mode = process.argv[2] ?? 'desktop';
@@ -13,19 +13,19 @@ const mode = process.argv[2] ?? 'desktop';
 const MODE_CONFIG = {
   web: {
     ports: [3000],
-    steps: [{ name: 'WEB', args: ['run', 'dev', '--workspace=@puntovivo/web'] }],
+    steps: [{ name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev']}],
   },
   server: {
     ports: [8090],
-    steps: [{ name: 'SERVER', args: ['run', 'dev', '--workspace=@puntovivo/server'] }],
+    steps: [{ name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev']}],
   },
   fullstack: {
     ports: [3000, 8090],
     steps: [
-      { name: 'SERVER', args: ['run', 'dev', '--workspace=@puntovivo/server'] },
+      { name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev']},
       {
         name: 'WEB',
-        args: ['run', 'dev', '--workspace=@puntovivo/web'],
+        args: ['--filter', '@puntovivo/web', 'run', 'dev'],
         waitForUrl: 'http://127.0.0.1:8090/api/health',
       },
     ],
@@ -33,10 +33,10 @@ const MODE_CONFIG = {
   desktop: {
     ports: [3000, 8090],
     steps: [
-      { name: 'WEB', args: ['run', 'dev', '--workspace=@puntovivo/web'] },
+      { name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev']},
       {
         name: 'DESKTOP',
-        args: ['run', 'dev:desktop', '--workspace=@puntovivo/desktop'],
+        args: ['--filter', '@puntovivo/desktop', 'run', 'dev:desktop'],
         waitForUrl: 'http://localhost:3000',
       },
     ],
@@ -46,7 +46,7 @@ const MODE_CONFIG = {
     steps: [
       {
         name: 'DESKTOP',
-        args: ['run', 'dev:desktop', '--workspace=@puntovivo/desktop'],
+        args: ['--filter', '@puntovivo/desktop', 'run', 'dev:desktop'],
         waitForUrl: 'http://localhost:3000',
         requireExistingUrl: true,
       },
@@ -153,8 +153,8 @@ async function waitForUrl(url, timeoutMs = 30_000) {
 }
 
 function spawnStep(step) {
-  log(`Starting ${step.name}: ${npmCommand} ${step.args.join(' ')}`);
-  const child = spawn(npmCommand, step.args, {
+  log(`Starting ${step.name}: ${pnpmCommand} ${step.args.join(' ')}`);
+  const child = spawn(pnpmCommand, step.args, {
     cwd: repoRoot,
     env: process.env,
     stdio: 'inherit',
