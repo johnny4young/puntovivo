@@ -21,7 +21,7 @@
  * Why 24 h after expiry (not at expiry): we keep expired buckets for
  * a day of slack so a longer audit window can correlate failed-login
  * sprees back to a row's full history. After 24 h the row is purely
- * historical and the audit_logs trail picks up the long tail.
+ * historical and `system_audit_logs` records that the cleanup ran.
  *
  * Cadence: once per hour. A login_attempts row never matters more
  * than once an hour after it expires, and the DELETE itself touches
@@ -31,7 +31,8 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { lt } from 'drizzle-orm';
-import { loginAttempts } from '../../db/schema.js';
+import { nanoid } from 'nanoid';
+import { loginAttempts, systemAuditLogs, type NewSystemAuditLog } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
 
 const cleanupLog = createModuleLogger('services/cleanup/login-attempts');
@@ -40,6 +41,9 @@ const cleanupLog = createModuleLogger('services/cleanup/login-attempts');
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 /** Drop rows that expired more than 24 h ago. */
 const STALE_AGE_MS = 24 * 60 * 60 * 1000;
+const CLEANUP_ACTION = 'login_attempts.cleanup';
+const CLEANUP_RESOURCE_TYPE = 'login_attempts';
+const CLEANUP_RESOURCE_ID = 'global';
 
 export interface LoginAttemptsCleanupHandle {
   /** Drive a single sweep on demand (test hook + boot pre-warm). */
@@ -58,6 +62,47 @@ export interface LoginAttemptsCleanupOptions {
   now?: () => number;
 }
 
+function serializeError(err: unknown): Record<string, unknown> {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+    };
+  }
+  return { message: String(err) };
+}
+
+function buildAuditRow(args: {
+  status: NewSystemAuditLog['status'];
+  startedAt: number;
+  cutoff: number;
+  staleAgeMs: number;
+  deleted?: number;
+  err?: unknown;
+}): NewSystemAuditLog {
+  const metadata: Record<string, unknown> = {
+    cutoff: args.cutoff,
+    cutoffIso: new Date(args.cutoff).toISOString(),
+    staleAgeMs: args.staleAgeMs,
+  };
+  if (args.deleted !== undefined) {
+    metadata.deleted = args.deleted;
+  }
+  if (args.err !== undefined) {
+    metadata.error = serializeError(args.err);
+  }
+
+  return {
+    id: nanoid(),
+    action: CLEANUP_ACTION,
+    resourceType: CLEANUP_RESOURCE_TYPE,
+    resourceId: CLEANUP_RESOURCE_ID,
+    status: args.status,
+    metadata,
+    createdAt: new Date(args.startedAt).toISOString(),
+  };
+}
+
 /**
  * Factory mirrors the fiscalWorker / paymentWorker shape: returns a
  * handle whose `.tickOnce()` is callable by tests and whose `.stop()`
@@ -73,16 +118,53 @@ export function createLoginAttemptsCleanup(
   let timer: NodeJS.Timeout | null = null;
 
   function tickOnce(): number {
-    const cutoff = now() - staleAgeMs;
-    const result = db
-      .delete(loginAttempts)
-      .where(lt(loginAttempts.expiresAt, cutoff))
-      .run() as { changes?: number };
-    const deleted = result.changes ?? 0;
-    if (deleted > 0) {
-      cleanupLog.info({ deleted, cutoff }, 'login_attempts sweep deleted stale rows');
+    const startedAt = now();
+    const cutoff = startedAt - staleAgeMs;
+    try {
+      const deleted = db.transaction(tx => {
+        const result = tx
+          .delete(loginAttempts)
+          .where(lt(loginAttempts.expiresAt, cutoff))
+          .run() as { changes?: number };
+        const changes = result.changes ?? 0;
+        tx.insert(systemAuditLogs)
+          .values(
+            buildAuditRow({
+              status: 'ok',
+              startedAt,
+              cutoff,
+              staleAgeMs,
+              deleted: changes,
+            })
+          )
+          .run();
+        return changes;
+      });
+      if (deleted > 0) {
+        cleanupLog.info({ deleted, cutoff }, 'login_attempts sweep deleted stale rows');
+      }
+      return deleted;
+    } catch (err) {
+      try {
+        db.insert(systemAuditLogs)
+          .values(
+            buildAuditRow({
+              status: 'error',
+              startedAt,
+              cutoff,
+              staleAgeMs,
+              err,
+            })
+          )
+          .run();
+      } catch (auditErr) {
+        cleanupLog.warn(
+          { err: auditErr instanceof Error ? { message: auditErr.message } : auditErr },
+          'login_attempts cleanup failed before the system audit row could be written'
+        );
+      }
+      throw err;
     }
-    return deleted;
   }
 
   function start(): void {

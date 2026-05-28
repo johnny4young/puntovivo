@@ -18,6 +18,7 @@ import { TRPCError } from '@trpc/server';
 import { eq, and, sql, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
+import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
@@ -250,6 +251,8 @@ export const customersRouter = router({
       updatedAt: now,
       syncStatus: 'pending',
       syncVersion: (existing.syncVersion ?? 0) + 1,
+      // ENG-177a — optimistic-concurrency bump (see the versioned WHERE below).
+      version: input.version + 1,
     };
     const [
       identificationTypeCode,
@@ -348,10 +351,21 @@ export const customersRouter = router({
       updates.creditLimit !== undefined && nextCreditLimit !== priorCreditLimit;
 
     await ctx.db.transaction(tx => {
-      tx.update(customers)
+      // ENG-177a — optimistic-concurrency guard. The version predicate makes
+      // the UPDATE a no-op when another tab already saved; the throw rolls
+      // back the whole transaction so no audit row is written on a stale edit.
+      const versionedUpdate = tx
+        .update(customers)
         .set(updateData)
-        .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
-        .run();
+        .where(
+          and(
+            eq(customers.id, id),
+            eq(customers.tenantId, ctx.tenantId),
+            eq(customers.version, input.version)
+          )
+        )
+        .run() as { changes?: number };
+      assertVersionedWriteApplied('customer', versionedUpdate.changes ?? 0, input.version);
       if (creditLimitChanged) {
         writeAuditLog({
           tx,

@@ -102,6 +102,7 @@ describe('Providers tRPC Router', () => {
 
     const updated = await caller.providers.update({
       id: created.id,
+      version: created.version,
       phone: '555-0102',
       contactName: 'Maria Updated',
     });

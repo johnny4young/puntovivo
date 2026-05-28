@@ -553,13 +553,16 @@ describe('customerLedger.* router (ENG-089)', () => {
       });
       const updated = await caller.customers.update({
         id: (created as { id: string }).id,
+        version: (created as { version: number }).version,
         creditLimit: 150_000,
       });
       expect((updated as { creditLimit: number }).creditLimit).toBe(150_000);
 
-      // Setting back to 0 (sentinel for "no limit") must also work.
+      // Setting back to 0 (sentinel for "no limit") must also work — the
+      // first update bumped the optimistic version, so reuse the returned one.
       const cleared = await caller.customers.update({
         id: (created as { id: string }).id,
+        version: (updated as { version: number }).version,
         creditLimit: 0,
       });
       expect((cleared as { creditLimit: number }).creditLimit).toBe(0);

@@ -499,6 +499,23 @@ research.
   consumed by the offline / IndexedDB layer, so a wholesale migration
   risked coupling the offline buffer's types to the wire contract). —
   2026-05-28 (ENG-179c follow-up).
+- **`ENG-177b` — soft-delete policy decision + columns.** ENG-177 part 2.
+  Catalogs use `is_active`, transactions use a `status` enum, neither
+  captures who/when. Decide: add `deleted_at` + `deleted_by_user_id` on
+  the catalogs (preserving `is_active` as a derived view for one release)
+  or drop soft-delete where it is not needed; document the chosen policy
+  in `ARCHITECTURE.md`. Independent of the ENG-177a versioning work. —
+  2026-05-28 (ENG-177a follow-up).
+- **`ENG-177c` — `sales` cash-session CHECK constraint.** ENG-177 part 4.
+  Add `CHECK (cash_session_id IS NOT NULL OR status = 'draft')` to `sales`
+  so the `requireActiveCashSession` invariant is enforced at the DB layer,
+  not only in application code. SQLite needs a full table rebuild for a
+  table-level CHECK, so this rides its own migration with a defensive
+  prelude that first verifies historical rows comply; pin it with a unit
+  test that bypasses the application layer (raw INSERT) to prove the
+  constraint fires. Carved out of ENG-177a because the `sales` rebuild is
+  heavier/riskier than the additive `version` columns and deserves its
+  own commit. — 2026-05-28 (ENG-177a follow-up).
 
 ## 2. Small bugs / polish
 

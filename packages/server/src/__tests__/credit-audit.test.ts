@@ -229,7 +229,7 @@ describe('customers.update audit (ENG-007 closure)', () => {
     });
     const caller = appRouter.createCaller(fresh());
 
-    await caller.customers.update({ id: customerId, creditLimit: 200000 });
+    await caller.customers.update({ id: customerId, version: 0, creditLimit: 200000 });
 
     const row = await latestAuditRow({
       resourceType: 'customer',
@@ -258,7 +258,7 @@ describe('customers.update audit (ENG-007 closure)', () => {
     });
     const caller = appRouter.createCaller(fresh());
 
-    await caller.customers.update({ id: customerId, name: 'Cliente Renombrado' });
+    await caller.customers.update({ id: customerId, version: 0, name: 'Cliente Renombrado' });
 
     const count = await countAuditRows({
       resourceType: 'customer',
@@ -275,7 +275,7 @@ describe('customers.update audit (ENG-007 closure)', () => {
     });
     const caller = appRouter.createCaller(fresh());
 
-    await caller.customers.update({ id: customerId, creditLimit: 75000 });
+    await caller.customers.update({ id: customerId, version: 0, creditLimit: 75000 });
 
     const count = await countAuditRows({
       resourceType: 'customer',
@@ -292,7 +292,7 @@ describe('customers.update audit (ENG-007 closure)', () => {
     });
     const caller = appRouter.createCaller(fresh());
 
-    await caller.customers.update({ id: customerId, creditLimit: 0 });
+    await caller.customers.update({ id: customerId, version: 0, creditLimit: 0 });
 
     const row = await latestAuditRow({
       resourceType: 'customer',

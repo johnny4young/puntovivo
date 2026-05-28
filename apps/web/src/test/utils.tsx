@@ -113,6 +113,7 @@ export function createMockProduct(overrides?: Partial<Product>): Product {
     fractionMinimum: null,
     isActive: true,
     barcode: `123456789${id}`,
+    version: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,

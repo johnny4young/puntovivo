@@ -17,11 +17,12 @@
  * @module trpc/routers/tenantLocale
  */
 
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
+import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import {
   countryCatalog,
   currencyCatalog,
@@ -103,12 +104,18 @@ export const tenantLocaleRouter = router({
           currencyOverride: tenantLocaleSettings.currencyOverride,
           timezoneOverride: tenantLocaleSettings.timezoneOverride,
           firstDayOfWeekOverride: tenantLocaleSettings.firstDayOfWeekOverride,
+          version: tenantLocaleSettings.version,
         })
         .from(tenantLocaleSettings)
         .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))
         .get();
       if (existing) {
-        await ctx.db
+        // ENG-177a — optimistic-concurrency guard on the update branch. The
+        // version predicate falls back to the stored version when the client
+        // omits one (legacy / first-version-aware client), so the guard only
+        // bites when a divergent version is explicitly supplied.
+        const expectedVersion = input.version ?? existing.version;
+        const versionedUpdate = ctx.db
           .update(tenantLocaleSettings)
           .set({
             countryCode: input.countryCode,
@@ -128,10 +135,23 @@ export const tenantLocaleRouter = router({
               input.firstDayOfWeekOverride === undefined
                 ? existing.firstDayOfWeekOverride
                 : input.firstDayOfWeekOverride,
+            version: expectedVersion + 1,
             updatedAt: now,
           })
-          .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))
-          .run();
+          .where(
+            and(
+              eq(tenantLocaleSettings.tenantId, ctx.tenantId),
+              eq(tenantLocaleSettings.version, expectedVersion)
+            )
+          )
+          .run() as { changes?: number };
+        if (input.version !== undefined) {
+          assertVersionedWriteApplied(
+            'tenantLocale',
+            versionedUpdate.changes ?? 0,
+            input.version
+          );
+        }
       } else {
         await ctx.db
           .insert(tenantLocaleSettings)
@@ -142,6 +162,11 @@ export const tenantLocaleRouter = router({
             currencyOverride: input.currencyOverride ?? null,
             timezoneOverride: input.timezoneOverride ?? null,
             firstDayOfWeekOverride: input.firstDayOfWeekOverride ?? null,
+            // ENG-177a — no row exists yet, so the resolved-locale fallback is
+            // the virtual version 0. Persist the first real write as 1 so a
+            // second tab that also loaded fallback version 0 is rejected by
+            // the guarded update branch instead of overwriting this save.
+            version: (input.version ?? 0) + 1,
             updatedAt: now,
           })
           .run();

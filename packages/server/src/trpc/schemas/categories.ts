@@ -30,6 +30,8 @@ export const createCategoryInput = z.object({
 
 export const updateCategoryInput = z.object({
   id: z.string().min(1, 'ID is required'),
+  // ENG-177a — optimistic-concurrency token (see updateCustomerInput).
+  version: z.number().int().nonnegative(),
   name: z.string().min(1, 'Name is required').max(255).optional(),
   description: z.string().optional(),
   parentId: z.string().nullable().optional(),

@@ -23,7 +23,7 @@ import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { translateServerError } from '@/lib/translateServerError';
+import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import type { Product, UserRole } from '@/types';
@@ -291,7 +291,17 @@ export function ProductsPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'products:toast.updateError' }),
+    // ENG-177a — on a STALE_VERSION conflict refresh the cached row so the
+    // next time the operator opens the form they edit the latest version.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'products:toast.updateError',
+      extra: (_description, error) => {
+        if (extractServerErrorCode(error) === 'STALE_VERSION') {
+          void utils.products.list.invalidate();
+          void utils.products.getById.invalidate();
+        }
+      },
+    }),
   });
   const deleteMutation = trpc.products.delete.useMutation({
     onSuccess: async () => {
@@ -442,6 +452,9 @@ export function ProductsPage() {
     if (editingProduct) {
       await updateMutation.mutateAsync({
         id: editingProduct.id,
+        // ENG-177a — round-trip the version the form was loaded with so a
+        // concurrent edit from another tab is rejected with STALE_VERSION.
+        version: editingProductDetailQuery.data?.version ?? editingProduct.version,
         ...payload,
       });
       return;

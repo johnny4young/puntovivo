@@ -318,6 +318,46 @@ opaque to a future maintainer.
   `packages/server/src/__tests__/db-fk-policy.test.ts`. Any new cascade
   added in a later ticket must extend that suite.
 
+## Optimistic concurrency — live-edit guard (ENG-177a)
+
+User-edited catalogs carry an integer `version` column that the
+matching `*.update` tRPC procedure bumps on every write. The client
+round-trips the version it last read; the UPDATE pins it in the WHERE
+clause (`... AND version = ?`) and sets `version = supplied + 1`. When
+another tab or operator already saved, the stored version no longer
+matches, the statement changes zero rows, and the procedure throws
+`STALE_VERSION` (`CONFLICT`) via the shared
+`packages/server/src/lib/optimisticVersion.ts::assertVersionedWriteApplied`
+helper instead of silently clobbering the other edit. A single
+better-sqlite3 UPDATE is atomic, so there is no read-then-write TOCTOU
+window. The renderer's `onErrorToast` branch invalidates the cached
+list/row on `STALE_VERSION` so the next edit loads the latest version.
+
+- **Versioned today**: `products`, `customers`, `providers`,
+  `categories`, `tenant_locale_settings`. `sequentials` is excluded by
+  design — it is an atomically incremented operational counter reached
+  through an upsert, not a two-tab edit surface.
+- **`tenant_locale_settings`** is an upsert keyed by `tenant_id`: the
+  fallback resolver returns a virtual `version = 0` when no row exists,
+  and the first save stores the real row at `version = 1` so a second
+  tab that also loaded the fallback is rejected instead of overwriting
+  the first save. The input `version` remains optional for legacy/no-row
+  clients; the guard bites whenever a divergent explicit version is
+  supplied. The version is surfaced on the resolved-locale DTO
+  (`ResolvedLocale.version`) so the admin card can round-trip it.
+- **Layer distinction vs ADR-0004**: this is the *mutation-layer* guard
+  for concurrent online edits against the same authoritative embedded
+  DB. It is complementary to — not a replacement for — the *sync-layer*
+  conflict policy in
+  [`architecture/0004-conflict-policy.md`](./architecture/0004-conflict-policy.md),
+  which reconciles offline cross-device edits by `updatedAt` with an
+  auto-LWW audit trail (ENG-064). Catalogs are auto-LWW at the sync
+  layer and `STALE_VERSION`-guarded at the live-edit layer.
+- **Pinned by** `packages/server/src/__tests__/optimistic-version.test.ts`
+  (happy-path increment, stale rejection leaving the row intact, the
+  credit-limit audit still firing on a versioned customer update,
+  tenant-scoped existence, and the locale first-save stale-fallback path).
+
 ## Database open path + encryption (ENG-167)
 
 `local.db` opens through a single ordered sequence in

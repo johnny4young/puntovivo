@@ -188,6 +188,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // --- ENG-181 error wrapping cleanup ---
   'FISCAL_SEQUENTIAL_NOT_ADVANCED',
   'CREDIT_LEDGER_INVALID_AMOUNT',
+  // --- ENG-177a optimistic concurrency ---
+  'STALE_VERSION',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

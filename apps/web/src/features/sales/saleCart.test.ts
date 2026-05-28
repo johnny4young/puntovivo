@@ -39,6 +39,7 @@ function createSelection(
       fractionStep: null,
       fractionMinimum: null,
       isActive: true,
+      version: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       unitAssignments: [

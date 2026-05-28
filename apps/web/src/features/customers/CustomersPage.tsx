@@ -16,6 +16,7 @@ import {
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { extractServerErrorCode } from '@/lib/translateServerError';
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -63,7 +64,16 @@ export function CustomersPage() {
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'customers:toast.updateError' }),
+    // ENG-177a — refresh the cached list on a STALE_VERSION conflict so the
+    // next edit loads the latest version.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'customers:toast.updateError',
+      extra: (_description, error) => {
+        if (extractServerErrorCode(error) === 'STALE_VERSION') {
+          void utils.customers.list.invalidate();
+        }
+      },
+    }),
   });
 
   const deleteMutation = trpc.customers.delete.useMutation({
@@ -113,6 +123,8 @@ export function CustomersPage() {
     if (editingCustomer) {
       await updateMutation.mutateAsync({
         id: editingCustomer.id,
+        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        version: editingCustomer.version,
         name: values.name,
         email: toNullableString(values.email),
         phone: toNullableString(values.phone),

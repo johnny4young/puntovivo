@@ -79,6 +79,7 @@ type MockCurrentLocale = {
   currencyOverride: string | null;
   timezoneOverride: string | null;
   firstDayOfWeekOverride: number | null;
+  version: number;
   uiLocaleReady: boolean;
   isFallback: boolean;
 };
@@ -98,6 +99,7 @@ const defaultCurrentLocale: MockCurrentLocale = {
   currencyOverride: null,
   timezoneOverride: null,
   firstDayOfWeekOverride: null,
+  version: 4,
   uiLocaleReady: true,
   isFallback: false,
 };
@@ -189,6 +191,7 @@ describe('CompanyLocaleSettingsCard (ENG-017)', () => {
     expect(payload.countryCode).toBe('CO');
     expect(payload.currencyOverride).toBeNull();
     expect(payload.localeOverride).toBeNull();
+    expect(payload.version).toBe(4);
   });
 
   it('preserves existing override fields when Save is clicked without edits', () => {

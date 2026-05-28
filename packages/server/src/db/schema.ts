@@ -713,6 +713,8 @@ export const providers = sqliteTable(
     cityId: text('city_id'),
     contactName: text('contact_name'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    // ENG-177a — optimistic-concurrency guard (see products.version).
+    version: integer('version').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
@@ -859,6 +861,8 @@ export const categories = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     parentId: text('parent_id'),
+    // ENG-177a — optimistic-concurrency guard (see products.version).
+    version: integer('version').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
@@ -1021,6 +1025,10 @@ export const products = sqliteTable(
     embedding: text('embedding'),
     embeddingModel: text('embedding_model'),
     embeddedAt: text('embedded_at'),
+    // ENG-177a — optimistic-concurrency guard. Bumped on every catalog
+    // UPDATE; a stale client version raises STALE_VERSION. Mirrors
+    // users.session_version. Distinct from sync_version (sync-outbox replay).
+    version: integer('version').notNull().default(0),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
@@ -1388,6 +1396,8 @@ export const customers = sqliteTable(
       () => currencyCatalog.code
     ),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
+    // ENG-177a — optimistic-concurrency guard (see products.version).
+    version: integer('version').notNull().default(0),
     // Sync fields
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
@@ -3624,6 +3634,8 @@ export const tenantLocaleSettings = sqliteTable('tenant_locale_settings', {
   ),
   timezoneOverride: text('timezone_override'),
   firstDayOfWeekOverride: integer('first_day_of_week_override'),
+  // ENG-177a — optimistic-concurrency guard (see products.version).
+  version: integer('version').notNull().default(0),
   updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
 });
 
@@ -4596,6 +4608,56 @@ export const loginAttempts = sqliteTable(
 
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
+
+// ============================================================================
+// SYSTEM AUDIT LOG (global maintenance jobs)
+// ============================================================================
+//
+// `audit_logs` is intentionally tenant-scoped: every row has a concrete
+// tenant_id + actor_id so the admin UI can enforce tenant isolation by
+// construction. Some housekeeping work is not tenant-scoped, though. The
+// login_attempts cleanup worker sweeps a global table keyed by IP/email and
+// runs without an actor. Recording those runs in `audit_logs` would require
+// synthetic tenants/users and would risk leaking global security counters to a
+// tenant-scoped surface. This table is the global counterpart for maintenance
+// evidence only.
+
+export const systemAuditLogActionEnum = ['login_attempts.cleanup'] as const;
+export type SystemAuditLogAction = (typeof systemAuditLogActionEnum)[number];
+
+export const systemAuditLogResourceTypeEnum = ['login_attempts'] as const;
+export type SystemAuditLogResourceType =
+  (typeof systemAuditLogResourceTypeEnum)[number];
+
+export const systemAuditLogStatusEnum = ['ok', 'error'] as const;
+export type SystemAuditLogStatus = (typeof systemAuditLogStatusEnum)[number];
+
+export const systemAuditLogs = sqliteTable(
+  'system_audit_logs',
+  {
+    id: text('id').primaryKey(),
+    action: text('action', { enum: systemAuditLogActionEnum }).notNull(),
+    resourceType: text('resource_type', {
+      enum: systemAuditLogResourceTypeEnum,
+    }).notNull(),
+    resourceId: text('resource_id').notNull(),
+    status: text('status', { enum: systemAuditLogStatusEnum }).notNull(),
+    metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_system_audit_logs_action_created').on(table.action, table.createdAt),
+    index('idx_system_audit_logs_resource_created').on(
+      table.resourceType,
+      table.resourceId,
+      table.createdAt
+    ),
+    index('idx_system_audit_logs_status_created').on(table.status, table.createdAt),
+  ]
+);
+
+export type SystemAuditLog = typeof systemAuditLogs.$inferSelect;
+export type NewSystemAuditLog = typeof systemAuditLogs.$inferInsert;
 
 // ============================================================================
 // AI AUDIT LOG (ENG-030 — provider-agnostic call recording + budget control)
