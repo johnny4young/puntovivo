@@ -105,6 +105,8 @@ export const createProductInput = z
 export const updateProductInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
+    // ENG-177a — optimistic-concurrency token (see updateCustomerInput).
+    version: z.number().int().nonnegative(),
     name: z.string().min(1).max(255).optional(),
     sku: z.string().min(1).max(100).optional(),
     description: z.string().nullable().optional(),

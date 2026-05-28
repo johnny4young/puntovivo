@@ -54,6 +54,9 @@ export const createCustomerInput = z.object({
 
 export const updateCustomerInput = z.object({
   id: z.string().min(1, 'ID is required'),
+  // ENG-177a — optimistic-concurrency token; the client round-trips the
+  // version it last read so a stale overwrite is rejected with STALE_VERSION.
+  version: z.number().int().nonnegative(),
   name: z.string().min(1).max(255).optional(),
   email: z.string().email().nullable().optional(),
   phone: z.string().nullable().optional(),

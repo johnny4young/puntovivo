@@ -17,6 +17,7 @@
 import { TRPCError } from '@trpc/server';
 import { eq, and, sql, like, isNull, asc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -213,12 +214,30 @@ export const categoriesRouter = router({
     });
 
     const now = new Date().toISOString();
-    const updateData: Record<string, unknown> = { updatedAt: now };
+    // ENG-177a — optimistic-concurrency bump (see the versioned WHERE below).
+    const updateData: Record<string, unknown> = {
+      updatedAt: now,
+      version: input.version + 1,
+    };
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.parentId !== undefined) updateData.parentId = updates.parentId;
 
-    await ctx.db.update(categories).set(updateData).where(eq(categories.id, id));
+    // ENG-177a — optimistic-concurrency guard. The NOT_FOUND pre-check above
+    // established existence + tenant scope, so a zero-change result means
+    // another tab bumped the version first.
+    const versionedUpdate = ctx.db
+      .update(categories)
+      .set(updateData)
+      .where(
+        and(
+          eq(categories.id, id),
+          eq(categories.tenantId, ctx.tenantId),
+          eq(categories.version, input.version)
+        )
+      )
+      .run() as { changes?: number };
+    assertVersionedWriteApplied('category', versionedUpdate.changes ?? 0, input.version);
 
     await enqueueSync(ctx, {
       entityType: 'categories',

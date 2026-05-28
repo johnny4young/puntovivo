@@ -208,6 +208,7 @@ describe('Products tRPC Router', () => {
 
     const updated = await caller.products.update({
       id: created.id,
+      version: created.version,
       cost: 110,
       marginPercent1: 25,
       marginPercent2: 40,
@@ -366,6 +367,7 @@ describe('Products tRPC Router', () => {
 
     const updated = await caller.products.update({
       id: created.id,
+      version: created.version,
       providerId,
     });
 
@@ -498,6 +500,7 @@ describe('Products tRPC Router', () => {
 
     const updated = await caller.products.update({
       id: created.id,
+      version: created.version,
       stock: 0.75,
       minStock: 0.1,
     });
@@ -554,6 +557,7 @@ describe('Products tRPC Router', () => {
 
     const updated = await caller.products.update({
       id: created.id,
+      version: created.version,
       fractionStep: 0.5,
       fractionMinimum: 1,
     });

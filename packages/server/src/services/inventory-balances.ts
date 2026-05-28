@@ -99,20 +99,30 @@ export function ensureInventoryBalancesForSite(
       return;
     }
 
-    for (const product of tenantProducts) {
+    // ENG-177a — chunked multi-row insert. The previous per-product
+    // `forEach` issued one INSERT per row, which on a 50k-product tenant
+    // held the write lock for >1s during site onboarding. A single
+    // `.values([...])` insert is one statement per chunk. 10 bound columns
+    // per row, so 90 rows stays well under SQLITE_MAX_VARIABLE_NUMBER (999).
+    // `onConflictDoNothing` preserves the seed-only contract: rows already
+    // owned by the transfer-aware write paths are never clobbered.
+    const CHUNK_SIZE = 90;
+    const rows = tenantProducts.map(product => ({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId: product.id,
+      onHand: isPrimarySite ? product.stock : 0,
+      reserved: 0,
+      syncStatus: 'pending' as const,
+      syncVersion: 0,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
       tx.insert(inventoryBalances)
-        .values({
-          id: nanoid(),
-          tenantId,
-          siteId,
-          productId: product.id,
-          onHand: isPrimarySite ? product.stock : 0,
-          reserved: 0,
-          syncStatus: 'pending',
-          syncVersion: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
+        .values(rows.slice(offset, offset + CHUNK_SIZE))
         .onConflictDoNothing({
           target: [
             inventoryBalances.tenantId,

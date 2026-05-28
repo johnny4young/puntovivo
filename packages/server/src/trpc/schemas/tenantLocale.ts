@@ -5,6 +5,10 @@
 import { z } from 'zod';
 
 export const updateTenantLocaleInput = z.object({
+  // ENG-177a — optimistic-concurrency token. Optional because the first
+  // save creates the row (no prior version); supplied on every subsequent
+  // edit so a stale overwrite is rejected with STALE_VERSION.
+  version: z.number().int().nonnegative().optional(),
   countryCode: z
     .string()
     .trim()

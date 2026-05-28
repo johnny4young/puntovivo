@@ -57,6 +57,13 @@ export interface ResolvedLocale {
   currencyOverride: string | null;
   timezoneOverride: string | null;
   firstDayOfWeekOverride: number | null;
+  /**
+   * ENG-177a — optimistic-concurrency token of the underlying
+   * `tenant_locale_settings` row (0 for the fallback / unconfigured tenant).
+   * The admin locale card round-trips this on save so a stale overwrite is
+   * rejected with STALE_VERSION.
+   */
+  version: number;
   /** Whether i18next has bundles for `language` — BR/pt-BR starts false. */
   uiLocaleReady: boolean;
   /** True when the resolver hit the hardcoded fallback path. */
@@ -83,6 +90,7 @@ export const LOCALE_FALLBACK: ResolvedLocale = {
   currencyOverride: null,
   timezoneOverride: null,
   firstDayOfWeekOverride: null,
+  version: 0,
   uiLocaleReady: true,
   isFallback: true,
 };
@@ -115,6 +123,7 @@ function combine(
     currencyOverride: settings.currencyOverride,
     timezoneOverride: settings.timezoneOverride,
     firstDayOfWeekOverride: settings.firstDayOfWeekOverride,
+    version: settings.version,
     uiLocaleReady: country.uiLocaleReady ?? true,
     isFallback: false,
   };

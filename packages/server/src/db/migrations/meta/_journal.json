@@ -274,6 +274,20 @@
 			"when": 1784592000000,
 			"tag": "0038_eng176c_fiscal_identification_catalog",
 			"breakpoints": true
+		},
+		{
+			"idx": 39,
+			"version": "6",
+			"when": 1784678400000,
+			"tag": "0039_eng177a_catalog_version",
+			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "6",
+			"when": 1784764800000,
+			"tag": "0040_eng168_system_audit_logs",
+			"breakpoints": true
 		}
 	]
 }

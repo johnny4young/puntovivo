@@ -568,7 +568,12 @@ with five lifecycle invariants:
   (and once at boot via `tickOnce`) and removes rows whose
   `expires_at` is older than 24 h. The 24-hour grace keeps recent
   buckets available for incident correlation without unbounded
-  growth.
+  growth. Every run writes a global `system_audit_logs` row with
+  `action = login_attempts.cleanup`, `resource_id = global`, and
+  metadata `{ cutoff, deleted, staleAgeMs }`; cleanup failures write
+  the same action with `status = error`. This deliberately does not
+  use tenant-scoped `audit_logs` because the source table is global
+  and has no actor.
 - **Pairing claim audit row** — every successful
   `claimPairingCodeForDevice` emits a `device.pairing.claimed` audit
   entry inside the same transaction as the `devices` +

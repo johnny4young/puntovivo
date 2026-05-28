@@ -413,6 +413,7 @@ describe('Collections tRPC Routers', () => {
         const created = await caller.categories.create({ name: 'Before Update' });
         const updated = await caller.categories.update({
           id: created.id,
+          version: created.version,
           name: 'After Update',
         });
 
@@ -427,6 +428,7 @@ describe('Collections tRPC Routers', () => {
         await expect(
           caller.categories.update({
             id: created.id,
+            version: created.version,
             parentId: created.id,
           })
         ).rejects.toMatchObject({
@@ -445,6 +447,7 @@ describe('Collections tRPC Routers', () => {
         await expect(
           caller.categories.update({
             id: root.id,
+            version: root.version,
             parentId: child.id,
           })
         ).rejects.toMatchObject({
@@ -456,7 +459,7 @@ describe('Collections tRPC Routers', () => {
         const caller = appRouter.createCaller(adminCtx());
 
         try {
-          await caller.categories.update({ id: 'nonexistent-id', name: 'X' });
+          await caller.categories.update({ id: 'nonexistent-id', version: 0, name: 'X' });
           expect.unreachable('Should have thrown');
         } catch (err) {
           expect(err).toBeInstanceOf(TRPCError);
@@ -639,7 +642,11 @@ describe('Collections tRPC Routers', () => {
           stock: 5,
         });
 
-        const updated = await caller.products.update({ id: created.id, price: 29.99 });
+        const updated = await caller.products.update({
+          id: created.id,
+          version: created.version,
+          price: 29.99,
+        });
         expect(updated.id).toBe(created.id);
         expect(updated.price).toBe(29.99);
       });
@@ -648,7 +655,7 @@ describe('Collections tRPC Routers', () => {
         const caller = appRouter.createCaller(adminCtx());
 
         try {
-          await caller.products.update({ id: 'nonexistent-id', price: 1.0 });
+          await caller.products.update({ id: 'nonexistent-id', version: 0, price: 1.0 });
           expect.unreachable('Should have thrown');
         } catch (err) {
           expect(err).toBeInstanceOf(TRPCError);
@@ -794,6 +801,7 @@ describe('Collections tRPC Routers', () => {
         const created = await caller.customers.create({ name: 'Old Name' });
         const updated = await caller.customers.update({
           id: created.id,
+          version: created.version,
           name: 'New Name',
           identificationTypeId: 'NIT',
           clientTypeId: 'wholesale',

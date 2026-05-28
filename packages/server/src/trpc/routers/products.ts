@@ -17,6 +17,7 @@
 import { TRPCError } from '@trpc/server';
 import { eq, and, sql, like, or, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
@@ -91,6 +92,9 @@ const productSelection = {
   imageUrl: products.imageUrl,
   syncStatus: products.syncStatus,
   syncVersion: products.syncVersion,
+  // ENG-177a — optimistic-concurrency token surfaced so the edit form can
+  // round-trip it on update.
+  version: products.version,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
   categoryName: categories.name,
@@ -817,6 +821,10 @@ export const productsRouter = router({
       updatedAt: now,
       syncStatus: 'pending',
       syncVersion: (existing.syncVersion ?? 0) + 1,
+      // ENG-177a — optimistic-concurrency bump. The versioned WHERE below
+      // guarantees the stored version still equals input.version, so the
+      // next value is unconditionally input.version + 1.
+      version: input.version + 1,
       price: normalizedPricing.price,
       price2: normalizedPricing.price2,
       price3: normalizedPricing.price3,
@@ -847,7 +855,22 @@ export const productsRouter = router({
     if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
     if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;
 
-    await ctx.db.update(products).set(updateData).where(eq(products.id, id));
+    // ENG-177a — optimistic-concurrency guard. The version predicate makes
+    // this UPDATE a no-op when another tab already saved (stored version no
+    // longer matches), and the tenant predicate keeps the multi-tenant
+    // invariant explicit rather than relying solely on the pre-read above.
+    const versionedUpdate = ctx.db
+      .update(products)
+      .set(updateData)
+      .where(
+        and(
+          eq(products.id, id),
+          eq(products.tenantId, ctx.tenantId),
+          eq(products.version, input.version)
+        )
+      )
+      .run() as { changes?: number };
+    assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
     await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
 
     if (resolvedProviderAssignments !== undefined) {

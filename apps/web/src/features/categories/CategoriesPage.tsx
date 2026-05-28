@@ -14,6 +14,7 @@ import {
   type CategoryLookupOption,
 } from '@/features/categories/CategoryFormModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { extractServerErrorCode } from '@/lib/translateServerError';
 
 interface CategoryTreeRow extends Category {
   depth: number;
@@ -101,7 +102,16 @@ export function CategoriesPage() {
       handleCloseModal();
       toast.success({ title: t('categories.toast.updated') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.updateError' }),
+    // ENG-177a — refresh the cached tree/list on a STALE_VERSION conflict.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:categories.toast.updateError',
+      extra: (_description, error) => {
+        if (extractServerErrorCode(error) === 'STALE_VERSION') {
+          void utils.categories.tree.invalidate();
+          void utils.categories.list.invalidate();
+        }
+      },
+    }),
   });
   const deleteMutation = trpc.categories.delete.useMutation({
     onSuccess: async () => {
@@ -148,6 +158,8 @@ export function CategoriesPage() {
     if (editingCategory) {
       await updateMutation.mutateAsync({
         id: editingCategory.id,
+        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        version: editingCategory.version,
         name: values.name,
         description: toOptionalString(values.description),
         parentId: toNullableString(values.parentId),

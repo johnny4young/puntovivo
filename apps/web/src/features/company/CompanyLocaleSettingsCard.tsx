@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe2 } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 
 const EMPTY_COUNTRIES: readonly never[] = [];
@@ -55,6 +56,13 @@ export function CompanyLocaleSettingsCard() {
     onError: onErrorToast(toast, t, {
       titleKey: 'localeSettings:toast.saveErrorTitle',
       fallbackKey: 'localeSettings:toast.saveErrorFallback',
+      // ENG-177a — refresh the resolved locale on a STALE_VERSION conflict so
+      // the next save round-trips the latest version.
+      extra: (_description, error) => {
+        if (extractServerErrorCode(error) === 'STALE_VERSION') {
+          void utils.tenantLocale.get.invalidate();
+        }
+      },
     }),
   });
 
@@ -135,6 +143,11 @@ export function CompanyLocaleSettingsCard() {
   const handleSave = () => {
     if (!effectiveCountryCode) return;
     mutation.mutate({
+      // ENG-177a — round-trip the resolved row's version so a concurrent
+      // edit from another admin tab is rejected with STALE_VERSION. Undefined
+      // on legacy/no-row clients; the server treats fallback 0 as virtual and
+      // stores the first real write as version 1.
+      version: current?.version,
       countryCode: effectiveCountryCode,
       localeOverride:
         effectiveLocaleOverride.trim().length > 0

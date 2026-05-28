@@ -128,6 +128,8 @@ export interface Provider {
   contactName?: string | null;
   isActive: boolean;
   assignedCategoryCount?: number;
+  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -266,6 +268,8 @@ export interface Product {
   updatedAt: string;
   syncStatus?: SyncStatus | null | undefined;
   syncVersion?: number | null | undefined;
+  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  version: number;
 }
 
 export interface ProductUnitAssignment {
@@ -309,6 +313,8 @@ export interface Category {
   name: string;
   description?: string | null;
   parentId?: string | null;
+  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -340,6 +346,8 @@ export interface Customer {
   updatedAt: string;
   syncStatus?: SyncStatus | null;
   syncVersion?: number;
+  // ENG-177a — optimistic-concurrency token (round-tripped on update).
+  version: number;
 }
 
 export interface CustomerCatalogItem {

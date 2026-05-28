@@ -60,6 +60,7 @@ const providers: Provider[] = [
     countryName: null,
     contactName: null,
     isActive: true,
+    version: 0,
     createdAt: '2026-05-15T00:00:00.000Z',
     updatedAt: '2026-05-15T00:00:00.000Z',
   },

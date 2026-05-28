@@ -12,6 +12,7 @@ import {
 } from '@/features/providers/ProviderFormModal';
 import { createProviderColumns } from '@/features/providers/providerColumns';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { Category, City, Provider, UserRole } from '@/types';
 
@@ -52,7 +53,15 @@ export function ProvidersPage() {
       handleCloseModal();
       toast.success({ title: t('providers.toast.updated') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:providers.toast.updateError' }),
+    // ENG-177a — refresh the cached list on a STALE_VERSION conflict.
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:providers.toast.updateError',
+      extra: (_description, error) => {
+        if (extractServerErrorCode(error) === 'STALE_VERSION') {
+          void utils.providers.list.invalidate();
+        }
+      },
+    }),
   });
   const deleteMutation = trpc.providers.delete.useMutation({
     onSuccess: async () => {
@@ -129,6 +138,8 @@ export function ProvidersPage() {
     if (editingProvider) {
       await updateMutation.mutateAsync({
         id: editingProvider.id,
+        // ENG-177a — round-trip the loaded version for the concurrency guard.
+        version: editingProvider.version,
         ...payload,
       });
       return;

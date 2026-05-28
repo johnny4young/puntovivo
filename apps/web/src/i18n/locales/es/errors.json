@@ -144,6 +144,7 @@
     "FISCAL_SEQUENTIAL_NOT_ADVANCED": "Otra emisión simultánea consumió el mismo número fiscal. Reintenta la operación; el siguiente intento toma un número fresco.",
     "DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED": "No se pudo generar un código de vinculación único tras varios intentos. Espera un momento y solicita uno nuevo.",
     "CREDIT_LEDGER_INVALID_AMOUNT": "El monto del registro de crédito debe ser un número finito positivo.",
+    "STALE_VERSION": "Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.",
     "HARDWARE_NO_DRAWER_REGISTERED": "Esta sede aún no tiene un cajón de dinero vinculado. Vincula uno desde Operaciones antes de abrir el cajón.",
     "HARDWARE_SALE_NOT_FOUND": "Esa venta ya no existe para este tenant o esta sede. Refresca y vuelve a intentarlo.",
     "HARDWARE_TRANSPORT_FAILED": "El comando de hardware no llegó al dispositivo. Verifica la conexión y reintenta.",

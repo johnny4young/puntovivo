@@ -698,6 +698,21 @@ export const SERVER_ERROR_CODES = {
    * `details` carries `{ creditAmount, customerId }`.
    */
   CREDIT_LEDGER_INVALID_AMOUNT: 'CREDIT_LEDGER_INVALID_AMOUNT',
+
+  // --- ENG-177a optimistic concurrency ---
+  /**
+   * ENG-177a — a catalog `*.update` mutation (products / customers /
+   * providers / categories / tenant locale) received a `version` that no
+   * longer matches the stored row, meaning another tab or operator already
+   * saved an edit. The write is rejected instead of silently clobbering the
+   * other change; the renderer reloads the row (now carrying the new
+   * version) before letting the operator retry. Guards the *live-edit*
+   * layer — distinct from ADR-0004's sync-layer auto-LWW reconciliation.
+   * `details` carries `{ entity, suppliedVersion }`. The renderer reloads the
+   * row to fetch the current version instead of doing an extra server read in
+   * the failed UPDATE path.
+   */
+  STALE_VERSION: 'STALE_VERSION',
 } as const;
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[keyof typeof SERVER_ERROR_CODES];

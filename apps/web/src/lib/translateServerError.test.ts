@@ -80,6 +80,12 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('PERIPHERAL_ACTIVE_DUPLICATE');
   });
 
+  it('recognizes the optimistic-concurrency STALE_VERSION code (ENG-177a)', () => {
+    // The catalog pages branch on this code to refetch the stale list.
+    const error = { data: { errorCode: 'STALE_VERSION' } };
+    expect(extractServerErrorCode(error)).toBe('STALE_VERSION');
+  });
+
   it('returns null when there is no errorCode field anywhere', () => {
     expect(extractServerErrorCode({ data: {} })).toBeNull();
     expect(extractServerErrorCode(new Error('boom'))).toBeNull();
@@ -129,6 +135,24 @@ describe('translateServerError', () => {
       fallback
     );
     expect(result).toBe('Ya hay otro periférico activo de este tipo en esta sede.');
+  });
+
+  it('translates the STALE_VERSION optimistic-concurrency code (ENG-177a)', () => {
+    const t = makeFakeT({
+      'errors:server.STALE_VERSION':
+        'Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'STALE_VERSION' },
+        message: 'Stale customer version: no row matched version 0',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe(
+      'Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.'
+    );
   });
 
   it('falls back to the server English message when the code is unknown', () => {

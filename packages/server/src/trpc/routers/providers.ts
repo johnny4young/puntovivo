@@ -10,6 +10,7 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
+import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import {
   categories,
   categoryXProvider,
@@ -63,6 +64,8 @@ function buildProviderSelection() {
     countryName: countries.name,
     contactName: providers.contactName,
     isActive: providers.isActive,
+    // ENG-177a — optimistic-concurrency token surfaced for the edit form.
+    version: providers.version,
     createdAt: providers.createdAt,
     updatedAt: providers.updatedAt,
   };
@@ -207,7 +210,11 @@ export const providersRouter = router({
     await ensureTenantProvider(ctx.db, ctx.tenantId, id);
 
     const now = new Date().toISOString();
-    const updateData: Record<string, unknown> = { updatedAt: now };
+    // ENG-177a — optimistic-concurrency bump (see the versioned WHERE below).
+    const updateData: Record<string, unknown> = {
+      updatedAt: now,
+      version: input.version + 1,
+    };
     const cityId =
       updates.cityId !== undefined
         ? await ensureCityExists(ctx.db, ctx.tenantId, updates.cityId)
@@ -222,7 +229,21 @@ export const providersRouter = router({
     if (updates.contactName !== undefined) updateData.contactName = updates.contactName;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(providers).set(updateData).where(eq(providers.id, id));
+    // ENG-177a — optimistic-concurrency guard. `ensureTenantProvider` above
+    // already established existence + tenant scope, so a zero-change result
+    // here means another tab bumped the version first.
+    const versionedUpdate = ctx.db
+      .update(providers)
+      .set(updateData)
+      .where(
+        and(
+          eq(providers.id, id),
+          eq(providers.tenantId, ctx.tenantId),
+          eq(providers.version, input.version)
+        )
+      )
+      .run() as { changes?: number };
+    assertVersionedWriteApplied('provider', versionedUpdate.changes ?? 0, input.version);
 
     await enqueueSync(ctx, {
       entityType: 'providers',

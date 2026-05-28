@@ -118,6 +118,10 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       fractionStep: match.fractionStep ?? null,
       fractionMinimum: match.fractionMinimum ?? null,
       isActive: true,
+      // ENG-177a — the parser summary does not carry the optimistic-version
+      // token; 0 is inert here because this synthetic product is only routed
+      // through `mergeCartItem`, never an update mutation.
+      version: 0,
       createdAt: '',
       updatedAt: '',
     },

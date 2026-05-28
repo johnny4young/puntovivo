@@ -144,6 +144,7 @@
     "FISCAL_SEQUENTIAL_NOT_ADVANCED": "A concurrent emitter raced past the same fiscal sequential window. Retry the operation; the next attempt picks a fresh number.",
     "DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED": "Could not allocate a unique device pairing code after several attempts. Wait a moment and request a new code.",
     "CREDIT_LEDGER_INVALID_AMOUNT": "The credit ledger amount must be a positive finite number.",
+    "STALE_VERSION": "Another user changed this record while you were editing. Reload to get the latest version, then try again.",
     "HARDWARE_NO_DRAWER_REGISTERED": "No cash drawer is currently registered for this site. Pair one from Operations before opening the drawer.",
     "HARDWARE_SALE_NOT_FOUND": "That sale no longer exists for this tenant or this site. Refresh and try again.",
     "HARDWARE_TRANSPORT_FAILED": "The hardware command could not be delivered to the device. Check the connection and retry.",
