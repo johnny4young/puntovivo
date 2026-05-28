@@ -55,6 +55,52 @@ import type { Context } from '../context.js';
 
 const log = createModuleLogger('commandEnvelope');
 
+/** Request-scoped child logger injected by the envelope middleware. */
+type CommandLogger = ReturnType<typeof createModuleLogger>;
+
+/**
+ * ENG-179c — the context shape every `criticalCommand*Procedure`
+ * resolver sees after `commandEnvelope` has run. The middleware
+ * injects `deviceId`, the validated `envelope`, and a request-scoped
+ * child `log`; declaring the augmented shape once lets resolvers (and
+ * their `build*Context` helpers) read `ctx.envelope` / `ctx.deviceId`
+ * directly instead of the old `(ctx as unknown as { envelope?: ... })`
+ * double-cast. The middleware forces this type on the `next({ ctx })`
+ * call below so tRPC propagates it down the `.use(commandEnvelope)`
+ * chain.
+ */
+export interface CriticalCommandContext extends Omit<Context, 'tenantId' | 'user'> {
+  // The middleware throws `UNAUTHORIZED` when either is absent (see the
+  // guard at the top of the handler), so downstream resolvers always
+  // see a non-null tenant + user.
+  tenantId: string;
+  user: NonNullable<Context['user']>;
+  deviceId: string;
+  envelope: CommandEnvelope;
+  log: CommandLogger;
+}
+
+/**
+ * ENG-179c — narrow a resolver's `ctx` to `CriticalCommandContext` at a
+ * single documented boundary.
+ *
+ * tRPC does NOT propagate the `commandEnvelope` context override to
+ * downstream resolvers: the middleware's idempotency cache short-circuit
+ * returns a value that did not flow through `next()`, which collapses
+ * tRPC's `$ContextOverridesOut` inference back to the base `Context`.
+ * The middleware still injects `deviceId` / `envelope` / `log` at
+ * runtime (see the typed `criticalCtx` it passes to `next` below), so
+ * the assertion is sound for any procedure built on
+ * `criticalCommand*Procedure`. This helper replaces the nine ad-hoc
+ * `(ctx as unknown as { envelope?: ... })` double-casts that used to be
+ * scattered across the sales / cashSessions / inventory routers with a
+ * single, named, documented conversion. Only call it from inside a
+ * `criticalCommand*Procedure` resolver.
+ */
+export function asCriticalCommandContext(ctx: Context): CriticalCommandContext {
+  return ctx as unknown as CriticalCommandContext;
+}
+
 /**
  * Extracts the (operationKind) string from the tRPC path. The path is
  * the dotted procedure name like `sales.create`, so we keep it as-is.
@@ -282,14 +328,19 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // 4. Run the procedure with envelope context, then persist.
   let result: Awaited<ReturnType<typeof next>>;
   try {
-    result = await next({
-      ctx: {
-        ...ctx,
-        deviceId: device.id,
-        envelope,
-        log: requestLog,
-      },
-    });
+    // ENG-179c — build the augmented context as an explicitly typed
+    // const so tRPC propagates `CriticalCommandContext` to every
+    // downstream `criticalCommand*Procedure` resolver (no more
+    // `(ctx as unknown as { envelope?: ... })` casts in the routers).
+    const criticalCtx: CriticalCommandContext = {
+      ...ctx,
+      tenantId,
+      user,
+      deviceId: device.id,
+      envelope,
+      log: requestLog,
+    };
+    result = await next({ ctx: criticalCtx });
   } catch (error) {
     await failReservation();
     // ENG-053 — Capture the failure on the journal trail. The

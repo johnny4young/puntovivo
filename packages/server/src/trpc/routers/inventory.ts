@@ -32,6 +32,7 @@ import {
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import type { Context } from '../context.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import {
   listEntriesInput,
   listMovementsInput,
@@ -768,7 +769,9 @@ export const inventoryRouter = router({
     const journalEventId = await lookupInventoryJournalEventId(
       ctx.db,
       ctx.tenantId,
-      (ctx as unknown as { envelope?: { operationId: string } }).envelope?.operationId
+      // ENG-179c — adjustStock is a criticalCommand procedure, so the
+      // envelope is always present; narrow ctx at the single boundary.
+      asCriticalCommandContext(ctx).envelope.operationId
     );
     if (journalEventId && resolvedAdjustmentSiteId) {
       await safeUpdateInventoryAdjustedSummary(ctx, journalEventId, {

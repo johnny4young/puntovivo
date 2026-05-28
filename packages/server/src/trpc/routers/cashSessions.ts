@@ -14,6 +14,7 @@ import {
   normalizeRegisterName,
 } from '../../services/cash-session.js';
 import type { Context } from '../context.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -124,24 +125,22 @@ async function getCashSessionAccessRecord(
 }
 
 /**
- * Adapt the tRPC `Context` (which the application services treat as
- * opaque) to the `CashSessionContext` shape consumed by the use-case
- * services. The `commandEnvelope` middleware decorates `ctx` with
- * `envelope`, `deviceId`, and `log` only on critical-command
- * procedures; the cast surfaces those without leaking the unsafe
- * access into the use-case bodies.
+ * Adapt the tRPC context to the `CashSessionContext` shape the
+ * use-case services consume. ENG-179c — the parameter is typed
+ * `CriticalCommandContext` (the augmented shape `commandEnvelope`
+ * injects), so `ctx.envelope` / `ctx.deviceId` are read directly.
+ * Only critical-command procedures call this helper.
  */
 function buildCashSessionContext(ctx: Context): CashSessionContext {
+  const cc = asCriticalCommandContext(ctx);
   return {
-    db: ctx.db,
-    tenantId: ctx.tenantId!,
-    siteId: ctx.siteId,
-    user: { id: ctx.user!.id, role: ctx.user!.role },
-    envelope:
-      (ctx as unknown as { envelope?: { operationId: string } }).envelope ?? null,
-    deviceId:
-      (ctx as unknown as { deviceId?: string | null }).deviceId ?? null,
-    log: ctx.req?.server?.log,
+    db: cc.db,
+    tenantId: cc.tenantId,
+    siteId: cc.siteId,
+    user: { id: cc.user.id, role: cc.user.role },
+    envelope: cc.envelope,
+    deviceId: cc.deviceId,
+    log: cc.req?.server?.log,
   };
 }
 

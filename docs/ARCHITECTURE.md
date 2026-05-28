@@ -552,13 +552,57 @@ The codebase has one class-component hot spot (`AppErrorBoundary`'s
 React 19 lifecycle methods) plus the Electron `BrowserWindow` event
 handler subclasses. No call-site impact, zero runtime change.
 
+### `no-explicit-any` → error + structural cleanup (ENG-179c, 2026-05-28)
+
+The final ENG-179 landing promotes `@typescript-eslint/no-explicit-any`
+from `'warn'` to `'error'` in all three ESLint configs
+(`packages/server`, `apps/web`, `apps/desktop`) and clears the remaining
+`as any` debt.
+
+- **Production `as any` floor**: under 5 in production code. The only
+  remaining production exemption is the outbox kernel
+  (`packages/server/src/lib/outbox/kernel.ts`): Drizzle's
+  `insert` / `select` / `update` builders reject a *parametric*
+  `SQLiteTable`, so the unavoidable cast is isolated to a single
+  documented `type AnyBuilder = any` consumed by three boundary helpers
+  (`insertInto` / `selectAll` / `updateOf`); every call site is otherwise
+  fully typed. Seeds (`db/seed-mega/historical-*.ts`) and test fixtures
+  are exempt **with a documented `-- reason:`** on the disable directive.
+- **Exemption convention**: every `eslint-disable-next-line
+  @typescript-eslint/no-explicit-any` carries a trailing
+  `-- reason: <why>`; a bare disable is a review reject.
+- **Typed critical-command context**: the nine
+  `(ctx as unknown as { envelope?: ... })` double-casts that the
+  sales / cashSessions / inventory routers used to read the
+  `commandEnvelope` middleware's injected fields are replaced by a single
+  exported `CriticalCommandContext` type plus one documented boundary
+  helper, `asCriticalCommandContext(ctx)`, in
+  `trpc/middleware/commandEnvelope.ts`. tRPC does not propagate the
+  middleware's context override to downstream resolvers (its idempotency
+  cache short-circuit returns a value that did not flow through `next()`,
+  collapsing `$ContextOverridesOut` inference back to the base context),
+  so the narrowing lives in one named place instead of nine inline casts.
+- **`types/` module split**: `apps/web/src/types/index.ts` (~1000 LOC)
+  was split into `types/domain.ts` (business entities), `types/ui.ts`
+  (enums / unions / response wrappers, zero deps), and `types/api.ts`
+  (home for `inferRouterOutputs` DTOs). `index.ts` is now a re-export
+  shim kept for one release so the ~142 existing `@/types` import sites
+  resolve unchanged; the conservative split deferred a wholesale
+  hand-written-DTO → `inferRouterOutputs` migration because the domain
+  models are also consumed by the offline / IndexedDB layer. The
+  receipt-renderer DTOs (`RenderSaleItem` / `RenderTender`) were already
+  exported from the server with no web duplicate, so that AC item closed
+  as a no-op.
+
 ### Lint + style guardrails
 
 - **No `@ts-ignore` / `@ts-expect-error` without a `// reason:`
   comment.** The reviewer rejects unguarded escape hatches.
-- **No `as any`** introduced to silence a strict-mode flag — that
-  cosmetic cleanup is ENG-179c. New code uses explicit types or
-  type guards instead.
+- **`@typescript-eslint/no-explicit-any` is `'error'`** (ENG-179c) in
+  every workspace. New `as any` requires a documented
+  `-- reason:` exemption and is only acceptable at a genuine type-system
+  boundary (e.g. a third-party generic the compiler cannot express);
+  prefer explicit types or type guards.
 - **Filter to narrow** for arrays of `T | undefined`:
   `.filter((x): x is T => x !== undefined)`.
 

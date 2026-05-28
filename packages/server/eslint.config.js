@@ -19,7 +19,11 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_|^err' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // ENG-179c — promoted warn -> error. Any remaining explicit `any`
+      // must carry a documented `eslint-disable-next-line ... -- reason:`
+      // (seeds + the outbox kernel Drizzle-boundary casts are the only
+      // exemptions, each annotated with why).
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': 'warn',
       'prefer-const': 'warn',
       // ENG-006 — every diagnostic must flow through the pino logger

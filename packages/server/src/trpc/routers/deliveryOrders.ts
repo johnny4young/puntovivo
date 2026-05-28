@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { deliveryOrders, sites } from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
 
 const statusEnum = z.enum([
   'accepted',
@@ -58,7 +59,7 @@ const advanceInput = z.object({
 });
 
 async function ensureTenantSite(
-  ctx: { db: any; tenantId: string },
+  ctx: { db: DatabaseInstance; tenantId: string },
   siteId: string
 ): Promise<void> {
   const [row] = await ctx.db

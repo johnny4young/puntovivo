@@ -71,7 +71,7 @@ describe('schema strict() — extra keys', () => {
         name: 'Test',
         password: 'AVeryLongP@ssw0rd!2025',
         role: 'cashier',
-        // @ts-expect-error
+        // @ts-expect-error — intentional extra key, asserts createUserInput.strict() rejects it
         bonusAdmin: true,
       })
     ).toThrow();
@@ -82,7 +82,7 @@ describe('schema strict() — extra keys', () => {
       updateUserInput.parse({
         id: 'abc',
         name: 'Test',
-        // @ts-expect-error
+        // @ts-expect-error — intentional extra key, asserts updateUserInput.strict() rejects it
         role: 'admin',
         injected: 'value',
       })
@@ -94,7 +94,7 @@ describe('schema strict() — extra keys', () => {
       listUsersInput.parse({
         page: 1,
         perPage: 10,
-        // @ts-expect-error
+        // @ts-expect-error — intentional extra key, asserts listUsersInput.strict() rejects it
         tenantId: 'leak',
       })
     ).toThrow();
