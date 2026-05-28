@@ -43,6 +43,30 @@ const fallbackLog = createModuleLogger('application/cash-sessions/openCashSessio
 
 export type OpenedCashSessionRow = typeof cashSessions.$inferSelect;
 
+/**
+ * Open a cash session for the active (tenant, site, cashier).
+ *
+ * Invariants:
+ * - At most ONE open session per cashier per site AND at most one open
+ *   session per register: both are enforced as preconditions
+ *   (`CASH_SESSION_ALREADY_OPEN_FOR_CASHIER` / `_FOR_REGISTER`) before any
+ *   write, so the drawer-ownership model stays one-shift-per-drawer.
+ * - The opening float must reconcile against the supplied denomination
+ *   breakdown (`assertOpeningFloatMatchesDenominations`); the stored
+ *   `openingFloat` and the initial `expectedBalance` are both the
+ *   `roundMoney`-ed float, two-decimal clean.
+ * - The session row insert and the `cash_session.open` audit-log row are
+ *   written in ONE transaction — a session never exists without its paired
+ *   audit entry.
+ *
+ * Preconditions: `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`).
+ *
+ * Postconditions: the open row is returned; the register-assignment template
+ * is upserted post-commit (preserving the legacy ordering to keep the
+ * duplicate-template race window unchanged); best-effort journal effects
+ * (`session_open` + `audit_log`) are emitted post-commit and never block the
+ * open.
+ */
 export async function openCashSession(
   ctx: CashSessionContext,
   input: OpenCashSessionInput

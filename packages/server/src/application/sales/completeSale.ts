@@ -244,6 +244,34 @@ async function getSaleSequentialContext(
   return fallback;
 }
 
+/**
+ * Resolve the cart lines into priced, stock-validated rows and accumulate the
+ * tax-exclusive subtotal + tax.
+ *
+ * Invariants:
+ * - Each derived monetary quantity is `roundMoney`-ed to two decimals BEFORE
+ *   it accumulates into the running `subtotal` / `taxAmount` or lands in a
+ *   row. Critically the tax-exclusive split (`lineTotal / (1 + taxRate/100)`)
+ *   produces non-terminating decimals that the storage `chk_*_2dec` CHECK
+ *   would reject and that would stack sub-cent drift across a long line list;
+ *   rounding per line then re-summing the rounded values keeps every stored
+ *   figure cent-clean. Uniform 2-decimal, country-agnostic (see `completeSale`).
+ * - Stock is validated against a per-product running remainder so two lines
+ *   of the same product cannot jointly oversell (`SALE_INSUFFICIENT_STOCK`);
+ *   the product must be active (`SALE_PRODUCT_INVALID`) and the unit
+ *   assignment valid + active (`SALE_UNIT_INVALID`).
+ * - `notes` is operator-facing free text; empty/whitespace collapses to
+ *   `null` (re-trimmed defensively for non-Zod callers) and is never
+ *   auto-translated.
+ *
+ * Preconditions: `inputItems` has passed the sale input schema, and the
+ * `(tenantId, siteId)` pair identifies the site whose inventory will be
+ * validated.
+ *
+ * Postconditions: returns the resolved rows + the accumulated `subtotal` /
+ * `taxAmount`; performs no writes (stock is only checked here, decremented
+ * later inside the sale transaction).
+ */
 async function resolveSaleItems(
   db: DatabaseInstance,
   tenantId: string,
@@ -475,6 +503,37 @@ export type CompleteSaleSaleRecord = Awaited<ReturnType<typeof getSaleRecord>> &
   change?: number;
 };
 
+/**
+ * Public entry point for sale completion — dispatches to the fresh-sale path
+ * (`mode: 'fresh'`, formerly `sales.create`) or the draft-completion path
+ * (`mode: 'fromDraft'`, formerly `sales.completeDraft`).
+ *
+ * Invariants (shared by both paths):
+ * - MONEY ROUNDING IS UNIFORM 2-DECIMAL. Every monetary intermediate and
+ *   every running accumulation passes through `roundMoney()`
+ *   (`Math.round((v + EPSILON) * 100) / 100`, half-away-from-zero) — per
+ *   line (`resolveSaleItems`), at the header re-round, and on tip / service
+ *   charge / total. This holds REGARDLESS of the tenant's country: there is
+ *   NO per-country rounding branch in this file. Per-country rounding
+ *   (Chile integer peso, Peru ICBPER) is NOT implemented in the
+ *   transactional money path today; the only integer rounding that exists
+ *   is `roundClp` in the Chile DTE XML serializer, which never touches the
+ *   live POS money columns. Implementing per-country transactional rounding
+ *   would be a separate code ticket, not a documentation change.
+ * - One synchronous `db.transaction(...)` writes every row the sale touches
+ *   (sequential, header, items, payments, stock, inventory movement +
+ *   balance, cash movement, sync queue, audit logs), fronted by
+ *   `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the drawer).
+ * - Fiscal emission is a BEST-EFFORT POST-COMMIT hook
+ *   (`safelyEmitFiscalDocument`): it runs after the sale transaction has
+ *   already committed and a fiscal failure NEVER rolls the sale back.
+ *
+ * Preconditions: the `mode` discriminator selects one of the two validated
+ * path contracts documented on `runFreshSale` and `runCompleteDraft`.
+ *
+ * Postconditions: returns the completed sale payload from the selected path;
+ * path-specific write sets are documented below.
+ */
 export async function completeSale(
   ctx: CompleteSaleContext,
   input: CompleteSaleInput
@@ -491,6 +550,28 @@ export async function completeSale(
 /*  Fresh-sale path.                                                  */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
+ * compute the header, and persist the whole sale in one transaction.
+ *
+ * Invariants:
+ * - The base is computed line-by-line through `resolveSaleItems` (each line
+ *   `roundMoney`-ed) then re-rounded at the header so an external header
+ *   discount cannot reintroduce sub-cent drift. `tipAmount` and
+ *   `serviceChargeAmount` are clamped to `>= 0`, rounded, and folded into
+ *   `total` AFTER the base so multi-tender `Σ tenders ≈ total` stays
+ *   consistent. All 2-decimal, country-agnostic (see `completeSale`).
+ * - A negative `baseTotal` (discount exceeds total) is rejected with
+ *   `SALE_DISCOUNT_EXCEEDS_TOTAL` before any write.
+ *
+ * Preconditions: the customer is valid, an active cash session exists for
+ * `(tenant, site, cashier)` (`requireActiveCashSession`), and a sale
+ * sequential is configured for the site.
+ *
+ * Postconditions: one committed sale (header + items + payments + stock +
+ * inventory movement/balance + cash movement + sync queue + audit logs);
+ * fiscal emission + journal effects fire best-effort post-commit.
+ */
 async function runFreshSale(
   ctx: CompleteSaleContext,
   log: CompleteSaleLogger,
@@ -1071,6 +1152,29 @@ async function runFreshSale(
 /*  Draft-completion path.                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
+ * already persisted with `status='draft'`.
+ *
+ * Invariants:
+ * - The draft's items + subtotal + tax + discount are IMMUTABLE from the
+ *   create-time call; only tip / service charge are captured at completion.
+ *   `baseTotal` is RECOMPUTED from the frozen monetary pieces
+ *   (`existing.subtotal + existing.taxAmount - existing.discountAmount`),
+ *   NOT from `existing.total`. This is the no-compounding rule: a draft
+ *   created with a tip/service-charge already baked into `total` would
+ *   otherwise see the second tip/charge stack on top of the first and leave
+ *   `total` out of sync with the `tipAmount` / `serviceChargeAmount`
+ *   columns. All amounts `roundMoney`-ed, country-agnostic (see `completeSale`).
+ *
+ * Preconditions: the sale exists, is still `draft` (not already completed),
+ * is not suspended (`SALE_COMPLETE_DRAFT_SUSPENDED`), has line items, the
+ * actor is the creator OR a manager/admin, and an active cash session exists.
+ *
+ * Postconditions: the draft is flipped to a completed sale in one
+ * transaction (status, totals, payments, stock, cash movement, audit logs);
+ * fiscal emission + journal effects fire best-effort post-commit.
+ */
 async function runCompleteDraft(
   ctx: CompleteSaleContext,
   log: CompleteSaleLogger,

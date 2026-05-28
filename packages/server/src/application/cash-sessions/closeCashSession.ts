@@ -84,6 +84,34 @@ async function safeUpdateCashSessionClosedSummary(
   }
 }
 
+/**
+ * Close the cashier's open session, recording the counted drawer and the
+ * over/short delta.
+ *
+ * Invariants:
+ * - over/short = `roundMoney(actualCount - expectedBalance)`; the closing
+ *   count must reconcile against the supplied denomination breakdown
+ *   (`getClosingCountTotal`). The over/short is the audited reconciliation
+ *   figure, not a corrective write — `expectedBalance` is left as-is.
+ * - The status flip to `closed` + the `cash_session.close` audit-log row are
+ *   written in ONE transaction, fronted by `assertCashSessionStillOpen`
+ *   (in-tx TOCTOU re-check) so an over/short row never exists without its
+ *   paired audit entry and a concurrent close cannot double-close.
+ * - Close NEVER blocks on pending fiscal/payment state: pending counts are
+ *   resolved read-only BEFORE the tx and ride two channels — the audit-log
+ *   metadata (forensic snapshot) and one `pending_warning` journal effect
+ *   per non-zero category. These are warning-only; the `cashSessions.pendingChecks`
+ *   query is the UI's pre-close gate, but close itself trusts the cashier's
+ *   intent.
+ *
+ * Preconditions: `ctx.user` authenticated (`CASH_SESSION_REQUIRED`),
+ * `ctx.siteId` non-null (`CASH_SESSION_SITE_REQUIRED`), and an open session
+ * exists for the cashier.
+ *
+ * Postconditions: returns the closed row + over/short + pending counts; the
+ * operation summary update and journal effects are best-effort post-commit
+ * and never block the close.
+ */
 export async function closeCashSession(
   ctx: CashSessionContext,
   input: CloseCashSessionInput
