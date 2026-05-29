@@ -1,8 +1,10 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useEffectEvent,
+  useMemo,
   useState,
   ReactNode,
 } from 'react';
@@ -112,7 +114,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<unknown>(null);
   const navigate = useNavigate();
 
-  const clearLocalSession = () => {
+  // ENG-171 — stable identity (only stable refs inside: module helpers,
+  // store getState, and useState setters) so `logout` can list it as a
+  // dependency without invalidating its own useCallback every render.
+  const clearLocalSession = useCallback(() => {
     clearAccessToken();
     clearAuthSession();
     // ENG-018b — drop any parked multi-cart workspaces so a new cashier
@@ -139,7 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // listeners. Anonymous captures from then on emit with
     // `tenantId: null`.
     setActiveTenantId(null);
-  };
+  }, []);
 
   const handleAuthSessionExpired = useEffectEvent(() => {
     clearLocalSession();
@@ -230,9 +235,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       isMounted = false;
     };
-  }, []);
+    // ENG-171 — `clearLocalSession` is now a stable useCallback; listing it
+    // keeps the mount-once semantics (stable ref → never re-runs) while
+    // satisfying exhaustive-deps.
+  }, [clearLocalSession]);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true);
     setError(null);
 
@@ -342,9 +350,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+    // ENG-171 — `navigate` is the only reactive dependency (react-router
+    // returns a stable reference); every other ref is a module helper or a
+    // stable useState setter, so the callback identity holds across renders.
+  }, [navigate]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setIsLoading(true);
     try {
       await vanillaClient.auth.logout.mutate();
@@ -379,21 +390,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(false);
       navigate('/login');
     }
-  };
+  }, [clearLocalSession, navigate]);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        tenant,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        logout,
-        error,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  // ENG-171 — memoize the context value so the 52 `useAuth` consumers only
+  // re-render when an auth field actually changes, not on every incidental
+  // AuthProvider render. `login` + `logout` are now stable useCallbacks.
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      tenant,
+      isAuthenticated: !!user,
+      isLoading,
+      login,
+      logout,
+      error,
+    }),
+    [user, tenant, isLoading, login, logout, error]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

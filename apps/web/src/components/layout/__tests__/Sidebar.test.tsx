@@ -32,6 +32,9 @@ const allModulesOn = {
 };
 let mockModules: Record<string, boolean> = { ...allModulesOn };
 let mockPathname = '/dashboard';
+const { prefetchSalesMock } = vi.hoisted(() => ({
+  prefetchSalesMock: vi.fn(),
+}));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -70,6 +73,13 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+// ENG-171 — Sidebar now calls usePrefetchSales (trpc.useUtils + useTenant)
+// for the /sales hover prefetch. Stub the hook to avoid wiring those
+// providers; this suite pins that the visible sidebar anchors call it.
+vi.mock('@/features/sales/usePrefetchSales', () => ({
+  usePrefetchSales: () => prefetchSalesMock,
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>(
     'react-router-dom'
@@ -91,6 +101,7 @@ beforeEach(() => {
   mockUserRole = 'admin';
   mockModules = { ...allModulesOn };
   mockPathname = '/dashboard';
+  prefetchSalesMock.mockReset();
   window.localStorage.clear();
 });
 
@@ -202,6 +213,16 @@ describe('Sidebar workspace header navigation (ENG-131c)', () => {
       expect(link.tagName).toBe('A');
       expect(link.getAttribute('href')).toBe(expectedHref);
     }
+  });
+
+  it('prefetches sales from the visible Sell workspace header link', () => {
+    render(<Sidebar {...sidebarProps} />);
+
+    const sellLink = screen.getByTestId('sidebar-workspace-link-sell');
+    fireEvent.mouseEnter(sellLink);
+    fireEvent.focus(sellLink);
+
+    expect(prefetchSalesMock).toHaveBeenCalledTimes(2);
   });
 
   it('the chevron button remains the canonical aria-expanded disclosure surface', () => {

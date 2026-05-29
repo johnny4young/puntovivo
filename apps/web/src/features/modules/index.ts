@@ -11,8 +11,10 @@ export {
   type ClientModuleId,
 } from './manifest';
 export {
-  ModulesProvider,
+  ModulesSync,
+  useModulesSync,
   useIsModuleActive,
   useModulesSnapshot,
+  type ModulesSnapshot,
 } from './ModulesContext';
 export { RequireModule } from './RequireModule';

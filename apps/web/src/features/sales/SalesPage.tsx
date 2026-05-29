@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -253,15 +254,29 @@ export function SalesPage() {
     isQuickCreateProductMounted: shouldRenderQuickCreateProductGate,
     isQuickCreateCustomerMounted: shouldRenderQuickCreateCustomerGate,
   });
-  const salesQuery = trpc.sales.list.useQuery({ page: 1, perPage: 50 });
-  const summaryQuery = trpc.sales.summary.useQuery();
-  const customersQuery = trpc.customers.list.useQuery({ page: 1, perPage: 100, isActive: true });
+  // ENG-171 — `placeholderData: keepPreviousData` on the high-traffic
+  // entry queries so navigating into /sales (or re-fetching on a key
+  // change such as a site switch) keeps the last data on screen instead
+  // of blanking the shell while the new request is in flight. Paired with
+  // the hover-prefetch on the sidebar /sales entry (usePrefetchSales).
+  const salesQuery = trpc.sales.list.useQuery(
+    { page: 1, perPage: 50 },
+    { placeholderData: keepPreviousData }
+  );
+  const summaryQuery = trpc.sales.summary.useQuery(undefined, {
+    placeholderData: keepPreviousData,
+  });
+  const customersQuery = trpc.customers.list.useQuery(
+    { page: 1, perPage: 100, isActive: true },
+    { placeholderData: keepPreviousData }
+  );
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
   const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
     { siteId: currentSite?.id },
     {
       enabled: !!currentSite,
+      placeholderData: keepPreviousData,
     }
   );
   const activeCashSession = (activeCashSessionQuery.data as CashSession | null | undefined) ?? null;
