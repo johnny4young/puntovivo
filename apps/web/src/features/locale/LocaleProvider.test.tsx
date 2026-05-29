@@ -6,8 +6,9 @@ import {
   setActiveTenantLocale,
 } from '@/lib/utils';
 import {
-  LocaleProvider,
+  LocaleSync,
   useResolvedLocale,
+  __localeStoreForTests,
   type ResolvedLocale,
 } from './LocaleProvider';
 
@@ -64,12 +65,13 @@ function LocaleProbe() {
   return <span>{resolved.locale}</span>;
 }
 
-describe('LocaleProvider', () => {
+describe('LocaleSync (ENG-171 store-backed locale)', () => {
   beforeEach(async () => {
     mockIsAuthenticated = false;
     mockTenant = null;
     mockLocale = undefined;
     setActiveTenantLocale(null);
+    __localeStoreForTests.getState().reset();
     await i18n.changeLanguage('es');
   });
 
@@ -83,11 +85,13 @@ describe('LocaleProvider', () => {
     });
 
     render(
-      <LocaleProvider>
+      <>
+        <LocaleSync />
         <LocaleProbe />
-      </LocaleProvider>
+      </>
     );
 
+    // Store falls back to en-US while unauthenticated.
     expect(screen.getByText('en-US')).toBeInTheDocument();
     await waitFor(() => {
       expect(getActiveTenantLocale()).toBeNull();
@@ -102,9 +106,10 @@ describe('LocaleProvider', () => {
     await i18n.changeLanguage('en');
 
     render(
-      <LocaleProvider>
+      <>
+        <LocaleSync />
         <LocaleProbe />
-      </LocaleProvider>
+      </>
     );
 
     expect(screen.getByText('es-CO')).toBeInTheDocument();
@@ -119,5 +124,37 @@ describe('LocaleProvider', () => {
     await waitFor(() => {
       expect(i18n.resolvedLanguage ?? i18n.language).toBe('es');
     });
+  });
+
+  it('resets the resolved locale to the fallback on logout', async () => {
+    // First, authenticate and load Colombia.
+    mockIsAuthenticated = true;
+    mockTenant = { id: 'tenant-1' };
+    mockLocale = colombiaLocale;
+    const { rerender } = render(
+      <>
+        <LocaleSync />
+        <LocaleProbe />
+      </>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('es-CO')).toBeInTheDocument();
+    });
+
+    // Then drop the session and re-render: the unauth branch resets the
+    // singleton + store so no stale cashier locale leaks.
+    mockIsAuthenticated = false;
+    mockTenant = null;
+    mockLocale = undefined;
+    rerender(
+      <>
+        <LocaleSync />
+        <LocaleProbe />
+      </>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('en-US')).toBeInTheDocument();
+    });
+    expect(getActiveTenantLocale()).toBeNull();
   });
 });

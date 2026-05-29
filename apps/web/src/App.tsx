@@ -7,9 +7,9 @@ import {
 } from '@/components/feedback/LoadingState';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
-import { LocaleProvider } from '@/features/locale/LocaleProvider';
+import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
-import { ModulesProvider, RequireModule } from '@/features/modules';
+import { ModulesSync, RequireModule } from '@/features/modules';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -255,10 +255,14 @@ function App() {
   return (
     <AuthProvider>
       <TenantProvider>
-        <ModulesProvider>
-          <LocaleProvider>
-            <CommandPaletteProvider>
-              <Routes>
+        {/* ENG-171 — Modules + Locale state moved from context providers to
+            Zustand stores. These null-rendering sync hosts run the backing
+            tRPC queries (and the locale side-effects) inside Auth+Tenant
+            without re-creating a context value every render. */}
+        <ModulesSync />
+        <LocaleSync />
+        <CommandPaletteProvider>
+          <Routes>
                 <Route
                   path="/login"
                   element={
@@ -590,9 +594,7 @@ function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </CommandPaletteProvider>
-          </LocaleProvider>
-        </ModulesProvider>
+        </CommandPaletteProvider>
       </TenantProvider>
     </AuthProvider>
   );

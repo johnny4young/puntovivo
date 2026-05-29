@@ -1,15 +1,18 @@
 /**
- * ENG-068 — ModulesContext regression test.
+ * ENG-068 / ENG-171 — modules store regression test.
  *
- * Pins the contract every gated route relies on:
+ * Pins the contract every gated route relies on, now that the state lives
+ * in a Zustand store fed by `useModulesSync` (mounted via `<ModulesSync />`)
+ * instead of a React context:
  *   - Defaults applied while the query is loading (no flash).
  *   - Server response overrides defaults once it lands.
  *   - Unknown ids in the response are ignored (forwards-compat).
  *   - Disabled when not authenticated (avoid UNAUTHORIZED on /login).
+ *   - Reset to defaults on logout so no stale tenant snapshot leaks.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, renderHook, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 const { useAuthMock, useGetEffectiveMock } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
@@ -32,28 +35,42 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 import {
-  ModulesProvider,
+  ModulesSync,
   useIsModuleActive,
   useModulesSnapshot,
+  __modulesStoreForTests,
 } from '../ModulesContext';
+import { CLIENT_MODULE_DEFAULTS } from '../manifest';
 
 beforeEach(() => {
   useAuthMock.mockReset();
   useGetEffectiveMock.mockReset();
-});
-
-describe('useIsModuleActive — context guard', () => {
-  it('throws a clear error when used outside ModulesProvider', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useIsModuleActive('copilot'))).toThrow(
-      /useModulesContext must be used within ModulesProvider/
-    );
-    consoleSpy.mockRestore();
+  // Zustand stores are module singletons; reset to the initial cold state
+  // so state never leaks between tests.
+  __modulesStoreForTests.setState({
+    modules: { ...CLIENT_MODULE_DEFAULTS },
+    isLoading: true,
+    isPlaceholder: true,
   });
 });
 
-describe('ModulesProvider — defaults during boot', () => {
-  it('returns the manifest default (true) for every demo module while the query is loading', () => {
+describe('modules store — default snapshot without a sync host', () => {
+  it('returns the manifest default for every module before sync mounts', () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: false });
+    useGetEffectiveMock.mockReturnValue({ data: undefined, isLoading: false });
+
+    function Probe() {
+      const active = useIsModuleActive('copilot');
+      return <span data-testid="copilot">{active ? 'on' : 'off'}</span>;
+    }
+    render(<Probe />);
+    // copilot defaults to true in the manifest.
+    expect(screen.getByTestId('copilot')).toHaveTextContent('on');
+  });
+});
+
+describe('ModulesSync — defaults during boot', () => {
+  it('keeps the manifest default (true) for every demo module while the query is loading', () => {
     useAuthMock.mockReturnValue({ isAuthenticated: true });
     useGetEffectiveMock.mockReturnValue({ data: undefined, isLoading: true });
 
@@ -70,9 +87,10 @@ describe('ModulesProvider — defaults during boot', () => {
     }
 
     render(
-      <ModulesProvider>
+      <>
+        <ModulesSync />
         <Probe />
-      </ModulesProvider>
+      </>
     );
     expect(screen.getByTestId('copilot')).toHaveTextContent('on');
     expect(screen.getByTestId('quotations')).toHaveTextContent('on');
@@ -81,7 +99,7 @@ describe('ModulesProvider — defaults during boot', () => {
   });
 });
 
-describe('ModulesProvider — server response', () => {
+describe('ModulesSync — server response', () => {
   it('reflects the server response (toggling copilot off)', () => {
     useAuthMock.mockReturnValue({ isAuthenticated: true });
     useGetEffectiveMock.mockReturnValue({
@@ -108,9 +126,10 @@ describe('ModulesProvider — server response', () => {
     }
 
     render(
-      <ModulesProvider>
+      <>
+        <ModulesSync />
         <Probe />
-      </ModulesProvider>
+      </>
     );
     expect(screen.getByTestId('copilot')).toHaveTextContent('off');
     expect(screen.getByTestId('placeholder')).toHaveTextContent('no');
@@ -135,37 +154,52 @@ describe('ModulesProvider — server response', () => {
     }
 
     render(
-      <ModulesProvider>
+      <>
+        <ModulesSync />
         <Probe />
-      </ModulesProvider>
+      </>
     );
     expect(screen.getByTestId('keys')).toHaveTextContent(
       // ENG-068 demo modules + ENG-069 surface modules + ENG-091
-      // delivery — alphabetical because Object.keys order on the
-      // snapshot is insertion order (manifest tuple) but the test
-      // sorts before joining.
+      // delivery — sorted before joining.
       'anomaly-detection,copilot,customer-display,delivery,events-api,kds,mobile-waiter,operations-center,pos-touch,quotations,semantic-search'
     );
   });
 });
 
-describe('ModulesProvider — auth gating', () => {
+describe('ModulesSync — auth gating', () => {
   it('disables the underlying query while unauthenticated (avoid UNAUTHORIZED on /login)', () => {
     useAuthMock.mockReturnValue({ isAuthenticated: false });
     useGetEffectiveMock.mockReturnValue({ data: undefined, isLoading: false });
 
-    function Probe() {
-      useModulesSnapshot();
-      return null;
-    }
-    render(
-      <ModulesProvider>
-        <Probe />
-      </ModulesProvider>
-    );
+    render(<ModulesSync />);
 
     expect(useGetEffectiveMock).toHaveBeenCalled();
     const lastCall = useGetEffectiveMock.mock.calls[useGetEffectiveMock.mock.calls.length - 1];
-    expect(lastCall![1]).toMatchObject({ enabled: false });
+    expect(lastCall![1]).toMatchObject({ enabled: false, refetchOnWindowFocus: false });
+  });
+
+  it('resets the snapshot to defaults when the session drops (logout)', () => {
+    // Seed a non-default snapshot as if a tenant had loaded.
+    __modulesStoreForTests.setState({
+      modules: { ...CLIENT_MODULE_DEFAULTS, copilot: false },
+      isLoading: false,
+      isPlaceholder: false,
+    });
+    useAuthMock.mockReturnValue({ isAuthenticated: false });
+    useGetEffectiveMock.mockReturnValue({ data: undefined, isLoading: false });
+
+    function Probe() {
+      const active = useIsModuleActive('copilot');
+      return <span data-testid="copilot">{active ? 'on' : 'off'}</span>;
+    }
+    render(
+      <>
+        <ModulesSync />
+        <Probe />
+      </>
+    );
+    // The unauth branch reset() restores the manifest default (copilot=true).
+    expect(screen.getByTestId('copilot')).toHaveTextContent('on');
   });
 });

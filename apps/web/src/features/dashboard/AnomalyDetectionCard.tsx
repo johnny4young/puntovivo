@@ -34,11 +34,13 @@ export function AnomalyDetectionCard() {
   const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
     {},
     {
-      // Refetch every 5 minutes so a manager who keeps the dashboard
-      // open sees fresh signal without manually reloading. Recompute
-      // is server-side and cheap (~30-60ms on 30 days of pilot data).
+      // The 5-minute staleTime keeps a manager who leaves the dashboard
+      // open seeing fresh signal without manual reload. Recompute is
+      // server-side and cheap (~30-60ms on 30 days of pilot data).
       staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: true,
+      // ENG-171 — no window-focus refetch; the staleTime window is the
+      // freshness contract, not every tab-back-in.
+      refetchOnWindowFocus: false,
     }
   );
 

@@ -199,6 +199,15 @@ Normal flow:
 
 Direct client config: [apps/web/src/lib/trpc.ts](../apps/web/src/lib/trpc.ts)
 
+### Client state ownership (ENG-018b / ENG-171)
+
+Server state lives in TanStack Query. Cross-cutting client state lives in Zustand stores (not React context) so a high-frequency provider re-render (auth/token refresh, cart updates) cannot cascade through unrelated consumers; components subscribe via selectors and only re-render on the slice they read.
+
+- `useCartWorkspaceStore` / `useQuickCreateStore` — sales UI state (ENG-018b).
+- `useModulesStore` (in `features/modules/ModulesContext.tsx`) + `useLocaleStore` (in `features/locale/LocaleProvider.tsx`) — effective modules + resolved tenant locale (ENG-171, migrated from context providers).
+
+Because a Zustand store cannot run a tRPC `useQuery`, each store that mirrors server state is fed by a **sync hook** (`useModulesSync`, `useLocaleSync`) mounted once as a null-rendering host (`<ModulesSync />`, `<LocaleSync />`) inside `AuthProvider` + `TenantProvider` in `App.tsx`. The sync hook owns the query and any side-effects (e.g. the locale hook pushes to the `setActiveTenantLocale` formatter singleton and calls `i18n.changeLanguage`), and resets the store on logout. Consumer hooks (`useIsModuleActive`, `useModulesSnapshot`, `useResolvedLocale`) keep stable import paths + signatures so call sites do not change when state moves between context and store.
+
 ## Desktop Architecture
 
 For a detailed explanation of desktop lifecycle, IPC, and watch-state usage, see [DESKTOP_RUNTIME_GUIDE.md](./DESKTOP_RUNTIME_GUIDE.md).

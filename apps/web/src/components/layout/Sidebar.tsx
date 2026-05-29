@@ -11,6 +11,7 @@ import {
   CLIENT_MODULE_DEFAULTS,
   useModulesSnapshot,
 } from '@/features/modules';
+import { usePrefetchSales } from '@/features/sales/usePrefetchSales';
 import type { UserRole } from '@/types';
 import {
   TOP_LEVEL_DASHBOARD,
@@ -58,11 +59,19 @@ function NavigationLink({
   collapsed,
   onNavigate,
   badgeCount,
+  onPrefetch,
 }: {
   item: WorkspaceItem;
   collapsed: boolean;
   onNavigate: () => void;
   badgeCount?: number;
+  /**
+   * ENG-171 — optional hover/focus prefetch handler. Wired only for the
+   * `/sales` entry so its heavy entry queries warm the cache before the
+   * route mounts; undefined for every other link (no-op). Widened to
+   * include `undefined` per the ENG-179b exactOptionalPropertyTypes rule.
+   */
+  onPrefetch?: (() => void) | undefined;
 }) {
   const { t } = useTranslation('nav');
   const name = t(item.nameKey);
@@ -71,6 +80,8 @@ function NavigationLink({
     <NavLink
       to={item.href}
       onClick={onNavigate}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
       title={collapsed ? name : undefined}
       className={({ isActive }) =>
         cn(
@@ -153,6 +164,7 @@ function WorkspaceGroupHeader({
   isOpen,
   onToggle,
   onNavigate,
+  onPrefetch,
   controlsId,
 }: {
   workspace: VisibleWorkspace['workspace'];
@@ -160,6 +172,8 @@ function WorkspaceGroupHeader({
   isOpen: boolean;
   onToggle: () => void;
   onNavigate: () => void;
+  /** ENG-171 — prefetch the workspace default route when it is `/sales`. */
+  onPrefetch?: (() => void) | undefined;
   controlsId: string;
 }) {
   // ENG-131 (slice A) — generalises the ENG-079b collapsible
@@ -190,6 +204,8 @@ function WorkspaceGroupHeader({
       <Link
         to={workspace.defaultRoute}
         onClick={onNavigate}
+        onMouseEnter={onPrefetch}
+        onFocus={onPrefetch}
         data-testid={`sidebar-workspace-link-${workspace.id}`}
         className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-fg2 transition-colors hover:bg-secondary-100/60 hover:text-secondary-950 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
       >
@@ -230,6 +246,9 @@ function SidebarWorkspaces({
   const { t: tWorkspaces } = useTranslation('workspaces');
   const { modules } = useModulesSnapshot();
   const location = useLocation();
+  // ENG-171 — warm the SalesPage entry queries on hover/focus of the
+  // /sales nav link (threaded into SidebarWorkspaceSection → NavigationLink).
+  const prefetchSales = usePrefetchSales();
 
   // ENG-047 — dashboard badge for high-severity AI anomalies. The
   // endpoint is gated by managerOrAdminProcedure server-side; we
@@ -244,7 +263,10 @@ function SidebarWorkspaces({
     {
       enabled: isManagerOrAdmin && anomalyModuleActive,
       staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: true,
+      // ENG-171 — no window-focus refetch. The 5-minute staleTime already
+      // keeps the sidebar badge fresh; refetching every time the operator
+      // tabs back in is a needless request on a high-traffic surface.
+      refetchOnWindowFocus: false,
     }
   );
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
@@ -277,6 +299,7 @@ function SidebarWorkspaces({
           fallbackTitleLabel={tNav(`workspaces.${workspace.id}`, {
             defaultValue: '',
           })}
+          prefetchSales={prefetchSales}
         />
       ))}
     </div>
@@ -290,6 +313,7 @@ function SidebarWorkspaceSection({
   onNavigate,
   currentPath,
   headerTitle,
+  prefetchSales,
 }: {
   workspace: VisibleWorkspace['workspace'];
   items: readonly WorkspaceItem[];
@@ -298,6 +322,8 @@ function SidebarWorkspaceSection({
   currentPath: string;
   headerTitle: string;
   fallbackTitleLabel: string;
+  /** ENG-171 — hover-prefetch handler, attached only to the /sales item. */
+  prefetchSales: () => void;
 }) {
   // ENG-131 (slice A) — persisted collapse state applies to inactive
   // workspaces, but the workspace that owns the active route must
@@ -328,6 +354,7 @@ function SidebarWorkspaceSection({
           isOpen={isOpen}
           onToggle={toggle}
           onNavigate={onNavigate}
+          onPrefetch={workspace.defaultRoute === '/sales' ? prefetchSales : undefined}
           controlsId={controlsId}
         />
       )}
@@ -338,6 +365,7 @@ function SidebarWorkspaceSection({
             item={item}
             collapsed={collapsed}
             onNavigate={onNavigate}
+            onPrefetch={item.href === '/sales' ? prefetchSales : undefined}
           />
         ))}
       </div>
