@@ -9,12 +9,12 @@ Operational guidance for AI agents working on this repo (Claude Code, Codex, Cop
 Run workspace commands from the repo root:
 
 ```
-ppnpm run dev:desktop      # Launch web dev server + Electron desktop
-ppnpm run dev:desktop-shell # Electron only; expects web dev server on port 3000
-ppnpm run dev:web          # Web only on port 3000
-ppnpm run dev:web-stack    # Web app + standalone backend
-ppnpm run dev:server       # Backend only on port 8090
-ppnpm run build:desktop    # Build web + create desktop packages
+pnpm run dev:desktop       # Launch web dev server + Electron desktop
+pnpm run dev:desktop-shell # Electron only; expects web dev server on port 3000
+pnpm run dev:web           # Web only on port 3000
+pnpm run dev:web-stack     # Web app + standalone backend
+pnpm run dev:server        # Backend only on port 8090
+pnpm run build:desktop     # Build web + create desktop packages
 ```
 
 Run tests per workspace:

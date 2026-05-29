@@ -66,6 +66,33 @@ research.
   drizzle-kit migration generation for no production-security gain — revisit
   when @electron-forge bumps node-gyp's tar and drizzle-kit drops the
   deprecated @esbuild-kit chain. — 2026-05-28 (pnpm migration follow-up)
+- `[perf][i18n]` **ENG-170b** — lazy-load the non-bootstrap i18n namespaces
+  so the login/main bundle stops eagerly shipping all 37 locale namespaces
+  (split out from ENG-170 item 2). The audit's literal `i18next-http-backend`
+  is REJECTED: packaged Electron loads the renderer over `file://`, which
+  cannot HTTP-fetch `/locales/<lng>/<ns>.json`, and there is no
+  `@fastify/static` route on the embedded server — http-backend would break
+  i18n in the primary (desktop) product. Electron-safe approach:
+  `i18next-resources-to-backend` + non-eager `import.meta.glob` so each
+  namespace becomes a dynamic-import JS chunk (works under `file://`), keep
+  `common`/`auth`/`nav`/`errors` in the static bootstrap, and add the
+  per-route Suspense boundary the components currently lack (all
+  `useTranslation('fiscal'|'kds'|…)` call sites are synchronous today).
+  AC tail: login bundle no longer contains `fiscal`/`kds`/`aiSettings`
+  namespaces; `locale-parity.test.ts` stays green (it reads files via
+  `import.meta.glob`, unaffected). — 2026-05-28 (ENG-170 follow-up)
+- `[perf]` Further-split the eager `utils` vendor chunk. After ENG-170's
+  manualChunks, rolldown still emits a ~121 KB gz vendor chunk for the
+  non-route-specific deps that load on first paint (the `index` entry target
+  was met, but this shared chunk is still part of the initial payload). Profile
+  which packages dominate it (date-fns, zod, @tanstack, radix primitives are
+  candidates) and decide whether a second manualChunks group or a route-level
+  split lowers the real first-paint cost — measure before splitting, since
+  over-splitting shared deps can hurt by adding request waterfalls. Distinct
+  from ENG-171 (render hygiene) and ENG-172 (table virtualisation). The
+  `perf-budget.json` `chunk` key is also approximate today (several `chunk-*`
+  shared files strip to one budget name) — only a warning path, tighten if it
+  starts masking a real regression. — 2026-05-28 (ENG-170 follow-up)
 - `[fiscal][ux]` Admin card surfacing `listFiscalAdapterCountries()`
   readiness. La función shippea en ENG-034 con consumer parcial:
   ENG-035a usa el adapter MX directo en `CompanyMxFiscalCard`.
