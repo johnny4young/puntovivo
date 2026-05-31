@@ -804,4 +804,76 @@ describe('DataTable', () => {
       expect(onRowActivate).not.toHaveBeenCalled();
     });
   });
+
+  describe('Virtualisation (ENG-172)', () => {
+    // jsdom has no layout engine, so `@tanstack/react-virtual` measures a
+    // 0px scroll element and cannot report a stable rendered-row count.
+    // These tests therefore assert the *mode* (which row model + footer is
+    // used) and the preserved `data-row-id` contract, NOT the exact window
+    // size. The full 60 fps scroll + keyboard-across-the-window behaviour is
+    // proven in the live Playwright smoke (see output/review/eng-172/).
+    function getScrollRegion() {
+      return screen.getByRole('table').parentElement;
+    }
+
+    it('stays paged at exactly the threshold (30 rows)', () => {
+      render(<DataTable columns={columns} data={createTestProducts(30)} />);
+
+      expect(getScrollRegion()).not.toHaveAttribute('data-virtualised');
+      // Paged footer present (first-page control), default pageSize 10.
+      expect(screen.getByLabelText(/first page/i)).toBeInTheDocument();
+      expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
+    });
+
+    it('auto-flips to virtualised above the threshold (31 rows)', () => {
+      render(<DataTable columns={columns} data={createTestProducts(31)} />);
+
+      expect(getScrollRegion()).toHaveAttribute('data-virtualised', 'true');
+      // The paged footer (and its first/last controls) is gone; the
+      // total-row count replaces it.
+      expect(screen.queryByLabelText(/first page/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Page 1 of/)).not.toBeInTheDocument();
+      expect(screen.getByText('31 rows')).toBeInTheDocument();
+    });
+
+    it('emits data-row-id via the shared row renderer (E2E contract)', () => {
+      // `renderRow` is the single source of truth for a body <tr> in BOTH
+      // the paged and virtualised paths, so the `data-row-id` attribute is
+      // identical in either mode. jsdom has no layout engine and
+      // react-virtual renders an empty window here, so we assert the shared
+      // attribute on the paged path; the virtual-mode DOM is validated in
+      // the live Playwright smoke (output/review/eng-172/) where the top row
+      // is always inside the initial window at scrollOffset 0.
+      render(<DataTable columns={columns} data={createTestProducts(5)} />);
+
+      const table = screen.getByRole('table');
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
+      const firstRow = within(tbody).getAllByRole('row')[0]!;
+
+      expect(firstRow).toHaveAttribute('data-row-id', 'product-1');
+    });
+
+    it('honours explicit virtualised={false} on a large dataset (override wins)', () => {
+      render(
+        <DataTable columns={columns} data={createTestProducts(50)} virtualised={false} />
+      );
+
+      expect(getScrollRegion()).not.toHaveAttribute('data-virtualised');
+      expect(screen.getByLabelText(/first page/i)).toBeInTheDocument();
+    });
+
+    it('honours explicit virtualised on a small dataset (override wins)', () => {
+      render(<DataTable columns={columns} data={createTestProducts(3)} virtualised />);
+
+      expect(getScrollRegion()).toHaveAttribute('data-virtualised', 'true');
+      expect(screen.queryByLabelText(/first page/i)).not.toBeInTheDocument();
+      expect(screen.getByText('3 rows')).toBeInTheDocument();
+    });
+
+    it('shows the empty state in virtualised mode', () => {
+      render(<DataTable columns={columns} data={[]} virtualised />);
+
+      expect(screen.getByText('No results.')).toBeInTheDocument();
+    });
+  });
 });

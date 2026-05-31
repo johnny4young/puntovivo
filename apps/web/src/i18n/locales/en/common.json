@@ -53,6 +53,8 @@
     "noEntries": "No entries to display",
     "selectedRows_one": "{{count}} row selected",
     "selectedRows_other": "{{count}} rows selected",
+    "totalRows_one": "{{count}} row",
+    "totalRows_other": "{{count}} rows",
     "showing": "Showing {{from}} to {{to}} of {{total}} entries",
     "page": "Page {{current}} of {{total}}",
     "columns": "Columns",
