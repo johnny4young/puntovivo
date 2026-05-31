@@ -31,7 +31,9 @@
     "noData": "No data available"
   },
   "pagination": {
+    "navigation": "Pagination",
     "page": "Page",
+    "showing": "Showing {{rangeStart}}-{{rangeEnd}} of {{total}}",
     "of": "of",
     "rows": "rows",
     "rowsPerPage": "Rows per page",
@@ -49,6 +51,8 @@
     "selectRow": "Select row",
     "noResults": "No results.",
     "noEntries": "No entries to display",
+    "selectedRows_one": "{{count}} row selected",
+    "selectedRows_other": "{{count}} rows selected",
     "showing": "Showing {{from}} to {{to}} of {{total}} entries",
     "page": "Page {{current}} of {{total}}",
     "columns": "Columns",
@@ -186,6 +190,13 @@
       "errorDescription": "Try again in a moment. Pending tickets stay safe on this tablet."
     }
   },
+  "statusStrip": {
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "centerTitle": "Notifications",
+    "moreCount_one": "+{{count}} more notice",
+    "moreCount_other": "+{{count}} more notices"
+  },
   "offline": {
     "youAreOffline": "You are offline",
     "queuedChanges_one": "{{count}} queued change will sync when the connection returns.",
@@ -234,5 +245,8 @@
       "cashierHint": "Ask a manager to create this product before charging.",
       "createCta": "Create new product"
     }
+  },
+  "desktopOnly": {
+    "label": "Desktop only"
   }
 }

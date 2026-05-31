@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next, { type TFunction } from 'i18next';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   ArrowDownCircle,
-  ArrowUpCircle,
   Boxes,
   ClipboardList,
+  Package,
   RefreshCw,
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
+import { KpiTile } from '@/components/ui';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -50,20 +51,14 @@ import type {
 type InventoryView = 'movements' | 'stock' | 'entries' | 'balances';
 type SearchMode = 'adjustment' | 'entry';
 
-const movementIcons = {
-  purchase: ArrowDownCircle,
-  sale: ArrowUpCircle,
-  adjustment: RefreshCw,
-  transfer: RefreshCw,
-  return: ArrowDownCircle,
-} as const;
-
-const movementColors = {
-  purchase: 'text-success-500',
-  sale: 'text-danger-500',
-  adjustment: 'text-warning-500',
-  transfer: 'text-primary-500',
-  return: 'text-success-500',
+// Rediseño §10 — el tipo de movimiento se lee como badge tonal (.pv-badge),
+// no como ícono: el dato dominante de la fila es el signo coloreado del delta.
+const movementBadgeTones = {
+  purchase: 'success',
+  sale: 'danger',
+  adjustment: 'warning',
+  transfer: 'primary',
+  return: 'success',
 } as const;
 
 const viewKeys: Record<InventoryView, string> = {
@@ -97,28 +92,14 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
     cell: ({ row }) => formatDateTime(row.original.createdAt),
   },
   {
-    accessorKey: 'type',
-    header: () => i18next.t('inventory:table.type'),
-    size: 140,
-    cell: ({ row }) => {
-      const type = row.original.type;
-      const Icon = movementIcons[type] ?? RefreshCw;
-      return (
-        <div className={cn('flex items-center gap-2 font-medium capitalize', movementColors[type])}>
-          <Icon className="h-4 w-4" />
-          <span>{i18next.t(`inventory:movements.types.${type}`)}</span>
-        </div>
-      );
-    },
-  },
-  {
     accessorKey: 'productName',
     header: () => i18next.t('inventory:table.product'),
     size: 230,
+    // Rediseño FASE 3 — nombre fuerte + SKU mono (.pname/.sku de pv-table).
     cell: ({ row }) => (
       <div>
-        <p className="font-medium text-secondary-900">{row.original.productName ?? i18next.t('inventory:table.unknownProduct')}</p>
-        <p className="text-xs text-secondary-500">
+        <p className="pname">{row.original.productName ?? i18next.t('inventory:table.unknownProduct')}</p>
+        <p className="sku">
           {row.original.productSku ?? i18next.t('inventory:table.noSku')}
           {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
         </p>
@@ -128,18 +109,33 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
   {
     id: 'delta',
     header: () => i18next.t('inventory:table.movement'),
-    size: 110,
+    size: 120,
+    // Rediseño §10 — el signo coloreado del movimiento (.pv-mv.up/.down) es el
+    // dato dominante de la fila: cifra mono más grande, alineada a la derecha,
+    // delante del tipo (que ahora es solo un badge de apoyo).
+    meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => {
       const delta = getMovementDelta(row.original);
       return (
-        <span
-          className={cn(
-            'font-medium',
-            delta > 0 ? 'text-success-600' : delta < 0 ? 'text-danger-600' : 'text-secondary-700'
-          )}
-        >
+        <span className={cn('pv-mv text-base', delta > 0 && 'up', delta < 0 && 'down')}>
           {delta > 0 ? '+' : ''}
-          {delta}
+          {delta.toLocaleString()}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: 'type',
+    header: () => i18next.t('inventory:table.type'),
+    size: 140,
+    // Rediseño §10 — tipo como badge tonal (.pv-badge) en vez de un ícono;
+    // el tono semántico (entrada=success, salida=danger, ajuste=warning,
+    // traslado=primary) refuerza el signo sin competir con él.
+    cell: ({ row }) => {
+      const type = row.original.type;
+      return (
+        <span className={cn('pv-badge', movementBadgeTones[type] ?? 'neutral')}>
+          {i18next.t(`inventory:movements.types.${type}`)}
         </span>
       );
     },
@@ -148,15 +144,20 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
     accessorKey: 'newStock',
     header: () => i18next.t('inventory:table.stockAfter'),
     size: 110,
-    cell: ({ row }) => <span className="font-medium text-secondary-900">{row.original.newStock}</span>,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
+    cell: ({ row }) => row.original.newStock.toLocaleString(),
   },
   {
     accessorKey: 'reference',
     header: () => i18next.t('inventory:table.reference'),
     size: 150,
-    cell: ({ row }) => (
-      <span className="font-mono text-sm text-primary-800">{row.original.reference || '—'}</span>
-    ),
+    // Rediseño FASE 3 — referencia legible en chip mono (.pv-ref-chip).
+    cell: ({ row }) =>
+      row.original.reference ? (
+        <span className="pv-ref-chip">{row.original.reference}</span>
+      ) : (
+        <span className="muted">—</span>
+      ),
   },
   {
     accessorKey: 'notes',
@@ -177,55 +178,85 @@ function getStockColumns(
       accessorKey: 'name',
       header: () => i18next.t('inventory:table.product'),
       size: 250,
+      // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // glifo tonal + nombre fuerte + SKU mono con categoría debajo.
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-secondary-900">{row.original.name}</p>
-          <p className="text-xs text-secondary-500">
-            {row.original.sku}
-            {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
-          </p>
+        <div className="prod">
+          <span className="pic">
+            <Package className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">
+              {row.original.sku}
+              {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
+            </p>
+          </div>
         </div>
       ),
     },
     {
       accessorKey: 'stock',
       header: () => i18next.t('inventory:stock.columns.stock'),
-      size: 100,
-      cell: ({ row }) => (
-        <span className={row.original.isLowStock ? 'font-medium text-danger-500' : 'font-medium text-secondary-900'}>
-          {row.original.stock}
-        </span>
-      ),
+      size: 130,
+      // Rediseño FASE 6 — barra de nivel proporcional (.pv-stock); `low` la
+      // pinta en danger. Llena al 50% cuando stock == mínimo y crece hacia
+      // 100% (2x mínimo), con piso visible para que siempre se lea.
+      meta: { cellClassName: 'num', headerClassName: 'num' },
+      cell: ({ row }) => {
+        const { stock, minStock, isLowStock } = row.original;
+        const fill =
+          minStock > 0
+            ? Math.max(6, Math.min(100, Math.round((stock / minStock) * 50)))
+            : stock > 0
+              ? 100
+              : 6;
+        return (
+          <span
+            className={cn('pv-stock', isLowStock && 'low')}
+            title={isLowStock ? i18next.t('inventory:stock.status.lowStock') : undefined}
+          >
+            <span>{stock.toLocaleString()}</span>
+            <span className="bar">
+              <i style={{ width: `${fill}%` }} />
+            </span>
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'minStock',
       header: () => i18next.t('inventory:stock.columns.minStock'),
       size: 110,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
+      cell: ({ row }) => row.original.minStock.toLocaleString(),
     },
     {
       accessorKey: 'price',
       header: () => i18next.t('inventory:stock.columns.sellPrice'),
       size: 120,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
       cell: ({ row }) => formatCurrency(row.original.price),
     },
     {
       accessorKey: 'inventoryValue',
       header: () => i18next.t('inventory:stock.columns.valuation'),
       size: 140,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
       cell: ({ row }) => formatCurrency(row.original.inventoryValue),
     },
     {
       accessorKey: 'updatedAt',
       header: () => i18next.t('inventory:stock.columns.updated'),
       size: 170,
-      cell: ({ row }) => formatDateTime(row.original.updatedAt),
+      cell: ({ row }) => <span className="muted">{formatDateTime(row.original.updatedAt)}</span>,
     },
     {
       id: 'status',
       header: () => i18next.t('inventory:stock.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={cn('badge', row.original.isLowStock ? 'badge-danger' : 'badge-success')}>
+        <span className={cn('pv-badge', row.original.isLowStock ? 'danger' : 'success')}>
           {row.original.isLowStock
             ? i18next.t('inventory:stock.status.lowStock')
             : i18next.t('inventory:stock.status.healthy')}
@@ -235,7 +266,7 @@ function getStockColumns(
     {
       id: 'actions',
       header: '',
-      size: 100,
+      size: 80,
       cell: ({ row }) => (
         <button
           className="btn-ghost btn-icon h-8 w-8"
@@ -255,14 +286,16 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
     accessorKey: 'createdAt',
     header: () => i18next.t('inventory:table.date'),
     size: 180,
-    cell: ({ row }) => formatDateTime(row.original.createdAt),
+    cell: ({ row }) => <span className="muted">{formatDateTime(row.original.createdAt)}</span>,
   },
   {
     accessorKey: 'mode',
     header: () => i18next.t('inventory:table.mode'),
     size: 160,
+    // Rediseño FASE 6 — modo como badge tonal (.pv-badge): inventario
+    // inicial en primary, conteo físico en warning.
     cell: ({ row }) => (
-      <span className={cn('badge', row.original.mode === 'initial' ? 'badge-primary' : 'badge-warning')}>
+      <span className={cn('pv-badge', row.original.mode === 'initial' ? 'primary' : 'warning')}>
         {row.original.mode === 'initial'
           ? i18next.t('inventory:table.initialInventory')
           : i18next.t('inventory:table.physicalCount')}
@@ -273,14 +306,18 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
     accessorKey: 'productName',
     header: () => i18next.t('inventory:table.product'),
     size: 240,
+    // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium text-secondary-900">
-          {row.original.productName ?? i18next.t('inventory:table.unknownProduct')}
-        </p>
-        <p className="text-xs text-secondary-500">
-          {row.original.productSku ?? i18next.t('inventory:table.noSku')}
-        </p>
+      <div className="prod">
+        <span className="pic">
+          <Package className="h-4 w-4" />
+        </span>
+        <div>
+          <p className="pname">
+            {row.original.productName ?? i18next.t('inventory:table.unknownProduct')}
+          </p>
+          <p className="sku">{row.original.productSku ?? i18next.t('inventory:table.noSku')}</p>
+        </div>
       </div>
     ),
   },
@@ -294,22 +331,29 @@ const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
     accessorKey: 'quantity',
     header: () => i18next.t('inventory:table.countedQty'),
     size: 110,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
+    cell: ({ row }) => row.original.quantity.toLocaleString(),
   },
   {
     accessorKey: 'normalizedQuantity',
     header: () => i18next.t('inventory:table.normalized'),
     size: 120,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
+    cell: ({ row }) => row.original.normalizedQuantity.toLocaleString(),
   },
   {
     accessorKey: 'cost',
     header: () => i18next.t('inventory:table.cost'),
     size: 120,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => formatCurrency(row.original.cost),
   },
   {
     accessorKey: 'newStock',
     header: () => i18next.t('inventory:table.stockAfter'),
     size: 120,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
+    cell: ({ row }) => row.original.newStock.toLocaleString(),
   },
   {
     accessorKey: 'notes',
@@ -446,64 +490,42 @@ function InventorySummaryCards({
   entriesLoading,
 }: InventorySummaryProps) {
   const { t } = useTranslation('inventory');
+  // Rediseño FASE 2 — receta KpiTile compartida (igual que Dashboard / POS):
+  // glifo tonal, microetiqueta, cifra alineada. `danger` para stock bajo,
+  // `mono` para el valor de inventario (dinero). La rejilla replica la del
+  // Dashboard para que los cuatro grupos de KPIs se lean idénticos.
   return (
-    <div className="grid gap-4 md:grid-cols-4">
-      <div className="card p-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-primary-50 p-2">
-            <Boxes className="h-5 w-5 text-primary-600" />
-          </div>
-          <div>
-            <p className="text-sm text-secondary-500">{t('stats.totalUnits')}</p>
-            <p className="text-2xl font-bold text-secondary-900">{isLoading ? '—' : totalUnits}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="card p-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-success-50 p-2">
-            <ArrowDownCircle className="h-5 w-5 text-success-600" />
-          </div>
-          <div>
-            <p className="text-sm text-secondary-500">{t('stats.inventoryValue')}</p>
-            <p className="text-2xl font-bold text-secondary-900">
-              {isLoading ? '—' : formatCurrency(totalValue)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="card p-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-warning-50 p-2">
-            <RefreshCw className="h-5 w-5 text-warning-600" />
-          </div>
-          <div>
-            <p className="text-sm text-secondary-500">{t('stats.lowStockItems')}</p>
-            <p className="text-2xl font-bold text-danger-500">{isLoading ? '—' : lowStockCount}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="card p-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-secondary-100 p-2">
-            <ClipboardList className="h-5 w-5 text-secondary-700" />
-          </div>
-          <div>
-            <p className="text-sm text-secondary-500">{t('stats.recentFlow')}</p>
-            <p className="text-lg font-semibold text-secondary-900">
-              +{recentInbound} / -{recentOutbound}
-            </p>
-            <p className="mt-1 text-xs text-secondary-500">
-              {entriesLoading
-                ? t('entries.loadingShort')
-                : t('stats.recentFlowDetail', { count: entriesCount })}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+      <KpiTile
+        icon={Boxes}
+        tone="primary"
+        label={t('stats.totalUnits')}
+        value={isLoading ? '—' : totalUnits.toLocaleString()}
+      />
+      <KpiTile
+        icon={ArrowDownCircle}
+        tone="success"
+        mono
+        label={t('stats.inventoryValue')}
+        value={isLoading ? '—' : formatCurrency(totalValue)}
+      />
+      <KpiTile
+        icon={RefreshCw}
+        tone="danger"
+        label={t('stats.lowStockItems')}
+        value={isLoading ? '—' : lowStockCount.toLocaleString()}
+      />
+      <KpiTile
+        icon={ClipboardList}
+        tone="ink"
+        label={t('stats.recentFlow')}
+        value={`+${recentInbound} / -${recentOutbound}`}
+        context={
+          entriesLoading
+            ? t('entries.loadingShort')
+            : t('stats.recentFlowDetail', { count: entriesCount })
+        }
+      />
     </div>
   );
 }
@@ -524,6 +546,7 @@ interface InventoryDataPanelProps {
   entries: InitialInventoryEntry[];
   canManage: boolean;
   onAdjust: (product: InventoryStockItem) => void;
+  stockFilters: ReactNode;
 }
 
 function InventoryDataPanel({
@@ -542,6 +565,7 @@ function InventoryDataPanel({
   entries,
   canManage,
   onAdjust,
+  stockFilters,
 }: InventoryDataPanelProps) {
   const { t } = useTranslation('inventory');
   return (
@@ -568,6 +592,7 @@ function InventoryDataPanel({
                 title={t('movements.exportTitle')}
               />
               <DataTable
+                variant="dense"
                 columns={movementColumns}
                 data={movements}
                 searchKey="productName"
@@ -580,7 +605,11 @@ function InventoryDataPanel({
       )}
 
       {activeView === 'stock' && (
-        <>
+        <div className="space-y-4">
+          {/* Rediseño §10 — los filtros propios de esta vista (categoría +
+              "solo stock bajo") viven dentro del card de stock, separados por
+              una línea, en vez de flotar como un card suelto encima. */}
+          <div className="border-b border-line/60 pb-4">{stockFilters}</div>
           {stockLoading && <TableLoadingState message={t('stock.loading')} rowCount={8} />}
           {stockError && (
             <TableErrorState
@@ -599,6 +628,7 @@ function InventoryDataPanel({
                 title={t('stock.exportTitle')}
               />
               <DataTable
+                variant="dense"
                 columns={getStockColumns(onAdjust, canManage)}
                 data={stockItems}
                 searchKey="name"
@@ -607,7 +637,7 @@ function InventoryDataPanel({
               />
             </div>
           )}
-        </>
+        </div>
       )}
 
       {activeView === 'entries' && (
@@ -632,6 +662,7 @@ function InventoryDataPanel({
                 title={t('entries.exportTitle')}
               />
               <DataTable
+                variant="dense"
                 columns={entryColumns}
                 data={entries}
                 searchKey="productName"
@@ -776,6 +807,42 @@ export function InventoryPage() {
 
   const searchDialogCopy = getSearchDialogCopy(searchMode, t, currentSite?.name);
 
+  // Rediseño §10 — los filtros de la vista de stock se renderizan dentro de su
+  // propio card (vía InventoryDataPanel) en lugar de flotar como un card aparte.
+  const stockFilters = (
+    <div className="flex flex-col gap-4 md:flex-row md:items-end">
+      <div className="pv-field md:min-w-64">
+        <label htmlFor="inventory-stock-category" className="label">
+          {t('stock.category')}
+        </label>
+        <select
+          id="inventory-stock-category"
+          className="pv-input"
+          value={stockCategoryId}
+          onChange={event => setStockCategoryId(event.target.value)}
+        >
+          <option value="">{t('stock.allCategories')}</option>
+          {categories.map(category => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={lowStockOnly}
+        onClick={() => setLowStockOnly(current => !current)}
+        className="inline-flex min-h-[44px] items-center gap-3 rounded-xl px-1 text-sm text-secondary-700 md:pb-2.5"
+      >
+        <span className={cn('pv-switch', lowStockOnly && 'on')} aria-hidden="true" />
+        {t('stock.lowStockOnly')}
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <InventoryHeader
@@ -785,12 +852,6 @@ export function InventoryPage() {
         onNewEntry={() => openSearchDialog('entry')}
         onNewAdjustment={() => openSearchDialog('adjustment')}
       />
-
-      {!canManage && (
-        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          {t('page.permissionNote')}
-        </div>
-      )}
 
       <InventorySummaryCards
         isLoading={stockQuery.isLoading}
@@ -802,38 +863,6 @@ export function InventoryPage() {
         entriesCount={entries.length}
         entriesLoading={entriesQuery.isLoading}
       />
-
-      {activeView === 'stock' && (
-        <div className="card p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <label className="block md:min-w-64">
-              <span className="label">{t('stock.category')}</span>
-              <select
-                className="input mt-1"
-                value={stockCategoryId}
-                onChange={event => setStockCategoryId(event.target.value)}
-              >
-                <option value="">{t('stock.allCategories')}</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="inline-flex items-center gap-3 text-sm text-secondary-700">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-secondary-300"
-                checked={lowStockOnly}
-                onChange={event => setLowStockOnly(event.target.checked)}
-              />
-              {t('stock.lowStockOnly')}
-            </label>
-          </div>
-        </div>
-      )}
 
       {activeView === 'balances' && (
         <InventoryBalancesPanel
@@ -865,6 +894,7 @@ export function InventoryPage() {
         entries={entries}
         canManage={canManage}
         onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+        stockFilters={stockFilters}
       />
       )}
 
@@ -914,8 +944,14 @@ export function InventoryPage() {
         onSubmit={handleEntrySubmit}
       />
 
-      <div className="surface-panel-muted text-sm text-secondary-600">
-        {t('page.stockNote')}
+      {/* Rediseño §10 — un único callout discreto al pie consolida las notas:
+          el aviso de permisos (solo cuando el rol no puede gestionar) y la nota
+          de sincronización de totales, en vez de dos paneles separados. */}
+      <div className="surface-panel-muted space-y-2 text-sm text-secondary-600">
+        {!canManage && (
+          <p className="font-medium text-warning-700">{t('page.permissionNote')}</p>
+        )}
+        <p>{t('page.stockNote')}</p>
       </div>
     </div>
   );

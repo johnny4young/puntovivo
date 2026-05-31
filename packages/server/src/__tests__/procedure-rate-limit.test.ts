@@ -14,6 +14,7 @@ import {
 describe('checkProcedureRateLimit', () => {
   afterEach(() => {
     __resetProcedureRateLimitForTest();
+    delete process.env.PUNTOVIVO_E2E;
   });
 
   it('allows up to the cap and denies further calls in the same window', () => {
@@ -91,6 +92,54 @@ describe('checkProcedureRateLimit', () => {
     };
     for (let i = 0; i < 5; i++) {
       expect(checkProcedureRateLimit(opts)).toBe('allowed');
+    }
+  });
+
+  it('bypasses entirely under the Playwright E2E runtime', () => {
+    process.env.PUNTOVIVO_E2E = '1';
+    const opts = {
+      name: 'test.proc',
+      max: 1,
+      windowMs: 60_000,
+      keyBy: ['ip' as const],
+      ip: '1.1.1.1',
+      userId: null as string | null,
+      enforceInTest: true,
+    };
+
+    for (let i = 0; i < 5; i += 1) {
+      expect(checkProcedureRateLimit(opts)).toBe('allowed');
+    }
+  });
+
+  it('does not honor the Playwright E2E bypass in production', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalRuntimeEnv = process.env.PUNTOVIVO_RUNTIME_ENV;
+
+    process.env.PUNTOVIVO_E2E = '1';
+    process.env.NODE_ENV = 'production';
+    process.env.PUNTOVIVO_RUNTIME_ENV = 'production';
+
+    try {
+      const opts = {
+        name: 'test.proc',
+        max: 1,
+        windowMs: 60_000,
+        keyBy: ['ip' as const],
+        ip: '1.1.1.1',
+        userId: null as string | null,
+        enforceInTest: true,
+      };
+
+      expect(checkProcedureRateLimit(opts)).toBe('allowed');
+      expect(checkProcedureRateLimit(opts)).toBe('denied');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalRuntimeEnv === undefined) {
+        delete process.env.PUNTOVIVO_RUNTIME_ENV;
+      } else {
+        process.env.PUNTOVIVO_RUNTIME_ENV = originalRuntimeEnv;
+      }
     }
   });
 });

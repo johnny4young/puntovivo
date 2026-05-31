@@ -115,9 +115,9 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
 
       // Cart shows the new line item; the cashier reads the product
       // name to confirm before pressing F1.
-      await expect(
-        page.getByRole('cell', { name: new RegExp(scenario.product.sku, 'i') })
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible({
+        timeout: 10_000,
+      });
 
       // Step 6: F1 opens SalePaymentModal (ENG-105 slice A + slice B preflight).
       await expectSearchInputFocused(page);
@@ -195,12 +195,13 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await page.waitForSelector(SEARCH_INPUT_SELECTOR);
       await expectSearchInputFocused(page);
 
-      // Press Tab 12 times and snapshot the active element each step.
+      // Press Tab through the currently exposed empty-state controls and
+      // snapshot the active element each step.
       // The contract: no Tab lands on <body> (would mean focus escaped
       // the page-level interactive set) and every focused element is
       // visible to a screen reader (role / tag is meaningful).
       const trail: Array<{ tag: string; role: string | null; id: string }> = [];
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 6; i++) {
         await page.keyboard.press('Tab');
         const snapshot = await page.evaluate(() => {
           const el = document.activeElement;
@@ -379,9 +380,7 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await addProductToCartViaKeyboard(page, scenario.product.sku);
 
       // Verify the cart row is present.
-      const cartRow = page.getByRole('cell', {
-        name: new RegExp(scenario.product.sku, 'i'),
-      });
+      const cartRow = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
       await expect(cartRow).toBeVisible({ timeout: 10_000 });
 
       // ENG-105d ships Mod+Z to undo the last cart mutation.
@@ -423,6 +422,8 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
         .toBe('sale-payment-confirm');
       await page.keyboard.press('Enter');
       await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+
+      await page.getByRole('tab', { name: /history|historial/i }).click();
 
       // The SalesHistoryTable refreshes; the most recent row exposes
       // a stable `data-row-id`. Scope by the section that contains

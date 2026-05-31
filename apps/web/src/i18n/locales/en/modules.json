@@ -1,7 +1,8 @@
 {
   "section": {
     "title": "Modules",
-    "description": "Activate or deactivate functional modules for this tenant. Disabled modules hide their pages and reject server calls without deleting any data."
+    "description": "Activate or deactivate functional modules for this tenant. Disabled modules hide their pages and reject server calls without deleting any data.",
+    "activeCount": "{{active}} of {{total}} active"
   },
   "toggle": {
     "enable": "Activate",
@@ -19,47 +20,53 @@
   "items": {
     "copilot": {
       "label": "Co-pilot",
-      "description": "Tenant-scoped conversational analytics. When off, the /co-pilot page hides and the chat endpoint rejects calls."
+      "description": "Tenant-scoped conversational analytics. When off, the Co-pilot screen is hidden and the chat stops responding."
     },
     "operationsCenter": {
       "label": "Operations Center",
-      "description": "Cross-site operational diagnostics — fiscal health, cash, inventory drift, support bundles. When off, the /operations page hides."
+      "description": "Cross-site operational diagnostics: fiscal health, cash, inventory drift and support bundles. When off, the Operations Center is hidden."
     },
     "quotations": {
       "label": "Quotations",
-      "description": "Manager flow to draft, send and convert quotations. When off, the /quotations page hides and every quotations.* call returns FORBIDDEN."
+      "description": "Manager flow to draft, send and convert quotations. When off, the Quotations screen is hidden and the feature becomes inactive."
     },
     "anomalyDetection": {
       "label": "Anomaly Detection",
-      "description": "Local anomaly detector for void rate, refund amount, ticket spikes and no-sale sessions. When off, the dashboard tile hides."
+      "description": "Detector for void rate, refund amounts, ticket spikes and no-sale sessions. When off, the dashboard tile is hidden."
     },
     "semanticSearch": {
       "label": "Semantic Search",
-      "description": "Embedding-powered product search and category suggestion. When off, the sparkles toggle on Products hides and the embedding endpoints reject calls."
+      "description": "Meaning-based product search and category suggestion. When off, the smart-search button on Products is hidden."
     },
     "posTouch": {
       "label": "POS Touch surface",
-      "description": "Touch-optimized POS layout for tablets. When on, the sidebar entry appears and /touch loads the surface. ENG-039 plugs the real sales flow into the existing shell."
+      "description": "Touch-optimized POS layout for tablets. When on, it appears in the sidebar and loads the touch sales surface."
     },
     "kds": {
       "label": "KDS surface",
-      "description": "Fullscreen Kitchen Display Screen for kitchen staff. When on, /kds becomes reachable while /sales stays intact. ENG-039 plugs the real ticket queue."
+      "description": "Fullscreen kitchen display for kitchen staff. When on, it becomes available without affecting the sales screen."
     },
     "customerDisplay": {
       "label": "Customer Display",
-      "description": "Second-monitor cart mirror facing the customer. When on, /customer-display becomes reachable. ENG-039 plugs the real cart render."
+      "description": "Second-screen cart mirror facing the customer. When on, the customer display becomes available."
     },
     "mobileWaiter": {
       "label": "Mobile Waiter",
-      "description": "Phone-width layout for waitstaff taking orders at the table. When on, /m becomes reachable. ENG-039 plugs the real table flow."
+      "description": "Phone-width layout for waitstaff taking orders at the table. When on, the waiter view becomes available."
     },
     "eventsApi": {
       "label": "Public events API",
-      "description": "Publish public events (sale.completed, sale.refunded, inventory.adjusted, cash_session.closed, fiscal_document.accepted) to the webhook queue so a future central server or integration partner can subscribe. When off, no webhook rows are created."
+      "description": "Publishes business events (sales, refunds, inventory adjustments, cash closures and fiscal documents) for an external integration to subscribe to. When off, no events are recorded."
     },
     "delivery": {
       "label": "Delivery orders",
-      "description": "Operational queue for delivery / domicilio orders with status columns and courier assignment. When on, the /delivery page becomes reachable and the deliveryOrders.* router accepts calls."
+      "description": "Operational queue for delivery orders with status columns and courier assignment. When on, the Delivery screen becomes available."
     }
+  },
+  "surfaces": {
+    "intelligence": "Intelligence",
+    "salesSurfaces": "Sales surfaces",
+    "operations": "Operations",
+    "integrations": "Integrations"
   }
 }

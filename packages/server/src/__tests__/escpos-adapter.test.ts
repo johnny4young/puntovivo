@@ -16,9 +16,11 @@ import {
   EscPosTransportError,
   ESCPOS_BYTES,
   MockEscPosTransport,
+  resolveTransport,
   __setEscPosTransportForTest,
   escposCashDrawerConfigSchema,
   escposReceiptPrinterConfigSchema,
+  validateEscPosTcpTargetConfig,
   type EscPosTransport,
   type ReceiptDocument,
 } from '../services/peripherals/index.js';
@@ -148,7 +150,7 @@ describe('EscPosReceiptPrinterAdapter', () => {
       TENANT,
       SITE,
       PERIPHERAL,
-      escposReceiptPrinterConfigSchema.parse({ channel: 'tcp', host: '127.0.0.1' })
+      escposReceiptPrinterConfigSchema.parse({ channel: 'tcp', host: '192.168.1.50' })
     );
     const result = await adapter.print({
       kind: 'sale-receipt',
@@ -184,6 +186,86 @@ describe('EscPosReceiptPrinterAdapter', () => {
     const result = await adapter.testPrint();
     expect(result.status).toBe('ok');
     expect(mock.captured.length).toBeGreaterThan(0);
+  });
+});
+
+describe('ESC/POS TCP target policy', () => {
+  it('accepts private LAN raw-print targets for printer and cash drawer configs', () => {
+    expect(
+      escposReceiptPrinterConfigSchema.safeParse({
+        channel: 'tcp',
+        host: '192.168.1.50',
+        port: 9100,
+      }).success
+    ).toBe(true);
+    expect(
+      escposCashDrawerConfigSchema.safeParse({
+        channel: 'tcp',
+        host: '10.0.0.25',
+        port: 9101,
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects SSRF-style TCP destinations before config persistence', () => {
+    const blockedHosts = [
+      '127.0.0.1',
+      '0.0.0.0',
+      '169.254.169.254',
+      '224.0.0.1',
+      '8.8.8.8',
+      '::1',
+      'fe80::1',
+      'ff02::1',
+    ];
+
+    for (const host of blockedHosts) {
+      expect(
+        validateEscPosTcpTargetConfig({ channel: 'tcp', host, port: 9100 }),
+        host
+      ).not.toHaveLength(0);
+      expect(
+        escposReceiptPrinterConfigSchema.safeParse({
+          channel: 'tcp',
+          host,
+          port: 9100,
+        }).success,
+        host
+      ).toBe(false);
+      expect(
+        escposCashDrawerConfigSchema.safeParse({
+          channel: 'tcp',
+          host,
+          port: 9100,
+        }).success,
+        host
+      ).toBe(false);
+    }
+  });
+
+  it('rejects non-raw-print TCP ports by policy', () => {
+    expect(
+      escposReceiptPrinterConfigSchema.safeParse({
+        channel: 'tcp',
+        host: '192.168.1.50',
+        port: 80,
+      }).success
+    ).toBe(false);
+  });
+
+  it('blocks unsafe legacy TCP configs again immediately before socket connect', async () => {
+    const transport = resolveTransport({
+      channel: 'tcp',
+      host: '127.0.0.1',
+      port: 9100,
+      timeoutMs: 100,
+    });
+
+    await expect(transport.write(new Uint8Array([0x1b, 0x40]))).rejects.toMatchObject({
+      normalized: {
+        kind: 'INVALID_CONFIG',
+      },
+    });
   });
 });
 

@@ -18,6 +18,7 @@ import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
 import {
   cashSessionMovementsInput,
@@ -82,7 +83,10 @@ function buildCashSessionReportSummary(
     recentClosureCount: recentClosures.length,
     reviewCount: reviewSessions.length,
     netOverShort: roundCurrencyAmount(
-      recentClosures.reduce((sum, session) => sum + (session.overShort ?? 0), 0)
+      recentClosures.reduce(
+        (sum, session) => roundCurrencyAmount(sum + (session.overShort ?? 0)),
+        0
+      )
     ),
     largestDiscrepancy: roundCurrencyAmount(
       reviewSessions.reduce(
@@ -209,7 +213,7 @@ export const cashSessionsRouter = router({
     return getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
   }),
 
-  listRecent: tenantProcedure.query(async ({ ctx }) => {
+  listRecent: managerOrAdminProcedure.query(async ({ ctx }) => {
     return ctx.db
       .select({
         id: cashSessions.id,

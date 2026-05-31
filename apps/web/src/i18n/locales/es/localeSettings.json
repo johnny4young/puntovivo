@@ -22,7 +22,8 @@
     "savingAction": "Guardando...",
     "previewHeading": "Previsualización",
     "previewSampleAmount": "Monto",
-    "previewSampleDate": "Hoy"
+    "previewSampleDate": "Hoy",
+    "kicker": "Localización"
   },
   "toast": {
     "saveSuccessTitle": "Idioma actualizado",

@@ -30,5 +30,6 @@
   "setup": {
     "label": "Setup",
     "description": "Company, sites, peripherals, users, AI."
-  }
+  },
+  "viewItem": "View"
 }

@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Boxes, RefreshCw } from 'lucide-react';
+import { Boxes, PackageSearch, RefreshCw, ScanLine } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
-import { Badge } from '@/components/ui/Badge';
+import { KpiTile } from '@/components/ui';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
  * ENG-065b — Operations Center: Inventory Health panel.
@@ -16,13 +19,27 @@ import { Badge } from '@/components/ui/Badge';
  * `Σ(inventory_balances.on_hand)` per product. Drift surfaces as a
  * row; the operator can heal it by clicking "Reconciliar" which fires
  * the existing admin `inventory.reconcileBalances` mutation.
+ *
+ * Rediseño FASE 6 (O2) — recetas pv-*: KPIs de drift con `KpiTile`
+ * (`.pv-kpi`), tabla de discrepancias con `.pv-table`, severidad por
+ * fila con `.pv-badge` (ok / atención / falla) y vacío con
+ * `EmptyState`. Encabezado con `.pv-kicker` / `.pv-title` y CTA
+ * `.pv-btn outline`.
  */
 
 const INVENTORY_DELTA_EPSILON = 0.001;
 
-function deltaVariant(delta: number): 'success' | 'danger' | 'warning' {
+type DeltaTone = 'success' | 'danger' | 'warning';
+
+function deltaTone(delta: number): DeltaTone {
   if (Math.abs(delta) <= INVENTORY_DELTA_EPSILON) return 'success';
   return delta < 0 ? 'danger' : 'warning';
+}
+
+/** Severidad legible del drift (ok / atención / falla). */
+function deltaSeverityKey(delta: number): 'ok' | 'attention' | 'fault' {
+  if (Math.abs(delta) <= INVENTORY_DELTA_EPSILON) return 'ok';
+  return delta < 0 ? 'fault' : 'attention';
 }
 
 function formatQuantity(value: number): string {
@@ -57,26 +74,20 @@ export function InventoryHealthPanel() {
   const data = discrepanciesQuery.data;
   const rows = data?.rows ?? [];
 
+  const { pageRows, hasPagination, ...pagination } = usePaginatedRows(rows, 8);
+
   return (
     <div className="space-y-6">
       <section className="card p-6 space-y-5">
         <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-warning-100">
-              <Boxes className="h-5 w-5 text-warning-700" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-secondary-900">
-                {t('inventory.title')}
-              </h2>
-              <p className="text-sm text-secondary-500">
-                {t('inventory.description')}
-              </p>
-            </div>
+          <div>
+            <p className="pv-kicker">{t('inventory.kicker')}</p>
+            <h2 className="pv-title text-2xl">{t('inventory.title')}</h2>
+            <p className="mt-2 text-sm text-secondary-500">{t('inventory.description')}</p>
           </div>
           <button
             type="button"
-            className="btn-secondary inline-flex items-center gap-2 text-sm"
+            className="pv-btn outline"
             disabled={!isAdmin || reconcileMutation.isPending}
             title={!isAdmin ? t('inventory.reconcile.noPermission') : undefined}
             onClick={() => {
@@ -85,9 +96,7 @@ export function InventoryHealthPanel() {
             }}
             data-testid="inventory-reconcile-cta"
           >
-            <RefreshCw
-              className={`h-4 w-4 ${reconcileMutation.isPending ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className={reconcileMutation.isPending ? 'animate-spin' : ''} />
             {t('inventory.reconcile.cta')}
           </button>
         </header>
@@ -97,80 +106,89 @@ export function InventoryHealthPanel() {
         )}
 
         {discrepanciesQuery.error && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-            {translateServerError(discrepanciesQuery.error, t, t('common.errorGeneric'))}
+          <div className="pv-strip danger">
+            <span className="msg">
+              {translateServerError(discrepanciesQuery.error, t, t('common.errorGeneric'))}
+            </span>
           </div>
         )}
 
         {data && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4" data-testid="inventory-summary">
-            <div className="rounded-xl border border-secondary-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('inventory.summary.productsScanned')}
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-secondary-900">
-                {data.summary.productsScanned}
-              </p>
-            </div>
-            <div className="rounded-xl border border-secondary-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('inventory.summary.discrepancyCount')}
-              </p>
-              <p
-                className={`mt-1 text-2xl font-semibold ${
-                  data.summary.discrepancyCount === 0
-                    ? 'text-success-700'
-                    : 'text-warning-700'
-                }`}
-              >
-                {data.summary.discrepancyCount}
-              </p>
-            </div>
+          <div className="pv-kpis grid grid-cols-2 md:grid-cols-3" data-testid="inventory-summary">
+            <KpiTile
+              icon={ScanLine}
+              label={t('inventory.summary.productsScanned')}
+              value={formatQuantity(data.summary.productsScanned)}
+              tone="ink"
+            />
+            <KpiTile
+              icon={PackageSearch}
+              label={t('inventory.summary.discrepancyCount')}
+              value={formatQuantity(data.summary.discrepancyCount)}
+              tone={data.summary.discrepancyCount === 0 ? 'success' : 'warning'}
+            />
           </div>
         )}
 
         {data && rows.length === 0 && !discrepanciesQuery.isLoading && (
-          <p className="text-sm text-secondary-500">{t('inventory.emptyState')}</p>
+          <EmptyState
+            icon={Boxes}
+            title={t('inventory.emptyTitle')}
+            description={t('inventory.emptyState')}
+          />
         )}
 
         {rows.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                <tr>
-                  <th className="px-3 py-2">{t('inventory.columns.product')}</th>
-                  <th className="px-3 py-2">{t('inventory.columns.sku')}</th>
-                  <th className="px-3 py-2">{t('inventory.columns.cachedStock')}</th>
-                  <th className="px-3 py-2">{t('inventory.columns.sumOfBalances')}</th>
-                  <th className="px-3 py-2">{t('inventory.columns.delta')}</th>
-                  <th className="px-3 py-2">{t('inventory.columns.siteCount')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => (
-                  <tr key={row.productId} className="border-t border-secondary-200">
-                    <td className="px-3 py-2 text-secondary-900">{row.productName}</td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {row.productSku ?? '—'}
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {formatQuantity(row.cachedStock)}
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {formatQuantity(row.sumOfBalances)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant={deltaVariant(row.delta)}>
-                        {row.delta > 0 ? '+' : ''}
-                        {formatQuantity(row.delta)}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">{row.siteCount}</td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="pv-table">
+                <thead>
+                  <tr>
+                    <th>{t('inventory.columns.product')}</th>
+                    <th>{t('inventory.columns.sku')}</th>
+                    <th className="num">{t('inventory.columns.cachedStock')}</th>
+                    <th className="num">{t('inventory.columns.sumOfBalances')}</th>
+                    <th>{t('inventory.columns.delta')}</th>
+                    <th className="num">{t('inventory.columns.siteCount')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {pageRows.map(row => (
+                    <tr key={row.productId}>
+                      <td className="pname">{row.productName}</td>
+                      <td className="muted">{row.productSku ?? '—'}</td>
+                      <td className="num">{formatQuantity(row.cachedStock)}</td>
+                      <td className="num">{formatQuantity(row.sumOfBalances)}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`pv-mv ${
+                              deltaTone(row.delta) === 'success'
+                                ? ''
+                                : row.delta < 0
+                                  ? 'down'
+                                  : 'up'
+                            }`}
+                          >
+                            {row.delta > 0 ? '+' : ''}
+                            {formatQuantity(row.delta)}
+                          </span>
+                          <span className={`pv-badge ${deltaTone(row.delta)}`}>
+                            <span className="dot" />
+                            {t(`inventory.severity.${deltaSeverityKey(row.delta)}`)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="num">{row.siteCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {hasPagination && (
+              <TablePagination {...pagination} onPageChange={pagination.setPage} />
+            )}
+          </>
         )}
       </section>
     </div>

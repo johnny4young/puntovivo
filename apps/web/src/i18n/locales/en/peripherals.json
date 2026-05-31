@@ -25,9 +25,9 @@
     "mercadopago": "Mercado Pago Point"
   },
   "driverHint": {
-    "bold": "Available with ENG-063",
-    "wompi": "Available with ENG-063",
-    "mercadopago": "Available with ENG-063"
+    "bold": "Available soon",
+    "wompi": "Available soon",
+    "mercadopago": "Available soon"
   },
   "fields": {
     "kindLabel": "Kind",
@@ -36,6 +36,7 @@
     "displayNamePlaceholder": "Optional, for example: Front register",
     "configLabel": "Configuration (JSON)",
     "configPlaceholder": "{}",
+    "configHelp": "ESC/POS TCP targets must use private LAN IPs and ports 9100-9103.",
     "autoPrintOnComplete": {
       "label": "Print automatically when a sale closes",
       "help": "Fires the receipt to this printer the moment the cashier confirms the sale. The cash drawer pulses with the same gesture when the printer's kickDrawerAfterReceipt config is enabled."

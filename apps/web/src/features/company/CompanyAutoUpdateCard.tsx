@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
@@ -36,6 +37,8 @@ const defaultAutoUpdateStatus: AutoUpdateStatus = {
   reason: null,
 };
 
+type BadgeTone = 'success' | 'warning' | 'danger' | 'primary' | 'neutral';
+
 interface StatusBadgeProps {
   state: AutoUpdateState;
 }
@@ -50,22 +53,16 @@ function StatusBadge({ state }: StatusBadgeProps) {
     downloaded: t('company.updater.statusBadge.downloaded'),
     error: t('company.updater.statusBadge.error'),
   };
-  const classNameMap: Record<AutoUpdateState, string> = {
-    unavailable: 'bg-secondary-100 text-secondary-700',
-    idle: 'bg-success-50 text-success-700',
-    checking: 'bg-primary-50 text-primary-700',
-    available: 'bg-primary-50 text-primary-700',
-    downloaded: 'bg-warning-50 text-warning-700',
-    error: 'bg-danger-50 text-danger-700',
+  const toneMap: Record<AutoUpdateState, BadgeTone> = {
+    unavailable: 'neutral',
+    idle: 'success',
+    checking: 'primary',
+    available: 'primary',
+    downloaded: 'warning',
+    error: 'danger',
   };
 
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${classNameMap[state]}`}
-    >
-      {labelMap[state]}
-    </span>
-  );
+  return <span className={`pv-badge ${toneMap[state]}`}>{labelMap[state]}</span>;
 }
 
 interface UpdateMetricProps {
@@ -76,8 +73,8 @@ interface UpdateMetricProps {
 function UpdateMetric({ label, value }: UpdateMetricProps) {
   return (
     <div className="surface-panel-muted">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-secondary-900">{value}</p>
+      <p className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-fg2">{label}</p>
+      <p className="mt-2 font-mono text-sm font-semibold text-fg1">{value}</p>
     </div>
   );
 }
@@ -161,39 +158,81 @@ export function CompanyAutoUpdateCard() {
     status.releaseName ?? (status.state === 'downloaded' ? t('company.updater.downloadedUpdateReady') : t('company.updater.none'));
   const currentVersionLabel = status.currentVersion || t('company.updater.unknown');
 
+  const actions = (
+    <div className="flex flex-wrap gap-3">
+      <button
+        type="button"
+        className="pv-btn outline disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={
+          !isDesktop ||
+          !status.isAvailable ||
+          checkMutation.isPending ||
+          restartMutation.isPending ||
+          status.state === 'checking'
+        }
+        onClick={() => {
+          void checkMutation.mutateAsync();
+        }}
+      >
+        <RefreshCw className={checkMutation.isPending ? 'animate-spin' : ''} aria-hidden="true" />
+        {checkMutation.isPending ? t('company.updater.actions.checking') : t('company.updater.actions.checkForUpdates')}
+      </button>
+
+      <button
+        type="button"
+        className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={
+          !isDesktop ||
+          status.state !== 'downloaded' ||
+          checkMutation.isPending ||
+          restartMutation.isPending
+        }
+        onClick={() => {
+          void restartMutation.mutateAsync();
+        }}
+      >
+        {restartMutation.isPending ? (
+          <RefreshCw className="animate-spin" aria-hidden="true" />
+        ) : (
+          <RotateCcw aria-hidden="true" />
+        )}
+        {restartMutation.isPending ? t('company.updater.actions.restarting') : t('company.updater.actions.restartToInstall')}
+      </button>
+    </div>
+  );
+
   return (
-    <section className="card p-6 space-y-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <Sparkles className="h-5 w-5 text-primary-700" />
+    <section className="rounded-2xl border border-line bg-surface p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="pv-gt pv-gt-ink flex h-10 w-10 flex-shrink-0 items-center justify-center">
+            <Sparkles className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="pv-title text-lg">{t('company.updater.title')}</h2>
+            <p className="mt-1 text-sm text-fg3">{t('company.updater.description')}</p>
+          </div>
         </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">{t('company.updater.title')}</h2>
-          <p className="text-sm text-secondary-500">
-            {t('company.updater.description')}
-          </p>
-        </div>
+        {!isDesktop && <DesktopOnlyChip />}
       </div>
 
-      {!isDesktop && (
-        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.updater.desktopOnly')}</div>
-      )}
+      {!isDesktop && <p className="mt-3 text-xs text-fg3">{t('company.updater.desktopOnly')}</p>}
 
       {statusQuery.error && (
-        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+        <div className="mt-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           {translateServerError(statusQuery.error, t, t('errors:server.unknown'))}
         </div>
       )}
 
-      <div className="surface-panel flex flex-wrap items-center justify-between gap-3">
+      <div className="surface-panel mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-secondary-900">{t('company.updater.updaterStatus')}</p>
-          <p className="text-sm text-secondary-500">{getStatusMessage(status, t)}</p>
+          <p className="text-sm font-medium text-fg1">{t('company.updater.updaterStatus')}</p>
+          <p className="text-sm text-fg3">{getStatusMessage(status, t)}</p>
         </div>
         <StatusBadge state={status.state} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <UpdateMetric label={t('company.updater.currentVersion')} value={currentVersionLabel} />
         <UpdateMetric label={t('company.updater.latestDownload')} value={releaseLabel} />
         <UpdateMetric
@@ -203,58 +242,18 @@ export function CompanyAutoUpdateCard() {
       </div>
 
       {status.releaseDate && (
-        <p className="text-sm text-secondary-500">
-          {t('company.updater.updatePublished')} <span className="font-medium text-secondary-700">{formatDateTime(status.releaseDate)}</span>
+        <p className="mt-4 text-sm text-fg3">
+          {t('company.updater.updatePublished')}{' '}
+          <span className="font-medium text-fg1">{formatDateTime(status.releaseDate)}</span>
         </p>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="btn-outline flex items-center gap-2"
-          disabled={
-            !isDesktop ||
-            !status.isAvailable ||
-            checkMutation.isPending ||
-            restartMutation.isPending ||
-            status.state === 'checking'
-          }
-          onClick={() => {
-            void checkMutation.mutateAsync();
-          }}
-        >
-          <RefreshCw className={`h-4 w-4 ${checkMutation.isPending ? 'animate-spin' : ''}`} />
-          {checkMutation.isPending ? t('company.updater.actions.checking') : t('company.updater.actions.checkForUpdates')}
-        </button>
-
-        <button
-          type="button"
-          className="btn-primary flex items-center gap-2"
-          disabled={
-            !isDesktop ||
-            status.state !== 'downloaded' ||
-            checkMutation.isPending ||
-            restartMutation.isPending
-          }
-          onClick={() => {
-            void restartMutation.mutateAsync();
-          }}
-        >
-          {restartMutation.isPending ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <RotateCcw className="h-4 w-4" />
-          )}
-          {restartMutation.isPending ? t('company.updater.actions.restarting') : t('company.updater.actions.restartToInstall')}
-        </button>
-      </div>
+      <div className="mt-4">{isDesktop ? actions : <DisabledControl>{actions}</DisabledControl>}</div>
 
       {status.state === 'available' && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
-          <div className="flex items-start gap-2">
-            <Download className="mt-0.5 h-4 w-4" />
-            <p>{t('company.updater.downloading')}</p>
-          </div>
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          <Download className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <p>{t('company.updater.downloading')}</p>
         </div>
       )}
     </section>

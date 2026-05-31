@@ -52,6 +52,7 @@ export const SESSION_NOT_REGISTERED = 'SESSION_NOT_REGISTERED';
  * back to the login screen.
  */
 export const SESSION_REGISTER_REJECTED = 'SESSION_REGISTER_REJECTED';
+export const SESSION_ROLE_FORBIDDEN = 'SESSION_ROLE_FORBIDDEN';
 
 interface DesktopSessionState {
   userId: string;
@@ -151,6 +152,12 @@ export function requireUserId(): string {
 export function requireRole(): string {
   if (!current) throw new Error(SESSION_NOT_REGISTERED);
   return current.role;
+}
+
+export function requireOneOfRoles(allowedRoles: readonly string[]): string {
+  const role = requireRole();
+  if (!allowedRoles.includes(role)) throw new Error(SESSION_ROLE_FORBIDDEN);
+  return role;
 }
 
 /**

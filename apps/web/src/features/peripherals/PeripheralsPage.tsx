@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { TablePagination } from '@/components/tables/TablePagination';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Site } from '@/types';
@@ -253,107 +255,22 @@ export function PeripheralsPage() {
               const items = grouped.get(kind);
               if (!items || items.length === 0) return null;
               return (
-                <section
+                <PeripheralKindSection
                   key={kind}
-                  className="space-y-3"
-                  data-testid={`peripherals-section-${kind}`}
-                >
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
-                    {t(`peripherals:kind.${kind}`)}
-                  </h2>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs uppercase tracking-wider text-secondary-500">
-                        <th className="py-2">{t('peripherals:fields.driverLabel')}</th>
-                        <th>{t('peripherals:fields.displayNameLabel')}</th>
-                        <th>{t('peripherals:status.untested')}</th>
-                        <th className="text-right">&nbsp;</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map(row => (
-                        <tr
-                          key={row.id}
-                          className={
-                            'border-t border-line ' +
-                            (row.isActive ? '' : 'opacity-60')
-                          }
-                          data-testid={`peripherals-row-${row.id}`}
-                        >
-                          <td className="py-3 font-medium text-secondary-900">
-                            {t(`peripherals:driver.${row.driver}`, {
-                              defaultValue: row.driver,
-                            })}
-                          </td>
-                          <td className="text-secondary-700">
-                            {row.displayName ?? '—'}
-                          </td>
-                          <td>
-                            <PeripheralStatusBadge
-                              lastTestResult={row.lastTestResult}
-                              lastTestedAt={row.lastTestedAt}
-                            />
-                          </td>
-                          <td className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <button
-                                type="button"
-                                className="btn-outline text-xs"
-                                onClick={() =>
-                                  testMutation.mutate({ id: row.id })
-                                }
-                                disabled={testMutation.isPending}
-                              >
-                                {t('peripherals:actions.test')}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-icon btn-ghost"
-                                aria-label={t('peripherals:actions.edit')}
-                                title={t('peripherals:actions.edit')}
-                                onClick={() => setDialog({ mode: 'edit', row })}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-icon btn-ghost"
-                                aria-label={
-                                  row.isActive
-                                    ? t('peripherals:actions.deactivate')
-                                    : t('peripherals:actions.activate')
-                                }
-                                title={
-                                  row.isActive
-                                    ? t('peripherals:actions.deactivate')
-                                    : t('peripherals:actions.activate')
-                                }
-                                onClick={() =>
-                                  setActiveMutation.mutate({
-                                    id: row.id,
-                                    isActive: !row.isActive,
-                                  })
-                                }
-                                disabled={setActiveMutation.isPending}
-                              >
-                                <Power className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-icon btn-ghost text-danger-600 hover:text-danger-700"
-                                aria-label={t('peripherals:actions.remove')}
-                                title={t('peripherals:actions.remove')}
-                                onClick={() => setPendingDelete(row)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </section>
+                  kind={kind}
+                  items={items}
+                  onTest={id => testMutation.mutate({ id })}
+                  isTestPending={testMutation.isPending}
+                  onEdit={row => setDialog({ mode: 'edit', row })}
+                  onToggleActive={row =>
+                    setActiveMutation.mutate({
+                      id: row.id,
+                      isActive: !row.isActive,
+                    })
+                  }
+                  isSetActivePending={setActiveMutation.isPending}
+                  onRemove={row => setPendingDelete(row)}
+                />
               );
             })}
           </div>
@@ -385,6 +302,141 @@ export function PeripheralsPage() {
         loading={removeMutation.isPending}
       />
     </div>
+  );
+}
+
+type PeripheralKindSectionProps = {
+  kind: PeripheralKind;
+  items: PeripheralRow[];
+  onTest: (id: string) => void;
+  isTestPending: boolean;
+  onEdit: (row: PeripheralRow) => void;
+  onToggleActive: (row: PeripheralRow) => void;
+  isSetActivePending: boolean;
+  onRemove: (row: PeripheralRow) => void;
+};
+
+/**
+ * One per-kind peripheral table plus its client-side pagination footer.
+ *
+ * Extracted from the page body so each kind owns an independent
+ * `usePaginatedRows` instance — a hook cannot be called inside the
+ * `KIND_ORDER.map(...)` loop. Pagination is purely presentational over the
+ * already-loaded `items` array (8 rows per page); the query, grouping, and
+ * every per-row affordance (status badge, Test / Edit / Toggle / Remove,
+ * inactive-row dimming) are preserved verbatim from the previous inline
+ * rendering.
+ */
+function PeripheralKindSection({
+  kind,
+  items,
+  onTest,
+  isTestPending,
+  onEdit,
+  onToggleActive,
+  isSetActivePending,
+  onRemove,
+}: PeripheralKindSectionProps) {
+  const { t } = useTranslation(['peripherals']);
+  const { pageRows, hasPagination, ...pagination } = usePaginatedRows(items, 8);
+
+  return (
+    <section
+      className="space-y-3"
+      data-testid={`peripherals-section-${kind}`}
+    >
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-500">
+        {t(`peripherals:kind.${kind}`)}
+      </h2>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs uppercase tracking-wider text-secondary-500">
+            <th className="py-2">{t('peripherals:fields.driverLabel')}</th>
+            <th>{t('peripherals:fields.displayNameLabel')}</th>
+            <th>{t('peripherals:status.untested')}</th>
+            <th className="text-right">&nbsp;</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pageRows.map(row => (
+            <tr
+              key={row.id}
+              className={
+                'border-t border-line ' +
+                (row.isActive ? '' : 'opacity-60')
+              }
+              data-testid={`peripherals-row-${row.id}`}
+            >
+              <td className="py-3 font-medium text-secondary-900">
+                {t(`peripherals:driver.${row.driver}`, {
+                  defaultValue: row.driver,
+                })}
+              </td>
+              <td className="text-secondary-700">
+                {row.displayName ?? '—'}
+              </td>
+              <td>
+                <PeripheralStatusBadge
+                  lastTestResult={row.lastTestResult}
+                  lastTestedAt={row.lastTestedAt}
+                />
+              </td>
+              <td className="text-right">
+                <div className="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    className="btn-outline text-xs"
+                    onClick={() => onTest(row.id)}
+                    disabled={isTestPending}
+                  >
+                    {t('peripherals:actions.test')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon btn-ghost"
+                    aria-label={t('peripherals:actions.edit')}
+                    title={t('peripherals:actions.edit')}
+                    onClick={() => onEdit(row)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon btn-ghost"
+                    aria-label={
+                      row.isActive
+                        ? t('peripherals:actions.deactivate')
+                        : t('peripherals:actions.activate')
+                    }
+                    title={
+                      row.isActive
+                        ? t('peripherals:actions.deactivate')
+                        : t('peripherals:actions.activate')
+                    }
+                    onClick={() => onToggleActive(row)}
+                    disabled={isSetActivePending}
+                  >
+                    <Power className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon btn-ghost text-danger-600 hover:text-danger-700"
+                    aria-label={t('peripherals:actions.remove')}
+                    title={t('peripherals:actions.remove')}
+                    onClick={() => onRemove(row)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {hasPagination && (
+        <TablePagination {...pagination} onPageChange={pagination.setPage} />
+      )}
+    </section>
   );
 }
 

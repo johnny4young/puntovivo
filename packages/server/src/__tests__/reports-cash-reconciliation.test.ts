@@ -359,6 +359,7 @@ describe('reports.cash.reconciliation (ENG-065b)', () => {
     const ids = result.recentDiscrepancies.map(row => row.sessionId);
     // Ordered by |overShort|: 5, 3.5, 0.1
     expect(ids).toEqual(['rcash-closed-a-1', 'rcash-closed-a-2', 'rcash-closed-a-3']);
+    expect(result.recentDiscrepancies[0]?.registerName).toBe('register-1');
     // Old row outside the window must be excluded.
     expect(ids).not.toContain('rcash-closed-a-old');
   });

@@ -13,21 +13,21 @@
   "posTouch": {
     "label": "POS Touch",
     "description": "Touch-optimized layout for tablets — wider buttons, bigger fonts, sticky bottom action bar.",
-    "upcomingTicket": "Coming with ENG-039"
+    "upcomingTicket": "Coming soon"
   },
   "kds": {
     "label": "KDS — Kitchen Display Screen",
     "description": "Fullscreen ticket queue for kitchen staff. No sidebar, no header — designed for a kitchen-mounted TV.",
-    "upcomingTicket": "Coming with ENG-039"
+    "upcomingTicket": "Coming soon"
   },
   "customerDisplay": {
     "label": "Customer Display",
     "description": "Second-monitor cart mirror — shows the cashier's cart to the customer in real time.",
-    "upcomingTicket": "Coming with ENG-039"
+    "upcomingTicket": "Coming soon"
   },
   "mobileWaiter": {
     "label": "Mobile Waiter",
     "description": "Phone-width layout for waitstaff taking orders at the table.",
-    "upcomingTicket": "Coming with ENG-039"
+    "upcomingTicket": "Coming soon"
   }
 }

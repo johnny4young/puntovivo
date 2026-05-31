@@ -174,16 +174,15 @@ export function CustomersPage() {
       accessorKey: 'name',
       header: () => i18next.t('customers:table.name'),
       size: 240,
+      // Rediseño FASE 3 — celda ancla (.pv-table .prod): avatar con la
+      // inicial + nombre fuerte + identificación legible (tipo + taxId,
+      // nunca el id interno) en mono debajo.
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-primary-100 flex items-center justify-center">
-            <span className="text-sm font-medium text-primary-700">
-              {row.original.name.charAt(0)}
-            </span>
-          </div>
+        <div className="prod">
+          <span className="pic">{row.original.name.charAt(0).toUpperCase()}</span>
           <div>
-            <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">
               {row.original.identificationTypeId || 'ID'} {row.original.taxId || 'Not set'}
             </p>
           </div>
@@ -229,7 +228,7 @@ export function CustomersPage() {
       header: () => i18next.t('customers:table.status'),
       size: 100,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
           {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
         </span>
       ),

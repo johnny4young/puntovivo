@@ -19,7 +19,6 @@
  */
 
 @layer components {
-
   /* ==========================================================================
    * 1. SHELL & LAYOUT
    *
@@ -92,9 +91,14 @@
   }
 
   .metric-tile::after {
-    content: "";
+    content: '';
     @apply absolute inset-x-0 top-0 h-px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 36%, white), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklch, var(--primary) 36%, white),
+      transparent
+    );
   }
 
   .hero-surface {
@@ -103,14 +107,26 @@
   }
 
   .hero-surface::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 12% 12%, color-mix(in oklch, var(--primary) 15%, transparent), transparent 36%),
-      radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--warning-500) 12%, transparent), transparent 24%),
-      linear-gradient(135deg, color-mix(in oklch, var(--surface-2) 70%, transparent), transparent 54%);
+      radial-gradient(
+        circle at 12% 12%,
+        color-mix(in oklch, var(--primary) 15%, transparent),
+        transparent 36%
+      ),
+      radial-gradient(
+        circle at 88% 18%,
+        color-mix(in oklch, var(--warning-500) 12%, transparent),
+        transparent 24%
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--surface-2) 70%, transparent),
+        transparent 54%
+      );
   }
 
   /* Dark overrides — cards & surfaces */
@@ -380,13 +396,21 @@
   }
 
   .modal-shell::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 12% 10%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 34%),
-      linear-gradient(180deg, color-mix(in oklch, var(--surface) 92%, white), color-mix(in oklch, var(--surface-2) 55%, transparent));
+      radial-gradient(
+        circle at 12% 10%,
+        color-mix(in oklch, var(--primary) 10%, transparent),
+        transparent 34%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--surface) 92%, white),
+        color-mix(in oklch, var(--surface-2) 55%, transparent)
+      );
     opacity: 0.9;
   }
 
@@ -599,7 +623,7 @@
     @apply bg-primary-50/55;
   }
 
-  .data-table tbody tr[data-state="selected"] {
+  .data-table tbody tr[data-state='selected'] {
     @apply bg-primary-50;
   }
 
@@ -616,7 +640,7 @@
     @apply bg-primary-100/10;
   }
 
-  .dark .data-table tbody tr[data-state="selected"] {
+  .dark .data-table tbody tr[data-state='selected'] {
     @apply bg-primary-100/15;
   }
 
@@ -645,5 +669,1004 @@
     100% {
       transform: translateY(60vh);
     }
+  }
+
+  /* ==========================================================================
+   * 12. REDISEÑO — RECETAS pv-* (propuesta §02/§03, FASE 0)
+   *
+   * Set canónico de recetas reconstruidas 1:1 desde propuesta.css con los
+   * tokens del design system. Son las piezas que las pantallas consumen en
+   * FASE 2+ (KpiTile, DataTable, Badge, Button, Field, Tabs, Switch,
+   * Accordion, EmptyState, Skeleton, Strip, RefChip, Diff, etc.).
+   *
+   * Regla dark: la elevación se comunica por BORDE (1px var(--line)), no por
+   * sombra. Las recetas con `var(--shadow-card)` se anulan solas en .dark
+   * (theme.css pone --shadow-card:none) y conservan su borde, así que la
+   * mayoría no necesita override explícito. Los glows de marca (botón
+   * primario) opt-out a propósito y se mantienen en ambos temas.
+   * ======================================================================== */
+
+  /* --- glyph tile tones (glifo tonal de KPIs, badges, filas) --- */
+  .pv-gt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 9px;
+  }
+  .pv-gt-primary {
+    background: var(--primary-50);
+    color: var(--primary-700);
+  }
+  .pv-gt-success {
+    background: var(--success-50);
+    color: var(--success-700);
+  }
+  .pv-gt-warning {
+    background: var(--warning-50);
+    color: var(--warning-700);
+  }
+  .pv-gt-danger {
+    background: var(--danger-50);
+    color: var(--danger-700);
+  }
+  .pv-gt-ink {
+    background: var(--secondary-100);
+    color: var(--secondary-800);
+  }
+
+  .dark .pv-gt-primary {
+    background: color-mix(in oklch, var(--primary-400) 16%, transparent);
+    color: var(--primary-200);
+  }
+  .dark .pv-gt-success {
+    background: color-mix(in oklch, var(--success-500) 16%, transparent);
+    color: var(--success-500);
+  }
+  .dark .pv-gt-warning {
+    background: color-mix(in oklch, var(--warning-500) 16%, transparent);
+    color: var(--warning-500);
+  }
+  .dark .pv-gt-danger {
+    background: color-mix(in oklch, var(--danger-500) 16%, transparent);
+    color: var(--danger-500);
+  }
+
+  /* --- KpiTile (.pv-kpi) — receta única de métrica --- */
+  .pv-kpis {
+    display: grid;
+    gap: 12px;
+  }
+  .pv-kpi {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    padding: 16px 16px 15px;
+    border: 1px solid color-mix(in oklch, var(--line) 70%, transparent);
+    background: color-mix(in oklch, var(--surface-2) 80%, transparent);
+  }
+  .pv-kpi::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklch, var(--primary) 40%, white),
+      transparent
+    );
+  }
+  .pv-kpi .hd {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .pv-kpi .pv-gt {
+    width: 28px;
+    height: 28px;
+  }
+  .pv-kpi .lbl {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fg2);
+  }
+  .pv-kpi .val {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fg1);
+    margin-top: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pv-kpi .val.mono {
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+  .pv-kpi .sub {
+    font-size: 11.5px;
+    color: var(--fg3);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .pv-kpi .delta {
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pv-kpi .delta.up {
+    color: var(--success-700);
+  }
+  .pv-kpi .delta.down {
+    color: var(--danger-700);
+  }
+  .dark .pv-kpi {
+    border-color: var(--line);
+    background: color-mix(in oklch, var(--surface-2) 84%, transparent);
+  }
+
+  /* --- Badge (.pv-badge) — 5 tonos semánticos --- */
+  .pv-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .pv-badge.success {
+    background: var(--success-50);
+    color: var(--success-700);
+  }
+  .pv-badge.warning {
+    background: var(--warning-50);
+    color: var(--warning-700);
+  }
+  .pv-badge.danger {
+    background: var(--danger-50);
+    color: var(--danger-700);
+  }
+  .pv-badge.primary {
+    background: var(--primary-50);
+    color: var(--primary-700);
+  }
+  .pv-badge.neutral {
+    background: var(--secondary-100);
+    color: var(--secondary-700);
+  }
+  .pv-badge .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  /* --- Button (.pv-btn) — radio 16px, primary/outline/ghost, min 40px --- */
+  .pv-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 9px 16px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      transform 180ms var(--ease-out),
+      background 180ms;
+  }
+  .pv-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .pv-btn:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+  }
+  .pv-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .pv-btn:disabled:hover {
+    transform: none;
+  }
+  .pv-btn.primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 16px 34px -22px color-mix(in oklch, var(--primary) 70%, transparent);
+  }
+  .pv-btn.outline {
+    background: color-mix(in oklch, var(--surface) 86%, transparent);
+    color: var(--secondary-900);
+    border-color: color-mix(in oklch, var(--line-strong) 65%, transparent);
+  }
+  .pv-btn.ghost {
+    background: transparent;
+    color: var(--secondary-600);
+  }
+  .pv-btn:hover {
+    transform: translateY(-1px);
+  }
+  /* POS — variante táctil 48px (FASE 5). */
+  .pv-btn.lg {
+    min-height: 48px;
+    font-size: 15px;
+    border-radius: 16px;
+  }
+
+  /* --- Field + Input (.pv-field / .pv-input) --- */
+  .pv-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .pv-field > .lab,
+  .pv-field > .label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fg2);
+  }
+  .pv-field .req {
+    color: var(--danger-700);
+  }
+  .pv-field .help {
+    font-size: 11.5px;
+    color: var(--fg3);
+    line-height: 1.5;
+  }
+  .pv-input {
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklch, var(--line-strong) 60%, transparent);
+    background: color-mix(in oklch, var(--surface) 96%, transparent);
+    padding: 0 13px;
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    color: var(--fg1);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .pv-input.area {
+    min-height: 70px;
+    padding: 11px 13px;
+    align-items: flex-start;
+  }
+  .pv-input .ph {
+    color: var(--fg4);
+  }
+  .pv-input svg {
+    width: 15px;
+    height: 15px;
+    color: var(--fg3);
+    flex-shrink: 0;
+  }
+  .pv-input:focus-within,
+  .pv-input.focus {
+    border-color: var(--primary-400);
+    background: var(--surface);
+    box-shadow: var(--focus-ring);
+    outline: none;
+  }
+  .pv-input.error {
+    border-color: var(--danger-500);
+  }
+  .pv-input.error:focus-within {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--danger-500) 35%, transparent);
+  }
+  .pv-field .err-msg {
+    font-size: 11.5px;
+    color: var(--danger-700);
+    font-weight: 500;
+  }
+
+  /* --- DataTable (.pv-table) — fila 48-52px, ancla, cebra, sticky --- */
+  .pv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .pv-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    padding: 11px 14px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg2);
+    background: color-mix(in oklch, var(--surface-2) 92%, var(--background));
+    border-bottom: 1px solid color-mix(in oklch, var(--line) 80%, transparent);
+    white-space: nowrap;
+  }
+  .pv-table thead th.num {
+    text-align: right;
+  }
+  .pv-table tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid color-mix(in oklch, var(--line) 60%, transparent);
+    color: var(--fg2);
+    vertical-align: middle;
+  }
+  .pv-table tbody tr {
+    transition: background 120ms;
+  }
+  .pv-table tbody tr:nth-child(even) {
+    background: color-mix(in oklch, var(--surface-2) 40%, transparent);
+  }
+  .pv-table tbody tr:hover,
+  .pv-table tbody tr:nth-child(even):hover {
+    background: color-mix(in oklch, var(--primary-50) 55%, transparent);
+  }
+  .pv-table .num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg1);
+    white-space: nowrap;
+  }
+  .pv-table .sku {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg3);
+    margin-top: 2px;
+  }
+  .pv-table .prod {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .pv-table .prod .pic {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--primary-50);
+    color: var(--primary-700);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pv-table .pname {
+    font-weight: 600;
+    color: var(--fg1);
+    font-size: 13px;
+    line-height: 1.25;
+  }
+  .pv-table th:first-child,
+  .pv-table td:first-child {
+    min-width: 196px;
+  }
+  .pv-table .muted {
+    color: var(--fg3);
+  }
+  .dark .pv-table tbody tr:hover,
+  .dark .pv-table tbody tr:nth-child(even):hover {
+    background: color-mix(in oklch, var(--primary-100) 12%, transparent);
+  }
+
+  .pv-tier {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .pv-tier .lead {
+    font-weight: 600;
+    color: var(--fg1);
+  }
+  .pv-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    justify-content: flex-end;
+  }
+  .pv-stock .bar {
+    width: 34px;
+    height: 5px;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--surface-3) 80%, transparent);
+    overflow: hidden;
+  }
+  .pv-stock .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--success-500);
+  }
+  .pv-stock.low .bar i {
+    background: var(--danger-500);
+  }
+
+  /* movimiento coloreado por signo + chip de referencia legible */
+  .pv-mv {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .pv-mv.up {
+    color: var(--success-700);
+  }
+  .pv-mv.down {
+    color: var(--danger-700);
+  }
+  .pv-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: color-mix(in oklch, var(--surface-3) 60%, transparent);
+    color: var(--fg2);
+  }
+
+  /* --- Toolbar + segmented (.pv-toolbar / .pv-seg) --- */
+  .pv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pv-seg {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--surface-2) 80%, transparent);
+    border: 1px solid color-mix(in oklch, var(--line) 75%, transparent);
+    gap: 2px;
+  }
+  .pv-seg button {
+    border: 0;
+    background: transparent;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--fg2);
+    cursor: pointer;
+  }
+  .pv-seg button.on {
+    background: var(--card);
+    color: var(--primary-700);
+    font-weight: 600;
+    box-shadow: var(--shadow-card);
+  }
+  .dark .pv-seg button.on {
+    box-shadow: none;
+    border: 1px solid var(--line);
+  }
+
+  /* --- Tabs (.pv-tabs) — segmented, ARIA tablist/tab/tabpanel --- */
+  .pv-tabs {
+    display: inline-flex;
+    padding: 4px;
+    border-radius: 16px;
+    background: color-mix(in oklch, var(--surface-2) 75%, transparent);
+    border: 1px solid color-mix(in oklch, var(--line) 75%, transparent);
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+  .pv-tabs button,
+  .pv-tabs [role='tab'] {
+    border: 0;
+    background: transparent;
+    padding: 8px 15px;
+    border-radius: 12px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg2);
+    cursor: pointer;
+  }
+  .pv-tabs button.on,
+  .pv-tabs [role='tab'][aria-selected='true'] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 600;
+  }
+
+  /* --- Switch (.pv-switch) --- */
+  .pv-switch {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--secondary-300);
+    flex-shrink: 0;
+    transition: background 160ms;
+    border: 0;
+    cursor: pointer;
+  }
+  .pv-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+    transition: left 160ms;
+  }
+  .pv-switch.on {
+    background: var(--primary);
+  }
+  .pv-switch.on::after {
+    left: 21px;
+  }
+
+  /* --- Accordion (.pv-acc) — vault de credenciales --- */
+  .pv-acc {
+    border: 1px solid color-mix(in oklch, var(--line) 78%, transparent);
+    border-radius: 16px;
+    overflow: hidden;
+    background: color-mix(in oklch, var(--card) 94%, transparent);
+  }
+  .pv-acc + .pv-acc {
+    margin-top: 10px;
+  }
+  .pv-acc-hd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .pv-acc-hd .nm {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg1);
+  }
+  .pv-acc-hd .sub {
+    font-size: 12px;
+    color: var(--fg3);
+  }
+  .pv-acc-hd .chev {
+    margin-left: auto;
+    color: var(--fg3);
+  }
+  .pv-acc.open {
+    border-color: color-mix(in oklch, var(--primary-300) 55%, transparent);
+  }
+  .pv-acc-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid color-mix(in oklch, var(--line) 65%, transparent);
+  }
+
+  /* --- Conflict diff (.pv-diff) — local vs remoto --- */
+  .pv-diff {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .pv-diff .side {
+    border-radius: 12px;
+    padding: 11px 13px;
+    border: 1px solid color-mix(in oklch, var(--line) 70%, transparent);
+  }
+  .pv-diff .side .h {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg2);
+    margin-bottom: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pv-diff .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    padding: 3px 0;
+  }
+  .pv-diff .row .k {
+    color: var(--fg3);
+  }
+  .pv-diff .row .v {
+    font-weight: 600;
+    color: var(--fg1);
+    font-variant-numeric: tabular-nums;
+  }
+  .pv-diff .local {
+    background: color-mix(in oklch, var(--surface-2) 55%, transparent);
+  }
+  .pv-diff .remote {
+    background: color-mix(in oklch, var(--primary-50) 45%, transparent);
+    border-color: color-mix(in oklch, var(--primary-300) 45%, transparent);
+  }
+  .pv-diff .row .v.changed {
+    color: var(--primary-700);
+  }
+
+  /* --- EmptyState (.pv-empty) --- */
+  .pv-empty {
+    text-align: center;
+    padding: 40px 24px;
+    border-radius: 20px;
+    border: 1px dashed color-mix(in oklch, var(--line-strong) 45%, transparent);
+    background: color-mix(in oklch, var(--surface-2) 45%, transparent);
+  }
+  .pv-empty .ic {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    margin: 0 auto 14px;
+    background: var(--primary-50);
+    color: var(--primary-700);
+    display: grid;
+    place-items: center;
+  }
+  .pv-empty h4 {
+    font-size: 16px;
+    margin: 0 0 6px;
+    color: var(--fg1);
+  }
+  .pv-empty p {
+    font-size: 13px;
+    color: var(--fg3);
+    margin: 0 auto;
+    max-width: 38ch;
+    line-height: 1.55;
+  }
+
+  /* --- Skeleton (.pv-sk) — shimmer 1.6s --- */
+  .pv-sk {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--surface-3) 70%, transparent) 25%,
+      color-mix(in oklch, var(--surface-2) 60%, transparent) 37%,
+      color-mix(in oklch, var(--surface-3) 70%, transparent) 63%
+    );
+    background-size: 400% 100%;
+    animation: pvShimmer 1.6s linear infinite;
+    border-radius: 7px;
+  }
+  @keyframes pvShimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pv-sk {
+      animation: none;
+    }
+  }
+
+  /* --- Strip (.pv-strip) — aviso global compacto por severidad --- */
+  .pv-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in oklch, var(--warning-500) 28%, transparent);
+    background: color-mix(in oklch, var(--warning-50) 70%, transparent);
+  }
+  .pv-strip .ic {
+    color: var(--warning-700);
+    display: inline-flex;
+  }
+  .pv-strip .msg {
+    font-size: 13px;
+    color: var(--fg2);
+  }
+  .pv-strip .msg b {
+    color: var(--fg1);
+    font-weight: 600;
+  }
+  .pv-strip .act {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--warning-700);
+  }
+  .pv-strip.danger {
+    border-color: color-mix(in oklch, var(--danger-500) 28%, transparent);
+    background: color-mix(in oklch, var(--danger-50) 70%, transparent);
+  }
+  .pv-strip.danger .ic,
+  .pv-strip.danger .act {
+    color: var(--danger-700);
+  }
+  .pv-strip.info {
+    border-color: color-mix(in oklch, var(--primary-300) 45%, transparent);
+    background: color-mix(in oklch, var(--primary-50) 60%, transparent);
+  }
+  .pv-strip.info .ic,
+  .pv-strip.info .act {
+    color: var(--primary-700);
+  }
+  .pv-strip.success {
+    border-color: color-mix(in oklch, var(--success-500) 28%, transparent);
+    background: color-mix(in oklch, var(--success-50) 70%, transparent);
+  }
+  .pv-strip.success .ic,
+  .pv-strip.success .act {
+    color: var(--success-700);
+  }
+
+  /* --- Readiness checklist (.pv-check) --- */
+  .pv-check {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 4px;
+    border-bottom: 1px solid color-mix(in oklch, var(--line) 60%, transparent);
+  }
+  .pv-check:last-child {
+    border-bottom: 0;
+  }
+  .pv-check .ic {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pv-check .ic.done {
+    background: var(--success-50);
+    color: var(--success-700);
+  }
+  .pv-check .ic.block {
+    background: var(--danger-50);
+    color: var(--danger-700);
+  }
+  .pv-check .ic.opt {
+    background: var(--secondary-100);
+    color: var(--secondary-500);
+  }
+  .pv-check .t {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg1);
+  }
+  .pv-check .d {
+    font-size: 12.5px;
+    color: var(--fg3);
+    margin-top: 1px;
+  }
+
+  /* --- Progress ring (.pv-ring) --- */
+  .pv-ring {
+    --p: 78;
+    width: 76px;
+    height: 76px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(
+      var(--primary) calc(var(--p) * 1%),
+      color-mix(in oklch, var(--surface-3) 75%, transparent) 0
+    );
+    flex-shrink: 0;
+  }
+  .pv-ring .in {
+    width: 60px;
+    height: 60px;
+    border-radius: 999px;
+    background: var(--card);
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  /* --- Hub index card (.pv-hub) — §11 procurement/finance landings --- */
+  .pv-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .pv-hub {
+    border-radius: 18px;
+    border: 1px solid color-mix(in oklch, var(--line) 78%, transparent);
+    background: color-mix(in oklch, var(--card) 94%, transparent);
+    padding: 18px;
+    box-shadow: var(--shadow-card);
+  }
+  .pv-hub .hd {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .pv-hub .big {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fg1);
+    margin-top: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pv-hub .ft {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--fg3);
+  }
+  .pv-hub .ft .go {
+    color: var(--primary-700);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .dark .pv-hub {
+    box-shadow: none;
+  }
+
+  /* --- Solo escritorio (.pv-chip-desktop) + control atenuado --- */
+  .pv-disabled {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .pv-chip-desktop {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    background: color-mix(in oklch, var(--secondary-200) 70%, transparent);
+    color: var(--secondary-700);
+  }
+
+  /* --- Titulación de panel (.pv-kicker / .pv-title) — propuesta.css:226-227 ---
+   * pv-kicker: micro-etiqueta sobre títulos de panel/POS. La propuesta usa
+   * --primary-600; aquí usamos --primary-800 (igual que .page-kicker, ENG-134c)
+   * para que el texto pequeño en mayúsculas mantenga AA 4.5:1 — desviación
+   * deliberada y mínima que NO altera la jerarquía visual. */
+  .pv-kicker {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--primary-800);
+  }
+  .pv-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--fg1);
+    margin: 6px 0 0;
+  }
+
+  /* --- Checklist row + checkbox box (.pv-check-row / .pv-box) — propuesta.css:470-472 ---
+   * Fila de checklist con alineación superior (para descripciones multilínea) y
+   * la caja-checkbox vacía honesta. Tokens semánticos → dark por flip de token. */
+  .pv-check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid color-mix(in oklch, var(--line) 55%, transparent);
+  }
+  .pv-check-row:last-child {
+    border-bottom: 0;
+  }
+  .pv-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1.5px solid var(--line-strong);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* --- POS táctil (FASE 5, §06) — keycap, total dominante, tile de pago ---
+   * El mockup §06 usa recetas existentes (pv-btn outline 44px para steppers,
+   * pv-btn.primary.lg 48px para Cobrar) + estas 3 piezas reutilizables.
+   * El panel "Total a pagar" es tinta fija (secondary-950) con texto claro vía
+   * --primary-foreground (token, no hex) — VERIFICAR en smoke .dark (§19) que
+   * secondary-950 siga oscuro; si no, añadir override .dark .pv-total. */
+  .pv-kbd {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--surface-3) 70%, transparent);
+    border: 1px solid color-mix(in oklch, var(--line-strong) 35%, transparent);
+    color: var(--secondary-800);
+  }
+
+  .pv-total {
+    border-radius: 18px;
+    padding: 18px;
+    background: var(--secondary-950);
+    color: var(--primary-foreground);
+  }
+  .pv-total .lbl {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in oklch, var(--primary-foreground) 70%, transparent);
+  }
+  .pv-total .fig {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 36px;
+    letter-spacing: -0.02em;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pv-total .brk {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12.5px;
+    color: color-mix(in oklch, var(--primary-foreground) 78%, transparent);
+  }
+  .pv-total .brk .ln {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pv-total .brk .amt {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* §06/§19 tinta dominante — en dark, --secondary-950 se invierte a casi-blanco
+   * (theme.css .dark lo vuelve oklch L≈0.97) y --primary-foreground se vuelve
+   * oscuro (L≈0.22), lo que rompería el panel a fondo-claro/texto-oscuro. El
+   * override mantiene la intención "tinta": fondo OSCURO (--secondary-100, que en
+   * dark es L≈0.28, elevado sobre el card L≈0.225) + texto CLARO (--secondary-950,
+   * que en dark es el casi-blanco). lbl/brk reusan el mismo casi-blanco atenuado. */
+  .dark .pv-total {
+    background: var(--secondary-100);
+    color: var(--secondary-950);
+  }
+  .dark .pv-total .lbl {
+    color: color-mix(in oklch, var(--secondary-950) 70%, transparent);
+  }
+  .dark .pv-total .brk {
+    color: color-mix(in oklch, var(--secondary-950) 78%, transparent);
+  }
+
+  .pv-btn.tile {
+    height: 64px;
+    min-height: 64px;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .pv-btn.tile.on {
+    border-color: var(--primary-400);
+    background: var(--primary-50);
+    color: var(--primary-800);
   }
 }

@@ -50,14 +50,16 @@ const columns = (
     accessorKey: 'name',
     header: () => i18next.t('products:table.product'),
     size: 240,
+    // Rediseño FASE 3 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+    // glifo tonal + nombre fuerte + SKU mono legible debajo.
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-          <Tag className="h-4 w-4 text-primary-700" />
-        </div>
+      <div className="prod">
+        <span className="pic">
+          <Tag className="h-4 w-4" />
+        </span>
         <div>
-          <p className="font-medium text-secondary-900">{row.original.name}</p>
-          <p className="text-xs text-secondary-500">{row.original.sku}</p>
+          <p className="pname">{row.original.name}</p>
+          <p className="sku">{row.original.sku}</p>
         </div>
       </div>
     ),
@@ -84,30 +86,55 @@ const columns = (
     accessorKey: 'price',
     header: () => i18next.t('products:table.tier1'),
     size: 110,
-    cell: ({ row }) => formatCurrency(row.original.price),
+    // Rediseño FASE 3 — montos mono alineados a la derecha (`num`); el
+    // tier líder en negrita vía `.pv-tier .lead`.
+    meta: { cellClassName: 'num', headerClassName: 'num' },
+    cell: ({ row }) => (
+      <span className="pv-tier">
+        <span className="lead">{formatCurrency(row.original.price)}</span>
+      </span>
+    ),
   },
   {
     accessorKey: 'price2',
     header: () => i18next.t('products:table.tier2'),
     size: 110,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => formatCurrency(row.original.price2),
   },
   {
     accessorKey: 'price3',
     header: () => i18next.t('products:table.tier3'),
     size: 110,
+    meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => formatCurrency(row.original.price3),
   },
   {
     accessorKey: 'stock',
     header: () => i18next.t('products:table.stock'),
-    size: 90,
+    size: 120,
+    // Rediseño FASE 3 — barra de stock proporcional; `low` la pinta en
+    // danger. La barra llena al 50% cuando stock == mínimo y crece hacia
+    // 100% (2x mínimo), con piso visible para que siempre se lea.
+    meta: { cellClassName: 'num', headerClassName: 'num' },
     cell: ({ row }) => {
-      const isLow = row.original.stock < row.original.minStock;
+      const { stock, minStock } = row.original;
+      const isLow = stock < minStock;
+      const fill =
+        minStock > 0
+          ? Math.max(6, Math.min(100, Math.round((stock / minStock) * 50)))
+          : stock > 0
+            ? 100
+            : 6;
       return (
-        <span className={isLow ? 'font-medium text-danger-500' : ''}>
-          {row.original.stock}
-          {isLow ? ` (${i18next.t('products:table.low')})` : ''}
+        <span
+          className={cn('pv-stock', isLow && 'low')}
+          title={isLow ? i18next.t('products:table.low') : undefined}
+        >
+          <span>{stock.toLocaleString()}</span>
+          <span className="bar">
+            <i style={{ width: `${fill}%` }} />
+          </span>
         </span>
       );
     },
@@ -117,7 +144,7 @@ const columns = (
     header: () => i18next.t('products:table.status'),
     size: 110,
     cell: ({ row }) => (
-      <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+      <span className={cn('pv-badge', row.original.isActive ? 'success' : 'neutral')}>
         {row.original.isActive ? i18next.t('products:table.active') : i18next.t('products:table.inactive')}
       </span>
     ),
@@ -596,6 +623,7 @@ export function ProductsPage() {
               };
               return (
                 <DataTable
+                  variant="dense"
                   columns={columns(
                     handleOpenEditRow,
                     product => setProductToDelete(product),

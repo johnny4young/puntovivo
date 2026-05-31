@@ -30,5 +30,6 @@
   "setup": {
     "label": "Configuración",
     "description": "Empresa, sucursales, periféricos, usuarios, IA."
-  }
+  },
+  "viewItem": "Ver"
 }

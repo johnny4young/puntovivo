@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Tag, Trash2 } from 'lucide-react';
 import i18next from 'i18next';
 import type { CustomerCatalogItem } from '@/types';
 
@@ -12,10 +12,17 @@ export function buildCustomerCatalogColumns(
       accessorKey: 'name',
       header: () => i18next.t('customers:table.name'),
       size: 280,
+      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // glifo tonal + nombre fuerte + código mono legible debajo.
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-secondary-900">{row.original.name}</p>
-          <p className="text-xs text-secondary-500">{row.original.code}</p>
+        <div className="prod">
+          <span className="pic">
+            <Tag className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">{row.original.code}</p>
+          </div>
         </div>
       ),
     },
@@ -30,7 +37,7 @@ export function buildCustomerCatalogColumns(
       header: () => i18next.t('customers:table.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
           {row.original.isActive ? i18next.t('customers:table.active') : i18next.t('customers:table.inactive')}
         </span>
       ),

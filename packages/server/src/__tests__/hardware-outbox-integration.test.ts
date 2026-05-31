@@ -215,7 +215,7 @@ describe('peripherals.printReceipt', () => {
       siteId,
       kind: 'printer',
       driver: 'escpos',
-      config: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+      config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
     });
     const cashierCaller = appRouter.createCaller(buildContext('cashier'));
     const result = await cashierCaller.peripherals.printReceipt({ saleId, siteId });

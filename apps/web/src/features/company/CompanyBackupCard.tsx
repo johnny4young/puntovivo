@@ -1,8 +1,10 @@
-import { AlertTriangle, DatabaseBackup, HardDriveDownload } from 'lucide-react';
+import { AlertTriangle, Database, HardDriveDownload, Save } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { translateServerError } from '@/lib/translateServerError';
 
 type BackupAction = 'backup' | 'restore' | null;
@@ -12,16 +14,16 @@ interface BackupStatus {
   message: string;
 }
 
-function getStatusClasses(tone: BackupStatus['tone']): string {
+function getStatusToneClasses(tone: BackupStatus['tone']): string {
   if (tone === 'success') {
-    return 'border-success-200 bg-success-50 text-success-800';
+    return 'border-success-300/70 bg-success-50 text-success-800';
   }
 
   if (tone === 'error') {
-    return 'border-danger-200 bg-danger-50 text-danger-700';
+    return 'border-danger-300/70 bg-danger-50 text-danger-700';
   }
 
-  return 'border-warning-200 bg-warning-50 text-warning-800';
+  return 'border-line bg-surface-2 text-secondary-700';
 }
 
 export function CompanyBackupCard() {
@@ -141,58 +143,75 @@ export function CompanyBackupCard() {
     }
   };
 
+  const actions = (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <button
+        type="button"
+        onClick={handleCreateBackup}
+        disabled={!isDesktop || activeAction !== null}
+        className="pv-btn primary"
+      >
+        <Save aria-hidden="true" />
+        {activeAction === 'backup' ? t('company.backup.creating') : t('company.backup.createBackup')}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleRequestRestoreBackup}
+        disabled={!isDesktop || activeAction !== null}
+        className="pv-btn outline"
+      >
+        <HardDriveDownload aria-hidden="true" />
+        {activeAction === 'restore' ? t('company.backup.restoring') : t('company.backup.restoreBackup')}
+      </button>
+    </div>
+  );
+
   return (
     <section className="card p-6 space-y-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-warning-100">
-          <DatabaseBackup className="h-5 w-5 text-warning-700" />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="pv-gt pv-gt-warning h-[38px] w-[38px]">
+            <Database className="h-[18px] w-[18px]" aria-hidden="true" />
+          </span>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-secondary-950">{t('company.backup.title')}</h2>
+            <p className="text-sm text-secondary-500">{t('company.backup.description')}</p>
+          </div>
         </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">{t('company.backup.title')}</h2>
-          <p className="text-sm text-secondary-500">
-            {t('company.backup.description')}
-          </p>
-        </div>
+        <DesktopOnlyChip />
       </div>
 
-      <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-900">
+      <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">
         <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>{t('company.backup.restoreWarning')}</p>
         </div>
       </div>
 
-      {!isDesktop && (
-        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.backup.desktopOnly')}</div>
-      )}
-
-      {status && (
-        <div className={`rounded-xl border px-4 py-3 text-sm ${getStatusClasses(status.tone)}`}>
+      {status ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${getStatusToneClasses(status.tone)}`}
+          role="status"
+        >
           {status.message}
         </div>
+      ) : (
+        <EmptyState
+          icon={Database}
+          title={t('company.backup.empty.title')}
+          description={t('company.backup.empty.description')}
+        />
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <button
-          type="button"
-          onClick={handleCreateBackup}
-          disabled={!isDesktop || activeAction !== null}
-          className="btn-primary flex items-center justify-center gap-2"
-        >
-          <DatabaseBackup className="h-4 w-4" />
-          {activeAction === 'backup' ? t('company.backup.creating') : t('company.backup.createBackup')}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleRequestRestoreBackup}
-          disabled={!isDesktop || activeAction !== null}
-          className="btn-outline flex items-center justify-center gap-2"
-        >
-          <HardDriveDownload className="h-4 w-4" />
-          {activeAction === 'restore' ? t('company.backup.restoring') : t('company.backup.restoreBackup')}
-        </button>
-      </div>
+      {!isDesktop ? (
+        <div className="space-y-3">
+          <p className="text-sm text-secondary-500">{t('company.backup.desktopOnly')}</p>
+          <DisabledControl>{actions}</DisabledControl>
+        </div>
+      ) : (
+        actions
+      )}
 
       <ConfirmModal
         isOpen={isRestoreConfirmOpen}

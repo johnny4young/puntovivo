@@ -203,7 +203,10 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
       if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-      await ctx.db.update(table).set(updateData).where(eq(table.id, id));
+      await ctx.db
+        .update(table)
+        .set(updateData)
+        .where(and(eq(table.id, id), eq(table.tenantId, ctx.tenantId)));
 
       await enqueueSync(ctx, {
         entityType: definition.entityType,
@@ -229,7 +232,9 @@ function buildCustomerCatalogRouter(definition: CustomerCatalogDefinition) {
         });
       }
 
-      await ctx.db.delete(table).where(eq(table.id, input.id));
+      await ctx.db
+        .delete(table)
+        .where(and(eq(table.id, input.id), eq(table.tenantId, ctx.tenantId)));
 
       await enqueueSync(ctx, {
         entityType: definition.entityType,

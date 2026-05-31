@@ -19,6 +19,7 @@ import * as schema from './schema.js';
 import { seedDefaultData } from './seed.js';
 
 const dbLog = createModuleLogger('db');
+export const DEFAULT_SQLITE_BUSY_TIMEOUT_MS = 5000;
 
 // ENG-002 — versioned Drizzle migrations live next to this module. Resolved
 // lazily so `import.meta.url` is only touched in ESM contexts (standalone
@@ -46,6 +47,13 @@ export interface DatabaseOptions {
   seedData?: boolean | undefined;
   /** Enable verbose logging (default: false) */
   verbose?: boolean | undefined;
+  /**
+   * SQLite writer-lock wait in milliseconds. Defaults to the ENG-174
+   * production floor. High-contention harnesses may raise this so
+   * parallel fixture writers do not surface transient `database is locked`
+   * errors as operator-facing sale failures.
+   */
+  sqliteBusyTimeoutMs?: number | undefined;
   /**
    * Override the folder that holds the generated Drizzle SQL files +
    * `meta/_journal.json`. Defaults to the `migrations/` directory adjacent
@@ -93,6 +101,16 @@ function assertEncryptionKeyShape(key: string): void {
   }
 }
 
+function normalizeSqliteBusyTimeoutMs(value: number | undefined): number {
+  if (value === undefined) {
+    return DEFAULT_SQLITE_BUSY_TIMEOUT_MS;
+  }
+  if (!Number.isInteger(value) || value < 0 || value > 60_000) {
+    throw new Error('sqliteBusyTimeoutMs must be an integer from 0 to 60000 milliseconds');
+  }
+  return value;
+}
+
 /**
  * Initialize the database connection
  */
@@ -109,8 +127,10 @@ export async function initDatabase(
     verbose = false,
     migrationsFolder,
     encryptionKey,
+    sqliteBusyTimeoutMs,
   } = options;
   const effectiveMigrationsFolder = migrationsFolder ?? getDefaultMigrationsFolder();
+  const busyTimeoutMs = normalizeSqliteBusyTimeoutMs(sqliteBusyTimeoutMs);
 
   // Ensure directory exists (skip for in-memory databases)
   if (dbPath !== ':memory:') {
@@ -170,7 +190,7 @@ export async function initDatabase(
   // wal_autocheckpoint are no-ops on in-memory databases because there
   // is no underlying file to map or checkpoint, so we skip them when
   // dbPath is `:memory:` to keep the pragma list honest.
-  sqlite.pragma('busy_timeout = 5000');
+  sqlite.pragma(`busy_timeout = ${busyTimeoutMs}`);
   sqlite.pragma('cache_size = -64000');
   sqlite.pragma('temp_store = MEMORY');
   if (dbPath !== ':memory:') {

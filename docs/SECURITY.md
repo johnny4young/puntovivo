@@ -377,6 +377,17 @@ slice. Each item below is now pinned by a regression test under
   The existing `isDev` gate inside `createWindow` stays as the second
   layer.
 
+### Peripheral TCP egress
+
+- **ESC/POS TCP peripherals are LAN-only**. Printer and cash-drawer
+  config validation accepts raw-print TCP targets only on private LAN
+  addresses and ports `9100-9103`. Loopback, unspecified, link-local
+  metadata ranges, multicast, and public IPs are rejected before the
+  row is persisted. The transport repeats the policy immediately before
+  `socket.connect`, and hostnames are resolved first so legacy or
+  hand-edited configs cannot use DNS to reach public or metadata
+  services from the POS host.
+
 ## SQLite tuning + WAL backup safety (ENG-174)
 
 The local SQLite database is the durability anchor for every tenant's
@@ -390,7 +401,7 @@ after `journal_mode = WAL` and `foreign_keys = ON`:
 
 | PRAGMA | Value | Why |
 | --- | --- | --- |
-| `busy_timeout` | `5000` | 5s wait instead of immediate error on lock contention. Five workers (HTTP, SSE, sync, hardware, fiscal, payment) routinely contend for the writer slot on a busy POS. |
+| `busy_timeout` | `5000` default | 5s wait instead of immediate error on lock contention. Five workers (HTTP, SSE, sync, hardware, fiscal, payment) routinely contend for the writer slot on a busy POS. High-contention dev/test harnesses can raise it with `PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS`. |
 | `cache_size` | `-64000` | ~64 MiB page cache per connection. The negative `-N` convention means "N kibibytes". |
 | `mmap_size` | `268435456` (256 MiB) | Memory-mapped I/O for hot reads (audit_logs listing, fiscal_outbox + payment_outbox polling). Reduces syscalls under concurrent load. |
 | `temp_store` | `MEMORY` | Sort and intermediate index spills stay in RAM. |

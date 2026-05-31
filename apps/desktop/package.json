@@ -8,6 +8,7 @@
   "scripts": {
     "prepare:server": "pnpm --filter @puntovivo/server run build",
     "native:ensure:electron": "node ../../scripts/ensure-native-runtime.mjs electron",
+    "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "electron:ensure:binary": "node ../../scripts/ensure-electron-binary.mjs",
     "electron:ensure:migrations": "node ../../scripts/ensure-migrations-bundled.mjs",
     "build:main": "node ../../scripts/build-electron-main.mjs",
@@ -21,7 +22,7 @@
     "make:desktop": "pnpm run prepare:server && pnpm run electron:ensure:migrations && pnpm run electron:ensure:binary && pnpm --filter @puntovivo/web run build && electron-forge make",
     "publish:desktop": "electron-forge publish",
     "lint": "eslint .",
-    "test": "node --test --experimental-strip-types \"src/main/**/*.test.ts\"",
+    "test": "pnpm run native:ensure:node && node --test --experimental-strip-types \"src/main/**/*.test.ts\"",
     "format": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:fix": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "typecheck": "tsc --noEmit",

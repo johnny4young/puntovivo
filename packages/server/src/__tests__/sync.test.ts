@@ -118,11 +118,11 @@ describe('Sync tRPC Router', () => {
     }
   });
 
-  const userCtx = () =>
+  const userCtx = (role = 'admin') =>
     createTestContext({
       id: testUserId,
       email: 'synctest@example.com',
-      role: 'admin',
+      role,
       tenantId: testTenantId,
     });
 
@@ -156,6 +156,31 @@ describe('Sync tRPC Router', () => {
   });
 
   describe('sync.addToQueue', () => {
+    it('requires manager or admin role for manual queue controls and payload reads', async () => {
+      const cashierCaller = appRouter.createCaller(userCtx('cashier'));
+
+      await expect(cashierCaller.sync.listQueue({ limit: 50 })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      await expect(
+        cashierCaller.sync.addToQueue({
+          entityType: 'products',
+          entityId: nanoid(),
+          operation: 'create',
+          data: { name: 'Unauthorized Product' },
+        })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(
+        cashierCaller.sync.removeFromQueue({ id: 'sync-outbox-any' })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(cashierCaller.sync.listConflicts({ limit: 50 })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      await expect(
+        cashierCaller.sync.pull({ queueLimit: 10, conflictLimit: 10 })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
     it('adds an item and returns id, entityType, entityId, operation, createdAt', async () => {
       const caller = appRouter.createCaller(userCtx());
       const entityId = nanoid();

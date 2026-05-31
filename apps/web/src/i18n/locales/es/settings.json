@@ -330,7 +330,8 @@
         "imageUrlRequired": "La URL de imagen es obligatoria",
         "imageUrlInvalid": "Ingresa una URL de imagen válida",
         "isActive": "Logo activo"
-      }
+      },
+      "emptyLibraryTitle": "Aún no hay logos"
     },
     "sync": {
       "title": "Centro de sincronización",
@@ -445,7 +446,16 @@
         "saveMerge": "Guardar fusión",
         "saving": "Guardando...",
         "jsonObjectRequired": "Los datos fusionados deben ser un objeto JSON.",
-        "jsonInvalid": "Los datos fusionados deben ser JSON válido."
+        "jsonInvalid": "Los datos fusionados deben ser JSON válido.",
+        "diff": {
+          "local": "Local (este equipo)",
+          "remote": "Remoto (servidor)"
+        },
+        "fieldsDiffer_one": "{{count}} campo difiere",
+        "fieldsDiffer_other": "{{count}} campos difieren",
+        "recommendedAcceptRemote": "Recomendado: aceptar remoto — el servidor tiene los datos más recientes.",
+        "recommendedDiscard": "Recomendado: descarta el cambio local obsoleto para desbloquear la sincronización.",
+        "noFieldDiff": "Las versiones local y remota difieren."
       }
     },
     "updater": {
@@ -523,6 +533,10 @@
         "restoreFailed": "Error al restaurar la base de datos",
         "restoreCancelledTitle": "Restauración de base de datos cancelada",
         "restoreCancelledDetail": "La restauración fue cancelada."
+      },
+      "empty": {
+        "title": "Aún no hay respaldos",
+        "description": "Crea un respaldo para guardar un punto de restauración de la base local."
       }
     },
     "telemetry": {
@@ -804,6 +818,12 @@
           "isActive": "Ciudad activa"
         }
       }
+    },
+    "filters": {
+      "country": "País",
+      "department": "Departamento",
+      "allCountries": "Todos los países",
+      "allDepartments": "Todos los departamentos"
     }
   },
   "users": {

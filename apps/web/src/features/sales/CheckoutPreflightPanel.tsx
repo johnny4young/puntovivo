@@ -10,7 +10,7 @@
  * a11y contract:
  * - The outer wrapper carries `role="status"` + `aria-live="polite"`
  *   so screen readers announce new blockers/warnings as the cart
- *   changes (matches the `ReadinessBanner` pattern shipped earlier).
+ *   changes (matches the setup-readiness alert pattern shipped earlier).
  * - The first blocker is rendered with `id="checkout-preflight-primary"`
  *   so the Cobrar button can wire `aria-describedby` to it.
  * - Recovery buttons render visible i18n text; no icon-only affordance.
@@ -59,8 +59,7 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
           const isBlocker = item.severity === 'blocker';
           // First blocker only — anchor for the Cobrar's aria-describedby.
           const isPrimary =
-            isBlocker &&
-            items.findIndex(other => other.severity === 'blocker') === index;
+            isBlocker && items.findIndex(other => other.severity === 'blocker') === index;
           const Icon = isBlocker ? AlertCircle : AlertTriangle;
           const containerClass = isBlocker
             ? 'flex items-start gap-3 rounded-2xl border border-danger-200 bg-danger-50 px-3 py-2.5 text-sm text-danger-800'
@@ -83,9 +82,7 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
               <div className="min-w-0 flex-1 space-y-1.5">
                 <p className="text-sm">
                   {/* ENG-179b — exactOptional rejects `t(key, undefined)`; gate on the values. */}
-                  {item.messageValues
-                    ? t(item.messageKey, item.messageValues)
-                    : t(item.messageKey)}
+                  {item.messageValues ? t(item.messageKey, item.messageValues) : t(item.messageKey)}
                 </p>
                 {item.recoveryAction && (
                   <button

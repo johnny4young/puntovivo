@@ -18,15 +18,31 @@
  * sigue como red de seguridad por si alguien la reutiliza fuera
  * del tab.
  *
+ * Rediseño FASE 6 — el contenido del panel adopta las recetas pv-*:
+ * encabezado `.pv-kicker`/`.pv-title` con glifo tonal, formulario
+ * con `.pv-field`/`.pv-input` (vía `SimpleFormField`), readiness con
+ * `.pv-badge` + checklist `.pv-check`, la sección CAF en una
+ * `.surface-panel` con `EmptyState` cuando no hay folios, y acción
+ * `.pv-btn primary`. La lógica (FormData uncontrolled + tRPC) se
+ * conserva intacta.
+ *
  * @module features/company/CompanyClFiscalCard
  */
-import { useMemo } from 'react';
-import { CheckCircle2, FileSignature, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileSignature,
+  Landmark,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { SimpleFormField } from '@/components/form-controls/FormField';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { cn } from '@/lib/utils';
 
 /**
  * Subset curado para el Select del form. Espejo de los códigos
@@ -144,6 +160,25 @@ export function CompanyClFiscalCard() {
 
   const clSettings =
     settingsQuery.data?.countryCode === 'CL' ? settingsQuery.data.settings : null;
+
+  // Fiscal "sin configurar" = no hay ningún dato significativo capturado
+  // todavía (pack apagado y todos los campos vacíos). El `environment`
+  // siempre trae un default ('certificacion') así que no cuenta como
+  // configuración. En ese estado mostramos un EmptyState con un CTA
+  // "Configurar" en vez de un form vacío; con datos existentes el form
+  // se renderiza directo como antes. (El bloque CAF de abajo es
+  // independiente y se muestra siempre.)
+  const isConfigured = Boolean(
+    clSettings &&
+      (clSettings.enabled ||
+        clSettings.rut ||
+        clSettings.giroCode ||
+        clSettings.comunaCode !== null ||
+        clSettings.casaMatriz)
+  );
+  const [revealed, setRevealed] = useState(false);
+  const showForm = isConfigured || revealed;
+
   const formKey = clSettings
     ? [
         clSettings.enabled,
@@ -209,174 +244,186 @@ export function CompanyClFiscalCard() {
 
   // Render principal: tenant CL. Form + readiness badge.
   return (
-    <div className="card p-6 space-y-6">
+    <section className="card space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <FileSignature className="h-6 w-6 text-primary-700" />
-        <h2 className="text-lg font-semibold text-secondary-950">
-          {t('fiscal:settings.cl.title')}
-        </h2>
+        <span className="glyph-tile glyph-tile-primary h-11 w-11">
+          <FileSignature className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <div className="pv-kicker">{t('fiscal:settings.cl.kicker')}</div>
+          <h2 className="pv-title text-lg">{t('fiscal:settings.cl.title')}</h2>
+        </div>
       </div>
 
       {/* Badge de readiness */}
       {validation && (
         <div
-          className={`rounded-xl border p-4 flex items-start gap-3 ${
-            isReady
-              ? 'border-success-200 bg-success-50 text-success-700'
-              : 'border-warning-200 bg-warning-50 text-warning-700'
-          }`}
+          className="space-y-3"
           aria-live="polite"
           data-testid="fiscal-cl-readiness"
         >
-          {isReady ? (
-            <CheckCircle2 className="h-5 w-5 shrink-0" />
-          ) : (
-            <XCircle className="h-5 w-5 shrink-0" />
-          )}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">
-              {isReady
-                ? t('fiscal:settings.readiness.ready')
-                : t('fiscal:settings.readiness.notReady')}
-            </p>
-            {!isReady && issueLabels.length > 0 && (
-              <ul className="text-xs space-y-1">
-                {issueLabels.map((issue, idx) => (
-                  <li key={`${issue.code}-${idx}`}>• {issue.label}</li>
-                ))}
-              </ul>
+          <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
+            {isReady ? (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
             )}
-          </div>
+            {isReady
+              ? t('fiscal:settings.readiness.ready')
+              : t('fiscal:settings.readiness.notReady')}
+          </span>
+          {!isReady && issueLabels.length > 0 && (
+            <div className="surface-panel-muted">
+              {issueLabels.map((issue, idx) => (
+                <div key={`${issue.code}-${idx}`} className="pv-check">
+                  <span className="ic block">
+                    <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <div className="grow">
+                    <div className="t text-sm">{issue.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-secondary-700">
+      {!showForm ? (
+        <div data-testid="fiscal-cl-empty">
+          <EmptyState
+            icon={FileSignature}
+            title={t('fiscal:settings.cl.emptyTitle')}
+            description={t('fiscal:settings.cl.emptyDescription')}
+            className="px-6 py-8"
+            action={
+              <button
+                type="button"
+                className="pv-btn primary"
+                data-testid="fiscal-cl-configure"
+                onClick={() => setRevealed(true)}
+              >
+                {t('fiscal:settings.cl.emptyCta')}
+              </button>
+            }
+          />
+        </div>
+      ) : (
+        <form key={formKey} onSubmit={handleSubmit} className="space-y-5">
+        <label className="flex items-center gap-3 text-sm font-medium text-secondary-800">
           <input
             type="checkbox"
             name="enabled"
             defaultChecked={clSettings?.enabled ?? false}
+            className="h-4 w-4 shrink-0 rounded border-line-strong text-primary-600 focus-visible:ring-2 focus-visible:ring-primary-400"
             aria-label={t('fiscal:settings.cl.fields.enabled')}
           />
-          <span>{t('fiscal:settings.cl.fields.enabled')}</span>
+          <span className="flex flex-col gap-0.5">
+            <span>{t('fiscal:settings.cl.fields.enabled')}</span>
+            <span className="text-xs font-normal text-secondary-500">
+              {t('fiscal:settings.cl.fields.enabledHelp')}
+            </span>
+          </span>
         </label>
-        <p className="text-xs text-secondary-500 -mt-2">
-          {t('fiscal:settings.cl.fields.enabledHelp')}
-        </p>
 
-        <div>
-          <label
+        <div className="grid gap-4 md:grid-cols-2">
+          <SimpleFormField
+            label={t('fiscal:settings.cl.fields.rut')}
             htmlFor="fiscal-cl-rut"
-            className="block text-sm font-medium text-secondary-700"
+            helperText={t('fiscal:settings.cl.fields.rutHelp')}
           >
-            {t('fiscal:settings.cl.fields.rut')}
-          </label>
-          <input
-            id="fiscal-cl-rut"
-            name="rut"
-            type="text"
-            defaultValue={clSettings?.rut ?? ''}
-            placeholder={t('fiscal:settings.cl.fields.rutPlaceholder')}
-            className="input mt-1"
-            maxLength={15}
-          />
-          <p className="mt-1 text-xs text-secondary-500">
-            {t('fiscal:settings.cl.fields.rutHelp')}
-          </p>
-        </div>
+            <input
+              id="fiscal-cl-rut"
+              name="rut"
+              type="text"
+              defaultValue={clSettings?.rut ?? ''}
+              placeholder={t('fiscal:settings.cl.fields.rutPlaceholder')}
+              className="pv-input"
+              maxLength={15}
+            />
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.cl.fields.giro')}
             htmlFor="fiscal-cl-giro"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.cl.fields.giro')}
-          </label>
-          <select
-            id="fiscal-cl-giro"
-            name="giroCode"
-            defaultValue={clSettings?.giroCode ?? ''}
-            className="input mt-1"
-          >
-            <option value="">
-              {t('fiscal:settings.cl.fields.giroPlaceholder')}
-            </option>
-            {GIRO_OPTIONS.map(opt => (
-              <option key={opt.code} value={opt.code}>
-                {opt.name}
+            <select
+              id="fiscal-cl-giro"
+              name="giroCode"
+              defaultValue={clSettings?.giroCode ?? ''}
+              className="pv-input"
+            >
+              <option value="">
+                {t('fiscal:settings.cl.fields.giroPlaceholder')}
               </option>
-            ))}
-          </select>
-        </div>
+              {GIRO_OPTIONS.map(opt => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.cl.fields.comuna')}
             htmlFor="fiscal-cl-comuna"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.cl.fields.comuna')}
-          </label>
-          <select
-            id="fiscal-cl-comuna"
-            name="comunaCode"
-            defaultValue={clSettings?.comunaCode ?? ''}
-            className="input mt-1"
-          >
-            <option value="">
-              {t('fiscal:settings.cl.fields.comunaPlaceholder')}
-            </option>
-            {COMUNA_OPTIONS.map(opt => (
-              <option key={opt.code} value={opt.code}>
-                {opt.name}
+            <select
+              id="fiscal-cl-comuna"
+              name="comunaCode"
+              defaultValue={clSettings?.comunaCode ?? ''}
+              className="pv-input"
+            >
+              <option value="">
+                {t('fiscal:settings.cl.fields.comunaPlaceholder')}
               </option>
-            ))}
-          </select>
-        </div>
+              {COMUNA_OPTIONS.map(opt => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.cl.fields.casaMatriz')}
             htmlFor="fiscal-cl-casa-matriz"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.cl.fields.casaMatriz')}
-          </label>
-          <input
-            id="fiscal-cl-casa-matriz"
-            name="casaMatriz"
-            type="text"
-            defaultValue={clSettings?.casaMatriz ?? ''}
-            placeholder={t('fiscal:settings.cl.fields.casaMatrizPlaceholder')}
-            className="input mt-1"
-            maxLength={200}
-          />
-        </div>
+            <input
+              id="fiscal-cl-casa-matriz"
+              name="casaMatriz"
+              type="text"
+              defaultValue={clSettings?.casaMatriz ?? ''}
+              placeholder={t('fiscal:settings.cl.fields.casaMatrizPlaceholder')}
+              className="pv-input"
+              maxLength={200}
+            />
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.cl.fields.environment')}
             htmlFor="fiscal-cl-environment"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.cl.fields.environment')}
-          </label>
-          <select
-            id="fiscal-cl-environment"
-            name="environment"
-            defaultValue={clSettings?.environment ?? 'certificacion'}
-            className="input mt-1"
-          >
-            <option value="certificacion">
-              {t('fiscal:settings.cl.fields.environmentCertificacion')}
-            </option>
-            <option value="produccion">
-              {t('fiscal:settings.cl.fields.environmentProduccion')}
-            </option>
-          </select>
+            <select
+              id="fiscal-cl-environment"
+              name="environment"
+              defaultValue={clSettings?.environment ?? 'certificacion'}
+              className="pv-input"
+            >
+              <option value="certificacion">
+                {t('fiscal:settings.cl.fields.environmentCertificacion')}
+              </option>
+              <option value="produccion">
+                {t('fiscal:settings.cl.fields.environmentProduccion')}
+              </option>
+            </select>
+          </SimpleFormField>
         </div>
 
         <div className="flex justify-end">
           <button
             type="submit"
-            className="btn-primary"
+            className="pv-btn primary"
             disabled={updateMutation.isPending}
           >
             {updateMutation.isPending
@@ -385,34 +432,37 @@ export function CompanyClFiscalCard() {
           </button>
         </div>
       </form>
+      )}
 
       {/* ENG-036b — CAF readiness indicator (read-only). */}
-      <section
-        className="rounded-xl border border-secondary-100 p-4 space-y-2"
-        data-testid="cl-caf-section"
-      >
-        <h3 className="text-sm font-semibold text-secondary-900">
-          {t('fiscal:settings.cl.caf.title')}
-        </h3>
-        <p className="text-xs text-secondary-600">
-          {t('fiscal:settings.cl.caf.description')}
-        </p>
+      <section className="surface-panel space-y-3" data-testid="cl-caf-section">
+        <div>
+          <div className="pv-kicker">{t('fiscal:settings.cl.caf.kicker')}</div>
+          <h3 className="text-sm font-semibold text-secondary-900">
+            {t('fiscal:settings.cl.caf.title')}
+          </h3>
+          <p className="mt-1 text-xs text-secondary-500">
+            {t('fiscal:settings.cl.caf.description')}
+          </p>
+        </div>
         {cafQuery.data?.caf ? (
           <dl
-            className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
             data-testid="cl-caf-active"
           >
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+              <dt className="pv-kicker">
                 {t('fiscal:settings.cl.caf.tipoDteLabel')}
               </dt>
-              <dd className="text-secondary-900">{cafQuery.data.caf.tipoDte}</dd>
+              <dd className="mt-1 font-mono text-sm tabular-nums text-secondary-900">
+                {cafQuery.data.caf.tipoDte}
+              </dd>
             </div>
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-secondary-500">
+              <dt className="pv-kicker">
                 {t('fiscal:settings.cl.caf.rangeLabel')}
               </dt>
-              <dd className="text-secondary-900">
+              <dd className="mt-1 font-mono text-sm tabular-nums text-secondary-900">
                 {t('fiscal:settings.cl.caf.range', {
                   from: cafQuery.data.caf.folioDesde,
                   to: cafQuery.data.caf.folioHasta,
@@ -420,19 +470,24 @@ export function CompanyClFiscalCard() {
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <dd className="text-secondary-700">
+              <span className="pv-badge primary">
                 {t('fiscal:settings.cl.caf.remaining', {
                   count: cafQuery.data.caf.rangeRemaining,
                 })}
-              </dd>
+              </span>
             </div>
           </dl>
         ) : (
-          <p className="text-sm text-secondary-700" data-testid="cl-caf-empty">
-            {t('fiscal:settings.cl.caf.empty')}
-          </p>
+          <div data-testid="cl-caf-empty">
+            <EmptyState
+              icon={Landmark}
+              title={t('fiscal:settings.cl.caf.emptyTitle')}
+              description={t('fiscal:settings.cl.caf.empty')}
+              className="px-6 py-8"
+            />
+          </div>
         )}
       </section>
-    </div>
+    </section>
   );
 }

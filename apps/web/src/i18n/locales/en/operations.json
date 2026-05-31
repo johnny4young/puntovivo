@@ -1,7 +1,8 @@
 {
   "header": {
     "title": "Operations Center",
-    "subtitle": "What's pending, what failed, and what to do next — without reading logs."
+    "subtitle": "What's pending, what failed, and what to do next — without reading logs.",
+    "kicker": "Operations"
   },
   "tabs": {
     "ariaLabel": "Operations panels",
@@ -47,6 +48,16 @@
       "contingency": "No fiscal documents are currently in contingency.",
       "rejected": "No fiscal documents are currently in rejected state.",
       "accepted": "No accepted fiscal documents in the recent window."
+    },
+    "kicker": "Fiscal",
+    "kpi": {
+      "context": {
+        "contingency": "Awaiting a new attempt",
+        "rejected": "Rejected by the provider",
+        "accepted": "Accepted in the recent window"
+      },
+      "windowLabel": "Documents shown",
+      "windowContext": "Most recent in this filter"
     }
   },
   "device": {
@@ -101,6 +112,12 @@
       "emptyState": {
         "all": "No hardware outbox rows recorded.",
         "problems": "No hardware jobs are currently failing."
+      },
+      "kpi": {
+        "problemsLabel": "Jobs with problems",
+        "problemsContext": "Failed, retrying or dead letter",
+        "totalLabel": "Jobs in queue",
+        "totalContext": "Recent print and drawer jobs"
       }
     },
     "retry": {
@@ -108,7 +125,8 @@
       "success": "Retry queued",
       "error": "Retry failed",
       "noPermission": "Only admins can retry hardware jobs."
-    }
+    },
+    "kicker": "Devices"
   },
   "cash": {
     "title": "Cash Health",
@@ -127,19 +145,28 @@
         "openSessions": "Open",
         "netOverShort": "Net over/short",
         "overShortCount": "Sessions with discrepancy"
-      }
+      },
+      "emptyTitle": "No sites with sessions"
     },
     "recentDiscrepancies": {
       "title": "Recent closures with discrepancy",
       "emptyState": "No closures with discrepancy in the current window.",
       "columns": {
         "site": "Site",
+        "register": "Register",
         "cashier": "Cashier",
         "closedAt": "Closed",
         "expected": "Expected",
         "actual": "Counted",
         "overShort": "Over/Short"
-      }
+      },
+      "emptyTitle": "No discrepancies"
+    },
+    "kicker": "Cash",
+    "overShortStatus": {
+      "balanced": "Balanced",
+      "short": "Short",
+      "over": "Over"
     }
   },
   "payments": {
@@ -202,7 +229,8 @@
         "review_provider": "Review the provider response",
         "adjust_amount": "Adjust or split the tender",
         "link_tender": "Link to a POS tender"
-      }
+      },
+      "emptyTitle": "No mismatches"
     },
     "outbox": {
       "title": "Payment outbox",
@@ -233,7 +261,8 @@
         "noPermission": "Only administrators can change payment state",
         "confirm": "Confirm",
         "cancel": "Cancel"
-      }
+      },
+      "emptyTitle": "Outbox is clear"
     },
     "breakdown": {
       "title": "Volume by rail and status",
@@ -245,7 +274,8 @@
         "status": "Status",
         "count": "Count",
         "amount": "Amount"
-      }
+      },
+      "emptyTitle": "No payment activity"
     },
     "settings": {
       "title": "Payment provider credentials",
@@ -266,7 +296,9 @@
         "hideSecret": "Hide",
         "clearField": "Clear",
         "storedHint": "Stored value masked. Type to overwrite or clear to remove.",
-        "emptyHint": "No value stored yet."
+        "emptyHint": "No value stored yet.",
+        "encryptedNote": "Credentials are encrypted on this device.",
+        "emptyPlaceholder": "Not set"
       },
       "fields": {
         "publicKey": "Public key",
@@ -298,7 +330,8 @@
           "description": "Davivienda issues the Daviplata API key and merchant id during onboarding."
         }
       }
-    }
+    },
+    "kicker": "Payments"
   },
   "inventory": {
     "title": "Inventory Health",
@@ -321,6 +354,13 @@
       "success": "Reconciled {{count}} products",
       "error": "Reconciliation failed",
       "noPermission": "Only admins can reconcile cached stock."
+    },
+    "kicker": "Inventory",
+    "emptyTitle": "Inventory is consistent",
+    "severity": {
+      "ok": "OK",
+      "attention": "Attention",
+      "fault": "Fault"
     }
   },
   "authority": {
@@ -381,7 +421,8 @@
         "version": "Version",
         "actions": "Actions"
       }
-    }
+    },
+    "kicker": "Authority"
   },
   "diagnostics": {
     "title": "Export diagnostic",
@@ -407,7 +448,12 @@
         "fiscalOutbox": "Fiscal outbox",
         "hardwareOutbox": "Hardware outbox",
         "estimatedSize": "Estimated bundle size: {{size}}"
-      }
+      },
+      "checksTitle": "Bundle contents",
+      "rowCount_one": "{{count}} record",
+      "rowCount_other": "{{count}} records",
+      "estimatedSizeLabel": "Estimated size",
+      "estimatedSizeHelp": "Approximate weight of the export"
     },
     "includeOutboxes": {
       "label": "Outboxes to include",
@@ -421,6 +467,60 @@
       "success": "Diagnostic downloaded",
       "error": "Could not build the ZIP",
       "noPermission": "Only admins can export diagnostics."
+    },
+    "kicker": "Diagnostics"
+  },
+  "sync": {
+    "kicker": "Operations",
+    "title": "Sync health",
+    "description": "Monitor the sync queue and resolve any conflicts that need a decision.",
+    "summary": {
+      "pending": "Pending",
+      "retrying": "Retrying",
+      "failures": "Failures",
+      "conflicts": "Conflicts",
+      "lastSync": "Last sync",
+      "never": "Not yet"
+    },
+    "empty": {
+      "title": "Everything is synced",
+      "description": "There are no pending changes, failures or conflicts to resolve."
+    },
+    "conflicts": {
+      "title": "Conflicts to resolve",
+      "itemTitle": "{{entity}} conflict",
+      "created": "Created {{date}}",
+      "fieldsDiffer_one": "{{count}} field differs",
+      "fieldsDiffer_other": "{{count}} fields differ",
+      "local": "Local (this device)",
+      "remote": "Remote (server)"
+    },
+    "entities": {
+      "record": "Record",
+      "categories": "Category",
+      "customers": "Customer",
+      "inventoryMovements": "Stock movement",
+      "locations": "Location",
+      "locationSiteLinks": "Site assignment",
+      "logos": "Logo",
+      "orderItems": "Order line",
+      "orders": "Order",
+      "personTypes": "Customer type",
+      "products": "Product",
+      "providers": "Supplier",
+      "purchaseItems": "Purchase line",
+      "purchaseReturnItems": "Purchase return line",
+      "purchaseReturns": "Purchase return",
+      "purchases": "Purchase",
+      "regimeTypes": "Tax regime",
+      "saleItems": "Sale line",
+      "saleReturns": "Sale return",
+      "sales": "Sale",
+      "sequentials": "Numbering sequence",
+      "sites": "Site",
+      "units": "Unit",
+      "users": "User",
+      "vatRates": "VAT rate"
     }
   }
 }

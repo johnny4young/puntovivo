@@ -67,24 +67,18 @@ export function CompanyThemeSettingsCard() {
   };
 
   return (
-    <section className="card p-6 space-y-5">
+    <section className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary-100">
-          <MonitorCog className="h-5 w-5 text-secondary-700" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">{t('company.theme.title')}</h2>
-          <p className="text-sm text-secondary-500">
-            {t('company.theme.description')}
-          </p>
+        <span className="pv-gt pv-gt-ink flex h-10 w-10 flex-shrink-0 items-center justify-center">
+          <MonitorCog className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="pv-title text-lg">{t('company.theme.title')}</h2>
+          <p className="mt-1 text-sm text-fg3">{t('company.theme.description')}</p>
         </div>
       </div>
 
-      {!isDesktop && (
-        <div className="surface-panel-muted text-sm text-secondary-600">{t('company.theme.browserNote')}</div>
-      )}
-
-      <div className="space-y-3">
+      <div className="mt-5 flex flex-col gap-2">
         {themeOptions.map(option => {
           const Icon = option.icon;
           const isSelected = option.value === preference;
@@ -93,40 +87,40 @@ export function CompanyThemeSettingsCard() {
             <button
               key={option.value}
               type="button"
-              className={`setting-toggle-card w-full text-left ${isSelected ? 'setting-toggle-card-active' : ''}`}
+              aria-pressed={isSelected}
+              className={`pv-check flex w-full items-center rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                isSelected
+                  ? 'border-primary-400 bg-primary-50'
+                  : 'border-line hover:border-primary-200'
+              }`}
               onClick={() => {
                 void handleSelect(option.value);
               }}
               disabled={isLoading || isSaving}
             >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${
-                    isSelected ? 'bg-primary-100 text-primary-700' : 'bg-surface-2 text-secondary-600'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-secondary-900">{option.label}</p>
-                  <p className="mt-1 text-sm text-secondary-500">{option.description}</p>
-                </div>
-              </div>
+              <span className={`ic ${isSelected ? 'bg-primary-50 text-primary-700' : 'opt'}`}>
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="grow">
+                <span className="t block">{option.label}</span>
+                <span className="d block">{option.description}</span>
+              </span>
               <span
-                className={`mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
-                  isSelected ? 'border-primary-600 bg-primary-600' : 'border-line-strong bg-surface'
+                className={`h-4 w-4 flex-shrink-0 rounded-full ${
+                  isSelected ? 'border-[5px] border-primary' : 'border-[1.5px] border-line-strong'
                 }`}
                 aria-hidden="true"
-              >
-                {isSelected ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
-              </span>
+              />
             </button>
           );
         })}
       </div>
 
-      <p className="text-sm text-secondary-500">
-        {t('company.theme.activeAppearance')} <span className="font-medium capitalize text-secondary-700">{resolvedTheme}</span>
+      {!isDesktop && <p className="mt-3 text-xs text-fg3">{t('company.theme.browserNote')}</p>}
+
+      <p className="mt-4 text-sm text-fg3">
+        {t('company.theme.activeAppearance')}{' '}
+        <span className="font-medium capitalize text-fg1">{resolvedTheme}</span>
       </p>
     </section>
   );

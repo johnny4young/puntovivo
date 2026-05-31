@@ -80,6 +80,10 @@
   --shadow-soft: 0 30px 80px -42px rgb(10 18 33 / 0.45);
   --shadow-card: 0 20px 60px -36px rgb(15 23 42 / 0.18);
   --shadow-panel: 0 28px 80px -44px rgb(15 23 42 / 0.24);
+  /* Rediseño FASE 0 — dialog/drawer elevation. Mirrors the proposal's
+   * colors_and_type.css --shadow-modal (45% depth). The .dark block
+   * nulls it to none so elevation reads through the 1px line instead. */
+  --shadow-modal: 0 30px 80px -42px rgb(10 18 33 / 0.45);
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-slide-up: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -208,7 +212,7 @@
    * code should reach for the fg1..fg4 contract directly. */
   --fg1: oklch(0.18 0.016 255);
   --fg2: oklch(0.37 0.022 255);
-  --fg3: oklch(0.56 0.019 255);
+  --fg3: oklch(0.52 0.019 255);
   --fg4: oklch(0.74 0.018 84);
 
   /* ENG-080b — semantic type tokens. Heads only ever consume these
@@ -234,6 +238,18 @@
   --h4-weight: 600;
   --h4-tracking: -0.005em;
   --h4-leading: 1.3;
+  /* Rediseño FASE 0 — h5/h6 rhythm completed to match the proposal's
+   * colors_and_type.css (15px / 13px sub-section heads). */
+  --h5-font: var(--font-ui);
+  --h5-size: 0.9375rem;
+  --h5-weight: 600;
+  --h5-tracking: 0;
+  --h5-leading: 1.4;
+  --h6-font: var(--font-ui);
+  --h6-size: 0.8125rem;
+  --h6-weight: 600;
+  --h6-tracking: 0.02em;
+  --h6-leading: 1.4;
   --body-font: var(--font-ui);
   --body-size: 0.875rem;
   --body-weight: 400;
@@ -307,6 +323,16 @@
   --radius-lg: 1.4rem;
   --radius-xl: 1.75rem;
   --radius-2xl: 2rem;
+
+  /* Rediseño FASE 0 — global keyboard-focus ring. Box-shadow form so it
+   * follows the element border-radius and never clips inside
+   * overflow:hidden surfaces. The base layer applies an `outline` ring
+   * to every interactive element (see base.css); components that live
+   * inside clipped containers consume this token via box-shadow instead.
+   * 55% primary mix clears WCAG AA non-text contrast against every
+   * surface token in both themes. */
+  --focus-ring: 0 0 0 3px color-mix(in oklch, var(--primary) 55%, transparent);
+  --focus-ring-color: color-mix(in oklch, var(--primary) 60%, transparent);
 
   /* ENG-080 + ENG-080b — brand accent (Puntovivo "punto naranja").
    * Three-stop scale per the design-system handoff. The 500 stop lives

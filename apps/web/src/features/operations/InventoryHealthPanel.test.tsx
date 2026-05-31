@@ -100,8 +100,8 @@ describe('InventoryHealthPanel', () => {
     mockData = makeData([]);
     render(<InventoryHealthPanel />);
     expect(
-      screen.getByText(/El inventario está consistente|Inventory is consistent/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/El inventario está consistente|Inventory is consistent/i).length
+    ).toBeGreaterThan(0);
   });
 
   it('renders drift rows with sign-coded delta', () => {

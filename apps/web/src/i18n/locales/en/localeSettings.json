@@ -22,7 +22,8 @@
     "savingAction": "Saving...",
     "previewHeading": "Preview",
     "previewSampleAmount": "Amount",
-    "previewSampleDate": "Today"
+    "previewSampleDate": "Today",
+    "kicker": "Localization"
   },
   "toast": {
     "saveSuccessTitle": "Locale updated",

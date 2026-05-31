@@ -338,7 +338,7 @@ export async function getPersistedSaleCashContribution(
     return args.fallbackAmount;
   }
 
-  return rows.reduce((total, row) => total + row.amount, 0);
+  return rows.reduce((total, row) => roundMoney(total + row.amount), 0);
 }
 
 export async function getActiveCashSessionForCashier(

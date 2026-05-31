@@ -3,7 +3,12 @@
     "todaySales": "Today's sales",
     "transactions": "Transactions",
     "averageOrder": "Average order",
-    "draftTotal": "Draft total"
+    "draftTotal": "Draft total",
+    "viewToggleAriaLabel": "Sales view"
+  },
+  "view": {
+    "pos": "Point of sale",
+    "history": "History"
   },
   "checkout": {
     "kicker": "Checkout",
@@ -49,7 +54,8 @@
       "resume": "Resume",
       "charge": "Charge",
       "fastCash": "Fast cash"
-    }
+    },
+    "itemsWithCount": "Items ({{value}})"
   },
   "cart": {
     "empty": "Search and add products to start a sale.",
@@ -67,7 +73,15 @@
     "selectItem": "Select {{name}}",
     "qtyFor": "Quantity for {{name}}",
     "discountFor": "Discount for {{name}}",
-    "removeItem": "Remove {{name}}"
+    "removeItem": "Remove {{name}}",
+    "decrement": "Remove one {{name}}",
+    "increment": "Add one {{name}}",
+    "shortcuts": {
+      "label": "Shortcuts:",
+      "search": "search",
+      "quantity": "quantity",
+      "discount": "discount"
+    }
   },
   "cashSession": {
     "title": "Cash session",
@@ -174,7 +188,7 @@
       "justificationLabel": "Justification (optional)",
       "justificationPlaceholder": "Explain any surplus or shortage…",
       "byMethodTitle": "By payment method",
-      "byMethodHint": "Card · Transfer · Credit · Other surface once ENG-083c rolls up sales-by-method.",
+      "byMethodHint": "Card · Transfer · Credit · Other surface once sales-by-method roll-up is available.",
       "method": {
         "cash": "Cash",
         "card": "Card",

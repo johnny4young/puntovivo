@@ -1,14 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, Boxes, CheckCircle2, MapPin, Package } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { KpiTile } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
+import { cn } from '@/lib/utils';
 import type { InventoryBalanceListItem } from '@/types';
 import {
   InventoryTransferModal,
@@ -34,25 +37,45 @@ function buildBalanceColumns(
     {
       accessorKey: 'productName',
       header: () => t('balances.columns.product'),
-    },
-    {
-      accessorKey: 'productSku',
-      header: () => t('balances.columns.sku'),
+      size: 280,
+      // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
+      // glifo tonal + nombre fuerte + SKU mono debajo.
+      cell: ({ row }) => (
+        <div className="prod">
+          <span className="pic">
+            <Package className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="pname">{row.original.productName}</p>
+            <p className="sku">{row.original.productSku}</p>
+          </div>
+        </div>
+      ),
     },
     {
       accessorKey: 'onHand',
       header: () => t('balances.columns.onHand'),
+      size: 130,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
       cell: ({ row }) => row.original.onHand.toLocaleString(),
     },
     {
       accessorKey: 'reserved',
       header: () => t('balances.columns.reserved'),
+      size: 130,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
       cell: ({ row }) => row.original.reserved.toLocaleString(),
     },
     {
       accessorKey: 'available',
       header: () => t('balances.columns.available'),
-      cell: ({ row }) => row.original.available.toLocaleString(),
+      size: 130,
+      meta: { cellClassName: 'num', headerClassName: 'num' },
+      cell: ({ row }) => (
+        <span className={cn(row.original.isLowStock && 'text-danger-700')}>
+          {row.original.available.toLocaleString()}
+        </span>
+      ),
     },
   ];
 }
@@ -133,9 +156,15 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
   }
 
   if (activeSites.length === 0) {
+    // Rediseño FASE 6 — estado vacío único (.pv-empty) cuando no hay sedes
+    // activas; conserva el mensaje guía como descripción.
     return (
       <div className="card p-6">
-        <p className="text-sm text-secondary-600">{t('balances.noSites')}</p>
+        <EmptyState
+          icon={MapPin}
+          title={t('balances.noSitesTitle')}
+          description={t('balances.noSites')}
+        />
       </div>
     );
   }
@@ -151,11 +180,16 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
 
   return (
     <div className="space-y-4">
+      {/* Rediseño FASE 6 — selector de sede con receta de formulario
+          (.pv-field/.pv-input) y botón de traslado .pv-btn. */}
       <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <label className="block md:max-w-sm md:flex-1">
-          <span className="label">{t('balances.siteSelector')}</span>
+        <div className="pv-field md:max-w-sm md:flex-1">
+          <label htmlFor="inventory-balances-site" className="label">
+            {t('balances.siteSelector')}
+          </label>
           <select
-            className="input mt-1"
+            id="inventory-balances-site"
+            className="pv-input"
             value={effectiveSiteId}
             onChange={event => setSelectedSiteId(event.target.value)}
           >
@@ -165,11 +199,11 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
               </option>
             ))}
           </select>
-        </label>
+        </div>
 
         <button
           type="button"
-          className="btn-primary flex items-center gap-2"
+          className="pv-btn primary flex items-center gap-2"
           disabled={!canTransfer}
           title={canTransfer ? undefined : t('balances.transferRequiresTwoSites')}
           onClick={() => setIsTransferOpen(true)}
@@ -179,25 +213,28 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">{t('balances.summary.onHand')}</p>
-          <p className="mt-1 text-2xl font-semibold text-secondary-900">
-            {summary.totalOnHand.toLocaleString()}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">{t('balances.summary.available')}</p>
-          <p className="mt-1 text-2xl font-semibold text-secondary-900">
-            {summary.totalAvailable.toLocaleString()}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-sm text-secondary-500">{t('balances.summary.lowStock')}</p>
-          <p className="mt-1 text-2xl font-semibold text-secondary-900">
-            {summary.lowStockCount.toLocaleString()}
-          </p>
-        </div>
+      {/* Rediseño FASE 6 — KPIs por sede con la receta única (.pv-kpi). */}
+      <div className="pv-kpis grid gap-4 md:grid-cols-3">
+        <KpiTile
+          icon={Boxes}
+          tone="primary"
+          mono
+          label={t('balances.summary.onHand')}
+          value={summary.totalOnHand.toLocaleString()}
+        />
+        <KpiTile
+          icon={CheckCircle2}
+          tone="success"
+          mono
+          label={t('balances.summary.available')}
+          value={summary.totalAvailable.toLocaleString()}
+        />
+        <KpiTile
+          icon={Package}
+          tone={summary.lowStockCount > 0 ? 'danger' : 'ink'}
+          label={t('balances.summary.lowStock')}
+          value={summary.lowStockCount.toLocaleString()}
+        />
       </div>
 
       <div className="card p-6">
@@ -219,6 +256,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         )}
         {!balancesQuery.isLoading && !balancesQuery.error && (
           <DataTable
+            variant="dense"
             columns={columns}
             data={items}
             searchKey="productName"

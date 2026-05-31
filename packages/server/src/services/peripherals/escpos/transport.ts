@@ -23,6 +23,10 @@
 
 import { Socket } from 'node:net';
 import type { NormalizedHardwareError } from '../types.js';
+import {
+  EscPosTcpTargetPolicyError,
+  resolveEscPosTcpTarget,
+} from './tcp-target-policy.js';
 
 // =============================================================================
 // Public types
@@ -130,6 +134,19 @@ export class TcpEscPosTransport implements EscPosTransport {
 
   private async ensureConnected(): Promise<Socket> {
     if (this.socket && !this.socket.destroyed) return this.socket;
+    let target: Awaited<ReturnType<typeof resolveEscPosTcpTarget>>;
+    try {
+      target = await resolveEscPosTcpTarget(this.host, this.port);
+    } catch (err) {
+      if (err instanceof EscPosTcpTargetPolicyError) {
+        throw new EscPosTransportError(err.message, {
+          kind: 'INVALID_CONFIG',
+          message: err.message,
+          details: err.details,
+        });
+      }
+      throw err;
+    }
     return await new Promise<Socket>((resolve, reject) => {
       const socket = new Socket();
       const onError = (err: Error) => {
@@ -153,7 +170,7 @@ export class TcpEscPosTransport implements EscPosTransport {
         );
       }, this.timeoutMs);
       socket.once('error', onError);
-      socket.connect(this.port, this.host, () => {
+      socket.connect({ host: target.host, port: this.port, family: target.family }, () => {
         clearTimeout(timer);
         socket.removeListener('error', onError);
         this.socket = socket;
@@ -250,9 +267,9 @@ export function __setEscPosTransportForTest(transport: EscPosTransport | null): 
 }
 
 /**
- * Build a transport from the persisted config. Defaults host to
- * `127.0.0.1` and port to `9100` (Epson + Xprinter LAN default)
- * when channel === 'tcp'.
+ * Build a transport from the persisted config. TCP requires an
+ * explicit private-LAN host and defaults only the raw-print port
+ * to `9100` (Epson + Xprinter LAN default).
  */
 export function resolveTransport(config: EscPosTransportConfig): EscPosTransport {
   if (TEST_TRANSPORT_OVERRIDE) return TEST_TRANSPORT_OVERRIDE;
@@ -261,7 +278,13 @@ export function resolveTransport(config: EscPosTransportConfig): EscPosTransport
     case 'mock':
       return new MockEscPosTransport();
     case 'tcp': {
-      const host = config.host ?? '127.0.0.1';
+      const host = config.host?.trim();
+      if (!host) {
+        throw new EscPosTransportError('ESC/POS TCP host is required', {
+          kind: 'INVALID_CONFIG',
+          message: 'ESC/POS TCP host is required',
+        });
+      }
       const port = config.port ?? 9100;
       return new TcpEscPosTransport(host, port, config.timeoutMs);
     }

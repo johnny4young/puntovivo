@@ -2,19 +2,45 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { Ban, Copy, KeyRound, MonitorCog, Network, RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
+import {
+  Ban,
+  Copy,
+  KeyRound,
+  MonitorCog,
+  Network,
+  RefreshCw,
+  Cpu,
+  DatabaseZap,
+  Radio,
+  Hourglass,
+} from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { cn, formatDateTime } from '@/lib/utils';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
+import { KpiTile } from '@/components/ui';
+
+/**
+ * ENG-075 — Operations Center: Authority Health panel.
+ *
+ * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel,
+ * KPI con la receta única para la topología (códigos pendientes en
+ * danger cuando hay > 0), formulario con .pv-field / .pv-input / .pv-btn,
+ * tabla densa (.pv-table) con badge semántico de salud, y estado vacío
+ * del sistema (EmptyState).
+ */
 
 type AuthorityStatus = inferRouterOutputs<AppRouter>['authority']['status'];
 type AuthorityDevice = AuthorityStatus['devices'][number];
 
-function healthBadgeVariant(status: AuthorityDevice['healthStatus']) {
+function healthBadgeTone(
+  status: AuthorityDevice['healthStatus']
+): 'success' | 'warning' | 'danger' {
   if (status === 'online') return 'success';
   if (status === 'stale') return 'warning';
   return 'danger';
@@ -72,6 +98,12 @@ export function AuthorityHealthPanel() {
   const devices = topology?.devices ?? [];
   const pendingCodes = topology?.pairingCodes.filter(code => code.status === 'pending') ?? [];
 
+  const {
+    pageRows: devicePageRows,
+    hasPagination: devicesHavePagination,
+    ...devicesPagination
+  } = usePaginatedRows(devices, 8);
+
   async function copyLatestCode(): Promise<void> {
     if (!latestCode) return;
     await navigator.clipboard?.writeText(latestCode.code);
@@ -80,16 +112,15 @@ export function AuthorityHealthPanel() {
 
   return (
     <div className="space-y-6">
-      <section className="card p-6 space-y-4">
+      <section className="card space-y-4 p-6">
         <header className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-            <Network className="h-5 w-5 text-primary-700" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-900">
-              {t('authority.hub.title')}
-            </h2>
-            <p className="text-sm text-secondary-500">
+          <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
+            <Network className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="pv-kicker">{t('authority.kicker')}</p>
+            <h2 className="pv-title text-lg">{t('authority.hub.title')}</h2>
+            <p className="mt-1 text-sm text-secondary-500">
               {t('authority.hub.description')}
             </p>
           </div>
@@ -106,20 +137,29 @@ export function AuthorityHealthPanel() {
         )}
 
         {topology && (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryTile
+          <div className="pv-kpis grid-cols-2 xl:grid-cols-4">
+            <KpiTile
+              icon={Radio}
+              tone="primary"
               label={t('authority.hub.mode')}
               value={t(`authority.modes.${topology.runtime.authorityMode}`)}
             />
-            <SummaryTile
+            <KpiTile
+              icon={DatabaseZap}
+              tone="ink"
+              mono
               label={t('authority.hub.schema')}
               value={String(topology.hub.dbSchemaVersion ?? '—')}
             />
-            <SummaryTile
+            <KpiTile
+              icon={Cpu}
+              tone="primary"
               label={t('authority.hub.activeDevices')}
               value={String(topology.hub.tenantActiveDeviceCount)}
             />
-            <SummaryTile
+            <KpiTile
+              icon={Hourglass}
+              tone={pendingCodes.length > 0 ? 'warning' : 'ink'}
               label={t('authority.hub.pendingCodes')}
               value={String(pendingCodes.length)}
             />
@@ -127,26 +167,25 @@ export function AuthorityHealthPanel() {
         )}
       </section>
 
-      <section className="card p-6 space-y-4">
+      <section className="card space-y-4 p-6">
         <header className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-warning-100">
-            <KeyRound className="h-5 w-5 text-warning-700" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-900">
-              {t('authority.pairing.title')}
-            </h2>
-            <p className="text-sm text-secondary-500">
+          <span className="pv-gt pv-gt-warning h-11 w-11 rounded-xl">
+            <KeyRound className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="pv-kicker">{t('authority.kicker')}</p>
+            <h2 className="pv-title text-lg">{t('authority.pairing.title')}</h2>
+            <p className="mt-1 text-sm text-secondary-500">
               {t('authority.pairing.description')}
             </p>
           </div>
         </header>
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto]">
-          <label className="space-y-1 text-sm font-medium text-secondary-700">
-            <span>{t('authority.pairing.site')}</span>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto]">
+          <label className="pv-field">
+            <span className="label">{t('authority.pairing.site')}</span>
             <select
-              className="input"
+              className="pv-input"
               value={activeSiteId}
               onChange={event => setSelectedSiteId(event.target.value)}
               disabled={!isAdmin || sites.length === 0}
@@ -159,10 +198,10 @@ export function AuthorityHealthPanel() {
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm font-medium text-secondary-700">
-            <span>{t('authority.pairing.deviceName')}</span>
+          <label className="pv-field">
+            <span className="label">{t('authority.pairing.deviceName')}</span>
             <input
-              className="input"
+              className="pv-input"
               value={deviceName}
               onChange={event => setDeviceName(event.target.value)}
               disabled={!isAdmin}
@@ -170,10 +209,10 @@ export function AuthorityHealthPanel() {
               data-testid="authority-pairing-device-name"
             />
           </label>
-          <label className="space-y-1 text-sm font-medium text-secondary-700">
-            <span>{t('authority.pairing.ttl')}</span>
+          <label className="pv-field">
+            <span className="label">{t('authority.pairing.ttl')}</span>
             <input
-              className="input"
+              className="pv-input"
               type="number"
               min={1}
               max={60}
@@ -186,7 +225,7 @@ export function AuthorityHealthPanel() {
           <div className="flex items-end">
             <button
               type="button"
-              className="btn-primary inline-flex items-center gap-2"
+              className="pv-btn primary w-full"
               disabled={!isAdmin || !activeSiteId || createMutation.isPending}
               title={!isAdmin ? t('authority.pairing.noPermission') : undefined}
               onClick={() =>
@@ -198,20 +237,20 @@ export function AuthorityHealthPanel() {
               }
               data-testid="authority-create-pairing-code"
             >
-              <KeyRound className="h-4 w-4" />
+              <KeyRound />
               {t('authority.pairing.cta')}
             </button>
           </div>
         </div>
 
         {latestCode && (
-          <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
+          <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
+                <p className="pv-kicker text-primary-800">
                   {t('authority.pairing.latest')}
                 </p>
-                <p className="font-mono text-2xl font-semibold text-primary-900">
+                <p className="mt-1 font-mono text-2xl font-semibold text-primary-900">
                   {latestCode.code}
                 </p>
                 <p className="text-sm text-primary-800">
@@ -222,11 +261,11 @@ export function AuthorityHealthPanel() {
               </div>
               <button
                 type="button"
-                className="btn-secondary inline-flex items-center gap-2"
+                className="pv-btn outline"
                 onClick={() => void copyLatestCode()}
                 data-testid="authority-copy-pairing-code"
               >
-                <Copy className="h-4 w-4" />
+                <Copy />
                 {t('authority.pairing.copy')}
               </button>
             </div>
@@ -234,54 +273,55 @@ export function AuthorityHealthPanel() {
         )}
       </section>
 
-      <section className="card p-6 space-y-4">
+      <section className="card space-y-4 p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary-100">
-              <MonitorCog className="h-5 w-5 text-secondary-700" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-secondary-900">
-                {t('authority.devices.title')}
-              </h2>
-              <p className="text-sm text-secondary-500">
+            <span className="pv-gt pv-gt-ink h-11 w-11 rounded-xl">
+              <MonitorCog className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="pv-kicker">{t('authority.kicker')}</p>
+              <h2 className="pv-title text-lg">{t('authority.devices.title')}</h2>
+              <p className="mt-1 text-sm text-secondary-500">
                 {t('authority.devices.description')}
               </p>
             </div>
           </div>
           <button
             type="button"
-            className="btn-secondary inline-flex items-center gap-2 text-sm"
+            className="pv-btn ghost"
             onClick={() => void statusQuery.refetch()}
             data-testid="authority-refresh"
           >
-            <RefreshCw
-              className={cn('h-4 w-4', statusQuery.isFetching && 'animate-spin')}
-            />
+            <RefreshCw className={cn(statusQuery.isFetching && 'animate-spin')} />
             {t('authority.devices.refresh')}
           </button>
         </header>
 
         {devices.length === 0 && !statusQuery.isLoading && (
-          <p className="text-sm text-secondary-500">{t('authority.devices.empty')}</p>
+          <EmptyState
+            icon={MonitorCog}
+            title={t('authority.devices.title')}
+            description={t('authority.devices.empty')}
+          />
         )}
 
         {devices.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
+          <div className="overflow-x-auto rounded-2xl border border-line/75">
+            <table className="pv-table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2">{t('authority.devices.columns.name')}</th>
-                  <th className="px-3 py-2">{t('authority.devices.columns.role')}</th>
-                  <th className="px-3 py-2">{t('authority.devices.columns.site')}</th>
-                  <th className="px-3 py-2">{t('authority.devices.columns.health')}</th>
-                  <th className="px-3 py-2">{t('authority.devices.columns.lastSeen')}</th>
-                  <th className="px-3 py-2">{t('authority.devices.columns.version')}</th>
-                  <th className="px-3 py-2 text-right">{t('authority.devices.columns.actions')}</th>
+                  <th>{t('authority.devices.columns.name')}</th>
+                  <th>{t('authority.devices.columns.role')}</th>
+                  <th>{t('authority.devices.columns.site')}</th>
+                  <th>{t('authority.devices.columns.health')}</th>
+                  <th>{t('authority.devices.columns.lastSeen')}</th>
+                  <th>{t('authority.devices.columns.version')}</th>
+                  <th className="num">{t('authority.devices.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {devices.map(device => {
+                {devicePageRows.map(device => {
                   const canRevoke =
                     isAdmin &&
                     device.authorityRole === 'hub_client' &&
@@ -290,30 +330,24 @@ export function AuthorityHealthPanel() {
                     revokeMutation.isPending &&
                     revokeMutation.variables?.deviceId === device.id;
                   return (
-                    <tr key={device.id} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-900">{device.name}</td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {t(roleLabelKey(device.authorityRole))}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {device.pairedSiteName ?? '—'}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={healthBadgeVariant(device.healthStatus)}>
+                    <tr key={device.id}>
+                      <td className="font-medium text-secondary-900">{device.name}</td>
+                      <td className="muted">{t(roleLabelKey(device.authorityRole))}</td>
+                      <td className="muted">{device.pairedSiteName ?? '—'}</td>
+                      <td>
+                        <span className={`pv-badge ${healthBadgeTone(device.healthStatus)}`}>
                           {t(`authority.health.${device.healthStatus}`)}
-                        </Badge>
+                        </span>
                       </td>
-                      <td className="px-3 py-2 text-secondary-700">
+                      <td className="muted whitespace-nowrap">
                         {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : '—'}
                       </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {device.appVersion ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="muted">{device.appVersion ?? '—'}</td>
+                      <td className="num">
                         {device.authorityRole === 'hub_client' && (
                           <button
                             type="button"
-                            className="btn-secondary inline-flex items-center gap-2 text-sm"
+                            className="pv-btn ghost ml-auto"
                             disabled={!canRevoke || isRevoking}
                             title={!isAdmin ? t('authority.devices.noPermission') : undefined}
                             onClick={() => {
@@ -331,9 +365,7 @@ export function AuthorityHealthPanel() {
                             }}
                             data-testid={`authority-revoke-${device.id}`}
                           >
-                            <Ban
-                              className={cn('h-4 w-4', isRevoking && 'animate-spin')}
-                            />
+                            <Ban className={cn(isRevoking && 'animate-spin')} />
                             {t('authority.devices.revoke')}
                           </button>
                         )}
@@ -345,18 +377,11 @@ export function AuthorityHealthPanel() {
             </table>
           </div>
         )}
-      </section>
-    </div>
-  );
-}
 
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-secondary-200 bg-white px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-semibold text-secondary-900">{value}</p>
+        {devicesHavePagination && (
+          <TablePagination {...devicesPagination} onPageChange={devicesPagination.setPage} />
+        )}
+      </section>
     </div>
   );
 }

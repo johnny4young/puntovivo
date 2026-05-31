@@ -1,7 +1,8 @@
 {
   "header": {
     "title": "Centro de operaciones",
-    "subtitle": "Qué está pendiente, qué falló y qué hacer ahora — sin mirar logs."
+    "subtitle": "Qué está pendiente, qué falló y qué hacer ahora — sin mirar logs.",
+    "kicker": "Operaciones"
   },
   "tabs": {
     "ariaLabel": "Paneles de operaciones",
@@ -47,6 +48,16 @@
       "contingency": "No hay documentos fiscales en contingencia.",
       "rejected": "No hay documentos fiscales rechazados.",
       "accepted": "No hay documentos aceptados en la ventana reciente."
+    },
+    "kicker": "Fiscal",
+    "kpi": {
+      "context": {
+        "contingency": "A la espera de un nuevo intento",
+        "rejected": "Rechazados por el proveedor",
+        "accepted": "Aceptados en la ventana reciente"
+      },
+      "windowLabel": "Documentos mostrados",
+      "windowContext": "Los más recientes de este filtro"
     }
   },
   "device": {
@@ -101,6 +112,12 @@
       "emptyState": {
         "all": "No hay filas en la cola de hardware.",
         "problems": "No hay trabajos de hardware fallando ahora."
+      },
+      "kpi": {
+        "problemsLabel": "Trabajos con problemas",
+        "problemsContext": "Fallidos, reintentando o sin entregar",
+        "totalLabel": "Trabajos en cola",
+        "totalContext": "Impresiones y cajón recientes"
       }
     },
     "retry": {
@@ -108,7 +125,8 @@
       "success": "Reintento encolado",
       "error": "El reintento falló",
       "noPermission": "Solo el administrador puede reintentar trabajos de hardware."
-    }
+    },
+    "kicker": "Dispositivos"
   },
   "cash": {
     "title": "Salud de caja",
@@ -127,19 +145,28 @@
         "openSessions": "Abiertas",
         "netOverShort": "Neto sobre/bajo",
         "overShortCount": "Sesiones con discrepancia"
-      }
+      },
+      "emptyTitle": "Sin sedes con sesiones"
     },
     "recentDiscrepancies": {
       "title": "Cierres recientes con discrepancia",
       "emptyState": "No hay cierres con discrepancia en la ventana actual.",
       "columns": {
         "site": "Sede",
+        "register": "Caja",
         "cashier": "Cajero",
         "closedAt": "Cerrado",
         "expected": "Esperado",
         "actual": "Contado",
         "overShort": "Sobre/Bajo"
-      }
+      },
+      "emptyTitle": "Sin discrepancias"
+    },
+    "kicker": "Caja",
+    "overShortStatus": {
+      "balanced": "Cuadrado",
+      "short": "Faltante",
+      "over": "Sobrante"
     }
   },
   "payments": {
@@ -202,7 +229,8 @@
         "review_provider": "Revisa la respuesta del proveedor",
         "adjust_amount": "Ajusta o divide el pago",
         "link_tender": "Vincula un pago del POS"
-      }
+      },
+      "emptyTitle": "Sin diferencias"
     },
     "outbox": {
       "title": "Outbox de pagos",
@@ -233,7 +261,8 @@
         "noPermission": "Solo los administradores pueden cambiar el estado de un pago",
         "confirm": "Confirmar",
         "cancel": "Cancelar"
-      }
+      },
+      "emptyTitle": "Cola sin pendientes"
     },
     "breakdown": {
       "title": "Volumen por rail y estado",
@@ -245,7 +274,8 @@
         "status": "Estado",
         "count": "Cantidad",
         "amount": "Monto"
-      }
+      },
+      "emptyTitle": "Sin actividad de pagos"
     },
     "settings": {
       "title": "Credenciales de proveedores de pago",
@@ -266,7 +296,9 @@
         "hideSecret": "Ocultar",
         "clearField": "Limpiar",
         "storedHint": "Valor guardado oculto. Escribe para sobreescribir o limpia para eliminar.",
-        "emptyHint": "Aún no hay valor guardado."
+        "emptyHint": "Aún no hay valor guardado.",
+        "encryptedNote": "Las credenciales se guardan cifradas en este equipo.",
+        "emptyPlaceholder": "Sin guardar"
       },
       "fields": {
         "publicKey": "Llave pública",
@@ -298,7 +330,8 @@
           "description": "Davivienda entrega el API key y el merchant id de Daviplata en el onboarding."
         }
       }
-    }
+    },
+    "kicker": "Pagos"
   },
   "inventory": {
     "title": "Salud de inventario",
@@ -321,6 +354,13 @@
       "success": "Se reconciliaron {{count}} productos",
       "error": "La reconciliación falló",
       "noPermission": "Solo el administrador puede reconciliar el stock cacheado."
+    },
+    "kicker": "Inventario",
+    "emptyTitle": "Inventario consistente",
+    "severity": {
+      "ok": "Correcto",
+      "attention": "Atención",
+      "fault": "Falla"
     }
   },
   "authority": {
@@ -381,7 +421,8 @@
         "version": "Versión",
         "actions": "Acciones"
       }
-    }
+    },
+    "kicker": "Autoridad"
   },
   "diagnostics": {
     "title": "Exportar diagnóstico",
@@ -407,7 +448,12 @@
         "fiscalOutbox": "Outbox fiscal",
         "hardwareOutbox": "Outbox hardware",
         "estimatedSize": "Tamaño estimado del paquete: {{size}}"
-      }
+      },
+      "checksTitle": "Contenido del paquete",
+      "rowCount_one": "{{count}} registro",
+      "rowCount_other": "{{count}} registros",
+      "estimatedSizeLabel": "Tamaño estimado",
+      "estimatedSizeHelp": "Peso aproximado de la exportación"
     },
     "includeOutboxes": {
       "label": "Outboxes a incluir",
@@ -421,6 +467,60 @@
       "success": "Diagnóstico descargado",
       "error": "No se pudo generar el ZIP",
       "noPermission": "Solo el administrador puede exportar diagnósticos."
+    },
+    "kicker": "Diagnóstico"
+  },
+  "sync": {
+    "kicker": "Operación",
+    "title": "Salud de sync",
+    "description": "Monitorea la cola de sync y resuelve los conflictos que necesitan una decisión.",
+    "summary": {
+      "pending": "Pendientes",
+      "retrying": "Reintentando",
+      "failures": "Fallos",
+      "conflicts": "Conflictos",
+      "lastSync": "Última sync",
+      "never": "Aún no"
+    },
+    "empty": {
+      "title": "Todo está sincronizado",
+      "description": "No hay cambios pendientes, fallos ni conflictos por resolver."
+    },
+    "conflicts": {
+      "title": "Conflictos por resolver",
+      "itemTitle": "Conflicto de {{entity}}",
+      "created": "Creado {{date}}",
+      "fieldsDiffer_one": "{{count}} campo difiere",
+      "fieldsDiffer_other": "{{count}} campos difieren",
+      "local": "Local (este equipo)",
+      "remote": "Remoto (servidor)"
+    },
+    "entities": {
+      "record": "registro",
+      "categories": "categoría",
+      "customers": "cliente",
+      "inventoryMovements": "movimiento de inventario",
+      "locations": "ubicación",
+      "locationSiteLinks": "asignación de sede",
+      "logos": "logo",
+      "orderItems": "línea de pedido",
+      "orders": "pedido",
+      "personTypes": "tipo de cliente",
+      "products": "producto",
+      "providers": "proveedor",
+      "purchaseItems": "línea de compra",
+      "purchaseReturnItems": "línea de devolución de compra",
+      "purchaseReturns": "devolución de compra",
+      "purchases": "compra",
+      "regimeTypes": "régimen fiscal",
+      "saleItems": "línea de venta",
+      "saleReturns": "devolución de venta",
+      "sales": "venta",
+      "sequentials": "consecutivo",
+      "sites": "sede",
+      "units": "unidad",
+      "users": "usuario",
+      "vatRates": "tarifa IVA"
     }
   }
 }

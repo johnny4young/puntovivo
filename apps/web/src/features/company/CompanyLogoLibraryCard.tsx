@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, Image as ImageIcon, ImageOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
+import { cn } from '@/lib/utils';
 import type { Company, Logo } from '@/types';
 import {
   CompanyLogoFormModal,
@@ -114,8 +116,8 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               {t('company.logo.description')}
             </p>
           </div>
-          <button className="btn-secondary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canEdit}>
-            <Plus className="h-4 w-4" />
+          <button className="pv-btn outline" onClick={handleOpenCreate} disabled={!canEdit}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
             {t('company.logo.addLogo')}
           </button>
         </div>
@@ -129,14 +131,17 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                 alt={company.logoName ?? company.name}
                 className="h-16 w-16 rounded-xl border border-line/80 bg-surface object-contain p-2"
               />
-              <div>
-                <p className="font-medium text-secondary-900">{company.logoName ?? t('company.logo.selectedLogo')}</p>
-                <p className="text-sm text-secondary-500">{company.logoUrl}</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-secondary-900">{company.logoName ?? t('company.logo.selectedLogo')}</p>
+                  <span className="pv-badge success">{t('company.logo.active')}</span>
+                </div>
+                <p className="truncate text-sm text-secondary-500">{company.logoUrl}</p>
               </div>
             </div>
           ) : (
             <div className="mt-3 flex items-center gap-3 text-sm text-secondary-500">
-              <ImageOff className="h-4 w-4" />
+              <ImageOff className="h-4 w-4" aria-hidden="true" />
               {t('company.logo.noLogoSelected')}
             </div>
           )}
@@ -163,9 +168,12 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         {!logosQuery.isLoading && !logosQuery.error && (
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {logos.length === 0 && (
-              <div className="surface-empty px-4 py-8 text-center md:col-span-2 xl:col-span-3">
-                {t('company.logo.emptyLibrary')}
-              </div>
+              <EmptyState
+                className="md:col-span-2 xl:col-span-3"
+                icon={ImageIcon}
+                title={t('company.logo.emptyLibraryTitle')}
+                description={t('company.logo.emptyLibrary')}
+              />
             )}
 
             {logos.map(logo => {
@@ -189,20 +197,20 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        className="btn-ghost btn-icon h-8 w-8"
+                        className="pv-btn ghost min-h-11 h-11 w-11 p-0"
                         onClick={() => handleOpenEdit(logo)}
                         disabled={!canEdit}
                         title={t('company.logo.editTitle')}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
                       </button>
                       <button
-                        className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+                        className="pv-btn ghost min-h-11 h-11 w-11 p-0 text-danger-500 hover:text-danger-700"
                         onClick={() => setLogoToDelete(logo)}
                         disabled={!canEdit}
                         title={t('company.logo.deleteTitle')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -214,13 +222,13 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   />
 
                   <div className="mt-4 flex items-center justify-between gap-2">
-                    <span className={`badge ${logo.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                    <span className={cn('pv-badge', logo.isActive ? 'success' : 'neutral')}>
                       {logo.isActive ? t('company.logo.active') : t('company.logo.inactive')}
                     </span>
                     <div className="flex gap-2">
                       {isSelected ? (
                         <button
-                          className="btn-secondary"
+                          className="pv-btn outline"
                           onClick={() => void selectLogoMutation.mutateAsync({ logoId: null })}
                           disabled={!canEdit || selectLogoMutation.isPending}
                         >
@@ -228,11 +236,11 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                         </button>
                       ) : (
                         <button
-                          className="btn-primary inline-flex items-center gap-2"
+                          className="pv-btn primary"
                           onClick={() => void selectLogoMutation.mutateAsync({ logoId: logo.id })}
                           disabled={!canEdit || isMutatingSelection}
                         >
-                          <Check className="h-4 w-4" />
+                          <Check className="h-4 w-4" aria-hidden="true" />
                           {isMutatingSelection ? t('company.logo.selecting') : t('company.logo.use')}
                         </button>
                       )}

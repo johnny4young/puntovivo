@@ -54,7 +54,7 @@ Application shell:
 - `MainLayout`
 - `Header`
 - `Sidebar`
-- `OfflineStatusBanner`
+- `GlobalStatusStrip`
 
 ### `components/tables`
 

@@ -77,6 +77,7 @@ import {
   buildRendererSecurityHeaders,
   isFastifyApiResponse,
 } from './renderer-security-headers.js';
+import { isAllowedExternalUrl } from './external-url-policy.js';
 // ENG-025 — single source of truth for the authenticated identity at
 // the IPC boundary. Every db:* / sync:* handler reads tenantId from
 // here instead of trusting the renderer-supplied argument. The
@@ -90,6 +91,18 @@ import { verifyTokenWithServer } from '@puntovivo/server';
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
+
+// Pin the app name BEFORE the first `app.getPath('userData')` read (DB_PATH
+// below). Packaged builds inherit the name from the macOS Info.plist /
+// Windows metadata `productName` ("Puntovivo", set in forge.config.ts), but
+// `electron-forge start` (dev) ships no such metadata, so `app.getName()`
+// falls back to the binary default "Electron" and userData resolves to
+// ~/Library/Application Support/Electron. Forcing the name keeps dev and
+// packaged on the SAME userData path (.../Puntovivo/), so the encrypted
+// SQLite DB, key envelope, device id, and license all live in one place
+// regardless of how the app was launched. In a packaged build this is a
+// no-op (the name already equals "Puntovivo").
+app.setName('Puntovivo');
 
 // Web app dev server URL (from apps/web)
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
@@ -110,6 +123,11 @@ let server: PuntovivoServer | null = null;
 let tray: Tray | null = null;
 let databaseEncryptionKey: string | null = null;
 let isQuitting = false;
+// DK-005 — guards the deferred-shutdown handshake in the `will-quit`
+// handler so the embedded server's async close runs to completion
+// before the process exits, without looping the defer on the re-fired
+// `will-quit` after `app.quit()` is called again.
+let serverShutdownComplete = false;
 let currentTraySettings: TraySettings = {
   enabled: true,
   closeToTray: false,
@@ -121,7 +139,16 @@ let currentTraySettings: TraySettings = {
 // exporting `PUNTOVIVO_AUTHORITY_MODE=site_hub` etc., even when
 // launching from Electron). Defaults match the historical hardcoded
 // `127.0.0.1:8090` so a fresh install boots identically to today.
-const DB_PATH = join(app.getPath('userData'), 'data', 'local.db');
+// Dev-only shared DB (operator request): when running unpackaged
+// (`electron-forge start`), honour DATABASE_URL so the embedded server and the
+// standalone web server (`pnpm dev:web-stack`) read/write ONE local SQLite
+// file — data created in the web stack shows up in the desktop app and vice
+// versa. The dev-launcher injects DATABASE_URL + PUNTOVIVO_DB_KEY for the
+// integrated dev modes. NEVER honoured in a packaged build: production always
+// uses the encrypted DB under userData.
+const DEV_SHARED_DB_PATH =
+  !app.isPackaged && process.env.DATABASE_URL ? process.env.DATABASE_URL : undefined;
+const DB_PATH = DEV_SHARED_DB_PATH ?? join(app.getPath('userData'), 'data', 'local.db');
 const SQLITE_SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal'] as const;
 
 // ENG-002 step 2 — in packaged builds, the generated Drizzle migrations
@@ -187,7 +214,22 @@ type AllowedDesktopTable =
   | 'inventory_movements'
   | 'sync_outbox';
 
-type DesktopSyncOperation = 'create' | 'update' | 'delete';
+// SEC-003 — single source of truth for the operations the desktop sync
+// bridge accepts. The IPC handler validates the renderer-supplied value
+// against this list before any DB write, so a malformed/hostile payload
+// cannot enqueue an outbox row with an unrecognised operation.
+const DESKTOP_SYNC_OPERATIONS = ['create', 'update', 'delete'] as const;
+type DesktopSyncOperation = (typeof DESKTOP_SYNC_OPERATIONS)[number];
+
+function assertDesktopSyncOperation(value: unknown): DesktopSyncOperation {
+  if (
+    typeof value === 'string' &&
+    (DESKTOP_SYNC_OPERATIONS as readonly string[]).includes(value)
+  ) {
+    return value as DesktopSyncOperation;
+  }
+  throw new Error(`Sync operation "${String(value)}" is not allowed in the desktop bridge`);
+}
 
 interface DesktopSyncQueueInput {
   entityType: string;
@@ -211,6 +253,14 @@ interface DesktopSyncTriggerResult extends DesktopSyncStatusResult {
 }
 
 const RECEIPT_PRINT_SETTINGS_KEY = 'receipt_print_settings';
+// DK-006 — upper bound on how long we wait for `webContents.print`'s
+// completion callback. The native print path can hang indefinitely if
+// the OS print dialog/spooler never returns a result (stuck driver,
+// dismissed dialog on some platforms); without a ceiling the print
+// promise would never settle and the ephemeral print window would leak.
+// On timeout we reject (reusing the same user-visible failure copy) so
+// the `finally` always runs and the window is closed.
+const RECEIPT_PRINT_TIMEOUT_MS = 60_000;
 const THEME_PREFERENCE_KEY = 'theme_preference';
 const TRAY_SETTINGS_KEY = 'tray_settings';
 const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
@@ -446,22 +496,41 @@ async function resolveDatabaseEncryptionKey(): Promise<string> {
   if (databaseEncryptionKey) {
     return databaseEncryptionKey;
   }
-  const e2eKey = resolveE2eDatabaseEncryptionKey();
+  const devKey = resolveDevDatabaseEncryptionKey();
   databaseEncryptionKey =
-    e2eKey ?? (await getOrCreateDbKey(getDbKeyDir(DB_PATH), safeStorage));
+    devKey ?? (await getOrCreateDbKey(getDbKeyDir(DB_PATH), safeStorage));
   return databaseEncryptionKey;
 }
 
-function resolveE2eDatabaseEncryptionKey(): string | undefined {
-  if (app.isPackaged || process.env.PUNTOVIVO_E2E !== '1') {
+// In a packaged build the key ALWAYS comes from the safeStorage envelope; an
+// env-provided key is ignored so a leaked shell var can never weaken or unlock
+// production data. In dev (`electron-forge start`) PUNTOVIVO_DB_KEY is honoured
+// in two situations:
+//   - Electron E2E (PUNTOVIVO_E2E=1): deterministic key for the throwaway test DB.
+//   - Shared dev DB (DATABASE_URL injected by the dev-launcher): the desktop and
+//     the standalone web server open the SAME encrypted file with one fixed key,
+//     so work in `pnpm dev:web-stack` and `pnpm dev:desktop` shares data.
+function resolveDevDatabaseEncryptionKey(): string | undefined {
+  if (app.isPackaged) {
+    return undefined;
+  }
+  const isE2e = process.env.PUNTOVIVO_E2E === '1';
+  if (!isE2e && !DEV_SHARED_DB_PATH) {
     return undefined;
   }
   const key = process.env.PUNTOVIVO_DB_KEY;
   if (key === undefined) {
+    if (DEV_SHARED_DB_PATH) {
+      throw new Error(
+        'Shared dev DB (DATABASE_URL) requires PUNTOVIVO_DB_KEY (64-character hex). ' +
+          'pnpm dev:desktop injects both via the dev-launcher; set them together when ' +
+          'launching electron-forge directly.'
+      );
+    }
     return undefined;
   }
   if (!/^[0-9a-f]{64}$/i.test(key)) {
-    throw new Error('PUNTOVIVO_DB_KEY must be a 64-character hex string in Electron E2E');
+    throw new Error('PUNTOVIVO_DB_KEY must be a 64-character hex string in Electron dev');
   }
   return key;
 }
@@ -1495,7 +1564,8 @@ async function saveThemePreference(preference: unknown): Promise<ThemePreference
         value: nextPreference,
         updatedAt: now,
       })
-      .where(eq(appSettings.key, THEME_PREFERENCE_KEY));
+      .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
+      .run();
   } else {
     await database.insert(appSettings).values({
       key: THEME_PREFERENCE_KEY,
@@ -1592,6 +1662,13 @@ function destroyTray() {
     return;
   }
 
+  // DK-007 — detach the 'click' handler before destroying the native
+  // tray. A fresh Tray is created on every re-enable (and we attach a
+  // new 'click' listener there), so explicitly clearing listeners on
+  // the outgoing instance keeps the handler count from accumulating and
+  // releases the closure for GC even if a reference to the old Tray
+  // briefly survives.
+  tray.removeAllListeners('click');
   tray.destroy();
   tray = null;
 }
@@ -1654,7 +1731,8 @@ async function saveTraySettings(settings: unknown): Promise<TraySettings> {
         value: nextSettings,
         updatedAt: now,
       })
-      .where(eq(appSettings.key, TRAY_SETTINGS_KEY));
+      .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
+      .run();
   } else {
     await database.insert(appSettings).values({
       key: TRAY_SETTINGS_KEY,
@@ -1683,7 +1761,11 @@ async function printReceipt(
   try {
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
 
-    await new Promise<void>((resolve, reject) => {
+    // DK-006 — race the print callback against a hard timeout so a
+    // native print path that never invokes its callback cannot pin the
+    // promise open (which would skip the `finally` and leak the window).
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const printDone = new Promise<void>((resolve, reject) => {
       printWindow.webContents.print(
         {
           silent: settings.silent,
@@ -1699,6 +1781,19 @@ async function printReceipt(
         }
       );
     });
+    const printTimeout = new Promise<never>((_resolve, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(t('print.receiptFailed')));
+      }, RECEIPT_PRINT_TIMEOUT_MS);
+    });
+
+    try {
+      await Promise.race([printDone, printTimeout]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   } finally {
     if (!printWindow.isDestroyed()) {
       printWindow.close();
@@ -1745,7 +1840,11 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler(details => {
-    shell.openExternal(details.url);
+    if (!isAllowedExternalUrl(details.url)) {
+      mainLog.warn({ url: details.url }, 'blocked unsupported external URL');
+      return { action: 'deny' };
+    }
+    void shell.openExternal(details.url);
     return { action: 'deny' };
   });
 
@@ -1779,6 +1878,7 @@ function createWindow(): void {
 }
 
 async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
+  desktopSession.requireOneOfRoles(['admin']);
   const saveDialogOptions: SaveDialogOptions = {
     title: t('backup.createDialogTitle'),
     defaultPath: join(app.getPath('documents'), createBackupZipFileName()),
@@ -1842,6 +1942,7 @@ async function handleCreateDatabaseBackup(): Promise<DesktopDatabaseActionResult
 }
 
 async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResult> {
+  desktopSession.requireOneOfRoles(['admin']);
   const openDialogOptions: OpenDialogOptions = {
     title: t('backup.restoreDialogTitle'),
     properties: ['openFile'],
@@ -1983,7 +2084,20 @@ app.whenReady().then(async () => {
     applyThemePreference(await getThemePreference());
     currentTraySettings = await getTraySettings();
   } catch (err) {
+    // DK-004 — the embedded Fastify server runs in-process and backs
+    // every IPC handler (getServerDatabase() throws when it is absent).
+    // Continuing into the renderer after a boot failure produced a
+    // window where every tRPC/IPC call crashed. Fail loud instead:
+    // surface the underlying error in a blocking native dialog (works
+    // before any window exists) and quit. The resolver/createServer
+    // throw descriptive messages (bad runtime config, keychain failure,
+    // migration error), so the dialog body is actionable.
     mainLog.fatal({ err }, 'embedded server failed to start');
+    const detail = err instanceof Error ? err.message : String(err);
+    dialog.showErrorBox(t('app.name'), detail);
+    isQuitting = true;
+    app.quit();
+    return;
   }
 
   createWindow();
@@ -2011,9 +2125,28 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', event => {
   destroyTray();
-  void stopEmbeddedServer();
+
+  // DK-005 — `will-quit` listeners are synchronous, so a fire-and-forget
+  // `stopEmbeddedServer()` let the process exit while the SQLite/WAL
+  // handle and the bound port were still closing. Defer the quit
+  // (`event.preventDefault()`), await the async close, then re-trigger
+  // the quit. `serverShutdownComplete` makes the re-fired `will-quit`
+  // fall through so we do not loop.
+  if (serverShutdownComplete) {
+    return;
+  }
+
+  event.preventDefault();
+  void stopEmbeddedServer()
+    .catch(err => {
+      mainLog.error({ err }, 'failed to stop embedded server during shutdown');
+    })
+    .finally(() => {
+      serverShutdownComplete = true;
+      app.quit();
+    });
 });
 
 // IPC Handlers
@@ -2212,10 +2345,13 @@ ipcMain.handle('db:countByTenant', async (_event, table: string, rendererTenantI
   return handleDesktopCountByTenant(table, activeTenantId(rendererTenantId));
 });
 ipcMain.handle('db:addToSyncQueue', async (_event, item: DesktopSyncQueueInput) => {
+  // SEC-003 — validate the renderer-supplied operation against the
+  // allowlist before it reaches the DB; an unrecognised value throws.
+  const operation = assertDesktopSyncOperation(item?.operation);
   // Force the tenantId of the queued item to the active session,
   // ignoring whatever the renderer claimed.
   const sessionTenantId = activeTenantId(item?.tenantId);
-  return handleDesktopAddToSyncQueue({ ...item, tenantId: sessionTenantId });
+  return handleDesktopAddToSyncQueue({ ...item, operation, tenantId: sessionTenantId });
 });
 ipcMain.handle('db:getPendingSyncItems', async (_event, rendererTenantId?: unknown) => {
   return handleDesktopGetPendingSyncItems(activeTenantId(rendererTenantId));

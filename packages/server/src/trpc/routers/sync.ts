@@ -5,10 +5,10 @@
  *
  * Procedures (implemented):
  * - sync.status          (tenant) - Get current sync status
- * - sync.listQueue       (tenant) - List pending sync_outbox items
- * - sync.addToQueue      (tenant) - Add an operation to the sync_outbox
- * - sync.removeFromQueue (tenant) - Remove an item from the sync_outbox
- * - sync.listConflicts   (tenant) - List unresolved sync conflicts
+ * - sync.listQueue       (tenant, manager/admin) - List pending sync_outbox items
+ * - sync.addToQueue      (tenant, manager/admin) - Add an operation to the sync_outbox
+ * - sync.removeFromQueue (tenant, manager/admin) - Remove an item from the sync_outbox
+ * - sync.listConflicts   (tenant, manager/admin) - List unresolved sync conflicts
  *
  * Additional procedures:
  * - sync.push    - Process queued local changes
@@ -432,7 +432,7 @@ export const syncRouter = router({
    * `payloadVersion`) so the web admin keeps rendering without a
    * shape change.
    */
-  listQueue: tenantProcedure.input(listQueueInput).query(async ({ ctx, input }) => {
+  listQueue: managerOrAdminProcedure.input(listQueueInput).query(async ({ ctx, input }) => {
     const where = and(
       eq(syncOutbox.tenantId, ctx.tenantId),
       inArray(syncOutbox.status, PENDING_STATUSES as unknown as PendingStatus[])
@@ -470,7 +470,7 @@ export const syncRouter = router({
    * Add an operation to the local sync_outbox manually. Operator
    * recovery surface — system writers go through `enqueueSync()`.
    */
-  addToQueue: tenantProcedure.input(addToQueueInput).mutation(async ({ ctx, input }) => {
+  addToQueue: managerOrAdminProcedure.input(addToQueueInput).mutation(async ({ ctx, input }) => {
     const result = await enqueueSync(ctx, {
       entityType: input.entityType as SyncEntityType,
       entityId: input.entityId,
@@ -491,7 +491,7 @@ export const syncRouter = router({
    * Remove an item from the sync_outbox (after successful manual
    * recovery, or to discard a stuck row outright).
    */
-  removeFromQueue: tenantProcedure.input(removeFromQueueInput).mutation(async ({ ctx, input }) => {
+  removeFromQueue: managerOrAdminProcedure.input(removeFromQueueInput).mutation(async ({ ctx, input }) => {
     const item = await ctx.db
       .select({ id: syncOutbox.id })
       .from(syncOutbox)
@@ -513,7 +513,7 @@ export const syncRouter = router({
   /**
    * List unresolved sync conflicts
    */
-  listConflicts: tenantProcedure.input(listConflictsInput).query(async ({ ctx, input }) => {
+  listConflicts: managerOrAdminProcedure.input(listConflictsInput).query(async ({ ctx, input }) => {
     const where = and(eq(syncConflicts.tenantId, ctx.tenantId), eq(syncConflicts.status, 'pending'));
     const [items, countRow] = await Promise.all([
       ctx.db
@@ -648,7 +648,7 @@ export const syncRouter = router({
    * conflicts. Read-only mirror of `sync.status` plus the actual row
    * payloads.
    */
-  pull: tenantProcedure.input(pullSyncInput).query(async ({ ctx, input }) => {
+  pull: managerOrAdminProcedure.input(pullSyncInput).query(async ({ ctx, input }) => {
     const [overview, queue, conflicts] = await Promise.all([
       getSyncOverview(ctx.db, ctx.tenantId),
       ctx.db

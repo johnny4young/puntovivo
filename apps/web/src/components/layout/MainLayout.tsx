@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { OfflineStatusBanner } from './OfflineStatusBanner';
-import { ReadinessBanner } from '@/components/feedback/ReadinessBanner';
+import { GlobalStatusStrip } from './GlobalStatusStrip';
 import { WhatsNewOverlay } from '@/features/whats-new/WhatsNewOverlay';
 import { cn } from '@/lib/utils';
 
@@ -27,8 +26,7 @@ export function MainLayout() {
         )}
       >
         <Header onOpenSidebar={() => setMobileSidebarOpen(true)} />
-        <OfflineStatusBanner />
-        <ReadinessBanner />
+        <GlobalStatusStrip />
 
         <main className="min-w-0 px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
           <Outlet />

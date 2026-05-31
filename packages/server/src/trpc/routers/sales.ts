@@ -7,7 +7,7 @@
  * - sales.list       (tenant) - List sales with pagination/filtering
  * - sales.getById    (tenant) - Get a single sale with items
  * - sales.create     (tenant) - Create sale + items + inventory movements (transaction)
- * - sales.update     (tenant) - Update payment method/status/notes
+ * - sales.update     (tenant, manager/admin) - Update payment method/status/notes
  * - sales.returnSale (tenant, manager/admin) - Refund a completed sale and restore stock
  * - sales.void       (tenant, admin) - Void a sale
  *
@@ -18,6 +18,7 @@ import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   criticalCommandAdminProcedure,
   criticalCommandCashierManagerOrAdminProcedure,
@@ -427,7 +428,7 @@ export const salesRouter = router({
   /**
    * Update payment method, payment status, or notes on a sale
    */
-  update: tenantProcedure.input(updateSaleInput).mutation(async ({ ctx, input }) => {
+  update: managerOrAdminProcedure.input(updateSaleInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db

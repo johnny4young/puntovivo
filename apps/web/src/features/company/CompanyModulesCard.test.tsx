@@ -132,10 +132,24 @@ describe('CompanyModulesCard (ENG-068)', () => {
     render(<CompanyModulesCard />);
     expect(screen.getByText('Co-piloto')).toBeInTheDocument();
     expect(screen.getByText('Cotizaciones')).toBeInTheDocument();
-    // Descriptions land in es-CO neutral LATAM (no voseo).
-    expect(
-      screen.getByText(/Analíticas conversacionales/i)
-    ).toBeInTheDocument();
+    // Descriptions land in es-CO neutral LATAM (no voseo) and carry a
+    // non-empty operator description per row.
+    const copilotRow = screen.getByTestId('modules-row-copilot');
+    expect(copilotRow.querySelector('.d')?.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('keeps dev jargon out of operator-facing copy (FASE 7 F5)', () => {
+    render(<CompanyModulesCard />);
+    const card = screen.getByText('Co-piloto').closest('section');
+    const copy = card?.textContent ?? '';
+    // No ticket ids, server error codes, route paths or router/internal
+    // identifiers should ever surface in operator copy.
+    expect(copy).not.toMatch(/ENG-\d+/);
+    expect(copy).not.toMatch(/FORBIDDEN/);
+    expect(copy).not.toMatch(/\bendpoints?\b/i);
+    expect(copy).not.toMatch(/plug-and-play|plugs the real/i);
+    expect(copy).not.toMatch(/webhook_outbox|deliveryOrders|quotations\.\*/);
+    expect(copy).not.toMatch(/\/(co-pilot|operations|quotations|touch|kds|customer-display|delivery|m)\b/);
   });
 
   it('shows the default vs explicit indicator per row', () => {
@@ -149,8 +163,8 @@ describe('CompanyModulesCard (ENG-068)', () => {
 
   it('fires modules.setActive with the right payload and surfaces a success toast', async () => {
     render(<CompanyModulesCard />);
-    const copilotToggle = screen.getByTestId('modules-toggle-copilot') as HTMLInputElement;
-    expect(copilotToggle.checked).toBe(true);
+    const copilotToggle = screen.getByTestId('modules-toggle-copilot');
+    expect(copilotToggle).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(copilotToggle);
 
@@ -175,9 +189,7 @@ describe('CompanyModulesCard (ENG-068)', () => {
     setActiveMutate.mockRejectedValueOnce(new Error('boom'));
     render(<CompanyModulesCard />);
 
-    const quotationsToggle = screen.getByTestId(
-      'modules-toggle-quotations'
-    ) as HTMLInputElement;
+    const quotationsToggle = screen.getByTestId('modules-toggle-quotations');
     fireEvent.click(quotationsToggle);
 
     await waitFor(() => {

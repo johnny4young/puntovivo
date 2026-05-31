@@ -103,3 +103,80 @@ export function getSyncQueueIssueMessage(
 
   return t('company.sync.queue.errorGeneric');
 }
+
+/** A single field whose serialized value differs between local and remote. */
+export interface ConflictDiffField {
+  key: string;
+  localValue: string;
+  remoteValue: string;
+}
+
+type ConflictDiffData = Record<string, unknown> | null | undefined;
+
+/**
+ * Keys skipped from the inline conflict diff — internal plumbing that always
+ * differs between replicas and means nothing to the operator. Shared by both
+ * §09 sync surfaces (write-side `CompanySyncPreviewSections`, read-side
+ * `operations/SyncHealthPanel`) so they ignore exactly the same fields.
+ */
+export const DIFF_IGNORED_KEYS = new Set([
+  'id',
+  'tenantId',
+  'version',
+  'createdAt',
+  'updatedAt',
+  'syncedAt',
+]);
+
+/**
+ * Default value serializer for the inline diff (write-side
+ * `CompanySyncPreviewSections` semantics): empty strings collapse to the
+ * em-dash placeholder and a non-serializable value falls back to the same
+ * placeholder rather than throwing.
+ */
+export function formatConflictDiffValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value.length === 0 ? '—' : value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '—';
+  }
+}
+
+/**
+ * Compute the inline diff between the local and remote payloads of a sync
+ * conflict. Only fields whose serialized value differs are kept, so the
+ * operator sees exactly what changed (price, stock, ...) without opening the
+ * technical-details JSON.
+ *
+ * The value serializer is injectable so each surface keeps its exact current
+ * rendering: the write-side preview uses the default `formatConflictDiffValue`
+ * (empty string → em-dash, try/catch guard); the read-only Sync Health panel
+ * passes its own formatter. The diff-walking loop and the ignored-key set are
+ * the shared, bug-prone parts that this util centralizes.
+ */
+export function computeConflictDiff(
+  localData: ConflictDiffData,
+  remoteData: ConflictDiffData,
+  formatValue: (value: unknown) => string = formatConflictDiffValue
+): ConflictDiffField[] {
+  const local = localData ?? {};
+  const remote = remoteData ?? {};
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  const fields: ConflictDiffField[] = [];
+
+  for (const key of keys) {
+    if (DIFF_IGNORED_KEYS.has(key)) {
+      continue;
+    }
+    const localValue = formatValue(local[key]);
+    const remoteValue = formatValue(remote[key]);
+    if (localValue !== remoteValue) {
+      fields.push({ key, localValue, remoteValue });
+    }
+  }
+
+  return fields;
+}

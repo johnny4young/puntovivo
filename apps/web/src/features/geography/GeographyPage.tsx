@@ -30,6 +30,7 @@ export function GeographyPage() {
       ) : geography.activeTab === 'departments' ? (
         <DepartmentCatalogSection
           canManage={geography.canManage}
+          countries={geography.countries}
           departments={geography.departments}
           isLoading={geography.departmentsQuery.isLoading}
           error={geography.departmentsQuery.error?.message ?? null}
@@ -43,6 +44,8 @@ export function GeographyPage() {
       ) : (
         <CityCatalogSection
           canManage={geography.canManage}
+          countries={geography.countries}
+          departments={geography.departments}
           cities={geography.cities}
           isLoading={geography.citiesQuery.isLoading}
           error={geography.citiesQuery.error?.message ?? null}

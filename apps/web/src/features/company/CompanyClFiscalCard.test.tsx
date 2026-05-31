@@ -8,6 +8,9 @@
  *   dispatch real vive en CompanyPage).
  * - Submit del form llama a `fiscalSettings.updateCl` con el shape
  *   correcto.
+ * - Cuando la config fiscal está sin configurar (pack apagado + todos
+ *   los campos vacíos) muestra un EmptyState con CTA Configurar que
+ *   revela el form; con config existente el form se renderiza directo.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -29,7 +32,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 let mockCountryCode: 'MX' | 'CO' | 'CL' = 'CL';
-const mockSettingsResponse: {
+type ClSettingsResponse = {
   countryCode: 'CL';
   settings: {
     enabled: boolean;
@@ -43,7 +46,13 @@ const mockSettingsResponse: {
     ok: boolean;
     issues: Array<{ code: string; field: string; message: string }>;
   };
-} = {
+};
+
+// Caso por defecto: tenant CL sin configurar (pack apagado, campos
+// vacíos). En este estado la card muestra el EmptyState con el CTA
+// Configurar; los tests del form revelan el form primero. Los tests
+// que necesitan el form directo sobreescriben `mockSettingsResponse`.
+const UNCONFIGURED_CL: ClSettingsResponse = {
   countryCode: 'CL',
   settings: {
     enabled: false,
@@ -75,6 +84,8 @@ const mockSettingsResponse: {
     ],
   },
 };
+
+let mockSettingsResponse: ClSettingsResponse = UNCONFIGURED_CL;
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -128,15 +139,26 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCountryCode = 'CL';
+    mockSettingsResponse = UNCONFIGURED_CL;
     await i18n.changeLanguage('en');
   });
 
-  it('renderiza el form CL con el badge rojo cuando readiness.ok=false', () => {
+  it('muestra el EmptyState (sin form) cuando la config está sin configurar', () => {
     render(<CompanyClFiscalCard />);
+    // El header + el badge de readiness siguen visibles.
     expect(screen.getByText(/Chile — SII/i)).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-cl-readiness')).toHaveTextContent(
       /Not ready/i
     );
+    // EmptyState visible; form oculto hasta el CTA.
+    expect(screen.getByTestId('fiscal-cl-empty')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Issuer RUT/i)).not.toBeInTheDocument();
+  });
+
+  it('el CTA Configurar revela el form CL con el badge rojo', () => {
+    render(<CompanyClFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-cl-configure'));
+    expect(screen.queryByTestId('fiscal-cl-empty')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer RUT/i)).toBeInTheDocument();
     expect(
       screen.getByRole('option', { name: /4711/i })
@@ -144,6 +166,23 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
     expect(
       screen.getByRole('option', { name: /Santiago/i })
     ).toBeInTheDocument();
+  });
+
+  it('con config existente renderiza el form directo (sin EmptyState)', () => {
+    mockSettingsResponse = {
+      ...UNCONFIGURED_CL,
+      settings: {
+        enabled: true,
+        rut: '76123456-0',
+        giroCode: '4711',
+        comunaCode: 13101,
+        casaMatriz: 'Av Apoquindo 4500',
+        environment: 'certificacion',
+      },
+    };
+    render(<CompanyClFiscalCard />);
+    expect(screen.queryByTestId('fiscal-cl-empty')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Issuer RUT/i)).toBeInTheDocument();
   });
 
   it('no renderiza nada cuando el tenant es CO (dispatch del page)', () => {
@@ -161,6 +200,7 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
 
   it('submit envía el patch con los campos del form', () => {
     render(<CompanyClFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-cl-configure'));
     fireEvent.change(screen.getByLabelText(/Issuer RUT/i), {
       target: { value: '55555555-5' },
     });

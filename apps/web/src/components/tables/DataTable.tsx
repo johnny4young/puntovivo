@@ -10,6 +10,7 @@ import {
   ColumnFiltersState,
   VisibilityState,
   RowSelectionState,
+  type RowData,
 } from '@tanstack/react-table';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,21 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Rediseño FASE 3 — per-column class hooks so dense (.pv-table) callers
+// can opt cells into the recipe modifiers (`num` = right-aligned mono,
+// the product anchor cell, etc.) without the DataTable hard-coding any
+// column semantics. Augments TanStack's ColumnMeta so column defs stay
+// fully typed (no `any` at the call sites).
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /** Extra className applied to each body `<td>` of this column. */
+    cellClassName?: string;
+    /** Extra className applied to the header `<th>` of this column. */
+    headerClassName?: string;
+  }
+}
 
 // ENG-179b — explicit `| undefined` on every optional field so callers
 // can spread Props from parent state shapes carrying explicit-undefined
@@ -62,6 +78,16 @@ interface DataTableProps<TData, TValue> {
    * `onRowActivate` controls the "open detail" primary action.
    */
   onRowActivate?: ((row: TData) => void) | undefined;
+  /**
+   * Rediseño FASE 3 — visual density of the table chrome.
+   * `default` keeps the legacy `.data-table` recipe; `dense` switches to
+   * the redesign `.pv-table` recipe (sticky header, zebra, 48-52px rows,
+   * 196px anchor first column). Opt in per consumer so anchor-style
+   * tables (products, customers, inventory movements) adopt the dense
+   * look while narrow CRUD tables keep the default until they are
+   * migrated + smoked.
+   */
+  variant?: 'default' | 'dense' | undefined;
 }
 
 export function DataTable<TData, TValue>({
@@ -75,6 +101,7 @@ export function DataTable<TData, TValue>({
   onRowFocusChange,
   isRowSelected,
   onRowActivate,
+  variant = 'default',
 }: DataTableProps<TData, TValue>) {
   const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -84,6 +111,10 @@ export function DataTable<TData, TValue>({
   const [globalFilter, setGlobalFilter] = useState('');
   const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
+  // BUG-004 — wrapper anchor so a row blur can tell "focus moved to
+  // another row / intra-row" (keep selection) from "focus left the
+  // table entirely" (clear selection via onRowFocusChange(null)).
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const table = useReactTable({
     data,
@@ -128,6 +159,7 @@ export function DataTable<TData, TValue>({
     },
   });
   const visibleRows = table.getRowModel().rows;
+  const selectedRowCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
   const resolvedFocusedRowIndex =
     visibleRows.length === 0 ? -1 : Math.min(focusedRowIndex, visibleRows.length - 1);
 
@@ -208,9 +240,9 @@ export function DataTable<TData, TValue>({
           />
         )}
         <div className="flex items-center gap-2">
-          {enableRowSelection && Object.keys(rowSelection).length > 0 && (
+          {enableRowSelection && selectedRowCount > 0 && (
             <span className="text-sm text-secondary-600">
-              {Object.keys(rowSelection).filter(k => rowSelection[k]).length} selected
+              {t('table.selectedRows', { count: selectedRowCount })}
             </span>
           )}
         </div>
@@ -230,12 +262,13 @@ export function DataTable<TData, TValue>({
          * into the first row that the roving tabindex on TR (line
          * ~248) keeps at 0. */}
         <div
+          ref={tableWrapperRef}
           className="data-table-scroll"
           tabIndex={0}
           role="region"
           aria-label={t('table.scrollableLabel')}
         >
-          <table className="data-table">
+          <table className={variant === 'dense' ? 'pv-table' : 'data-table'}>
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
@@ -243,7 +276,10 @@ export function DataTable<TData, TValue>({
                     <th
                       key={header.id}
                       style={{ width: header.getSize() }}
-                      className={cn(header.column.getCanSort() && 'cursor-pointer select-none')}
+                      className={cn(
+                        header.column.getCanSort() && 'cursor-pointer select-none',
+                        header.column.columnDef.meta?.headerClassName
+                      )}
                       onClick={header.column.getToggleSortingHandler()}
                     >
                       {header.isPlaceholder ? null : (
@@ -312,33 +348,34 @@ export function DataTable<TData, TValue>({
                         }
                       }}
                       onBlur={event => {
-                        // Only clear selection when the blur target is outside
-                        // the current row; otherwise intra-row tabbing would
-                        // spuriously deselect.
-                        if (
-                          onRowFocusChange &&
-                          !event.currentTarget.contains(event.relatedTarget as Node | null)
-                        ) {
-                          // Do NOT clear on blur — the operator may Ctrl+Shift+P
-                          // after tabbing away. SalesHistoryTable clears
-                          // explicitly via click on a different row or on the
-                          // Escape key if it wants to.
+                        // BUG-004 — clear the parent focus state only when
+                        // focus leaves the WHOLE table, not on intra-row or
+                        // row-to-row moves. relatedTarget === null (focus went
+                        // nowhere focusable, e.g. a click on empty page chrome)
+                        // or a target outside the table wrapper both count as
+                        // "left the table". Moving to another row / a nested
+                        // cell control stays inside the wrapper, so selection
+                        // is preserved (the operator can still tab between rows
+                        // before reprinting). The roving tabindex is untouched.
+                        if (!onRowFocusChange) {
+                          return;
+                        }
+                        const nextFocus = event.relatedTarget as Node | null;
+                        const stayedInTable =
+                          nextFocus !== null &&
+                          tableWrapperRef.current?.contains(nextFocus) === true;
+                        if (!stayedInTable) {
+                          onRowFocusChange(null);
                         }
                       }}
                       onKeyDown={event => {
-                        handleRowKeyDown(
-                          event,
-                          rowIndex,
-                          row.getCanSelect(),
-                          row.original,
-                          () => {
-                            row.toggleSelected();
-                          }
-                        );
+                        handleRowKeyDown(event, rowIndex, row.getCanSelect(), row.original, () => {
+                          row.toggleSelected();
+                        });
                       }}
                     >
                       {row.getVisibleCells().map(cell => (
-                        <td key={cell.id}>
+                        <td key={cell.id} className={cell.column.columnDef.meta?.cellClassName}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -362,9 +399,11 @@ export function DataTable<TData, TValue>({
           {table.getFilteredRowModel().rows.length === 0
             ? t('table.noEntries')
             : t('table.showing', {
-                from: table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1,
+                from:
+                  table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1,
                 to: Math.min(
-                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  (table.getState().pagination.pageIndex + 1) *
+                    table.getState().pagination.pageSize,
                   table.getFilteredRowModel().rows.length
                 ),
                 total: table.getFilteredRowModel().rows.length,
@@ -388,7 +427,10 @@ export function DataTable<TData, TValue>({
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="text-sm text-secondary-600">
-            {t('table.page', { current: table.getState().pagination.pageIndex + 1, total: table.getPageCount() })}
+            {t('table.page', {
+              current: table.getState().pagination.pageIndex + 1,
+              total: table.getPageCount(),
+            })}
           </span>
           <button
             className="btn-outline btn-icon"

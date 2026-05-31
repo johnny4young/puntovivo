@@ -2,7 +2,7 @@
  * ENG-104 — Setup readiness Zod schemas.
  *
  * Output shape consumed by `setupReadiness.get` and rendered by the
- * `CompanyReadinessCard` + `ReadinessBanner`. The section ids are a
+ * `CompanyReadinessCard` + `GlobalStatusStrip`. The section ids are a
  * closed enum so the renderer's i18n key registry stays in lockstep
  * with the server — adding a new section means widening BOTH the
  * server union AND `apps/web/src/i18n/locales/{en,es}/setup.json`.

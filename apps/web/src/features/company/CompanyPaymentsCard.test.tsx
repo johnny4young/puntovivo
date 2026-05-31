@@ -129,13 +129,10 @@ describe('CompanyPaymentsCard (ENG-038 slice 2)', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('renders one section per manifest rail with stub badge and missing-fields readiness for the unconfigured rail', () => {
+  it('renders one section per manifest rail with a missing-credentials readiness chip for the unconfigured rail', () => {
     render(<CompanyPaymentsCard />);
     expect(screen.getByTestId('payments-rail-wompi')).toBeInTheDocument();
     expect(screen.getByTestId('payments-rail-mercado_pago')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('payments-rail-wompi-integration')
-    ).toHaveTextContent(/stub/i);
     expect(screen.getByTestId('payments-rail-wompi-readiness')).toHaveTextContent(
       /Missing credentials/i
     );

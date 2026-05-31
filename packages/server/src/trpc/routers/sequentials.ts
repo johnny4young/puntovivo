@@ -123,7 +123,9 @@ export const sequentialsRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Sequential configuration not found' });
     }
 
-    await ctx.db.delete(sequentials).where(eq(sequentials.id, input.id));
+    await ctx.db
+      .delete(sequentials)
+      .where(and(eq(sequentials.id, input.id), eq(sequentials.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'sequentials',

@@ -1,6 +1,9 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { Plus } from 'lucide-react';
+import { Modal } from '@/components/form-controls/Modal';
+import { SimpleFormField } from '@/components/form-controls/FormField';
+import { cn } from '@/lib/utils';
 import type { CustomerCatalogItem } from '@/types';
 
 export interface CustomerCatalogFormValues {
@@ -30,6 +33,15 @@ function mapCatalogItemToForm(item: CustomerCatalogItem | null): CustomerCatalog
   };
 }
 
+/**
+ * Rediseño FASE 6 — construye la prop `error` de SimpleFormField bajo
+ * `exactOptionalPropertyTypes`: la prop se omite por completo cuando no hay
+ * mensaje, en vez de pasarla como `undefined`.
+ */
+function errorProp(message: string | undefined): { error?: string } {
+  return message ? { error: message } : {};
+}
+
 interface CustomerCatalogFormModalProps {
   isOpen: boolean;
   item: CustomerCatalogItem | null;
@@ -56,6 +68,8 @@ export function CustomerCatalogFormModal({
 
   const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !item;
+  const { errors } = form.formState;
+  const isActive = useWatch({ control: form.control, name: 'isActive' });
 
   return (
     <Modal
@@ -63,72 +77,83 @@ export function CustomerCatalogFormModal({
       onClose={onClose}
       title={isCreate ? t('catalogs.form.createTitle', { type: singularLabel }) : t('catalogs.form.editTitle', { type: singularLabel })}
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('catalogs.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving
-              ? t('catalogs.form.saving')
-              : isCreate
-                ? t('catalogs.form.create', { type: singularLabel })
-                : t('catalogs.form.save')}
-          </ModalButton>
-        </>
+        <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isActive}
+            id="catalog-is-active"
+            className="inline-flex items-center gap-2.5 text-sm text-secondary-600"
+            onClick={() =>
+              form.setValue('isActive', !isActive, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          >
+            <span className={cn('pv-switch', isActive && 'on')} aria-hidden="true" />
+            {t('catalogs.form.isActive', { type: singularLabel })}
+          </button>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+            <button type="button" className="pv-btn outline" onClick={onClose} disabled={isSaving}>
+              {t('catalogs.form.cancel')}
+            </button>
+            <button type="button" className="pv-btn primary" onClick={handleSubmit} disabled={isSaving}>
+              {isCreate && <Plus aria-hidden="true" />}
+              {isSaving
+                ? t('catalogs.form.saving')
+                : isCreate
+                  ? t('catalogs.form.create', { type: singularLabel })
+                  : t('catalogs.form.save')}
+            </button>
+          </div>
+        </div>
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="catalog-code" className="label">
-              {t('catalogs.form.code')}
-            </label>
+          <SimpleFormField
+            label={t('catalogs.form.code')}
+            htmlFor="catalog-code"
+            required
+            {...errorProp(errors.code?.message)}
+          >
             <input
               id="catalog-code"
-              className="input mt-1"
+              aria-required="true"
+              className={cn('pv-input', errors.code && 'error')}
               {...form.register('code', { required: t('catalogs.form.codeRequired', { type: singularLabel }) })}
             />
-            {form.formState.errors.code && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
-            )}
-          </div>
+          </SimpleFormField>
 
-          <div>
-            <label htmlFor="catalog-name" className="label">
-              {t('catalogs.form.name')}
-            </label>
+          <SimpleFormField
+            label={t('catalogs.form.name')}
+            htmlFor="catalog-name"
+            required
+            {...errorProp(errors.name?.message)}
+          >
             <input
               id="catalog-name"
-              className="input mt-1"
+              aria-required="true"
+              className={cn('pv-input', errors.name && 'error')}
               {...form.register('name', { required: t('catalogs.form.nameRequired', { type: singularLabel }) })}
             />
-            {form.formState.errors.name && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-            )}
-          </div>
+          </SimpleFormField>
         </div>
 
-        <div>
-          <label htmlFor="catalog-description" className="label">
-            {t('catalogs.form.description')}
-          </label>
+        <SimpleFormField label={t('catalogs.form.description')} htmlFor="catalog-description">
           <textarea
             id="catalog-description"
-            className="input mt-1 min-h-[88px]"
+            className="pv-input area"
             {...form.register('description')}
           />
-        </div>
+        </SimpleFormField>
 
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
-            {...form.register('isActive')}
-          />
-          {t('catalogs.form.isActive', { type: singularLabel })}
-        </label>
-
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p className="err-msg" role="alert">
+            {error}
+          </p>
+        )}
       </form>
     </Modal>
   );

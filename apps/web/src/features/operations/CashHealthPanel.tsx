@@ -1,9 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Coins } from 'lucide-react';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@puntovivo/server';
+import { Coins, DoorOpen, ListChecks, Scale, TrendingDown } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import { Badge } from '@/components/ui/Badge';
+import { KpiTile } from '@/components/ui';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
  * ENG-065b — Operations Center: Cash Health panel.
@@ -16,13 +21,27 @@ import { Badge } from '@/components/ui/Badge';
  * physical-world action (recount the till, file an audit) and the
  * surface exists so the operator knows where to look — not to advance
  * state from the UI.
+ *
+ * Rediseño FASE 6 (O2) — recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`,
+ * descuadres en tono danger/warning), tablas con `.pv-table`, estados
+ * de discrepancia con `.pv-badge` (balanceado / faltante / sobrante) y
+ * vacíos con `EmptyState`. Encabezado de panel con `.pv-kicker` /
+ * `.pv-title`.
  */
 
 const CASH_OVER_SHORT_EPSILON = 0.009;
 
-function overShortVariant(value: number): 'success' | 'danger' | 'warning' {
+type OverShortTone = 'success' | 'danger' | 'warning';
+
+function overShortTone(value: number): OverShortTone {
   if (Math.abs(value) <= CASH_OVER_SHORT_EPSILON) return 'success';
   return value < 0 ? 'danger' : 'warning';
+}
+
+/** Etiqueta semántica del estado de cuadre (balanceado / faltante / sobrante). */
+function overShortLabelKey(value: number): 'balanced' | 'short' | 'over' {
+  if (Math.abs(value) <= CASH_OVER_SHORT_EPSILON) return 'balanced';
+  return value < 0 ? 'short' : 'over';
 }
 
 export function CashHealthPanel() {
@@ -38,16 +57,10 @@ export function CashHealthPanel() {
   return (
     <div className="space-y-6">
       <section className="card p-6 space-y-5">
-        <header className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-            <Coins className="h-5 w-5 text-primary-700" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-900">
-              {t('cash.title')}
-            </h2>
-            <p className="text-sm text-secondary-500">{t('cash.description')}</p>
-          </div>
+        <header>
+          <p className="pv-kicker">{t('cash.kicker')}</p>
+          <h2 className="pv-title text-2xl">{t('cash.title')}</h2>
+          <p className="mt-2 text-sm text-secondary-500">{t('cash.description')}</p>
         </header>
 
         {reconciliationQuery.isLoading && (
@@ -55,157 +68,184 @@ export function CashHealthPanel() {
         )}
 
         {reconciliationQuery.error && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-            {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+          <div className="pv-strip danger">
+            <span className="msg">
+              {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+            </span>
           </div>
         )}
 
         {data && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="cash-summary">
-            <SummaryTile
+          <div className="pv-kpis grid grid-cols-2 md:grid-cols-4" data-testid="cash-summary">
+            <KpiTile
+              icon={DoorOpen}
               label={t('cash.summary.openSessions')}
               value={String(data.summary.openSessionCount)}
+              tone="primary"
             />
-            <SummaryTile
+            <KpiTile
+              icon={ListChecks}
               label={t('cash.summary.closedRecent', { days: data.summary.windowDays })}
               value={String(data.summary.closedRecentCount)}
+              tone="ink"
             />
-            <SummaryTile
+            <KpiTile
+              icon={Scale}
               label={t('cash.summary.netOverShort')}
               value={formatCurrency(data.summary.netOverShort)}
-              variant={overShortVariant(data.summary.netOverShort)}
+              tone={overShortTone(data.summary.netOverShort)}
+              mono
             />
-            <SummaryTile
+            <KpiTile
+              icon={TrendingDown}
               label={t('cash.summary.largestDiscrepancy')}
               value={formatCurrency(data.summary.largestDiscrepancy)}
-              variant={
-                data.summary.largestDiscrepancy > CASH_OVER_SHORT_EPSILON
-                  ? 'warning'
-                  : 'success'
+              tone={
+                data.summary.largestDiscrepancy > CASH_OVER_SHORT_EPSILON ? 'warning' : 'success'
               }
+              mono
             />
           </div>
         )}
       </section>
 
-      {data && (
-        <section className="card p-6 space-y-4">
-          <h3 className="text-base font-semibold text-secondary-900">
-            {t('cash.bySite.title')}
-          </h3>
-          {data.bySite.length === 0 ? (
-            <p className="text-sm text-secondary-500">
-              {t('cash.bySite.emptyState')}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                  <tr>
-                    <th className="px-3 py-2">{t('cash.bySite.columns.site')}</th>
-                    <th className="px-3 py-2">{t('cash.bySite.columns.openSessions')}</th>
-                    <th className="px-3 py-2">{t('cash.bySite.columns.netOverShort')}</th>
-                    <th className="px-3 py-2">{t('cash.bySite.columns.overShortCount')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.bySite.map(row => (
-                    <tr key={row.siteId} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-900">{row.siteName}</td>
-                      <td className="px-3 py-2 text-secondary-700">{row.openSessions}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant={overShortVariant(row.netOverShort)}>
-                          {formatCurrency(row.netOverShort)}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={row.overShortCount === 0 ? 'success' : 'warning'}>
-                          {row.overShortCount}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
+      {data && <CashBySiteSection rows={data.bySite} />}
 
-      {data && (
-        <section className="card p-6 space-y-4">
-          <h3 className="text-base font-semibold text-secondary-900">
-            {t('cash.recentDiscrepancies.title')}
-          </h3>
-          {data.recentDiscrepancies.length === 0 ? (
-            <p className="text-sm text-secondary-500">
-              {t('cash.recentDiscrepancies.emptyState')}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                  <tr>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.site')}</th>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.cashier')}</th>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.closedAt')}</th>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.expected')}</th>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.actual')}</th>
-                    <th className="px-3 py-2">{t('cash.recentDiscrepancies.columns.overShort')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentDiscrepancies.map(row => (
-                    <tr key={row.sessionId} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-900">{row.siteName}</td>
-                      <td className="px-3 py-2 text-secondary-700">{row.cashierName}</td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {row.closedAt ? formatDateTime(row.closedAt) : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {formatCurrency(row.expectedBalance)}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {formatCurrency(row.actualCount)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={overShortVariant(row.overShort)}>
-                          {formatCurrency(row.overShort)}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
+      {data && <CashRecentDiscrepanciesSection rows={data.recentDiscrepancies} />}
     </div>
   );
 }
 
-function SummaryTile({
-  label,
-  value,
-  variant,
-}: {
-  label: string;
-  value: string;
-  variant?: 'success' | 'warning' | 'danger';
-}) {
-  const accent =
-    variant === 'danger'
-      ? 'text-danger-700'
-      : variant === 'warning'
-        ? 'text-warning-700'
-        : variant === 'success'
-          ? 'text-success-700'
-          : 'text-secondary-900';
+type CashReconciliation = inferRouterOutputs<AppRouter>['reports']['cash']['reconciliation'];
+type BySiteRow = CashReconciliation['bySite'][number];
+
+/**
+ * Resumen por sede. Pagina client-side (8 por página) sobre el array ya
+ * cargado; el footer `TablePagination` solo aparece cuando hay más de una
+ * página. El render de cada fila (badges de cuadre, montos con signo) se
+ * conserva intacto.
+ */
+function CashBySiteSection({ rows }: { rows: BySiteRow[] }) {
+  const { t } = useTranslation('operations');
+  const { pageRows, hasPagination, ...pagination } = usePaginatedRows(rows, 8);
+
   return (
-    <div className="rounded-xl border border-secondary-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${accent}`}>{value}</p>
-    </div>
+    <section className="card p-6 space-y-4">
+      <h3 className="pv-title text-lg">{t('cash.bySite.title')}</h3>
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={Coins}
+          title={t('cash.bySite.emptyTitle')}
+          description={t('cash.bySite.emptyState')}
+        />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="pv-table">
+              <thead>
+                <tr>
+                  <th>{t('cash.bySite.columns.site')}</th>
+                  <th className="num">{t('cash.bySite.columns.openSessions')}</th>
+                  <th className="num">{t('cash.bySite.columns.netOverShort')}</th>
+                  <th>{t('cash.bySite.columns.overShortCount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map(row => (
+                  <tr key={row.siteId}>
+                    <td className="pname">{row.siteName}</td>
+                    <td className="num">{row.openSessions}</td>
+                    <td className="num">
+                      <span className={`pv-badge ${overShortTone(row.netOverShort)}`}>
+                        <span className="dot" />
+                        {formatCurrency(row.netOverShort)}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`pv-badge ${row.overShortCount === 0 ? 'success' : 'warning'}`}
+                      >
+                        {row.overShortCount}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasPagination && (
+            <TablePagination {...pagination} onPageChange={pagination.setPage} />
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+type RecentDiscrepancyRow = CashReconciliation['recentDiscrepancies'][number];
+
+/**
+ * Cierres recientes con discrepancia. Pagina client-side (8 por página) sobre
+ * el array ya cargado; el footer `TablePagination` solo aparece cuando hay más
+ * de una página. El render de cada fila (badge de estado de cuadre, montos
+ * formateados, fecha) se conserva intacto.
+ */
+function CashRecentDiscrepanciesSection({ rows }: { rows: RecentDiscrepancyRow[] }) {
+  const { t } = useTranslation('operations');
+  const { pageRows, hasPagination, ...pagination } = usePaginatedRows(rows, 8);
+
+  return (
+    <section className="card p-6 space-y-4">
+      <h3 className="pv-title text-lg">{t('cash.recentDiscrepancies.title')}</h3>
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={Scale}
+          title={t('cash.recentDiscrepancies.emptyTitle')}
+          description={t('cash.recentDiscrepancies.emptyState')}
+        />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="pv-table">
+              <thead>
+                <tr>
+                  <th>{t('cash.recentDiscrepancies.columns.site')}</th>
+                  <th>{t('cash.recentDiscrepancies.columns.register')}</th>
+                  <th>{t('cash.recentDiscrepancies.columns.cashier')}</th>
+                  <th>{t('cash.recentDiscrepancies.columns.closedAt')}</th>
+                  <th className="num">{t('cash.recentDiscrepancies.columns.expected')}</th>
+                  <th className="num">{t('cash.recentDiscrepancies.columns.actual')}</th>
+                  <th>{t('cash.recentDiscrepancies.columns.overShort')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map(row => (
+                  <tr key={row.sessionId}>
+                    <td className="pname">{row.siteName}</td>
+                    <td>{row.registerName}</td>
+                    <td>{row.cashierName}</td>
+                    <td className="muted">
+                      {row.closedAt ? formatDateTime(row.closedAt) : '—'}
+                    </td>
+                    <td className="num">{formatCurrency(row.expectedBalance)}</td>
+                    <td className="num">{formatCurrency(row.actualCount)}</td>
+                    <td>
+                      <span className={`pv-badge ${overShortTone(row.overShort)}`}>
+                        <span className="dot" />
+                        {t(`cash.overShortStatus.${overShortLabelKey(row.overShort)}`)} ·{' '}
+                        {formatCurrency(row.overShort)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasPagination && (
+            <TablePagination {...pagination} onPageChange={pagination.setPage} />
+          )}
+        </>
+      )}
+    </section>
   );
 }

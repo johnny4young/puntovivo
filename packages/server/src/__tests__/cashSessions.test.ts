@@ -589,6 +589,14 @@ describe('Cash sessions tRPC Router', () => {
     expect(movements).toEqual([]);
   });
 
+  it('requires manager or admin role to list recent cash-session balances', async () => {
+    const cashierCaller = appRouter.createCaller(createTestContext({ role: 'cashier' }));
+
+    await expect(cashierCaller.cashSessions.listRecent()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
   it('builds a cash management report with active sessions and discrepancy summary for admins', async () => {
     const db = getDatabase();
     const now = new Date().toISOString();

@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Plus, X } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Banknote,
+  CreditCard,
+  Landmark,
+  MoreHorizontal,
+  Plus,
+  X,
+} from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { sumBy } from '@/lib/numbers';
@@ -109,6 +117,25 @@ const TENDER_SUM_EPSILON = 0.005;
 // ENG-039d — preset tip percentages. 0% is rendered as "Sin propina"
 // so the cashier can explicitly clear after picking 10/15.
 const TIP_PRESETS = [0, 10, 15] as const;
+
+// Single-tender method tiles (rediseño §06). The order + icon mapping
+// mirrors the approved mockup; `credit` is gated to manager + admin
+// with an attached customer (same rule as the legacy <option>) and is
+// filtered out of this list when `creditMethodAvailable` is false. The
+// labels reuse the existing `payment.*` i18n keys so no copy is
+// duplicated. The hidden <select> below remains the registered form
+// control — the tiles only drive `form.setValue('paymentMethod', …)`.
+const PAYMENT_METHOD_TILES: ReadonlyArray<{
+  method: PaymentMethod;
+  labelKey: string;
+  icon: typeof Banknote;
+}> = [
+  { method: 'cash', labelKey: 'payment.cash', icon: Banknote },
+  { method: 'card', labelKey: 'payment.card', icon: CreditCard },
+  { method: 'transfer', labelKey: 'payment.transfer', icon: ArrowLeftRight },
+  { method: 'credit', labelKey: 'payment.credit', icon: Landmark },
+  { method: 'other', labelKey: 'payment.other', icon: MoreHorizontal },
+];
 
 function getDefaultValues(
   total: number,
@@ -612,12 +639,53 @@ export function SalePaymentModal({
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label htmlFor="sale-payment-method" className="label">
+                <span className="label">{t('payment.paymentMethod')}</span>
+                {/*
+                  Rediseño §06 — método de pago como tiles de 2 columnas.
+                  Cada tile es un .pv-btn.tile (64px, columna, ícono +
+                  etiqueta); el método activo añade .on. El <select>
+                  registrado vive oculto (sr-only) y sigue siendo la
+                  fuente de verdad del formulario: las tiles solo llaman a
+                  form.setValue('paymentMethod', …). Mantener el select
+                  preserva la accesibilidad por teclado y el contrato de
+                  los tests (selectOptions / toHaveValue / testids).
+                */}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {PAYMENT_METHOD_TILES.filter(
+                    // ENG-090 — credit tile gated to manager + admin AND
+                    // requires a customer attached. Cashier never sees it
+                    // (server router also enforces the role gate on the
+                    // credit payment method). Walk-in (no customer) hides
+                    // the tile because credit is per-customer by definition.
+                    tile => tile.method !== 'credit' || creditMethodAvailable
+                  ).map(tile => {
+                    const TileIcon = tile.icon;
+                    const isActive = paymentMethod === tile.method;
+                    return (
+                      <button
+                        key={tile.method}
+                        type="button"
+                        className={`pv-btn outline tile${isActive ? ' on' : ''}`}
+                        aria-pressed={isActive}
+                        onClick={() =>
+                          form.setValue('paymentMethod', tile.method, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }
+                      >
+                        <TileIcon aria-hidden="true" />
+                        <span style={{ fontSize: 12 }}>{t(tile.labelKey)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <label htmlFor="sale-payment-method" className="sr-only">
                   {t('payment.paymentMethod')}
                 </label>
                 <select
                   id="sale-payment-method"
-                  className="input mt-1"
+                  className="sr-only"
                   data-testid="sale-payment-method-select"
                   {...form.register('paymentMethod')}
                 >

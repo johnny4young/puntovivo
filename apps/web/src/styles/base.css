@@ -45,4 +45,29 @@
     font-family: var(--font-display-face);
     letter-spacing: -0.03em;
   }
+
+  /* Rediseño FASE 0/1 — anillo de foco global accesible (WCAG 2.1 AA,
+   * objetivo táctil + navegación por teclado). Se aplica a TODO control
+   * enfocable (botones, enlaces, inputs, filas clicables, tabs, switches).
+   * Usamos `outline` en vez de `box-shadow` porque los botones del sistema
+   * ya llevan glow propio por box-shadow y el outline no compite con él;
+   * además el outline permanece visible en modo de alto contraste forzado.
+   * Solo dispara en `:focus-visible` (teclado), nunca al click de mouse. */
+  :where(
+      a[href],
+      button,
+      input,
+      select,
+      textarea,
+      summary,
+      [role="tab"],
+      [role="button"],
+      [role="switch"],
+      [role="menuitem"],
+      [role="option"],
+      [tabindex]:not([tabindex="-1"])
+    ):focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+  }
 }

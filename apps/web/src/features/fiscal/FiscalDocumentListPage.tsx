@@ -7,6 +7,8 @@ import {
   FiscalStatusBadge,
   type FiscalDocumentStatus,
 } from '@/components/fiscal/FiscalStatusBadge';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
@@ -68,6 +70,7 @@ export function FiscalDocumentListPage() {
   });
 
   const items = listQuery.data?.items ?? [];
+  const { pageRows, ...pagination } = usePaginatedRows(items, 8);
 
   return (
     <div className="space-y-6">
@@ -161,7 +164,7 @@ export function FiscalDocumentListPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map(row => (
+                {pageRows.map(row => (
                   <tr key={row.id} className="border-t border-line/60 align-top">
                     <td className="py-2 pr-4 whitespace-nowrap text-secondary-700">
                       {formatDateTime(row.emittedAt)}
@@ -206,6 +209,7 @@ export function FiscalDocumentListPage() {
                 ))}
               </tbody>
             </table>
+            <TablePagination {...pagination} onPageChange={pagination.setPage} />
           </div>
         )}
       </div>

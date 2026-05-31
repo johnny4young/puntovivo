@@ -1,7 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CloudUpload } from 'lucide-react';
+import {
+  AlertTriangle,
+  Clock,
+  CloudUpload,
+  RefreshCw,
+  RotateCw,
+  XCircle,
+} from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { CompanySyncActions } from '@/features/company/CompanySyncActions';
 import {
@@ -14,26 +21,62 @@ import {
   CompanySyncQueuePreview,
 } from '@/features/company/CompanySyncPreviewSections';
 import { CompanySyncMergeModal } from '@/features/company/CompanySyncMergeModal';
+import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
 
-const syncSnapshotQueryKey = ['sync', 'snapshot', 5, 5] as const;
 const syncPreviewLimit = 5;
 
-interface SyncMetricProps {
+interface SyncKpiProps {
+  icon: ElementType;
   label: string;
-  value: string | number;
+  value: string;
+  /** Turns the tile and its value danger-toned when an alarming count is > 0. */
+  alarming?: boolean;
+  /** Render the value in compact mono — used for the last-sync timestamp. */
+  mono?: boolean;
 }
 
-function SyncMetric({ label, value }: SyncMetricProps) {
+/**
+ * Single metric tile on the shared `.pv-kpi` recipe (propuesta §09). Counts use
+ * the neutral ink glyph and flip to danger — glyph, border, background and
+ * value — when `alarming` is set, so a non-zero failure / conflict count reads
+ * as urgent instead of a flat grey number.
+ */
+function SyncKpi({ icon: Icon, label, value, alarming = false, mono = false }: SyncKpiProps) {
   return (
-    <div className="surface-panel-muted">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-secondary-900">{value}</p>
+    <div
+      className={
+        alarming
+          ? 'pv-kpi border-danger-500/35 bg-danger-50/50'
+          : 'pv-kpi'
+      }
+    >
+      <div className="hd">
+        <span className={alarming ? 'pv-gt pv-gt-danger' : 'pv-gt pv-gt-ink'}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <span className="lbl">{label}</span>
+      </div>
+      <div
+        className={
+          mono
+            ? 'val mono mt-[18px] text-[15px]'
+            : alarming
+              ? 'val text-danger-700'
+              : 'val'
+        }
+      >
+        {value}
+      </div>
     </div>
   );
+}
+
+function formatCount(value: number | undefined): string {
+  return typeof value === 'number' ? value.toLocaleString() : '—';
 }
 
 export function CompanySyncCard() {
@@ -41,15 +84,11 @@ export function CompanySyncCard() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pendingResolution, setPendingResolution] = useState<PendingResolution | null>(null);
-  const snapshotQuery = useQuery({
-    queryKey: syncSnapshotQueryKey,
-    queryFn: () =>
-      vanillaClient.sync.pull.query({
-        queueLimit: syncPreviewLimit,
-        conflictLimit: syncPreviewLimit,
-      }),
-    refetchInterval: 30_000,
-  });
+  const { snapshotQuery, queryKey: syncSnapshotQueryKey, snapshot, queueItems, conflicts } =
+    useSyncSnapshot({
+      queueLimit: syncPreviewLimit,
+      conflictLimit: syncPreviewLimit,
+    });
 
   const refreshSyncSnapshot = async () => {
     await queryClient.invalidateQueries({ queryKey: ['sync', 'snapshot'] });
@@ -119,9 +158,6 @@ export function CompanySyncCard() {
     onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.conflictError' }),
   });
 
-  const snapshot = snapshotQuery.data;
-  const queueItems = snapshot?.queue ?? [];
-  const conflicts = snapshot?.conflicts ?? [];
   const isRefreshing = snapshotQuery.isRefetching || pullMutation.isPending;
 
   return (
@@ -144,12 +180,35 @@ export function CompanySyncCard() {
         </div>
       )}
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-        <SyncMetric label={t('company.sync.pendingChanges')} value={snapshot?.pendingCount ?? '...'} />
-        <SyncMetric label={t('company.sync.retrying')} value={snapshot?.retryingCount ?? '...'} />
-        <SyncMetric label={t('company.sync.failures')} value={snapshot?.failedCount ?? '...'} />
-        <SyncMetric label={t('company.sync.conflicts')} value={snapshot?.conflictsCount ?? '...'} />
-        <SyncMetric label={t('company.sync.lastSync')} value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('company.sync.notYet')} />
+      <div className="pv-kpis grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <SyncKpi
+          icon={Clock}
+          label={t('company.sync.pendingChanges')}
+          value={formatCount(snapshot?.pendingCount)}
+        />
+        <SyncKpi
+          icon={RotateCw}
+          label={t('company.sync.retrying')}
+          value={formatCount(snapshot?.retryingCount)}
+        />
+        <SyncKpi
+          icon={XCircle}
+          label={t('company.sync.failures')}
+          value={formatCount(snapshot?.failedCount)}
+          alarming={(snapshot?.failedCount ?? 0) > 0}
+        />
+        <SyncKpi
+          icon={AlertTriangle}
+          label={t('company.sync.conflicts')}
+          value={formatCount(snapshot?.conflictsCount)}
+          alarming={(snapshot?.conflictsCount ?? 0) > 0}
+        />
+        <SyncKpi
+          icon={RefreshCw}
+          label={t('company.sync.lastSync')}
+          value={snapshot?.lastSyncAt ? formatDateTime(snapshot.lastSyncAt) : t('company.sync.notYet')}
+          mono
+        />
       </div>
 
       {snapshot && snapshot.pendingCount > 0 && (

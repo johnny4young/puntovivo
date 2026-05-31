@@ -106,6 +106,13 @@ export interface ServerOptions {
    * See `DatabaseOptions.encryptionKey` for the wire format.
    */
   encryptionKey?: string | undefined;
+  /**
+   * Optional override for SQLite's `busy_timeout` PRAGMA. The default
+   * remains owned by `initDatabase`; standalone/E2E callers can raise it
+   * when many independent processes intentionally contend for the same
+   * local DB.
+   */
+  sqliteBusyTimeoutMs?: number | undefined;
 }
 
 export interface PuntovivoServer {
@@ -343,6 +350,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     verbose,
     migrationsFolder,
     encryptionKey: options.encryptionKey,
+    sqliteBusyTimeoutMs: options.sqliteBusyTimeoutMs,
   });
 
   // ENG-008b — prime the loginRateLimit in-memory cache from the persisted

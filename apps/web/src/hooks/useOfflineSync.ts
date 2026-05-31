@@ -56,9 +56,10 @@ export function useOfflineSync() {
           isOnline: online,
           lastSync: syncStatus.lastSync ? new Date(syncStatus.lastSync) : null,
           pendingItems: syncStatus.pendingItems,
-          conflicts: 'conflicts' in syncStatus && typeof syncStatus.conflicts === 'number'
-            ? syncStatus.conflicts
-            : prev.conflicts,
+          conflicts:
+            'conflicts' in syncStatus && typeof syncStatus.conflicts === 'number'
+              ? syncStatus.conflicts
+              : prev.conflicts,
           error: null,
         }));
         return;
@@ -84,7 +85,7 @@ export function useOfflineSync() {
         error: online ? getErrorMessage(error, 'Unable to load sync status') : prev.error,
       }));
     }
-  }, [hasDesktopSync, tenantId]);
+  }, [hasDesktopSync]);
 
   // Trigger sync
   const triggerSync = useCallback(async () => {

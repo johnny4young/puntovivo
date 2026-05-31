@@ -13,8 +13,9 @@
  * global @fastify/rate-limit plugin is the cross-restart backstop, and
  * the login flow has its own DB-backed bucket (`security/loginRateLimit`).
  *
- * Test bypass: when running under Vitest the middleware is a no-op so
- * the existing high-volume test suites do not start tripping caps.
+ * Test bypass: when running under Vitest or the Playwright E2E runtime
+ * the middleware is a no-op so high-volume suites do not start tripping
+ * caps on shared localhost/IP buckets.
  *
  * @module trpc/middleware/procedureRateLimit
  */
@@ -59,6 +60,26 @@ function bucketKey(
   return parts.join('|');
 }
 
+function isE2eBypassEnabled(): boolean {
+  if (process.env.PUNTOVIVO_E2E !== '1') {
+    return false;
+  }
+
+  const runtimeEnv = process.env.PUNTOVIVO_RUNTIME_ENV ?? process.env.NODE_ENV;
+  if (runtimeEnv === 'production') {
+    return false;
+  }
+
+  return (
+    runtimeEnv === 'development' ||
+    process.env.NODE_ENV === 'test' ||
+    process.env.VITEST === 'true' ||
+    process.env.VITEST_WORKER_ID !== undefined ||
+    process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined ||
+    process.env.CI === 'true'
+  );
+}
+
 /**
  * Pure bucket-check exported for unit tests. Returns:
  *   - `'allowed'` when the bucket has spare capacity (or the env bypass
@@ -76,6 +97,10 @@ export function checkProcedureRateLimit(
   }
 ): 'allowed' | 'denied' {
   const { name, max, windowMs, keyBy = ['ip'] } = options;
+
+  if (isE2eBypassEnabled()) {
+    return 'allowed';
+  }
 
   const isTestRunner =
     process.env.NODE_ENV === 'test' ||

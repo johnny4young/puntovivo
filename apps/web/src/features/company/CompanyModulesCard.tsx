@@ -13,6 +13,13 @@
  * gated routes therefore reflect the new state on the same tick the
  * toast lands.
  *
+ * Presentation (FASE 7 F5): modules group by surface (Inteligencia ·
+ * Superficies de venta · Operación · Integraciones) under a section
+ * `.label`, each row is a `.pv-check` with title + muted description +
+ * an on/off `.pv-switch` on the right, and the header carries an active
+ * count badge. The switch is a real `<button>` (not the proposal's
+ * decorative span) so it stays keyboard-operable and AA-compliant.
+ *
  * Manager + cashier never reach here (the `modules` tab is admin-only
  * in `CompanyPage`); the role guard on `modules.setActive` is the
  * server-side belt + braces.
@@ -36,6 +43,41 @@ interface ModulesListItem {
   defaultEnabled: boolean;
   enabled: boolean;
   isExplicit: boolean;
+}
+
+/**
+ * Surface groups for the toggle list. Keyed by the module `i18nKey`
+ * (the same suffix the server manifest assigns). Modules that ever
+ * gain a new i18nKey without a mapping fall back to `integrations`
+ * so they still render — the section labels are translated, the
+ * grouping itself is presentation-only and carries no gating.
+ */
+type ModuleSurface = 'intelligence' | 'salesSurfaces' | 'operations' | 'integrations';
+
+const MODULE_SURFACE: Record<string, ModuleSurface> = {
+  copilot: 'intelligence',
+  anomalyDetection: 'intelligence',
+  semanticSearch: 'intelligence',
+  posTouch: 'salesSurfaces',
+  kds: 'salesSurfaces',
+  customerDisplay: 'salesSurfaces',
+  mobileWaiter: 'salesSurfaces',
+  operationsCenter: 'operations',
+  quotations: 'operations',
+  delivery: 'operations',
+  eventsApi: 'integrations',
+};
+
+// Render order of the surface sections (presentation-only).
+const SURFACE_ORDER: ModuleSurface[] = [
+  'intelligence',
+  'salesSurfaces',
+  'operations',
+  'integrations',
+];
+
+function surfaceOf(item: ModulesListItem): ModuleSurface {
+  return MODULE_SURFACE[item.i18nKey] ?? 'integrations';
 }
 
 export function CompanyModulesCard() {
@@ -85,70 +127,94 @@ export function CompanyModulesCard() {
     [listQuery.data?.modules]
   );
 
+  const activeCount = useMemo(() => items.filter(item => item.enabled).length, [items]);
+
+  // Group while preserving the server order within each surface.
+  const grouped = useMemo(() => {
+    const map = new Map<ModuleSurface, ModulesListItem[]>();
+    for (const item of items) {
+      const surface = surfaceOf(item);
+      const bucket = map.get(surface);
+      if (bucket) bucket.push(item);
+      else map.set(surface, [item]);
+    }
+    return SURFACE_ORDER.filter(surface => map.has(surface)).map(surface => ({
+      surface,
+      modules: map.get(surface) as ModulesListItem[],
+    }));
+  }, [items]);
+
   return (
-    <section className="card p-6 space-y-6">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold text-secondary-950">
-          {t('modules:section.title')}
-        </h2>
-        <p className="text-sm text-secondary-600">
-          {t('modules:section.description')}
-        </p>
+    <section className="card p-6 space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-secondary-950">
+            {t('modules:section.title')}
+          </h2>
+          <p className="max-w-prose text-sm text-secondary-600">
+            {t('modules:section.description')}
+          </p>
+        </div>
+        {!listQuery.isLoading && items.length > 0 && (
+          <span className="pv-badge primary shrink-0" data-testid="modules-active-count">
+            {t('modules:section.activeCount', { active: activeCount, total: items.length })}
+          </span>
+        )}
       </header>
 
       {listQuery.isLoading && (
         <p className="text-sm text-secondary-500">{t('modules:toggle.loading')}</p>
       )}
 
-      {!listQuery.isLoading && items.length > 0 && (
-        <ul className="divide-y divide-line/60">
-          {items.map(item => {
-            const labelKey = `modules:items.${item.i18nKey}.label`;
-            const descKey = `modules:items.${item.i18nKey}.description`;
-            const rowPending = pendingId === item.id;
-            const variantKey = item.isExplicit ? 'explicit' : 'default';
-            return (
-              <li
-                key={item.id}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                data-testid={`modules-row-${item.id}`}
-              >
-                <div className="space-y-1">
-                  <p className="font-medium text-secondary-900">{t(labelKey)}</p>
-                  <p className="text-sm text-secondary-600">{t(descKey)}</p>
-                  <p className="text-xs uppercase tracking-wider text-secondary-500">
-                    {t(`modules:toggle.${variantKey}`)}
-                  </p>
-                </div>
-                <label className="inline-flex shrink-0 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="toggle"
-                    checked={item.enabled}
-                    disabled={rowPending}
-                    onChange={event => {
-                      void handleToggle(item, event.target.checked);
-                    }}
-                    aria-label={
-                      item.enabled
-                        ? t('modules:toggle.disable')
-                        : t('modules:toggle.enable')
-                    }
-                    data-testid={`modules-toggle-${item.id}`}
-                  />
-                  <span className="text-sm text-secondary-700">
-                    {rowPending
-                      ? t('modules:toggle.saving')
-                      : item.enabled
-                        ? t('modules:toggle.disable')
-                        : t('modules:toggle.enable')}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {!listQuery.isLoading &&
+        grouped.map(({ surface, modules }) => (
+          <div key={surface} className="space-y-1">
+            <p className="label">{t(`modules:surfaces.${surface}`)}</p>
+            <div>
+              {modules.map(item => {
+                const labelKey = `modules:items.${item.i18nKey}.label`;
+                const descKey = `modules:items.${item.i18nKey}.description`;
+                const rowPending = pendingId === item.id;
+                const variantKey = item.isExplicit ? 'explicit' : 'default';
+                const switchLabel = item.enabled
+                  ? t('modules:toggle.disable')
+                  : t('modules:toggle.enable');
+                return (
+                  <div
+                    key={item.id}
+                    className="pv-check"
+                    data-testid={`modules-row-${item.id}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="t">{t(labelKey)}</span>
+                        <span className="pv-badge neutral">
+                          {t(`modules:toggle.${variantKey}`)}
+                        </span>
+                      </div>
+                      <p className="d">{t(descKey)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={item.enabled}
+                      aria-label={switchLabel}
+                      title={rowPending ? t('modules:toggle.saving') : switchLabel}
+                      disabled={rowPending}
+                      onClick={() => {
+                        void handleToggle(item, !item.enabled);
+                      }}
+                      className={`pv-switch shrink-0 disabled:cursor-not-allowed disabled:opacity-60${
+                        item.enabled ? ' on' : ''
+                      }`}
+                      data-testid={`modules-toggle-${item.id}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
     </section>
   );
 }

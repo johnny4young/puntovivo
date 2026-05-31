@@ -76,13 +76,17 @@ export function OperationsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Rediseño FASE 6 (O1) — encabezado de panel con titulación del
+          sistema (.pv-kicker / .pv-title) + glifo tonal. El h1 se conserva
+          para mantener el contrato de jerarquía semántica del shell. */}
       <header className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <Activity className="h-5 w-5 text-primary-700" />
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-secondary-900">{t('header.title')}</h1>
-          <p className="text-sm text-secondary-500">{t('header.subtitle')}</p>
+        <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
+          <Activity className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="pv-kicker">{t('header.kicker')}</p>
+          <h1 className="pv-title text-2xl">{t('header.title')}</h1>
+          <p className="mt-1 text-sm text-secondary-500">{t('header.subtitle')}</p>
         </div>
       </header>
 

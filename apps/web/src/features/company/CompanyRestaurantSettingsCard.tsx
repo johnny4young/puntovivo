@@ -74,78 +74,75 @@ export function CompanyRestaurantSettingsCard() {
     void updateMutation.mutateAsync({ serviceChargeRate: next });
   }
 
+  const disabled = settingsQuery.isLoading || updateMutation.isPending;
+
   return (
-    <div className="card p-6 space-y-4">
+    <section className="rounded-2xl border border-line bg-surface p-6">
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <Utensils className="h-5 w-5 text-primary-700" />
-        </div>
+        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-warning-50 text-warning-700">
+          <Utensils className="h-5 w-5" aria-hidden="true" />
+        </span>
         <div>
-          <h2 className="text-lg font-semibold text-secondary-950">
+          <h2 className="pv-title text-lg">
             {t('settings:company.restaurant.title')}
           </h2>
-          <p className="text-sm text-secondary-600">
+          <p className="mt-1 text-sm text-fg3">
             {t('settings:company.restaurant.description')}
           </p>
         </div>
       </div>
 
-      <div>
-        <label
-          htmlFor="company-restaurant-service-rate"
-          className="label"
-        >
-          {t('settings:company.restaurant.serviceChargeLabel')}
-        </label>
-        <input
-          id="company-restaurant-service-rate"
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={SERVICE_CHARGE_MAX}
-          step="0.1"
-          className="input mt-1 max-w-[160px]"
-          value={inputValue}
-          onChange={event => handleChange(event.target.value)}
-          aria-describedby="company-restaurant-service-rate-help"
-          disabled={settingsQuery.isLoading || updateMutation.isPending}
-        />
-        <p
-          id="company-restaurant-service-rate-help"
-          className="mt-1 text-xs text-secondary-500"
-        >
-          {t('settings:company.restaurant.serviceChargeHelp', {
-            max: SERVICE_CHARGE_MAX,
-          })}
-        </p>
-        {rangeError && (
-          <p className="mt-1 text-sm text-danger-500" role="alert">
-            {rangeError}
+      <div className="mt-5 max-w-xs">
+        <div className="pv-field">
+          <label htmlFor="company-restaurant-service-rate" className="label">
+            {t('settings:company.restaurant.serviceChargeLabel')}
+          </label>
+          <span className={`pv-input mono${rangeError ? ' error' : ''}`}>
+            <input
+              id="company-restaurant-service-rate"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={SERVICE_CHARGE_MAX}
+              step="0.1"
+              className="w-full border-0 bg-transparent p-0 font-mono text-[13.5px] text-fg1 outline-none focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+              value={inputValue}
+              onChange={event => handleChange(event.target.value)}
+              aria-describedby="company-restaurant-service-rate-help"
+              aria-invalid={rangeError ? true : undefined}
+              disabled={disabled}
+            />
+          </span>
+          <p id="company-restaurant-service-rate-help" className="help">
+            {t('settings:company.restaurant.serviceChargeHelp', {
+              max: SERVICE_CHARGE_MAX,
+            })}
           </p>
-        )}
-        {persistedRate === 0 && !rateInput && (
-          <p className="mt-1 text-xs text-secondary-500">
-            {t('settings:company.restaurant.serviceChargeDisabledHint')}
-          </p>
-        )}
+          {rangeError && (
+            <p className="err-msg" role="alert">
+              {rangeError}
+            </p>
+          )}
+          {persistedRate === 0 && !rateInput && !rangeError && (
+            <p className="help">
+              {t('settings:company.restaurant.serviceChargeDisabledHint')}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="mt-5 flex justify-end">
         <button
           type="button"
-          className="btn-primary"
+          className="pv-btn primary"
           onClick={handleSave}
-          disabled={
-            settingsQuery.isLoading ||
-            updateMutation.isPending ||
-            rangeError !== null
-          }
+          disabled={disabled || rangeError !== null}
         >
           {updateMutation.isPending
             ? t('settings:company.restaurant.saving')
             : t('settings:company.restaurant.save')}
         </button>
       </div>
-    </div>
+    </section>
   );
 }

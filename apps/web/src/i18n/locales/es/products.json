@@ -64,7 +64,8 @@
       "general": "General",
       "pricing": "Precios",
       "units": "Unidades",
-      "providers": "Proveedores"
+      "providers": "Proveedores",
+      "ariaLabel": "Secciones del formulario de producto"
     },
     "fields": {
       "name": "Nombre",
@@ -97,7 +98,11 @@
       "priceTier3": "Tarifa de precio 3",
       "marginPercent": "Margen %",
       "marginAmount": "Valor de margen",
-      "salePrice": "Precio de venta"
+      "salePrice": "Precio de venta",
+      "skuHelp": "Se genera automáticamente si lo dejas vacío.",
+      "barcodePlaceholder": "Escanea o escribe",
+      "descriptionPlaceholder": "Notas visibles en cotizaciones (opcional).",
+      "minStockHelp": "Se usa para las alertas de stock bajo."
     },
     "units": {
       "title": "Asignaciones de unidad",
@@ -121,6 +126,20 @@
       "providerRequired": "El proveedor es obligatorio",
       "providerDuplicate": "Proveedor ya seleccionado",
       "remove": "Eliminar"
+    },
+    "sections": {
+      "identity": {
+        "title": "Identidad",
+        "description": "Cómo aparece el producto en el catálogo y los recibos."
+      },
+      "classification": {
+        "title": "Clasificación",
+        "description": "Define los impuestos y la agrupación en reportes."
+      },
+      "inventory": {
+        "title": "Inventario",
+        "description": "Stock inicial y umbral de reposición."
+      }
     }
   },
   "deactivate": {

@@ -113,6 +113,13 @@ export {
   type EscPosChannel,
 } from './escpos/transport.js';
 export {
+  ESC_POS_ALLOWED_TCP_PORTS,
+  isAllowedEscPosTcpAddress,
+  validateEscPosTcpTargetConfig,
+  resolveEscPosTcpTarget,
+  EscPosTcpTargetPolicyError,
+} from './escpos/tcp-target-policy.js';
+export {
   createHardwareWorker,
   createHardwareOutboxKernel,
   setDefaultHardwareWorker,

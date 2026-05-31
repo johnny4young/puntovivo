@@ -19,6 +19,7 @@
  *   HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
  *   DATABASE_URL       - SQLite database path (default: ./data/local.db)
  *   JWT_SECRET         - JWT signing secret (auto-generated if not set)
+ *   PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
  *   VERBOSE            - Enable verbose logging (default: false)
  *   ANTHROPIC_API_KEY  - Required for AI features (ENG-030 onwards). See
  *                        `.env.example` for the full list.
@@ -54,6 +55,17 @@ function banner(line: string = ''): void {
   process.stdout.write(`${line}\n`);
 }
 
+function parseOptionalBusyTimeoutMs(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 60_000) {
+    throw new Error('PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS must be an integer from 0 to 60000');
+  }
+  return parsed;
+}
+
 async function main(): Promise<void> {
   // ENG-072 — Resolve the Authority Node runtime config first. The
   // resolver throws on invalid env (bad mode, bad port) so a
@@ -70,6 +82,9 @@ async function main(): Promise<void> {
   // which keeps the legacy cleartext dev DB working until ENG-167b
   // ships the one-shot migration UX.
   const encryptionKey = process.env.PUNTOVIVO_DB_KEY;
+  const sqliteBusyTimeoutMs = parseOptionalBusyTimeoutMs(
+    process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS
+  );
   process.env.PUNTOVIVO_RUNTIME_ENV ??= process.env.NODE_ENV === 'production' ? 'production' : 'development';
 
   banner('==========================================');
@@ -91,6 +106,7 @@ async function main(): Promise<void> {
       // a direct `node dist/standalone.js` invocation).
       appVersion: process.env.npm_package_version,
       encryptionKey,
+      sqliteBusyTimeoutMs,
     });
 
     const shutdown = createGracefulShutdownHandler({
