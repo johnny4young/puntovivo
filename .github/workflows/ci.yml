@@ -9,12 +9,97 @@ on:
 env:
   NODE_VERSION: '24'
 
+# Least-privilege default token: CI only reads the repo and runs gates;
+# nothing here needs write scope. detect-changes escalates to
+# pull-requests:read per-job so the path filter can diff PR events.
+permissions:
+  contents: read
+
+# ============================================================================
+# Minute-budget guards (mirrors lingua/.github/workflows/ci.yml)
+# ----------------------------------------------------------------------------
+# Two levers keep GitHub Actions minutes down on this closed-source repo:
+#
+# 1. concurrency + cancel-in-progress: a burst of N commits pushed to the same
+#    ref no longer stacks N full CI runs. Pushing commit N+1 cancels the
+#    in-flight run for commit N, so a rapid sequence costs ~1 run, not N.
+#
+# 2. detect-changes path filter: each downstream job only runs when files in
+#    its area (or shared root config) changed. A docs-only commit runs just the
+#    ~30s detect-changes job; a web-only commit skips the desktop/server jobs.
+#
+# The Playwright e2e suite is intentionally NOT in CI — it is the single most
+# expensive job (browser install + full app boot) and is run locally via
+# `pnpm run test:e2e:web` when the login/sales/inventory flows are touched.
+#
+# Desktop app packaging (Mac/Windows/Linux artifacts) is likewise NOT here —
+# it lives in the manual workflow_dispatch workflows build-desktop.yml
+# (on-demand validation/artifacts) and release.yml (release matrix on tag).
+# Nothing in this CI produces a distributable desktop binary.
+# ============================================================================
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ============================================================================
+  # Detect Changes — single cheap job that gates every other job by path.
+  # ----------------------------------------------------------------------------
+  # web/desktop both depend on packages/server: apps/web infers its API types
+  # end-to-end from the server AppRouter (tRPC), and apps/desktop embeds the
+  # Fastify server in-process. A server change can therefore break a web or
+  # desktop typecheck, so a server edit must fan out to those jobs too.
+  # ============================================================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      server: ${{ steps.filter.outputs.server }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      release: ${{ steps.filter.outputs.release }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Path filter
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - '.github/workflows/ci.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig*.json'
+              - '.npmrc'
+            web:
+              - 'apps/web/**'
+              - 'packages/server/**'
+            server:
+              - 'packages/server/**'
+            desktop:
+              - 'apps/desktop/**'
+              - 'packages/server/**'
+            release:
+              - 'scripts/**'
+              - '.github/workflows/release.yml'
+
+  # ============================================================================
   # Release Automation Tests
+  # ----------------------------------------------------------------------------
+  # Only runs when the release tooling (scripts/, release.yml) or shared root
+  # config changes — it validates that machinery, not application code.
   # ============================================================================
   release-automation:
     name: Release Automation
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.release == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -41,6 +126,8 @@ jobs:
   # ============================================================================
   web:
     name: Web App
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -80,10 +167,10 @@ jobs:
   # ----------------------------------------------------------------------------
   # The desktop workspace hosts Electron-specific code (forge config, preload,
   # main process). The ubuntu-latest run gates the `ci:desktop` script
-  # (typecheck + lint + node --test window-config regression) on every push
-  # and PR — that catches main↔renderer boundary regressions, missing
-  # preload exports, and TypeScript breakage in the Electron sources without
-  # paying for cross-OS minutes.
+  # (typecheck + lint + node --test window-config regression) — that catches
+  # main↔renderer boundary regressions, missing preload exports, and
+  # TypeScript breakage in the Electron sources without paying for cross-OS
+  # minutes.
   #
   # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
   # actually packaging via electron-forge make) lives in the manual
@@ -101,6 +188,8 @@ jobs:
   # ============================================================================
   desktop:
     name: Desktop Workspace
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.desktop == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -127,6 +216,8 @@ jobs:
   # ============================================================================
   backend:
     name: Backend Server
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.server == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -158,77 +249,3 @@ jobs:
           name: coverage-server
           path: packages/server/coverage/lcov.info
           if-no-files-found: warn
-
-  # ============================================================================
-  # Web E2E Suite (ENG-001 Step 3)
-  # ----------------------------------------------------------------------------
-  # Playwright web suite — 25 tests driving the real Vite app against
-  # a real standalone backend. Runs on ubuntu-latest only; Electron E2E
-  # is local-only for now (adds xvfb + packaged-binary overhead that is
-  # deferred to a follow-up ticket when signed release builds approach).
-  #
-  # On failure, the HTML report + trace + screenshots are uploaded as
-  # artifacts so the run can be reproduced offline. Retention 7 days
-  # matches the coverage artifacts above.
-  # ============================================================================
-  e2e-web:
-    name: E2E Web
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Cache the Playwright browser binary across runs. The key
-      # uses the pnpm-lock.yaml hash — any bump to @playwright/test
-      # (and therefore to the browser binary pin) changes the lockfile
-      # and invalidates the cache automatically.
-      - name: Cache Playwright browser binary
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: .playwright-browsers
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright chromium + system deps
-        run: pnpm exec playwright install --with-deps chromium
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
-
-      - name: Run web E2E suite
-        run: pnpm run test:e2e:web
-
-      # Artefacts: HTML report is always useful (pass shows green runs,
-      # fail shows the failure). The test-results folder (traces +
-      # screenshots + videos) is only populated on failure per the
-      # Playwright config.
-      - name: Upload Playwright HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-web
-          path: playwright-report/web
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload Playwright test-results (traces, screenshots, videos)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-results-web
-          path: test-results/playwright-web
-          if-no-files-found: ignore
-          retention-days: 7
