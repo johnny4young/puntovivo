@@ -222,6 +222,11 @@ async function buildFiscalSection(
 ): Promise<string> {
   if (!docs.length) return '';
 
+  // ENG-170b — `receipts` + `fiscal` are lazy namespaces; ensure they are
+  // loaded before `getFixedT` reads them so a receipt printed from a screen
+  // that never mounted them (e.g. straight after a sale) renders real copy
+  // instead of raw keys.
+  await i18next.loadNamespaces(['receipts', 'fiscal']);
   const t = i18next.getFixedT(null, ['receipts', 'fiscal']);
 
   // Lazy-load qrcode only when we need at least one QR.

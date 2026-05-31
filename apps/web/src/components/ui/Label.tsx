@@ -35,4 +35,4 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(
 
 Label.displayName = 'Label';
 
-export { Label, labelVariants };
+export { Label };

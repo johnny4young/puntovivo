@@ -17,7 +17,7 @@ const defaultValues: LocationFormValues = {
   isActive: true,
 };
 
-export function mapLocationToForm(location: Location | null): LocationFormValues {
+function mapLocationToForm(location: Location | null): LocationFormValues {
   if (!location) {
     return defaultValues;
   }

@@ -251,6 +251,11 @@ describe('CompanyPage non-admin behavior', () => {
         user: { id: 'u-2', name: 'Cashier', email: 'c@b.co', role: 'cashier' },
       }),
     }));
+    // ENG-170b — resetModules rebuilds the @/i18n singleton with only the
+    // bootstrap namespaces inlined; re-prime the fresh instance so the
+    // re-imported CompanyPage does not suspend on its feature namespaces.
+    const { registerAllNamespacesForTest } = await import('@/test/i18nTestResources');
+    registerAllNamespacesForTest();
     const mod = await import('../CompanyPage');
     const Reloaded = mod.CompanyPage;
     render(<Reloaded />);

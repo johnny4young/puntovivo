@@ -94,7 +94,7 @@ function scoreTone(score: number): 'danger' | 'warning' | 'success' {
  * Exposed (not inlined) so other consumers (empty states, banner)
  * can reuse the routing convention.
  */
-export function readinessCtaHref(cta: { route: string; tab?: string }): string {
+function readinessCtaHref(cta: { route: string; tab?: string }): string {
   if (!cta.tab) return cta.route;
   return `${cta.route}?tab=${encodeURIComponent(cta.tab)}`;
 }

@@ -34,4 +34,4 @@ const Badge = forwardRef<HTMLDivElement, BadgeProps>(({ className, variant, ...p
 
 Badge.displayName = 'Badge';
 
-export { Badge, badgeVariants };
+export { Badge };

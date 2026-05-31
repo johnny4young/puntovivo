@@ -71,21 +71,6 @@ research.
   drizzle-kit migration generation for no production-security gain — revisit
   when @electron-forge bumps node-gyp's tar and drizzle-kit drops the
   deprecated @esbuild-kit chain. — 2026-05-28 (pnpm migration follow-up)
-- `[perf][i18n]` **ENG-170b** — lazy-load the non-bootstrap i18n namespaces
-  so the login/main bundle stops eagerly shipping all 37 locale namespaces
-  (split out from ENG-170 item 2). The audit's literal `i18next-http-backend`
-  is REJECTED: packaged Electron loads the renderer over `file://`, which
-  cannot HTTP-fetch `/locales/<lng>/<ns>.json`, and there is no
-  `@fastify/static` route on the embedded server — http-backend would break
-  i18n in the primary (desktop) product. Electron-safe approach:
-  `i18next-resources-to-backend` + non-eager `import.meta.glob` so each
-  namespace becomes a dynamic-import JS chunk (works under `file://`), keep
-  `common`/`auth`/`nav`/`errors` in the static bootstrap, and add the
-  per-route Suspense boundary the components currently lack (all
-  `useTranslation('fiscal'|'kds'|…)` call sites are synchronous today).
-  AC tail: login bundle no longer contains `fiscal`/`kds`/`aiSettings`
-  namespaces; `locale-parity.test.ts` stays green (it reads files via
-  `import.meta.glob`, unaffected). — 2026-05-28 (ENG-170 follow-up)
 - `[perf]` Further-split the eager `utils` vendor chunk. After ENG-170's
   manualChunks, rolldown still emits a ~121 KB gz vendor chunk for the
   non-route-specific deps that load on first paint (the `index` entry target
@@ -651,7 +636,25 @@ and want to batch them into one sprint.
 Time-boxed exploration to decide something. Not implementation work.
 Outcome is a recommendation or an ADR, not shipped feature code.
 
-- _(none captured yet — candidates to capture here: Playwright Electron runner for E2E coverage, pt-BR locale bundle effort estimate. Note: libSQL/Turso feasibility was promoted to ENG-037 and shipped as a Defer-recommendation spike at `docs/SPIKE-LIBSQL-TURSO.md` on 2026-05-08.)_
+- `[product][research]` Pilot evidence loop: define the 5-10 store-facing
+  observations that decide whether Puntovivo stays focused on Ring-1 retail
+  or pulls a vertical forward early (cashier time-to-first-sale, failed
+  checkout reasons, printer/scanner failure rate, DIAN retry rate, day-close
+  variance, support tickets per store-day). Outcome should be a short pilot
+  scorecard, not product code. — 2026-05-31 (product-focus research)
+
+- `[product][strategy]` Packaging / tier decision once Ring-1 is pilot-ready:
+  decide whether AI, restaurant surfaces, delivery, public API, and advanced
+  BI are paid add-ons, implementation services, or simply hidden until the
+  merchant profile needs them. Do not implement pricing gates until the
+  sellability gate (`ENG-182..ENG-186`) lands. — 2026-05-31 (product-focus
+  research)
+
+- `[ux][research]` Field-test the Ring-1 screen focus pass with one cashier
+  script: open cash session, scan/add products, attach customer, take split
+  payment, print, refund, close day. Record where the operator hesitates
+  before adding more screen simplification tickets beyond `ENG-186`. —
+  2026-05-31 (product-focus research)
 
 ## 4. Parked feature requests
 

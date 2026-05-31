@@ -36,6 +36,7 @@
     "codemirror": "^6.0.2",
     "exceljs": "^4.4.0",
     "i18next": "^26.3.0",
+    "i18next-resources-to-backend": "^1.2.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",

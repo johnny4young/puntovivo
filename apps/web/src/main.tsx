@@ -1,5 +1,5 @@
 import './i18n'; // initialize i18next before any component renders
-import { StrictMode, useState } from 'react';
+import { StrictMode, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
@@ -25,6 +25,23 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * ENG-170b — defensive top-level Suspense fallback. Renders a text-only
+ * spinner (no `useTranslation`, no flagged JSX attributes) so it can show
+ * even before any namespace is available. Feature namespaces normally
+ * suspend inside the per-route `<Suspense>` boundaries in `App.tsx`; this
+ * net only fires if always-mounted shell chrome ever references a
+ * non-bootstrap namespace, degrading to a brief spinner instead of an
+ * unbounded suspend.
+ */
+function RootSuspenseFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-secondary-50">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-secondary-200 border-t-primary-600" />
+    </div>
+  );
+}
+
 function Root() {
   const [trpcClient] = useState(() =>
     trpc.createClient({
@@ -40,7 +57,9 @@ function Root() {
             <AppErrorBoundary>
               <ToastProvider>
                 <ThemeProvider>
-                  <App />
+                  <Suspense fallback={<RootSuspenseFallback />}>
+                    <App />
+                  </Suspense>
                 </ThemeProvider>
               </ToastProvider>
             </AppErrorBoundary>
