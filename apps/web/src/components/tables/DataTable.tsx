@@ -108,7 +108,6 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [globalFilter, setGlobalFilter] = useState('');
   const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
   // BUG-004 — wrapper anchor so a row blur can tell "focus moved to
@@ -142,14 +141,11 @@ export function DataTable<TData, TValue>({
         onRowSelectionChange(selectedRows);
       }
     },
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: 'includesString',
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
-      globalFilter,
     },
     enableRowSelection,
     initialState: {
@@ -159,6 +155,7 @@ export function DataTable<TData, TValue>({
     },
   });
   const visibleRows = table.getRowModel().rows;
+  const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
   const selectedRowCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
   const resolvedFocusedRowIndex =
     visibleRows.length === 0 ? -1 : Math.min(focusedRowIndex, visibleRows.length - 1);
@@ -234,8 +231,8 @@ export function DataTable<TData, TValue>({
           <input
             type="text"
             placeholder={searchPlaceholder}
-            value={globalFilter ?? ''}
-            onChange={e => setGlobalFilter(e.target.value)}
+            value={(searchColumn?.getFilterValue() as string | undefined) ?? ''}
+            onChange={e => searchColumn?.setFilterValue(e.target.value)}
             className="input max-w-sm"
           />
         )}

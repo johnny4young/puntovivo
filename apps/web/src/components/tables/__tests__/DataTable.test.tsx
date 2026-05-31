@@ -262,6 +262,32 @@ describe('DataTable', () => {
       });
     });
 
+    it('should filter only the configured searchKey column', async () => {
+      const user = userEvent.setup();
+      const products = [
+        createMockProduct({ name: 'Apple', sku: 'BANANA-SKU' }),
+        createMockProduct({ name: 'Banana', sku: 'APPLE-SKU' }),
+      ];
+
+      render(
+        <DataTable
+          columns={columns}
+          data={products}
+          searchKey="name"
+          searchPlaceholder="Search..."
+        />
+      );
+
+      const searchInput = screen.getByPlaceholderText('Search...');
+      await user.type(searchInput, 'Banana');
+
+      await waitFor(() => {
+        expect(screen.getByText('Banana')).toBeInTheDocument();
+        expect(screen.queryByText('Apple')).not.toBeInTheDocument();
+        expect(screen.queryByText('BANANA-SKU')).not.toBeInTheDocument();
+      });
+    });
+
     it('should show no results when search matches nothing', async () => {
       const user = userEvent.setup();
       const products = createTestProducts(3);

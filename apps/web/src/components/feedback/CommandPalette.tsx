@@ -21,7 +21,6 @@ import { Modal } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
 import {
-  COMMAND_ACTIONS,
   filterActionsByQuery,
   visibleActionsForRole,
   type CommandAction,
@@ -289,6 +288,3 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-/** Exported for tests so they can introspect what V1 ships with. */
-export const __commandActionsForTests = COMMAND_ACTIONS;

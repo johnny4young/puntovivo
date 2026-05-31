@@ -17,7 +17,7 @@ const defaultValues: SiteFormValues = {
   isActive: true,
 };
 
-export function mapSiteToForm(site: Site | null): SiteFormValues {
+function mapSiteToForm(site: Site | null): SiteFormValues {
   if (!site) {
     return defaultValues;
   }

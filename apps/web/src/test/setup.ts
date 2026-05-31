@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom';
 import { vi, beforeAll, afterAll } from 'vitest';
 import '../i18n'; // initialize i18next so useTranslation works in tests
+import { registerAllNamespacesForTest } from './i18nTestResources';
+
+// ENG-170b — production lazy-loads every non-bootstrap namespace through a
+// resourcesToBackend glob loader; unit tests assert strings synchronously, so
+// eager-load every namespace into the (test-only) i18next instance up front.
+registerAllNamespacesForTest();
 
 const localStorageState = new Map<string, string>();
 const localStorageMock: Storage = {

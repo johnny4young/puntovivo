@@ -210,7 +210,10 @@ const columns = (
 ];
 
 export function ProductsPage() {
-  const { t } = useTranslation(['products', 'errors']);
+  // ENG-170b — `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
+  // in the match column; declare it here so the lazy namespace loads (and the page
+  // suspends) before those tooltips render, instead of showing a raw key.
+  const { t } = useTranslation(['products', 'errors', 'semanticSearch']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();

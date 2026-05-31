@@ -119,7 +119,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     // looked for an `<h2>` "Logo Library" inside one specific card,
     // which no longer matches the post-ENG-045 tabbed layout.)
     settled: (page) =>
-      page.getByRole('heading', { level: 1, name: /^Company$|^Empresa$/i }),
+      page.getByRole('main').getByRole('heading', { level: 1, name: /^Company$|^Empresa$/i }),
   },
   {
     label: 'Audit log (admin)',
