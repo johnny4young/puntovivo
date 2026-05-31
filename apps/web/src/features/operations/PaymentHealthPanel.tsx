@@ -1,14 +1,27 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, BarChart3, CheckCircle2, CreditCard, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  Inbox,
+  RefreshCw,
+  ScanLine,
+  ShieldCheck,
+  TriangleAlert,
+  Wallet,
+} from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { Badge } from '@/components/ui/Badge';
+import { KpiTile } from '@/components/ui';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
  * ENG-038 + ENG-065d — Operations Center: Payment Health panel.
@@ -18,23 +31,30 @@ import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Mod
  * breakdown card. Both admin gestures wire through the `payments.*`
  * router and invalidate every payment-side cache on success so the
  * panel re-fetches without a manual reload.
+ *
+ * Rediseño FASE 6 (O2) — recetas pv-*: KPIs con `KpiTile` (`.pv-kpi`),
+ * tablas con `.pv-table`, estados con `.pv-badge`, vacíos con
+ * `EmptyState` y botones con `.pv-btn`. Encabezados de panel con
+ * `.pv-kicker` / `.pv-title`.
  */
 
-function statusVariant(status: string | null): 'success' | 'warning' | 'danger' | 'secondary' {
+type SemanticTone = 'success' | 'warning' | 'danger' | 'neutral';
+
+function statusTone(status: string | null): SemanticTone {
   if (status === 'approved' || status === 'settled') return 'success';
   if (status === 'declined' || status === 'timeout' || status === 'dead_letter') {
     return 'danger';
   }
   if (status === 'retrying' || status === 'submitting') return 'warning';
-  return 'secondary';
+  return 'neutral';
 }
 
-function mismatchVariant(type: string): 'success' | 'warning' | 'danger' | 'secondary' {
+function mismatchTone(type: string): SemanticTone {
   if (type === 'provider_issue') return 'danger';
   if (type === 'missing_provider_reference' || type === 'amount_mismatch') {
     return 'warning';
   }
-  return 'secondary';
+  return 'neutral';
 }
 
 function getPaymentErrorMessage(value: Record<string, unknown> | null): string | null {
@@ -72,6 +92,13 @@ export function PaymentHealthPanel() {
   const data = reconciliationQuery.data;
   const outboxRows = outboxQuery.data ?? [];
   const breakdown = breakdownQuery.data?.entries ?? [];
+
+  // Client-side pagination over the already-loaded arrays. The hooks live at
+  // the top level (never conditional) with empty-array fallbacks so the
+  // queries / business logic stay untouched; only the rendered slice changes.
+  const mismatchesPagination = usePaginatedRows(data?.mismatches ?? [], 8);
+  const outboxPagination = usePaginatedRows(outboxRows, 8);
+  const breakdownPagination = usePaginatedRows(breakdown, 8);
 
   const invalidatePaymentSurfaces = async () => {
     await Promise.all([
@@ -138,14 +165,10 @@ export function PaymentHealthPanel() {
   return (
     <div className="space-y-6">
       <section className="card p-6 space-y-5">
-        <header className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-            <CreditCard className="h-5 w-5 text-primary-700" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-900">{t('payments.title')}</h2>
-            <p className="text-sm text-secondary-500">{t('payments.description')}</p>
-          </div>
+        <header>
+          <p className="pv-kicker">{t('payments.kicker')}</p>
+          <h2 className="pv-title text-2xl">{t('payments.title')}</h2>
+          <p className="mt-2 text-sm text-secondary-500">{t('payments.description')}</p>
         </header>
 
         {reconciliationQuery.isLoading && (
@@ -153,31 +176,39 @@ export function PaymentHealthPanel() {
         )}
 
         {reconciliationQuery.error && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-            {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+          <div className="pv-strip danger">
+            <span className="msg">
+              {translateServerError(reconciliationQuery.error, t, t('common.errorGeneric'))}
+            </span>
           </div>
         )}
 
         {data && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="payments-summary">
-            <SummaryTile
+          <div className="pv-kpis grid grid-cols-2 md:grid-cols-4" data-testid="payments-summary">
+            <KpiTile
+              icon={ScanLine}
               label={t('payments.summary.tendersScanned')}
               value={String(data.summary.tendersScanned)}
+              tone="ink"
             />
-            <SummaryTile
+            <KpiTile
+              icon={ShieldCheck}
               label={t('payments.summary.matched')}
               value={String(data.summary.matched)}
-              variant={data.summary.matched === data.summary.tendersScanned ? 'success' : undefined}
+              tone={data.summary.matched === data.summary.tendersScanned ? 'success' : 'primary'}
             />
-            <SummaryTile
+            <KpiTile
+              icon={TriangleAlert}
               label={t('payments.summary.mismatches')}
               value={String(data.summary.mismatches)}
-              variant={data.summary.mismatches === 0 ? 'success' : 'warning'}
+              tone={data.summary.mismatches === 0 ? 'success' : 'warning'}
             />
-            <SummaryTile
+            <KpiTile
+              icon={Wallet}
               label={t('payments.summary.unmatchedAmount')}
               value={formatCurrency(data.summary.unmatchedAmount)}
-              variant={data.summary.unmatchedAmount === 0 ? 'success' : 'warning'}
+              tone={data.summary.unmatchedAmount === 0 ? 'success' : 'warning'}
+              mono
             />
           </div>
         )}
@@ -185,17 +216,21 @@ export function PaymentHealthPanel() {
 
       {data && (
         <section className="card p-6 space-y-4">
-          <h3 className="text-base font-semibold text-secondary-900">
-            {t('payments.byRail.title')}
-          </h3>
+          <h3 className="pv-title text-lg">{t('payments.byRail.title')}</h3>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.byRail.map(row => (
-              <div key={row.railId} className="rounded-xl border border-secondary-200 bg-white p-4">
+              <div
+                key={row.railId}
+                className="rounded-2xl border border-line/70 bg-surface-2/65 p-4"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-secondary-900">
+                  <p className="font-semibold text-secondary-900">
                     {t(`payments.rails.${row.railId}`)}
                   </p>
-                  <Badge variant={row.issues > 0 ? 'warning' : 'success'}>{row.issues}</Badge>
+                  <span className={`pv-badge ${row.issues > 0 ? 'warning' : 'success'}`}>
+                    <span className="dot" />
+                    {row.issues}
+                  </span>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
@@ -204,7 +239,7 @@ export function PaymentHealthPanel() {
                   </div>
                   <div>
                     <dt className="text-secondary-500">{t('payments.byRail.amount')}</dt>
-                    <dd className="font-semibold text-secondary-900">
+                    <dd className="font-mono font-semibold tabular-nums text-secondary-900">
                       {formatCurrency(row.amount)}
                     </dd>
                   </div>
@@ -219,178 +254,195 @@ export function PaymentHealthPanel() {
         <section className="card p-6 space-y-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning-700" />
-            <h3 className="text-base font-semibold text-secondary-900">
-              {t('payments.mismatches.title')}
-            </h3>
+            <h3 className="pv-title text-lg">{t('payments.mismatches.title')}</h3>
           </div>
           {data.mismatches.length === 0 ? (
-            <p className="text-sm text-secondary-500">{t('payments.mismatches.emptyState')}</p>
+            <EmptyState
+              icon={ShieldCheck}
+              title={t('payments.mismatches.emptyTitle')}
+              description={t('payments.mismatches.emptyState')}
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                  <tr>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.type')}</th>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.rail')}</th>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.reference')}</th>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.amount')}</th>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.status')}</th>
-                    <th className="px-3 py-2">{t('payments.mismatches.columns.action')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.mismatches.map((row, idx) => (
-                    <tr
-                      key={`${row.type}-${row.paymentOutboxId ?? row.salePaymentId ?? 'unknown'}-${idx}`}
-                      className="border-t border-secondary-200"
-                    >
-                      <td className="px-3 py-2">
-                        <Badge variant={mismatchVariant(row.type)}>
-                          {t(`payments.mismatches.type.${row.type}`)}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {row.railId ? t(`payments.rails.${row.railId}`) : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700 break-all">
-                        {row.reference ?? row.providerTransactionId ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">{formatCurrency(row.amount)}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant={statusVariant(row.status)}>
-                          {row.status
-                            ? t(`payments.status.${row.status}`, {
-                                defaultValue: row.status,
-                              })
-                            : t('payments.status.missing')}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {t(`payments.mismatches.action.${row.suggestedAction}`)}
-                      </td>
+            <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <table className="pv-table">
+                  <thead>
+                    <tr>
+                      <th>{t('payments.mismatches.columns.type')}</th>
+                      <th>{t('payments.mismatches.columns.rail')}</th>
+                      <th>{t('payments.mismatches.columns.reference')}</th>
+                      <th className="num">{t('payments.mismatches.columns.amount')}</th>
+                      <th>{t('payments.mismatches.columns.status')}</th>
+                      <th>{t('payments.mismatches.columns.action')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {mismatchesPagination.pageRows.map((row, idx) => (
+                      <tr
+                        key={`${row.type}-${row.paymentOutboxId ?? row.salePaymentId ?? 'unknown'}-${idx}`}
+                      >
+                        <td>
+                          <span className={`pv-badge ${mismatchTone(row.type)}`}>
+                            <span className="dot" />
+                            {t(`payments.mismatches.type.${row.type}`)}
+                          </span>
+                        </td>
+                        <td>{row.railId ? t(`payments.rails.${row.railId}`) : '—'}</td>
+                        <td className="break-all">
+                          {row.reference ?? row.providerTransactionId ?? '—'}
+                        </td>
+                        <td className="num">{formatCurrency(row.amount)}</td>
+                        <td>
+                          <span className={`pv-badge ${statusTone(row.status)}`}>
+                            <span className="dot" />
+                            {row.status
+                              ? t(`payments.status.${row.status}`, {
+                                  defaultValue: row.status,
+                                })
+                              : t('payments.status.missing')}
+                          </span>
+                        </td>
+                        <td className="muted">
+                          {t(`payments.mismatches.action.${row.suggestedAction}`)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {mismatchesPagination.hasPagination && (
+                <TablePagination
+                  page={mismatchesPagination.page}
+                  pageCount={mismatchesPagination.pageCount}
+                  total={mismatchesPagination.total}
+                  rangeStart={mismatchesPagination.rangeStart}
+                  rangeEnd={mismatchesPagination.rangeEnd}
+                  onPageChange={mismatchesPagination.setPage}
+                />
+              )}
             </div>
           )}
         </section>
       )}
 
       <section className="card p-6 space-y-4">
-        <h3 className="text-base font-semibold text-secondary-900">{t('payments.outbox.title')}</h3>
+        <h3 className="pv-title text-lg">{t('payments.outbox.title')}</h3>
 
         {outboxQuery.isLoading && (
           <p className="text-sm text-secondary-500">{t('common.loading')}</p>
         )}
 
         {outboxQuery.error && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-            {translateServerError(outboxQuery.error, t, t('common.errorGeneric'))}
+          <div className="pv-strip danger">
+            <span className="msg">
+              {translateServerError(outboxQuery.error, t, t('common.errorGeneric'))}
+            </span>
           </div>
         )}
 
         {!outboxQuery.isLoading && !outboxQuery.error && outboxRows.length === 0 && (
-          <p className="text-sm text-secondary-500">{t('payments.outbox.emptyState')}</p>
+          <EmptyState
+            icon={Inbox}
+            title={t('payments.outbox.emptyTitle')}
+            description={t('payments.outbox.emptyState')}
+          />
         )}
 
         {outboxRows.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                <tr>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.rail')}</th>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.kind')}</th>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.status')}</th>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.attempts')}</th>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.lastError')}</th>
-                  <th className="px-3 py-2">{t('payments.outbox.columns.createdAt')}</th>
-                  <th className="px-3 py-2 text-right">
-                    {t('payments.outbox.columns.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {outboxRows.map(row => {
-                  const isSettled = row.status === 'settled';
-                  const canRetryStatus = RETRIABLE_PAYMENT_STATUSES.has(row.status);
-                  const isRetryPending =
-                    retryMutation.isPending && retryTargetId === row.id;
-                  const isMarkSettledPending =
-                    markSettledMutation.isPending && markSettledTargetId === row.id;
-                  const retryTitle = !isAdmin
-                    ? t('payments.outbox.actions.noPermission')
-                    : !canRetryStatus
-                      ? t('payments.outbox.actions.retryUnavailable')
-                      : undefined;
-                  return (
-                    <tr key={row.id} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-700">
-                        {t(`payments.rails.${row.railId}`)}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {t(`payments.kind.${row.kind}`)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={statusVariant(row.status)}>
-                          {t(`payments.status.${row.status}`, {
-                            defaultValue: row.status,
-                          })}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">{row.attempts}</td>
-                      <td className="px-3 py-2 text-secondary-700 break-all">
-                        {getPaymentErrorMessage(row.lastError) ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
-                        {formatDateTime(row.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            className="btn-secondary inline-flex items-center gap-2 text-sm"
-                            disabled={!isAdmin || !canRetryStatus || isRetryPending}
-                            title={retryTitle}
-                            onClick={() => {
-                              if (!isAdmin || !canRetryStatus) return;
-                              setRetryTargetId(row.id);
-                            }}
-                            data-testid={`payment-retry-${row.id}`}
-                          >
-                            <RefreshCw
-                              className={`h-4 w-4 ${
-                                isRetryPending ? 'animate-spin' : ''
-                              }`}
-                            />
-                            {t('payments.outbox.actions.retry')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-secondary inline-flex items-center gap-2 text-sm"
-                            disabled={!isAdmin || isSettled || isMarkSettledPending}
-                            title={
-                              !isAdmin
-                                ? t('payments.outbox.actions.noPermission')
-                                : undefined
-                            }
-                            onClick={() => {
-                              if (!isAdmin || isSettled) return;
-                              setProviderTxInput('');
-                              setMarkSettledTargetId(row.id);
-                            }}
-                            data-testid={`payment-mark-settled-${row.id}`}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            {t('payments.outbox.actions.markSettled')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="pv-table">
+                <thead>
+                  <tr>
+                    <th>{t('payments.outbox.columns.rail')}</th>
+                    <th>{t('payments.outbox.columns.kind')}</th>
+                    <th>{t('payments.outbox.columns.status')}</th>
+                    <th className="num">{t('payments.outbox.columns.attempts')}</th>
+                    <th>{t('payments.outbox.columns.lastError')}</th>
+                    <th>{t('payments.outbox.columns.createdAt')}</th>
+                    <th className="num">{t('payments.outbox.columns.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {outboxPagination.pageRows.map(row => {
+                    const isSettled = row.status === 'settled';
+                    const canRetryStatus = RETRIABLE_PAYMENT_STATUSES.has(row.status);
+                    const isRetryPending = retryMutation.isPending && retryTargetId === row.id;
+                    const isMarkSettledPending =
+                      markSettledMutation.isPending && markSettledTargetId === row.id;
+                    const retryTitle = !isAdmin
+                      ? t('payments.outbox.actions.noPermission')
+                      : !canRetryStatus
+                        ? t('payments.outbox.actions.retryUnavailable')
+                        : undefined;
+                    return (
+                      <tr key={row.id}>
+                        <td>{t(`payments.rails.${row.railId}`)}</td>
+                        <td>{t(`payments.kind.${row.kind}`)}</td>
+                        <td>
+                          <span className={`pv-badge ${statusTone(row.status)}`}>
+                            <span className="dot" />
+                            {t(`payments.status.${row.status}`, {
+                              defaultValue: row.status,
+                            })}
+                          </span>
+                        </td>
+                        <td className="num">{row.attempts}</td>
+                        <td className="muted break-all">
+                          {getPaymentErrorMessage(row.lastError) ?? '—'}
+                        </td>
+                        <td className="muted">{formatDateTime(row.createdAt)}</td>
+                        <td>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              className="pv-btn ghost"
+                              disabled={!isAdmin || !canRetryStatus || isRetryPending}
+                              title={retryTitle}
+                              onClick={() => {
+                                if (!isAdmin || !canRetryStatus) return;
+                                setRetryTargetId(row.id);
+                              }}
+                              data-testid={`payment-retry-${row.id}`}
+                            >
+                              <RefreshCw className={isRetryPending ? 'animate-spin' : ''} />
+                              {t('payments.outbox.actions.retry')}
+                            </button>
+                            <button
+                              type="button"
+                              className="pv-btn ghost"
+                              disabled={!isAdmin || isSettled || isMarkSettledPending}
+                              title={
+                                !isAdmin ? t('payments.outbox.actions.noPermission') : undefined
+                              }
+                              onClick={() => {
+                                if (!isAdmin || isSettled) return;
+                                setProviderTxInput('');
+                                setMarkSettledTargetId(row.id);
+                              }}
+                              data-testid={`payment-mark-settled-${row.id}`}
+                            >
+                              <CheckCircle2 />
+                              {t('payments.outbox.actions.markSettled')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {outboxPagination.hasPagination && (
+              <TablePagination
+                page={outboxPagination.page}
+                pageCount={outboxPagination.pageCount}
+                total={outboxPagination.total}
+                rangeStart={outboxPagination.rangeStart}
+                rangeEnd={outboxPagination.rangeEnd}
+                onPageChange={outboxPagination.setPage}
+              />
+            )}
           </div>
         )}
       </section>
@@ -398,12 +450,10 @@ export function PaymentHealthPanel() {
       <section className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary-700" />
-          <h3 className="text-base font-semibold text-secondary-900">
-            {t('payments.breakdown.title')}
-          </h3>
+          <h3 className="pv-title text-lg">{t('payments.breakdown.title')}</h3>
         </div>
         <p className="text-sm text-secondary-500">{t('payments.breakdown.description')}</p>
-        <p className="text-xs uppercase tracking-wide text-secondary-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
           {t('payments.breakdown.windowDays', { days: BREAKDOWN_WINDOW_DAYS })}
         </p>
 
@@ -411,54 +461,60 @@ export function PaymentHealthPanel() {
           <p className="text-sm text-secondary-500">{t('common.loading')}</p>
         )}
         {breakdownQuery.error && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-            {translateServerError(breakdownQuery.error, t, t('common.errorGeneric'))}
+          <div className="pv-strip danger">
+            <span className="msg">
+              {translateServerError(breakdownQuery.error, t, t('common.errorGeneric'))}
+            </span>
           </div>
         )}
         {!breakdownQuery.isLoading && !breakdownQuery.error && breakdown.length === 0 && (
-          <p className="text-sm text-secondary-500">
-            {t('payments.breakdown.emptyState', { days: BREAKDOWN_WINDOW_DAYS })}
-          </p>
+          <EmptyState
+            icon={BarChart3}
+            title={t('payments.breakdown.emptyTitle')}
+            description={t('payments.breakdown.emptyState', { days: BREAKDOWN_WINDOW_DAYS })}
+          />
         )}
         {breakdown.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" data-testid="payments-breakdown-table">
-              <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-                <tr>
-                  <th className="px-3 py-2">{t('payments.breakdown.columns.rail')}</th>
-                  <th className="px-3 py-2">{t('payments.breakdown.columns.status')}</th>
-                  <th className="px-3 py-2 text-right">
-                    {t('payments.breakdown.columns.count')}
-                  </th>
-                  <th className="px-3 py-2 text-right">
-                    {t('payments.breakdown.columns.amount')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakdown.map(row => (
-                  <tr
-                    key={`${row.railId}-${row.status}`}
-                    className="border-t border-secondary-200"
-                  >
-                    <td className="px-3 py-2 text-secondary-700">
-                      {t(`payments.rails.${row.railId}`)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant={statusVariant(row.status)}>
-                        {t(`payments.status.${row.status}`, {
-                          defaultValue: row.status,
-                        })}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-right text-secondary-700">{row.count}</td>
-                    <td className="px-3 py-2 text-right text-secondary-700">
-                      {formatCurrency(row.totalAmount)}
-                    </td>
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="pv-table" data-testid="payments-breakdown-table">
+                <thead>
+                  <tr>
+                    <th>{t('payments.breakdown.columns.rail')}</th>
+                    <th>{t('payments.breakdown.columns.status')}</th>
+                    <th className="num">{t('payments.breakdown.columns.count')}</th>
+                    <th className="num">{t('payments.breakdown.columns.amount')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {breakdownPagination.pageRows.map(row => (
+                    <tr key={`${row.railId}-${row.status}`}>
+                      <td>{t(`payments.rails.${row.railId}`)}</td>
+                      <td>
+                        <span className={`pv-badge ${statusTone(row.status)}`}>
+                          <span className="dot" />
+                          {t(`payments.status.${row.status}`, {
+                            defaultValue: row.status,
+                          })}
+                        </span>
+                      </td>
+                      <td className="num">{row.count}</td>
+                      <td className="num">{formatCurrency(row.totalAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {breakdownPagination.hasPagination && (
+              <TablePagination
+                page={breakdownPagination.page}
+                pageCount={breakdownPagination.pageCount}
+                total={breakdownPagination.total}
+                rangeStart={breakdownPagination.rangeStart}
+                rangeEnd={breakdownPagination.rangeEnd}
+                onPageChange={breakdownPagination.setPage}
+              />
+            )}
           </div>
         )}
       </section>
@@ -482,10 +538,7 @@ export function PaymentHealthPanel() {
         size="sm"
         footer={
           <>
-            <ModalButton
-              onClick={closeMarkSettledModal}
-              disabled={markSettledMutation.isPending}
-            >
+            <ModalButton onClick={closeMarkSettledModal} disabled={markSettledMutation.isPending}>
               {t('payments.outbox.actions.cancel')}
             </ModalButton>
             <ModalButton
@@ -501,49 +554,25 @@ export function PaymentHealthPanel() {
         }
       >
         <div className="space-y-3">
-          <p className="text-secondary-600">
+          <p className="text-sm text-secondary-600">
             {t('payments.outbox.actions.markSettledConfirmMessage')}
           </p>
-          <label className="block text-sm font-medium text-secondary-700">
-            {t('payments.outbox.actions.markSettledProviderTxLabel')}
-            <input
-              type="text"
-              className="mt-1 w-full rounded-md border border-secondary-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder={t('payments.outbox.actions.markSettledProviderTxPlaceholder')}
-              value={providerTxInput}
-              onChange={event => setProviderTxInput(event.target.value)}
-              data-testid="payment-mark-settled-provider-tx"
-              disabled={markSettledMutation.isPending}
-            />
+          <label className="pv-field">
+            <span className="lab">{t('payments.outbox.actions.markSettledProviderTxLabel')}</span>
+            <span className="pv-input">
+              <input
+                type="text"
+                className="w-full border-0 bg-transparent p-0 text-secondary-900 placeholder:text-secondary-400 focus:outline-none focus:ring-0"
+                placeholder={t('payments.outbox.actions.markSettledProviderTxPlaceholder')}
+                value={providerTxInput}
+                onChange={event => setProviderTxInput(event.target.value)}
+                data-testid="payment-mark-settled-provider-tx"
+                disabled={markSettledMutation.isPending}
+              />
+            </span>
           </label>
         </div>
       </Modal>
-    </div>
-  );
-}
-
-function SummaryTile({
-  label,
-  value,
-  variant,
-}: {
-  // ENG-179b — explicit `| undefined` on optional fields.
-  label: string;
-  value: string;
-  variant?: 'success' | 'warning' | 'danger' | undefined;
-}) {
-  const accent =
-    variant === 'danger'
-      ? 'text-danger-700'
-      : variant === 'warning'
-        ? 'text-warning-700'
-        : variant === 'success'
-          ? 'text-success-700'
-          : 'text-secondary-900';
-  return (
-    <div className="rounded-xl border border-secondary-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${accent}`}>{value}</p>
     </div>
   );
 }

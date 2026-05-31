@@ -16,14 +16,23 @@
  * placeholder en lugar de los campos. CO + CL traen sus propias
  * cards en ENG-035c / ENG-036; aquí solo apuntamos al ticket que
  * lo trae.
+ *
+ * Rediseño FASE 6 — el contenido del panel adopta las recetas pv-*:
+ * encabezado `.pv-kicker`/`.pv-title` con glifo tonal, formulario
+ * con `.pv-field`/`.pv-input` (vía `SimpleFormField`), readiness con
+ * `.pv-badge` + checklist `.pv-check`, y acción `.pv-btn primary`.
+ * La lógica (FormData uncontrolled + tRPC) se conserva intacta.
  */
-import { useMemo } from 'react';
-import { CheckCircle2, FileSignature, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, FileSignature } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { SimpleFormField } from '@/components/form-controls/FormField';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { cn } from '@/lib/utils';
 
 const REGIMEN_OPTIONS: ReadonlyArray<{ code: string; name: string }> = [
   { code: '601', name: '601 — General de Ley Personas Morales' },
@@ -74,6 +83,23 @@ export function CompanyMxFiscalCard() {
 
   const mxSettings =
     settingsQuery.data?.countryCode === 'MX' ? settingsQuery.data.settings : null;
+
+  // Fiscal "sin configurar" = no hay ningún dato significativo capturado
+  // todavía (pack apagado y todos los campos vacíos). El `environment`
+  // siempre trae un default ('sandbox') así que no cuenta como
+  // configuración. En ese estado mostramos un EmptyState con un CTA
+  // "Configurar" en vez de un form vacío; con datos existentes el form
+  // se renderiza directo como antes.
+  const isConfigured = Boolean(
+    mxSettings &&
+      (mxSettings.enabled ||
+        mxSettings.rfc ||
+        mxSettings.regimenFiscalCode ||
+        mxSettings.lugarExpedicion)
+  );
+  const [revealed, setRevealed] = useState(false);
+  const showForm = isConfigured || revealed;
+
   const formKey = mxSettings
     ? [
         mxSettings.enabled,
@@ -146,150 +172,165 @@ export function CompanyMxFiscalCard() {
 
   // Render principal: tenant MX. Form + readiness badge.
   return (
-    <div className="card p-6 space-y-6">
+    <section className="card space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <FileSignature className="h-6 w-6 text-primary-700" />
-        <h2 className="text-lg font-semibold text-secondary-950">
-          {t('fiscal:settings.mx.title')}
-        </h2>
+        <span className="glyph-tile glyph-tile-primary h-11 w-11">
+          <FileSignature className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <div className="pv-kicker">{t('fiscal:settings.mx.kicker')}</div>
+          <h2 className="pv-title text-lg">{t('fiscal:settings.mx.title')}</h2>
+        </div>
       </div>
 
       {/* Badge de readiness */}
       {validation && (
         <div
-          className={`rounded-xl border p-4 flex items-start gap-3 ${
-            isReady
-              ? 'border-success-200 bg-success-50 text-success-700'
-              : 'border-warning-200 bg-warning-50 text-warning-700'
-          }`}
+          className="space-y-3"
           aria-live="polite"
           data-testid="fiscal-mx-readiness"
         >
-          {isReady ? (
-            <CheckCircle2 className="h-5 w-5 shrink-0" />
-          ) : (
-            <XCircle className="h-5 w-5 shrink-0" />
-          )}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">
-              {isReady
-                ? t('fiscal:settings.readiness.ready')
-                : t('fiscal:settings.readiness.notReady')}
-            </p>
-            {!isReady && issueLabels.length > 0 && (
-              <ul className="text-xs space-y-1">
-                {issueLabels.map(issue => (
-                  <li key={issue.code}>• {issue.label}</li>
-                ))}
-              </ul>
+          <span className={cn('pv-badge', isReady ? 'success' : 'danger')}>
+            {isReady ? (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
             )}
-          </div>
+            {isReady
+              ? t('fiscal:settings.readiness.ready')
+              : t('fiscal:settings.readiness.notReady')}
+          </span>
+          {!isReady && issueLabels.length > 0 && (
+            <div className="surface-panel-muted">
+              {issueLabels.map(issue => (
+                <div key={issue.code} className="pv-check">
+                  <span className="ic block">
+                    <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <div className="grow">
+                    <div className="t text-sm">{issue.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <form key={formKey} onSubmit={handleSubmit} className="space-y-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-secondary-700">
+      {!showForm ? (
+        <div data-testid="fiscal-mx-empty">
+          <EmptyState
+            icon={FileSignature}
+            title={t('fiscal:settings.mx.emptyTitle')}
+            description={t('fiscal:settings.mx.emptyDescription')}
+            className="px-6 py-8"
+            action={
+              <button
+                type="button"
+                className="pv-btn primary"
+                data-testid="fiscal-mx-configure"
+                onClick={() => setRevealed(true)}
+              >
+                {t('fiscal:settings.mx.emptyCta')}
+              </button>
+            }
+          />
+        </div>
+      ) : (
+        <form key={formKey} onSubmit={handleSubmit} className="space-y-5">
+        <label className="flex items-center gap-3 text-sm font-medium text-secondary-800">
           <input
             name="enabled"
             type="checkbox"
             defaultChecked={mxSettings?.enabled ?? false}
+            className="h-4 w-4 shrink-0 rounded border-line-strong text-primary-600 focus-visible:ring-2 focus-visible:ring-primary-400"
             aria-label={t('fiscal:settings.mx.fields.enabled')}
           />
-          <span>{t('fiscal:settings.mx.fields.enabled')}</span>
+          <span className="flex flex-col gap-0.5">
+            <span>{t('fiscal:settings.mx.fields.enabled')}</span>
+            <span className="text-xs font-normal text-secondary-500">
+              {t('fiscal:settings.mx.fields.enabledHelp')}
+            </span>
+          </span>
         </label>
-        <p className="text-xs text-secondary-500 -mt-2">
-          {t('fiscal:settings.mx.fields.enabledHelp')}
-        </p>
 
-        <div>
-          <label
+        <div className="grid gap-4 md:grid-cols-2">
+          <SimpleFormField
+            label={t('fiscal:settings.mx.fields.rfc')}
             htmlFor="fiscal-mx-rfc"
-            className="block text-sm font-medium text-secondary-700"
+            helperText={t('fiscal:settings.mx.fields.rfcHelp')}
           >
-            {t('fiscal:settings.mx.fields.rfc')}
-          </label>
-          <input
-            id="fiscal-mx-rfc"
-            name="rfc"
-            type="text"
-            defaultValue={mxSettings?.rfc ?? ''}
-            placeholder={t('fiscal:settings.mx.fields.rfcPlaceholder')}
-            className="input mt-1"
-            maxLength={13}
-          />
-          <p className="mt-1 text-xs text-secondary-500">
-            {t('fiscal:settings.mx.fields.rfcHelp')}
-          </p>
-        </div>
+            <input
+              id="fiscal-mx-rfc"
+              name="rfc"
+              type="text"
+              defaultValue={mxSettings?.rfc ?? ''}
+              placeholder={t('fiscal:settings.mx.fields.rfcPlaceholder')}
+              className="pv-input"
+              maxLength={13}
+            />
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.mx.fields.regimen')}
             htmlFor="fiscal-mx-regimen"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.mx.fields.regimen')}
-          </label>
-          <select
-            id="fiscal-mx-regimen"
-            name="regimenFiscalCode"
-            defaultValue={mxSettings?.regimenFiscalCode ?? ''}
-            className="input mt-1"
-          >
-            <option value="">
-              {t('fiscal:settings.mx.fields.regimenPlaceholder')}
-            </option>
-            {REGIMEN_OPTIONS.map(opt => (
-              <option key={opt.code} value={opt.code}>
-                {opt.name}
+            <select
+              id="fiscal-mx-regimen"
+              name="regimenFiscalCode"
+              defaultValue={mxSettings?.regimenFiscalCode ?? ''}
+              className="pv-input"
+            >
+              <option value="">
+                {t('fiscal:settings.mx.fields.regimenPlaceholder')}
               </option>
-            ))}
-          </select>
-        </div>
+              {REGIMEN_OPTIONS.map(opt => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.mx.fields.lugar')}
             htmlFor="fiscal-mx-lugar"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.mx.fields.lugar')}
-          </label>
-          <input
-            id="fiscal-mx-lugar"
-            name="lugarExpedicion"
-            type="text"
-            defaultValue={mxSettings?.lugarExpedicion ?? ''}
-            placeholder={t('fiscal:settings.mx.fields.lugarPlaceholder')}
-            className="input mt-1"
-            maxLength={5}
-          />
-        </div>
+            <input
+              id="fiscal-mx-lugar"
+              name="lugarExpedicion"
+              type="text"
+              defaultValue={mxSettings?.lugarExpedicion ?? ''}
+              placeholder={t('fiscal:settings.mx.fields.lugarPlaceholder')}
+              className="pv-input"
+              maxLength={5}
+            />
+          </SimpleFormField>
 
-        <div>
-          <label
+          <SimpleFormField
+            label={t('fiscal:settings.mx.fields.environment')}
             htmlFor="fiscal-mx-environment"
-            className="block text-sm font-medium text-secondary-700"
           >
-            {t('fiscal:settings.mx.fields.environment')}
-          </label>
-          <select
-            id="fiscal-mx-environment"
-            name="environment"
-            defaultValue={mxSettings?.environment ?? 'sandbox'}
-            className="input mt-1"
-          >
-            <option value="sandbox">
-              {t('fiscal:settings.mx.fields.environmentSandbox')}
-            </option>
-            <option value="production">
-              {t('fiscal:settings.mx.fields.environmentProduction')}
-            </option>
-          </select>
+            <select
+              id="fiscal-mx-environment"
+              name="environment"
+              defaultValue={mxSettings?.environment ?? 'sandbox'}
+              className="pv-input"
+            >
+              <option value="sandbox">
+                {t('fiscal:settings.mx.fields.environmentSandbox')}
+              </option>
+              <option value="production">
+                {t('fiscal:settings.mx.fields.environmentProduction')}
+              </option>
+            </select>
+          </SimpleFormField>
         </div>
 
         <div className="flex justify-end">
           <button
             type="submit"
-            className="btn-primary"
+            className="pv-btn primary"
             disabled={updateMutation.isPending}
           >
             {updateMutation.isPending
@@ -298,6 +339,7 @@ export function CompanyMxFiscalCard() {
           </button>
         </div>
       </form>
-    </div>
+      )}
+    </section>
   );
 }

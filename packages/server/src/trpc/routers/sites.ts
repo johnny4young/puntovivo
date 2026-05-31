@@ -324,7 +324,7 @@ export const sitesRouter = router({
     const references = await ctx.db
       .select({ count: sql<number>`count(*)` })
       .from(sequentials)
-      .where(eq(sequentials.siteId, input.id))
+      .where(and(eq(sequentials.tenantId, ctx.tenantId), eq(sequentials.siteId, input.id)))
       .get();
 
     if ((references?.count ?? 0) > 0) {
@@ -347,7 +347,9 @@ export const sitesRouter = router({
       });
     }
 
-    await ctx.db.delete(sites).where(eq(sites.id, input.id));
+    await ctx.db
+      .delete(sites)
+      .where(and(eq(sites.id, input.id), eq(sites.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'sites',

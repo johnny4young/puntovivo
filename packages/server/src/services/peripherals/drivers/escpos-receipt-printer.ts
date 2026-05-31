@@ -43,6 +43,7 @@ import {
   resolveTransport,
   type EscPosChannel,
 } from '../escpos/transport.js';
+import { addEscPosTcpTargetIssues } from '../escpos/tcp-target-policy.js';
 
 // =============================================================================
 // Config schema
@@ -78,7 +79,8 @@ export const escposReceiptPrinterConfigSchema = z
     /** Override the default 3000 ms TCP connect timeout. */
     timeoutMs: z.number().int().min(100).max(30_000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(addEscPosTcpTargetIssues);
 
 export type EscPosReceiptPrinterConfig = z.infer<typeof escposReceiptPrinterConfigSchema>;
 

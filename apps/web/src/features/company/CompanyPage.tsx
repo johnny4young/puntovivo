@@ -8,6 +8,7 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
+import { SimpleFormField } from '@/components/form-controls/FormField';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -67,6 +68,15 @@ interface CompanyFormProps {
   onSubmit: (values: CompanyFormValues) => Promise<void>;
 }
 
+/**
+ * Builds the `error` prop for SimpleFormField under
+ * `exactOptionalPropertyTypes`: the prop is omitted entirely when there is
+ * no message rather than passed as `undefined`.
+ */
+function errorProp(message: string | undefined): { error?: string } {
+  return message ? { error: message } : {};
+}
+
 function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFormProps) {
   const { t } = useTranslation('settings');
   const form = useForm<CompanyFormValues>({
@@ -75,12 +85,14 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
 
   const handleSubmit = form.handleSubmit(onSubmit);
 
+  const errors = form.formState.errors;
+
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="flex items-center gap-3 rounded-xl bg-primary-50 px-4 py-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <Building className="h-5 w-5 text-primary-700" />
-        </div>
+      <div className="flex items-center gap-3 rounded-2xl border border-primary-200/55 bg-primary-50/55 px-4 py-3.5">
+        <span className="pv-gt pv-gt-primary h-11 w-11">
+          <Building className="h-5 w-5" aria-hidden="true" />
+        </span>
         <div>
           <p className="font-medium text-secondary-900">
             {company?.name ?? t('company.createPrompt')}
@@ -92,41 +104,38 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label htmlFor="company-name" className="label">
-            {t('company.fields.companyName')}
-          </label>
+        <SimpleFormField
+          label={t('company.fields.companyName')}
+          htmlFor="company-name"
+          required
+          {...errorProp(errors.name?.message)}
+        >
           <input
             id="company-name"
-            className="input mt-1"
+            className={cn('pv-input', errors.name && 'error')}
             disabled={!canEdit}
             {...form.register('name', { required: t('company.fields.companyNameRequired') })}
           />
-          {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-          )}
-        </div>
+        </SimpleFormField>
 
-        <div>
-          <label htmlFor="company-tax-id" className="label">
-            {t('company.fields.taxId')}
-          </label>
+        <SimpleFormField label={t('company.fields.taxId')} htmlFor="company-tax-id">
           <input
             id="company-tax-id"
-            className="input mt-1"
+            className="pv-input font-mono"
             disabled={!canEdit}
             {...form.register('taxId')}
           />
-        </div>
+        </SimpleFormField>
 
-        <div>
-          <label htmlFor="company-email" className="label">
-            {t('company.fields.email')}
-          </label>
+        <SimpleFormField
+          label={t('company.fields.email')}
+          htmlFor="company-email"
+          {...errorProp(errors.email?.message)}
+        >
           <input
             id="company-email"
             type="email"
-            className="input mt-1"
+            className={cn('pv-input', errors.email && 'error')}
             disabled={!canEdit}
             {...form.register('email', {
               pattern: {
@@ -135,45 +144,36 @@ function CompanyForm({ company, canEdit, isSaving, error, onSubmit }: CompanyFor
               },
             })}
           />
-          {form.formState.errors.email && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.email.message}</p>
-          )}
-        </div>
+        </SimpleFormField>
 
-        <div>
-          <label htmlFor="company-phone" className="label">
-            {t('company.fields.phone')}
-          </label>
+        <SimpleFormField label={t('company.fields.phone')} htmlFor="company-phone">
           <input
             id="company-phone"
-            className="input mt-1"
+            className="pv-input font-mono"
             disabled={!canEdit}
             {...form.register('phone')}
           />
-        </div>
+        </SimpleFormField>
       </div>
 
-      <div>
-        <label htmlFor="company-address" className="label">
-          {t('company.fields.address')}
-        </label>
+      <SimpleFormField label={t('company.fields.address')} htmlFor="company-address">
         <textarea
           id="company-address"
-          className="input mt-1 min-h-[96px]"
+          className="pv-input area min-h-[96px]"
           disabled={!canEdit}
           {...form.register('address')}
         />
-      </div>
+      </SimpleFormField>
 
-      {error && <p className="text-sm text-danger-500">{error}</p>}
+      {error && <p className="err-msg" role="alert">{error}</p>}
 
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={isSaving || !canEdit}
-          className="btn-primary flex items-center gap-2"
+          className="pv-btn primary"
         >
-          <Save className="h-4 w-4" />
+          <Save className="h-4 w-4" aria-hidden="true" />
           {isSaving ? t('company.submitting') : t('company.save')}
         </button>
       </div>

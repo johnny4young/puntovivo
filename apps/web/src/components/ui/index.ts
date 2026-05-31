@@ -14,3 +14,4 @@ export {
   TableCell,
   TableCaption,
 } from './Table';
+export { KpiTile, type KpiTileProps, type KpiTone, type KpiDelta } from './KpiTile';

@@ -58,9 +58,9 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "download": "Descargar .xml",
-      "draftHint": "Documento sin firmar — el sello digital + folio fiscal SAT llegan con ENG-035c.",
+      "draftHint": "Documento sin firmar — el sello digital y el folio fiscal del SAT se agregan al emitirlo.",
       "loading": "Cargando XML…",
-      "emptyState": "Este documento no tiene XML disponible. Los documentos emitidos con el adapter mock de Colombia no incluyen XML.",
+      "emptyState": "Este documento no tiene XML disponible. Los documentos emitidos en modo de pruebas para Colombia no incluyen XML.",
       "xmlCopiedToast": "XML copiado al portapapeles",
       "xmlCopyError": "No se pudo copiar el XML al portapapeles"
     }
@@ -107,7 +107,7 @@
       "title": "México — CFDI 4.0",
       "fields": {
         "enabled": "Activar pack fiscal de México",
-        "enabledHelp": "Cuando esté activo, las ventas emitirán un CFDI 4.0 una vez que ENG-035b se implemente. Hoy esta opción sólo controla el diagnóstico de preparación.",
+        "enabledHelp": "Cuando esté activo, las ventas emitirán un CFDI 4.0 una vez que la emisión esté disponible. Hoy esta opción sólo controla el diagnóstico de preparación.",
         "rfc": "RFC del emisor",
         "rfcHelp": "12 caracteres para persona moral (PM); 13 para persona física (PF).",
         "rfcPlaceholder": "p. ej. XEXX010101000",
@@ -126,17 +126,18 @@
       "toast": {
         "saved": "Ajustes fiscales de México guardados",
         "saveError": "No se pudieron guardar los ajustes fiscales de México"
-      }
+      },
+      "kicker": "Perfil fiscal"
     },
     "co": {
       "title": "Colombia — DIAN",
-      "comingSoon": "Los ajustes fiscales de Colombia siguen viviendo en Localización. La migración a esta pestaña llega con ENG-035c."
+      "comingSoon": "Los ajustes fiscales de Colombia se configuran por ahora en la pestaña Localización. Pronto se trasladarán a esta sección."
     },
     "cl": {
       "title": "Chile — SII",
       "fields": {
         "enabled": "Activar pack fiscal de Chile",
-        "enabledHelp": "Cuando esté activo, las ventas completadas emiten borradores DTE sin firmar cuando la empresa tiene un CAF activo. La firma y el envío al SII llegan con ENG-036c.",
+        "enabledHelp": "Cuando esté activo, las ventas completadas emiten borradores DTE sin firmar cuando la empresa tiene un CAF activo. La firma y el envío al SII llegarán en una próxima versión.",
         "rut": "RUT del emisor",
         "rutHelp": "Formato: cuerpo-dígito verificador (p. ej. 12345678-K). El dígito es 0-9 o K.",
         "rutPlaceholder": "p. ej. 76123456-0",
@@ -161,13 +162,16 @@
       "caf": {
         "title": "CAF activo",
         "description": "El SII autoriza la emisión de boletas/facturas en rangos de folios. Carga un CAF desde el portal SII para empezar a emitir DTE.",
-        "empty": "Sin CAF activo. Sube uno desde el portal SII (próximamente con ENG-036c).",
+        "empty": "Sin CAF activo. Sube uno desde el portal SII (disponible próximamente).",
         "tipoDteLabel": "Tipo DTE",
         "rangeLabel": "Rango",
         "range": "Folios {{from}} a {{to}}",
         "remaining_one": "{{count}} folio disponible",
-        "remaining_other": "{{count}} folios disponibles"
-      }
+        "remaining_other": "{{count}} folios disponibles",
+        "kicker": "Autorización de folios",
+        "emptyTitle": "Sin CAF activo"
+      },
+      "kicker": "Perfil fiscal"
     }
   }
 }

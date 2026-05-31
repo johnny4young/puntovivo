@@ -150,7 +150,10 @@ export const companiesRouter = router({
         updatedAt: now,
       };
 
-      await ctx.db.update(companies).set(updateData).where(eq(companies.id, existing.id));
+      await ctx.db
+        .update(companies)
+        .set(updateData)
+        .where(and(eq(companies.id, existing.id), eq(companies.tenantId, ctx.tenantId)));
 
       await enqueueSync(ctx, {
         entityType: 'companies',
@@ -206,7 +209,10 @@ export const companiesRouter = router({
       updatedAt: now,
     };
 
-    await ctx.db.update(companies).set(updateData).where(eq(companies.id, company.id));
+    await ctx.db
+      .update(companies)
+      .set(updateData)
+      .where(and(eq(companies.id, company.id), eq(companies.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'companies',

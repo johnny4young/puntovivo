@@ -2,9 +2,8 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { useToast } from '@/components/feedback/ToastProvider';
 import { cn } from '@/lib/utils';
-import { onErrorToast } from '@/lib/mutationHelpers';
+import { useAiSettings } from '@/features/ai-shared';
 
 type FeatureKey = 'copilot' | 'anomalies' | 'semanticSearch' | 'invoiceOcr';
 
@@ -16,24 +15,15 @@ const PROVIDER_OPTIONS = [
 
 export default function AiConfigPage() {
   const { t } = useTranslation(['aiShared', 'aiSettings', 'common', 'auditLogs']);
-  const toast = useToast();
-  const utils = trpc.useUtils();
 
-  const settingsQuery = trpc.ai.settings.get.useQuery();
+  const { settingsQuery, updateMutation } = useAiSettings({
+    t,
+    saveErrorTitleKey: 'common:status.error',
+  });
   const auditQuery = trpc.auditLogs.list.useQuery(
     { limit: 50 },
     { staleTime: 30_000 }
   );
-
-  const updateMutation = trpc.ai.settings.update.useMutation({
-    onSuccess: async () => {
-      await utils.ai.settings.get.invalidate();
-      toast.success({
-        title: t('aiSettings:toast.saveSuccessTitle'),
-      });
-    },
-    onError: onErrorToast(toast, t, { titleKey: 'common:status.error' }),
-  });
 
   const features = settingsQuery.data?.features;
   const ocrProvider = features?.invoiceOcr.provider ?? 'textract';

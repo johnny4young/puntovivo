@@ -3,7 +3,7 @@ import type { ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { cn } from '@/lib/utils';
+import { KpiTile } from '@/components/ui';
 
 type DashboardSummary = inferRouterOutputs<AppRouter>['dashboard']['summary'];
 
@@ -36,52 +36,19 @@ interface LowStockAlertsCardProps {
   items: DashboardSummary['lowStockItems'];
 }
 
-interface StatCardProps {
-  title: string;
-  value: string;
-  label: string;
-  icon: ElementType;
-  tone: 'primary' | 'success' | 'warning' | 'ink';
-}
-
 export interface DashboardStatMetric {
   title: string;
   value: string;
   label: string;
   icon: ElementType;
-  tone: 'primary' | 'success' | 'warning' | 'ink';
+  // Rediseño FASE 2 — `danger` añadido para que "Stock bajo" lea como
+  // crítico (propuesta §03); `mono` rinde la cifra en tabular mono (dinero).
+  tone: 'primary' | 'success' | 'warning' | 'danger' | 'ink';
+  mono?: boolean;
 }
-
-const statToneClasses: Record<DashboardStatMetric['tone'], string> = {
-  primary: 'bg-primary-50 text-primary-700',
-  success: 'bg-success-50 text-success-700',
-  warning: 'bg-warning-50 text-warning-700',
-  ink: 'bg-secondary-100 text-secondary-800',
-};
 
 const DASHBOARD_STAT_SKELETON_KEYS = ['sales', 'revenue', 'inventory', 'stock'] as const;
 const DASHBOARD_LIST_SKELETON_KEYS = ['first', 'second', 'third', 'fourth'] as const;
-
-function StatCard({ title, value, label, icon: Icon, tone }: StatCardProps) {
-  return (
-    <div className="metric-tile p-4 sm:p-5">
-      <div className="flex items-center gap-3">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-[18px]', statToneClasses[tone])}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
-          {title}
-        </p>
-      </div>
-      <div className="mt-4">
-        <p className="text-2xl font-semibold tracking-tight text-secondary-950 sm:text-[1.9rem]">{value}</p>
-        <p className="mt-2 line-clamp-2 text-xs leading-5 text-secondary-600 sm:text-sm sm:leading-6">
-          {label}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export function DashboardLoadingState({ title }: DashboardLoadingStateProps) {
   return (
@@ -126,13 +93,14 @@ export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
       {metrics.map(metric => (
-        <StatCard
+        <KpiTile
           key={metric.title}
-          title={metric.title}
-          value={metric.value}
-          label={metric.label}
           icon={metric.icon}
+          label={metric.title}
+          value={metric.value}
+          context={metric.label}
           tone={metric.tone}
+          mono={metric.mono}
         />
       ))}
     </div>
@@ -142,6 +110,11 @@ export function DashboardStatsGrid({ metrics }: DashboardStatsGridProps) {
 export function RevenueTrendCard({ points, formatCurrency, formatDate }: RevenueTrendCardProps) {
   const { t } = useTranslation('dashboard');
   const maxRevenue = points.reduce((highest, point) => Math.max(highest, point.revenue), 0);
+  // BUG-005 — guard against an empty series: `points.at(-1)` returns
+  // `undefined` for [] so the latest-day figure and axis labels fall back
+  // cleanly instead of indexing `points[-1]` and rendering blanks silently.
+  const firstPoint = points.at(0);
+  const lastPoint = points.at(-1);
 
   return (
     <section className="card p-6 sm:p-7">
@@ -156,7 +129,7 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
             {t('revenue.latestDay')}
           </p>
           <p className="mt-2 text-xl font-semibold text-secondary-950 sm:text-2xl">
-            {formatCurrency(points[points.length - 1]?.revenue ?? 0)}
+            {formatCurrency(lastPoint?.revenue ?? 0)}
           </p>
         </div>
       </div>
@@ -167,7 +140,7 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
             const height = maxRevenue === 0 ? 10 : Math.max((point.revenue / maxRevenue) * 100, 10);
 
             return (
-              <div key={point.date} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
+              <div key={point.date} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
                 <div className="text-center opacity-0 transition-opacity group-hover:opacity-100">
                   <p className="text-[11px] font-semibold text-secondary-800">
                     {formatCurrency(point.revenue)}
@@ -185,8 +158,8 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
           })}
         </div>
         <div className="mt-4 flex items-center justify-between text-xs text-secondary-500">
-          <span>{formatDate(points[0]?.date ?? '')}</span>
-          <span>{formatDate(points[points.length - 1]?.date ?? '')}</span>
+          <span>{firstPoint ? formatDate(firstPoint.date) : ''}</span>
+          <span>{lastPoint ? formatDate(lastPoint.date) : ''}</span>
         </div>
       </div>
     </section>

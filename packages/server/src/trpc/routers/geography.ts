@@ -384,7 +384,9 @@ export const countriesRouter = router({
       });
     }
 
-    await ctx.db.delete(countries).where(eq(countries.id, input.id));
+    await ctx.db
+      .delete(countries)
+      .where(and(eq(countries.id, input.id), eq(countries.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'countries',
@@ -591,7 +593,9 @@ export const departmentsRouter = router({
       });
     }
 
-    await ctx.db.delete(departments).where(eq(departments.id, input.id));
+    await ctx.db
+      .delete(departments)
+      .where(and(eq(departments.id, input.id), eq(departments.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'departments',

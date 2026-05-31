@@ -654,7 +654,7 @@ async function runFreshSale(
   // here with rows=[{cash, $50}, {credit, $150}], so creditSaleAmount=150.
   const creditSaleAmount = resolvedPayments.rows
     .filter(row => row.method === 'credit')
-    .reduce((sum, row) => sum + row.amount, 0);
+    .reduce((sum, row) => roundMoney(sum + row.amount), 0);
 
   const paymentStatus = getPaymentStatus({
     amountReceived: input.amountReceived,
@@ -1292,7 +1292,7 @@ async function runCompleteDraft(
   // here with rows=[{cash, $50}, {credit, $150}], so creditSaleAmount=150.
   const creditSaleAmount = resolvedPayments.rows
     .filter(row => row.method === 'credit')
-    .reduce((sum, row) => sum + row.amount, 0);
+    .reduce((sum, row) => roundMoney(sum + row.amount), 0);
 
   const paymentStatus = getPaymentStatus({
     amountReceived: input.amountReceived,

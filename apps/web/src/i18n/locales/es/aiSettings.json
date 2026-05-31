@@ -8,7 +8,7 @@
     "enableHint": "Cuando está desactivado, cada superficie de IA se corta con un aviso claro.",
     "providerLabel": "Proveedor OCR",
     "providerHint": "AWS Textract procesa OCR hoy. Google Document AI y Azure Form Recognizer quedan listados para configuración, pero necesitan credenciales y cableado de proveedor antes de producción.",
-    "providerLocked": "Disponible cuando ENG-101 conecte credenciales y soporte del proveedor.",
+    "providerLocked": "Disponible cuando se conecten las credenciales y el soporte del proveedor.",
     "providerComingSoon": "Pronto",
     "providerComingIn": "disponible con",
     "modelLabel": "Id del modelo",
@@ -51,7 +51,12 @@
     "transcriptDurationLabel": "Duración del audio",
     "transcriptDurationValue": "{{seconds}}s",
     "transcriptCostLabel": "Costo de la llamada",
-    "transcribeClearAction": "Borrar resultado"
+    "transcribeClearAction": "Borrar resultado",
+    "enabledStateLabel": "Activada",
+    "disabledStateLabel": "Desactivada",
+    "budgetMeterLabel": "Presupuesto mensual",
+    "budgetMeterNoLimit": "Sin límite · {{spent}} este mes",
+    "budgetMeterHint": "Las llamadas se detienen al llegar al límite."
   },
   "toast": {
     "saveSuccessTitle": "Configuración de IA guardada",

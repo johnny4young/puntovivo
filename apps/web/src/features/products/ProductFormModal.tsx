@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   useFieldArray,
   useForm,
@@ -8,8 +8,10 @@ import {
   type UseFormRegisterReturn,
 } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Sparkles, X } from 'lucide-react';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { Plus, ScanLine, Sparkles, X } from 'lucide-react';
+import { Modal } from '@/components/form-controls/Modal';
+import { SimpleFormField } from '@/components/form-controls/FormField';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { trpc } from '@/lib/trpc';
@@ -195,6 +197,47 @@ function parseNumber(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * Builds the `error` prop for SimpleFormField under
+ * `exactOptionalPropertyTypes`: the prop is omitted entirely when there is
+ * no message rather than passed as `undefined`.
+ */
+function errorProp(message: string | undefined): { error?: string } {
+  return message ? { error: message } : {};
+}
+
+/**
+ * Visual required marker. Renders the asterisk as a CSS `::after` pseudo
+ * element on the field label so it stays presentation-only: it never lands
+ * in the label's text content (keeping `getByLabelText('Name')` exact and
+ * the accessible name clean — the required semantic is carried by
+ * `aria-required` on the control instead).
+ */
+const REQUIRED_LABEL = "[&>label]:after:ml-0.5 [&>label]:after:text-danger-600 [&>label]:after:content-['*']";
+
+/**
+ * Subtitled field group used to organize the General tab into the three
+ * documented sections (Identity · Classification · Inventory). Renders an
+ * <h4> heading plus a muted one-line description above the grouped fields.
+ */
+interface FieldGroupProps {
+  title: string;
+  description: string;
+  children: ReactNode;
+}
+
+function FieldGroup({ title, description, children }: FieldGroupProps) {
+  return (
+    <section className="space-y-4">
+      <div className="space-y-0.5">
+        <h4 className="font-display text-lg leading-tight text-secondary-950">{title}</h4>
+        <p className="text-sm text-secondary-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 interface ProductFormModalProps {
   mode: ProductRole;
   isOpen: boolean;
@@ -359,6 +402,11 @@ export function ProductFormModal({
     control: form.control,
     name: 'sellByFraction',
   });
+  const isActive = useWatch({
+    control: form.control,
+    name: 'isActive',
+  });
+  const { errors } = form.formState;
 
   const handleBaseUnitChange = (index: number) => {
     const assignments = form.getValues('unitAssignments');
@@ -522,26 +570,44 @@ export function ProductFormModal({
       title={mode === 'create' ? t('form.createTitle') : t('form.editTitle')}
       size="xl"
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('form.submitting') : mode === 'create' ? t('form.create') : t('form.save')}
-          </ModalButton>
-        </>
+        <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isActive}
+            id="product-is-active"
+            className="inline-flex items-center gap-2.5 text-sm text-secondary-600"
+            onClick={() =>
+              form.setValue('isActive', !isActive, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          >
+            <span className={cn('pv-switch', isActive && 'on')} aria-hidden="true" />
+            {t('form.fields.isActive')}
+          </button>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+            <button type="button" className="pv-btn outline" onClick={onClose} disabled={isSaving}>
+              {t('form.cancel')}
+            </button>
+            <button type="button" className="pv-btn primary" onClick={handleSubmit} disabled={isSaving}>
+              {mode === 'create' && <Plus aria-hidden="true" />}
+              {isSaving ? t('form.submitting') : mode === 'create' ? t('form.create') : t('form.save')}
+            </button>
+          </div>
+        </div>
       }
     >
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="pv-tabs mb-6" role="tablist" aria-label={t('form.tabs.ariaLabel')}>
         {PRODUCT_FORM_TABS.map(tab => (
           <button
             key={tab.id}
             type="button"
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              activeTab === tab.id
-                ? 'bg-primary-100 text-primary-800'
-                : 'bg-secondary-100 text-secondary-600'
-            }`}
+            role="tab"
+            id={`product-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`product-tabpanel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -549,304 +615,343 @@ export function ProductFormModal({
         ))}
       </div>
 
-      <form className="space-y-5" onSubmit={handleSubmit}>
+      <form className="space-y-6" onSubmit={handleSubmit}>
         {activeTab === 'general' && (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label htmlFor="product-name" className="label">
-                  {t('form.fields.name')}
-                </label>
-                <input
-                  id="product-name"
-                  className="input mt-1"
-                  {...form.register('name', { required: t('form.fields.nameRequired') })}
-                />
-              </div>
-              <div>
-                <label htmlFor="product-sku" className="label">
-                  {t('form.fields.sku')}
-                </label>
-                <input
-                  id="product-sku"
-                  className="input mt-1"
-                  {...form.register('sku', { required: t('form.fields.skuRequired') })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="product-description" className="label">
-                {t('form.fields.description')}
-              </label>
-              <textarea
-                id="product-description"
-                className="input mt-1 min-h-[88px]"
-                {...form.register('description')}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label htmlFor="product-category" className="label flex items-center gap-2">
-                  <span>{t('form.fields.category')}</span>
-                  {showAutoSelectedBadge && (
-                    <span
-                      data-testid="suggest-category-badge"
-                      className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700"
-                    >
-                      <Sparkles className="h-3 w-3" aria-hidden="true" />
-                      {t('suggestCategory.autoSelectedBadge')}
-                    </span>
-                  )}
-                </label>
-                <select id="product-category" className="input mt-1" {...form.register('categoryId')}>
-                  <option value="">{t('form.fields.noCategory')}</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                {showSuggestionChip && suggestion && suggestedCategory && (
-                  <div
-                    data-testid="suggest-category-chip"
-                    className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs text-primary-700"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>
-                      {t('suggestCategory.chipPrefix')}:{' '}
-                      {t('suggestCategory.chipLabel', {
-                        name: suggestedCategory.name,
-                        percent: Math.round(suggestion.confidence * 100),
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      data-testid="suggest-category-apply"
-                      className="ml-1 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-primary-700"
-                      onClick={handleApplySuggestion}
-                    >
-                      {t('suggestCategory.chipApplyCta')}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="suggest-category-dismiss"
-                      aria-label={t('suggestCategory.chipDismissAria')}
-                      className="rounded-full p-0.5 text-primary-700 hover:bg-primary-100"
-                      onClick={handleDismissSuggestion}
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label htmlFor="product-provider" className="label">
-                  {t('form.fields.provider')}
-                </label>
-                <select id="product-provider" className="input mt-1" {...form.register('providerId')}>
-                  <option value="">{t('form.fields.noProvider')}</option>
-                  {providers.map(provider => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="product-vat-rate" className="label">
-                  {t('form.fields.vatRate')}
-                </label>
-                <select
-                  id="product-vat-rate"
-                  className="input mt-1"
-                  {...vatRateField}
-                  onChange={event => {
-                    vatRateField.onChange(event);
-                    const selected = vatRates.find(vatRate => vatRate.id === event.target.value);
-                    form.setValue('taxRate', selected?.rate ?? 0, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
+          <div
+            id="product-tabpanel-general"
+            role="tabpanel"
+            aria-labelledby="product-tab-general"
+            className="space-y-8"
+          >
+            {/* --- Identity --------------------------------------------------- */}
+            <FieldGroup
+              title={t('form.sections.identity.title')}
+              description={t('form.sections.identity.description')}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <SimpleFormField
+                  label={t('form.fields.name')}
+                  htmlFor="product-name"
+                  className={REQUIRED_LABEL}
+                  {...errorProp(errors.name?.message)}
                 >
-                  <option value="">{t('form.fields.manualTaxRate')}</option>
-                  {vatRates.map(vatRate => (
-                    <option key={vatRate.id} value={vatRate.id}>
-                      {vatRate.name} ({vatRate.rate}%)
-                    </option>
-                  ))}
-                </select>
+                  <input
+                    id="product-name"
+                    aria-required="true"
+                    className={cn('pv-input', errors.name && 'error')}
+                    {...form.register('name', { required: t('form.fields.nameRequired') })}
+                  />
+                </SimpleFormField>
+                <SimpleFormField
+                  label={t('form.fields.sku')}
+                  htmlFor="product-sku"
+                  className={REQUIRED_LABEL}
+                  helperText={t('form.fields.skuHelp')}
+                  {...errorProp(errors.sku?.message)}
+                >
+                  <input
+                    id="product-sku"
+                    aria-required="true"
+                    className={cn('pv-input', errors.sku && 'error')}
+                    {...form.register('sku', { required: t('form.fields.skuRequired') })}
+                  />
+                </SimpleFormField>
               </div>
-              <div>
-                <label htmlFor="product-tax-rate" className="label">
-                  {t('form.fields.taxRate')}
-                </label>
-                <input
-                  id="product-tax-rate"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="input mt-1"
-                  disabled={!!selectedVatRateId}
-                  {...taxRateField}
-                />
-              </div>
-              <div>
-                <label htmlFor="product-location" className="label">
-                  {t('form.fields.location')}
-                </label>
-                <select id="product-location" className="input mt-1" {...form.register('locationId')}>
-                  <option value="">{t('form.fields.noLocation')}</option>
-                  {locations.map(location => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="product-barcode" className="label">
-                  {t('form.fields.barcode')}
-                </label>
-                <input id="product-barcode" className="input mt-1" {...form.register('barcode')} />
-              </div>
-              <div>
-                <label htmlFor="product-stock" className="label">
-                  {t('form.fields.stock')}
-                </label>
-                <input
-                  id="product-stock"
-                  type="number"
-                  min="0"
-                  step="any"
-                  className="input mt-1"
-                  {...stockField}
-                />
-              </div>
-              <div>
-                <label htmlFor="product-min-stock" className="label">
-                  {t('form.fields.minStock')}
-                </label>
-                <input
-                  id="product-min-stock"
-                  type="number"
-                  min="0"
-                  step="any"
-                  className="input mt-1"
-                  {...minStockField}
-                />
-              </div>
-            </div>
 
-            <div className="rounded-xl border border-secondary-200 p-4">
-              <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-secondary-300"
-                  {...sellByFractionField}
-                  onChange={event => {
-                    sellByFractionField.onChange(event);
+              <div className="grid gap-4 md:grid-cols-2">
+                <SimpleFormField
+                  label={t('form.fields.barcode')}
+                  htmlFor="product-barcode"
+                  className="self-start"
+                >
+                  <span className="pv-input">
+                    <ScanLine aria-hidden="true" />
+                    <input
+                      id="product-barcode"
+                      className="w-full border-0 bg-transparent p-0 text-inherit outline-none placeholder:text-fg4"
+                      placeholder={t('form.fields.barcodePlaceholder')}
+                      {...form.register('barcode')}
+                    />
+                  </span>
+                </SimpleFormField>
+                <SimpleFormField label={t('form.fields.imageUrl')} htmlFor="product-image-url">
+                  <input
+                    id="product-image-url"
+                    className="pv-input"
+                    {...form.register('imageUrl')}
+                  />
+                </SimpleFormField>
+              </div>
 
-                    if (event.target.checked) {
-                      const nextFractionStep = Math.max(0.01, form.getValues('fractionStep') || 0.01);
-                      const nextFractionMinimum = Math.max(
-                        form.getValues('fractionMinimum') || 0.01,
-                        nextFractionStep
-                      );
+              <SimpleFormField label={t('form.fields.description')} htmlFor="product-description">
+                <textarea
+                  id="product-description"
+                  className="pv-input area"
+                  placeholder={t('form.fields.descriptionPlaceholder')}
+                  {...form.register('description')}
+                />
+              </SimpleFormField>
+            </FieldGroup>
 
-                      form.setValue('fractionStep', nextFractionStep, {
+            {/* --- Classification --------------------------------------------- */}
+            <FieldGroup
+              title={t('form.sections.classification.title')}
+              description={t('form.sections.classification.description')}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="pv-field">
+                  <label htmlFor="product-category" className="label flex items-center gap-2">
+                    <span>{t('form.fields.category')}</span>
+                    {showAutoSelectedBadge && (
+                      <span
+                        data-testid="suggest-category-badge"
+                        className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[0.65rem] font-medium normal-case tracking-normal text-success-700"
+                      >
+                        <Sparkles className="h-3 w-3" aria-hidden="true" />
+                        {t('suggestCategory.autoSelectedBadge')}
+                      </span>
+                    )}
+                  </label>
+                  <select id="product-category" className="pv-input" {...form.register('categoryId')}>
+                    <option value="">{t('form.fields.noCategory')}</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {showSuggestionChip && suggestion && suggestedCategory && (
+                    <div
+                      data-testid="suggest-category-chip"
+                      className="mt-1 inline-flex items-center gap-2 self-start rounded-full bg-primary-50 px-3 py-1 text-xs text-primary-700"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {t('suggestCategory.chipPrefix')}:{' '}
+                        {t('suggestCategory.chipLabel', {
+                          name: suggestedCategory.name,
+                          percent: Math.round(suggestion.confidence * 100),
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="suggest-category-apply"
+                        className="ml-1 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-primary-700"
+                        onClick={handleApplySuggestion}
+                      >
+                        {t('suggestCategory.chipApplyCta')}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="suggest-category-dismiss"
+                        aria-label={t('suggestCategory.chipDismissAria')}
+                        className="rounded-full p-0.5 text-primary-700 hover:bg-primary-100"
+                        onClick={handleDismissSuggestion}
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <SimpleFormField label={t('form.fields.provider')} htmlFor="product-provider">
+                  <select id="product-provider" className="pv-input" {...form.register('providerId')}>
+                    <option value="">{t('form.fields.noProvider')}</option>
+                    {providers.map(provider => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </SimpleFormField>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <SimpleFormField label={t('form.fields.vatRate')} htmlFor="product-vat-rate">
+                  <select
+                    id="product-vat-rate"
+                    className="pv-input"
+                    {...vatRateField}
+                    onChange={event => {
+                      vatRateField.onChange(event);
+                      const selected = vatRates.find(vatRate => vatRate.id === event.target.value);
+                      form.setValue('taxRate', selected?.rate ?? 0, {
                         shouldDirty: true,
                         shouldValidate: true,
                       });
-                      form.setValue('fractionMinimum', nextFractionMinimum, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      });
-                    }
-                  }}
-                />
-                {t('form.fields.sellByFraction')}
-              </label>
-              <p className="mt-2 text-sm text-secondary-500">{t('form.fields.sellByFractionHelp')}</p>
+                    }}
+                  >
+                    <option value="">{t('form.fields.manualTaxRate')}</option>
+                    {vatRates.map(vatRate => (
+                      <option key={vatRate.id} value={vatRate.id}>
+                        {vatRate.name} ({vatRate.rate}%)
+                      </option>
+                    ))}
+                  </select>
+                </SimpleFormField>
+                <SimpleFormField
+                  label={t('form.fields.taxRate')}
+                  htmlFor="product-tax-rate"
+                  {...errorProp(errors.taxRate?.message)}
+                >
+                  <input
+                    id="product-tax-rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className={cn('pv-input', errors.taxRate && 'error')}
+                    disabled={!!selectedVatRateId}
+                    {...taxRateField}
+                  />
+                </SimpleFormField>
+                <SimpleFormField label={t('form.fields.location')} htmlFor="product-location">
+                  <select id="product-location" className="pv-input" {...form.register('locationId')}>
+                    <option value="">{t('form.fields.noLocation')}</option>
+                    {locations.map(location => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </SimpleFormField>
+              </div>
+            </FieldGroup>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="product-fraction-step" className="label">
-                    {t('form.fields.fractionStep')}
-                  </label>
+            {/* --- Inventory -------------------------------------------------- */}
+            <FieldGroup
+              title={t('form.sections.inventory.title')}
+              description={t('form.sections.inventory.description')}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <SimpleFormField
+                  label={t('form.fields.stock')}
+                  htmlFor="product-stock"
+                  {...errorProp(errors.stock?.message)}
+                >
                   <input
-                    id="product-fraction-step"
+                    id="product-stock"
                     type="number"
-                    min="0.01"
+                    min="0"
                     step="any"
-                    disabled={!sellByFraction}
-                    className="input mt-1"
-                    {...fractionStepField}
+                    className={cn('pv-input', errors.stock && 'error')}
+                    {...stockField}
                   />
-                </div>
-                <div>
-                  <label htmlFor="product-fraction-minimum" className="label">
-                    {t('form.fields.fractionMinimum')}
-                  </label>
+                </SimpleFormField>
+                <SimpleFormField
+                  label={t('form.fields.minStock')}
+                  htmlFor="product-min-stock"
+                  helperText={t('form.fields.minStockHelp')}
+                  {...errorProp(errors.minStock?.message)}
+                >
                   <input
-                    id="product-fraction-minimum"
+                    id="product-min-stock"
                     type="number"
-                    min="0.01"
+                    min="0"
                     step="any"
-                    disabled={!sellByFraction}
-                    className="input mt-1"
-                    {...fractionMinimumField}
+                    className={cn('pv-input', errors.minStock && 'error')}
+                    {...minStockField}
                   />
+                </SimpleFormField>
+              </div>
+
+              <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+                <label className="flex items-center gap-3 text-sm font-medium text-secondary-900">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-secondary-300"
+                    {...sellByFractionField}
+                    onChange={event => {
+                      sellByFractionField.onChange(event);
+
+                      if (event.target.checked) {
+                        const nextFractionStep = Math.max(0.01, form.getValues('fractionStep') || 0.01);
+                        const nextFractionMinimum = Math.max(
+                          form.getValues('fractionMinimum') || 0.01,
+                          nextFractionStep
+                        );
+
+                        form.setValue('fractionStep', nextFractionStep, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        form.setValue('fractionMinimum', nextFractionMinimum, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                  />
+                  {t('form.fields.sellByFraction')}
+                </label>
+                <p className="mt-2 text-sm text-secondary-500">{t('form.fields.sellByFractionHelp')}</p>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <SimpleFormField label={t('form.fields.fractionStep')} htmlFor="product-fraction-step">
+                    <input
+                      id="product-fraction-step"
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      disabled={!sellByFraction}
+                      className="pv-input"
+                      {...fractionStepField}
+                    />
+                  </SimpleFormField>
+                  <SimpleFormField
+                    label={t('form.fields.fractionMinimum')}
+                    htmlFor="product-fraction-minimum"
+                  >
+                    <input
+                      id="product-fraction-minimum"
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      disabled={!sellByFraction}
+                      className="pv-input"
+                      {...fractionMinimumField}
+                    />
+                  </SimpleFormField>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="product-image-url" className="label">
-                {t('form.fields.imageUrl')}
-              </label>
-              <input id="product-image-url" className="input mt-1" {...form.register('imageUrl')} />
-            </div>
-
-            <label className="flex items-center gap-3 text-sm text-secondary-700">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-secondary-300"
-                {...form.register('isActive')}
-              />
-              {t('form.fields.isActive')}
-            </label>
-          </>
+            </FieldGroup>
+          </div>
         )}
 
         {activeTab === 'pricing' && (
-          <PricingSection
-            form={form}
-            costField={costField}
-            initialCostField={initialCostField}
-            syncAllTiersFromCost={syncAllTiersFromCost}
-            syncTier={syncTier}
-          />
+          <div id="product-tabpanel-pricing" role="tabpanel" aria-labelledby="product-tab-pricing">
+            <PricingSection
+              form={form}
+              costField={costField}
+              initialCostField={initialCostField}
+              syncAllTiersFromCost={syncAllTiersFromCost}
+              syncTier={syncTier}
+            />
+          </div>
         )}
 
         {activeTab === 'units' && (
-          <UnitAssignmentsSection
-            form={form}
-            units={units}
-            unitAssignmentsFieldArray={unitAssignmentsFieldArray}
-            onBaseUnitChange={handleBaseUnitChange}
-          />
+          <div id="product-tabpanel-units" role="tabpanel" aria-labelledby="product-tab-units">
+            <UnitAssignmentsSection
+              form={form}
+              units={units}
+              unitAssignmentsFieldArray={unitAssignmentsFieldArray}
+              onBaseUnitChange={handleBaseUnitChange}
+            />
+          </div>
         )}
 
         {activeTab === 'providers' && (
-          <ProviderAssignmentsSection
-            form={form}
-            providers={providers}
-            providerAssignmentsFieldArray={providerAssignmentsFieldArray}
-            validateProviderAssignment={validateProviderAssignment}
-          />
+          <div
+            id="product-tabpanel-providers"
+            role="tabpanel"
+            aria-labelledby="product-tab-providers"
+          >
+            <ProviderAssignmentsSection
+              form={form}
+              providers={providers}
+              providerAssignmentsFieldArray={providerAssignmentsFieldArray}
+              validateProviderAssignment={validateProviderAssignment}
+            />
+          </div>
         )}
 
         {error && <p className="text-sm text-danger-500">{error}</p>}
@@ -889,7 +994,7 @@ function PricingSection({
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
+        <div className="pv-field">
           <label htmlFor="product-cost" className="label">
             {t('form.fields.cost')}
           </label>
@@ -898,7 +1003,7 @@ function PricingSection({
             type="number"
             step="0.01"
             min="0"
-            className="input mt-1"
+            className="pv-input"
             {...costField}
             onChange={event => {
               costField.onChange(event);
@@ -906,7 +1011,7 @@ function PricingSection({
             }}
           />
         </div>
-        <div>
+        <div className="pv-field">
           <label htmlFor="product-initial-cost" className="label">
             {t('form.fields.initialCost')}
           </label>
@@ -915,7 +1020,7 @@ function PricingSection({
             type="number"
             step="0.01"
             min="0"
-            className="input mt-1"
+            className="pv-input"
             {...initialCostField}
           />
         </div>
@@ -996,7 +1101,7 @@ function UnitAssignmentsSection({
         </div>
         <button
           type="button"
-          className="btn-outline"
+          className="pv-btn outline"
           onClick={() =>
             unitAssignmentsFieldArray.append({
               unitId: '',
@@ -1015,10 +1120,10 @@ function UnitAssignmentsSection({
           const isBase = unitAssignments?.[index]?.isBase ?? false;
           return (
             <div key={field.id} className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4">
-              <div>
+              <div className="pv-field">
                 <label className="label">{t('form.units.unit')}</label>
                 <select
-                  className="input mt-1"
+                  className="pv-input"
                   {...form.register(`unitAssignments.${index}.unitId` as const, {
                     required: t('form.units.unitRequired'),
                   })}
@@ -1031,27 +1136,27 @@ function UnitAssignmentsSection({
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="pv-field">
                 <label className="label">{t('form.units.equivalence')}</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
                   disabled={isBase}
-                  className="input mt-1"
+                  className="pv-input"
                   {...form.register(`unitAssignments.${index}.equivalence` as const, {
                     min: 0.01,
                     valueAsNumber: true,
                   })}
                 />
               </div>
-              <div>
+              <div className="pv-field">
                 <label className="label">{t('form.units.unitPrice')}</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  className="input mt-1"
+                  className="pv-input"
                   {...form.register(`unitAssignments.${index}.price` as const, {
                     min: 0,
                     valueAsNumber: true,
@@ -1069,7 +1174,7 @@ function UnitAssignmentsSection({
                 </label>
                 <button
                   type="button"
-                  className="btn-ghost text-danger-600"
+                  className="pv-btn ghost text-danger-600"
                   disabled={unitAssignmentsFieldArray.fields.length === 1}
                   onClick={() => {
                     const currentAssignments = form.getValues('unitAssignments');
@@ -1116,7 +1221,7 @@ function ProviderAssignmentsSection({
         </div>
         <button
           type="button"
-          className="btn-outline"
+          className="pv-btn outline"
           onClick={() => providerAssignmentsFieldArray.append({ providerId: '' })}
         >
           {t('form.providerAssignments.addProvider')}
@@ -1132,10 +1237,10 @@ function ProviderAssignmentsSection({
       <div className="space-y-3">
         {providerAssignmentsFieldArray.fields.map((field, index) => (
           <div key={field.id} className="flex items-end gap-3 rounded-lg border border-secondary-200 p-4">
-            <div className="flex-1">
+            <div className="pv-field flex-1">
               <label className="label">{t('form.providerAssignments.provider')}</label>
               <select
-                className="input mt-1"
+                className="pv-input"
                 {...form.register(`providerAssignments.${index}.providerId` as const, {
                   validate: value => validateProviderAssignment(value, index),
                 })}
@@ -1150,7 +1255,7 @@ function ProviderAssignmentsSection({
             </div>
             <button
               type="button"
-              className="btn-ghost text-danger-600"
+              className="pv-btn ghost text-danger-600"
               onClick={() => providerAssignmentsFieldArray.remove(index)}
             >
               {t('form.providerAssignments.remove')}
@@ -1177,13 +1282,13 @@ function PricingTierSection({
       <div className="md:col-span-3">
         <p className="text-sm font-medium text-secondary-900">{title}</p>
       </div>
-      <div>
+      <div className="pv-field">
         <label className="label">{t('form.fields.marginPercent')}</label>
         <input
           type="number"
           step="0.01"
           min="0"
-          className="input mt-1"
+          className="pv-input"
           {...percentField}
           onChange={event => {
             percentField.onChange(event);
@@ -1191,13 +1296,13 @@ function PricingTierSection({
           }}
         />
       </div>
-      <div>
+      <div className="pv-field">
         <label className="label">{t('form.fields.marginAmount')}</label>
         <input
           type="number"
           step="0.01"
           min="0"
-          className="input mt-1"
+          className="pv-input"
           {...amountField}
           onChange={event => {
             amountField.onChange(event);
@@ -1205,13 +1310,13 @@ function PricingTierSection({
           }}
         />
       </div>
-      <div>
+      <div className="pv-field">
         <label className="label">{t('form.fields.salePrice')}</label>
         <input
           type="number"
           step="0.01"
           min="0"
-          className="input mt-1"
+          className="pv-input"
           {...priceField}
           onChange={event => {
             priceField.onChange(event);

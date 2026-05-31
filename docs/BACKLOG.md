@@ -31,6 +31,11 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
+- `[ux][redesign][fiscal]` Estado vacío honesto en la pestaña Fiscal de Empresa: cuando la config fiscal es null, renderizar `EmptyState` (ya importado en CompanyClFiscalCard para el CAF) + CTA "Configurar", en vez del form vacío. Decisión de arquitectura marcada explícitamente por el prompt del rediseño. — 2026-05-29 (rediseño visual, follow-up)
+- `[ux][redesign]` Modal Crear producto: las sub-pestañas Precios/Unidades/Proveedores aún usan `.input`/`.btn-outline` legacy (FASE 4 migró solo el tab General a `.pv-field`/`.pv-input`). Migrar las 3 restantes a recetas pv-*. — 2026-05-29 (rediseño visual, follow-up)
+- `[infra][desktop]` Validar en Electron vivo los fixes de lifecycle de `apps/desktop/src/main/index.ts` (DK-004 fail-loud, DK-005 shutdown await, DK-006 print timeout, DK-007 tray listener): aplicados pero no corridos en target Electron (dev:desktop / test:e2e:electron) por el scope del fix; cruzan el boundary main/renderer. — 2026-05-29 (rediseño visual, follow-up)
+- `[ux][redesign]` Decisiones cosméticas deliberadas a revisitar: (a) los tab-bars de Empresa/Operations se mantuvieron como `segmented-control` (no se convirtieron a `.pv-tabs`) por consistencia app-wide + riesgo de tests; (b) 2 labels compactos de Operations conservan el anglicismo "sync"; (c) la consolidación i18n preservó 17 keys existentes sin sobrescribir con re-descripciones de módulos/carrito — verificar si esas reescrituras eran intencionales. — 2026-05-29 (rediseño visual, follow-up)
+- `[ux][redesign][declutter]` POS: el botón manager de abrir-cajón (sales-kick-drawer) se reubicó de SalesOverview (eliminado) al bloque de caja de SalesCheckoutPanel. §06 no lo muestra; si se quiere un POS estrictamente minimal, evaluar quitarlo + su cadena dispatchDrawerKick. — 2026-05-29 (rediseño visual, declutter)
 - `[fiscal][refactor]` Move `services/fiscal/cufe.ts` into
   `packs/co/cufe.ts` once ENG-021 lands the real Colombia adapter.
   The CUFE algorithm is Colombia-specific (SHA-384 over a fixed

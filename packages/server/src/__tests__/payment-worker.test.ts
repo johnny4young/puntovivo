@@ -198,6 +198,91 @@ describe('payment-worker statement import', () => {
     expect(markers.wompi).toBeUndefined();
   });
 
+  it('reports reconciliation-failed separately from fetch failures', async () => {
+    const db = getDatabase();
+    const createdAt = '2026-04-30T12:00:00.000Z';
+    await db.insert(paymentOutbox).values([
+      {
+        id: 'worker-ambiguous-row-a',
+        tenantId: TENANT_ID,
+        salePaymentId: null,
+        railId: 'wompi',
+        kind: 'charge',
+        status: 'approved',
+        amount: 75_000,
+        currencyCode: 'COP',
+        reference: 'LOCAL-A',
+        providerTransactionId: null,
+        payload: { fixture: true },
+        payloadVersion: 1,
+        attempts: 0,
+        nextRetryAt: null,
+        lastError: null,
+        priority: 0,
+        claimToken: null,
+        lockedAt: null,
+        idempotencyKey: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+      {
+        id: 'worker-ambiguous-row-b',
+        tenantId: TENANT_ID,
+        salePaymentId: null,
+        railId: 'wompi',
+        kind: 'charge',
+        status: 'approved',
+        amount: 75_000,
+        currencyCode: 'COP',
+        reference: 'LOCAL-B',
+        providerTransactionId: null,
+        payload: { fixture: true },
+        payloadVersion: 1,
+        attempts: 0,
+        nextRetryAt: null,
+        lastError: null,
+        priority: 0,
+        claimToken: null,
+        lockedAt: null,
+        idempotencyKey: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    const fetcher: FetchStatementFn = async (): Promise<StatementRow[]> => [
+      {
+        railId: 'wompi',
+        reference: 'PROVIDER-AMBIGUOUS',
+        providerTransactionId: 'wompi-tx-ambiguous',
+        amount: 75_000,
+        currencyCode: 'COP',
+        status: 'settled',
+        settledAt: createdAt,
+      },
+    ];
+    const worker = createPaymentWorker({
+      db,
+      fetchStatement: fetcher,
+      buildTiebreakContext: () => ({ db, tenantId: TENANT_ID, siteId: null, userId: null }),
+      aiTiebreak: async () => {
+        throw new Error('ai provider unavailable');
+      },
+    });
+
+    const outcome = await worker.runStatementImport({
+      tenantId: TENANT_ID,
+      railId: 'wompi',
+      fromIso: '2026-04-01T00:00:00.000Z',
+      toIso: '2026-05-01T00:00:00.000Z',
+    });
+
+    expect(outcome.skippedReason).toBe('reconciliation-failed');
+    expect(outcome.rowsImported).toBe(1);
+    expect(outcome.pass).toBeNull();
+    const markers = await readLastImportedAtMap(db, TENANT_ID);
+    expect(markers.wompi).toBeUndefined();
+  });
+
   it('walks statement rows into the matcher and counts matched rows', async () => {
     const db = getDatabase();
     await db.insert(paymentOutbox).values({

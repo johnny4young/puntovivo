@@ -280,6 +280,12 @@ describe('PeripheralsPage', () => {
     expect(
       screen.getByText('Print automatically when a sale closes')
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('ESC/POS TCP targets must use private LAN IPs and ports 9100-9103.')
+    ).toBeInTheDocument();
+    expect(
+      (screen.getByLabelText('Configuration (JSON)') as HTMLTextAreaElement).value
+    ).toContain('"host": "192.168.1.50"');
   });
 
   it('writes the auto-print flag into the config JSON when toggled on', async () => {

@@ -158,6 +158,7 @@ describe('CashHealthPanel', () => {
           sessionId: 'sess-1',
           siteId: 'site-a',
           siteName: 'Sede Norte',
+          registerName: 'Caja Norte',
           cashierName: 'Ana Cajera',
           closedAt: '2026-05-05T12:00:00.000Z',
           expectedBalance: 100,
@@ -167,6 +168,7 @@ describe('CashHealthPanel', () => {
       ],
     });
     render(<CashHealthPanel />);
+    expect(screen.getByText('Caja Norte')).toBeInTheDocument();
     expect(screen.getByText('Ana Cajera')).toBeInTheDocument();
     // The site name appears in both the bySite section (when present) and
     // the discrepancies table; one match is enough for this assertion.
@@ -176,13 +178,15 @@ describe('CashHealthPanel', () => {
   it('renders both empty states when bySite and discrepancies are empty', () => {
     mockData = makeData();
     render(<CashHealthPanel />);
-    // The bySite empty-state and the recentDiscrepancies empty-state copy
-    // both exist in the rendered tree when their arrays are empty.
+    // The bySite empty-state and the recentDiscrepancies empty-state copy both
+    // exist in the rendered tree when their arrays are empty. The shared
+    // EmptyState renders a title AND a description, so the site / discrepancy
+    // wording can land in more than one node — assert at least one match each.
     expect(
-      screen.getByText(/No hay sedes|No sites/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/No hay sedes|No sites/i).length
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/No hay cierres con discrepancia|No closures with discrepancy/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/No hay cierres con discrepancia|No closures with discrepancy/i).length
+    ).toBeGreaterThan(0);
   });
 });

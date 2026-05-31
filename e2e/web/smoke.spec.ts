@@ -40,7 +40,7 @@ const adminRoutes = [
     path: '/company',
     assertion: async (page) =>
       page.getByRole('heading', {
-        name: /Setup readiness|Configuración inicial/i,
+        name: /Ready to open|Listo para abrir|Setup readiness|Configuración inicial/i,
       }),
   },
   { label: 'Sites', path: '/sites', assertion: async (page) => page.getByRole('button', { name: /Add Site|Agregar sede/i }) },

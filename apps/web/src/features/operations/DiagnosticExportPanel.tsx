@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, FileText, Eye } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Database, Download, Eye, HardDrive } from 'lucide-react';
 import JSZip from 'jszip';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -26,6 +26,13 @@ import { downloadFile } from '@/services/export/exportService';
  * are disabled with translated tooltips so the affordance is
  * visible (operator can still see the count tiles after admin runs
  * the preview, easing handoffs).
+ *
+ * Rediseño FASE 6 (O2) — recetas pv-*: la vista previa se presenta
+ * como una lista de chequeos con estado tonal (`.pv-check`, ok /
+ * atención) en lugar de logs crudos, el rango usa el segmentado
+ * `.pv-seg` y los campos de fecha la receta `.pv-field` / `.pv-input`.
+ * Encabezado de panel con `.pv-kicker` / `.pv-title`, controles con
+ * `.pv-btn` y la inclusión de bitácoras con `.pv-switch`.
  */
 
 type IncludeOutbox = 'sync' | 'fiscal' | 'hardware';
@@ -88,9 +95,7 @@ export function DiagnosticExportPanel() {
   const initial = useMemo(() => isoDayBounds(7), []);
   const [fromDate, setFromDate] = useState(isoToDateInput(initial.fromIso));
   const [toDate, setToDate] = useState(isoToDateInput(initial.toIso));
-  const [activePreset, setActivePreset] = useState<'last7d' | 'last30d' | 'custom'>(
-    'last7d'
-  );
+  const [activePreset, setActivePreset] = useState<'last7d' | 'last30d' | 'custom'>('last7d');
   const [includeSync, setIncludeSync] = useState(true);
   const [includeFiscal, setIncludeFiscal] = useState(true);
   const [includeHardware, setIncludeHardware] = useState(true);
@@ -178,25 +183,47 @@ export function DiagnosticExportPanel() {
 
   const previewData = previewQuery.data;
 
+  const previewChecks = previewData
+    ? [
+        {
+          key: 'operationEvents',
+          label: t('diagnostics.preview.results.operationEvents'),
+          count: previewData.counts.operation_events,
+        },
+        {
+          key: 'operationEffects',
+          label: t('diagnostics.preview.results.operationEffects'),
+          count: previewData.counts.operation_effects,
+        },
+        {
+          key: 'syncOutbox',
+          label: t('diagnostics.preview.results.syncOutbox'),
+          count: previewData.counts.sync_outbox,
+        },
+        {
+          key: 'fiscalOutbox',
+          label: t('diagnostics.preview.results.fiscalOutbox'),
+          count: previewData.counts.fiscal_outbox,
+        },
+        {
+          key: 'hardwareOutbox',
+          label: t('diagnostics.preview.results.hardwareOutbox'),
+          count: previewData.counts.hardware_outbox,
+        },
+      ]
+    : [];
+
   return (
     <section className="card p-6 space-y-6">
-      <header className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <FileText className="h-5 w-5 text-primary-700" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {t('diagnostics.title')}
-          </h2>
-          <p className="text-sm text-secondary-500">
-            {t('diagnostics.description')}
-          </p>
-        </div>
+      <header>
+        <p className="pv-kicker">{t('diagnostics.kicker')}</p>
+        <h2 className="pv-title text-2xl">{t('diagnostics.title')}</h2>
+        <p className="mt-2 text-sm text-secondary-500">{t('diagnostics.description')}</p>
       </header>
 
       <div className="space-y-3">
-        <nav
-          className="segmented-control inline-flex"
+        <div
+          className="pv-seg"
           role="tablist"
           aria-label={t('diagnostics.range.presetsAriaLabel')}
         >
@@ -208,7 +235,7 @@ export function DiagnosticExportPanel() {
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                className={`segmented-tab ${selected ? 'segmented-tab-active' : ''}`}
+                className={selected ? 'on' : ''}
                 onClick={() => applyPreset(preset)}
                 data-testid={`diagnostics-preset-${preset}`}
               >
@@ -216,125 +243,151 @@ export function DiagnosticExportPanel() {
               </button>
             );
           })}
-        </nav>
+        </div>
 
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="block text-xs uppercase tracking-wide text-secondary-500">
-              {t('diagnostics.range.from')}
+          <label className="pv-field">
+            <span className="lab">{t('diagnostics.range.from')}</span>
+            <span className="pv-input">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={e => {
+                  setFromDate(e.target.value);
+                  setActivePreset('custom');
+                }}
+                className="w-full border-0 bg-transparent p-0 text-secondary-900 focus:outline-none focus:ring-0"
+                data-testid="diagnostics-from"
+              />
             </span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={e => {
-                setFromDate(e.target.value);
-                setActivePreset('custom');
-              }}
-              className="mt-1 rounded-lg border border-secondary-200 px-3 py-2 text-secondary-900"
-              data-testid="diagnostics-from"
-            />
           </label>
-          <label className="text-sm">
-            <span className="block text-xs uppercase tracking-wide text-secondary-500">
-              {t('diagnostics.range.to')}
+          <label className="pv-field">
+            <span className="lab">{t('diagnostics.range.to')}</span>
+            <span className="pv-input">
+              <input
+                type="date"
+                value={toDate}
+                onChange={e => {
+                  setToDate(e.target.value);
+                  setActivePreset('custom');
+                }}
+                className="w-full border-0 bg-transparent p-0 text-secondary-900 focus:outline-none focus:ring-0"
+                data-testid="diagnostics-to"
+              />
             </span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={e => {
-                setToDate(e.target.value);
-                setActivePreset('custom');
-              }}
-              className="mt-1 rounded-lg border border-secondary-200 px-3 py-2 text-secondary-900"
-              data-testid="diagnostics-to"
-            />
           </label>
           <button
             type="button"
-            className="btn-secondary inline-flex items-center gap-2 text-sm"
+            className="pv-btn outline"
             disabled={!isAdmin || !rangeValid || previewQuery.isFetching}
             title={!isAdmin ? t('diagnostics.export.noPermission') : undefined}
             onClick={() => void previewQuery.refetch()}
             data-testid="diagnostics-preview-cta"
           >
-            <Eye className="h-4 w-4" />
+            <Eye />
             {t('diagnostics.preview.cta')}
           </button>
         </div>
         {!rangeValid && (
-          <p className="text-sm text-danger-700" data-testid="diagnostics-range-error">
+          <p className="text-sm font-medium text-danger-700" data-testid="diagnostics-range-error">
             {t('diagnostics.range.invalid')}
           </p>
         )}
       </div>
 
       {previewQuery.error && (
-        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-          {translateServerError(previewQuery.error, t, t('common.errorGeneric'))}
+        <div className="pv-strip danger">
+          <span className="msg">
+            {translateServerError(previewQuery.error, t, t('common.errorGeneric'))}
+          </span>
         </div>
       )}
 
       {previewData && (
         <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
+            {t('diagnostics.preview.checksTitle')}
+          </p>
           <div
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
+            className="rounded-2xl border border-line/70 bg-surface-2/55 px-4"
             data-testid="diagnostics-preview-results"
           >
-            <PreviewTile
-              label={t('diagnostics.preview.results.operationEvents')}
-              value={previewData.counts.operation_events}
-            />
-            <PreviewTile
-              label={t('diagnostics.preview.results.operationEffects')}
-              value={previewData.counts.operation_effects}
-            />
-            <PreviewTile
-              label={t('diagnostics.preview.results.syncOutbox')}
-              value={previewData.counts.sync_outbox}
-            />
-            <PreviewTile
-              label={t('diagnostics.preview.results.fiscalOutbox')}
-              value={previewData.counts.fiscal_outbox}
-            />
-            <PreviewTile
-              label={t('diagnostics.preview.results.hardwareOutbox')}
-              value={previewData.counts.hardware_outbox}
-            />
-          </div>
-          <p className="text-xs text-secondary-500">
-            {t('diagnostics.preview.results.estimatedSize', {
-              size: formatBytes(previewData.estimatedSizeBytes),
+            {previewChecks.map(check => {
+              const hasRows = check.count > 0;
+              return (
+                <div key={check.key} className="pv-check">
+                  <span className={`ic ${hasRows ? 'done' : 'opt'}`}>
+                    {hasRows ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <Database className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="t">{check.label}</p>
+                    <p className="d">
+                      {t('diagnostics.preview.rowCount', { count: check.count })}
+                    </p>
+                  </div>
+                  <span className="font-mono text-sm font-semibold tabular-nums text-secondary-900">
+                    {check.count.toLocaleString()}
+                  </span>
+                </div>
+              );
             })}
-          </p>
+            <div className="pv-check">
+              <span className="ic opt">
+                <HardDrive className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="t">{t('diagnostics.preview.estimatedSizeLabel')}</p>
+                <p className="d">{t('diagnostics.preview.estimatedSizeHelp')}</p>
+              </div>
+              <span className="font-mono text-sm font-semibold tabular-nums text-secondary-900">
+                {formatBytes(previewData.estimatedSizeBytes)}
+              </span>
+            </div>
+          </div>
           {previewData.willHitLimit && (
-            <div
-              className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700"
-              data-testid="diagnostics-limit-warning"
-            >
-              {t('diagnostics.preview.willHitLimit', { rowLimit: previewData.rowLimit })}
+            <div className="pv-strip danger" data-testid="diagnostics-limit-warning">
+              <span className="ic">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <span className="msg">
+                {t('diagnostics.preview.willHitLimit', { rowLimit: previewData.rowLimit })}
+              </span>
             </div>
           )}
         </div>
       )}
 
-      <div className="space-y-3 border-t border-secondary-200 pt-4">
-        <p className="text-sm font-semibold text-secondary-700">
+      <div className="space-y-3 border-t border-line/70 pt-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary-500">
           {t('diagnostics.includeOutboxes.label')}
         </p>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
           {ALL_OUTBOXES.map(name => {
             const checked =
               name === 'sync' ? includeSync : name === 'fiscal' ? includeFiscal : includeHardware;
             const setter =
-              name === 'sync' ? setIncludeSync : name === 'fiscal' ? setIncludeFiscal : setIncludeHardware;
+              name === 'sync'
+                ? setIncludeSync
+                : name === 'fiscal'
+                  ? setIncludeFiscal
+                  : setIncludeHardware;
             return (
-              <label key={name} className="inline-flex items-center gap-2 text-sm">
+              <label
+                key={name}
+                className="inline-flex cursor-pointer items-center gap-3 text-sm text-secondary-700"
+              >
                 <input
                   type="checkbox"
+                  className="sr-only"
                   checked={checked}
                   onChange={e => setter(e.target.checked)}
                   data-testid={`diagnostics-include-${name}`}
                 />
+                <span className={`pv-switch ${checked ? 'on' : ''}`} aria-hidden="true" />
                 <span>{t(`diagnostics.includeOutboxes.${name}`)}</span>
               </label>
             );
@@ -343,27 +396,16 @@ export function DiagnosticExportPanel() {
 
         <button
           type="button"
-          className="btn-primary inline-flex items-center gap-2 text-sm"
+          className="pv-btn primary"
           disabled={!isAdmin || !rangeValid || downloading}
           title={!isAdmin ? t('diagnostics.export.noPermission') : undefined}
           onClick={() => void handleDownload()}
           data-testid="diagnostics-export-cta"
         >
-          <Download className={`h-4 w-4 ${downloading ? 'animate-pulse' : ''}`} />
+          <Download className={downloading ? 'animate-pulse' : ''} />
           {downloading ? t('diagnostics.export.downloading') : t('diagnostics.export.cta')}
         </button>
       </div>
     </section>
-  );
-}
-
-function PreviewTile({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-secondary-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-secondary-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-secondary-900">
-        {value.toLocaleString()}
-      </p>
-    </div>
   );
 }

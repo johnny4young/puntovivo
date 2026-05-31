@@ -79,4 +79,14 @@ describe('SQLite PRAGMA cluster (ENG-174)', () => {
     // a memory DB; we already skip the pragma in that branch).
     expect(readPragma('journal_mode')).toBe('memory');
   });
+
+  it('allows high-contention harnesses to raise busy_timeout explicitly', async () => {
+    await initDatabase({
+      dbPath: ':memory:',
+      seedData: false,
+      sqliteBusyTimeoutMs: 15_000,
+    });
+
+    expect(readPragma('busy_timeout')).toBe(15_000);
+  });
 });

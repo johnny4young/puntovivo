@@ -2,10 +2,12 @@ import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(process.cwd(), '.playwright-browsers');
+process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS ??= '15000';
 
 const webServerEnv = Object.fromEntries(
   Object.entries({
     ...process.env,
+    PUNTOVIVO_E2E: '1',
     PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
   }).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
 );
@@ -42,16 +44,18 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev:server',
+      command: 'node scripts/dev-launcher.mjs server',
       env: webServerEnv,
       url: 'http://127.0.0.1:8090/api/health',
       reuseExistingServer: !process.env.CI,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 2_000 },
       timeout: 120_000,
     },
     {
-      command: 'npm run dev:web',
+      command: 'node scripts/dev-launcher.mjs web',
       url: 'http://localhost:3000/login',
       reuseExistingServer: !process.env.CI,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 2_000 },
       timeout: 120_000,
     },
   ],

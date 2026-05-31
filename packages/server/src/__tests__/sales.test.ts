@@ -38,7 +38,7 @@ let boxUnitId: string;
 let activeCashSessionId: string;
 let testDeviceId: string;
 
-function createTestContext(): Context {
+function createTestContext(role: 'admin' | 'manager' | 'cashier' | 'viewer' = 'admin'): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
@@ -49,7 +49,7 @@ function createTestContext(): Context {
     user: {
       userId,
       email: 'admin@localhost',
-      role: 'admin',
+      role,
       tenantId,
     },
     jwtVerify: async () => {},
@@ -64,7 +64,7 @@ function createTestContext(): Context {
     user: {
       id: userId,
       email: 'admin@localhost',
-      role: 'admin',
+      role,
       tenantId,
     },
     tenantId,
@@ -231,6 +231,17 @@ describe('Sales tRPC Router', () => {
 
   afterAll(async () => {
     await server.close();
+  });
+
+  it('requires manager or admin role to update sale payment state', async () => {
+    const cashierCaller = appRouter.createCaller(createTestContext('cashier'));
+
+    await expect(
+      cashierCaller.sales.update({
+        id: 'sale-any',
+        paymentStatus: 'refunded',
+      })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('returns aggregate sales KPIs for the current tenant', async () => {

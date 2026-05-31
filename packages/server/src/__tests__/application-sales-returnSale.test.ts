@@ -14,6 +14,7 @@ import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import {
   cashMovements,
+  cashSessions,
   customers,
   inventoryBalances,
   operationEffects,
@@ -253,6 +254,70 @@ describe('returnSale (happy path)', () => {
       .all();
     expect(movements.find(movement => movement.type === 'sale')?.amount).toBe(30);
     expect(movements.find(movement => movement.type === 'refund')?.amount).toBe(30);
+  });
+
+  it('charges manager-authorized refunds to the original open sale drawer', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const managerId = nanoid();
+    const managerSessionId = nanoid();
+    await db.insert(users).values({
+      id: managerId,
+      tenantId,
+      email: `return-manager-${managerId}@example.test`,
+      name: 'Return Manager',
+      passwordHash: 'test-only',
+      role: 'manager',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(cashSessions).values({
+      id: managerSessionId,
+      tenantId,
+      siteId,
+      cashierId: managerId,
+      registerName: 'return manager empty drawer',
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'open',
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const productId = await seedProduct({
+      name: 'Return original drawer',
+      sku: 'RT-ORIG-DRAWER',
+      stock: 5,
+      price: 100,
+    });
+    const saleId = await seedCompletedCashSale(productId, 100);
+
+    await returnSale(buildContext({ user: { id: managerId, role: 'manager' } }), {
+      id: saleId,
+      reason: 'manager approved',
+    });
+
+    const refundMovement = await db
+      .select({ sessionId: cashMovements.sessionId, amount: cashMovements.amount })
+      .from(cashMovements)
+      .where(
+        and(
+          eq(cashMovements.tenantId, tenantId),
+          eq(cashMovements.referenceId, saleId),
+          eq(cashMovements.type, 'refund')
+        )
+      )
+      .get();
+    expect(refundMovement).toMatchObject({ sessionId: cashSessionId, amount: 100 });
+
+    const managerSession = await db
+      .select({ expectedBalance: cashSessions.expectedBalance })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, managerSessionId))
+      .get();
+    expect(managerSession?.expectedBalance).toBe(0);
   });
 });
 

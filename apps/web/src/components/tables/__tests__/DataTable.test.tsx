@@ -465,7 +465,7 @@ describe('DataTable', () => {
       await user.click(rowCheckboxes[0]!);
 
       expect(onSelectionChange).toHaveBeenCalled();
-      expect(screen.getByText('1 selected')).toBeInTheDocument();
+      expect(screen.getByText('1 row selected')).toBeInTheDocument();
     });
 
     it('should select all rows on page', async () => {
@@ -485,7 +485,7 @@ describe('DataTable', () => {
       const selectAllCheckbox = screen.getAllByRole('checkbox')[0]!;
       await user.click(selectAllCheckbox);
 
-      expect(screen.getByText('3 selected')).toBeInTheDocument();
+      expect(screen.getByText('3 rows selected')).toBeInTheDocument();
     });
 
     it('should deselect all when clicking select all again', async () => {
@@ -498,7 +498,7 @@ describe('DataTable', () => {
 
       // Select all
       await user.click(selectAllCheckbox);
-      expect(screen.getByText('3 selected')).toBeInTheDocument();
+      expect(screen.getByText('3 rows selected')).toBeInTheDocument();
 
       // Deselect all
       await user.click(selectAllCheckbox);
@@ -611,7 +611,9 @@ describe('DataTable', () => {
         ...columns,
       ];
 
-      render(<DataTable columns={selectionColumns} data={createTestProducts(3)} enableRowSelection />);
+      render(
+        <DataTable columns={selectionColumns} data={createTestProducts(3)} enableRowSelection />
+      );
 
       const rows = getBodyRows();
       rows[0]!.focus();
@@ -619,7 +621,7 @@ describe('DataTable', () => {
 
       await user.keyboard('{Space}');
 
-      expect(screen.getByText('1 selected')).toBeInTheDocument();
+      expect(screen.getByText('1 row selected')).toBeInTheDocument();
       expect(rows[0]).toHaveAttribute('aria-selected', 'true');
     });
   });
@@ -709,11 +711,7 @@ describe('DataTable', () => {
       ];
 
       render(
-        <DataTable
-          columns={selectionColumns}
-          data={createTestProducts(3)}
-          enableRowSelection
-        />
+        <DataTable columns={selectionColumns} data={createTestProducts(3)} enableRowSelection />
       );
 
       const rows = getBodyRows();
@@ -722,7 +720,7 @@ describe('DataTable', () => {
       await user.keyboard('{Enter}');
 
       // No onRowActivate provided → legacy toggleSelected path runs.
-      expect(screen.getByText('1 selected')).toBeInTheDocument();
+      expect(screen.getByText('1 row selected')).toBeInTheDocument();
     });
 
     it('does nothing on Enter when neither onRowActivate nor row selection is enabled', async () => {
@@ -767,11 +765,7 @@ describe('DataTable', () => {
       ];
 
       render(
-        <DataTable
-          columns={interactiveColumns}
-          data={products}
-          onRowActivate={onRowActivate}
-        />
+        <DataTable columns={interactiveColumns} data={products} onRowActivate={onRowActivate} />
       );
 
       // Focus the inner button (not the row itself); Enter on the

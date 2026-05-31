@@ -58,9 +58,9 @@
       "copy": "Copy",
       "copied": "Copied",
       "download": "Download .xml",
-      "draftHint": "Unsigned draft — the SAT digital seal and fiscal folio land with ENG-035c.",
+      "draftHint": "Unsigned draft — the SAT digital seal and fiscal folio are added when it is issued.",
       "loading": "Loading XML…",
-      "emptyState": "This document has no XML attached. Documents emitted with the Colombia mock adapter do not include XML.",
+      "emptyState": "This document has no XML attached. Documents emitted in test mode for Colombia do not include XML.",
       "xmlCopiedToast": "XML copied to clipboard",
       "xmlCopyError": "Could not copy XML to clipboard"
     }
@@ -107,7 +107,7 @@
       "title": "Mexico — CFDI 4.0",
       "fields": {
         "enabled": "Enable Mexico fiscal pack",
-        "enabledHelp": "When on, sales will emit a CFDI 4.0 once ENG-035b lands. Today this flag only gates the readiness probe.",
+        "enabledHelp": "When on, sales will emit a CFDI 4.0 once emission is available. Today this flag only gates the readiness probe.",
         "rfc": "Issuer RFC",
         "rfcHelp": "12 characters for legal entity (PM); 13 for individual (PF).",
         "rfcPlaceholder": "e.g. XEXX010101000",
@@ -126,17 +126,18 @@
       "toast": {
         "saved": "Mexico fiscal settings saved",
         "saveError": "Could not save Mexico fiscal settings"
-      }
+      },
+      "kicker": "Fiscal profile"
     },
     "co": {
       "title": "Colombia — DIAN",
-      "comingSoon": "Colombia fiscal settings still live under Localization. Migration to this tab lands with ENG-035c."
+      "comingSoon": "Colombia fiscal settings are configured under the Localization tab for now. They will move to this section soon."
     },
     "cl": {
       "title": "Chile — SII",
       "fields": {
         "enabled": "Enable Chile fiscal pack",
-        "enabledHelp": "When on, completed sales emit unsigned DTE drafts when the company has an active CAF. Signing and SII submission land with ENG-036c.",
+        "enabledHelp": "When on, completed sales emit unsigned DTE drafts when the company has an active CAF. Signing and SII submission arrive in a future release.",
         "rut": "Issuer RUT",
         "rutHelp": "Format: body-verifier digit (e.g. 12345678-K). Verifier is 0-9 or K.",
         "rutPlaceholder": "e.g. 76123456-0",
@@ -161,13 +162,16 @@
       "caf": {
         "title": "Active CAF",
         "description": "The SII authorizes invoice/receipt emission in folio ranges. Upload a CAF from the SII portal to start emitting DTEs.",
-        "empty": "No active CAF. Upload one from the SII portal (coming with ENG-036c).",
+        "empty": "No active CAF. Upload one from the SII portal (coming soon).",
         "tipoDteLabel": "Document type",
         "rangeLabel": "Range",
         "range": "Folios {{from}} to {{to}}",
         "remaining_one": "{{count}} folio remaining",
-        "remaining_other": "{{count}} folios remaining"
-      }
+        "remaining_other": "{{count}} folios remaining",
+        "kicker": "Folio authorization",
+        "emptyTitle": "No active CAF"
+      },
+      "kicker": "Fiscal profile"
     }
   }
 }

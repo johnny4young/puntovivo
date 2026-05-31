@@ -15,14 +15,15 @@ export function buildCountryColumns(
       accessorKey: 'name',
       header: t('geography.columns.country'),
       size: 260,
+      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-            <Flag className="h-4 w-4 text-primary-700" />
-          </div>
+        <div className="prod">
+          <span className="pic">
+            <Flag className="h-4 w-4" />
+          </span>
           <div>
-            <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.code}</p>
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">{row.original.code}</p>
           </div>
         </div>
       ),
@@ -32,7 +33,7 @@ export function buildCountryColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),
@@ -71,14 +72,15 @@ export function buildDepartmentColumns(
       accessorKey: 'name',
       header: t('geography.columns.department'),
       size: 260,
+      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-            <Building2 className="h-4 w-4 text-primary-700" />
-          </div>
+        <div className="prod">
+          <span className="pic">
+            <Building2 className="h-4 w-4" />
+          </span>
           <div>
-            <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.code}</p>
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">{row.original.code}</p>
           </div>
         </div>
       ),
@@ -94,7 +96,7 @@ export function buildDepartmentColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),
@@ -133,14 +135,15 @@ export function buildCityColumns(
       accessorKey: 'name',
       header: t('geography.columns.city'),
       size: 260,
+      // Rediseño FASE 3/7 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-            <MapPinned className="h-4 w-4 text-primary-700" />
-          </div>
+        <div className="prod">
+          <span className="pic">
+            <MapPinned className="h-4 w-4" />
+          </span>
           <div>
-            <p className="font-medium text-secondary-900">{row.original.name}</p>
-            <p className="text-xs text-secondary-500">{row.original.code}</p>
+            <p className="pname">{row.original.name}</p>
+            <p className="sku">{row.original.code}</p>
           </div>
         </div>
       ),
@@ -162,7 +165,7 @@ export function buildCityColumns(
       header: t('geography.columns.status'),
       size: 120,
       cell: ({ row }) => (
-        <span className={`badge ${row.original.isActive ? 'badge-success' : 'badge-secondary'}`}>
+        <span className={`pv-badge ${row.original.isActive ? 'success' : 'neutral'}`}>
           {row.original.isActive ? t('geography.columns.active') : t('geography.columns.inactive')}
         </span>
       ),

@@ -286,10 +286,10 @@ URL before the tRPC client is constructed.
 The renderer's `useHubReachability` hook polls `${hubUrl}/api/health`
 every 30 seconds with a 5-second abort timeout. When the hub
 returns a non-2xx response (or the request errors out), the
-`OfflineStatusBanner` switches to the "Store hub unreachable"
-variant and three checkout entry points (`SalesCheckoutPanel`,
-`SalesMobileCheckoutBar`, `SalesOverview`) disable their primary
-action button. The hook is a no-op outside `hub_client` mode so
+`GlobalStatusStrip` switches to the "Store hub unreachable" variant
+and the checkout entry points (`SalesCheckoutPanel` and
+`SalesMobileCheckoutBar`) disable their primary action button.
+The hook is a no-op outside `hub_client` mode so
 device_local installs see zero overhead.
 
 The poll cadence and the abort timeout are constants today; the

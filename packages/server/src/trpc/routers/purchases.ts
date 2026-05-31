@@ -720,7 +720,10 @@ async function getPurchaseRecord(db: Context['db'], tenantId: string, purchaseId
     items: returnItems.filter(item => item.purchaseReturnId === returnRecord.id),
   }));
 
-  const returnedAmount = returns.reduce((sum, returnRecord) => sum + returnRecord.returnAmount, 0);
+  const returnedAmount = returns.reduce(
+    (sum, returnRecord) => roundMoney(sum + returnRecord.returnAmount),
+    0
+  );
   const returnedAt = returns[0]?.createdAt ?? null;
   const latestReturnReason = returns[0]?.reason ?? null;
   const latestReturnCreatedByName = returns[0]?.createdByName ?? null;

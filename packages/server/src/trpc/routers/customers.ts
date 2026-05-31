@@ -419,7 +419,9 @@ export const customersRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
     }
 
-    await ctx.db.delete(customers).where(eq(customers.id, input.id));
+    await ctx.db
+      .delete(customers)
+      .where(and(eq(customers.id, input.id), eq(customers.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'customers',

@@ -32,6 +32,7 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 | `PORT` | `8090` | Legacy alias for `PUNTOVIVO_BIND_PORT`. Still honored when the new var is unset, so existing standalone deployments keep working without changes. |
 | `HOST` | `127.0.0.1` | Legacy alias for `PUNTOVIVO_BIND_HOST`. Same compatibility note as `PORT`. |
 | `DATABASE_URL` | internal default | SQLite database path for standalone mode |
+| `PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS` | `5000` | Optional SQLite writer-lock wait override. Use only for high-contention dev/test harnesses that intentionally share one local DB. |
 | `JWT_SECRET` | generated at runtime in `device_local`; **REQUIRED strong secret** in `site_hub` | JWT signing secret. ENG-073 — site_hub mode refuses to boot unless this is an explicit 32+ character non-placeholder value with at least 8 unique characters, because auto-generated or weak secrets reset/break cashier sessions or weaken LAN tokens. See `docs/AUTHORITY-NODE.md` > Store Hub Mode. |
 | `VERBOSE` | `false` unless explicitly enabled | Server logging |
 

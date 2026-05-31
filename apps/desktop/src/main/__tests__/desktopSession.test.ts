@@ -7,11 +7,13 @@ import {
   requireTenantId,
   requireUserId,
   requireRole,
+  requireOneOfRoles,
   matchesTenant,
   describe as describeSession,
   __resetForTests,
   SESSION_NOT_REGISTERED,
   SESSION_REGISTER_REJECTED,
+  SESSION_ROLE_FORBIDDEN,
   type AccessTokenVerifier,
 } from '../session/desktopSession.ts';
 
@@ -78,6 +80,7 @@ describe('desktopSession (ENG-025 vector 1)', () => {
     assert.equal(requireTenantId(), 'tenant-default');
     assert.equal(requireUserId(), 'user-admin-1');
     assert.equal(requireRole(), 'admin');
+    assert.equal(requireOneOfRoles(['admin']), 'admin');
     assert.equal(matchesTenant('tenant-default'), true);
     assert.equal(matchesTenant('tenant-other'), false);
     assert.equal(matchesTenant(null), false);
@@ -102,6 +105,9 @@ describe('desktopSession (ENG-025 vector 1)', () => {
     assert.equal(requireUserId(), 'user-cashier-9');
     assert.equal(requireTenantId(), 'tenant-other');
     assert.equal(requireRole(), 'cashier');
+    assert.throws(() => requireOneOfRoles(['admin', 'manager']), {
+      message: SESSION_ROLE_FORBIDDEN,
+    });
   });
 
   it('peek() returns a defensive copy — mutating it does not leak into the singleton', async () => {

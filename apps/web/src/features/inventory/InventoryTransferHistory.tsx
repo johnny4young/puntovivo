@@ -67,7 +67,7 @@ export function InventoryTransferHistory() {
   });
 
   const receiveMutation = useCriticalMutation('transfers.receive', {
-    onSuccess: () => {
+    onSuccess: async () => {
       // Close the modal immediately after the mutation succeeds. Invalidating
       // three read surfaces (`transfers.list`, `transfers.getById`,
       // `inventory.listBalancesBySite`) can take noticeable time under local
@@ -75,8 +75,8 @@ export function InventoryTransferHistory() {
       // settle turns a successful receipt into a flaky timeout.
       setReceivingTransferId(null);
       setReceiveSubmitError(null);
+      await invalidateAfterMutation();
       toast.success({ title: t('transferHistory.receiveSuccess') });
-      void invalidateAfterMutation();
     },
     // Surface the error inside the modal (so the user can correct a
     // variance entry) via setReceiveSubmitError, and also toast it for

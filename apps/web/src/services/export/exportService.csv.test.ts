@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  exportService,
-  exportToCSV,
-  printTable,
-  type ExportColumn,
-} from './exportService';
+import { exportService, exportToCSV, printTable, type ExportColumn } from './exportService';
 
 interface Row {
   id: string;
@@ -79,7 +74,7 @@ describe('exportToCSV', () => {
   it('creates a Blob with text/csv mime and a BOM-prefixed body', async () => {
     let captured: Blob | null = null;
     vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
-    const blob = src as Blob;
+      const blob = src as Blob;
       captured = blob;
       return 'blob:csv';
     });
@@ -130,7 +125,7 @@ describe('exportToCSV', () => {
   it('handles an empty data set without crashing — emits header-only CSV', async () => {
     let captured: Blob | null = null;
     vi.spyOn(URL, 'createObjectURL').mockImplementation((src: Blob | MediaSource) => {
-    const blob = src as Blob;
+      const blob = src as Blob;
       captured = blob;
       return 'blob:csv';
     });
@@ -151,13 +146,14 @@ describe('printTable', () => {
     } as unknown as Window;
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWindow);
 
-    printTable(sample, columns, { title: 'Rows <Report>' });
+    printTable(sample, columns, { title: 'Rows <Report> "A"' });
 
     expect(openSpy).toHaveBeenCalledWith('', '_blank');
     expect(writeSpy).toHaveBeenCalledOnce();
     const html = writeSpy.mock.calls[0]![0] as string;
-    // Title is HTML-escaped in the visible header.
-    expect(html).toContain('Rows &lt;Report&gt;');
+    // Title is HTML-escaped in both the document title and visible header.
+    expect(html).toContain('<title>Rows &lt;Report&gt; &quot;A&quot;</title>');
+    expect(html).toContain('Rows &lt;Report&gt; &quot;A&quot;');
     // Header escapes the embedded double quotes.
     expect(html).toContain('Item &quot;label&quot;');
     // Data rows include the formatter output and the nested-key value.

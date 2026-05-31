@@ -8,24 +8,36 @@
  * Company* cards: query loading + error + happy state in one
  * component.
  *
- * Score donut color flips:
+ * Visual model (rediseño §08 — readiness reconstruida como onboarding):
+ *   - Blockers are hoisted to the top as `.pv-strip.danger` rows with a
+ *     direct primary CTA ("Resolver <paso>"), instead of being buried in
+ *     a flat list of equal steps.
+ *   - A `.pv-ring` progress ring + "{ready} de {total} listos · {n}
+ *     bloqueador(es)" tells the readiness story at a glance.
+ *   - The remaining steps group by state into `.pv-check` lists:
+ *     completed (`ready` → ic.done) and optional (`optional-pending`
+ *     and `not-applicable` → ic.opt). The closing CTA is contextual:
+ *     "Resolver bloqueador" while one remains, "Abrir tienda" once
+ *     none do.
+ *
+ * Ring fill (`--p`) and tone flip both follow the score:
  *   - `< 50`  → danger
  *   - `50-79` → warning
  *   - `>= 80` → success
  *
- * Section icons:
- *   - `ready` → Check (success)
- *   - `blocker` → AlertCircle (danger)
- *   - `optional-pending` → Clock (warning)
- *   - `not-applicable` → Minus (muted)
+ * Section icons (mapped onto the `.pv-check .ic` chip):
+ *   - `ready` → Check (ic.done)
+ *   - `blocker` → AlertTriangle (ic.block)
+ *   - `optional-pending` → Clock (ic.opt)
+ *   - `not-applicable` → Minus (ic.opt, muted)
  *
  * @module features/company/CompanyReadinessCard
  */
 
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Check, Clock, Minus, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Check, Clock, Minus, ArrowRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
@@ -35,17 +47,38 @@ import { translateServerError } from '@/lib/translateServerError';
 
 type SectionStatus = 'ready' | 'blocker' | 'optional-pending' | 'not-applicable';
 
-function statusIcon(status: SectionStatus, label: string) {
-  const className = 'h-4 w-4';
+/**
+ * Renders the round status chip used inside every `.pv-check` row. The
+ * chip background/foreground come from the `ic.done` / `ic.block` /
+ * `ic.opt` recipe variants; the glyph carries an accessible label so the
+ * status is conveyed to assistive tech, not by color alone.
+ */
+function StatusChip({ status, label }: { status: SectionStatus; label: string }) {
   switch (status) {
     case 'ready':
-      return <Check className={`${className} text-success-600`} aria-label={label} />;
+      return (
+        <span className="ic done">
+          <Check className="h-3.5 w-3.5" aria-label={label} />
+        </span>
+      );
     case 'blocker':
-      return <AlertCircle className={`${className} text-danger-600`} aria-label={label} />;
+      return (
+        <span className="ic block">
+          <AlertTriangle className="h-3.5 w-3.5" aria-label={label} />
+        </span>
+      );
     case 'optional-pending':
-      return <Clock className={`${className} text-warning-600`} aria-label={label} />;
+      return (
+        <span className="ic opt">
+          <Clock className="h-3.5 w-3.5" aria-label={label} />
+        </span>
+      );
     case 'not-applicable':
-      return <Minus className={`${className} text-secondary-400`} aria-label={label} />;
+      return (
+        <span className="ic opt">
+          <Minus className="h-3.5 w-3.5" aria-label={label} />
+        </span>
+      );
   }
 }
 
@@ -56,7 +89,7 @@ function scoreTone(score: number): 'danger' | 'warning' | 'success' {
 }
 
 /**
- * Public surface that the CompanyPage tab + the ReadinessBanner use
+ * Public surface that the CompanyPage tab + the GlobalStatusStrip use
  * to navigate to the right tab when an operator clicks a section CTA.
  * Exposed (not inlined) so other consumers (empty states, banner)
  * can reuse the routing convention.
@@ -68,9 +101,9 @@ export function readinessCtaHref(cta: { route: string; tab?: string }): string {
 
 export interface CompanyReadinessCardProps {
   /**
-   * Called when the operator clicks "Llevame al dashboard" / "Take me
-   * to the dashboard" so the parent (CompanyPage) can refresh its
-   * understanding of `acknowledgedAt`. Defaults to a no-op.
+   * Called when the operator clicks the closing CTA ("Resolver
+   * bloqueador" / "Abrir tienda") so the parent (CompanyPage) can
+   * refresh its understanding of `acknowledgedAt`. Defaults to a no-op.
    */
   onAcknowledged?: () => void;
 }
@@ -128,6 +161,21 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     return { applicable: applicable.length, readyCount, blockerCount };
   }, [readinessQuery.data]);
 
+  // Group sections by state so the render can hoist blockers to the top
+  // strip and lay the rest out under "Completados" / "Opcionales".
+  // Not-applicable rows fold into the optional group (non-blocking,
+  // informational) so all 10 sections still render with their testids.
+  const grouped = useMemo(() => {
+    const sections = readinessQuery.data?.sections ?? [];
+    return {
+      blockers: sections.filter(s => s.status === 'blocker'),
+      completed: sections.filter(s => s.status === 'ready'),
+      optional: sections.filter(
+        s => s.status === 'optional-pending' || s.status === 'not-applicable'
+      ),
+    };
+  }, [readinessQuery.data]);
+
   if (readinessQuery.isLoading) {
     return (
       <PageLoadingState
@@ -157,109 +205,157 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     return null;
   }
 
-  const { score, sections, acknowledgedAt } = readinessQuery.data;
+  const { score, acknowledgedAt } = readinessQuery.data;
   const tone = scoreTone(score);
+  const hasBlockers = summary.blockerCount > 0;
+
+  const renderSectionRow = (section: {
+    id: string;
+    status: SectionStatus;
+    cta: { route: string; tab?: string } | null;
+  }) => {
+    const labelKey = `readiness.sections.${section.id}.label`;
+    const hintKey = `readiness.sections.${section.id}.hint`;
+    const statusLabelKey = `readiness.status.${section.status}`;
+    const isOptionalPending = section.status === 'optional-pending';
+    return (
+      <div
+        key={section.id}
+        className="pv-check"
+        data-testid={`company-readiness-section-${section.id}`}
+        data-status={section.status}
+      >
+        <StatusChip status={section.status} label={t(statusLabelKey)} />
+        <div className="min-w-0 flex-1">
+          <div className="t">{t(labelKey)}</div>
+          <div className="d">{t(hintKey)}</div>
+        </div>
+        {section.cta && (
+          <button
+            type="button"
+            className={`pv-btn ${isOptionalPending ? 'outline' : 'ghost'}`}
+            style={{ minHeight: 36 }}
+            onClick={() => handleSectionCta(section.cta!)}
+            data-testid={`company-readiness-cta-${section.id}`}
+          >
+            {isOptionalPending
+              ? t('readiness.cta.configure')
+              : t('readiness.cta.review')}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="card p-6 space-y-6" data-testid="company-readiness-card">
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {t('readiness.title')}
-          </h2>
-          <p className="text-sm text-secondary-600 mt-1">
+        <div className="max-w-[46ch]">
+          <p className="pv-kicker">{t('readiness.kicker')}</p>
+          <h2 className="pv-title text-xl">{t('readiness.heading')}</h2>
+          <p className="text-sm text-secondary-600 mt-2">
             {t('readiness.description')}
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-20 w-20 items-center justify-center rounded-full border-4"
-            data-testid="company-readiness-score"
-            data-tone={tone}
-            aria-label={t('readiness.score.aria', { score })}
-            style={{
-              borderColor:
-                tone === 'danger'
-                  ? 'var(--color-danger-500)'
-                  : tone === 'warning'
-                    ? 'var(--color-warning-500)'
-                    : 'var(--color-success-500)',
-            }}
-          >
-            <span className="text-xl font-bold text-secondary-900">{score}</span>
-          </div>
-          <div className="space-y-1 text-sm">
-            <p className="text-secondary-700">
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="flex flex-col items-end gap-1 text-right">
+            <span className="text-sm font-semibold text-secondary-900">
               {t('readiness.score.label', {
                 ready: summary.readyCount,
                 total: summary.applicable,
               })}
-            </p>
-            {summary.blockerCount > 0 && (
-              <p
-                className="text-danger-700 font-medium"
+            </span>
+            {hasBlockers && (
+              <span
+                className="text-[12.5px] font-semibold text-danger-700"
                 data-testid="company-readiness-blocker-count"
               >
                 {t('readiness.blocker.count', { count: summary.blockerCount })}
-              </p>
+              </span>
             )}
+          </div>
+          <div
+            className="pv-ring"
+            data-testid="company-readiness-score"
+            data-tone={tone}
+            role="img"
+            aria-label={t('readiness.score.aria', { score })}
+            style={{ '--p': score } as CSSProperties}
+          >
+            <div className="in">{score}</div>
           </div>
         </div>
       </div>
 
-      <ul className="divide-y divide-line" data-testid="company-readiness-sections">
-        {sections.map(section => {
-          const labelKey = `readiness.sections.${section.id}.label`;
-          const hintKey = `readiness.sections.${section.id}.hint`;
-          const statusLabelKey = `readiness.status.${section.status}`;
-          return (
-            <li
-              key={section.id}
-              className="flex items-start justify-between gap-3 py-3"
-              data-testid={`company-readiness-section-${section.id}`}
-              data-status={section.status}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 items-center justify-center">
-                  {statusIcon(section.status, t(statusLabelKey))}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-secondary-900">
-                    {t(labelKey)}
-                  </p>
-                  <p className="text-xs text-secondary-500 mt-0.5">
-                    {t(hintKey)}
-                  </p>
-                </div>
+      {grouped.blockers.length > 0 && (
+        <div className="space-y-3" data-testid="company-readiness-blockers">
+          {grouped.blockers.map(section => {
+            const labelKey = `readiness.sections.${section.id}.label`;
+            const hintKey = `readiness.sections.${section.id}.hint`;
+            const statusLabelKey = `readiness.status.${section.status}`;
+            return (
+              <div
+                key={section.id}
+                className="pv-strip danger"
+                data-testid={`company-readiness-section-${section.id}`}
+                data-status={section.status}
+              >
+                <span className="ic">
+                  <AlertTriangle className="h-5 w-5" aria-label={t(statusLabelKey)} />
+                </span>
+                <span className="msg min-w-0 flex-1">
+                  <b>{t(labelKey)}</b>
+                  <span className="block text-secondary-600">{t(hintKey)}</span>
+                </span>
+                {section.cta && (
+                  <button
+                    type="button"
+                    className="pv-btn primary"
+                    onClick={() => handleSectionCta(section.cta!)}
+                    data-testid={`company-readiness-cta-${section.id}`}
+                  >
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                    {t('readiness.cta.resolveSection', { section: t(labelKey) })}
+                  </button>
+                )}
               </div>
-              {section.cta && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm inline-flex items-center gap-1"
-                  onClick={() => handleSectionCta(section.cta!)}
-                  data-testid={`company-readiness-cta-${section.id}`}
-                >
-                  <span>{t('readiness.cta.configure')}</span>
-                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+            );
+          })}
+        </div>
+      )}
+
+      {grouped.completed.length > 0 && (
+        <div data-testid="company-readiness-completed">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-600">
+            {t('readiness.group.completed')}
+          </p>
+          <div className="mt-2">{grouped.completed.map(renderSectionRow)}</div>
+        </div>
+      )}
+
+      {grouped.optional.length > 0 && (
+        <div data-testid="company-readiness-optional">
+          <p className="text-xs font-semibold uppercase tracking-wide text-secondary-600">
+            {t('readiness.group.optional')}
+          </p>
+          <div className="mt-2">{grouped.optional.map(renderSectionRow)}</div>
+        </div>
+      )}
 
       {acknowledgedAt === null && (
         <div className="pt-2">
           <button
             type="button"
-            className="btn btn-primary"
+            className="pv-btn primary"
             onClick={() => acknowledgeMutation.mutate()}
             disabled={acknowledgeMutation.isPending}
             data-testid="company-readiness-acknowledge"
           >
             {acknowledgeMutation.isPending
               ? t('readiness.acknowledge.pending')
-              : t('readiness.acknowledge.button')}
+              : hasBlockers
+                ? t('readiness.acknowledge.resolveBlocker')
+                : t('readiness.acknowledge.openStore')}
           </button>
         </div>
       )}

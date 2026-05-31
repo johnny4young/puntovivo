@@ -5,6 +5,7 @@ import { E2E_PASSWORD } from './app';
 
 const DB_PATH = join(process.cwd(), 'packages/server/data/local.db');
 const SITE_STOCK = 8;
+const DEFAULT_SQLITE_BUSY_TIMEOUT_MS = 5000;
 
 export interface BusinessSite {
   id: string;
@@ -135,9 +136,21 @@ export interface CashSessionRecord {
   closedAt: string | null;
 }
 
+function getSqliteBusyTimeoutMs() {
+  const raw = process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS;
+  if (!raw) {
+    return DEFAULT_SQLITE_BUSY_TIMEOUT_MS;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 60_000) {
+    throw new Error('PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS must be an integer from 0 to 60000');
+  }
+  return parsed;
+}
+
 function openDb() {
   const db = new Database(DB_PATH);
-  db.pragma('busy_timeout = 5000');
+  db.pragma(`busy_timeout = ${getSqliteBusyTimeoutMs()}`);
   return db;
 }
 

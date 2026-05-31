@@ -516,6 +516,7 @@ export function printTable<T extends object>(
   options: ExportOptions = {}
 ): void {
   const { title } = options;
+  const escapedTitle = title ? escapeHtml(title) : null;
 
   // Build HTML table
   const headers = columns.map(col => `<th>${escapeHtml(col.header)}</th>`).join('');
@@ -537,7 +538,7 @@ export function printTable<T extends object>(
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${title || 'Print'}</title>
+      <title>${escapedTitle ?? 'Print'}</title>
       <style>
         * {
           margin: 0;
@@ -606,7 +607,7 @@ export function printTable<T extends object>(
     </head>
     <body>
       <div class="header">
-        ${title ? `<div class="title">${escapeHtml(title)}</div>` : ''}
+        ${escapedTitle ? `<div class="title">${escapedTitle}</div>` : ''}
         <div class="timestamp">Generated: ${new Date().toLocaleString()}</div>
       </div>
       <table>

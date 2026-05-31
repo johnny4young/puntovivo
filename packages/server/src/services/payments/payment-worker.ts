@@ -74,10 +74,7 @@ export interface PaymentWorkerOptions {
   /** Optional AI tie-break injected into the matcher. */
   aiTiebreak?: TiebreakFn;
   /** Build the AI tie-break context per (tenant, rail). */
-  buildTiebreakContext?: (args: {
-    tenantId: string;
-    railId: PaymentRailId;
-  }) => TiebreakContext;
+  buildTiebreakContext?: (args: { tenantId: string; railId: PaymentRailId }) => TiebreakContext;
   outboxTickMs?: number;
   importTickMs?: number;
   bootCatchupThresholdMs?: number;
@@ -110,7 +107,7 @@ export interface StatementImportOutcome {
   rowsImported: number;
   pass: RunReconciliationPassResult | null;
   /** When non-null the import was skipped without advancing the marker. */
-  skippedReason?: 'fetcher-missing' | 'gap-too-small' | 'fetch-failed';
+  skippedReason?: 'fetcher-missing' | 'gap-too-small' | 'fetch-failed' | 'reconciliation-failed';
 }
 
 export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
@@ -153,12 +150,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
           status: sql`CASE WHEN ${paymentOutbox.status} = 'submitting' THEN 'queued' ELSE ${paymentOutbox.status} END`,
           updatedAt: new Date().toISOString(),
         })
-        .where(
-          and(
-            isNotNull(paymentOutbox.lockedAt),
-            lte(paymentOutbox.lockedAt, cutoff)
-          )
-        );
+        .where(and(isNotNull(paymentOutbox.lockedAt), lte(paymentOutbox.lockedAt, cutoff)));
     } catch (err) {
       log.warn({ err }, 'payment worker stale-claim sweep failed');
     }
@@ -219,7 +211,9 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
       pass = await runReconciliationPass(db, args.tenantId, statementRows, {
         ...(opts.aiTiebreak ? { aiTiebreak: opts.aiTiebreak } : {}),
         ...(aiContext ? { aiContext } : {}),
-        now: new Date(),
+        // Catch-up imports can replay older statement windows; anchor the
+        // reconciliation window to the import upper bound instead of wall time.
+        now: new Date(args.toIso),
       });
     } catch (err) {
       log.warn(
@@ -233,7 +227,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
         toIso: args.toIso,
         rowsImported: statementRows.length,
         pass: null,
-        skippedReason: 'fetch-failed',
+        skippedReason: 'reconciliation-failed',
       };
     }
 
@@ -269,9 +263,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
       const markers = await readLastImportedAtMap(db, tenantId);
       for (const railId of PAYMENT_RAIL_IDS) {
         const lastImportedAt = markers[railId] ?? null;
-        const fromIso =
-          lastImportedAt ??
-          new Date(now - bootInitialLookbackMs).toISOString();
+        const fromIso = lastImportedAt ?? new Date(now - bootInitialLookbackMs).toISOString();
         if (lastImportedAt !== null) {
           const lastMs = Date.parse(lastImportedAt);
           if (Number.isFinite(lastMs)) {
@@ -322,16 +314,11 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
           const gap = now - Date.parse(lastImportedAt);
           if (Number.isFinite(gap) && gap < importTickMs / 2) continue;
         }
-        const fromIso =
-          lastImportedAt ??
-          new Date(now - bootInitialLookbackMs).toISOString();
+        const fromIso = lastImportedAt ?? new Date(now - bootInitialLookbackMs).toISOString();
         try {
           await runStatementImport({ tenantId, railId, fromIso, toIso });
         } catch (err) {
-          log.warn(
-            { err, tenantId, railId },
-            'payment scheduled statement import failed'
-          );
+          log.warn({ err, tenantId, railId }, 'payment scheduled statement import failed');
         }
       }
     }

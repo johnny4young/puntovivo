@@ -7,6 +7,17 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# node-linker=hoisted: lay out a flat npm-style node_modules instead of pnpm's
+# default symlinked/isolated store. The same value also lives in .npmrc (with
+# the full rationale: electron-rebuild, ensure-native-runtime.mjs and
+# ensure-electron-binary.mjs all assume a flat tree). It MUST be declared here
+# too: pnpm 11 only honours .npmrc for the install layout, while `pnpm config
+# get node-linker` resolves pnpm-workspace.yaml settings exclusively. Electron
+# Forge's check-system runs `pnpm config get node-linker` (see
+# @electron-forge/cli check-system.ts) and aborts `electron-forge start/make`
+# with "node-linker must be set to hoisted" when it reads back undefined.
+nodeLinker: hoisted
+
 # pnpm 11 blocks dependency lifecycle (install/postinstall) scripts by
 # default as a supply-chain defence, and replaced the v10 list-style
 # onlyBuiltDependencies with this allowBuilds map (pkg -> bool). Puntovivo

@@ -19,6 +19,7 @@
  *
  * @module features/workspaces/WorkspaceLandingPage
  */
+import { ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -52,25 +53,29 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
   const WorkspaceIcon = workspace.icon;
   const title = tWorkspaces(`${workspace.id}.label`);
   const description = tWorkspaces(`${workspace.id}.description`);
+  // Reuse the existing per-workspace kicker already declared for the
+  // page header in `nav.header.*` (Catalog / Operations / Fiscal) so
+  // the landing matches the shell's titling contract without a new key.
+  const kicker = tNav(`header.${workspace.id}.kicker`);
 
   return (
     <div
       className="space-y-6"
       data-testid={`workspace-landing-${workspace.id}`}
     >
-      <header className="space-y-2">
-        <div className="inline-flex items-center gap-3">
-          <WorkspaceIcon className="h-7 w-7 text-primary" aria-hidden="true" />
-          <h1 className="font-display text-3xl font-semibold tracking-tight">
-            {title}
-          </h1>
+      <header className="flex items-start gap-3">
+        <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
+          <WorkspaceIcon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="pv-kicker">{kicker}</p>
+          <h1 className="pv-title text-3xl">{title}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-secondary-500">
+            {description}
+          </p>
         </div>
-        <p className="max-w-2xl text-muted-foreground">{description}</p>
       </header>
-      <ul
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        role="list"
-      >
+      <ul className="pv-hub-grid" role="list">
         {items.map(item => {
           const Icon = item.icon;
           const itemLabel = tNav(item.nameKey);
@@ -78,15 +83,25 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
             <li key={item.href}>
               <Link
                 to={item.href}
-                className="group block rounded-[28px] border border-line/80 bg-card/92 p-5 shadow-[var(--shadow-card)] backdrop-blur-xl transition hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                className="pv-hub group block transition hover:border-primary-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               >
-                <Icon
-                  className="h-6 w-6 text-primary transition-transform group-hover:scale-110"
-                  aria-hidden="true"
-                />
-                <h2 className="mt-3 font-display text-lg font-semibold leading-tight">
-                  {itemLabel}
-                </h2>
+                <div className="hd">
+                  <span className="pv-gt pv-gt-primary h-10 w-10 rounded-xl">
+                    <Icon
+                      className="h-5 w-5 transition-transform group-hover:scale-110"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <h2 className="text-base font-semibold leading-tight text-fg1">
+                    {itemLabel}
+                  </h2>
+                </div>
+                <div className="ft justify-end">
+                  <span className="go">
+                    {tWorkspaces('viewItem')}
+                    <ArrowRight className="h-[13px] w-[13px]" aria-hidden="true" />
+                  </span>
+                </div>
               </Link>
             </li>
           );

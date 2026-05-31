@@ -147,7 +147,12 @@ export const deliveryOrdersRouter = router({
         updates.cancelledAt = nowIso;
         break;
     }
-    await ctx.db.update(deliveryOrders).set(updates).where(eq(deliveryOrders.id, input.id));
+    await ctx.db
+      .update(deliveryOrders)
+      .set(updates)
+      .where(
+        and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId))
+      );
     return { id: input.id, status: input.toStatus };
   }),
 });

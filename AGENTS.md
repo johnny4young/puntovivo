@@ -93,6 +93,15 @@ pnpm install
 
 The Fastify server runs **in-process** inside the Electron main process — it is NOT a spawned child process. `apps/desktop/src/main/` imports `@puntovivo/server` directly. Do not assume a separate server process exists.
 
+## Local shared dev database (dev-only, non-obvious)
+
+The integrated dev modes share ONE encrypted SQLite file so data created in the web stack is visible in the desktop app and vice versa. `scripts/dev-launcher.mjs` injects `DATABASE_URL=packages/server/data/shared.db` plus a `PUNTOVIVO_DB_KEY` (auto-generated once into the git-ignored `packages/server/data/shared-db-key.local`) for the `fullstack` (`dev:web-stack`), `desktop`, and `desktop-only` modes. The desktop main honours `DATABASE_URL` **only when `!app.isPackaged`** (`DEV_SHARED_DB_PATH` in `apps/desktop/src/main/index.ts`); a packaged build always uses its encrypted DB under `userData`. Both sides open the file with the same fixed dev key, so the on-disk DB is SQLCipher-encrypted, not plaintext.
+
+Non-obvious consequences:
+- The bare `server` / `web` launcher modes are deliberately **not** injected, so the Playwright e2e suite (which drives `dev:server` / `dev:web` and opens `packages/server/data/local.db` directly in `e2e/web/global-setup.ts`) keeps its own isolated, **unencrypted** `local.db` and never collides with the shared one.
+- Injection uses `??=` semantics — set `DATABASE_URL` / `PUNTOVIVO_DB_KEY` yourself to point a dev run at a throwaway DB.
+- `electron-forge make` / `package` rebuilds the native `better-sqlite3` to the **Electron** ABI behind `ensure-native-runtime.mjs`'s back, leaving its runtime marker stale. After packaging, a `dev:server` / `dev:web-stack` can fail to boot with `ERR_DLOPEN_FAILED` (`NODE_MODULE_VERSION 145` vs `137`); recover with `node packages/server/scripts/rebuild-better-sqlite3-node.mjs`.
+
 ## Renderer sandbox (ENG-004)
 
 The main `BrowserWindow` runs with `sandbox: true`. Renderer code cannot `require('fs')`, spawn processes, or access Node globals. Every capability flows through `contextBridge` → `ipcRenderer.invoke` → `ipcMain.handle`. The invariant lives in `apps/desktop/src/main/window-config.ts`, which also builds the exact `webPreferences` object consumed by `BrowserWindow`, and is pinned by a `node --test` regression in `apps/desktop/src/main/__tests__/window-config.test.ts` that runs on every `ci:desktop`. When you add a new preload API, make it a one-line `ipcRenderer.invoke` wrapper and route it to an `ipcMain.handle` channel in `main/index.ts` — direct Node access from the preload will break at startup under sandbox.

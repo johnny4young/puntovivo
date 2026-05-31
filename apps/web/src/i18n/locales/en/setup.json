@@ -18,13 +18,17 @@
       "not-applicable": "Not applicable"
     },
     "cta": {
-      "configure": "Configure"
+      "configure": "Configure",
+      "review": "Review",
+      "resolveSection": "Resolve {{section}}"
     },
     "acknowledge": {
       "button": "Got it, take me to the dashboard",
       "pending": "Saving...",
       "toast": "Setup acknowledged",
-      "error": "Could not save your acknowledgement"
+      "error": "Could not save your acknowledgement",
+      "resolveBlocker": "Resolve blocker",
+      "openStore": "Open store"
     },
     "sections": {
       "locale": {
@@ -67,11 +71,18 @@
         "label": "Cash session",
         "hint": "Open a cash session before ringing the first sale."
       }
+    },
+    "kicker": "Setup",
+    "heading": "Ready to open",
+    "group": {
+      "completed": "Completed steps",
+      "optional": "Optional"
     }
   },
   "banner": {
     "title_one": "Setup incomplete: {{count}} blocker keeps the store from opening.",
     "title_other": "Setup incomplete: {{count}} blockers keep the store from opening.",
+    "detail": "Resolve the pending steps to open your store.",
     "cta": "Go to setup",
     "dismiss": "Dismiss"
   },

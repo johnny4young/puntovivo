@@ -3,8 +3,8 @@
  *
  * Wraps the existing `OfflineCapabilityGrid` (slice 1, shipped
  * in `e97cdc8`) and the new `OfflineSyncQueueList` inside one
- * cohesive surface. Mounted by `OfflineStatusBanner` below the
- * banner card when the device is offline or the hub is
+ * cohesive surface. Mounted by `GlobalStatusStrip` inside the
+ * expanded notification center when the device is offline or the hub is
  * unreachable.
  *
  * Layout:
@@ -14,8 +14,8 @@
  *    mobile keep their full width.
  *
  * Visibility:
- *  - The `visible` prop mirrors `shouldShowCapabilityGrid` in
- *    the banner (`!isOnline || hubUnreachable`). When false the
+ *  - The `visible` prop mirrors `showCapabilityGrid` in
+ *    the strip (`!isOnline || hubUnreachable`). When false the
  *    component renders nothing so the surface stays dead chrome
  *    on healthy connections.
  */
@@ -32,10 +32,7 @@ export function OfflineModePanel({ visible }: OfflineModePanelProps) {
   if (!visible) return null;
 
   return (
-    <div
-      data-testid="offline-mode-panel"
-      className="space-y-3"
-    >
+    <div data-testid="offline-mode-panel" className="space-y-3">
       <p
         data-testid="offline-mode-reassurance"
         className="rounded-2xl border border-warning-300/60 bg-warning-50/60 px-4 py-2 text-sm font-medium text-warning-700"

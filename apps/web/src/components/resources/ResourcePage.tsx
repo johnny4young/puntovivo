@@ -31,6 +31,13 @@ interface ResourcePageProps<TData> {
    * button (Edit / View) on each row.
    */
   onRowActivate?: (row: TData) => void;
+  /**
+   * Rediseño FASE 3 — densidad del DataTable subyacente. Las páginas CRUD
+   * canónicas adoptan `dense` (.pv-table: cabecera sticky, cebra, filas
+   * 48-52px, primera columna ancla) de forma uniforme. Un caller puede
+   * forzar `default` si necesita el chrome legacy.
+   */
+  variant?: 'default' | 'dense';
 }
 
 export function ResourcePage<TData>({
@@ -48,6 +55,7 @@ export function ResourcePage<TData>({
   loadingMessage,
   onRetry,
   onRowActivate,
+  variant = 'dense',
 }: ResourcePageProps<TData>) {
   return (
     <div className="space-y-6">
@@ -68,6 +76,7 @@ export function ResourcePage<TData>({
         )}
         {!isLoading && !error && (
           <DataTable
+            variant={variant}
             columns={columns}
             data={data}
             searchKey={searchKey}

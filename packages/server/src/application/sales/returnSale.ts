@@ -4,7 +4,9 @@
  * Refunds a completed sale: validates state, restores stock to the
  * site that originally sold it, persists a `sale_returns` row, flips
  * `paymentStatus` to `refunded`, emits a refund cash movement against
- * the cashier's active session, writes a `sale.return` audit row, and
+ * the original sale session when it is still open (falling back to the
+ * refunding actor's active session for legacy/closed-session sales), writes
+ * a `sale.return` audit row, and
  * post-commit emits a DIAN credit note (NC) referencing the original
  * DEE's CUFE.
  *
@@ -121,13 +123,6 @@ export async function returnSale(
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
   const log = ctx.log ?? fallbackLog;
 
-  const activeCashSession = await requireActiveCashSession(
-    ctx.db,
-    ctx.tenantId,
-    ctx.siteId,
-    ctx.user.id
-  );
-
   const existing = await ctx.db
     .select()
     .from(sales)
@@ -236,24 +231,40 @@ export async function returnSale(
     currentProducts.map(product => [product.id, product.stock])
   );
 
+  // Resolve the cash target before the transaction. A manager/admin can
+  // authorize the refund, but the cash should leave the drawer that received
+  // the original sale while that drawer is still open. Otherwise a manager
+  // with an empty register would trip the non-negative expected-balance CHECK
+  // even though the sale cashier's drawer still holds the cash.
+  const originalSaleSession = existing.cashSessionId
+    ? await ctx.db
+        .select({
+          id: cashSessions.id,
+          status: cashSessions.status,
+          siteId: cashSessions.siteId,
+        })
+        .from(cashSessions)
+        .where(
+          and(
+            eq(cashSessions.id, existing.cashSessionId),
+            eq(cashSessions.tenantId, ctx.tenantId)
+          )
+        )
+        .get()
+    : null;
+  const fallbackActiveCashSession =
+    !originalSaleSession || originalSaleSession.status !== 'open'
+      ? await requireActiveCashSession(ctx.db, ctx.tenantId, ctx.siteId, ctx.user.id)
+      : null;
+  const refundCashSession =
+    originalSaleSession && originalSaleSession.status === 'open'
+      ? originalSaleSession
+      : fallbackActiveCashSession!;
   // Phase 2 API-103 — credit back the site that originally sold the stock,
   // not the refunding cashier's active site. Falls back to null for legacy
   // sales without a cash session — `applyInventoryBalanceDelta` treats
   // that as a safe no-op.
-  const originalSaleSiteId = existing.cashSessionId
-    ? (
-        await ctx.db
-          .select({ siteId: cashSessions.siteId })
-          .from(cashSessions)
-          .where(
-            and(
-              eq(cashSessions.id, existing.cashSessionId),
-              eq(cashSessions.tenantId, ctx.tenantId)
-            )
-          )
-          .get()
-      )?.siteId ?? null
-    : null;
+  const originalSaleSiteId = originalSaleSession?.siteId ?? null;
 
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const now = new Date().toISOString();
@@ -269,10 +280,10 @@ export async function returnSale(
   let auditLogId: string | null = null;
 
   ctx.db.transaction(tx => {
-    // ENG-042 TOCTOU defense: refunds bind the cash movement to
-    // activeCashSession.id; a session closed mid-flight would attach
-    // the refund to a closed shift.
-    assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+    // ENG-042 TOCTOU defense: refunds bind the cash movement to the selected
+    // open session; a session closed mid-flight would attach the refund to a
+    // closed shift.
+    assertCashSessionStillOpen(tx, ctx.tenantId, refundCashSession.id);
 
     inventoryMovementIds = reverseSaleItemsStock({
       tx,
@@ -316,7 +327,7 @@ export async function returnSale(
     cashMovementId = insertCashMovement({
       tx,
       tenantId: ctx.tenantId,
-      sessionId: activeCashSession.id,
+      sessionId: refundCashSession.id,
       type: 'refund',
       amount: refundCashAmount,
       referenceId: input.id,
@@ -348,7 +359,7 @@ export async function returnSale(
       },
       metadata: {
         ...(input.reason ? { reason: input.reason } : {}),
-        refundCashSessionId: activeCashSession.id,
+        refundCashSessionId: refundCashSession.id,
       },
     });
   });
@@ -404,8 +415,8 @@ export async function returnSale(
     await safeUpdateSaleRefundedSummary(ctx, log, journalEventId, {
       saleReturnId: refundId,
       originalSaleId: input.id,
-      siteId: originalSaleSiteId ?? activeCashSession.siteId,
-      cashSessionId: activeCashSession.id,
+      siteId: originalSaleSiteId ?? refundCashSession.siteId,
+      cashSessionId: refundCashSession.id,
       refundedAmount: existing.total,
       reasonCode: input.reason ?? null,
     });
@@ -440,7 +451,7 @@ export async function returnSale(
         resourceType: 'cash_movements',
         resourceId: cashMovementId,
         effectData: {
-          sessionId: activeCashSession.id,
+          sessionId: refundCashSession.id,
           amount: refundCashAmount,
         },
       });

@@ -25,9 +25,9 @@
     "mercadopago": "Mercado Pago Point"
   },
   "driverHint": {
-    "bold": "Disponible con ENG-063",
-    "wompi": "Disponible con ENG-063",
-    "mercadopago": "Disponible con ENG-063"
+    "bold": "Disponible próximamente",
+    "wompi": "Disponible próximamente",
+    "mercadopago": "Disponible próximamente"
   },
   "fields": {
     "kindLabel": "Tipo",
@@ -36,6 +36,7 @@
     "displayNamePlaceholder": "Opcional, por ejemplo: Caja principal",
     "configLabel": "Configuración (JSON)",
     "configPlaceholder": "{}",
+    "configHelp": "Los destinos TCP ESC/POS deben usar IPs privadas de LAN y puertos 9100-9103.",
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
       "help": "Envía el recibo a esta impresora apenas el cajero confirma la venta. El cajón monedero se abre con el mismo gesto cuando la opción kickDrawerAfterReceipt de la impresora está activa."

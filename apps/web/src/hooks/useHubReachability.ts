@@ -11,7 +11,7 @@
  * The poll only checks reachability of the hub HTTP endpoint — it
  * does NOT validate auth or per-tenant access. Auth lives in the
  * tRPC + Bearer-token path; this hook is a light "is the hub box
- * still on the LAN?" signal that drives the `OfflineStatusBanner`
+ * still on the LAN?" signal that drives the `GlobalStatusStrip`
  * variant + the checkout-button gate.
  *
  * @module hooks/useHubReachability
@@ -60,17 +60,14 @@ const DEFAULT_STATE: HubReachabilityState = {
  * module init (`getRuntimeConfigSync()`). It does NOT subscribe to
  * config changes because runtime config is immutable per ADR-0008.
  */
-export function useHubReachability(
-  options: UseHubReachabilityOptions = {}
-): HubReachabilityState {
+export function useHubReachability(options: UseHubReachabilityOptions = {}): HubReachabilityState {
   const cfg = getRuntimeConfigSync();
   const isHubClient = cfg.authorityMode === 'hub_client' && Boolean(cfg.hubUrl);
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
-  const healthUrl = isHubClient && cfg.hubUrl
-    ? `${cfg.hubUrl.replace(/\/+$/, '')}/api/health`
-    : null;
+  const healthUrl =
+    isHubClient && cfg.hubUrl ? `${cfg.hubUrl.replace(/\/+$/, '')}/api/health` : null;
   const [state, setState] = useState<HubReachabilityState>(DEFAULT_STATE);
 
   useEffect(() => {

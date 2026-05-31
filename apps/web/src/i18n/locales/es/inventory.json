@@ -81,7 +81,8 @@
       "onHand": "Total en existencias",
       "available": "Total disponible",
       "lowStock": "Productos con stock bajo"
-    }
+    },
+    "noSitesTitle": "Aún no hay sedes activas"
   },
   "transferHistory": {
     "title": "Historial de transferencias",

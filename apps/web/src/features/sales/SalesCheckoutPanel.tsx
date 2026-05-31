@@ -39,6 +39,13 @@ interface SalesCheckoutPanelProps {
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
   onOpenMovement: () => void;
+  /** ENG-062 — manager-gated cash drawer kick. When undefined the
+   * button is hidden (cashier role or no escpos drawer registered).
+   * Relocated here from the retired SalesOverview hero so the manager
+   * hardware action survives the §06 minimal POS restructure. */
+  onKickCashDrawer?: (() => void | Promise<void>) | undefined;
+  /** Whether the kick mutation is in flight. */
+  isKickingCashDrawer?: boolean | undefined;
   onRegisterAssignmentChange: (assignmentId: string | null) => void;
   // ENG-018b — optional multi-cart affordances. When `onSuspend` /
   // `onNewSale` are omitted the panel renders exactly like before so
@@ -91,6 +98,8 @@ export function SalesCheckoutPanel({
   onOpenCashSession,
   onCloseCashSession,
   onOpenMovement,
+  onKickCashDrawer,
+  isKickingCashDrawer,
   onRegisterAssignmentChange,
   canSuspend = false,
   onSuspend,
@@ -128,48 +137,32 @@ export function SalesCheckoutPanel({
     <aside className="card p-5 sm:p-6 xl:sticky xl:top-24">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('checkout.kicker')}</p>
-          <h2 className="mt-3 font-display text-3xl text-secondary-950">{t('checkout.chargeSummary')}</h2>
+          <p className="pv-kicker">{t('checkout.kicker')}</p>
+          <h2 className="pv-title text-xl">{t('checkout.chargeSummary')}</h2>
           <p className="mt-2 text-sm text-secondary-600">
             {t('checkout.chargeSummaryDescription')}
           </p>
         </div>
-        <button className="btn-outline btn-icon h-11 w-11" onClick={onOpenSearch} aria-label={t('checkout.searchProducts')}>
+        <button
+          className="pv-btn outline min-h-11 h-11 w-11 p-0"
+          onClick={onOpenSearch}
+          aria-label={t('checkout.searchProducts')}
+        >
           <Plus className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="relative mt-6 overflow-hidden rounded-[26px] border border-line/70 bg-secondary-950 px-5 py-5 text-white">
-        {/* V4 split-focus glow — primary radial in the top-right corner so
-          * the dark total card pops without losing the editorial chrome. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--primary) 38%, transparent), transparent 55%)',
-          }}
-        />
-        <div className="relative">
-          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-white/60">
-            {t('checkout.totalDue')}
-          </p>
-          <p className="mt-3 font-display text-4xl tabular-nums tracking-[-0.02em]">
-            {formatCurrency(draftSummary.total)}
-          </p>
-          <div className="mt-6 grid gap-3 text-sm text-white/72">
-            <div className="flex items-center justify-between">
-              <span>{t('checkout.itemCount')}</span>
-              <span className="font-mono tabular-nums text-white">{draftSummary.itemCount}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>{t('checkout.subtotal')}</span>
-              <span className="font-mono tabular-nums text-white">{formatCurrency(draftSummary.subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>{t('checkout.vat')}</span>
-              <span className="font-mono tabular-nums text-white">{formatCurrency(draftSummary.taxAmount)}</span>
-            </div>
+      <div className="pv-total mt-6">
+        <div className="lbl">{t('checkout.totalDue')}</div>
+        <div className="fig">{formatCurrency(draftSummary.total)}</div>
+        <div className="brk">
+          <div className="ln">
+            <span>{t('checkout.itemsWithCount', { value: draftSummary.itemCount })}</span>
+            <span className="amt">{formatCurrency(draftSummary.subtotal)}</span>
+          </div>
+          <div className="ln">
+            <span>{t('checkout.vat')}</span>
+            <span className="amt">{formatCurrency(draftSummary.taxAmount)}</span>
           </div>
         </div>
       </div>
@@ -294,6 +287,18 @@ export function SalesCheckoutPanel({
                       <WalletCards className="h-4 w-4" />
                       {t('cashSession.recordMovementAction')}
                     </button>
+                    {onKickCashDrawer && (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={onKickCashDrawer}
+                        disabled={isKickingCashDrawer === true}
+                        data-testid="sales-kick-drawer"
+                      >
+                        <WalletCards className="h-4 w-4" />
+                        {t('printer.kickDrawerCta')}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn-outline"
@@ -348,9 +353,7 @@ export function SalesCheckoutPanel({
                 key={keyLabel}
                 className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface px-2.5 py-1.5"
               >
-                <kbd className="rounded-md border border-line bg-secondary-950 px-1.5 py-0.5 font-mono text-[10.5px] text-white">
-                  {keyLabel}
-                </kbd>
+                <kbd className="pv-kbd">{keyLabel}</kbd>
                 <span className="truncate text-[11px] text-secondary-700">{action}</span>
               </div>
             ))}
@@ -363,7 +366,7 @@ export function SalesCheckoutPanel({
         )}
 
         <button
-          className="btn-primary hidden w-full justify-center xl:inline-flex"
+          className="pv-btn primary lg hidden w-full justify-center xl:inline-flex"
           onClick={primaryAction}
           disabled={primaryActionDisabled}
           data-testid="checkout-primary-action"

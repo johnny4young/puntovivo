@@ -46,35 +46,39 @@ export function FormField<TFieldValues extends FieldValues = FieldValues>({
         ...rules,
       }}
       render={({ field, fieldState: { error } }) => (
-        <div className={cn('w-full', className)}>
+        <div className={cn('pv-field', className)}>
           {label && (
-            <label
-              htmlFor={name}
-              className={cn(
-                'block text-sm font-medium mb-1.5',
-                error ? 'text-danger-700' : 'text-secondary-700'
-              )}
-            >
+            <label htmlFor={name} className="label">
               {label}
-              {required && <span className="text-danger-500 ml-0.5">*</span>}
+              {required && <span className="req">*</span>}
             </label>
           )}
 
           {isValidElement(children)
-            ? cloneElement(children, {
+            ? // BUG-002 — OMIT `label` from the cloned props instead of
+              // passing `label: undefined`. Under exactOptionalPropertyTypes
+              // an explicit `undefined` is NOT assignable to an optional
+              // `label?: string` prop on the child; the previous code hid that
+              // by smuggling `label: undefined` inside the cast. The label is
+              // already rendered above, and `field` carries no `label` key, so
+              // building the props without one is the omit. The cast remains
+              // only because `children` is an untyped `ReactElement` (the
+              // FormField clones an arbitrary control — Input, Select, etc.),
+              // so `cloneElement` cannot statically know the child's prop bag.
+              cloneElement(children, {
                 ...field,
                 id: name,
                 error: error?.message,
-                // Don't pass label again since we handle it here
-                label: undefined,
               } as Record<string, unknown>)
             : children}
 
-          {helperText && !error && (
-            <p className="mt-1.5 text-sm text-secondary-500">{helperText}</p>
-          )}
+          {helperText && !error && <p className="help">{helperText}</p>}
 
-          {error && <p className="mt-1.5 text-sm text-danger-600">{error.message}</p>}
+          {error && (
+            <p className="err-msg" role="alert">
+              {error.message}
+            </p>
+          )}
         </div>
       )}
     />
@@ -111,25 +115,23 @@ export function SimpleFormField({
   const hasError = !!error;
 
   return (
-    <div className={cn('w-full', className)}>
+    <div className={cn('pv-field', className)}>
       {label && (
-        <label
-          htmlFor={htmlFor}
-          className={cn(
-            'block text-sm font-medium mb-1.5',
-            hasError ? 'text-danger-700' : 'text-secondary-700'
-          )}
-        >
+        <label htmlFor={htmlFor} className="label">
           {label}
-          {required && <span className="text-danger-500 ml-0.5">*</span>}
+          {required && <span className="req">*</span>}
         </label>
       )}
 
       {children}
 
-      {helperText && !error && <p className="mt-1.5 text-sm text-secondary-500">{helperText}</p>}
+      {helperText && !hasError && <p className="help">{helperText}</p>}
 
-      {error && <p className="mt-1.5 text-sm text-danger-600">{error}</p>}
+      {hasError && (
+        <p className="err-msg" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

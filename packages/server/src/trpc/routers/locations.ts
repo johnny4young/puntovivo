@@ -169,7 +169,10 @@ export const locationsRouter = router({
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(locations).set(updateData).where(eq(locations.id, id));
+    await ctx.db
+      .update(locations)
+      .set(updateData)
+      .where(and(eq(locations.id, id), eq(locations.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'locations',
@@ -220,7 +223,9 @@ export const locationsRouter = router({
       });
     }
 
-    await ctx.db.delete(locations).where(eq(locations.id, input.id));
+    await ctx.db
+      .delete(locations)
+      .where(and(eq(locations.id, input.id), eq(locations.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'locations',

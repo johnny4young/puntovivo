@@ -330,7 +330,8 @@
         "imageUrlRequired": "Image URL is required",
         "imageUrlInvalid": "Enter a valid image URL",
         "isActive": "Logo is active"
-      }
+      },
+      "emptyLibraryTitle": "No logos yet"
     },
     "sync": {
       "title": "Sync Center",
@@ -445,7 +446,16 @@
         "saveMerge": "Save Merge",
         "saving": "Saving...",
         "jsonObjectRequired": "Merged data must be a JSON object.",
-        "jsonInvalid": "Merged data must be valid JSON."
+        "jsonInvalid": "Merged data must be valid JSON.",
+        "diff": {
+          "local": "Local (this device)",
+          "remote": "Remote (server)"
+        },
+        "fieldsDiffer_one": "{{count}} field differs",
+        "fieldsDiffer_other": "{{count}} fields differ",
+        "recommendedAcceptRemote": "Recommended: accept remote — the server has the most recent data.",
+        "recommendedDiscard": "Recommended: discard the stale local change to unblock sync.",
+        "noFieldDiff": "The local and remote versions differ."
       }
     },
     "updater": {
@@ -523,6 +533,10 @@
         "restoreFailed": "Database restore failed",
         "restoreCancelledTitle": "Database restore cancelled",
         "restoreCancelledDetail": "Restore was cancelled."
+      },
+      "empty": {
+        "title": "No backups yet",
+        "description": "Create a backup to keep a restore point of the local database."
       }
     },
     "telemetry": {
@@ -804,6 +818,12 @@
           "isActive": "City is active"
         }
       }
+    },
+    "filters": {
+      "country": "Country",
+      "department": "Department",
+      "allCountries": "All countries",
+      "allDepartments": "All departments"
     }
   },
   "users": {

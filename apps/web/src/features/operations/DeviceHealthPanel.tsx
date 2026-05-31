@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plug, RefreshCw } from 'lucide-react';
+import { Plug, RefreshCw, Inbox } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
-import { Badge } from '@/components/ui/Badge';
 import { formatDateTime } from '@/lib/utils';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { KpiTile } from '@/components/ui';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
  * ENG-065a — Operations Center: Device Health panel.
@@ -23,6 +26,11 @@ import { formatDateTime } from '@/lib/utils';
  * Per-row "Reintentar" wires to `peripherals.retryHardwareOutbox`
  * (admin-only). Manager callers see the data but the button is
  * disabled with a translated tooltip.
+ *
+ * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel,
+ * KPI de salud del outbox (danger cuando hay trabajos fallando), tablas
+ * densas (.pv-table) con badge semántico por estado, y estado vacío del
+ * sistema (EmptyState).
  */
 
 const PROBLEM_STATUSES = new Set<string>([
@@ -50,6 +58,21 @@ function getHardwareErrorMessage(value: unknown): string | null {
   const message =
     error.message ?? error.providerMessage ?? error.kind ?? error.errorCode ?? null;
   return typeof message === 'string' && message.length > 0 ? message : null;
+}
+
+function testResultTone(result: string | null | undefined): 'success' | 'danger' | 'neutral' {
+  if (result === 'ok') return 'success';
+  if (result === 'failed') return 'danger';
+  return 'neutral';
+}
+
+function outboxStatusTone(
+  status: string
+): 'success' | 'danger' | 'warning' | 'neutral' {
+  if (status === 'printed') return 'success';
+  if (status === 'dead_letter' || status === 'failed') return 'danger';
+  if (status === 'retrying') return 'warning';
+  return 'neutral';
 }
 
 export function DeviceHealthPanel() {
@@ -83,13 +106,24 @@ export function DeviceHealthPanel() {
     [peripheralQueries, allSites]
   );
 
+  // Client-side pagination over the combined peripherals array (across all
+  // sites). The page slice is then re-grouped by kind so each `kind` keeps its
+  // own heading + dense table, but the card never renders more than one page of
+  // rows at a time regardless of fleet size.
+  const {
+    pageRows: peripheralPageRows,
+    hasPagination: peripheralsHavePagination,
+    setPage: setPeripheralsPage,
+    ...peripheralsPagination
+  } = usePaginatedRows(peripherals, 8);
+
   const peripheralsByKind = useMemo(
     () =>
       PERIPHERAL_KINDS.map(kind => ({
         kind,
-        rows: peripherals.filter(row => row.kind === kind),
+        rows: peripheralPageRows.filter(row => row.kind === kind),
       })).filter(group => group.rows.length > 0),
-    [peripherals]
+    [peripheralPageRows]
   );
 
   const outboxQuery = trpc.peripherals.peekHardwareOutbox.useQuery(
@@ -97,11 +131,24 @@ export function DeviceHealthPanel() {
     { staleTime: 15_000, refetchInterval: 15_000 }
   );
 
+  const allOutboxRows = useMemo(() => outboxQuery.data ?? [], [outboxQuery.data]);
+  const problemCount = useMemo(
+    () => allOutboxRows.filter(row => PROBLEM_STATUSES.has(row.status)).length,
+    [allOutboxRows]
+  );
   const outboxRows = useMemo(() => {
-    const rows = outboxQuery.data ?? [];
-    if (showAll) return rows;
-    return rows.filter(row => PROBLEM_STATUSES.has(row.status));
-  }, [outboxQuery.data, showAll]);
+    if (showAll) return allOutboxRows;
+    return allOutboxRows.filter(row => PROBLEM_STATUSES.has(row.status));
+  }, [allOutboxRows, showAll]);
+
+  // Paginate the (already filtered) outbox tail client-side. Toggling the
+  // "show all" filter changes the row count, which resets the hook to page 1.
+  const {
+    pageRows: outboxPageRows,
+    hasPagination: outboxHasPagination,
+    setPage: setOutboxPage,
+    ...outboxPagination
+  } = usePaginatedRows(outboxRows, 8);
 
   const retryMutation = trpc.peripherals.retryHardwareOutbox.useMutation({
     onSuccess: async () => {
@@ -113,25 +160,26 @@ export function DeviceHealthPanel() {
 
   return (
     <div className="space-y-6">
-      <section className="card p-6 space-y-4">
+      <section className="card space-y-4 p-6">
         <header className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-            <Plug className="h-5 w-5 text-primary-700" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-secondary-900">
-              {t('device.peripherals.title')}
-            </h2>
-            <p className="text-sm text-secondary-500">
+          <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
+            <Plug className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="pv-kicker">{t('device.kicker')}</p>
+            <h2 className="pv-title text-lg">{t('device.peripherals.title')}</h2>
+            <p className="mt-1 text-sm text-secondary-500">
               {t('device.peripherals.description')}
             </p>
           </div>
         </header>
 
         {peripherals.length === 0 && (
-          <p className="text-sm text-secondary-500">
-            {t('device.peripherals.emptyState')}
-          </p>
+          <EmptyState
+            icon={Plug}
+            title={t('device.peripherals.title')}
+            description={t('device.peripherals.emptyState')}
+          />
         )}
 
         {peripheralsByKind.map(group => (
@@ -139,44 +187,36 @@ export function DeviceHealthPanel() {
             <h3 className="text-sm font-semibold text-secondary-700">
               {t(`device.peripherals.kind.${group.kind}`)}
             </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
+            <div className="overflow-x-auto rounded-2xl border border-line/75">
+              <table className="pv-table">
+                <thead>
                   <tr>
-                    <th className="px-3 py-2">{t('device.peripherals.columns.site')}</th>
-                    <th className="px-3 py-2">{t('device.peripherals.columns.driver')}</th>
-                    <th className="px-3 py-2">{t('device.peripherals.columns.displayName')}</th>
-                    <th className="px-3 py-2">{t('device.peripherals.columns.lastTest')}</th>
-                    <th className="px-3 py-2">{t('device.peripherals.columns.status')}</th>
+                    <th>{t('device.peripherals.columns.site')}</th>
+                    <th>{t('device.peripherals.columns.driver')}</th>
+                    <th>{t('device.peripherals.columns.displayName')}</th>
+                    <th>{t('device.peripherals.columns.lastTest')}</th>
+                    <th>{t('device.peripherals.columns.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {group.rows.map(row => (
-                    <tr key={row.id} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-700">{row.siteName}</td>
-                      <td className="px-3 py-2 text-secondary-700">{row.driver}</td>
-                      <td className="px-3 py-2 text-secondary-900">
+                    <tr key={row.id}>
+                      <td>{row.siteName}</td>
+                      <td className="muted">{row.driver}</td>
+                      <td className="font-medium text-secondary-900">
                         {row.displayName ?? '—'}
                       </td>
-                      <td className="px-3 py-2 text-secondary-700">
+                      <td className="muted whitespace-nowrap">
                         {row.lastTestedAt
                           ? formatDateTime(row.lastTestedAt)
                           : t('device.peripherals.notTested')}
                       </td>
-                      <td className="px-3 py-2">
-                        <Badge
-                          variant={
-                            row.lastTestResult === 'ok'
-                              ? 'success'
-                              : row.lastTestResult === 'failed'
-                                ? 'danger'
-                                : 'secondary'
-                          }
-                        >
+                      <td>
+                        <span className={`pv-badge ${testResultTone(row.lastTestResult)}`}>
                           {row.lastTestResult
                             ? t(`device.peripherals.testResult.${row.lastTestResult}`)
                             : t('device.peripherals.testResult.untested')}
-                        </Badge>
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -185,26 +225,32 @@ export function DeviceHealthPanel() {
             </div>
           </div>
         ))}
+
+        {peripheralsHavePagination && (
+          <TablePagination
+            {...peripheralsPagination}
+            onPageChange={setPeripheralsPage}
+          />
+        )}
       </section>
 
-      <section className="card p-6 space-y-4">
+      <section className="card space-y-4 p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-warning-100">
-              <RefreshCw className="h-5 w-5 text-warning-700" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-secondary-900">
-                {t('device.outbox.title')}
-              </h2>
-              <p className="text-sm text-secondary-500">
+            <span className="pv-gt pv-gt-warning h-11 w-11 rounded-xl">
+              <RefreshCw className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="pv-kicker">{t('device.kicker')}</p>
+              <h2 className="pv-title text-lg">{t('device.outbox.title')}</h2>
+              <p className="mt-1 text-sm text-secondary-500">
                 {t('device.outbox.description')}
               </p>
             </div>
           </div>
           <button
             type="button"
-            className="btn-secondary text-sm"
+            className="pv-btn outline"
             onClick={() => setShowAll(prev => !prev)}
             data-testid="device-outbox-toggle"
           >
@@ -213,6 +259,23 @@ export function DeviceHealthPanel() {
               : t('device.outbox.filter.showAll')}
           </button>
         </header>
+
+        <div className="pv-kpis grid-cols-2 lg:grid-cols-2">
+          <KpiTile
+            icon={RefreshCw}
+            tone={problemCount > 0 ? 'danger' : 'success'}
+            label={t('device.outbox.kpi.problemsLabel')}
+            value={outboxQuery.isLoading ? '—' : problemCount.toLocaleString()}
+            context={t('device.outbox.kpi.problemsContext')}
+          />
+          <KpiTile
+            icon={Inbox}
+            tone="ink"
+            label={t('device.outbox.kpi.totalLabel')}
+            value={outboxQuery.isLoading ? '—' : allOutboxRows.length.toLocaleString()}
+            context={t('device.outbox.kpi.totalContext')}
+          />
+        </div>
 
         {outboxQuery.isLoading && (
           <p className="text-sm text-secondary-500">{t('common.loading')}</p>
@@ -225,65 +288,58 @@ export function DeviceHealthPanel() {
         )}
 
         {!outboxQuery.isLoading && !outboxQuery.error && outboxRows.length === 0 && (
-          <p className="text-sm text-secondary-500">
-            {showAll
-              ? t('device.outbox.emptyState.all')
-              : t('device.outbox.emptyState.problems')}
-          </p>
+          <EmptyState
+            icon={Inbox}
+            title={t('device.outbox.title')}
+            description={
+              showAll
+                ? t('device.outbox.emptyState.all')
+                : t('device.outbox.emptyState.problems')
+            }
+          />
         )}
 
         {outboxRows.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
+          <>
+            <div className="overflow-x-auto rounded-2xl border border-line/75">
+            <table className="pv-table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2">{t('device.outbox.columns.kind')}</th>
-                  <th className="px-3 py-2">{t('device.outbox.columns.status')}</th>
-                  <th className="px-3 py-2">{t('device.outbox.columns.attempts')}</th>
-                  <th className="px-3 py-2">{t('device.outbox.columns.lastError')}</th>
-                  <th className="px-3 py-2">{t('device.outbox.columns.createdAt')}</th>
-                  <th className="px-3 py-2 text-right">{t('device.outbox.columns.actions')}</th>
+                  <th>{t('device.outbox.columns.kind')}</th>
+                  <th>{t('device.outbox.columns.status')}</th>
+                  <th className="num">{t('device.outbox.columns.attempts')}</th>
+                  <th>{t('device.outbox.columns.lastError')}</th>
+                  <th>{t('device.outbox.columns.createdAt')}</th>
+                  <th className="num">{t('device.outbox.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {outboxRows.map(row => {
+                {outboxPageRows.map(row => {
                   const errorMessage = getHardwareErrorMessage(row.lastError);
                   const canRetry = PROBLEM_STATUSES.has(row.status);
                   const isRetrying =
                     retryMutation.isPending &&
                     retryMutation.variables?.id === row.id;
                   return (
-                    <tr key={row.id} className="border-t border-secondary-200">
-                      <td className="px-3 py-2 text-secondary-700">{row.kind}</td>
-                      <td className="px-3 py-2">
-                        <Badge
-                          variant={
-                            row.status === 'printed'
-                              ? 'success'
-                              : row.status === 'dead_letter' || row.status === 'failed'
-                                ? 'danger'
-                                : row.status === 'retrying'
-                                  ? 'warning'
-                                  : 'secondary'
-                          }
-                        >
+                    <tr key={row.id}>
+                      <td className="muted">{row.kind}</td>
+                      <td>
+                        <span className={`pv-badge ${outboxStatusTone(row.status)}`}>
                           {t(`device.outbox.status.${row.status}`, {
                             defaultValue: row.status,
                           })}
-                        </Badge>
+                        </span>
                       </td>
-                      <td className="px-3 py-2 text-secondary-700">{row.attempts}</td>
-                      <td className="px-3 py-2 text-secondary-700 break-all">
-                        {errorMessage ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-secondary-700">
+                      <td className="num">{row.attempts}</td>
+                      <td className="muted break-all">{errorMessage ?? '—'}</td>
+                      <td className="muted whitespace-nowrap">
                         {formatDateTime(row.createdAt)}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="num">
                         {canRetry && (
                           <button
                             type="button"
-                            className="btn-secondary inline-flex items-center gap-2 text-sm"
+                            className="pv-btn outline ml-auto"
                             disabled={!isAdmin || isRetrying}
                             title={!isAdmin ? t('device.retry.noPermission') : undefined}
                             onClick={() => {
@@ -292,11 +348,7 @@ export function DeviceHealthPanel() {
                             }}
                             data-testid={`device-retry-${row.id}`}
                           >
-                            <RefreshCw
-                              className={`h-4 w-4 ${
-                                isRetrying ? 'animate-spin' : ''
-                              }`}
-                            />
+                            <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
                             {t('device.retry.cta')}
                           </button>
                         )}
@@ -306,7 +358,14 @@ export function DeviceHealthPanel() {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+            {outboxHasPagination && (
+              <TablePagination
+                {...outboxPagination}
+                onPageChange={setOutboxPage}
+              />
+            )}
+          </>
         )}
       </section>
     </div>

@@ -64,7 +64,8 @@
       "general": "General",
       "pricing": "Pricing",
       "units": "Units",
-      "providers": "Providers"
+      "providers": "Providers",
+      "ariaLabel": "Product form sections"
     },
     "fields": {
       "name": "Name",
@@ -97,7 +98,11 @@
       "priceTier3": "Price Tier 3",
       "marginPercent": "Margin %",
       "marginAmount": "Margin Amount",
-      "salePrice": "Sale Price"
+      "salePrice": "Sale Price",
+      "skuHelp": "Generated automatically if left empty.",
+      "barcodePlaceholder": "Scan or type",
+      "descriptionPlaceholder": "Notes shown on quotes (optional).",
+      "minStockHelp": "Used for low-stock alerts."
     },
     "units": {
       "title": "Unit assignments",
@@ -121,6 +126,20 @@
       "providerRequired": "Provider is required",
       "providerDuplicate": "Provider already selected",
       "remove": "Remove"
+    },
+    "sections": {
+      "identity": {
+        "title": "Identity",
+        "description": "How the product appears in your catalog and receipts."
+      },
+      "classification": {
+        "title": "Classification",
+        "description": "Sets taxes and how it is grouped in reports."
+      },
+      "inventory": {
+        "title": "Inventory",
+        "description": "Initial stock and the reorder threshold."
+      }
     }
   },
   "deactivate": {

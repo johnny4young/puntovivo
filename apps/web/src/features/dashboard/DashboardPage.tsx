@@ -85,6 +85,7 @@ export function DashboardPage() {
       label: getMetricLabel(getStatMetric(stats, 'todayRevenue', 'revenue'), t('metrics.todaySales.fallbackLabel')),
       icon: DollarSign,
       tone: 'success',
+      mono: true,
     },
     {
       title: t('metrics.ordersToday.title'),
@@ -101,7 +102,7 @@ export function DashboardPage() {
         t('metrics.lowStockAlerts.fallbackLabel')
       ),
       icon: AlertTriangle,
-      tone: 'warning',
+      tone: 'danger',
     },
     {
       title: t('metrics.thirtyDayRevenue.title'),
@@ -112,6 +113,7 @@ export function DashboardPage() {
       ),
       icon: BarChart3,
       tone: 'ink',
+      mono: true,
     },
   ];
 
@@ -164,14 +166,24 @@ export function DashboardPage() {
         <LowStockAlertsCard items={lowStockItems} />
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <RecentSalesCard
-          sales={recentSales}
-          formatCurrency={formatCurrency}
-          formatDateTime={formatDateTime}
-        />
-        <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
-      </div>
+      {/* Sección secundaria de análisis: las tarjetas de ventas recientes y
+          productos destacados viven al fondo, separadas del core (KPIs +
+          tendencia + reposición) que encabeza la página. */}
+      <section className="space-y-4">
+        <header>
+          <p className="pv-kicker">{t('analysis.kicker')}</p>
+          <h2 className="pv-title text-2xl">{t('analysis.title')}</h2>
+        </header>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <RecentSalesCard
+            sales={recentSales}
+            formatCurrency={formatCurrency}
+            formatDateTime={formatDateTime}
+          />
+          <TopProductsCard products={topProducts} formatCurrency={formatCurrency} />
+        </div>
+      </section>
 
       {showAnomalyCard && <AnomalyDetectionCard />}
     </div>

@@ -216,7 +216,7 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
       driver: 'escpos',
       config: {
         channel: 'tcp',
-        host: '127.0.0.1',
+        host: '192.168.1.50',
         port: 9100,
         paperWidth: '80mm',
         characterSet: 'cp858',
@@ -237,7 +237,7 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
     expect(result.characterSet).toBe('cp858');
     expect(result.transportHint).toEqual({
       channel: 'tcp',
-      host: '127.0.0.1',
+      host: '192.168.1.50',
       port: 9100,
       vendorId: null,
       productId: null,
@@ -255,7 +255,7 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
       siteId,
       kind: 'printer',
       driver: 'escpos',
-      config: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+      config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
       displayName: 'ESC/POS receipt printer',
       isActive: true,
     });
@@ -300,7 +300,7 @@ describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
       siteId,
       kind: 'cash_drawer',
       driver: 'escpos',
-      config: { channel: 'tcp', host: '127.0.0.1', port: 9100 },
+      config: { channel: 'tcp', host: '192.168.1.50', port: 9100 },
       displayName: 'ESC/POS cash drawer',
       isActive: true,
     });
@@ -311,7 +311,7 @@ describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
     expect(result.bytes).toEqual(Array.from(ESCPOS_BYTES.DRAWER_KICK));
     expect(result.transportHint).toEqual({
       channel: 'tcp',
-      host: '127.0.0.1',
+      host: '192.168.1.50',
       port: 9100,
       vendorId: null,
       productId: null,

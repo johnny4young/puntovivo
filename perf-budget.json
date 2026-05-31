@@ -5,6 +5,7 @@
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
     "$retune": "ENG-170 — rebudgeted after build.rollupOptions manualChunks split pdf/xlsx/codemirror/dnd out of the entry. index dropped 320->~152 gz (gate-measured 151.79; ceiling 160 tightened to lock the win). exceljs.bare.min/jspdf.es.min/jspdf.plugin.autotable consolidated into xlsx/pdf. html2canvas is a real jspdf transitive (kept).",
+    "$retune2": "Rediseno declutter+dedup — CompanyPage 22->30 (el nuevo company hub absorbe AI/shared sync/cards y gate-measured queda en 29.77kB gz; CompanySyncCard ya no produce artefacto separado). OperationsPage 14->16 por el SyncHealthPanel propio + pv diff/KPI icons (gate-measured 16.02kB gz, dentro del 5% threshold). usePaginatedRows/TablePagination son chunks compartidos sin overshoot propio.",
     "perChunkGzKb": {
       "index": 160,
       "xlsx": 264,
@@ -16,14 +17,14 @@
       "html2canvas": 48,
       "SalesPage": 41,
       "trpc": 26,
-      "CompanyPage": 22,
+      "CompanyPage": 30,
       "dnd": 25,
       "ReceiptTemplatesPage": 20,
       "TableLoadingState": 17,
       "chunk": 18,
       "PurchasesPage": 14,
       "InventoryPage": 14,
-      "OperationsPage": 14,
+      "OperationsPage": 16,
       "ProductsPage": 11,
       "QuotationsPage": 11,
       "browser": 11,
@@ -32,8 +33,7 @@
       "OrdersPage": 9,
       "ProductFormModal": 8,
       "CustomersPage": 7,
-      "GeographyPage": 6,
-      "CompanySyncCard": 6
+      "GeographyPage": 6
     }
   },
   "trpcLatencyMs": {

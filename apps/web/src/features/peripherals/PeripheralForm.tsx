@@ -62,6 +62,17 @@ const DRIVER_OPTIONS: Record<
   ],
 };
 
+function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, unknown> {
+  if ((kind === 'printer' || kind === 'cash_drawer') && driver === 'escpos') {
+    return {
+      channel: 'tcp',
+      host: '192.168.1.50',
+      port: 9100,
+    };
+  }
+  return {};
+}
+
 export interface PeripheralFormInitial {
   id: string;
   kind: PeripheralKind;
@@ -161,7 +172,18 @@ export function PeripheralForm({
     const stillValid = opts.find(option => option.id === driver);
     if (!stillValid) {
       const firstAvailable = opts.find(option => option.available);
-      setDriver(firstAvailable?.id ?? opts[0]?.id ?? '');
+      const nextDriver = firstAvailable?.id ?? opts[0]?.id ?? '';
+      setDriver(nextDriver);
+      if (!isEditing) {
+        setConfigRaw(formatConfigForInput(defaultConfigFor(nextKind, nextDriver)));
+      }
+    }
+  }
+
+  function handleDriverChange(nextDriver: string) {
+    setDriver(nextDriver);
+    if (!isEditing) {
+      setConfigRaw(formatConfigForInput(defaultConfigFor(kind, nextDriver)));
     }
   }
 
@@ -242,7 +264,7 @@ export function PeripheralForm({
             className="input mt-1"
             value={driver}
             disabled={isSaving}
-            onChange={event => setDriver(event.target.value)}
+            onChange={event => handleDriverChange(event.target.value)}
           >
             {driverOptions.map(option => (
               <option key={option.id} value={option.id}>
@@ -316,6 +338,9 @@ export function PeripheralForm({
             disabled={isSaving}
             onChange={event => setConfigRaw(event.target.value)}
           />
+          <p className="mt-1 text-xs text-secondary-500">
+            {t('fields.configHelp')}
+          </p>
           {validationError && (
             <p className="mt-1 text-sm text-danger-600">{validationError}</p>
           )}

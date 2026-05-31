@@ -31,7 +31,9 @@
     "noData": "Sin datos disponibles"
   },
   "pagination": {
+    "navigation": "Paginación",
     "page": "Página",
+    "showing": "Mostrando {{rangeStart}}-{{rangeEnd}} de {{total}}",
     "of": "de",
     "rows": "filas",
     "rowsPerPage": "Filas por página",
@@ -49,6 +51,8 @@
     "selectRow": "Seleccionar fila",
     "noResults": "Sin resultados.",
     "noEntries": "Sin entradas para mostrar",
+    "selectedRows_one": "{{count}} fila seleccionada",
+    "selectedRows_other": "{{count}} filas seleccionadas",
     "showing": "Mostrando {{from}} a {{to}} de {{total}} entradas",
     "page": "Página {{current}} de {{total}}",
     "columns": "Columnas",
@@ -186,6 +190,13 @@
       "errorDescription": "Intenta de nuevo en un momento. Los tickets pendientes se quedan seguros en esta tableta."
     }
   },
+  "statusStrip": {
+    "showDetails": "Ver detalle",
+    "hideDetails": "Ocultar detalle",
+    "centerTitle": "Notificaciones",
+    "moreCount_one": "+{{count}} aviso más",
+    "moreCount_other": "+{{count}} avisos más"
+  },
   "offline": {
     "youAreOffline": "Estás sin conexión",
     "queuedChanges_one": "{{count}} cambio pendiente se sincronizará cuando regrese la conexión.",
@@ -234,5 +245,8 @@
       "cashierHint": "Pídele a un manager que cree este producto antes de cobrar.",
       "createCta": "Crear nuevo producto"
     }
+  },
+  "desktopOnly": {
+    "label": "Solo escritorio"
   }
 }

@@ -3,7 +3,12 @@
     "todaySales": "Ventas de hoy",
     "transactions": "Transacciones",
     "averageOrder": "Ticket promedio",
-    "draftTotal": "Total borrador"
+    "draftTotal": "Total borrador",
+    "viewToggleAriaLabel": "Vista de ventas"
+  },
+  "view": {
+    "pos": "Punto de venta",
+    "history": "Historial"
   },
   "checkout": {
     "kicker": "Caja",
@@ -49,7 +54,8 @@
       "resume": "Retomar",
       "charge": "Cobrar",
       "fastCash": "Cobro rápido"
-    }
+    },
+    "itemsWithCount": "Ítems ({{value}})"
   },
   "cart": {
     "empty": "Busca y agrega productos para iniciar una venta.",
@@ -67,7 +73,15 @@
     "selectItem": "Seleccionar {{name}}",
     "qtyFor": "Cantidad para {{name}}",
     "discountFor": "Descuento para {{name}}",
-    "removeItem": "Eliminar {{name}}"
+    "removeItem": "Eliminar {{name}}",
+    "decrement": "Quitar uno de {{name}}",
+    "increment": "Agregar uno de {{name}}",
+    "shortcuts": {
+      "label": "Atajos:",
+      "search": "buscar",
+      "quantity": "cantidad",
+      "discount": "descuento"
+    }
   },
   "cashSession": {
     "title": "Caja",
@@ -174,7 +188,7 @@
       "justificationLabel": "Justificación (opcional)",
       "justificationPlaceholder": "Explica cualquier sobrante o faltante…",
       "byMethodTitle": "Por método de pago",
-      "byMethodHint": "Tarjeta · Transferencia · Crédito · Otro aparecen cuando ENG-083c sume las ventas por método.",
+      "byMethodHint": "Tarjeta · Transferencia · Crédito · Otro aparecen cuando se sumen las ventas por método.",
       "method": {
         "cash": "Efectivo",
         "card": "Tarjeta",

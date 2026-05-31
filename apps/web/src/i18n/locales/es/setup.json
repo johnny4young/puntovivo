@@ -18,13 +18,17 @@
       "not-applicable": "No aplica"
     },
     "cta": {
-      "configure": "Configurar"
+      "configure": "Configurar",
+      "review": "Revisar",
+      "resolveSection": "Resolver {{section}}"
     },
     "acknowledge": {
       "button": "Entendido, llévame al panel principal",
       "pending": "Guardando...",
       "toast": "Configuración reconocida",
-      "error": "No se pudo guardar tu confirmación"
+      "error": "No se pudo guardar tu confirmación",
+      "resolveBlocker": "Resolver bloqueador",
+      "openStore": "Abrir tienda"
     },
     "sections": {
       "locale": {
@@ -67,11 +71,18 @@
         "label": "Sesión de caja",
         "hint": "Abre una sesión de caja antes de registrar la primera venta."
       }
+    },
+    "kicker": "Configuración",
+    "heading": "Listo para abrir",
+    "group": {
+      "completed": "Pasos completados",
+      "optional": "Opcionales"
     }
   },
   "banner": {
     "title_one": "Configuración incompleta: {{count}} bloqueador impide abrir la tienda.",
     "title_other": "Configuración incompleta: {{count}} bloqueadores impiden abrir la tienda.",
+    "detail": "Resuelve los pasos pendientes para abrir la tienda.",
     "cta": "Ir a configuración",
     "dismiss": "Cerrar"
   },

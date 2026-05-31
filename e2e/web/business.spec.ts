@@ -65,7 +65,7 @@ async function createCompletedCashSale(
 
   await page.getByRole('button', { name: 'Add to cart' }).click();
   await expect(page.getByRole('button', { name: 'Add to cart' })).toHaveCount(0);
-  await expect(page.locator('table').filter({ has: page.getByText(product.name) }).first()).toBeVisible();
+  await expect(page.getByTestId(`sale-cart-item-${product.sku}`)).toBeVisible();
 
   await page.getByRole('button', { name: 'Charge sale' }).first().click();
   const chargeDialog = page
@@ -134,6 +134,7 @@ async function createCompletedPurchase(
 
 async function openSaleDetails(page: Page, saleNumber: string) {
   await page.goto('/sales');
+  await page.getByRole('tab', { name: /History|Historial/i }).click();
   await page.getByPlaceholder('Search by invoice...').fill(saleNumber);
   const viewButton = page.getByRole('button', { name: `View ${saleNumber}` });
   await expect(viewButton).toBeVisible();
@@ -161,7 +162,7 @@ async function assertInventoryBalanceInUi(
 ) {
   await page.goto('/inventory');
   await page.getByRole('button', { name: 'By Site' }).click();
-  const siteSelect = page.locator('select.input').first();
+  const siteSelect = page.locator('#inventory-balances-site');
   await expect(siteSelect).toBeVisible();
   await siteSelect.selectOption(args.siteId);
   // The Balances DataTable filters by its `productName` accessor; typing
@@ -169,10 +170,10 @@ async function assertInventoryBalanceInUi(
   // visible set) and then pick the row by SKU (unique, unambiguous).
   await page.getByPlaceholder('Search balances by product…').fill(args.productName);
 
-  // Balances columns: [0] product, [1] sku, [2] onHand, [3] reserved, [4] available.
+  // Balances columns: [0] product+sku, [1] onHand, [2] reserved, [3] available.
   const row = page.locator('tr', { hasText: args.productSku }).first();
   await expect(row).toBeVisible();
-  await expect(row.getByRole('cell').nth(2)).toHaveText(String(args.expectedOnHand));
+  await expect(row.getByRole('cell').nth(1)).toHaveText(String(args.expectedOnHand));
 }
 
 async function assertAggregateStockInUi(
@@ -208,7 +209,7 @@ async function createDeferredTransfer(
 ) {
   await page.goto('/inventory');
   await page.getByRole('button', { name: 'By Site' }).click();
-  await page.locator('select.input').first().selectOption(args.fromSiteId);
+  await page.locator('#inventory-balances-site').selectOption(args.fromSiteId);
   await page.getByRole('button', { name: 'Transfer stock' }).click();
 
   const dialog = page
@@ -267,16 +268,17 @@ async function switchToSite(page: Page, targetSiteName: string) {
   ).toBeVisible();
 }
 
-async function assertCashClosureInSalesReport(
+async function assertCashClosureInOperationsReport(
   page: Page,
   args: {
     registerName: string;
     signedOverShort: string;
   }
 ) {
-  const closureCard = page.locator('article').filter({ has: page.getByText(args.registerName) }).first();
-  await expect(closureCard).toBeVisible();
-  await expect(closureCard).toContainText(args.signedOverShort);
+  await page.goto('/operations?tab=cash');
+  const closureRow = page.locator('tr').filter({ has: page.getByText(args.registerName) }).first();
+  await expect(closureRow).toBeVisible();
+  await expect(closureRow).toContainText(args.signedOverShort);
 }
 
 async function assertAuditEventInUi(
@@ -916,16 +918,15 @@ test.describe('web business flows', () => {
     expect(audit.after?.overShort).toBe(expectedOverShort);
     expect(audit.metadata?.registerName).toBe(scenario.registerName);
 
-    await assertCashClosureInSalesReport(page, {
-      registerName: scenario.registerName,
-      signedOverShort: `+${formatUsd(expectedOverShort)}`,
-    });
-
     await resetSession(page);
     await login(page, {
       email: scenario.admin.email,
       password: scenario.admin.password,
       defaultPath: '/dashboard',
+    });
+    await assertCashClosureInOperationsReport(page, {
+      registerName: scenario.registerName,
+      signedOverShort: formatUsd(expectedOverShort),
     });
     await assertAuditEventInUi(page, {
       action: 'cash_session.close',
@@ -992,7 +993,13 @@ test.describe('web business flows', () => {
     expect(audit.after?.actualCount).toBe(actualCount);
     expect(audit.after?.overShort).toBe(expectedOverShort);
 
-    await assertCashClosureInSalesReport(page, {
+    await resetSession(page);
+    await login(page, {
+      email: scenario.admin.email,
+      password: scenario.admin.password,
+      defaultPath: '/dashboard',
+    });
+    await assertCashClosureInOperationsReport(page, {
       registerName: scenario.registerName,
       signedOverShort: `-${formatUsd(shortageAmount)}`,
     });

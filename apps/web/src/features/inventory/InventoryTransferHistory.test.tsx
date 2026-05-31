@@ -303,7 +303,7 @@ describe('InventoryTransferHistory', () => {
     expect(screen.getByText('Discrepancy')).toBeInTheDocument();
   });
 
-  it('closes the receive modal immediately on success before background invalidations settle', async () => {
+  it('closes the receive modal immediately on success before awaited invalidations settle', async () => {
     setListResult([inTransitEntry]);
     toastSuccess.mockClear();
     listInvalidate.mockImplementationOnce(async () => {
@@ -327,7 +327,10 @@ describe('InventoryTransferHistory', () => {
     await waitFor(() => {
       expect(screen.queryByText('Receive transfer')).not.toBeInTheDocument();
     });
-    expect(toastSuccess).toHaveBeenCalled();
+    expect(listInvalidate).toHaveBeenCalled();
+    expect(detailInvalidate).toHaveBeenCalled();
+    expect(balancesInvalidate).toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 
   it('runs the receive onSuccess path: invalidates and toasts', async () => {

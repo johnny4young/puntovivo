@@ -1,5 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,6 +69,54 @@ if (!config) {
 
 function log(message) {
   console.log(`[dev-launcher] ${message}`);
+}
+
+// Shared local dev database (operator request): the integrated dev modes open
+// ONE encrypted SQLite file so data created in the web stack shows up in the
+// desktop app and vice versa. Only `fullstack` (pnpm dev:web-stack) and the
+// two desktop modes opt in; the bare `server`/`web` modes are deliberately
+// left alone so the Playwright e2e suite — which drives `dev:server`/`dev:web`
+// against the default packages/server/data/local.db — keeps its own isolated,
+// unencrypted database and never collides with this shared one.
+const SHARED_DB_MODES = new Set(['fullstack', 'desktop', 'desktop-only']);
+const SHARED_DB_PATH = path.join(repoRoot, 'packages', 'server', 'data', 'shared.db');
+// `.local` suffix => already covered by the `*.local` rule in .gitignore, so
+// the dev key is never committed. 64 hex chars = the 32 raw bytes the SQLCipher
+// `PRAGMA key` path in packages/server/src/db/index.ts expects.
+const SHARED_DB_KEY_PATH = path.join(repoRoot, 'packages', 'server', 'data', 'shared-db-key.local');
+
+function resolveSharedDevDbKey() {
+  if (existsSync(SHARED_DB_KEY_PATH)) {
+    const existing = readFileSync(SHARED_DB_KEY_PATH, 'utf8').trim();
+    if (/^[0-9a-f]{64}$/i.test(existing)) {
+      return existing;
+    }
+    log(`Ignoring malformed dev DB key at ${SHARED_DB_KEY_PATH}; regenerating`);
+  }
+  const key = randomBytes(32).toString('hex');
+  mkdirSync(path.dirname(SHARED_DB_KEY_PATH), { recursive: true });
+  writeFileSync(SHARED_DB_KEY_PATH, `${key}\n`, { mode: 0o600 });
+  log(`Generated shared dev DB key at ${SHARED_DB_KEY_PATH}`);
+  return key;
+}
+
+// Inject DATABASE_URL + PUNTOVIVO_DB_KEY so both the standalone server
+// (reads them directly) and the Electron embedded server (honours them in dev,
+// see apps/desktop/src/main/index.ts) open the same encrypted file. `??=`
+// semantics: an operator-provided override always wins, so this never clobbers
+// an explicit env (e.g. pointing at a throwaway DB).
+function applySharedDevDatabaseEnv() {
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = SHARED_DB_PATH;
+  }
+  if (!process.env.PUNTOVIVO_DB_KEY) {
+    process.env.PUNTOVIVO_DB_KEY = resolveSharedDevDbKey();
+  }
+  log(`Shared dev DB (encrypted): ${process.env.DATABASE_URL}`);
+}
+
+if (SHARED_DB_MODES.has(mode)) {
+  applySharedDevDatabaseEnv();
 }
 
 function runCapture(command, args) {

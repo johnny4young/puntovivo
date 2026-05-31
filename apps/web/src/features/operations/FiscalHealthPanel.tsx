@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, FileSignature } from 'lucide-react';
+import { RefreshCw, FileSignature, FileCheck2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -8,6 +8,10 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { FiscalStatusBadge } from '@/components/fiscal/FiscalStatusBadge';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { KpiTile } from '@/components/ui';
+import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
+import { TablePagination } from '@/components/tables/TablePagination';
 
 /**
  * ENG-065a — Operations Center: Fiscal Health panel.
@@ -17,6 +21,11 @@ import { FiscalStatusBadge } from '@/components/fiscal/FiscalStatusBadge';
  * for context. Per-row "Reintentar" button is admin-only and wires
  * through `reports.fiscal.retryDocument`. Read-only access is
  * manager + admin (the procedure was widened in ENG-065a).
+ *
+ * Rediseño FASE 6 (O1) — hereda las recetas pv-*: titulación de panel
+ * (.pv-kicker / .pv-title), filtro segmented (.pv-seg), KPI con la
+ * receta única (danger cuando hay documentos por resolver), tabla densa
+ * (.pv-table) y estado vacío del sistema (EmptyState).
  */
 
 type ActionFilter = 'contingency' | 'rejected' | 'accepted';
@@ -53,26 +62,45 @@ export function FiscalHealthPanel() {
   });
 
   const items = listQuery.data?.items ?? [];
+  // Documentos por resolver = todo lo que no esté aceptado. La métrica
+  // pasa a `danger` cuando hay > 0 para comunicar urgencia (§09).
+  const needsAction = statusFilter !== 'accepted';
+  const actionCount = needsAction ? items.length : 0;
+
+  // Paginación client-side sobre el array ya cargado (8 filas/página).
+  const { pageRows, hasPagination, ...pagination } = usePaginatedRows(items, 8);
 
   return (
-    <section className="card p-6 space-y-5">
+    <section className="card space-y-5 p-6">
       <header className="flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
-          <FileSignature className="h-5 w-5 text-primary-700" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {t('fiscal.title')}
-          </h2>
-          <p className="text-sm text-secondary-500">{t('fiscal.description')}</p>
+        <span className="pv-gt pv-gt-primary h-11 w-11 rounded-xl">
+          <FileSignature className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="pv-kicker">{t('fiscal.kicker')}</p>
+          <h2 className="pv-title text-lg">{t('fiscal.title')}</h2>
+          <p className="mt-1 text-sm text-secondary-500">{t('fiscal.description')}</p>
         </div>
       </header>
 
-      <nav
-        className="segmented-control"
-        role="tablist"
-        aria-label={t('fiscal.statusFilter.ariaLabel')}
-      >
+      <div className="pv-kpis grid-cols-2 lg:grid-cols-2">
+        <KpiTile
+          icon={needsAction ? RefreshCw : FileCheck2}
+          tone={actionCount > 0 ? 'danger' : needsAction ? 'success' : 'primary'}
+          label={t(`fiscal.statusFilter.${statusFilter}`)}
+          value={listQuery.isLoading ? '—' : actionCount.toLocaleString()}
+          context={t(`fiscal.kpi.context.${statusFilter}`)}
+        />
+        <KpiTile
+          icon={FileCheck2}
+          tone="ink"
+          label={t('fiscal.kpi.windowLabel')}
+          value={listQuery.isLoading ? '—' : items.length.toLocaleString()}
+          context={t('fiscal.kpi.windowContext')}
+        />
+      </div>
+
+      <nav className="pv-seg" role="tablist" aria-label={t('fiscal.statusFilter.ariaLabel')}>
         {ACTION_FILTERS.map(option => {
           const selected = statusFilter === option;
           return (
@@ -81,7 +109,7 @@ export function FiscalHealthPanel() {
               type="button"
               role="tab"
               aria-selected={selected}
-              className={`segmented-tab ${selected ? 'segmented-tab-active' : ''}`}
+              className={selected ? 'on' : undefined}
               onClick={() => setStatusFilter(option)}
               data-testid={`fiscal-status-${option}`}
             >
@@ -102,85 +130,78 @@ export function FiscalHealthPanel() {
       )}
 
       {!listQuery.isLoading && !listQuery.error && items.length === 0 && (
-        <p className="text-sm text-secondary-500">
-          {t(`fiscal.emptyState.${statusFilter}`)}
-        </p>
+        <EmptyState
+          icon={FileCheck2}
+          title={t('fiscal.title')}
+          description={t(`fiscal.emptyState.${statusFilter}`)}
+        />
       )}
 
       {items.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-secondary-500">
-              <tr>
-                <th className="px-3 py-2">{t('fiscal.columns.document')}</th>
-                <th className="px-3 py-2">{t('fiscal.columns.status')}</th>
-                <th className="px-3 py-2">{t('fiscal.columns.emittedAt')}</th>
-                <th className="px-3 py-2">{t('fiscal.columns.buyer')}</th>
-                <th className="px-3 py-2">{t('fiscal.columns.total')}</th>
-                <th className="px-3 py-2 text-right">{t('fiscal.columns.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => {
-                const isRetrying =
-                  retryMutation.isPending &&
-                  retryMutation.variables?.fiscalDocumentId === item.id;
-                return (
-                  <tr key={item.id} className="border-t border-secondary-200">
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-secondary-900">
-                        {item.documentNumber}
-                      </div>
-                      <div className="text-xs text-secondary-500 break-all">
-                        {item.cufe}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <FiscalStatusBadge status={item.status} />
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {formatDateTime(item.emittedAt)}
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {item.buyerName}
-                    </td>
-                    <td className="px-3 py-2 text-secondary-700">
-                      {formatCurrency(item.totalAmount, item.currencyCode)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {(item.status === 'contingency' ||
-                        item.status === 'rejected') && (
-                        <button
-                          type="button"
-                          className="btn-secondary inline-flex items-center gap-2 text-sm"
-                          disabled={!isAdmin || isRetrying}
-                          title={
-                            !isAdmin
-                              ? t('fiscal.retry.noPermission')
-                              : undefined
-                          }
-                          onClick={() => {
-                            if (!isAdmin) return;
-                            void retryMutation.mutateAsync({
-                              fiscalDocumentId: item.id,
-                            });
-                          }}
-                          data-testid={`fiscal-retry-${item.id}`}
-                        >
-                          <RefreshCw
-                            className={`h-4 w-4 ${
-                              isRetrying ? 'animate-spin' : ''
-                            }`}
-                          />
-                          {t('fiscal.retry.cta')}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          <div className="overflow-x-auto rounded-2xl border border-line/75">
+            <table className="pv-table">
+              <thead>
+                <tr>
+                  <th>{t('fiscal.columns.document')}</th>
+                  <th>{t('fiscal.columns.status')}</th>
+                  <th>{t('fiscal.columns.emittedAt')}</th>
+                  <th>{t('fiscal.columns.buyer')}</th>
+                  <th className="num">{t('fiscal.columns.total')}</th>
+                  <th className="num">{t('fiscal.columns.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map(item => {
+                  const isRetrying =
+                    retryMutation.isPending &&
+                    retryMutation.variables?.fiscalDocumentId === item.id;
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="pname">{item.documentNumber}</div>
+                        <div className="sku break-all">{item.cufe}</div>
+                      </td>
+                      <td>
+                        <FiscalStatusBadge status={item.status} />
+                      </td>
+                      <td className="muted whitespace-nowrap">
+                        {formatDateTime(item.emittedAt)}
+                      </td>
+                      <td>{item.buyerName}</td>
+                      <td className="num">
+                        {formatCurrency(item.totalAmount, item.currencyCode)}
+                      </td>
+                      <td className="num">
+                        {(item.status === 'contingency' ||
+                          item.status === 'rejected') && (
+                          <button
+                            type="button"
+                            className="pv-btn outline ml-auto"
+                            disabled={!isAdmin || isRetrying}
+                            title={!isAdmin ? t('fiscal.retry.noPermission') : undefined}
+                            onClick={() => {
+                              if (!isAdmin) return;
+                              void retryMutation.mutateAsync({
+                                fiscalDocumentId: item.id,
+                              });
+                            }}
+                            data-testid={`fiscal-retry-${item.id}`}
+                          >
+                            <RefreshCw className={isRetrying ? 'animate-spin' : undefined} />
+                            {t('fiscal.retry.cta')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {hasPagination && (
+            <TablePagination {...pagination} onPageChange={pagination.setPage} />
+          )}
         </div>
       )}
     </section>

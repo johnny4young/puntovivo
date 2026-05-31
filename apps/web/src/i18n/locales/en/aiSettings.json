@@ -8,7 +8,7 @@
     "enableHint": "When off, every AI surface short-circuits with a friendly notice.",
     "providerLabel": "OCR provider",
     "providerHint": "AWS Textract processes OCR today. Google Document AI and Azure Form Recognizer stay listed for configuration, but need credentials and provider wiring before production use.",
-    "providerLocked": "Available after ENG-101 wires credentials and provider support.",
+    "providerLocked": "Available once provider credentials and support are connected.",
     "providerComingSoon": "Soon",
     "providerComingIn": "available with",
     "modelLabel": "Model id",
@@ -51,7 +51,12 @@
     "transcriptDurationLabel": "Audio duration",
     "transcriptDurationValue": "{{seconds}}s",
     "transcriptCostLabel": "Call cost",
-    "transcribeClearAction": "Clear result"
+    "transcribeClearAction": "Clear result",
+    "enabledStateLabel": "On",
+    "disabledStateLabel": "Off",
+    "budgetMeterLabel": "Monthly budget",
+    "budgetMeterNoLimit": "No limit · {{spent}} this month",
+    "budgetMeterHint": "Calls stop once you reach the limit."
   },
   "toast": {
     "saveSuccessTitle": "AI settings saved",
