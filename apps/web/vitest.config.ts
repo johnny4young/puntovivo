@@ -35,8 +35,23 @@ export default defineConfig({
     },
     testTimeout: 10000,
     hookTimeout: 10000,
+    server: {
+      deps: {
+        // ENG-172 — inline @tanstack/react-virtual so vitest transforms it
+        // through vite (honouring `resolve.dedupe`) instead of loading its
+        // CJS build via require(), which would register a second React
+        // module instance with a null hooks dispatcher.
+        inline: ['@tanstack/react-virtual'],
+      },
+    },
   },
   resolve: {
+    // ENG-172 — force a single React instance. `@tanstack/react-virtual`
+    // resolves its own `react` import (it loads as raw source under vitest),
+    // which otherwise yields a second copy with a null hooks dispatcher
+    // ("Cannot read properties of null (reading 'useReducer')"). Deduping
+    // keeps every package on the workspace React.
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },

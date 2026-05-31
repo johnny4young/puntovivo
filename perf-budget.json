@@ -7,6 +7,7 @@
     "$retune": "ENG-170 — rebudgeted after build.rollupOptions manualChunks split pdf/xlsx/codemirror/dnd out of the entry. index dropped 320->~152 gz (gate-measured 151.79; ceiling 160 tightened to lock the win). exceljs.bare.min/jspdf.es.min/jspdf.plugin.autotable consolidated into xlsx/pdf. html2canvas is a real jspdf transitive (kept).",
     "$retune2": "Rediseno declutter+dedup — CompanyPage 22->30 (el nuevo company hub absorbe AI/shared sync/cards y gate-measured queda en 29.77kB gz; CompanySyncCard ya no produce artefacto separado). OperationsPage 14->16 por el SyncHealthPanel propio + pv diff/KPI icons (gate-measured 16.02kB gz, dentro del 5% threshold). usePaginatedRows/TablePagination son chunks compartidos sin overshoot propio.",
     "$retune3": "ENG-170b — lazy i18n namespaces. The 30 non-bootstrap locale namespaces left the entry as their own dynamic-import chunks (fiscal/kds/aiSettings/... two per ns for en+es). The gate-measured index chunk is 152.75 KB gz after the split, so the ceiling tightens 160->153 to pin the real build output. The per-namespace chunks are < 5 KB gz each so they ride the gate's untracked-chunk warning, not the budget.",
+    "$retune4": "ENG-172 — DataTable row virtualisation adds @tanstack/react-virtual (~4 KB gz) to the shared table chunk (TableLoadingState, which carries DataTable + @tanstack/react-table). Gate-measured 21.17 KB gz after the dep lands, so the ceiling lifts 17->22 to pin the real output. No other tracked chunk moved; the index entry is unchanged.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -21,7 +22,7 @@
       "CompanyPage": 30,
       "dnd": 25,
       "ReceiptTemplatesPage": 20,
-      "TableLoadingState": 17,
+      "TableLoadingState": 22,
       "chunk": 18,
       "PurchasesPage": 14,
       "InventoryPage": 14,

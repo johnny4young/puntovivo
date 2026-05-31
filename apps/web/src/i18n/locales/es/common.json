@@ -53,6 +53,8 @@
     "noEntries": "Sin entradas para mostrar",
     "selectedRows_one": "{{count}} fila seleccionada",
     "selectedRows_other": "{{count}} filas seleccionadas",
+    "totalRows_one": "{{count}} fila",
+    "totalRows_other": "{{count}} filas",
     "showing": "Mostrando {{from}} a {{to}} de {{total}} entradas",
     "page": "Página {{current}} de {{total}}",
     "columns": "Columnas",

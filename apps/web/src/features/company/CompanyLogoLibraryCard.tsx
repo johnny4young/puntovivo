@@ -129,6 +129,10 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
               <img
                 src={company.logoUrl}
                 alt={company.logoName ?? company.name}
+                // ENG-172 — explicit dimensions reserve the layout box before
+                // the bitmap loads (defeats CLS); match the h-16 w-16 (64px) box.
+                width={64}
+                height={64}
                 className="h-16 w-16 rounded-xl border border-line/80 bg-surface object-contain p-2"
               />
               <div className="min-w-0">
@@ -218,6 +222,13 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                   <img
                     src={logo.imageUrl}
                     alt={logo.name}
+                    // ENG-172 — explicit dimensions give the browser an
+                    // aspect-ratio hint so it reserves the box before load
+                    // (defeats CLS). The card height is fixed by h-32 (128px);
+                    // width is fluid (w-full) and object-contain prevents any
+                    // distortion regardless of the attribute ratio.
+                    width={256}
+                    height={128}
                     className="mt-4 h-32 w-full rounded-xl border border-line/80 bg-surface-2/86 object-contain p-3"
                   />
 

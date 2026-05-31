@@ -559,12 +559,36 @@ research.
   constraint fires. Carved out of ENG-177a because the `sales` rebuild is
   heavier/riskier than the additive `version` columns and deserves its
   own commit. — 2026-05-28 (ENG-177a follow-up).
+- **Virtualised `DataTable` screen-reader row context (`aria-rowcount` /
+  `aria-rowindex`).** ENG-172 windows the rows of a large table, so only
+  the visible slice is in the DOM; a screen-reader user perceives the
+  rendered window as the entire table. Set `aria-rowcount` on the
+  `<table>` (full filtered row count) and `aria-rowindex` on each rendered
+  `<tr>` (its absolute 1-based position) when `isVirtual`, so AT announces
+  "row 41 of 50" instead of "row 5 of 16". Pin with a unit test asserting
+  the attributes appear only in virtual mode. Scoped to virtual mode so the
+  paged path stays byte-for-byte. — 2026-05-31 (ENG-172 follow-up).
 
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated
 `ENG-NNN` ticket. Group into a single `ENG-NNN` when you have ~5
 and want to batch them into one sprint.
+
+- `[tables][css]` Virtualised `DataTable` (ENG-172) bounds the scroll
+  container height, but only the dense `.pv-table` variant has a sticky
+  `<thead>`; a `variant="default"` table that auto-virtualises (>30 rows)
+  scrolls its header out of view. Either make the default-variant header
+  sticky inside the bounded scroll box, or migrate the remaining
+  default-variant large tables to dense. Low impact today (the big tables —
+  products/customers/inventory — already use dense). — 2026-05-31 (ENG-172
+  follow-up).
+- `[build][git]` `apps/web/tsconfig.node.tsbuildinfo` is committed even
+  though `*.tsbuildinfo` is in `.gitignore` — it leaked into tracking in
+  `8f4fd5b` (ENG-170 bundle split) and now shows as modified noise on every
+  build. Untrack it (`git rm --cached apps/web/tsconfig.node.tsbuildinfo`)
+  in a standalone chore commit so the gitignore takes effect. — 2026-05-31
+  (ENG-172 follow-up).
 
 - `[inventory][testing]` Investigate the flaky E2E transfer-receipt
   path where `inventory.receiveTransfer` can surface `database is

@@ -7,6 +7,10 @@ import path from 'path';
 export default defineConfig(({ mode }) => ({
   plugins: [tailwindcss(), react()],
   resolve: {
+    // ENG-172 — keep a single React instance across the app and every
+    // hooks-based dependency (e.g. @tanstack/react-virtual). Prevents a
+    // duplicate React copy from breaking the hooks dispatcher.
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },

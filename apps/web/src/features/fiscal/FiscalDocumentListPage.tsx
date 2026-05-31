@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData } from '@tanstack/react-query';
 import { FileCode2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -7,12 +8,18 @@ import {
   FiscalStatusBadge,
   type FiscalDocumentStatus,
 } from '@/components/fiscal/FiscalStatusBadge';
-import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
 type FiscalSource = 'sale' | 'void' | 'return';
+
+// ENG-172 — server-side page size. The list page used to fetch a fixed
+// 50-row window (`limit: 50, offset: 0`) and paginate it client-side, so a
+// tenant with >50 fiscal documents could never reach the older rows. We now
+// drive `reports.fiscal.list`'s `offset` from a page index so history is
+// fully browsable.
+const FISCAL_PAGE_SIZE = 20;
 
 const KIND_OPTIONS: readonly FiscalKind[] = ['DEE', 'FEV', 'NC', 'ND'];
 const STATUS_OPTIONS: readonly FiscalDocumentStatus[] = [
@@ -43,6 +50,10 @@ export function FiscalDocumentListPage() {
   const [kind, setKind] = useState<FiscalKind | ''>('');
   const [status, setStatus] = useState<FiscalDocumentStatus | ''>('');
   const [source, setSource] = useState<FiscalSource | ''>('');
+  // ENG-172 — zero-based server page. Any filter change resets it to 0 in the
+  // same event (see the select handlers) so we never request an out-of-range
+  // offset for a now-shorter result set.
+  const [pageIndex, setPageIndex] = useState(0);
   // ENG-035b: documento seleccionado para mostrar el XML CFDI 4.0
   // del adapter MX en un modal admin-only.
   // ENG-103: el modal ahora resuelve el XML body server-side via
@@ -56,21 +67,31 @@ export function FiscalDocumentListPage() {
 
   const queryInput = useMemo(
     () => ({
-      limit: 50,
-      offset: 0,
+      limit: FISCAL_PAGE_SIZE,
+      offset: pageIndex * FISCAL_PAGE_SIZE,
       ...(kind ? { kind } : {}),
       ...(status ? { status } : {}),
       ...(source ? { source } : {}),
     }),
-    [kind, status, source]
+    [kind, status, source, pageIndex]
   );
 
   const listQuery = trpc.reports.fiscal.list.useQuery(queryInput, {
     staleTime: 30_000,
+    // ENG-172 — keep the current page rendered while the next page loads so
+    // paging does not flash an empty table (also avoids a CLS jolt).
+    placeholderData: keepPreviousData,
   });
 
+  // ENG-172 — `setKind` etc. must reset the page in the same event; doing it
+  // in an effect would briefly query the old offset against the new filter.
+  const resetPage = () => setPageIndex(0);
+
   const items = listQuery.data?.items ?? [];
-  const { pageRows, ...pagination } = usePaginatedRows(items, 8);
+  const total = listQuery.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / FISCAL_PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : pageIndex * FISCAL_PAGE_SIZE + 1;
+  const rangeEnd = Math.min((pageIndex + 1) * FISCAL_PAGE_SIZE, total);
 
   return (
     <div className="space-y-6">
@@ -83,7 +104,10 @@ export function FiscalDocumentListPage() {
             <select
               className="input mt-1"
               value={kind}
-              onChange={event => setKind(event.target.value as FiscalKind | '')}
+              onChange={event => {
+                setKind(event.target.value as FiscalKind | '');
+                resetPage();
+              }}
               aria-label={t('filters.kind')}
             >
               <option value="">{t('filters.all')}</option>
@@ -99,9 +123,10 @@ export function FiscalDocumentListPage() {
             <select
               className="input mt-1"
               value={status}
-              onChange={event =>
-                setStatus(event.target.value as FiscalDocumentStatus | '')
-              }
+              onChange={event => {
+                setStatus(event.target.value as FiscalDocumentStatus | '');
+                resetPage();
+              }}
               aria-label={t('filters.status')}
             >
               <option value="">{t('filters.all')}</option>
@@ -117,7 +142,10 @@ export function FiscalDocumentListPage() {
             <select
               className="input mt-1"
               value={source}
-              onChange={event => setSource(event.target.value as FiscalSource | '')}
+              onChange={event => {
+                setSource(event.target.value as FiscalSource | '');
+                resetPage();
+              }}
               aria-label={t('filters.source')}
             >
               <option value="">{t('filters.all')}</option>
@@ -164,7 +192,7 @@ export function FiscalDocumentListPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map(row => (
+                {items.map(row => (
                   <tr key={row.id} className="border-t border-line/60 align-top">
                     <td className="py-2 pr-4 whitespace-nowrap text-secondary-700">
                       {formatDateTime(row.emittedAt)}
@@ -209,7 +237,14 @@ export function FiscalDocumentListPage() {
                 ))}
               </tbody>
             </table>
-            <TablePagination {...pagination} onPageChange={pagination.setPage} />
+            <TablePagination
+              page={pageIndex}
+              pageCount={pageCount}
+              total={total}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setPageIndex}
+            />
           </div>
         )}
       </div>

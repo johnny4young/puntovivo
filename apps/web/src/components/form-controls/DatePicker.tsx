@@ -337,7 +337,7 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
 
               {/* Days grid */}
               <div className="grid grid-cols-7 gap-1">
-                {days.map((date, index) => {
+                {days.map(date => {
                   const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
                   const isToday = isSameDay(date, new Date());
                   const isSelected = value ? isSameDay(date, value) : false;
@@ -362,7 +362,10 @@ export const DatePicker = forwardRef<HTMLButtonElement, DatePickerProps>(
 
                   return (
                     <button
-                      key={index}
+                      // ENG-172 — date-derived key (not the array index) so
+                      // React keeps each calendar cell stable across month
+                      // navigation and future range-decoration re-renders.
+                      key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
                       type="button"
                       disabled={isDisabled}
                       onClick={() => handleDateClick(date)}
