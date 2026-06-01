@@ -78,6 +78,49 @@ Mitigations against runner jitter:
 - p95 (not p99) — less tail noise.
 - 20% threshold on top of the budget.
 
+## Web Vitals real-user monitoring (RUM)
+
+> Status: ingest path shipped (`ENG-173`). Aggregation dashboard is a follow-up.
+
+The bundle-size and tRPC-latency gates above are synthetic — they measure the
+build and the server in isolation. They cannot see what the cashier's actual
+browser experiences on the actual hardware. `ENG-173` closes that gap with
+field measurement.
+
+`apps/web/src/lib/observability.ts::installWebVitalsReporter()` hooks the
+`web-vitals` library (LCP, CLS, INP, TTFB, FCP) at bootstrap and forwards each
+finalised metric to the public `observability.reportWebVital` tRPC mutation,
+which stores one row per metric in `web_vital_samples`
+(`tenant_id`, `tenant_plan`, `route`, `metric`, `value`, `rating`,
+`device_class`, `created_at`). Properties of the pipe:
+
+- **Sampling** — decided once per page load (all five metrics report, or none),
+  default 10% in production and 100% in dev, overridable via
+  `VITE_WEB_VITALS_SAMPLE_RATE`.
+- **Privacy** — the mutation derives `tenant_id` server-side from the session
+  (anonymous login-page loads store `NULL`) and drops the sample when the
+  tenant has not opted into telemetry (`tenants.settings.telemetryOptIn`).
+- **Logging** — every accepted sample emits a structured pino line under
+  `module: web-vitals`.
+
+### Per-route targets
+
+These are the yardsticks the future aggregation dashboard measures the RUM data
+against — advisory today (no CI gate; the data has to accumulate first). Values
+follow the Google Web Vitals "good" thresholds, tightened for the routes a
+cashier hits hundreds of times a day.
+
+| Route | LCP (good) | INP (good) | Notes |
+| --- | ---: | ---: | --- |
+| `/login` | <= 2.0 s | <= 200 ms | First impression; no auth round-trip yet. |
+| `/sales` | <= 2.5 s | <= 200 ms | The hot path — checkout responsiveness matters most. |
+| `/dashboard` | <= 2.5 s | <= 200 ms | First screen after sign-in. |
+| `/products`, `/inventory`, list routes | <= 2.5 s | <= 200 ms | Large DataTables; virtualised since `ENG-172`. |
+| CLS (all routes) | <= 0.1 | — | Image dimensions hardened in `ENG-172`. |
+
+When the dashboard ticket lands it will compute per-tenant medians + p95 per
+`(route, metric)` and flag routes whose p95 breaches the target above.
+
 ## How to update a baseline
 
 Two flavors:

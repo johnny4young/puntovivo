@@ -7,7 +7,10 @@ import { createTrpcBatchLink, trpc } from './lib/trpc';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ToastProvider } from './components/feedback/ToastProvider';
 import { ThemeProvider } from './components/feedback/ThemeProvider';
-import { installGlobalErrorListeners } from './lib/observability';
+import {
+  installGlobalErrorListeners,
+  installWebVitalsReporter,
+} from './lib/observability';
 import App from './App';
 import './index.css';
 
@@ -15,6 +18,10 @@ import './index.css';
 // listeners before the React tree mounts so even a crash in the
 // `Root` render still reaches the observability pipe.
 installGlobalErrorListeners();
+// ENG-173 — install the Web Vitals reporter at the same bootstrap point so
+// LCP / CLS / INP for the very first (login) paint are captured. Sampled +
+// background-only; no effect on the render path.
+installWebVitalsReporter();
 
 const queryClient = new QueryClient({
   defaultOptions: {

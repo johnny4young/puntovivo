@@ -568,6 +568,13 @@ research.
   "row 41 of 50" instead of "row 5 of 16". Pin with a unit test asserting
   the attributes appear only in virtual mode. Scoped to virtual mode so the
   paged path stays byte-for-byte. — 2026-05-31 (ENG-172 follow-up).
+- **Wire the real `tenant_plan` into `web_vital_samples`.** ENG-173 stores
+  `tenant_plan = 'unknown'` on every Web Vitals row because no billing-tier
+  concept exists yet. When ENG-138 (subscription / billing) ships a tenant
+  plan/tier, resolve it server-side in `observability.reportWebVital` (and
+  backfill or leave historical rows as `'unknown'`) so the future RUM dashboard
+  can slice p95 by plan. One-line change at the insert site once the tier is
+  resolvable. — 2026-05-31 (ENG-173 follow-up).
 
 ## 2. Small bugs / polish
 
