@@ -165,20 +165,20 @@ Every CI script (`ci:web`, `ci:server`, `ci:desktop`) begins with a shared
 `ci:audit` step defined in the root `package.json`:
 
 ```
-"ci:audit": "npm audit --production --audit-level=high"
+"ci:audit": "pnpm audit --prod --audit-level high"
 ```
 
 It runs before typecheck / lint / tests, so a new HIGH or CRITICAL
 CVE in any **production** dependency — across all workspaces, because
 the lockfile is shared — fails CI immediately. Development-time
 dependencies (vitest, eslint, drizzle-kit, electron-forge tooling) are
-intentionally excluded via `--production`; they do not ship to end
+intentionally excluded via `--prod`; they do not ship to end
 users and their patch cadence is slower.
 
 Threshold knob:
 
 - `high` is the enforced floor. MODERATE and LOW prod vulns are visible
-  via local `npm audit` but do not gate CI — they are bumped through
+  via local `pnpm audit` but do not gate CI — they are bumped through
   the normal Dependabot cadence described below.
 - Raising the floor to `moderate` is a future hardening step. Adopt
   when the repo has cleared the current MODERATE backlog (the dev-dep
@@ -246,7 +246,7 @@ convention, env-var controls, and the `| pino-pretty` dev ergonomics.
 ### Tamper-check history (ENG-009 acceptance)
 
 Before the ticket landed, the three prod vulnerabilities flagged by
-`npm audit --production --audit-level=high` were:
+`pnpm audit --prod --audit-level high` were:
 
 | Package      | Severity | Advisory |
 | ------------ | -------- | -------- |
@@ -254,11 +254,11 @@ Before the ticket landed, the three prod vulnerabilities flagged by
 | `fastify 5.3.2-5.8.4`  | high     | GHSA-247c-9743-5963 |
 | `dompurify <=3.3.3`    | moderate | GHSA-39q2-94rc-95cp |
 
-All three were cleared by `npm update fastify fast-jwt dompurify`
+All three were cleared by pnpm lockfile dependency resolution updates
 (transitive-safe bumps that respect the existing version ranges): the
 lockfile now resolves `fastify@5.8.5`, `fast-jwt@6.2.2`,
 `dompurify@3.4.0`. Reverting the lockfile to the pre-bump state and
-running `npm run ci:audit` produces exit code 1 with the three vulns
+running `pnpm run ci:audit` produces exit code 1 with the three vulns
 reported — proof the gate fires, not just passes.
 
 ## Critical security closure (ENG-166)
@@ -634,7 +634,7 @@ Medium-term:
 ```bash
 curl http://localhost:8090/api/health
 curl http://localhost:8090/api/trpc/health.check
-npm audit
+pnpm audit
 ```
 
 Manual auth flow checks now need to account for the hybrid model:

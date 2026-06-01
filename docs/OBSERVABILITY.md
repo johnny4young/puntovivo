@@ -133,13 +133,13 @@ always complete.
 
 ```
 # Server tests (capture helpers + tracing middleware + companies toggle)
-npm run test --workspace=@puntovivo/server -- --run \
+pnpm --filter @puntovivo/server run test -- \
   src/__tests__/observability-capture.test.ts \
   src/__tests__/trpc-tracing.test.ts \
   src/__tests__/companies-telemetry.test.ts
 
 # Web tests (error boundary + telemetry card)
-npm run test --workspace=@puntovivo/web -- --run \
+pnpm --filter @puntovivo/web run test -- --run \
   src/components/feedback/__tests__/AppErrorBoundary.test.tsx \
   src/features/company/__tests__/CompanyTelemetryCard.test.tsx
 ```

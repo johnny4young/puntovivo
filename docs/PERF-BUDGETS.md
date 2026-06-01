@@ -33,9 +33,9 @@ when the PR lands, not when a customer complains.
 
 ### Bundle size
 
-`npm run ci:web` chains:
+`pnpm run ci:web` chains:
 
-1. `npm audit`, typecheck, lint, unit tests with coverage, build.
+1. `pnpm audit --prod`, typecheck, lint, unit tests with coverage, build.
 2. `node --test scripts/check-bundle-size.test.mjs` — pins the
    strip-hash regex + compare logic.
 3. `node scripts/check-bundle-size.mjs` — reads
@@ -58,7 +58,7 @@ Tolerant paths:
 
 ### tRPC p95 latency
 
-`npm run ci:server` runs `vitest run --coverage`, which picks up
+`pnpm run ci:server` runs `vitest run --coverage`, which picks up
 `__tests__/perf-trpc-latency.test.ts`. The test:
 
 1. Boots `createServer({ dbPath: ':memory:' })`.
@@ -153,7 +153,7 @@ changed.
    add a branch in `invokeProcedureForLatency()` that calls the
    procedure with minimal inputs (default pagination, identity
    defaults).
-3. Run `npm run ci:server` to confirm the new gate passes.
+3. Run `pnpm run ci:server` to confirm the new gate passes.
 
 ## How to add a new chunk to the bundle-size budget
 
@@ -167,7 +167,7 @@ changed.
 ## Capturing baselines from scratch
 
 ```
-npm run build --workspace=@puntovivo/web
+pnpm --filter @puntovivo/web run build
 node scripts/check-bundle-size.mjs
 ```
 
@@ -178,7 +178,7 @@ with budget vs actual. Copy the actual values into
 For latency:
 
 ```
-npm run test:coverage --workspace=@puntovivo/server -- perf-trpc-latency
+pnpm --filter @puntovivo/server run test:coverage -- perf-trpc-latency
 ```
 
 When the test fails it prints the measured p95 in the error

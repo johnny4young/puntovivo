@@ -458,7 +458,7 @@ ENG-002 Step 3 the legacy `runSchemaSync()` raw-DDL mirror has been
 retired. Every new schema change follows the same flow:
 
 1. Edit `schema.ts` (add a column, widen a type, etc.).
-2. From `packages/server`, run `npm run db:generate`. This calls
+2. From the repo root, run `pnpm --filter @puntovivo/server run db:generate`. This calls
    `drizzle-kit generate`, diffs the schema against `meta/_snapshot.json`,
    and emits a new SQL file under `src/db/migrations/` with a matching
    journal entry.
@@ -489,7 +489,7 @@ which preserves the existing runtime shape while keeping migration output
 stable.
 
 Build/runtime note: `packages/server` now copies `src/db/migrations/**/*`
-into `dist/db/migrations` during `npm run build`. The embedded Electron
+into `dist/db/migrations` during `pnpm --filter @puntovivo/server run build`. The embedded Electron
 backend imports the compiled server package, so the migrator must resolve
 real SQL and `meta/_journal.json` files from `dist/`, not only from `src/`.
 
@@ -504,7 +504,7 @@ outside the Vite module graph:
 
 1. `packages/server/scripts/copy-migrations.mjs` copies
    `src/db/migrations/` into `dist/db/migrations/` during
-   `npm run build --workspace=@puntovivo/server`. Desktop `package:desktop`
+   `pnpm --filter @puntovivo/server run build`. Desktop `package:desktop`
    and `make:desktop` run `prepare:server` first so the copied folder is always fresh
    before Forge resolves `extraResource`.
 2. `apps/desktop/forge.config.ts` lists
@@ -547,8 +547,8 @@ on both the `web` and `backend` jobs (regardless of test outcome, so a
 failing run still surfaces a coverage snapshot). HTML and text-summary
 reports remain for local developer ergonomics.
 
-To reproduce locally: `npm run test:coverage --workspace=@puntovivo/web`
-or `npm run test:coverage --workspace=@puntovivo/server`. Lowering a
+To reproduce locally: `pnpm --filter @puntovivo/web run test:coverage`
+or `pnpm --filter @puntovivo/server run test:coverage`. Lowering a
 threshold without raising coverage is a breaking change — every
 threshold edit must come with a ROADMAP note explaining why.
 
@@ -587,7 +587,7 @@ logger writes NDJSON to stdout synchronously. Developers who want
 pretty output pipe the stream manually:
 
 ```
-npm run dev:server | pino-pretty
+pnpm run dev:server | pino-pretty
 ```
 
 **No raw `console.*` outside tests**: `packages/server/eslint.config.js`

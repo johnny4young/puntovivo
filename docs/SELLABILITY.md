@@ -2,7 +2,7 @@
 
 > Status: **ENG-050 shipped** — single go/no-go view for selling
 > Puntovivo to a Colombian retail pilot.
-> Updated: May 2, 2026.
+> Updated: 2026-06-01.
 
 This document answers one question:
 
@@ -17,7 +17,7 @@ provider integration, fiscal contingency, and physical POS hardware.
 | Stage | Verdict | Meaning |
 | --- | --- | --- |
 | Development demo | **Yes** | Demo tenant, sales, inventory, cash sessions, quotations, fiscal mock, AI, sync center, and receipt templates can be shown. |
-| Private pilot | **Not yet** | Needs at least fiscal contingency, hardware scanner/printer path, and clear operator recovery before a real store runs daily sales. |
+| Private retail pilot | **Not yet** | Needs at least fiscal contingency, hardware scanner/printer path, and clear operator recovery before a real store runs daily sales. |
 | Production sale | **No** | Requires DIAN-authorized Proveedor Tecnologico, legal XML retention, hardware validation, and payment-terminal policy. |
 
 ## Pilot-Ready Criteria
@@ -35,7 +35,7 @@ A Colombian retail pilot is allowed only when all items below are true:
 | Hardware printing | ESC/POS printer and RJ11 drawer work, with system-printer fallback. | **Not ready** | `ENG-060`, `ENG-062`. |
 | Payment terminal | Manual payment works; provider terminal has clear adapter and failure policy. | **Partial** | `ENG-063` when sandbox and hardware are available. |
 | Recovery | Operator can see sync/fiscal/cash/payment/device health and export diagnostics. | **Partial** | `ENG-065`, `ENG-067`. |
-| Multi-register LAN | One store can run several cashier terminals against a single local Authority Node. | **Not ready** | `ENG-071`..`ENG-075`. |
+| Multi-register LAN | One store can run several cashier terminals against a single local Authority Node. | **Ready as foundation** — `device_local`, `site_hub`, and `hub_client` modes exist; satellite offline writes remain deferred. | Keep covered by regression tests; revisit `ENG-076` only if a pilot proves the need. |
 
 ## Production-Ready Criteria
 
@@ -62,9 +62,9 @@ Production sales require everything in Pilot-ready plus:
 | Fiscal receipt finalization | Server + Desktop/Web | No external gate for mock/provider-agnostic proof rendering. | `ENG-058` |
 | Hardware lab | Desktop + Hardware | Thermal printer, RJ11 drawer, USB HID scanner. | `ENG-060`, `ENG-061`, `ENG-062` |
 | Payment terminal | Payments | Provider choice, sandbox credentials, physical terminal. | `ENG-063` |
-| Store diagnostics | Operations | No external gate. | `ENG-065`, `ENG-067` |
-| Local security | Desktop + Security | Key-storage decision per OS. | `ENG-066` |
-| Multi-register Store Hub | Runtime | No external gate for initial LAN hub/client support; satellite offline fallback is deferred. | `ENG-071`..`ENG-075` |
+| Store diagnostics | Operations | No external gate. | Keep extending Operations and recovery surfaces through active readiness tickets. |
+| Local security | Desktop + Security | SQLCipher groundwork shipped; cleartext-to-encrypted migration UX and cross-device restore key prompts remain. | `ENG-167b` |
+| Multi-register Store Hub | Runtime | Initial LAN hub/client support shipped; satellite offline fallback is deferred until a pilot proves it. | `ENG-076` if the gate clears |
 
 ## Operational Store Checklist
 
@@ -81,11 +81,16 @@ Before a pilot day starts, the operator should be able to confirm:
 - Backup location and restore procedure are known.
 - Authority mode is known: `device_local` for one register, or
   `site_hub` with paired `hub_client` terminals for multi-register
-  stores once `ENG-071`..`ENG-075` ship.
+  stores.
 - Cashier can complete one sale, suspend one sale, resume it, return it,
   void it with manager/admin permission, and reprint the receipt.
 
 ## Roadmap Link
+
+This go/no-go checklist is anchored to
+[ROADMAP.md §0](./ROADMAP.md#0-mvp-colombia--definition-of-done) — the MVP Colombia
+definition of done, whose stage verdict mirrors the Current Verdict table above — and
+to [PLAN-V3.md](./PLAN-V3.md) for commercial-readiness work beyond the sellable core.
 
 Sellability work is tracked in `ROADMAP.md` as:
 
@@ -97,6 +102,8 @@ Sellability work is tracked in `ROADMAP.md` as:
 - `ENG-064..ENG-067`: sync, recovery, operations, backup, and chaos tests.
 - `ENG-068..ENG-070`: expansion architecture after the retail core is
   safe enough.
-- `ENG-071..ENG-075`: Authority Node / Store Hub Mode for multi-register
-  stores; `ENG-076` remains deferred until a pilot proves hub clients
-  need satellite offline writes.
+- `ENG-071..ENG-075`: shipped Authority Node / Store Hub Mode for
+  multi-register stores; `ENG-076` remains deferred until a pilot proves
+  hub clients need satellite offline writes.
+- `ENG-182..ENG-186`: active product-truth and retail-focus reset before
+  more visible vertical/platform scope.

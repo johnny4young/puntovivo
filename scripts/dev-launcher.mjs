@@ -12,19 +12,29 @@ const isWindows = process.platform === 'win32';
 
 const mode = process.argv[2] ?? 'desktop';
 
+/**
+ * Launch modes exposed through the root `pnpm run dev:*` commands.
+ *
+ * The mode table is deliberately data-shaped instead of branching through the
+ * launcher body: every mode declares the ports it owns, the pnpm workspace
+ * commands it starts, and the readiness URL a later step must wait for. This
+ * keeps the desktop/web/server contract visible in one place and prevents the
+ * recurring class of docs drift where README commands imply a different stack
+ * than the launcher actually starts.
+ */
 const MODE_CONFIG = {
   web: {
     ports: [3000],
-    steps: [{ name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev']}],
+    steps: [{ name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev'] }],
   },
   server: {
     ports: [8090],
-    steps: [{ name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev']}],
+    steps: [{ name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev'] }],
   },
   fullstack: {
     ports: [3000, 8090],
     steps: [
-      { name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev']},
+      { name: 'SERVER', args: ['--filter', '@puntovivo/server', 'run', 'dev'] },
       {
         name: 'WEB',
         args: ['--filter', '@puntovivo/web', 'run', 'dev'],
@@ -35,7 +45,7 @@ const MODE_CONFIG = {
   desktop: {
     ports: [3000, 8090],
     steps: [
-      { name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev']},
+      { name: 'WEB', args: ['--filter', '@puntovivo/web', 'run', 'dev'] },
       {
         name: 'DESKTOP',
         args: ['--filter', '@puntovivo/desktop', 'run', 'dev:desktop'],
@@ -85,6 +95,14 @@ const SHARED_DB_PATH = path.join(repoRoot, 'packages', 'server', 'data', 'shared
 // `PRAGMA key` path in packages/server/src/db/index.ts expects.
 const SHARED_DB_KEY_PATH = path.join(repoRoot, 'packages', 'server', 'data', 'shared-db-key.local');
 
+/**
+ * Return the reusable SQLCipher key for integrated dev modes.
+ *
+ * The file is local-only (`*.local`) and stores 32 random bytes encoded as
+ * hex, matching the DB open path in `packages/server/src/db/index.ts`. A
+ * malformed key is treated as absent so a damaged checkout heals on the next
+ * launch instead of failing later with an opaque SQLCipher error.
+ */
 function resolveSharedDevDbKey() {
   if (existsSync(SHARED_DB_KEY_PATH)) {
     const existing = readFileSync(SHARED_DB_KEY_PATH, 'utf8').trim();
@@ -105,6 +123,13 @@ function resolveSharedDevDbKey() {
 // see apps/desktop/src/main/index.ts) open the same encrypted file. `??=`
 // semantics: an operator-provided override always wins, so this never clobbers
 // an explicit env (e.g. pointing at a throwaway DB).
+/**
+ * Point integrated dev modes at the shared encrypted SQLite file.
+ *
+ * Uses `??=` semantics by hand: an operator-provided `DATABASE_URL` or
+ * `PUNTOVIVO_DB_KEY` wins. That allows smoke tests and risky repros to use a
+ * throwaway DB without changing the root dev command.
+ */
 function applySharedDevDatabaseEnv() {
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = SHARED_DB_PATH;
@@ -145,6 +170,13 @@ function killPid(pid, signal = 'SIGTERM') {
   }
 }
 
+/**
+ * Clear stale local dev listeners before starting a mode.
+ *
+ * The helper is intentionally macOS/Linux-only. Windows process-tree cleanup
+ * is handled in `killPid()`, but automatic port scanning is skipped there to
+ * avoid fragile parsing of localized `netstat` output.
+ */
 async function freePort(port) {
   if (isWindows) {
     log(`Skipping automatic port cleanup for ${port} on Windows`);
@@ -184,6 +216,13 @@ async function freePort(port) {
   }
 }
 
+/**
+ * Poll a readiness endpoint before starting a dependent process.
+ *
+ * This is what keeps `desktop` from launching Electron before Vite serves the
+ * renderer, and keeps `fullstack` from opening the browser target before the
+ * standalone API is healthy.
+ */
 async function waitForUrl(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -202,6 +241,13 @@ async function waitForUrl(url, timeoutMs = 30_000) {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
+/**
+ * Spawn one pnpm workspace process and inherit stdio for readable dev logs.
+ *
+ * On POSIX platforms the child is detached so shutdown can signal the whole
+ * process group; this catches Vite, tsx watch, Electron Forge, and their
+ * nested workers in one pass.
+ */
 function spawnStep(step) {
   log(`Starting ${step.name}: ${pnpmCommand} ${step.args.join(' ')}`);
   const child = spawn(pnpmCommand, step.args, {

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Updated: April 9, 2026
+> Updated: June 1, 2026
 
 ## 1. Native module mismatch
 
@@ -13,13 +13,13 @@
 ### Fix
 
 ```bash
-npm run native:ensure:electron --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run native:ensure:electron
 ```
 
 If server tests later fail because the shell runtime needs the Node build:
 
 ```bash
-npm run native:ensure:node --workspace=@puntovivo/server
+pnpm --filter @puntovivo/server run native:ensure:node
 ```
 
 ## 2. Desktop opens with blank or broken UI
@@ -31,14 +31,14 @@ The renderer dev server may not be running in development mode.
 ### Fix
 
 ```bash
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 Or start manually:
 
 ```bash
-npm run dev:web
-npm run dev:desktop-shell
+pnpm run dev:web
+pnpm run dev:desktop-shell
 ```
 
 ## 3. Web app cannot reach the backend
@@ -51,7 +51,7 @@ curl http://localhost:8090/api/health
 
 ### Fix
 
-- verify the standalone server is running with `npm run dev:server`
+- verify the standalone server is running with `pnpm run dev:server`
 - verify `VITE_API_URL` matches the server port
 - restart the web dev server after changing `apps/web/.env`
 
@@ -82,8 +82,8 @@ Root scripts are the combined app scripts.
 Desktop-specific debug scripts live in the desktop workspace:
 
 ```bash
-npm run dev:desktop:debug --workspace=@puntovivo/desktop
-npm run dev:desktop:debug-brk --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run dev:desktop:debug
+pnpm --filter @puntovivo/desktop run dev:desktop:debug-brk
 ```
 
 ## 7. Web build fails with chunk warnings
@@ -122,8 +122,8 @@ If needed, use the sync center in the Company page to:
 
 ```bash
 node --version
-npm install
-npm run native:ensure:electron --workspace=@puntovivo/desktop
+pnpm install
+pnpm --filter @puntovivo/desktop run native:ensure:electron
 curl http://localhost:8090/api/health
-npm run test --workspace=@puntovivo/web -- --run
+pnpm --filter @puntovivo/web run test -- --run
 ```

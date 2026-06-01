@@ -15,24 +15,24 @@ From the repo root:
 
 ```
 # Default dataset (50 products, ~20 sales, 2 sites, 6 users)
-npm run seed:dev
+pnpm run seed:dev
 
 # Bigger catalog and history
-SEED_PRESET=large npm run seed:dev
+SEED_PRESET=large pnpm run seed:dev
 
 # MEGA: 90+ days of historical operational data + every page
 # populated for visual UI testing (ENG-052b)
-SEED_PRESET=mega npm run seed:dev
+SEED_PRESET=mega pnpm run seed:dev
 
 # Wipe the demo tenant first and reseed (destructive)
-SEED_RESET=true npm run seed:dev
+SEED_RESET=true pnpm run seed:dev
 
 # Combine
-SEED_PRESET=large SEED_RESET=true npm run seed:dev
-SEED_PRESET=mega SEED_RESET=true npm run seed:dev
+SEED_PRESET=large SEED_RESET=true pnpm run seed:dev
+SEED_PRESET=mega SEED_RESET=true pnpm run seed:dev
 
 # Print help
-npm run seed:dev --workspace=@puntovivo/server -- --help
+pnpm --filter @puntovivo/server run seed:dev -- --help
 ```
 
 ### `mega` preset (ENG-052b)
@@ -73,12 +73,12 @@ the recent-via-tRPC pass is small by design (it's there to verify
 the live envelope path, not pump volume).
 
 The equivalent `--flag` form works when invoking the workspace
-directly (npm's argument forwarding does not cross the root-to-
-workspace boundary cleanly, which is why env vars are the default
+directly (workspace argument forwarding is less portable than env vars,
+which is why env vars are the default
 recipe):
 
 ```
-npm run seed:dev --workspace=@puntovivo/server -- --preset=large --reset
+pnpm --filter @puntovivo/server run seed:dev -- --preset=large --reset
 ```
 
 ### Which database file does it target?
@@ -87,18 +87,18 @@ The seed CLI resolves the DB path in this order:
 
 1. **`DATABASE_URL`** — explicit override, always wins.
 2. **`SEED_TARGET=desktop`** — the per-user Electron data directory
-   (`app.getPath('userData')`), which is what `npm run dev:desktop`
+   (`app.getPath('userData')`), which is what `pnpm run dev:desktop`
    reads. Use this when you want `dev:desktop` to see the seed.
 3. **Default** — `packages/server/data/local.db`, the same file
-   `npm run dev:server` writes to.
+   `pnpm run dev:server` writes to.
 
 Concretely:
 
 | Your next command | Seed against |
 |---|---|
-| `npm run dev:server` (standalone / web) | `npm run seed:dev` |
-| `npm run dev:desktop` (Electron) | `SEED_TARGET=desktop npm run seed:dev` |
-| Any custom setup | `DATABASE_URL=/path/to/your.db npm run seed:dev` |
+| `pnpm run dev:server` (standalone / web) | `pnpm run seed:dev` |
+| `pnpm run dev:desktop` (Electron) | `SEED_TARGET=desktop pnpm run seed:dev` |
+| Any custom setup | `DATABASE_URL=/path/to/your.db pnpm run seed:dev` |
 
 Electron's `app.getPath('userData')` is platform-specific; the
 CLI replicates the logic so you don't have to look it up:
@@ -172,7 +172,7 @@ sqlite3 packages/server/data/local.db \
    GROUP BY tenants.slug"
 ```
 
-Expected output after a fresh `npm run seed:dev`:
+Expected output after a fresh `pnpm run seed:dev`:
 
 ```
 default|0
@@ -182,14 +182,14 @@ demo-co|50
 ### Resetting
 
 - **Just the demo tenant** (keeps `admin@localhost` intact):
-  `SEED_RESET=true npm run seed:dev`.
+  `SEED_RESET=true pnpm run seed:dev`.
 - **Everything — nuclear**: delete the DB file and let the baseline
   regenerate. Works when `DATABASE_URL` is not set (defaults to
   `packages/server/data/local.db`):
 
   ```bash
   rm -f packages/server/data/local.db
-  npm run seed:dev
+  pnpm run seed:dev
   ```
 
   The server's `initDatabase()` recreates the schema and runs the
@@ -321,7 +321,7 @@ The CLI refuses to run when `NODE_ENV=production` or
 `PUNTOVIVO_RUNTIME_ENV=production`:
 
 ```
-$ NODE_ENV=production npm run seed:dev
+$ NODE_ENV=production pnpm run seed:dev
 [seed-dev] refusing to run: NODE_ENV / PUNTOVIVO_RUNTIME_ENV is production.
 [seed-dev] If you really want demo data in production (you do not), unset the env var first.
 ```
@@ -344,7 +344,7 @@ on the CLI entry only.
 
 ## Troubleshooting
 
-### `npm run seed:dev` exits with code 137 (SIGKILL)
+### `pnpm run seed:dev` exits with code 137 (SIGKILL)
 
 Exit 137 = 128 + 9 (SIGKILL). The seed itself is small (~2 MB of data
 in total) so it never runs out of memory on its own; when the CLI
@@ -370,7 +370,7 @@ pkill -f "dev-launcher.mjs server"
 
 Other rare causes:
 
-- **Another Electron instance** (`npm run dev` or a packaged build)
+- **Another Electron instance** (`pnpm run dev:desktop` or a packaged build)
   pointing at the same DB path. Either close it or point the seed at
   a different `DATABASE_URL`.
 - **Actual macOS memory pressure** killing node processes during a
@@ -388,7 +388,7 @@ insert sequentials with colliding prefixes outside the seed.
 
 The baseline seed only creates `admin@localhost`, but
 `packages/server/data/local.db` also accumulates data from every
-prior `npm run dev:server` session, E2E test run, and manual QA click.
+prior `pnpm run dev:server` session, E2E test run, and manual QA click.
 `seed:dev` never touches the default tenant, so any demo data you
 created under `admin@localhost` in earlier runs survives.
 
@@ -397,7 +397,7 @@ If you want a truly empty `default` tenant alongside the populated
 
 ```bash
 rm -f packages/server/data/local.db
-npm run seed:dev
+pnpm run seed:dev
 ```
 
 The nuclear reset recreates both from scratch.
@@ -414,7 +414,7 @@ package.json                                    # root "seed:dev" shortcut
 
 ## Tests
 
-Run with `npm run test --workspace=@puntovivo/server -- --run seed-dev`:
+Run with `pnpm --filter @puntovivo/server run test -- seed-dev`:
 
 - Demo tenant created with slug `demo-co`.
 - 6 users tagged to the demo tenant, argon2 hash verifies

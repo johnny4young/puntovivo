@@ -1,25 +1,25 @@
 # Debugging Guide
 
-> Updated: April 9, 2026
+> Updated: June 1, 2026
 
 ## Quick Start
 
 ### Full desktop app
 
 ```bash
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 ### Web only
 
 ```bash
-npm run dev:web
+pnpm run dev:web
 ```
 
 ### Standalone backend only
 
 ```bash
-npm run dev:server
+pnpm run dev:server
 ```
 
 ## Desktop Debug Scripts
@@ -27,8 +27,8 @@ npm run dev:server
 Desktop-specific debug scripts are exposed from the workspace, not the repo root:
 
 ```bash
-npm run dev:desktop:debug --workspace=@puntovivo/desktop
-npm run dev:desktop:debug-brk --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run dev:desktop:debug
+pnpm --filter @puntovivo/desktop run dev:desktop:debug-brk
 ```
 
 These start Electron with Node inspect enabled for the main process.
@@ -91,14 +91,14 @@ Use when debugging:
 
 ### Debug a renderer issue
 
-1. run `npm run dev:web`
+1. run `pnpm run dev:web`
 2. open the browser devtools
 3. inspect network requests to `/api/trpc`
 4. verify query invalidations and route guards
 
 ### Debug a desktop bridge issue
 
-1. run `npm run dev:desktop:debug --workspace=@puntovivo/desktop`
+1. run `pnpm --filter @puntovivo/desktop run dev:desktop:debug`
 2. set breakpoints in Electron main or preload
 3. trigger the UI action from the desktop app
 
@@ -111,9 +111,9 @@ Use when debugging:
 ## Useful Commands
 
 ```bash
-npm exec --workspace=@puntovivo/server -- vitest run sales --reporter=dot
-npm run test --workspace=@puntovivo/web -- --run
-npm run typecheck --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/server run test -- sales --reporter=dot
+pnpm --filter @puntovivo/web run test -- --run
+pnpm --filter @puntovivo/desktop run typecheck
 ```
 
 ## Frequent Causes of Confusion

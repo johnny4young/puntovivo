@@ -12,7 +12,8 @@
 >
 > **What does NOT belong here**: work with clear acceptance criteria
 > already (that is a ROADMAP ENG ticket), shipped work (stays in
-> ROADMAP with `Status: Shipped`), or deferred ENG tickets (those keep
+> ROADMAP with `Status: Shipped`, with long history compacted into
+> [`ARCHIVED.md`](./ARCHIVED.md)), or deferred ENG tickets (those keep
 > their row in ROADMAP with `Status: Deferred`).
 
 ## Conventions
@@ -24,6 +25,13 @@
 - Dated captures welcome (`— 2026-04-23 (jy)`) so decay is visible.
 - When you promote an item to ROADMAP, **delete the bullet here** in
   the same commit; do not leave stale duplicates.
+
+## ARCHIVED
+
+Implemented, rejected, or superseded captures do not stay in the active
+backlog. Move historical context to [`ARCHIVED.md`](./ARCHIVED.md), then
+delete the active bullet here. This keeps the backlog limited to work that
+could still mature into a future `ENG-NNN`.
 
 ## 1. Ideas without acceptance criteria
 
@@ -620,7 +628,7 @@ and want to batch them into one sprint.
   fails the `react-hooks/set-state-in-effect` lint rule ("Calling
   setState synchronously within an effect can trigger cascading
   renders"). Pre-existing on `main` at commit `9eadf62` — blocks
-  `npm run ci:web`. Discovered while shipping ENG-020; scope kept
+  `pnpm run ci:web`. Discovered while shipping ENG-020; scope kept
   clean. The fix is a one-file refactor: replace the
   `useEffect(() => { if (pickedCountry === null && current?.countryCode) setPickedCountry(current.countryCode); }, [...])`
   pattern with a functional setState, a ref guard, or a derived

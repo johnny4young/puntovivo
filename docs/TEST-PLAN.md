@@ -44,19 +44,19 @@ Execution matrix for manual validation and later automation with Playwright Web 
 ## Environment Matrix
 
 - `WEB`
-  - recommended: `npm run dev:web-stack`
+  - recommended: `pnpm run dev:web-stack`
   - or run separately:
-    - `npm run dev:web`
-    - `npm run dev:server`
+    - `pnpm run dev:web`
+    - `pnpm run dev:server`
 - `ELEC`
-  - `npm run dev:desktop`
+  - `pnpm run dev:desktop`
 - Shutdown:
-  - `npm run dev:stop`
+  - `pnpm run dev:stop`
 
 ## Automated Web Smoke
 
 - Command:
-  - `npm run test:e2e:web`
+  - `pnpm run test:e2e:web`
 - Runtime:
   - starts or reuses the standalone backend on `127.0.0.1:8090`
   - starts or reuses the Vite web app on `http://localhost:3000`

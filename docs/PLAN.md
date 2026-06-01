@@ -70,7 +70,7 @@ The app is no longer missing "basic POS." The biggest gaps are now:
 - **Integrations**: 8,000+ apps, REST + GraphQL API, webhooks, Flow automation
 - **Pricing**: $39-399/month plus hardware
 
-**Key differentiators vs Puntovivo**: Best-in-class omnichannel, massive app ecosystem, product variants. Puntovivo advantage: desktop-native, offline-first, no subscription, self-hosted, Colombia-first.
+**Key differentiators vs Puntovivo**: Best-in-class omnichannel, massive app ecosystem, product variants. Puntovivo advantage: desktop-native, offline-first, local-first deployment, Colombia-first retail wedge, and a future hosted-SaaS substrate that remains secondary to local selling.
 
 #### Lightspeed Retail (X-Series, formerly Vend)
 
@@ -2107,7 +2107,7 @@ Test tickets:
 
 ### Phase 10: Hybrid Database Runtime
 
-> **§10.0 Status Update (2026-05-08, ENG-037)**: A spike on libSQL/Turso embedded replicas as a candidate substrate landed at [`SPIKE-LIBSQL-TURSO.md`](./SPIKE-LIBSQL-TURSO.md). Recommendation is **Defer (revisit after Phase 4)** — legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001 Local Store Authority, current Turso Sync is still a beta surface whose documented conflict model is Last-Push-Wins rather than Puntovivo's manual lane for high-risk POS entities, and the native package story does not yet prove a simpler Electron 41 / Node 22 runtime than `better-sqlite3`. The recommended Phase 3+ shape is the bespoke `sync_outbox` pipeline (ENG-064 + ENG-064b shipped) plus a separate cloud-backup destination — not Turso replicas. The Postgres-dialect tickets below (DB-901..905, etc.) remain a future option but are not the natural next step. See spike §2 for reopen triggers.
+> **§10.0 Status Update (2026-05-08, ENG-037)**: A spike on libSQL/Turso embedded replicas as a candidate substrate landed at [`SPIKE-LIBSQL-TURSO.md`](./SPIKE-LIBSQL-TURSO.md). Recommendation is **Defer (revisit after Phase 4)** — legacy Embedded Replicas are cloud-primary by default and conflict with ADR-0001 Local Store Authority, current Turso Sync is still a beta surface whose documented conflict model is Last-Push-Wins rather than Puntovivo's manual lane for high-risk POS entities, and the native package story does not yet prove a simpler Electron 41 / Node 24 runtime than `better-sqlite3`. The recommended Phase 3+ shape is the bespoke `sync_outbox` pipeline (ENG-064 + ENG-064b shipped) plus a separate cloud-backup destination — not Turso replicas. The Postgres-dialect tickets below (DB-901..905, etc.) remain a future option but are not the natural next step. See spike §2 for reopen triggers.
 
 > **§10.1 Authority Node Update (2026-05-11, ENG-071 / ENG-075 Shipped)**: Local authority is now generalized as an Authority Node in ADR-0008. Default `device_local` keeps today's per-cashier Electron + embedded server + SQLite behavior. Configurable `site_hub` makes one machine in a store own the site SQLite database, while `hub_client` terminals send commands to that hub over LAN. A future central server consumes outboxes/events from Authority Nodes; it does not become required for local selling. ADR-0008 was accepted 2026-05-08; the docs / Status closeout shipped 2026-05-11 alongside the four downstream tickets (`ENG-072` device-local default hardening, `ENG-073` Store Hub server mode, `ENG-074` Hub Client mode, `ENG-074b` hub-client local hardware bridge) that had already consumed the contract. `ENG-075` then made Store Hub deployments operable with hashed short-lived pairing codes, explicit device topology metadata, the Operations Center Authority tab, admin hub-client revocation, and diagnostics `authorityTopology`. See [`AUTHORITY-NODE.md`](./AUTHORITY-NODE.md).
 
@@ -3054,7 +3054,7 @@ This avoids the worst outcome: building 10+ more phases of hardcoded English str
 Design docs that ship alongside already-shipped or in-flight features:
 
 - [`docs/RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) — declarative receipt editor + pure renderer (**shipped** as Iter 2)
-- [`docs/DEV-SEED.md`](./DEV-SEED.md) — `npm run seed:dev` runbook, country-aware seed for `demo-co` (**shipped** as `ENG-015`)
+- [`docs/DEV-SEED.md`](./DEV-SEED.md) — `pnpm run seed:dev` runbook, country-aware seed for `demo-co` (**shipped** as `ENG-015`)
 - [`docs/LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md) — country / currency / locale configuration catalog for LATAM + USA, fixes the `0,00 US$` UX bug (**implementation shipped under `ENG-017`** — see §17.0 Status Update addendum)
 - [`docs/FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md) — DIAN via Proveedor Tecnológico, shipped as spec (Iter 3 Fase A ships schema + MockAdapter; Fase B is gated on PT contract)
 - [`docs/HARDWARE-POS.md`](./HARDWARE-POS.md) — ESC/POS printer + cajón + scanner spec (Iter 4, gated on test lab)

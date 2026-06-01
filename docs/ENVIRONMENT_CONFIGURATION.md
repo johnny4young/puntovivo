@@ -1,6 +1,6 @@
 # Environment Configuration
 
-> Updated: April 9, 2026
+> Updated: June 1, 2026
 
 ## Overview
 
@@ -73,15 +73,15 @@ Relevant file:
 ### Local desktop development
 
 ```bash
-npm install
-npx electron-rebuild -m apps/desktop
-npm run dev:desktop
+pnpm install
+pnpm --filter @puntovivo/desktop run rebuild
+pnpm run dev:desktop
 ```
 
 ### Local web + standalone server
 
 ```bash
-npm run dev:web-stack
+pnpm run dev:web-stack
 ```
 
 ### Custom backend port

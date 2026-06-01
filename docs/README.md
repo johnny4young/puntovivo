@@ -20,8 +20,9 @@ is the authority on which file wins.
 | [`PLAN-V3.md`](./PLAN-V3.md) | **Tactical bridge** for the World-Class LatAm POS wave — `ENG-103..ENG-165` across market objective, adoption, launch migration, cashier UX, loyalty, omnichannel, money trust, procurement, accounting, BI, KDS v2, public API delivery, supportability, privacy, AI automation, vertical-depth packs, information architecture simplification, progressive disclosure, performance budgets, accessibility AA, production observability, backup/restore, auto-update, subscription/billing, SSO/MFA, shift management, day-close report, loss-prevention rules, in-transit transfers, WhatsApp inbound commerce, tip pooling, recipe scaling, self-checkout, hardware compatibility matrix, shared peripherals, universal print server, chaos/DR, data portability, cohort/LTV/RFM, receipt branding, contextual help, multi-currency, public demo sandbox, tenant clone, data residency, Nómina Electrónica DIAN (Gated), pt-BR + NFe Brazil, hosted micro-storefront, and compliance readiness pack. Replaces H0..H4 horizons with a single flat priority list. | When promoting work beyond the shipped core toward best-in-LatAm commercial readiness. |
 | [`ROADMAP.md`](./ROADMAP.md) | **Ticket index** — `ENG-NNN` rows with acceptance criteria, sequencing recommendation in §3b, machine-readable `Status` column | Pool discovery for the next ticket. **§3b is the canonical Status source — when ROADMAP and PLAN disagree, ROADMAP wins.** |
 | [`SELLABILITY.md`](./SELLABILITY.md) | **Go/no-go sellability index** for Colombian retail pilots and production sales | When deciding whether Puntovivo is demo-ready, pilot-ready, or production-sellable. |
-| [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | **Per-iter execution detail** — commit sequencing, draft commit messages, verification matrix per ticket | Daily execution; agent opens this next to ROADMAP when shipping. |
+| [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | **Active execution detail** — current ticket sequence, commit shape, verification matrix | Daily execution; agent opens this next to ROADMAP when shipping. Historical shipped detail does not belong here. |
 | [`BACKLOG.md`](./BACKLOG.md) | **Raw capture** — unsized ideas, small bugs, spikes, parked feature requests, follow-ups discovered mid-ticket | Idea capture before promotion to ROADMAP. **Do not pick work from here** — items mature to ROADMAP first. |
+| [`ARCHIVED.md`](./ARCHIVED.md) | **Historical record** — compact shipped, retired, superseded, or long-form closeout history | When cleaning active planning docs or looking for context after a shipped row was compacted. Not an active work pool. |
 
 **Flow for new work**:
 
@@ -33,6 +34,7 @@ operator idea → BACKLOG.md (unsized)
    → SPRINT-PLAN.md §N captures commit spec
    → agent executes via /puntovivo-ship
    → Status flipped to Shipped with summary in ROADMAP
+   → long shipped detail moved to ARCHIVED.md when it clutters active planning
 ```
 
 ---
@@ -141,6 +143,7 @@ When two docs disagree, the priority order is:
 5. **`PLAN.md`** — strategic; cite the section read.
 6. **Specialty docs** (per the tables above).
 7. **`BACKLOG.md`** — never authoritative; idea capture only.
+8. **`ARCHIVED.md`** — historical only; never overrides active docs.
 
 If the agent finds a contradiction, fix the lower-priority doc to
 match the higher one in the same staged commit, and call it out in
@@ -154,3 +157,6 @@ When a ticket lands a new `docs/*.md` file, register it in the
 right section of this README in the same commit. The skills
 (`/puntovivo-ship`, `/puntovivo-review`) read this index to map
 "what doc do I open for X" — drift here breaks agent navigation.
+
+When a shipped row or sprint section becomes historical noise, compact
+the active file and move the detail to `ARCHIVED.md` in the same commit.

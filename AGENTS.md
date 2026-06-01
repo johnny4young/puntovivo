@@ -233,15 +233,16 @@ On top of the Conventional Commits format above:
 
 ## Plan hierarchy
 
-Five sources of planning live in this repo; know which one to read for what. The full navigation index lives in [`docs/README.md`](./docs/README.md):
+Six active planning/reference sources plus one archive live in this repo; know which one to read for what. The full navigation index lives in [`docs/README.md`](./docs/README.md):
 
 - [`docs/PLAN.md`](./docs/PLAN.md) — **strategic**: competitive analysis, phases, fiscal engine design, LatAm expansion. Read when a ticket touches architecture, fiscal, i18n, LATAM, or multi-vertical decisions; skip for simple features.
 - [`docs/PLAN-V2.md`](./docs/PLAN-V2.md) — **tactical bridge** between PLAN.md and ROADMAP §3b. Phases `ENG-025..ENG-040` by quarter (Phase 0 hardening → Phase 1 AI Wave 1 → Phase 2 multi-country fiscal → Phase 3 sync + payment rails → Phase 4 vertical + AI Wave 2). Architectural decisions closed by the 2026-Q2 audit.
 - [`docs/ROADMAP.md`](./docs/ROADMAP.md) — **ticket index**: `ENG-NNN` rows with acceptance criteria and sequencing recommendation in §3b. Each row has an explicit `Status` column that drives pool discovery. **When ROADMAP and PLAN disagree, ROADMAP wins.**
-- [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md) — **tactical**: iteration-level execution detail (per-commit sequencing, draft commit messages, verification matrix). This is what the agent opens next to ROADMAP when executing the next ticket.
+- [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md) — **tactical**: active execution sequence, commit shape, and verification matrix. This is what the agent opens next to ROADMAP when executing the next ticket. Historical shipped detail does not belong here.
 - [`docs/BACKLOG.md`](./docs/BACKLOG.md) — **raw capture**: unsized ideas, small bugs, spikes, parked feature requests. **Do not** pick work from here — this is the buffer before something becomes an `ENG-NNN`. When an item matures (acceptance criteria clear, sized), promote it to ROADMAP and delete the bullet here in the same commit.
+- [`docs/ARCHIVED.md`](./docs/ARCHIVED.md) — **historical archive**: compact shipped, retired, superseded, or long-form closeout history. Never use it as an active work pool.
 
-**Flow for new work**: operator idea → `BACKLOG.md` (unsized) → matures → promoted to `ROADMAP.md §3b` as `ENG-NNN Status=Pending` → scheduled for sprint → `SPRINT-PLAN.md §N` with commit spec → agent executes → `Status=Shipped` with summary in ROADMAP. Only the last two steps involve an agent; the first two are human-curated.
+**Flow for new work**: operator idea → `BACKLOG.md` (unsized) → matures → promoted to `ROADMAP.md §3b` as `ENG-NNN Status=Pending` → scheduled for sprint → `SPRINT-PLAN.md` captures the active commit spec → agent executes → `Status=Shipped` with summary in ROADMAP → long shipped detail moves to `ARCHIVED.md` when it clutters active planning. Only the last two implementation steps involve an agent; the first two are human-curated.
 
 ### Ticket Status convention
 
@@ -259,6 +260,7 @@ The `Status` column in `ROADMAP.md §3b` is the single source of truth for what 
 
 - New ENG tickets are created with `Status: Pending` and a Scope cell that ends with the acceptance criteria. If the ticket needs >5 commits or >1 week of work, split it into `ENG-NNNa`, `ENG-NNNb`, … before handing to an agent.
 - When closing a ticket, append `**Shipped**: <2-3 line summary>` to the end of the Scope cell AND change the Status column to `Shipped` in the same commit. Match the style of rows `ENG-003 / ENG-004 / ENG-008`.
+- If the shipped summary becomes longer than the active planning value it provides, compact the ROADMAP/SPRINT entry and move the detail to `docs/ARCHIVED.md` in the same commit.
 - When closing a Partial ticket: if sub-steps remain and they're worth doing later, either promote the "Remaining:" list into a fresh `ENG-NNNb` with `Pending` (then mark original `Shipped`), or keep the parent as `Partial` with the updated "Remaining:" list. Do not leave unstated remainders.
 - Agents skipping `Gated` / `Deferred` tickets report the gate back to the operator instead of guessing a workaround.
 

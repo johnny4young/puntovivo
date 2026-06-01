@@ -1,6 +1,6 @@
 # tRPC Testing Guide
 
-> Updated: April 9, 2026
+> Updated: June 1, 2026
 
 ## Current Testing Approach
 
@@ -15,20 +15,20 @@ The fastest reliable way to validate tRPC behavior in this repo is:
 
 ### Node version
 
-Use Node 22+ from the repo root requirement.
+Use Node 24+ from the repo root requirement.
 
 ### Native rebuilds
 
 After install:
 
 ```bash
-npx electron-rebuild -m apps/desktop
+pnpm --filter @puntovivo/desktop run rebuild
 ```
 
 To prepare the current shell/runtime for server-side tests:
 
 ```bash
-npm run native:ensure:node --workspace=@puntovivo/server
+pnpm --filter @puntovivo/server run native:ensure:node
 ```
 
 ## Recommended Commands
@@ -36,27 +36,27 @@ npm run native:ensure:node --workspace=@puntovivo/server
 ### Focused server suite
 
 ```bash
-npm exec --workspace=@puntovivo/server -- vitest run sales --reporter=dot
-npm exec --workspace=@puntovivo/server -- vitest run purchases --reporter=dot
-npm exec --workspace=@puntovivo/server -- vitest run dashboard sync --reporter=dot
+pnpm --filter @puntovivo/server run test -- sales --reporter=dot
+pnpm --filter @puntovivo/server run test -- purchases --reporter=dot
+pnpm --filter @puntovivo/server run test -- dashboard sync --reporter=dot
 ```
 
 ### Full web suite
 
 ```bash
-npm run test --workspace=@puntovivo/web -- --run
+pnpm --filter @puntovivo/web run test -- --run
 ```
 
 ### Web production build
 
 ```bash
-npm run build --workspace=@puntovivo/web
+pnpm --filter @puntovivo/web run build
 ```
 
 ### Desktop typecheck
 
 ```bash
-npm run typecheck --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run typecheck
 ```
 
 ## Preferred Server Test Pattern

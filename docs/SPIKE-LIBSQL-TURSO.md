@@ -36,7 +36,7 @@ Three findings drive the recommendation:
    buys nothing this iter.** The `libsql` npm package is
    API-compatible with `better-sqlite3` but uses Rust-based native
    bindings tied to a specific Node ABI — it inherits the same
-   Electron 41 (MODULE_VERSION 145) vs Node 22 (MODULE_VERSION 137)
+   Electron 41 (MODULE_VERSION 145) vs Node 24 (MODULE_VERSION 137)
    dual-binary problem documented in `AGENTS.md`. A pure
    engine swap is a non-trivial migration with no immediate user
    benefit.
@@ -395,7 +395,7 @@ a less-mature substrate.
 | Diagnostic export sanitization | `reports.diagnostics.export` redacts secrets per ADR-0006 | Turso replication is opaque — sanitization layer would have to wrap or re-implement on the replication channel |
 | Schema lifecycle | Drizzle migrations, single source of truth at `db/schema.ts` | libSQL accepts SQLite migrations natively; Turso Cloud accepts the same |
 | File format | SQLite (`better-sqlite3`) | SQLite-compatible (libSQL fork) |
-| Native binding burden | `better-sqlite3` C++ bindings; Electron 41 / Node 22 dual-binary cache via `scripts/ensure-native-runtime.mjs` | Native platform packages (`libsql` / `@tursodatabase/sync-*`); must be validated in Electron before claiming lower burden |
+| Native binding burden | `better-sqlite3` C++ bindings; Electron 41 / Node 24 dual-binary cache via `scripts/ensure-native-runtime.mjs` | Native platform packages (`libsql` / `@tursodatabase/sync-*`); must be validated in Electron before claiming lower burden |
 | Vendor lock-in | Zero — SQLite is in the public domain, the central-server consumer is whatever Puntovivo writes | Turso Cloud lock-in for the cloud side; libSQL itself remains MIT |
 | Cost (incremental) | Engineering only (~$0 marginal) | $4.99-$416.58/month per shared DB or per tenant; see §9 |
 | Maintenance velocity | Owned by Puntovivo; full control | Tied to Turso's release cadence; beta features can change before GA |
@@ -525,7 +525,7 @@ of the codebase.
 - **`scripts/ensure-native-runtime.mjs`** may need to cover
   libSQL bindings instead of disappearing. Net change in
   operational complexity is not proven until Electron 41 and
-  Node 22 both load the native packages cleanly across macOS,
+  Node 24 both load the native packages cleanly across macOS,
   Linux and Windows.
 - **Drizzle migration runner** would need a one-time validation
   pass: every existing migration applies cleanly against libSQL.
@@ -663,8 +663,8 @@ greenlit case:
 
 1. **Engine swap (Topology Y mode 1).** `better-sqlite3` →
    `libsql` across `packages/server`. All existing tests pass
-   (`npm run ci:server`). Native rebuild scripts handle libSQL
-   bindings on Electron + Node 22.
+   (`pnpm run ci:server`). Native rebuild scripts handle libSQL
+   bindings on Electron + Node 24.
 2. **Embedded-replica config plumbing.** Per-tenant config
    surface for `syncUrl` + `authToken` with encryption-at-rest
    per the existing fiscal CSD pattern. Admin Settings card
