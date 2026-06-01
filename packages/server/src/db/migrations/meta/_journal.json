@@ -288,6 +288,13 @@
 			"when": 1784764800000,
 			"tag": "0040_eng168_system_audit_logs",
 			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "6",
+			"when": 1784851200000,
+			"tag": "0041_eng173_web_vital_samples",
+			"breakpoints": true
 		}
 	]
 }

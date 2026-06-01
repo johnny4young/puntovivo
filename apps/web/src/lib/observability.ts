@@ -23,8 +23,16 @@
  * trace propagation effort (renderer → server correlationId in
  * headers) has a parallel shape on both sides.
  *
+ * ENG-173 extends this module with `installWebVitalsReporter()`, which
+ * forwards Core Web Vitals (LCP / CLS / INP / TTFB / FCP) to the public
+ * `observability.reportWebVital` tRPC mutation. It is background-only (no UI)
+ * and sampled once per page load.
+ *
  * @module lib/observability
  */
+
+import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
+import { vanillaClient } from './trpc';
 
 export interface RenderErrorContext {
   /**
@@ -145,6 +153,95 @@ export function installGlobalErrorListeners(): void {
   window.addEventListener('unhandledrejection', rejectionListener);
 }
 
+// ============================================================================
+// ENG-173 — Web Vitals real-user monitoring (RUM)
+// ============================================================================
+
+/**
+ * Coarse device tier sent with every Web Vitals sample. Mirrors the server
+ * `webVitalDeviceClassEnum`; lets the future dashboard slice slow routes by
+ * hardware without storing a raw user-agent.
+ */
+export type DeviceClass = 'low' | 'mid' | 'high' | 'unknown';
+
+/**
+ * Bucket the device by `navigator.hardwareConcurrency` (logical cores). A
+ * rough proxy for the merchant's hardware tier — the ICP runs on everything
+ * from a 2-core Celeron AIO to an 8-core workstation. Returns `'unknown'` when
+ * the API is unavailable or returns a nonsensical value.
+ */
+export function resolveDeviceClass(): DeviceClass {
+  const cores =
+    typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
+  if (typeof cores !== 'number' || !Number.isFinite(cores) || cores <= 0) {
+    return 'unknown';
+  }
+  if (cores <= 2) return 'low';
+  if (cores <= 6) return 'mid';
+  return 'high';
+}
+
+/**
+ * Resolve the sampling rate in [0, 1]. `VITE_WEB_VITALS_SAMPLE_RATE` overrides
+ * when set to a valid fraction; otherwise default 10 % in production, 100 % in
+ * dev so a local smoke always reports.
+ */
+function resolveSampleRate(): number {
+  const raw = import.meta.env.VITE_WEB_VITALS_SAMPLE_RATE;
+  const parsed = raw !== undefined ? Number(raw) : Number.NaN;
+  if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+    return parsed;
+  }
+  return import.meta.env.PROD ? 0.1 : 1;
+}
+
+let webVitalsInstalled = false;
+
+/**
+ * Install the Web Vitals reporter. Idempotent + browser-guarded so it is safe
+ * to call once at bootstrap (next to {@link installGlobalErrorListeners}).
+ *
+ * Sampling is decided ONCE per page load — a load is either fully sampled (all
+ * five metrics report) or fully skipped — so a route's metrics stay coherent
+ * for aggregation. Each metric finalises on page-hide / first-interaction
+ * (web-vitals default) and is forwarded to the public `reportWebVital`
+ * mutation, which derives the tenant server-side and gates on the per-tenant
+ * telemetry opt-in. Delivery is best-effort: failures never surface to the
+ * user, and an in-flight unload may drop the final fetch (acceptable for RUM).
+ */
+export function installWebVitalsReporter(): void {
+  if (webVitalsInstalled || typeof window === 'undefined') {
+    return;
+  }
+  webVitalsInstalled = true;
+  if (Math.random() >= resolveSampleRate()) {
+    return;
+  }
+
+  const deviceClass = resolveDeviceClass();
+  const report = (metric: Metric): void => {
+    safeInvoke(() => {
+      void vanillaClient.observability.reportWebVital
+        .mutate({
+          metric: metric.name,
+          value: metric.value,
+          rating: metric.rating,
+          route: window.location.pathname,
+          deviceClass,
+        })
+        .catch(() => {
+          /* best-effort RUM — never surface a reporting failure */
+        });
+    });
+  };
+
+  onLCP(report);
+  onCLS(report);
+  onINP(report);
+  onTTFB(report);
+  onFCP(report);
+}
+
 /**
  * Test-only escape hatch — production code never resets between
  * mounts so this is gated behind an explicit call site. Also
@@ -163,4 +260,5 @@ export function __resetRenderObservabilityForTests(): void {
   errorListener = null;
   rejectionListener = null;
   listenersInstalled = false;
+  webVitalsInstalled = false;
 }

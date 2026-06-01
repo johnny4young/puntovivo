@@ -45,6 +45,7 @@ import { peripheralsRouter } from './routers/peripherals.js';
 import { modulesRouter } from './routers/modules.js';
 import { surfacesRouter } from './routers/surfaces.js';
 import { eventsRouter } from './routers/events.js';
+import { observabilityRouter } from './routers/observability.js';
 import { authorityRouter } from './routers/authority.js';
 import { paymentsRouter } from './routers/payments.js';
 import { paymentSettingsRouter } from './routers/payments-settings.js';
@@ -107,6 +108,7 @@ export const appRouter = router({
   modules: modulesRouter,
   surfaces: surfacesRouter,
   events: eventsRouter,
+  observability: observabilityRouter,
   authority: authorityRouter,
   payments: paymentsRouter,
   paymentSettings: paymentSettingsRouter,
