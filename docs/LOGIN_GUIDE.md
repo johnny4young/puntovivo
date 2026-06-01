@@ -94,15 +94,15 @@ Source:
 ### Desktop
 
 ```bash
-npm install
-npx electron-rebuild -m apps/desktop
-npm run dev:desktop
+pnpm install
+pnpm --filter @puntovivo/desktop run rebuild
+pnpm run dev:desktop
 ```
 
 ### Web + standalone backend
 
 ```bash
-npm run dev:web-stack
+pnpm run dev:web-stack
 ```
 
 ## Common Problems
@@ -130,13 +130,13 @@ curl http://localhost:8090/api/health
 Rebuild Electron native modules:
 
 ```bash
-npm run native:ensure:electron --workspace=@puntovivo/desktop
+pnpm --filter @puntovivo/desktop run native:ensure:electron
 ```
 
 If server tests later fail due to `better-sqlite3` mismatch in the current shell runtime:
 
 ```bash
-npm run native:ensure:node --workspace=@puntovivo/server
+pnpm --filter @puntovivo/server run native:ensure:node
 ```
 
 ## Authenticated Manual Request Example

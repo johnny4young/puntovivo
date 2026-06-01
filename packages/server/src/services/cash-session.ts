@@ -56,6 +56,20 @@ export function getCashSessionDenominationTotal(
   }, 0);
 }
 
+/**
+ * Shared validator behind the opening-float and closing-count checks: a
+ * declared cash `amount` must equal the sum of the per-denomination counts.
+ *
+ * Two distinct rejections (so the renderer can message each precisely):
+ * - `invalidCode` when the declared amount is non-finite or negative.
+ * - `mismatchCode` when the counted denomination total diverges from the
+ *   declared amount by `CASH_SESSION_EPSILON` (1e-6) or more. The epsilon is
+ *   a sub-cent floating-point tolerance so an exact count whose IEEE-754 sum
+ *   carries representation drift still passes.
+ *
+ * Returns the counted denomination total, which callers persist as the
+ * canonical figure rather than the operator-typed `amount`.
+ */
 function assertCashAmountMatchesDenominations(args: {
   amount: number;
   denominations: readonly CashSessionDenomination[];

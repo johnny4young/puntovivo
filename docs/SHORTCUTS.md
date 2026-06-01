@@ -154,7 +154,7 @@ palette + map). The remaining 10 ride future slices `ENG-105b..`:
 
 ```
 # Unit tests for the shortcut helpers
-npm run test --workspace=@puntovivo/web -- --run \
+pnpm --filter @puntovivo/web run test -- --run \
   src/lib/__tests__/shortcuts.test.ts \
   src/components/feedback/__tests__/CommandPalette.test.tsx \
   src/components/feedback/__tests__/CommandPaletteProvider.test.tsx \
@@ -162,7 +162,7 @@ npm run test --workspace=@puntovivo/web -- --run \
 
 # Full ci:web (typecheck + lint + coverage + build + bundle gate +
 # contrast gate)
-npm run ci:web
+pnpm run ci:web
 ```
 
 Live smoke evidence for each shortcut slice belongs in the review

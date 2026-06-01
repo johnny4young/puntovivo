@@ -41,6 +41,12 @@ function getCookieValue(name: string): string | null {
   return null;
 }
 
+/**
+ * Assemble the per-request header set for every tRPC call: the bearer access
+ * token, the selected `x-site-id`, the CSRF double-submit token read from the
+ * cookie, and the device id. Each header is omitted when its source is unset,
+ * so anonymous / pre-registration requests stay valid.
+ */
 export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const siteId = getStoredSiteId();
@@ -90,6 +96,20 @@ function buildHeaders(init?: HeadersInit): Headers {
   return new Headers(init);
 }
 
+/**
+ * Single-flight access-token refresh against `auth.refresh`.
+ *
+ * Concurrent 401s (a page firing several queries at once) must NOT each POST a
+ * refresh — the rotating refresh cookie would invalidate the in-flight peers.
+ * The pending promise is cached in `refreshRequest` so every caller awaits the
+ * same round-trip; the `.finally` clears it once settled so the next genuine
+ * expiry refreshes again.
+ *
+ * On failure (non-2xx or missing token) the access token is cleared and the
+ * `authSessionExpired` handler fires so the app can route to login. On success
+ * the rotated token is re-registered with the desktop session singleton — a
+ * no-op in pure-browser mode (ENG-025).
+ */
 async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<string | null> {
   if (refreshRequest) {
     return refreshRequest;

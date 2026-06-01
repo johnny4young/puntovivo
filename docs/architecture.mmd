@@ -1,12 +1,12 @@
 %% Puntovivo architecture — high-level process and client surface topology
-%% Render: npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg
+%% Render: pnpm dlx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg
 %% Source of truth for the system diagram embedded in docs/ARCHITECTURE.md and README.md.
 
 flowchart TB
   subgraph Electron["Electron 41 Desktop Application (single binary per platform)"]
     direction TB
 
-    subgraph Main["Main Process (Node 22, V8)"]
+    subgraph Main["Main Process (Node 24, V8)"]
       direction TB
       F["Fastify 5<br/>in-process :8090"]
       T["tRPC router<br/>27 domain routers"]

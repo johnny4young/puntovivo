@@ -46,6 +46,14 @@ export async function createContext({
     tenantId = payload.tenantId;
   }
 
+  // Resolve the active site for this request. Precedence:
+  //   1. An explicit `x-site-id` header, but ONLY when it names a site that
+  //      belongs to this tenant AND is active — this rejects cross-tenant or
+  //      stale-site selection coming from client-supplied input.
+  //   2. Otherwise fall back to the tenant's first active site by name, so
+  //      single-site tenants and requests that omit the header still receive
+  //      a deterministic `siteId` instead of null.
+  // Anonymous (no-tenant) requests never carry a site.
   if (tenantId) {
     const requestedSiteId = getHeaderValue(req.headers['x-site-id']);
 

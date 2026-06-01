@@ -101,6 +101,13 @@ function assertEncryptionKeyShape(key: string): void {
   }
 }
 
+/**
+ * Clamp-validate the SQLite `busy_timeout` (ms) before it reaches the PRAGMA.
+ * Defaults to `DEFAULT_SQLITE_BUSY_TIMEOUT_MS` when unset. The `[0, 60000]`
+ * bound rejects an accidental seconds value (e.g. `30` meaning 30 s) or a
+ * runaway wait: under the single-writer embedded topology a writer blocked
+ * longer than a minute is a bug to surface, not a wait to honour.
+ */
 function normalizeSqliteBusyTimeoutMs(value: number | undefined): number {
   if (value === undefined) {
     return DEFAULT_SQLITE_BUSY_TIMEOUT_MS;

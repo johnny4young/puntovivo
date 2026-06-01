@@ -408,7 +408,7 @@ form as a one-line replacement of the previous `<textarea>`. The
 adoption added 9 deps (codemirror, @codemirror/{state, view,
 language, autocomplete, lint, commands}, @lezer/highlight,
 @uiw/react-codemirror), lazy-loaded into the admin-only
-`/receipt-templates` route. The verified `npm run ci:web` build for
+`/receipt-templates` route. The verified `pnpm run ci:web` build for
 this pass emits `ReceiptTemplatesPage` at 493.00 kB / 158.00 kB gzip
 and the main `index` chunk at 681.98 kB / 210.76 kB gzip.
 

@@ -9,6 +9,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const require = createRequire(import.meta.url);
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+
+/**
+ * Runtime swap state for the better-sqlite3 native addon.
+ *
+ * Electron 41 and standalone Node 24 load different ABI builds. The state
+ * file records which runtime key is currently installed in
+ * `node_modules/better-sqlite3/.../better_sqlite3.node`, while
+ * `nativeBinaryCacheDir` keeps one compiled artifact per runtime key so dev
+ * scripts can swap quickly instead of rebuilding on every launch.
+ */
 const stateFile = path.join(
   repoRoot,
   'node_modules',
@@ -69,6 +79,12 @@ async function getFileHash(filePath) {
   }
 }
 
+/**
+ * Recursively find native addons that macOS may refuse to load unsigned.
+ *
+ * `argon2` can place binaries under package-manager-specific nested folders,
+ * so the signer cannot rely on one fixed path the way better-sqlite3 can.
+ */
 async function collectNodeBinaries(rootDir) {
   const results = [];
   let entries;
@@ -138,6 +154,13 @@ async function getElectronVersion() {
   return desktopPackageJson.devDependencies?.electron ?? desktopPackageJson.dependencies?.electron;
 }
 
+/**
+ * Build the cache key that distinguishes every ABI-sensitive dimension.
+ *
+ * Node uses the exact `process.version` and module ABI. Electron uses the
+ * desktop package's Electron version because this script runs under the host
+ * Node runtime even when preparing Electron's binary.
+ */
 async function getDesiredKey(runtime) {
   const betterSqliteVersion = await getBetterSqliteVersion();
 
@@ -161,6 +184,12 @@ function getCachedBinaryPath(runtimeKey) {
   return path.join(nativeBinaryCacheDir, `${safeKey}.node`);
 }
 
+/**
+ * Restore a previously compiled addon into better-sqlite3's active load path.
+ *
+ * Returns the cached artifact hash so the caller can persist state without
+ * re-reading the file it just copied.
+ */
 async function restoreCachedBinary(runtimeKey) {
   const cachedBinaryPath = getCachedBinaryPath(runtimeKey);
   const cachedBinaryHash = await getFileHash(cachedBinaryPath);
@@ -174,6 +203,12 @@ async function restoreCachedBinary(runtimeKey) {
   return cachedBinaryHash;
 }
 
+/**
+ * Capture the currently active addon under the desired runtime key.
+ *
+ * This runs after a rebuild and after a restore so the cache and active binary
+ * hashes stay aligned even if codesign rewrites the Mach-O metadata on macOS.
+ */
 async function cacheActiveBinary(runtimeKey) {
   const nativeBinaryPath = getBetterSqliteBinaryPath();
   const nativeBinaryHash = await getFileHash(nativeBinaryPath);
@@ -195,6 +230,13 @@ function runCommand(command, args, label) {
   });
 }
 
+/**
+ * Ensure the requested runtime can load better-sqlite3 before the caller boots.
+ *
+ * Fast path: state + active hash + cached hash already match. Middle path:
+ * restore from the per-runtime cache. Slow path: rebuild for Node or Electron,
+ * sign Electron addons on macOS, then refresh the cache/state marker.
+ */
 async function main() {
   const runtime = process.argv[2];
 
