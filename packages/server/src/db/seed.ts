@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { hashPasswordSecurely } from '../security/passwords.js';
 import type { DatabaseInstance } from './index.js';
 import { createModuleLogger } from '../logging/logger.js';
+import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
 
 const seedLog = createModuleLogger('seed');
 
@@ -162,7 +163,15 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
       id: nanoid(),
       name: DEFAULT_TENANT.name,
       slug: DEFAULT_TENANT.slug,
-      settings: {},
+      // ENG-183 — a fresh tenant is a RETAIL tenant: write the explicit
+      // Ring-1 retail profile so it boots showing only the sellable retail
+      // surfaces. Restaurant / KDS / customer-display / mobile-waiter /
+      // delivery / public-API / AI modules stay OFF until an admin enables
+      // them per tenant via /company?tab=modules. Existing tenants are
+      // untouched (manifest defaultEnabled is unchanged).
+      // Spread into a fresh object so the seeded tenant never aliases the
+      // shared module-level constant (defensive against in-place mutation).
+      settings: { modules: { ...RING1_RETAIL_PROFILE } },
       // ENG-176b — explicit default so the type-required column lands
       // with a known value during seed; matches the schema-level
       // DEFAULT used by migration 0037 for legacy backfill.

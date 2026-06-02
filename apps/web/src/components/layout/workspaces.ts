@@ -307,11 +307,14 @@ function canAccessRole(
 export function visibleItemsForWorkspace(
   workspace: Workspace,
   role: UserRole | undefined,
-  modules: Partial<Record<ClientModuleId, boolean>>
+  modules: Partial<Record<ClientModuleId, boolean>>,
+  modulesReady = true
 ): readonly WorkspaceItem[] {
   return workspace.items.filter(item => {
     if (!canAccessRole(role, item.allowedRoles)) return false;
-    if (item.requiredModule && modules[item.requiredModule] === false) return false;
+    if (item.requiredModule && (!modulesReady || modules[item.requiredModule] !== true)) {
+      return false;
+    }
     return true;
   });
 }
@@ -329,12 +332,13 @@ export interface VisibleWorkspace {
  */
 export function visibleWorkspacesForRole(
   role: UserRole | undefined,
-  modules: Partial<Record<ClientModuleId, boolean>>
+  modules: Partial<Record<ClientModuleId, boolean>>,
+  modulesReady = true
 ): readonly VisibleWorkspace[] {
   const out: VisibleWorkspace[] = [];
   for (const workspace of WORKSPACES) {
     if (!canAccessRole(role, workspace.allowedRoles)) continue;
-    const items = visibleItemsForWorkspace(workspace, role, modules);
+    const items = visibleItemsForWorkspace(workspace, role, modules, modulesReady);
     if (items.length === 0) continue;
     out.push({ workspace, items });
   }

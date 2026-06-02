@@ -296,12 +296,13 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
  */
 export function visibleActionsForRole(
   role: UserRole | undefined,
-  modules: Partial<Record<ClientModuleId, boolean>> = {}
+  modules: Partial<Record<ClientModuleId, boolean>> = {},
+  modulesReady = true
 ): readonly CommandAction[] {
   if (!role) return [];
   return COMMAND_ACTIONS.filter(action => {
     if (!action.roles.includes(role)) return false;
-    if (action.requiredModule && modules[action.requiredModule] === false) {
+    if (action.requiredModule && (!modulesReady || modules[action.requiredModule] !== true)) {
       return false;
     }
     return true;

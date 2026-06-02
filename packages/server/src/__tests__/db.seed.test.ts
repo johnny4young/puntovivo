@@ -20,6 +20,7 @@ import {
   DEFAULT_DEVELOPMENT_ADMIN_PASSWORD,
   DEVELOPMENT_ADMIN_PASSWORD_ENV,
 } from '../db/seed.js';
+import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
 
 describe('database foundation seed', () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -57,6 +58,28 @@ describe('database foundation seed', () => {
     expect(vatRateCount?.value).toBeGreaterThanOrEqual(3);
     expect(unitCount?.value).toBeGreaterThanOrEqual(5);
     expect(sequentialCount?.value).toBeGreaterThanOrEqual(3);
+  });
+
+  it('writes the Ring-1 retail module profile into a fresh tenant (ENG-183)', async () => {
+    const db = await initDatabase({
+      dbPath: ':memory:',
+      runMigrations: true,
+      seedData: true,
+    });
+
+    const tenant = await db.select().from(tenants).get();
+    expect(tenant).toBeDefined();
+    const settings = (tenant!.settings ?? {}) as Record<string, unknown>;
+    expect(settings.modules).toEqual(RING1_RETAIL_PROFILE);
+
+    // A fresh retail tenant lands on the Ring-1 core only: operations +
+    // quotations on; restaurant / delivery / public-API / AI surfaces off.
+    const modules = settings.modules as Record<string, boolean>;
+    expect(modules['operations-center']).toBe(true);
+    expect(modules['quotations']).toBe(true);
+    expect(modules['copilot']).toBe(false);
+    expect(modules['kds']).toBe(false);
+    expect(modules['delivery']).toBe(false);
   });
 
   it('uses a fixed admin password outside production on first seed', async () => {

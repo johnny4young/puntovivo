@@ -77,6 +77,21 @@ export const MODULE_IDS = [
 export type ModuleId = (typeof MODULE_IDS)[number];
 
 /**
+ * Product classification (ENG-183) that drives the Ring-1 retail scope gate.
+ *
+ *   - `core`         — required for Ring-1 retail sellability; ON for a fresh
+ *     retail tenant by default.
+ *   - `compliance`   — fiscal / legal obligation. Reserved: fiscal documents and
+ *     audit logs are NOT module-gated today, so no module carries this class
+ *     yet; kept so a future DIAN/INVIMA module has a home.
+ *   - `optional`     — useful but not part of the Ring-1 core; OFF for a fresh
+ *     retail tenant, opt-in per tenant via `/company?tab=modules`.
+ *   - `experimental` — beta / unproven. Reserved for future AI Wave 2 and
+ *     payment-terminal adapters; no module carries this class yet.
+ */
+export type ModuleClassification = 'core' | 'compliance' | 'optional' | 'experimental';
+
+/**
  * Per-module metadata consumed by the admin UI + the kernel. Stays
  * deliberately minimal — anything site-specific (e.g. "this module
  * affects sites X and Y") belongs in the call site, not here.
@@ -106,6 +121,21 @@ export interface ModuleDescriptor {
    * gates that both en + es ship the keys.
    */
   i18nKey: string;
+  /**
+   * Product classification (ENG-183). Drives `RING1_RETAIL_PROFILE`: only
+   * `core` modules are ON for a fresh retail tenant. Independent of
+   * `defaultEnabled` (the resolution fallback for unconfigured tenants) so
+   * changing the retail profile never silently flips an existing tenant.
+   */
+  classification: ModuleClassification;
+  /**
+   * Market ring this module serves (ENG-183 / MARKET-SEGMENTS.md):
+   * `1` = generic retail MVP (Ring-1), `2` = restaurant + pharmacy,
+   * `3` = service verticals. A fresh retail tenant only enables Ring-1
+   * `core` modules; Ring-2/3 surfaces are pulled forward when a pilot makes
+   * that vertical the wedge.
+   */
+  ring: 1 | 2 | 3;
 }
 
 /**
@@ -119,30 +149,40 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'copilot',
+    classification: 'optional',
+    ring: 1,
   },
   'operations-center': {
     id: 'operations-center',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'operationsCenter',
+    classification: 'core',
+    ring: 1,
   },
   'quotations': {
     id: 'quotations',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'quotations',
+    classification: 'core',
+    ring: 1,
   },
   'anomaly-detection': {
     id: 'anomaly-detection',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'anomalyDetection',
+    classification: 'optional',
+    ring: 1,
   },
   'semantic-search': {
     id: 'semantic-search',
     defaultEnabled: true,
     adminVisibilityRole: 'admin',
     i18nKey: 'semanticSearch',
+    classification: 'optional',
+    ring: 1,
   },
   // ENG-069 — surface modules default OFF so existing tenants do not
   // see new sidebar entries appear after the kernel ships. The
@@ -153,24 +193,32 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'posTouch',
+    classification: 'optional',
+    ring: 2,
   },
   'kds': {
     id: 'kds',
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'kds',
+    classification: 'optional',
+    ring: 2,
   },
   'customer-display': {
     id: 'customer-display',
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'customerDisplay',
+    classification: 'optional',
+    ring: 2,
   },
   'mobile-waiter': {
     id: 'mobile-waiter',
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'mobileWaiter',
+    classification: 'optional',
+    ring: 2,
   },
   // ENG-070 — Public events module. Default OFF so existing tenants
   // do not start emitting webhooks on ship; operators opt-in per
@@ -181,6 +229,8 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'eventsApi',
+    classification: 'optional',
+    ring: 1,
   },
   // ENG-091 — Domicilios touch V5. Gates the `/delivery` UI route.
   // The server `deliveryOrders.*` router enforces role + site scopes
@@ -192,8 +242,29 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'delivery',
+    classification: 'optional',
+    ring: 2,
   },
 };
+
+/**
+ * ENG-183 — the explicit module profile written into `settings.modules`
+ * for a fresh RETAIL tenant at creation time (see `db/seed.ts`). Derived
+ * from the manifest so it can never drift: a module is ON only when its
+ * `classification` is `core`, so a fresh retail tenant sees only the
+ * Ring-1 sellability surfaces (operations + quotations) plus the always-on
+ * non-gated core (sales, inventory, catalog, customers, setup). Restaurant
+ * / KDS / customer-display / mobile-waiter / delivery / public-API / AI
+ * modules stay OFF until an admin enables them per tenant via
+ * `/company?tab=modules`.
+ *
+ * Written EXPLICITLY (every id present) rather than relying on
+ * `defaultEnabled`, so it never depends on — and never silently flips —
+ * the resolution fallback that preserves existing tenants.
+ */
+export const RING1_RETAIL_PROFILE: Record<ModuleId, boolean> = Object.fromEntries(
+  MODULE_IDS.map(id => [id, MODULES_MANIFEST[id].classification === 'core']),
+) as Record<ModuleId, boolean>;
 
 const MODULE_ID_SET: ReadonlySet<string> = new Set(MODULE_IDS);
 

@@ -244,7 +244,7 @@ function SidebarWorkspaces({
 }) {
   const { t: tNav } = useTranslation('nav');
   const { t: tWorkspaces } = useTranslation('workspaces');
-  const { modules } = useModulesSnapshot();
+  const { modules, isPlaceholder } = useModulesSnapshot();
   const location = useLocation();
   // ENG-171 — warm the SalesPage entry queries on hover/focus of the
   // /sales nav link (threaded into SidebarWorkspaceSection → NavigationLink).
@@ -257,7 +257,8 @@ function SidebarWorkspaces({
   // + zero counts when ai.enabled is off, so an unconfigured tenant
   // pays only one cheap settings read.
   const isManagerOrAdmin = (managerOrAdminRoles as readonly string[]).includes(role ?? '');
-  const anomalyModuleActive = modules['anomaly-detection'] ?? CLIENT_MODULE_DEFAULTS['anomaly-detection'];
+  const anomalyModuleActive =
+    !isPlaceholder && (modules['anomaly-detection'] ?? CLIENT_MODULE_DEFAULTS['anomaly-detection']);
   const anomaliesQuery = trpc.ai.anomalies.list.useQuery(
     {},
     {
@@ -273,7 +274,7 @@ function SidebarWorkspaces({
 
   const visibleDashboard =
     (TOP_LEVEL_DASHBOARD.allowedRoles as readonly string[]).includes(role ?? '');
-  const workspaces = visibleWorkspacesForRole(role, modules);
+  const workspaces = visibleWorkspacesForRole(role, modules, !isPlaceholder);
 
   return (
     <div className={cn('space-y-3', collapsed && 'space-y-2')}>

@@ -108,7 +108,21 @@ describe('visibleItemsForWorkspace', () => {
     const sell = WORKSPACES.find(w => w.id === 'sell')!;
     const result = visibleItemsForWorkspace(sell, 'admin', { kds: false });
     expect(result.some(i => i.href === '/kds')).toBe(false);
+    expect(result.some(i => i.href === '/co-pilot')).toBe(false);
     expect(result.some(i => i.href === '/sales')).toBe(true);
+  });
+
+  it('drops module-gated items while the module snapshot is still hydrating', () => {
+    const procurement = WORKSPACES.find(w => w.id === 'procurement')!;
+    const result = visibleItemsForWorkspace(
+      procurement,
+      'admin',
+      { quotations: true, delivery: true },
+      false
+    );
+    expect(result.some(i => i.href === '/quotations')).toBe(false);
+    expect(result.some(i => i.href === '/delivery')).toBe(false);
+    expect(result.some(i => i.href === '/orders')).toBe(true);
   });
 
   it('drops items the role cannot access', () => {
