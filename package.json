@@ -39,7 +39,6 @@
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.10.0",
-    "concurrently": "^9.2.1",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3"
   },

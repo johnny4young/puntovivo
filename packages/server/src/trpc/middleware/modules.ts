@@ -30,7 +30,6 @@ import {
   cashierManagerOrAdminProcedure,
   managerOrAdminProcedure,
 } from './roles.js';
-import { tenantProcedure } from './tenant.js';
 
 /**
  * Read `tenants.settings.modules` and resolve whether `moduleId` is
@@ -112,14 +111,4 @@ export function managerOrAdminProcedureWithModule(moduleId: ModuleId) {
  */
 export function cashierManagerOrAdminProcedureWithModule(moduleId: ModuleId) {
   return cashierManagerOrAdminProcedure.use(createModuleGuard(moduleId));
-}
-
-/**
- * Tenant-scope (no role floor) procedure that ALSO requires the
- * named module. Useful for read-only endpoints that any logged-in
- * user can hit but the module's whole feature surface is gated
- * away.
- */
-export function tenantProcedureWithModule(moduleId: ModuleId) {
-  return tenantProcedure.use(createModuleGuard(moduleId));
 }

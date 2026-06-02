@@ -120,24 +120,6 @@ export async function storeDeviceId(deviceId: string): Promise<void> {
   cachedDeviceId = deviceId;
 }
 
-/**
- * Clear the persisted device id (e.g. on logout when the operator
- * wants to re-register from scratch). The header header drops
- * automatically because `getStoredDeviceIdSync()` returns null
- * after the clear.
- */
-export async function clearDeviceId(): Promise<void> {
-  cachedDeviceId = null;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    // localStorage removeItem rarely fails, but a quota / private-mode
-    // reload can race with logout cleanup. Cache is cleared either
-    // way, so the next request ships no `x-device-id` header.
-    warnDeviceIdFailure('localStorage removeItem failed during clearDeviceId', error);
-  }
-}
-
 // Synchronous in-memory cache so the tRPC headers function (which
 // must be sync) can read the id without an await. Populated by
 // `primeDeviceIdCache()` (called once at app boot) and updated by

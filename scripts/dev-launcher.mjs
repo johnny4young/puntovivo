@@ -217,6 +217,60 @@ async function freePort(port) {
 }
 
 /**
+ * Stop orphaned `dev-launcher` wrappers left behind by background `dev:*` runs.
+ *
+ * `freePort()` only kills the process LISTENING on a port (the inner
+ * `tsx watch` / Vite child). When a `dev:server` / `dev:web` is started as a
+ * detached background task, its parent `node dev-launcher.mjs <mode>` keeps
+ * blocking on the final `await new Promise(() => {})` even after that listener
+ * dies — so the launching shell/task never observes an exit and the process
+ * shows as perpetually "running". This sweep SIGTERMs every OTHER
+ * `dev-launcher.mjs` process (each then runs its own SIGTERM shutdown, which
+ * cascades to its detached child group), escalating to SIGKILL for any that
+ * ignore the grace period. macOS/Linux only, mirroring `freePort()`'s platform
+ * stance; on Windows the wrapper sweep is skipped (use `taskkill`).
+ */
+async function killStrayLaunchers() {
+  if (isWindows) {
+    log('Skipping stray dev-launcher cleanup on Windows');
+    return;
+  }
+
+  let output = '';
+  try {
+    output = runCapture('pgrep', ['-f', 'dev-launcher\\.mjs']);
+  } catch {
+    // pgrep exits non-zero when nothing matches — nothing to clean up.
+    return;
+  }
+
+  const pids = output
+    .split('\n')
+    .map(value => Number.parseInt(value, 10))
+    .filter(pid => Number.isFinite(pid) && pid !== process.pid && pid !== process.ppid);
+
+  if (pids.length === 0) {
+    return;
+  }
+
+  log(`Stopping ${pids.length} stray dev-launcher process(es): ${pids.join(', ')}`);
+  for (const pid of pids) {
+    killPid(pid, 'SIGTERM');
+  }
+
+  await delay(700);
+
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 0);
+      killPid(pid, 'SIGKILL');
+    } catch {
+      // Wrapper already exited after its graceful shutdown.
+    }
+  }
+}
+
+/**
  * Poll a readiness endpoint before starting a dependent process.
  *
  * This is what keeps `desktop` from launching Electron before Vite serves the
@@ -314,6 +368,7 @@ for (const port of config.ports) {
 }
 
 if (mode === 'stop') {
+  await killStrayLaunchers();
   log('Stopped known dev ports');
   process.exit(0);
 }

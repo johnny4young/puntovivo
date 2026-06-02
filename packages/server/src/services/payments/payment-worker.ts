@@ -429,17 +429,3 @@ export async function advanceLastImportedAt(args: AdvanceMarkerArgs): Promise<vo
     .set({ settings, updatedAt: new Date().toISOString() })
     .where(eq(tenants.id, args.tenantId));
 }
-
-// =============================================================================
-// Default singleton (boot-time wiring)
-// =============================================================================
-
-let defaultWorker: PaymentWorker | null = null;
-
-export function setDefaultPaymentWorker(worker: PaymentWorker | null): void {
-  defaultWorker = worker;
-}
-
-export function getDefaultPaymentWorker(): PaymentWorker | null {
-  return defaultWorker;
-}

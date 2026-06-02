@@ -70,15 +70,3 @@ export function resolveTenantCurrency(
     .get();
   return row?.code ?? TENANT_CURRENCY_FALLBACK;
 }
-
-/**
- * Tiny ergonomic wrapper for building `{ amount, currencyCode }` DTOs
- * at API boundaries. Pure — no IO. Use it when shaping a response or
- * a tRPC procedure output so the call site reads as one expression.
- */
-export function withCurrency(
-  amount: number,
-  currencyCode: string,
-): { amount: number; currencyCode: string } {
-  return { amount, currencyCode };
-}

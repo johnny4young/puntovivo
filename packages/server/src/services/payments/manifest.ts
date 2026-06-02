@@ -126,10 +126,6 @@ export function buildPaymentRailsContract(): PaymentRailsContract {
   };
 }
 
-export function isPaymentRailId(value: string): value is PaymentRailId {
-  return (PAYMENT_RAIL_IDS as readonly string[]).includes(value);
-}
-
 /**
  * ENG-038 slice 2 — per-rail credential descriptor.
  *
@@ -186,17 +182,3 @@ export const CREDENTIAL_FIELDS_BY_RAIL: Record<
     { key: 'merchantId', labelKey: 'merchantId', required: true, sensitive: true },
   ],
 };
-
-/** Convenience: declared field keys for a rail. */
-export function getCredentialFieldKeys(railId: PaymentRailId): readonly string[] {
-  return CREDENTIAL_FIELDS_BY_RAIL[railId].map(field => field.key);
-}
-
-/** Convenience: required credential keys for a rail (subset of declared). */
-export function getRequiredCredentialFieldKeys(
-  railId: PaymentRailId
-): readonly string[] {
-  return CREDENTIAL_FIELDS_BY_RAIL[railId]
-    .filter(field => field.required)
-    .map(field => field.key);
-}

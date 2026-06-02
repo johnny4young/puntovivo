@@ -734,6 +734,23 @@
       "departments": "Departments",
       "cities": "Cities"
     },
+    "toasts": {
+      "countryUpdated": "Country updated",
+      "countryCreated": "Country created",
+      "countrySaveError": "Unable to save country",
+      "countryDeleted": "Country deleted",
+      "countryDeleteError": "Unable to delete country",
+      "departmentUpdated": "Department updated",
+      "departmentCreated": "Department created",
+      "departmentSaveError": "Unable to save department",
+      "departmentDeleted": "Department deleted",
+      "departmentDeleteError": "Unable to delete department",
+      "cityUpdated": "City updated",
+      "cityCreated": "City created",
+      "citySaveError": "Unable to save city",
+      "cityDeleted": "City deleted",
+      "cityDeleteError": "Unable to delete city"
+    },
     "countries": {
       "description": "Manage the normalized country catalog used by department, city, and supplier records.",
       "add": "Add Country",

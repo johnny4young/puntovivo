@@ -37,10 +37,7 @@ import {
   createHardwareWorker,
   setDefaultHardwareWorker,
 } from './services/peripherals/hardware-worker.js';
-import {
-  createPaymentWorker,
-  setDefaultPaymentWorker,
-} from './services/payments/payment-worker.js';
+import { createPaymentWorker } from './services/payments/payment-worker.js';
 import { createLoginAttemptsCleanup } from './services/cleanup/loginAttemptsCleanup.js';
 import { INVOICE_OCR_MAX_BYTES } from './services/ai/vision/invoice-ocr.js';
 import { ssePlugin } from './realtime/sse.js';
@@ -656,10 +653,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // fixture fetcher. Without `fetchStatement` Timer B + catch-up
   // short-circuit on `skippedReason='fetcher-missing'`.
   const paymentWorker = createPaymentWorker({ db });
-  setDefaultPaymentWorker(paymentWorker);
   app.addHook('onClose', async () => {
     await paymentWorker.stop();
-    setDefaultPaymentWorker(null);
   });
 
   // ENG-168 — login_attempts cleanup worker. Same pattern as the

@@ -91,26 +91,6 @@ export function randomDaysAgoIso(
 }
 
 /**
- * Distribute a count of events across a day range. Returns an array
- * of length `count` where each entry is the daysAgo offset for that
- * event. The distribution is roughly uniform but uses a deterministic
- * golden-ratio walk so the seed is reproducible.
- */
-export function distributeAcrossDays(
-  count: number,
-  daysAgoMin: number,
-  daysAgoMax: number
-): number[] {
-  const span = Math.max(1, daysAgoMax - daysAgoMin);
-  const result: number[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const fraction = ((i + 1) * 0.6180339887) % 1;
-    result.push(daysAgoMin + fraction * span);
-  }
-  return result;
-}
-
-/**
  * Subtract a small random offset (in millis) so `createdAt` differs
  * from `updatedAt` for rows that get amended after creation. Useful
  * for refunds, voids, transfer receipts.

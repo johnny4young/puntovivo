@@ -275,7 +275,7 @@ Web (i18n parity + lint + build).
 
 ```
 packages/server/src/db/schema.ts                                 # receiptTemplates table + enums
-packages/server/src/db/index.ts                                  # raw DDL + partial unique
+packages/server/src/db/index.ts                                  # catalog seeding + PRAGMA (schema via migrations)
 packages/server/src/db/migrations/0001_receipt_templates.sql     # Drizzle migration (partial unique appended)
 packages/server/src/lib/errorCodes.ts                            # RECEIPT_TEMPLATE_* codes
 packages/server/src/services/receipt-templates.ts                # CRUD + default-flip transactions

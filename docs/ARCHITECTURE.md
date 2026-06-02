@@ -67,7 +67,7 @@ apps/
     src/services/   Export and offline storage helpers
 packages/
   server/
-    src/db/         Drizzle schema + raw DDL bootstrap + seed
+    src/db/         Drizzle schema + migrations + catalog seed
     src/trpc/       Context, middleware, routers, schemas
     src/realtime/   SSE support
 docs/               Project documentation
@@ -108,7 +108,7 @@ Current role model:
 
 ### Root router surface
 
-The current root router assembles 31 routers:
+The current root router assembles 53 routers:
 
 - Core: `health`, `auth`, `users`
 - Tenant master data: `companies`, `sites`, `sequentials`, `locations`, `logos`
@@ -119,6 +119,11 @@ The current root router assembles 31 routers:
 - Sales: `sales`, `cashSessions`, `quotations`
 - Inventory: `inventory`, `transfers`
 - Operations: `dashboard`, `sync`, `auditLogs`
+- Fiscal and documents: `receiptTemplates`, `fiscalSettings`, `reports`
+- Payments: `payments`, `paymentSettings`
+- Peripherals and surfaces: `peripherals`, `surfaces`, `modules`, `events`, `observability`, `authority`
+- Restaurant and delivery: `restaurantTables`, `restaurantSettings`, `kds`, `deliveryOrders`
+- AI, locale, and misc: `ai`, `tenantLocale`, `customerLedger`, `setupReadiness`, `whatsNew`, `upload`
 
 Source: [packages/server/src/trpc/router.ts](../packages/server/src/trpc/router.ts)
 

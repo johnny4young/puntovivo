@@ -209,7 +209,7 @@ export function Modal({
       <div
         ref={modalRef}
         className={cn(
-          'modal-shell max-h-[min(92vh,56rem)] animate-slide-in sm:max-h-[90vh]',
+          'modal-shell max-h-[min(92vh,56rem)] animate-pop-in sm:max-h-[90vh]',
           sizeClasses[size],
           className
         )}

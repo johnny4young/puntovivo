@@ -15,10 +15,10 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import type { DatabaseInstance } from '../../db/index.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { companies, locationXSite, locations, sequentials, sites } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
@@ -29,24 +29,6 @@ import {
   replaceSiteLocationAssignmentsInput,
   updateSiteInput,
 } from '../schemas/sites.js';
-
-async function ensureTenantSite(
-  db: DatabaseInstance,
-  tenantId: string,
-  siteId: string
-) {
-  const site = await db
-    .select()
-    .from(sites)
-    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
-    .get();
-
-  if (!site) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
-  }
-
-  return site;
-}
 
 export const sitesRouter = router({
   list: tenantProcedure.input(listSitesInput).query(async ({ ctx, input }) => {

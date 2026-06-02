@@ -214,8 +214,6 @@ export function getNormalizedSaleQuantity(quantity: number, equivalence: number)
   return normalizedQuantity;
 }
 
-export const PAYMENT_SUM_EPSILON_VALUE = PAYMENT_SUM_EPSILON;
-
 /**
  * Concatenate a "Voided: <reason>" suffix onto an existing sale's
  * notes string. Pure: no DB access. Returns the original notes when

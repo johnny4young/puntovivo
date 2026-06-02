@@ -666,5 +666,3 @@ export const exportService = {
   exportToPDF,
   printTable,
 };
-
-export default exportService;

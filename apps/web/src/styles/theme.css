@@ -318,12 +318,6 @@
   --danger-600: oklch(0.57 0.18 24);
   --danger-700: oklch(0.49 0.15 24);
 
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.4rem;
-  --radius-xl: 1.75rem;
-  --radius-2xl: 2rem;
-
   /* Rediseño FASE 0 — global keyboard-focus ring. Box-shadow form so it
    * follows the element border-radius and never clips inside
    * overflow:hidden surfaces. The base layer applies an `outline` ring

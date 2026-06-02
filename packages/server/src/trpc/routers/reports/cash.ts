@@ -194,7 +194,3 @@ export const cashReportsRouter = router({
 });
 
 export type CashReportsRouter = typeof cashReportsRouter;
-
-// Re-exported for tests so the assertion threshold tracks the source.
-export const __TEST_CASH_OVER_SHORT_EPSILON = CASH_OVER_SHORT_EPSILON;
-export const __TEST_RECENT_CLOSURE_WINDOW_DAYS = RECENT_CLOSURE_WINDOW_DAYS;

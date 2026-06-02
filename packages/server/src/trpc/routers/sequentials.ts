@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { sequentials, sites } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
@@ -46,15 +47,7 @@ export const sequentialsRouter = router({
   }),
 
   upsert: adminProcedure.input(upsertSequentialInput).mutation(async ({ ctx, input }) => {
-    const site = await ctx.db
-      .select()
-      .from(sites)
-      .where(and(eq(sites.id, input.siteId), eq(sites.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!site) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
-    }
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
     const now = new Date().toISOString();
     const existing = await ctx.db

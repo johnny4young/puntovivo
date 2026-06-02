@@ -18,6 +18,7 @@ import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import {
   categories,
@@ -68,20 +69,6 @@ async function getProductForInventory(db: Context['db'], tenantId: string, produ
   }
 
   return product;
-}
-
-async function ensureTenantSite(db: Context['db'], tenantId: string, siteId: string) {
-  const site = await db
-    .select({ id: sites.id })
-    .from(sites)
-    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
-    .get();
-
-  if (!site) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
-  }
-
-  return site;
 }
 
 async function lookupInventoryJournalEventId(
