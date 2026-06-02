@@ -97,7 +97,7 @@ export function PeripheralsPage() {
 
   const registerMutation = trpc.peripherals.register.useMutation({
     onSuccess: async () => {
-      await utils.peripherals.list.invalidate();
+      await invalidatePeripheralReadiness();
       toast.success({ title: t('toast.registered') });
       setDialog({ mode: 'closed' });
     },
@@ -106,7 +106,7 @@ export function PeripheralsPage() {
 
   const updateMutation = trpc.peripherals.update.useMutation({
     onSuccess: async () => {
-      await utils.peripherals.list.invalidate();
+      await invalidatePeripheralReadiness();
       toast.success({ title: t('toast.updated') });
       setDialog({ mode: 'closed' });
     },
@@ -115,7 +115,7 @@ export function PeripheralsPage() {
 
   const setActiveMutation = trpc.peripherals.setActive.useMutation({
     onSuccess: async (_data, variables) => {
-      await utils.peripherals.list.invalidate();
+      await invalidatePeripheralReadiness();
       toast.success({
         title: variables.isActive
           ? t('toast.activated')
@@ -135,7 +135,7 @@ export function PeripheralsPage() {
 
   const removeMutation = trpc.peripherals.remove.useMutation({
     onSuccess: async () => {
-      await utils.peripherals.list.invalidate();
+      await invalidatePeripheralReadiness();
       toast.success({ title: t('toast.removed') });
       setPendingDelete(null);
     },
@@ -151,6 +151,14 @@ export function PeripheralsPage() {
     }
     return buckets;
   }, [rows]);
+
+  async function invalidatePeripheralReadiness(): Promise<void> {
+    await Promise.all([
+      utils.peripherals.list.invalidate(),
+      utils.setupReadiness.get.invalidate(),
+      utils.setupReadiness.checkout.invalidate(),
+    ]);
+  }
 
   async function handleSubmit(values: PeripheralFormValues) {
     if (dialog.mode === 'create') {

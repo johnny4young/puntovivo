@@ -18,6 +18,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -39,18 +40,40 @@ const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const paletteOpenerRef = useRef<HTMLElement | null>(null);
   const paletteIsOpen = isAuthenticated && isOpen;
+  const rememberPaletteOpener = useCallback(() => {
+    const active = document.activeElement;
+    paletteOpenerRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+  }, []);
+  const restorePaletteFocus = useCallback(() => {
+    const opener = paletteOpenerRef.current;
+    if (opener?.isConnected) {
+      return opener;
+    }
+    if (window.location.pathname === '/sales') {
+      return document.getElementById('sales-product-search-input');
+    }
+    return null;
+  }, []);
   const openPalette = useCallback(() => {
     if (isAuthenticated) {
+      rememberPaletteOpener();
       setIsOpen(true);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, rememberPaletteOpener]);
   const closePalette = useCallback(() => setIsOpen(false), []);
   const togglePalette = useCallback(() => {
     if (isAuthenticated) {
-      setIsOpen(open => !open);
+      setIsOpen(open => {
+        if (!open) {
+          rememberPaletteOpener();
+        }
+        return !open;
+      });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, rememberPaletteOpener]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -75,11 +98,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       }
 
       event.preventDefault();
+      rememberPaletteOpener();
       setIsOpen(true);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isAuthenticated, paletteIsOpen]);
+  }, [isAuthenticated, paletteIsOpen, rememberPaletteOpener]);
 
   // Mark the body whenever the palette is open so the global
   // listener above knows to short-circuit. Pairs with the
@@ -109,7 +133,11 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   return (
     <CommandPaletteContext.Provider value={value}>
       {children}
-      <CommandPalette isOpen={paletteIsOpen} onClose={closePalette} />
+      <CommandPalette
+        isOpen={paletteIsOpen}
+        onClose={closePalette}
+        restoreFocusTo={restorePaletteFocus}
+      />
     </CommandPaletteContext.Provider>
   );
 }

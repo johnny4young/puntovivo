@@ -62,6 +62,25 @@ export const updateClFiscalSettingsInput = z.object({
 });
 
 /**
+ * ENG-184 — Input parcial de `fiscal.settings.updateCo`. Captura la
+ * config básica de DIAN de Colombia: NIT del emisor, número de
+ * resolución de numeración, prefijo, rango autorizado (from/to) y
+ * ambiente. La validación semántica (NIT, orden del rango) vive en el
+ * router; el switch maestro `enabled` se persiste en el flag legacy
+ * `tenants.settings.fiscal_dian_enabled`. La transmisión real + el
+ * certificado siguen mock / gated en ENG-021.
+ */
+export const updateCoFiscalSettingsInput = z.object({
+  enabled: z.boolean().optional(),
+  nit: z.string().trim().min(1).max(20).optional().nullable(),
+  dianResolutionNumber: z.string().trim().min(1).max(40).optional().nullable(),
+  prefix: z.string().trim().min(1).max(10).optional().nullable(),
+  rangeFrom: z.number().int().positive().optional().nullable(),
+  rangeTo: z.number().int().positive().optional().nullable(),
+  environment: z.enum(['habilitacion', 'produccion']).optional(),
+});
+
+/**
  * ENG-036b — Input para `fiscal.settings.getActiveCaf`. Surface
  * read-only que la admin tab consume para mostrar el estado del CAF
  * activo (folios disponibles, rango). El countryCode debe ser 'CL';
@@ -80,5 +99,8 @@ export type UpdateMxFiscalSettingsInput = z.infer<
 >;
 export type UpdateClFiscalSettingsInput = z.infer<
   typeof updateClFiscalSettingsInput
+>;
+export type UpdateCoFiscalSettingsInput = z.infer<
+  typeof updateCoFiscalSettingsInput
 >;
 export type GetActiveCafInput = z.infer<typeof getActiveCafInput>;

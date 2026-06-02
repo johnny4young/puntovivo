@@ -112,6 +112,10 @@ vi.mock('@/lib/trpc', () => ({
       tenantLocale: {
         get: { invalidate },
       },
+      setupReadiness: {
+        get: { invalidate },
+        checkout: { invalidate },
+      },
     }),
     tenantLocale: {
       get: {

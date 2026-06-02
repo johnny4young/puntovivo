@@ -130,8 +130,43 @@
       "kicker": "Perfil fiscal"
     },
     "co": {
+      "kicker": "Perfil fiscal",
       "title": "Colombia — DIAN",
-      "comingSoon": "Los ajustes fiscales de Colombia se configuran por ahora en la pestaña Localización. Pronto se trasladarán a esta sección."
+      "emptyTitle": "La facturación electrónica DIAN es opcional",
+      "emptyDescription": "Puedes seguir vendiendo sin ella. Configura la DIAN cuando estés listo para emitir facturas electrónicas — tu tienda sigue operativa de cualquier forma.",
+      "emptyCta": "Configurar DIAN",
+      "fields": {
+        "enabled": "Activar facturación electrónica DIAN",
+        "enabledHelp": "Opcional. Cuando está activa, las ventas completadas emitirán una factura electrónica DIAN una vez que la transmisión esté disponible. Hoy esto captura la configuración del emisor y habilita el recordatorio de preparación.",
+        "nit": "NIT del emisor",
+        "nitHelp": "De 9 a 10 dígitos, con dígito de verificación opcional.",
+        "nitPlaceholder": "ej. 900123456-7",
+        "resolution": "Resolución de numeración DIAN",
+        "resolutionHelp": "El número de resolución que autoriza tu rango de facturas.",
+        "resolutionPlaceholder": "ej. 18760000001",
+        "prefix": "Prefijo de factura",
+        "prefixPlaceholder": "ej. SETP",
+        "rangeFrom": "Rango desde",
+        "rangeFromPlaceholder": "ej. 1",
+        "rangeTo": "Rango hasta",
+        "rangeToPlaceholder": "ej. 5000",
+        "environment": "Ambiente",
+        "environmentHabilitacion": "Habilitación (pruebas)",
+        "environmentProduccion": "Producción"
+      },
+      "issueCodes": {
+        "MISSING_NIT": "Falta el NIT del emisor",
+        "MISSING_RESOLUTION": "Falta la resolución de numeración DIAN",
+        "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido"
+      },
+      "actions": {
+        "save": "Guardar",
+        "saving": "Guardando..."
+      },
+      "toast": {
+        "saved": "Ajustes fiscales de Colombia guardados",
+        "saveError": "No se pudieron guardar los ajustes fiscales de Colombia"
+      }
     },
     "cl": {
       "title": "Chile — SII",

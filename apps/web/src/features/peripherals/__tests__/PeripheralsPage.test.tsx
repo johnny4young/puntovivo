@@ -95,6 +95,10 @@ vi.mock('@/lib/trpc', () => ({
       peripherals: {
         list: { invalidate: vi.fn(async () => undefined) },
       },
+      setupReadiness: {
+        get: { invalidate: vi.fn(async () => undefined) },
+        checkout: { invalidate: vi.fn(async () => undefined) },
+      },
     }),
     sites: {
       list: {

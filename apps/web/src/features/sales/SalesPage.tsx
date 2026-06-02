@@ -1,4 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
@@ -19,7 +20,11 @@ import {
 } from '@/features/sales/CashSessionOpenModal';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
-import { useCheckoutPreflight } from '@/features/sales/useCheckoutPreflight';
+import {
+  useCheckoutPreflight,
+  type PreflightBlockerId,
+  type PreflightItem,
+} from '@/features/sales/useCheckoutPreflight';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
 import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
@@ -558,6 +563,49 @@ export function SalesPage() {
   // blocker families, leaving the current modal-level fallback toasts
   // in place. Future slices will plumb pre-attach customer / cart-level
   // discount through here.
+  // ENG-184 — checkout readiness reminders from the server (fiscal not
+  // active, no printer, no payment rail, sync backlog). Loading / errored
+  // → no items, so a slow or offline server NEVER blocks the sale
+  // (local-first). All warnings; cashiers see the message, only
+  // manager/admin get the navigation CTA (setup surfaces are admin-gated).
+  const navigate = useNavigate();
+  const checkoutReadinessQuery = trpc.setupReadiness.checkout.useQuery(
+    { siteId: currentSite?.id ?? '' },
+    { enabled: !!currentSite, staleTime: 60_000 }
+  );
+  const canNavigateToSetup =
+    user?.role === 'admin' || user?.role === 'manager';
+  const checkoutReadinessItems = useMemo<PreflightItem[]>(() => {
+    const items = checkoutReadinessQuery.data?.items;
+    if (!items || items.length === 0) return [];
+    const preflightId: Record<string, PreflightBlockerId> = {
+      fiscal: 'fiscal_not_active',
+      receipt_hardware: 'receipt_hardware_missing',
+      payment_rail: 'payment_rail_missing',
+      sync: 'sync_backlog',
+    };
+    return items.map(item => {
+      const id = preflightId[item.id] ?? 'sync_backlog';
+      const href = item.cta
+        ? item.cta.tab
+          ? `${item.cta.route}?tab=${item.cta.tab}`
+          : item.cta.route
+        : null;
+      return {
+        id,
+        severity: item.severity,
+        messageKey: `preflight.items.${id}.message`,
+        recoveryAction:
+          href && canNavigateToSetup
+            ? {
+                labelKey: `preflight.items.${id}.recovery`,
+                onClick: () => navigate(href),
+              }
+            : undefined,
+      };
+    });
+  }, [checkoutReadinessQuery.data, canNavigateToSetup, navigate]);
+
   const preflight = useCheckoutPreflight({
     cartItems,
     cartSummary: draftSummary,
@@ -570,6 +618,7 @@ export function SalesPage() {
     recovery: {
       onOpenCashSession: () => handleOpenCashSessionModal(),
     },
+    serverItems: checkoutReadinessItems,
   });
   const sales = (salesQuery.data?.items ?? []) as Sale[];
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(

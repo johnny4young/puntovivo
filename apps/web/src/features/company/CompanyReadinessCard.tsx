@@ -15,8 +15,9 @@
  *   - A `.pv-ring` progress ring + "{ready} de {total} listos · {n}
  *     bloqueador(es)" tells the readiness story at a glance.
  *   - The remaining steps group by state into `.pv-check` lists:
- *     completed (`ready` → ic.done) and optional (`optional-pending`
- *     and `not-applicable` → ic.opt). The closing CTA is contextual:
+ *     attention (`warning` → ic.opt + alert glyph), completed
+ *     (`ready` → ic.done), and optional (`optional-pending` and
+ *     `not-applicable` → ic.opt). The closing CTA is contextual:
  *     "Resolver bloqueador" while one remains, "Abrir tienda" once
  *     none do.
  *
@@ -29,6 +30,7 @@
  *   - `ready` → Check (ic.done)
  *   - `blocker` → AlertTriangle (ic.block)
  *   - `optional-pending` → Clock (ic.opt)
+ *   - `warning` → AlertTriangle (ic.opt)
  *   - `not-applicable` → Minus (ic.opt, muted)
  *
  * @module features/company/CompanyReadinessCard
@@ -45,7 +47,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 
-type SectionStatus = 'ready' | 'blocker' | 'optional-pending' | 'not-applicable';
+type SectionStatus =
+  | 'ready'
+  | 'blocker'
+  | 'optional-pending'
+  | 'warning'
+  | 'not-applicable';
 
 /**
  * Renders the round status chip used inside every `.pv-check` row. The
@@ -71,6 +78,14 @@ function StatusChip({ status, label }: { status: SectionStatus; label: string })
       return (
         <span className="ic opt">
           <Clock className="h-3.5 w-3.5" aria-label={label} />
+        </span>
+      );
+    case 'warning':
+      // ENG-184 — configured-but-degraded / opt-in reminder. Amber
+      // attention glyph, distinct from the red blocker chip.
+      return (
+        <span className="ic opt">
+          <AlertTriangle className="h-3.5 w-3.5" aria-label={label} />
         </span>
       );
     case 'not-applicable':
@@ -114,7 +129,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
   const utils = trpc.useUtils();
 
   // React Query staleTime keeps the call out of the hot path. The
-  // payload is small (10 sections + score) so refetching on focus is
+  // payload is small (11 sections + score) so refetching on focus is
   // cheap when the operator returns to the tab after editing another
   // setting card.
   const readinessQuery = trpc.setupReadiness.get.useQuery(undefined, {
@@ -162,13 +177,16 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
   }, [readinessQuery.data]);
 
   // Group sections by state so the render can hoist blockers to the top
-  // strip and lay the rest out under "Completados" / "Opcionales".
+  // strip and lay the rest out under attention / completed / optional.
   // Not-applicable rows fold into the optional group (non-blocking,
-  // informational) so all 10 sections still render with their testids.
+  // informational) so all 11 sections still render with their testids.
   const grouped = useMemo(() => {
     const sections = readinessQuery.data?.sections ?? [];
     return {
       blockers: sections.filter(s => s.status === 'blocker'),
+      // ENG-184 — warnings are a soft "needs attention" group between the
+      // danger blockers and the completed steps. Never block opening.
+      attention: sections.filter(s => s.status === 'warning'),
       completed: sections.filter(s => s.status === 'ready'),
       optional: sections.filter(
         s => s.status === 'optional-pending' || s.status === 'not-applicable'
@@ -218,6 +236,8 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     const hintKey = `readiness.sections.${section.id}.hint`;
     const statusLabelKey = `readiness.status.${section.status}`;
     const isOptionalPending = section.status === 'optional-pending';
+    // ENG-184 — optional-pending + warning render as soft (outline) CTAs.
+    const isSoft = isOptionalPending || section.status === 'warning';
     return (
       <div
         key={section.id}
@@ -233,7 +253,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
         {section.cta && (
           <button
             type="button"
-            className={`pv-btn ${isOptionalPending ? 'outline' : 'ghost'}`}
+            className={`pv-btn ${isSoft ? 'outline' : 'ghost'}`}
             style={{ minHeight: 36 }}
             onClick={() => handleSectionCta(section.cta!)}
             data-testid={`company-readiness-cta-${section.id}`}
@@ -321,6 +341,15 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               </div>
             );
           })}
+        </div>
+      )}
+
+      {grouped.attention.length > 0 && (
+        <div data-testid="company-readiness-attention">
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning-700">
+            {t('readiness.group.attention')}
+          </p>
+          <div className="mt-2">{grouped.attention.map(renderSectionRow)}</div>
         </div>
       )}
 

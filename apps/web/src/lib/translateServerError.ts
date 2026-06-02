@@ -114,6 +114,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'FISCAL_REGIMEN_INVALID',
   // --- ENG-036a pack Chile fundación ---
   'FISCAL_RUT_INVALID',
+  // --- ENG-184 pack Colombia config card ---
+  'FISCAL_NIT_INVALID',
+  'FISCAL_NUMBERING_RANGE_INVALID',
   // --- Fiscal document recovery ---
   'FISCAL_DOCUMENT_NOT_FOUND',
   // --- ENG-030 AI foundation ---

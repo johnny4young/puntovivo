@@ -24,7 +24,9 @@ import { getDatabase } from '../db/index.js';
 import {
   companies,
   products,
+  sitePeripherals,
   sites,
+  tenantLocaleSettings,
   tenants,
   users,
   type NewProduct,
@@ -184,10 +186,10 @@ beforeEach(async () => {
 });
 
 describe('setupReadiness (ENG-104)', () => {
-  it('returns a stable 10-section shape for a fresh tenant', async () => {
+  it('returns a stable 11-section shape for a fresh tenant', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.get();
-    expect(result.sections).toHaveLength(10);
+    expect(result.sections).toHaveLength(11);
     const ids = result.sections.map(s => s.id).sort();
     expect(ids).toEqual(
       [
@@ -200,6 +202,7 @@ describe('setupReadiness (ENG-104)', () => {
         'payments',
         'peripherals',
         'sites',
+        'sync',
         'users',
       ].sort()
     );
@@ -239,6 +242,7 @@ describe('setupReadiness (ENG-104)', () => {
     expect(ctas.users).toEqual({ route: '/users' });
     expect(ctas.catalog).toEqual({ route: '/products' });
     expect(ctas.cashSession).toEqual({ route: '/sales' });
+    expect(ctas.sync).toEqual({ route: '/operations' });
   });
 
   it('flips catalog to ready as soon as one product exists', async () => {
@@ -341,5 +345,194 @@ describe('setupReadiness (ENG-104)', () => {
 
     const foreign = await callerB.setupReadiness.get();
     expect(foreign.acknowledgedAt).toBeNull();
+  });
+});
+
+describe('setupReadiness — Colombia profile + checkout (ENG-184)', () => {
+  let coTenantId: string;
+  let coAdminId: string;
+  let coCashierId: string;
+  let coSiteId: string;
+
+  async function setCoSettings(settings: Record<string, unknown>) {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings })
+      .where(eq(tenants.id, coTenantId));
+  }
+
+  beforeAll(async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    coTenantId = nanoid();
+    coAdminId = nanoid();
+    coCashierId = nanoid();
+    coSiteId = nanoid();
+    const coCompanyId = nanoid();
+
+    await db.insert(tenants).values({
+      id: coTenantId,
+      name: 'Readiness CO Tenant',
+      slug: `readiness-co-${coTenantId.slice(0, 8)}`,
+      settings: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+    // The Colombia profile keys on the tenant locale country code.
+    await db.insert(tenantLocaleSettings).values({
+      tenantId: coTenantId,
+      countryCode: 'CO',
+    });
+    await db.insert(companies).values({
+      id: coCompanyId,
+      tenantId: coTenantId,
+      name: 'Readiness CO Company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: coSiteId,
+      tenantId: coTenantId,
+      companyId: coCompanyId,
+      name: 'Readiness CO Site',
+      isActive: true,
+    });
+    await db.insert(users).values([
+      {
+        id: coAdminId,
+        tenantId: coTenantId,
+        email: `readiness-co-admin-${coTenantId.slice(0, 8)}@example.com`,
+        name: 'CO Admin',
+        passwordHash: 'x',
+        sessionVersion: 1,
+        role: 'admin',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: coCashierId,
+        tenantId: coTenantId,
+        email: `readiness-co-cashier-${coTenantId.slice(0, 8)}@example.com`,
+        name: 'CO Cashier',
+        passwordHash: 'x',
+        sessionVersion: 1,
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+  });
+
+  beforeEach(async () => {
+    await setCoSettings({});
+    const db = getDatabase();
+    await db
+      .delete(sitePeripherals)
+      .where(eq(sitePeripherals.tenantId, coTenantId));
+  });
+
+  it('DIAN off → fiscal is an optional-pending reminder, never a blocker', async () => {
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coAdminId })
+    );
+    const result = await caller.setupReadiness.get();
+    const fiscal = result.sections.find(s => s.id === 'fiscal');
+    expect(fiscal?.status).toBe('optional-pending');
+    expect(fiscal?.cta).toEqual({ route: '/company', tab: 'fiscal' });
+    // The whole point of ENG-184: DIAN never blocks for a CO tenant.
+    expect(result.sections.find(s => s.id === 'fiscal')?.status).not.toBe(
+      'blocker'
+    );
+  });
+
+  it('DIAN on but config incomplete → fiscal warning', async () => {
+    await setCoSettings({ fiscal_dian_enabled: true });
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coAdminId })
+    );
+    const result = await caller.setupReadiness.get();
+    expect(result.sections.find(s => s.id === 'fiscal')?.status).toBe('warning');
+  });
+
+  it('DIAN on + complete config → fiscal ready, and scores higher than the incomplete state', async () => {
+    await setCoSettings({ fiscal_dian_enabled: true });
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coAdminId })
+    );
+    const incomplete = await caller.setupReadiness.get();
+
+    await setCoSettings({
+      fiscal_dian_enabled: true,
+      fiscal: {
+        co: {
+          nit: '900123456-7',
+          dianResolutionNumber: '18760000001',
+          rangeFrom: 1,
+          rangeTo: 5000,
+        },
+      },
+    });
+    const complete = await caller.setupReadiness.get();
+    expect(complete.sections.find(s => s.id === 'fiscal')?.status).toBe('ready');
+    // `warning` weighs 0.5, `ready` weighs 1.0 — completing DIAN must
+    // raise the score, never lower it.
+    expect(complete.score).toBeGreaterThan(incomplete.score);
+  });
+
+  it('exposes a sync section that is ready when there is no backlog', async () => {
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coAdminId })
+    );
+    const result = await caller.setupReadiness.get();
+    const sync = result.sections.find(s => s.id === 'sync');
+    expect(sync?.status).toBe('ready');
+  });
+
+  it('checkout returns warning reminders (never a blocker) for an unconfigured CO tenant', async () => {
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+    );
+    const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
+    const ids = result.items.map(i => i.id).sort();
+    expect(ids).toEqual(['fiscal', 'payment_rail', 'receipt_hardware']);
+    // Local-first: every checkout reminder is a warning, never a blocker.
+    expect(result.items.every(i => i.severity === 'warning')).toBe(true);
+  });
+
+  it('checkout drops the receipt-hardware reminder once an active printer exists', async () => {
+    const db = getDatabase();
+    await db.insert(sitePeripherals).values({
+      id: nanoid(),
+      tenantId: coTenantId,
+      siteId: coSiteId,
+      kind: 'printer',
+      driver: 'system',
+      config: {},
+      isActive: true,
+    });
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+    );
+    const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
+    expect(result.items.some(i => i.id === 'receipt_hardware')).toBe(false);
+  });
+
+  it('checkout rejects a siteId from another tenant (ensureTenantSite)', async () => {
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+    );
+    // `siteId` belongs to the primary (non-CO) tenant — must be rejected.
+    await expect(
+      caller.setupReadiness.checkout({ siteId })
+    ).rejects.toThrow();
+  });
+
+  it('checkout returns no reminders for a non-Colombia tenant', async () => {
+    const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
+    const result = await caller.setupReadiness.checkout({ siteId });
+    expect(result.items).toEqual([]);
   });
 });

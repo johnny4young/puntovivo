@@ -10,7 +10,7 @@
  *
  * @module components/feedback/__tests__/CommandPaletteProvider.test
  */
-import { render, screen, act, renderHook } from '@/test/utils';
+import { render, screen, act, renderHook, waitFor } from '@/test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CommandPaletteProvider,
@@ -61,6 +61,8 @@ beforeEach(() => {
 afterEach(() => {
   delete document.body.dataset.commandPaletteOpen;
   document.querySelector('[data-test-owned-dialog]')?.remove();
+  document.querySelector('[data-test-detached-opener]')?.remove();
+  window.history.pushState({}, '', '/');
 });
 
 function dispatchKey(init: KeyboardEventInit) {
@@ -119,6 +121,28 @@ describe('CommandPaletteProvider (ENG-105a)', () => {
     );
     dispatchKey({ key: 'k', ctrlKey: true });
     expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the sales search input when the opener detached before close', async () => {
+    window.history.pushState({}, '', '/sales');
+    const opener = document.createElement('button');
+    opener.textContent = 'Detached opener';
+    opener.dataset.testDetachedOpener = 'true';
+    document.body.append(opener);
+    render(
+      <CommandPaletteProvider>
+        <input id="sales-product-search-input" data-testid="sales-search" />
+      </CommandPaletteProvider>
+    );
+    opener.focus();
+
+    dispatchKey({ key: 'k', ctrlKey: true });
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    opener.remove();
+    dispatchKey({ key: 'k', ctrlKey: true });
+
+    const salesSearch = screen.getByTestId('sales-search');
+    await waitFor(() => expect(document.activeElement).toBe(salesSearch));
   });
 
   it('useCommandPalette throws outside the provider', () => {

@@ -364,6 +364,21 @@ export const SERVER_ERROR_CODES = {
    * el operador intenta persistir un RUT malformado.
    */
   FISCAL_RUT_INVALID: 'FISCAL_RUT_INVALID',
+
+  // --- ENG-184 pack Colombia config card ---
+  /**
+   * El NIT del emisor capturado en los ajustes fiscales de Colombia no
+   * tiene un formato válido (debe ser 9-10 dígitos con dígito de
+   * verificación opcional). Tirado por `fiscal.settings.updateCo`
+   * cuando el operador intenta persistir un NIT malformado.
+   */
+  FISCAL_NIT_INVALID: 'FISCAL_NIT_INVALID',
+  /**
+   * El rango de numeración de la resolución DIAN capturado es inválido
+   * (el consecutivo inicial es mayor que el final, o no son enteros
+   * positivos). Tirado por `fiscal.settings.updateCo`.
+   */
+  FISCAL_NUMBERING_RANGE_INVALID: 'FISCAL_NUMBERING_RANGE_INVALID',
   /**
    * ENG-181 — `services/fiscal/orchestrator.ts` TOCTOU guard: the
    * UPDATE that advances `fiscal_numbering_resolutions.current_number`
