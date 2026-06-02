@@ -439,5 +439,3 @@ function PeripheralKindSection({
     </section>
   );
 }
-
-export default PeripheralsPage;

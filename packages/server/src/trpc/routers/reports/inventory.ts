@@ -102,6 +102,3 @@ export const inventoryReportsRouter = router({
 });
 
 export type InventoryReportsRouter = typeof inventoryReportsRouter;
-
-// Re-exported for tests so the assertion threshold tracks the source.
-export const __TEST_INVENTORY_DELTA_EPSILON = INVENTORY_DELTA_EPSILON;

@@ -80,20 +80,29 @@ and code-quality audit waves:
 - Error-code cleanup, TypeScript strictness, lint tightening, and critical
   logic docblocks.
 
-The active backlog after this audit is `ENG-182..ENG-186` plus the remaining
-pending/gated Plan v3 tickets.
+The focus-reset wave after this audit is `ENG-182`, `ENG-182a`, and
+`ENG-183..ENG-186`; only `ENG-183..ENG-186` remain pending, alongside the
+remaining pending/gated Plan v3 tickets.
 
 ### Archive Migration Status
 
 As of 2026-06-01, the active sprint plan and top-level onboarding docs have
-been compacted, and the 26 most verbose `ROADMAP.md §3b` shipped rows (every
-closeout over ~4,500 characters) were compacted in place to a concise
-one-to-three-sentence closeout that keeps each ticket's scope, the shipped
+been compacted. A first pass compacted the 26 most verbose `ROADMAP.md §3b`
+shipped rows; a second pass (2026-06-01) extended that across the remaining
+verbose `§3b` shipped closeouts and the `§2` Tier inline prose, taking
+`ROADMAP.md` from ~444 KB to ~280 KB, and slimmed `BACKLOG.md` items to
+one-line bullets. Every shipped closeout is now a concise
+one-to-three-sentence summary that keeps the ticket's scope, the shipped
 result, and the acceptance criteria. The full implementation logs live in git
 history; the load-bearing invariants live in the `AGENTS.md` marker index; the
-wave-level narrative lives in the clusters above. `Partial` rows were left
-untouched because their "Remaining:" cell still drives the active pool. When a
-future shipped row grows verbose again, apply the same compaction.
+wave-level narrative lives in the clusters above. `Pending`, `Partial`,
+`Gated`, and `Deferred` rows were left untouched because they still drive the
+active pool. The same pass applied only confirmed-zero-import hygiene (dead
+renderer/storage/component shims, unused deps, shared tenant-site guard, and
+`dev:stop` orphan cleanup) and captured larger cross-cutting follow-ups
+(design-system canonicalization, i18n fallbacks, server duplication) into
+`BACKLOG.md`. When a future shipped row grows verbose again, apply the same
+compaction.
 
 ## ARCHIVED: Retired Or Superseded Planning
 

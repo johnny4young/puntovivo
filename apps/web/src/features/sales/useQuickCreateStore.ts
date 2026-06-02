@@ -133,6 +133,3 @@ export const selectRequestedCreateProduct = (state: QuickCreateStore) =>
 
 export const selectRequestedCreateCustomer = (state: QuickCreateStore) =>
   state.requestedCreateCustomer;
-
-export const selectPendingCustomerAttachId = (state: QuickCreateStore) =>
-  state.pendingCustomerAttachId;

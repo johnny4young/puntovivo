@@ -7,21 +7,19 @@
  * access is manager+ for the ENG-065a Operations Center.
  *
  * Tenant scoping: every procedure validates `siteId` via
- * `ensureSiteBelongsToTenant`, and every WHERE includes
+ * `ensureTenantSite`, and every WHERE includes
  * `eq(sitePeripherals.tenantId, ctx.tenantId)`. Cross-tenant tests
  * cover the gate.
  *
  * @module trpc/routers/peripherals
  */
 
-import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   hardwareOutbox,
   sitePeripherals,
-  sites,
   tenants,
   type PeripheralKind,
 } from '../../db/schema.js';
@@ -51,6 +49,7 @@ import { escposCashDrawerConfigSchema } from '../../services/peripherals/drivers
 import { getSaleRecord } from '../../application/sales/sale-read.js';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import {
   activeForSiteInput,
@@ -67,21 +66,6 @@ import {
   testPeripheralInput,
   updatePeripheralInput,
 } from '../schemas/peripherals.js';
-
-async function ensureSiteBelongsToTenant(
-  db: DatabaseInstance,
-  tenantId: string,
-  siteId: string
-) {
-  const site = await db
-    .select({ id: sites.id })
-    .from(sites)
-    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId)))
-    .get();
-  if (!site) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
-  }
-}
 
 async function loadPeripheralOrThrow(
   db: DatabaseInstance,
@@ -136,7 +120,7 @@ export const peripheralsRouter = router({
   list: managerOrAdminProcedure
     .input(listPeripheralsInput)
     .query(async ({ ctx, input }) => {
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       return ctx.db
         .select()
         .from(sitePeripherals)
@@ -153,7 +137,7 @@ export const peripheralsRouter = router({
   register: adminProcedure
     .input(registerPeripheralInput)
     .mutation(async ({ ctx, input }) => {
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       const validation = validatePeripheralConfig({
         kind: input.kind,
         driver: input.driver,
@@ -325,7 +309,7 @@ export const peripheralsRouter = router({
   activeForSite: tenantProcedure
     .input(activeForSiteInput)
     .query(async ({ ctx, input }) => {
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       const rows = await ctx.db
         .select({
           kind: sitePeripherals.kind,
@@ -367,7 +351,7 @@ export const peripheralsRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
       const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
       // Find the active printer peripheral for the active site.
       const printerRow = await ctx.db
@@ -489,7 +473,7 @@ export const peripheralsRouter = router({
   kickCashDrawer: managerOrAdminProcedure
     .input(kickCashDrawerInput)
     .mutation(async ({ ctx, input }) => {
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       const drawerRow = await ctx.db
         .select()
         .from(sitePeripherals)
@@ -569,7 +553,7 @@ export const peripheralsRouter = router({
    * server only provides bytes.
    *
    * Tenant-scoped via `getSaleRecord(tenantId, saleId)` plus
-   * `ensureSiteBelongsToTenant`. Same role gate as `printReceipt`
+   * `ensureTenantSite`. Same role gate as `printReceipt`
    * (`tenantProcedure` — cashier+).
    */
   buildReceiptBytes: tenantProcedure
@@ -577,7 +561,7 @@ export const peripheralsRouter = router({
     .query(async ({ ctx, input }) => {
       // Cross-tenant guard. Throws SALE_NOT_FOUND for foreign ids.
       const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
       const printerRow = await ctx.db
         .select()
@@ -679,7 +663,7 @@ export const peripheralsRouter = router({
   buildDrawerKickBytes: managerOrAdminProcedure
     .input(buildDrawerKickBytesInput)
     .query(async ({ ctx, input }) => {
-      await ensureSiteBelongsToTenant(ctx.db, ctx.tenantId, input.siteId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
       const drawerRow = await ctx.db
         .select()

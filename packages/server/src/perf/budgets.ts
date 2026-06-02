@@ -112,8 +112,3 @@ export function computePercentile(samples: number[], p: number): number {
   const fraction = rank - lo;
   return sorted[lo]! * (1 - fraction) + sorted[hi]! * fraction;
 }
-
-/** Tested-only helper to clear the cached budget between unit cases. */
-export function __resetPerfBudgetCacheForTests(): void {
-  cached = null;
-}

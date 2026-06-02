@@ -220,7 +220,7 @@ Web component tests use the custom `render()` wrapper in `apps/web/src/test/util
 
 ## Troubleshooting
 
-- **Exit 137 (SIGKILL) when starting `tsx` or running tests**: almost always stale `tsx watch` processes from prior `pnpm run dev:server` sessions holding the SQLite WAL lock. Run `pkill -f "tsx watch src/standalone.ts"; pkill -f "dev-launcher.mjs server"` and retry. `lsof packages/server/data/local.db` lists the offenders. See [docs/DEV-SEED.md](./docs/DEV-SEED.md) §Troubleshooting.
+- **Exit 137 (SIGKILL) when starting `tsx` or running tests**: almost always stale `tsx watch` processes from prior `pnpm run dev:server` sessions holding the SQLite WAL lock. Run `pnpm run dev:stop` first — it frees ports 3000/8090 AND sweeps orphaned `dev-launcher.mjs` wrappers (the cause of background `dev:*` tasks that stay "running" after their listener is killed). If a stray survives, fall back to `pkill -f "tsx watch src/standalone.ts"; pkill -f "dev-launcher.mjs"`. `lsof packages/server/data/local.db` lists the offenders. See [docs/DEV-SEED.md](./docs/DEV-SEED.md) §Troubleshooting.
 - **`UNIQUE constraint failed: ...sale_number`** across multiple sites: sequentials are per-site but `(tenant_id, sale_number)` is tenant-unique. Sites must use different prefixes (e.g. `VTA-N-` vs `VTA-S-`). The dev seed does this automatically.
 
 ## Commit conventions (beyond the basics)

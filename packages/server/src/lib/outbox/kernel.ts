@@ -31,7 +31,7 @@
  * @module lib/outbox/kernel
  */
 
-import { and, asc, desc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, lte, or } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -392,8 +392,3 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
     },
   };
 }
-
-// Suppress unused import — `sql` may be needed by future extensions
-// (e.g. partial unique upserts on sqlite). Keep the import here so the
-// call sites read consistently when the kernel grows.
-void sql;

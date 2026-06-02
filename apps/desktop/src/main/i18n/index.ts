@@ -35,10 +35,6 @@ export function setMainLocale(locale: MainLocale): void {
   currentLocale = locale;
 }
 
-export function getMainLocale(): MainLocale {
-  return currentLocale;
-}
-
 function resolveKey(locale: MainLocale, key: string): string | undefined {
   const segments = key.split('.');
   let cursor: unknown = resources[locale];

@@ -9,7 +9,6 @@
 
 import { nanoid } from 'nanoid';
 import { loginAttempts } from '../schema.js';
-import { daysAgoIso } from './time-helpers.js';
 import type { MegaContext, MegaTarget } from './types.js';
 
 interface CreatedHistoricalAuth {
@@ -100,6 +99,3 @@ export async function seedHistoricalAuth(
 
   return { count: rows.length };
 }
-
-// Dummy export so the helper file matches its peers
-export const __historicalAuthSentinel = daysAgoIso;

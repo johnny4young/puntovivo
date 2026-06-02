@@ -734,6 +734,23 @@
       "departments": "Departamentos",
       "cities": "Ciudades"
     },
+    "toasts": {
+      "countryUpdated": "País actualizado",
+      "countryCreated": "País creado",
+      "countrySaveError": "No se pudo guardar el país",
+      "countryDeleted": "País eliminado",
+      "countryDeleteError": "No se pudo eliminar el país",
+      "departmentUpdated": "Departamento actualizado",
+      "departmentCreated": "Departamento creado",
+      "departmentSaveError": "No se pudo guardar el departamento",
+      "departmentDeleted": "Departamento eliminado",
+      "departmentDeleteError": "No se pudo eliminar el departamento",
+      "cityUpdated": "Ciudad actualizada",
+      "cityCreated": "Ciudad creada",
+      "citySaveError": "No se pudo guardar la ciudad",
+      "cityDeleted": "Ciudad eliminada",
+      "cityDeleteError": "No se pudo eliminar la ciudad"
+    },
     "countries": {
       "description": "Gestiona el catálogo normalizado de países usado por registros de departamentos, ciudades y proveedores.",
       "add": "Agregar país",

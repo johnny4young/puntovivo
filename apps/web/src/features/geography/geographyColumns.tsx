@@ -43,11 +43,19 @@ export function buildCountryColumns(
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canEdit}>
+          <button
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onEdit(row.original)}
+            disabled={!canEdit}
+          >
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (
             <button
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
               onClick={() => onDelete(row.original)}
             >
@@ -106,11 +114,19 @@ export function buildDepartmentColumns(
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canEdit}>
+          <button
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onEdit(row.original)}
+            disabled={!canEdit}
+          >
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (
             <button
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
               onClick={() => onDelete(row.original)}
             >
@@ -175,11 +191,19 @@ export function buildCityColumns(
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)} disabled={!canEdit}>
+          <button
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onEdit(row.original)}
+            disabled={!canEdit}
+          >
             <Pencil className="h-4 w-4" />
           </button>
           {canDelete && (
             <button
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
               onClick={() => onDelete(row.original)}
             >

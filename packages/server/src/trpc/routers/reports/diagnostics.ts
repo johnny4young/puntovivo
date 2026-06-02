@@ -555,7 +555,6 @@ export type DiagnosticsReportsRouter = typeof diagnosticsReportsRouter;
 
 // Re-exported for tests so the assertion threshold tracks the source.
 export const __TEST_ROW_LIMIT = ROW_LIMIT;
-export const __TEST_SCHEMA_VERSION = SCHEMA_VERSION;
 // Re-exported so future ENG-063 / ENG-070 tickets can update the
 // keyset in lockstep with the bundle schema version bump.
 export { ALL_OUTBOX_NAMES };

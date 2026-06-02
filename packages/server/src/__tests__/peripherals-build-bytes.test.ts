@@ -124,7 +124,7 @@ beforeAll(async () => {
   });
   // A site row owned by the foreign tenant so the cross-tenant
   // siteId guard tests have a valid id that scopes to the OTHER
-  // tenant. Without this row, `ensureSiteBelongsToTenant` would
+  // tenant. Without this row, `ensureTenantSite` would
   // fail on missing-id semantics rather than tenant-mismatch
   // semantics — both throw, but the second is what we want to pin.
   // `sites.company_id` is NOT NULL so we mint a foreign company first.
@@ -268,7 +268,7 @@ describe('peripherals.buildReceiptBytes (ENG-074b)', () => {
     ).rejects.toThrow(TRPCError);
   });
 
-  it('rejects a siteId from a foreign tenant (ensureSiteBelongsToTenant guard)', async () => {
+  it('rejects a siteId from a foreign tenant (ensureTenantSite guard)', async () => {
     // Pass a saleId that belongs to the local tenant but a siteId
     // owned by the foreign tenant — covers the second guard vector
     // beyond `getSaleRecord`.
@@ -328,7 +328,7 @@ describe('peripherals.buildDrawerKickBytes (ENG-074b)', () => {
     );
   });
 
-  it('rejects a siteId from a foreign tenant (ensureSiteBelongsToTenant guard)', async () => {
+  it('rejects a siteId from a foreign tenant (ensureTenantSite guard)', async () => {
     const caller = appRouter.createCaller(buildContext('manager'));
     await expect(
       caller.peripherals.buildDrawerKickBytes({ siteId: foreignSiteId })
