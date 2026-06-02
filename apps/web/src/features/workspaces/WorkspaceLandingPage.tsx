@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
+import { PageLoadingState } from '@/components/feedback/LoadingState';
 import {
   WORKSPACES,
   visibleItemsForWorkspace,
@@ -37,16 +38,25 @@ export interface WorkspaceLandingPageProps {
 export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps) {
   const { t: tNav } = useTranslation('nav');
   const { t: tWorkspaces } = useTranslation('workspaces');
+  const { t: tCommon } = useTranslation('common');
   const { user } = useAuth();
-  const { modules } = useModulesSnapshot();
+  const { modules, isPlaceholder } = useModulesSnapshot();
 
   const workspace = WORKSPACES.find(w => w.id === workspaceId);
   if (!workspace) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const items = visibleItemsForWorkspace(workspace, user?.role, modules);
+  const items = visibleItemsForWorkspace(workspace, user?.role, modules, !isPlaceholder);
   if (items.length === 0) {
+    if (isPlaceholder) {
+      return (
+        <PageLoadingState
+          title={tCommon('loading.pageTitle')}
+          description={tCommon('loading.pageDescription')}
+        />
+      );
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

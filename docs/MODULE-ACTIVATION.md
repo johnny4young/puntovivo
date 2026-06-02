@@ -94,6 +94,48 @@ existing `createModuleGuard(moduleId)` middleware is unchanged; the
 license gate runs at activation time, not at every guarded request,
 so the hot path stays cheap.
 
+## Module Classification (ENG-183)
+
+Every module carries a product classification and a market ring (see
+`services/modules/manifest.ts`). The classification drives the Ring-1 retail
+scope gate: a fresh retail tenant is seeded with only the `core` modules ON
+(`RING1_RETAIL_PROFILE`), so it lands on the sellable retail surfaces and
+nothing else. Non-core modules are pulled forward only when a pilot makes that
+vertical the wedge; an admin enables them per tenant via `/company?tab=modules`.
+
+**Classes**
+
+- `core` — required for Ring-1 retail sellability; ON for a fresh retail tenant.
+- `compliance` — fiscal / legal obligation. Reserved: fiscal documents and audit
+  logs are not module-gated today, so no module carries this class yet.
+- `optional` — useful but not Ring-1 core; OFF for a fresh retail tenant, opt-in.
+- `experimental` — beta / unproven. Reserved for future AI Wave 2 and
+  payment-terminal adapters; no module carries this class yet.
+
+**Rings** (see `MARKET-SEGMENTS.md`): `1` = generic retail MVP, `2` = restaurant +
+pharmacy, `3` = service verticals.
+
+| Module id | Class | Ring | Default | Ring-1 retail | What it gates |
+| --- | --- | --- | --- | --- | --- |
+| `operations-center` | core | 1 | on | on | Operations / diagnostics center surface. |
+| `quotations` | core | 1 | on | on | Quotations / estimates surface. |
+| `copilot` | optional | 1 | on | off | AI co-pilot assistant. |
+| `anomaly-detection` | optional | 1 | on | off | AI fraud / anomaly detection. |
+| `semantic-search` | optional | 1 | on | off | AI semantic product search. |
+| `events-api` | optional | 1 | off | off | Public webhooks / events API. |
+| `pos-touch` | optional | 2 | off | off | Touch POS surface. |
+| `kds` | optional | 2 | off | off | Kitchen Display System surface. |
+| `customer-display` | optional | 2 | off | off | Customer-facing second-monitor display. |
+| `mobile-waiter` | optional | 2 | off | off | Table-side mobile waiter surface. |
+| `delivery` | optional | 2 | off | off | Delivery / domicilios surface. |
+
+`Default` is the manifest `defaultEnabled` fallback (what an unconfigured tenant
+resolves to — UNCHANGED by ENG-183 so existing tenants keep their choices).
+`Ring-1 retail` is `RING1_RETAIL_PROFILE`, the explicit set written for a fresh
+tenant at creation (`db/seed.ts`). The two differ only on the AI modules: an
+existing tenant that never toggled them keeps them on (fallback), while a
+brand-new retail tenant gets them off.
+
 ## Invariants
 
 - Every guarded procedure still scopes by `ctx.tenantId`.

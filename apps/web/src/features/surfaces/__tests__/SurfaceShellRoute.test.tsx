@@ -7,6 +7,11 @@ vi.mock('@/components/feedback/LoadingState', () => ({
   PageLoadingState: () => <div data-testid="surface-shell-loading" />,
 }));
 
+vi.mock('@/features/modules/ModulesContext', () => ({
+  useModulesSnapshot: () => ({ modules: {}, isLoading: false, isPlaceholder: false }),
+  useIsModuleActive: () => true,
+}));
+
 vi.mock('react-i18next', async () => {
   const mod = await vi.importActual<typeof import('react-i18next')>('react-i18next');
   return {

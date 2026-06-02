@@ -9,7 +9,7 @@ import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
-import { ModulesSync, RequireModule } from '@/features/modules';
+import { ModulesSync, RequireModule, useModulesSnapshot } from '@/features/modules';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -224,29 +224,41 @@ function ShellRoute({
   children: ReactNode;
 }) {
   const { t } = useTranslation('common');
+  const { isPlaceholder } = useModulesSnapshot();
+
+  const loadingState = (
+    <PageLoadingState
+      title={t('loading.pageTitle')}
+      description={t('loading.pageDescription')}
+    />
+  );
 
   const inner = (
     <Suspense
-      fallback={
-        <PageLoadingState
-          title={t('loading.pageTitle')}
-          description={t('loading.pageDescription')}
-        />
-      }
+      fallback={loadingState}
     >
       {children}
     </Suspense>
   );
 
+  const content =
+    allowedModule && isPlaceholder ? (
+      // ENG-183 reviewer fix — hidden modules must not flash while the
+      // tenant's explicit module profile is still hydrating. This matters
+      // for Ring-1 fresh tenants because AI modules have manifest defaults
+      // of ON for legacy tenants, but the fresh profile writes them OFF.
+      loadingState
+    ) : allowedModule ? (
+      <RequireModule id={allowedModule} fallback={<Navigate to="/dashboard" replace />}>
+        {inner}
+      </RequireModule>
+    ) : (
+      inner
+    );
+
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
-      {allowedModule ? (
-        <RequireModule id={allowedModule} fallback={<Navigate to="/dashboard" replace />}>
-          {inner}
-        </RequireModule>
-      ) : (
-        inner
-      )}
+      {content}
     </ProtectedRoute>
   );
 }
@@ -547,14 +559,14 @@ function App() {
               outside MainLayout so the surface chrome (KDS fullscreen
               dark backdrop, customer-display gradient, mobile-waiter
               phone-width container, POS Touch wider buttons) is not
-              boxed inside the desktop sidebar + Header. Each shell
-              composes ProtectedRoute + RequireModule + outlet Suspense
-              internally; the route-level wrapper catches the lazy shell
-              import before that internal boundary exists. */}
+              boxed inside the desktop sidebar + Header. ENG-183 — role +
+              module gating lives in SurfaceShellRoute (route level), BEFORE
+              the lazy shell import, so a disabled module never loads its
+              chunk or flashes its chrome; the shells are pure chrome. */}
           <Route
             path="touch"
             element={
-              <SurfaceShellRoute>
+              <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="pos-touch">
                 <TouchShell />
               </SurfaceShellRoute>
             }
@@ -565,7 +577,7 @@ function App() {
           <Route
             path="kds"
             element={
-              <SurfaceShellRoute>
+              <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="kds">
                 <KdsShell />
               </SurfaceShellRoute>
             }
@@ -575,7 +587,7 @@ function App() {
           <Route
             path="customer-display"
             element={
-              <SurfaceShellRoute>
+              <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="customer-display">
                 <CustomerDisplayShell />
               </SurfaceShellRoute>
             }
@@ -585,7 +597,7 @@ function App() {
           <Route
             path="m"
             element={
-              <SurfaceShellRoute>
+              <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="mobile-waiter">
                 <MobileWaiterShell />
               </SurfaceShellRoute>
             }

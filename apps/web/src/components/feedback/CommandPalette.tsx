@@ -63,7 +63,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation(['palette', 'shortcuts']);
   const { user, logout } = useAuth();
-  const { modules } = useModulesSnapshot();
+  const { modules, isPlaceholder } = useModulesSnapshot();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [rawSelectedIndex, setRawSelectedIndex] = useState(0);
@@ -88,8 +88,8 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   );
 
   const visibleActions = useMemo(
-    () => visibleActionsForRole(user?.role, modules),
-    [user?.role, modules]
+    () => visibleActionsForRole(user?.role, modules, !isPlaceholder),
+    [user?.role, modules, isPlaceholder]
   );
 
   const filtered = useMemo(

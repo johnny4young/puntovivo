@@ -23,6 +23,7 @@ let mockModules = {
   'operations-center': true,
   quotations: true,
 } as Record<string, boolean>;
+let mockModulesPlaceholder = false;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>(
@@ -49,8 +50,8 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 vi.mock('@/features/modules', () => ({
   useModulesSnapshot: () => ({
     modules: mockModules,
-    isLoading: false,
-    isPlaceholder: false,
+    isLoading: mockModulesPlaceholder,
+    isPlaceholder: mockModulesPlaceholder,
   }),
 }));
 
@@ -62,6 +63,7 @@ beforeEach(() => {
     'operations-center': true,
     quotations: true,
   };
+  mockModulesPlaceholder = false;
 });
 
 afterEach(() => {
@@ -146,6 +148,21 @@ describe('CommandPalette (ENG-105a)', () => {
     };
     render(<CommandPalette isOpen onClose={vi.fn()} />);
     await screen.findByTestId('command-palette-search');
+    expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
+    expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
+  });
+
+  it('hides module-gated destinations while the module snapshot is still hydrating', async () => {
+    mockModulesPlaceholder = true;
+    mockModules = {
+      'operations-center': true,
+      quotations: true,
+      copilot: true,
+    };
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    await screen.findByTestId('command-palette-search');
+    expect(screen.queryByTestId('command-palette-item-navigate.coPilot')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.operations')).not.toBeInTheDocument();
     expect(screen.queryByTestId('command-palette-item-navigate.quotations')).not.toBeInTheDocument();
     expect(screen.getByTestId('command-palette-item-navigate.products')).toBeInTheDocument();
