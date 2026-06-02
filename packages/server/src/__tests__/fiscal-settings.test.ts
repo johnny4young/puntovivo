@@ -6,10 +6,10 @@
  * - `getByCountry({MX})` para tenant fresco devuelve settings vacíos
  *   + readiness rojo con MISSING_RFC + MISSING_RESOLUTION +
  *   MISSING_CERTIFICATE.
- * - `getByCountry({CO})` devuelve la proyección mínima + readiness
- *   verde (Colombia mock siempre ok=true).
- * - `getByCountry({CL})` devuelve readiness rojo con
- *   PACK_NOT_AVAILABLE (stub ENG-036).
+ * - `getByCountry({CO})` devuelve settings CO vacíos + readiness rojo
+ *   de presencia con NIT / resolución / rango faltantes.
+ * - `getByCountry({CL})` devuelve readiness rojo con RUT /
+ *   resolución / certificado faltantes.
  * - `updateMx` happy path con RFC + régimen + lugar válidos →
  *   persiste y devuelve readiness verde.
  * - `updateMx` con RFC inválido → tira FISCAL_RFC_INVALID.
@@ -171,7 +171,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
     expect(result.availableInTicket).toBeNull();
   });
 
-  it('CO devuelve readiness verde (mock siempre ok)', async () => {
+  it('CO para tenant fresco → settings CO vacíos + readiness rojo con NIT/RESOLUTION/RANGE (ENG-184)', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
@@ -179,8 +179,20 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'CO',
     });
     expect(result.countryCode).toBe('CO');
-    expect(result.settings).toBeNull();
-    expect(result.validation.ok).toBe(true);
+    // ENG-184 — CO ya no devuelve settings:null; trae la proyección real
+    // del namespace fiscal.co + un readiness de PRESENCIA (no mock ok).
+    expect(result.settings).toMatchObject({
+      enabled: false,
+      nit: null,
+      dianResolutionNumber: null,
+      prefix: null,
+      rangeFrom: null,
+      rangeTo: null,
+      environment: 'habilitacion',
+    });
+    expect(result.validation.ok).toBe(false);
+    const codes = result.validation.issues.map(i => i.code).sort();
+    expect(codes).toEqual(['MISSING_NIT', 'MISSING_RANGE', 'MISSING_RESOLUTION']);
     expect(result.notImplemented).toBe(false);
   });
 
@@ -431,6 +443,123 @@ describe('fiscalSettings.updateCl (ENG-036a)', () => {
       giroCode: null,
       comunaCode: null,
       casaMatriz: null,
+    });
+  });
+});
+
+describe('fiscalSettings.updateCo (ENG-184)', () => {
+  it('happy path: NIT + resolución + rango válidos → persiste flag legacy + fiscal.co + readiness verde', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    const result = await caller.fiscalSettings.updateCo({
+      enabled: true,
+      nit: '900123456-7',
+      dianResolutionNumber: '18760000001',
+      prefix: 'setp',
+      rangeFrom: 1,
+      rangeTo: 5000,
+      environment: 'produccion',
+    });
+    expect(result.ok).toBe(true);
+    expect(result.settings).toMatchObject({
+      enabled: true,
+      nit: '900123456-7',
+      dianResolutionNumber: '18760000001',
+      prefix: 'SETP', // normalizado a mayúsculas
+      rangeFrom: 1,
+      rangeTo: 5000,
+      environment: 'produccion',
+    });
+    expect(result.validation.ok).toBe(true);
+
+    // El subsequent get refleja lo persistido + el flag legacy.
+    const fetched = await caller.fiscalSettings.getByCountry({
+      countryCode: 'CO',
+    });
+    expect(fetched.settings).toMatchObject({
+      enabled: true,
+      nit: '900123456-7',
+      prefix: 'SETP',
+    });
+
+    // El switch maestro se persistió en el flag legacy fiscal_dian_enabled.
+    const db = getDatabase();
+    const row = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantA))
+      .get();
+    const settings = (row?.settings ?? {}) as Record<string, unknown>;
+    expect(settings.fiscal_dian_enabled).toBe(true);
+  });
+
+  it('config incompleta → readiness rojo con los issues faltantes', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    const result = await caller.fiscalSettings.updateCo({
+      enabled: true,
+      nit: '900123456-7',
+    });
+    expect(result.validation.ok).toBe(false);
+    const codes = result.validation.issues.map(i => i.code).sort();
+    expect(codes).toEqual(['MISSING_RANGE', 'MISSING_RESOLUTION']);
+  });
+
+  it('NIT inválido → tira FISCAL_NIT_INVALID', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    let caught: unknown;
+    try {
+      await caller.fiscalSettings.updateCo({ nit: 'NOPE' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_NIT_INVALID');
+  });
+
+  it('rango invertido (from > to) → tira FISCAL_NUMBERING_RANGE_INVALID', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    let caught: unknown;
+    try {
+      await caller.fiscalSettings.updateCo({ rangeFrom: 9000, rangeTo: 10 });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    const cause = (caught as TRPCError).cause;
+    expect(cause).toBeInstanceOf(ServerErrorWithCode);
+    expect((cause as ServerErrorWithCode).errorCode).toBe(
+      'FISCAL_NUMBERING_RANGE_INVALID'
+    );
+  });
+
+  it('no toca otras ramas fiscales (preserva fiscal.mx)', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    await caller.fiscalSettings.updateMx({
+      rfc: 'XEXX010101000',
+      regimenFiscalCode: '601',
+    });
+    await caller.fiscalSettings.updateCo({
+      enabled: true,
+      nit: '900123456-7',
+      dianResolutionNumber: '18760000001',
+      rangeFrom: 1,
+      rangeTo: 5000,
+    });
+    const mx = await caller.fiscalSettings.getByCountry({ countryCode: 'MX' });
+    expect(mx.settings).toMatchObject({
+      rfc: 'XEXX010101000',
+      regimenFiscalCode: '601',
     });
   });
 });

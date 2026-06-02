@@ -98,6 +98,10 @@ vi.mock('@/lib/trpc', () => ({
       paymentSettings: {
         getAll: { invalidate },
       },
+      setupReadiness: {
+        get: { invalidate },
+        checkout: { invalidate },
+      },
     }),
     paymentSettings: {
       getAll: {

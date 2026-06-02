@@ -45,7 +45,14 @@ export type PreflightBlockerId =
   | 'credit_sale_customer_required'
   | 'credit_limit_exceeded'
   | 'discount_exceeds_total'
-  | 'insufficient_stock';
+  | 'insufficient_stock'
+  // ENG-184 — server-derived checkout reminders. All `warning` severity
+  // (never disable the charge button): the sale proceeds, the cashier is
+  // just informed. Surfaced by `setupReadiness.checkout`.
+  | 'fiscal_not_active'
+  | 'receipt_hardware_missing'
+  | 'payment_rail_missing'
+  | 'sync_backlog';
 
 export type PreflightSeverity = 'blocker' | 'warning';
 
@@ -96,6 +103,14 @@ export interface PreflightInput {
   /** `true` when the workspace was hydrated from a resumed server draft. */
   isResumedDraft: boolean;
   recovery?: PreflightRecoveryWiring | undefined;
+  /**
+   * ENG-184 — server-derived checkout reminders (from
+   * `setupReadiness.checkout`), already mapped to `PreflightItem`s by
+   * the caller. All `warning` severity; merged after the local cart
+   * checks. MUST stay empty while the readiness query is loading or
+   * errored so a slow/offline server never blocks the sale.
+   */
+  serverItems?: readonly PreflightItem[] | undefined;
 }
 
 export interface PreflightResult {
@@ -244,6 +259,13 @@ function computeItems(input: PreflightInput): PreflightItem[] {
     });
   }
 
+  // 7. ENG-184 — server-derived checkout reminders (fiscal not active,
+  //    no printer, no payment rail, sync backlog). Appended after the
+  //    local checks; all `warning` severity so they never gate Cobrar.
+  if (input.serverItems && input.serverItems.length > 0) {
+    items.push(...input.serverItems);
+  }
+
   return items;
 }
 
@@ -277,5 +299,6 @@ export function useCheckoutPreflight(input: PreflightInput): PreflightResult {
     input.pendingDiscountAmount,
     input.userRole,
     input.isResumedDraft,
+    input.serverItems,
   ]);
 }

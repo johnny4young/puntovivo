@@ -130,8 +130,43 @@
       "kicker": "Fiscal profile"
     },
     "co": {
+      "kicker": "Fiscal profile",
       "title": "Colombia — DIAN",
-      "comingSoon": "Colombia fiscal settings are configured under the Localization tab for now. They will move to this section soon."
+      "emptyTitle": "DIAN electronic invoicing is optional",
+      "emptyDescription": "You can keep selling without it. Set up DIAN whenever you are ready to issue electronic invoices — your store stays fully operational either way.",
+      "emptyCta": "Set up DIAN",
+      "fields": {
+        "enabled": "Enable DIAN electronic invoicing",
+        "enabledHelp": "Optional. When on, completed sales will emit a DIAN electronic invoice once transmission is available. Today this captures your issuer config and gates the readiness reminder.",
+        "nit": "Issuer NIT",
+        "nitHelp": "9 to 10 digits, with an optional verification digit.",
+        "nitPlaceholder": "e.g. 900123456-7",
+        "resolution": "DIAN numbering resolution",
+        "resolutionHelp": "The resolution number that authorizes your invoice range.",
+        "resolutionPlaceholder": "e.g. 18760000001",
+        "prefix": "Invoice prefix",
+        "prefixPlaceholder": "e.g. SETP",
+        "rangeFrom": "Range from",
+        "rangeFromPlaceholder": "e.g. 1",
+        "rangeTo": "Range to",
+        "rangeToPlaceholder": "e.g. 5000",
+        "environment": "Environment",
+        "environmentHabilitacion": "Enablement (testing)",
+        "environmentProduccion": "Production"
+      },
+      "issueCodes": {
+        "MISSING_NIT": "Issuer NIT is missing",
+        "MISSING_RESOLUTION": "DIAN numbering resolution is missing",
+        "MISSING_RANGE": "DIAN numbering range is missing or invalid"
+      },
+      "actions": {
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "toast": {
+        "saved": "Colombia fiscal settings saved",
+        "saveError": "Could not save Colombia fiscal settings"
+      }
     },
     "cl": {
       "title": "Chile — SII",

@@ -174,6 +174,7 @@ export type FiscalValidationIssueCode =
   | 'MISSING_RFC'
   | 'MISSING_RUT'
   | 'MISSING_RESOLUTION'
+  | 'MISSING_RANGE'
   | 'MISSING_CERTIFICATE'
   | 'INVALID_ENVIRONMENT';
 

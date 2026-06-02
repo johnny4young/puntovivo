@@ -17,6 +17,7 @@ import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 import { CompanyReadinessCard } from './CompanyReadinessCard';
 import { CompanyBackupCard } from './CompanyBackupCard';
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
+import { CompanyCoFiscalCard } from './CompanyCoFiscalCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
@@ -460,16 +461,7 @@ export function CompanyPage() {
                     */}
                     {tenantCountryCode === 'MX' && <CompanyMxFiscalCard />}
                     {tenantCountryCode === 'CL' && <CompanyClFiscalCard />}
-                    {tenantCountryCode === 'CO' && (
-                      <div className="card p-6 space-y-3">
-                        <h2 className="text-lg font-semibold text-secondary-950">
-                          {t('fiscal:settings.co.title')}
-                        </h2>
-                        <p className="text-sm text-secondary-600">
-                          {t('fiscal:settings.co.comingSoon')}
-                        </p>
-                      </div>
-                    )}
+                    {tenantCountryCode === 'CO' && <CompanyCoFiscalCard />}
                     {!['MX', 'CL', 'CO'].includes(tenantCountryCode) && (
                       <div className="card p-6">
                         <p className="text-sm text-secondary-600">

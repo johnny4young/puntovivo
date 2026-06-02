@@ -154,7 +154,7 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     await assertNoA11yViolations(container);
   });
 
-  it('renders 10 sections with status-specific data attributes', () => {
+  it('renders all readiness sections with status-specific data attributes', () => {
     readinessQueryRef.current = {
       data: {
         score: 60,
@@ -248,6 +248,39 @@ describe('CompanyReadinessCard (ENG-104)', () => {
     expect(ackButton).toBeInTheDocument();
     fireEvent.click(ackButton);
     expect(acknowledgeMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders warning sections in the attention group (ENG-184)', () => {
+    readinessQueryRef.current = {
+      data: {
+        score: 70,
+        blockerCount: 0,
+        sections: [
+          { id: 'locale', status: 'ready', cta: { route: '/company', tab: 'locale' } },
+          { id: 'fiscal', status: 'warning', cta: { route: '/company', tab: 'fiscal' } },
+          { id: 'sync', status: 'warning', cta: { route: '/operations' } },
+          { id: 'catalog', status: 'ready', cta: { route: '/products' } },
+        ],
+        acknowledgedAt: null,
+      },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(async () => undefined),
+    };
+    render(<CompanyReadinessCard />);
+    expect(
+      screen.getByTestId('company-readiness-attention')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('company-readiness-section-sync')
+    ).toHaveAttribute('data-status', 'warning');
+    expect(
+      screen.getByTestId('company-readiness-section-fiscal')
+    ).toHaveAttribute('data-status', 'warning');
+    // No blocker strip when nothing is a blocker.
+    expect(
+      screen.queryByTestId('company-readiness-blockers')
+    ).not.toBeInTheDocument();
   });
 
   it('hides the acknowledge button once setup was acknowledged', () => {

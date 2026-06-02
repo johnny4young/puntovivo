@@ -32,9 +32,14 @@ import { cn } from '@/lib/utils';
 export interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
+  restoreFocusTo?: (() => HTMLElement | null) | undefined;
 }
 
-export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+export function CommandPalette({
+  isOpen,
+  onClose,
+  restoreFocusTo,
+}: CommandPaletteProps) {
   const { t } = useTranslation('palette');
 
   return (
@@ -48,6 +53,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       closeOnEsc
       contentClassName="p-0 overflow-hidden"
       showCloseButton={false}
+      restoreFocusTo={restoreFocusTo}
     >
       {isOpen ? <CommandPaletteBody onClose={onClose} /> : null}
     </Modal>

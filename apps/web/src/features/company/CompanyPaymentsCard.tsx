@@ -87,7 +87,11 @@ export function CompanyPaymentsCard() {
           }),
         }),
       });
-      await utils.paymentSettings.getAll.invalidate();
+      await Promise.all([
+        utils.paymentSettings.getAll.invalidate(),
+        utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.checkout.invalidate(),
+      ]);
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'operations:payments.settings.form.saveErrorToast',

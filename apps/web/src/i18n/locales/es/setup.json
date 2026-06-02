@@ -15,6 +15,7 @@
       "ready": "Listo",
       "blocker": "Bloqueador",
       "optional-pending": "Opcional pendiente",
+      "warning": "Requiere atención",
       "not-applicable": "No aplica"
     },
     "cta": {
@@ -70,13 +71,18 @@
       "cashSession": {
         "label": "Sesión de caja",
         "hint": "Abre una sesión de caja antes de registrar la primera venta."
+      },
+      "sync": {
+        "label": "Sincronización",
+        "hint": "Replicación local-first. Un rezago nunca bloquea la venta; resuelve los conflictos cuando puedas."
       }
     },
     "kicker": "Configuración",
     "heading": "Listo para abrir",
     "group": {
       "completed": "Pasos completados",
-      "optional": "Opcionales"
+      "optional": "Opcionales",
+      "attention": "Requiere atención"
     }
   },
   "banner": {

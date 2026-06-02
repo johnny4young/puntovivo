@@ -6,7 +6,8 @@
  * preview of how currency amounts and dates will render before
  * saving. Save dispatches `tenantLocale.update` and invalidates the
  * `tenantLocale.get` cache so `LocaleProvider` re-hydrates
- * immediately — no reload needed.
+ * immediately — no reload needed. Readiness caches are also
+ * invalidated because the market profile keys off countryCode.
  *
  * Live-preview is entirely client-side: we build a tentative
  * `ResolvedLocale` shape from the picker state + the catalog rows
@@ -45,7 +46,11 @@ export function CompanyLocaleSettingsCard() {
 
   const mutation = trpc.tenantLocale.update.useMutation({
     onSuccess: async (_data, variables) => {
-      await utils.tenantLocale.get.invalidate();
+      await Promise.all([
+        utils.tenantLocale.get.invalidate(),
+        utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.checkout.invalidate(),
+      ]);
       toast.success({
         title: t('localeSettings:toast.saveSuccessTitle'),
         description: t('localeSettings:toast.saveSuccessDescription', {

@@ -9,8 +9,9 @@
  *   shape del campo de settings depende del país: para MX trae
  *   `{ enabled, rfc, regimenFiscalCode, lugarExpedicion,
  *   environment }`; para CL trae `{ enabled, rut, giroCode,
- *   comunaCode, casaMatriz, environment }`; CO sigue con
- *   proyección mínima (su UI completa llega con ENG-035c).
+ *   comunaCode, casaMatriz, environment }`; para CO trae
+ *   `{ enabled, nit, dianResolutionNumber, prefix, rangeFrom,
+ *   rangeTo, environment }` con readiness de presencia.
  * - `updateMx(...)` — patch parcial sobre
  *   `tenants.settings.fiscal.mx`. Valida RFC + régimen contra el
  *   catálogo SAT.
@@ -18,11 +19,11 @@
  *   `tenants.settings.fiscal.cl`. Valida RUT (algoritmo SII) +
  *   giro contra catálogo CIIU.cl.
  *
- * Ambos updates re-corren `validateConfig` post-write para que la
- * respuesta lleve el readiness fresco — la card del frontend evita
- * un round-trip extra.
+ * Los updates re-corren su readiness post-write para que la respuesta
+ * lleve el estado fresco — la card del frontend evita un round-trip
+ * extra.
  *
- * Multi-tenant: las tres procedures usan `adminProcedure` y
+ * Multi-tenant: las procedures usan `adminProcedure` y
  * scopean por `ctx.tenantId`. Cero queries que escapen el scope.
  *
  * @module trpc/routers/fiscal-settings
@@ -52,9 +53,16 @@ import {
 } from '../../services/fiscal/packs/cl/settings.js';
 import { peekActiveCaf } from '../../services/fiscal/packs/cl/caf-allocator.js';
 import {
+  mergeCoFiscalSettingsIntoTenantSettings,
+  readCoFiscalSettings,
+  validateCoFiscalConfig,
+  type CoFiscalSettingsPatch,
+} from '../../services/fiscal/packs/co/settings.js';
+import {
   getActiveCafInput,
   getFiscalSettingsInput,
   updateClFiscalSettingsInput,
+  updateCoFiscalSettingsInput,
   updateMxFiscalSettingsInput,
 } from '../schemas/fiscalSettings.js';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -123,13 +131,16 @@ export const fiscalSettingsRouter = router({
         };
       }
 
-      // CO: proyección mínima por ahora — la UI completa llega
-      // con ENG-035c (cuando el pack CO migre al namespace
-      // country-aware).
+      // CO (ENG-184): real settings projection + presence-based
+      // readiness. The mock adapter's `validateConfig` is always-ok (it
+      // owns CUFE/transmission validation, deferred to ENG-021); for the
+      // config card we surface a PRESENCE probe instead so the badge is
+      // honest about whether NIT / resolution / numbering are captured.
+      const co = readCoFiscalSettings(tenantSettings);
       return {
-        countryCode: input.countryCode,
-        settings: null,
-        validation,
+        countryCode: 'CO' as const,
+        settings: co,
+        validation: validateCoFiscalConfig(co),
         providerId: adapter.providerId,
         notImplemented:
           (adapter as { notImplemented?: boolean }).notImplemented ?? false,
@@ -319,6 +330,89 @@ export const fiscalSettingsRouter = router({
         ok: true as const,
         settings: readClFiscalSettings(nextSettings),
         validation,
+      };
+    }),
+
+  /**
+   * ENG-184 — Patch parcial sobre la config fiscal de Colombia. El
+   * switch maestro `enabled` se persiste en el flag legacy
+   * `tenants.settings.fiscal_dian_enabled` (leído por el orchestrator
+   * de emisión + readiness); los campos del emisor van a
+   * `tenants.settings.fiscal.co.*`. Valida el NIT y el orden del rango
+   * antes de escribir, y devuelve un readiness de presencia fresco
+   * (no cripto — la transmisión real sigue gated en ENG-021).
+   */
+  updateCo: adminProcedure
+    .input(updateCoFiscalSettingsInput)
+    .mutation(async ({ ctx, input }) => {
+      // NIT: 9-10 dígitos con dígito de verificación opcional. `null`
+      // significa "borrar" y se permite. `undefined` = no tocar.
+      if (input.nit !== undefined && input.nit !== null) {
+        const CO_NIT_PATTERN = /^\d{9,10}(-?\d)?$/u;
+        if (!CO_NIT_PATTERN.test(input.nit.trim())) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'FISCAL_NIT_INVALID',
+            message: `El NIT ${input.nit} no tiene un formato válido (9-10 dígitos con dígito de verificación opcional).`,
+            details: { field: 'fiscal.co.nit' },
+          });
+        }
+      }
+
+      // Persistencia: lee el blob actual, aplica el patch en la rama
+      // fiscal.co + el flag legacy, y reescribe el blob completo
+      // (preserva fiscal.mx, fiscal.cl, ai, modules, etc.).
+      const tenantSettings = await readTenantSettings(ctx.db, ctx.tenantId);
+      const partial: CoFiscalSettingsPatch = {};
+      if (input.enabled !== undefined) partial.enabled = input.enabled;
+      if (input.nit !== undefined) {
+        partial.nit = input.nit === null ? null : input.nit.trim();
+      }
+      if (input.dianResolutionNumber !== undefined) {
+        partial.dianResolutionNumber =
+          input.dianResolutionNumber === null
+            ? null
+            : input.dianResolutionNumber.trim();
+      }
+      if (input.prefix !== undefined) {
+        partial.prefix =
+          input.prefix === null ? null : input.prefix.trim().toUpperCase();
+      }
+      if (input.rangeFrom !== undefined) partial.rangeFrom = input.rangeFrom;
+      if (input.rangeTo !== undefined) partial.rangeTo = input.rangeTo;
+      if (input.environment !== undefined) partial.environment = input.environment;
+
+      const nextSettings = mergeCoFiscalSettingsIntoTenantSettings(
+        tenantSettings,
+        partial
+      );
+      const nextCo = readCoFiscalSettings(nextSettings);
+
+      // Orden del rango: valida sobre el resultado mergeado, de modo
+      // que un patch que sólo toca un extremo se valide contra el otro
+      // ya almacenado.
+      if (
+        nextCo.rangeFrom !== null &&
+        nextCo.rangeTo !== null &&
+        nextCo.rangeFrom > nextCo.rangeTo
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'FISCAL_NUMBERING_RANGE_INVALID',
+          message: `El rango de numeración ${nextCo.rangeFrom}-${nextCo.rangeTo} es inválido: el consecutivo inicial no puede ser mayor que el final.`,
+          details: { field: 'fiscal.co.rangeFrom' },
+        });
+      }
+
+      await ctx.db
+        .update(tenants)
+        .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, ctx.tenantId));
+
+      return {
+        ok: true as const,
+        settings: nextCo,
+        validation: validateCoFiscalConfig(nextCo),
       };
     }),
 

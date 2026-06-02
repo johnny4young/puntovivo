@@ -377,6 +377,52 @@ describe('useCheckoutPreflight', () => {
     expect(result.current.primaryBlocker?.id).toBe('cash_session_required');
   });
 
+  it('merges server-derived checkout reminders as warnings without blocking Cobrar (ENG-184)', () => {
+    const { result } = renderHook(() =>
+      useCheckoutPreflight(
+        buildInput({
+          serverItems: [
+            {
+              id: 'fiscal_not_active',
+              severity: 'warning',
+              messageKey: 'preflight.items.fiscal_not_active.message',
+            },
+            {
+              id: 'receipt_hardware_missing',
+              severity: 'warning',
+              messageKey: 'preflight.items.receipt_hardware_missing.message',
+            },
+          ],
+        })
+      )
+    );
+    const ids = result.current.items.map(i => i.id);
+    expect(ids).toContain('fiscal_not_active');
+    expect(ids).toContain('receipt_hardware_missing');
+    // Server reminders are warnings — Cobrar stays enabled.
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.warningCount).toBe(2);
+  });
+
+  it('ignores serverItems when the cart is empty (nothing to charge) (ENG-184)', () => {
+    const { result } = renderHook(() =>
+      useCheckoutPreflight(
+        buildInput({
+          cartItems: [],
+          cartSummary: buildCartSummary({ itemCount: 0, subtotal: 0, total: 0 }),
+          serverItems: [
+            {
+              id: 'fiscal_not_active',
+              severity: 'warning',
+              messageKey: 'preflight.items.fiscal_not_active.message',
+            },
+          ],
+        })
+      )
+    );
+    expect(result.current.items).toHaveLength(0);
+  });
+
   it('memoizes the result across re-renders with identical inputs', () => {
     const input = buildInput();
     const { result, rerender } = renderHook(props => useCheckoutPreflight(props), {

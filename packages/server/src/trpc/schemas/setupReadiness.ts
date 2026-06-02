@@ -27,6 +27,9 @@ export const setupReadinessSectionIdEnum = [
   'ai',
   'catalog',
   'cashSession',
+  // ENG-184 — sync-outbox backlog reminder (local-first: never a
+  // blocker, surfaced as a warning when replication is behind).
+  'sync',
 ] as const;
 export type SetupReadinessSectionId = (typeof setupReadinessSectionIdEnum)[number];
 
@@ -37,6 +40,11 @@ export type SetupReadinessSectionId = (typeof setupReadinessSectionIdEnum)[numbe
  * - `optional-pending`: nice-to-have but not blocking the daily flow
  *   (e.g. zero peripherals registered, only manual payment rails).
  *   Counted at half-weight by the score.
+ * - `warning` (ENG-184): configured-but-degraded, or an optional-yet-
+ *   recommended signal that needs attention (e.g. DIAN turned on but
+ *   incomplete, fiscal documents failing transmission, sync backlog).
+ *   A reminder — NEVER blocks selling. Counted at half-weight by the
+ *   score, like `optional-pending`.
  * - `not-applicable`: the tenant opted out of the feature (e.g. AI
  *   master toggle off, fiscal disabled for non-Colombian tenant) and
  *   the section is excluded from the score denominator.
@@ -45,6 +53,7 @@ export const setupReadinessStatusEnum = [
   'ready',
   'blocker',
   'optional-pending',
+  'warning',
   'not-applicable',
 ] as const;
 export type SetupReadinessStatus = (typeof setupReadinessStatusEnum)[number];
@@ -82,3 +91,55 @@ export const setupReadinessOutputSchema = z.object({
 });
 
 export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;
+
+/**
+ * ENG-184 — Checkout readiness items surfaced to the cashier at the
+ * point of sale via `setupReadiness.checkout`. Closed id union; each id
+ * is an i18n key suffix under `sales.preflight.items.<id>`.
+ */
+export const checkoutReadinessItemIdEnum = [
+  'fiscal',
+  'receipt_hardware',
+  'payment_rail',
+  'sync',
+] as const;
+export type CheckoutReadinessItemId = (typeof checkoutReadinessItemIdEnum)[number];
+
+/**
+ * Severity of a checkout readiness item. Under the ENG-184 local-first
+ * model EVERY checkout readiness item is a `warning` (a reminder that
+ * leaves the charge button enabled); `blocker` stays in the union for
+ * future use + parity with the client preflight severity contract, but
+ * nothing in the checkout query emits it today.
+ */
+export const checkoutReadinessSeverityEnum = ['blocker', 'warning'] as const;
+export type CheckoutReadinessSeverity =
+  (typeof checkoutReadinessSeverityEnum)[number];
+
+export const checkoutReadinessItemSchema = z.object({
+  id: z.enum(checkoutReadinessItemIdEnum),
+  severity: z.enum(checkoutReadinessSeverityEnum),
+  /**
+   * Deep-link to the setup surface that resolves the reminder. `null`
+   * when there is nothing to navigate to (the web layer only renders a
+   * recovery button for manager/admin anyway).
+   */
+  cta: z
+    .object({ route: z.string(), tab: z.string().optional() })
+    .nullable(),
+});
+
+export type CheckoutReadinessItem = z.infer<typeof checkoutReadinessItemSchema>;
+
+/** Input for `setupReadiness.checkout`: the site the cashier is selling at. */
+export const checkoutReadinessInputSchema = z.object({
+  siteId: z.string().min(1),
+});
+
+export const checkoutReadinessOutputSchema = z.object({
+  items: z.array(checkoutReadinessItemSchema),
+});
+
+export type CheckoutReadinessOutput = z.infer<
+  typeof checkoutReadinessOutputSchema
+>;

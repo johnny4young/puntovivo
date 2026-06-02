@@ -565,6 +565,22 @@
         "message_one": "Stock insuficiente en {{product}} — verifica antes de cobrar.",
         "message_other": "Stock insuficiente en {{product}} y {{otherCount}} artículos más — verifica antes de cobrar.",
         "recovery": "Quitar ítem"
+      },
+      "fiscal_not_active": {
+        "message": "La DIAN no está activa — esta venta no emitirá factura electrónica.",
+        "recovery": "Configurar DIAN"
+      },
+      "receipt_hardware_missing": {
+        "message": "No hay impresora de recibos configurada — puedes reimprimir la venta más tarde.",
+        "recovery": "Configurar impresora"
+      },
+      "payment_rail_missing": {
+        "message": "Solo el efectivo está configurado — agrega tarjeta o transferencia cuando lo necesites.",
+        "recovery": "Configurar pagos"
+      },
+      "sync_backlog": {
+        "message": "La sincronización está atrasada o con conflictos — puedes seguir vendiendo; resuélvela cuando puedas.",
+        "recovery": "Ver sincronización"
       }
     }
   },

@@ -565,6 +565,22 @@
         "message_one": "Stock might run short on {{product}} — confirm before charging.",
         "message_other": "Stock might run short on {{product}} and {{otherCount}} other items — confirm before charging.",
         "recovery": "Remove item"
+      },
+      "fiscal_not_active": {
+        "message": "DIAN is not active — this sale will not issue an electronic invoice.",
+        "recovery": "Set up DIAN"
+      },
+      "receipt_hardware_missing": {
+        "message": "No receipt printer is set up — you can reprint from the sale later.",
+        "recovery": "Set up printer"
+      },
+      "payment_rail_missing": {
+        "message": "Only cash is configured — add a card or transfer rail when you need one.",
+        "recovery": "Set up payments"
+      },
+      "sync_backlog": {
+        "message": "Sync is behind or has conflicts — selling still works; clear it when convenient.",
+        "recovery": "View sync status"
       }
     }
   },

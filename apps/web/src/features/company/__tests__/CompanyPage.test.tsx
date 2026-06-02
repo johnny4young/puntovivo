@@ -81,6 +81,9 @@ vi.mock('../CompanyMxFiscalCard', () => ({
 vi.mock('../CompanyClFiscalCard', () => ({
   CompanyClFiscalCard: () => <div data-testid="card-fiscal-cl">Fiscal CL</div>,
 }));
+vi.mock('../CompanyCoFiscalCard', () => ({
+  CompanyCoFiscalCard: () => <div data-testid="card-fiscal-co">Fiscal CO</div>,
+}));
 vi.mock('../CompanyBackupCard', () => ({
   CompanyBackupCard: () => <div data-testid="card-backup">Backup</div>,
 }));
@@ -225,17 +228,18 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
   });
 
-  it('renders the CO placeholder under the Fiscal tab when tenant countryCode is CO', async () => {
+  it('renders the CO fiscal card under the Fiscal tab when tenant countryCode is CO (ENG-184)', async () => {
     mockCountryCode = 'CO';
     const user = userEvent.setup();
     render(<CompanyPage />);
 
     await user.click(screen.getByTestId('company-tab-fiscal'));
 
-    // Ni MX ni CL renderizan; el placeholder de CO sí.
+    // Neither MX nor CL render; the real CO config card does (ENG-184
+    // replaced the old "coming soon" placeholder).
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
-    expect(screen.getByText(/Colombia — DIAN/i)).toBeInTheDocument();
+    expect(screen.getByTestId('card-fiscal-co')).toBeInTheDocument();
   });
 });
 

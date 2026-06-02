@@ -15,6 +15,7 @@
       "ready": "Ready",
       "blocker": "Blocker",
       "optional-pending": "Optional pending",
+      "warning": "Needs attention",
       "not-applicable": "Not applicable"
     },
     "cta": {
@@ -70,13 +71,18 @@
       "cashSession": {
         "label": "Cash session",
         "hint": "Open a cash session before ringing the first sale."
+      },
+      "sync": {
+        "label": "Sync",
+        "hint": "Local-first replication. A backlog never blocks selling; clear conflicts when convenient."
       }
     },
     "kicker": "Setup",
     "heading": "Ready to open",
     "group": {
       "completed": "Completed steps",
-      "optional": "Optional"
+      "optional": "Optional",
+      "attention": "Needs attention"
     }
   },
   "banner": {
