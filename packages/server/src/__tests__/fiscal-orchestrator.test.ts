@@ -37,12 +37,16 @@ import {
   saleItems,
   sales,
   sites,
+  tenantLocaleSettings,
   tenants,
   users,
 } from '../db/schema.js';
 import { CONSUMIDOR_FINAL, computeCufe } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
-import { emitFiscalDocument } from '../services/fiscal/orchestrator.js';
+import {
+  emitFiscalDocument,
+  enqueueFiscalEmission,
+} from '../services/fiscal/orchestrator.js';
 
 let server: PuntovivoServer;
 
@@ -363,6 +367,50 @@ describe('emitFiscalDocument (ENG-020)', () => {
       .update(tenants)
       .set({ settings: { fiscal_dian_enabled: true } })
       .where(eq(tenants.id, harness.tenantId));
+  });
+
+  it('skips emission (no row) for an unsupported country, sale stays non-fatal (ENG-185)', async () => {
+    const db = getDatabase();
+    // Move the tenant to a country with no fiscal pack; keep DIAN enabled.
+    // ENG-185 — the registry no longer falls back to a Colombia-shaped
+    // document; the orchestrator must skip emission cleanly so the sale
+    // still completes.
+    await db
+      .update(tenantLocaleSettings)
+      .set({ countryCode: 'US' })
+      .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
+
+    try {
+      const saleId = await seedCompletedSale({
+        harness,
+        saleNumber: 'UNSUPPORTED-0001',
+        customerId: harness.customerId,
+      });
+
+      const result = await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+      });
+
+      expect(result).toBeNull();
+      const rows = await db
+        .select()
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.tenantId, harness.tenantId))
+        .all();
+      expect(rows).toHaveLength(0);
+    } finally {
+      // Restore CO for the rest of the suite even if an assertion fails.
+      await db
+        .update(tenantLocaleSettings)
+        .set({ countryCode: 'CO' })
+        .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
+    }
   });
 
   it('emits a fiscal_document with a deterministic CUFE matching computeCufe', async () => {

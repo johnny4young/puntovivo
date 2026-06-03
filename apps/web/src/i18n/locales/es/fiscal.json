@@ -26,6 +26,11 @@
     "notified_correction": "Corrección notificada",
     "partial_send": "Enviado parcialmente"
   },
+  "maturity": {
+    "mock": "Demo",
+    "draft": "Borrador",
+    "hint": "La facturación electrónica aún no se transmite a la autoridad tributaria. Es opcional y solo para demostración — tus ventas se completan con normalidad."
+  },
   "source": {
     "sale": "Venta",
     "void": "Anulación",
@@ -84,6 +89,10 @@
   "settings": {
     "tabTitle": "Fiscal",
     "tabDescription": "Configuración fiscal por país. El paquete que se muestra abajo depende del código de país del tenant.",
+    "unsupported": {
+      "title": "La facturación electrónica aún no está disponible aquí",
+      "description": "Todavía no hay un paquete fiscal para {{country}}. Puedes seguir vendiendo con normalidad — la facturación electrónica para este país llegará en una versión futura."
+    },
     "country": {
       "MX": "México (CFDI 4.0)",
       "CO": "Colombia (DIAN)",

@@ -149,6 +149,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'MX',
     });
     expect(result.countryCode).toBe('MX');
+    expect(result.maturity).toBe('draft'); // ENG-185 — unsigned CFDI draft
     expect(result.settings).toMatchObject({
       enabled: false,
       rfc: null,
@@ -179,6 +180,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'CO',
     });
     expect(result.countryCode).toBe('CO');
+    expect(result.maturity).toBe('mock'); // ENG-185 — mock, no DIAN transmission
     // ENG-184 — CO ya no devuelve settings:null; trae la proyección real
     // del namespace fiscal.co + un readiness de PRESENCIA (no mock ok).
     expect(result.settings).toMatchObject({
@@ -204,6 +206,7 @@ describe('fiscalSettings.getByCountry (ENG-035a)', () => {
       countryCode: 'CL',
     });
     expect(result.countryCode).toBe('CL');
+    expect(result.maturity).toBe('draft'); // ENG-185 — unsigned DTE draft
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code);
     expect(codes).toContain('MISSING_RUT');

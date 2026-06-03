@@ -62,18 +62,29 @@ adapter: getFiscalAdapter(fiscalLocale.countryCode),
 
 `resolveTenantLocale` is the canonical reader for the tenant's
 `countryCode` (lives in `services/tenant-locale.ts`). Its own
-fresh-tenant fallback is US/USD; the fiscal registry then maps any
-unsupported country code to its defensive default.
+fresh-tenant fallback is US/USD.
 
-Unknown-country fallback: the registry routes any unknown country
-(e.g. 'AR' before an Argentina pack ships) to `ColombiaMockAdapter`.
-Reasoning: the orchestrator already gates fiscal emission on
-`tenants.settings.fiscal_dian_enabled`. If an admin opts in for a
-country that is not in the matrix yet, the fallback emits a
-Colombia-shaped CUFE (wrong but non-breaking). The operator sees the
-document in `/reports/fiscal-documents` and can disable fiscal until
-the pack ships. A throw would silently fail the sale lifecycle path,
-which is worse for pilot.
+Unsupported-country behaviour (ENG-185 — the old "fall back to the
+Colombia mock" rule was retired): emitting a Colombia-shaped CUFE for,
+say, an Argentine tenant is a lie — the document looks real but targets
+the wrong authority. The registry NO LONGER falls back. `getFiscalAdapter`
+THROWS `FISCAL_PACK_NOT_AVAILABLE` for any country without a pack, and
+`isSupportedFiscalCountry(code)` is the guard the orchestrator checks
+BEFORE resolving: an unsupported country skips fiscal emission cleanly
+(the sale still completes, non-fatal — like the disabled-fiscal path),
+so no document is created at all. The admin sees an explicit "fiscal not
+available for this country" message in the Company → Fiscal tab.
+
+Pack maturity (ENG-185): every adapter declares a `maturity`
+(`mock` / `draft` / `certified`). `mock` (Colombia) computes a CUFE but
+never signs or transmits; `draft` (Mexico CFDI / Chile DTE) emits
+structurally-valid but unsigned, untransmitted XML; `certified` (no pack
+ships this yet) signs + transmits to the real authority. The web labels
+mock/draft packs "Demo"/"Draft" on the fiscal cards, the document list,
+and the Operations fiscal-health panel so nothing reads as
+production/accepted. `describeFiscalProvider(providerId)` resolves a
+stored `fiscal_documents.providerId` back to its maturity for the
+document views.
 
 Discovery surface:
 `listFiscalAdapterCountries(): ReadonlyArray<{ code, isImplemented, availableInTicket? }>`

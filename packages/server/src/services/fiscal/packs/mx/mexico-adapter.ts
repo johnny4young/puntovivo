@@ -92,6 +92,9 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
   readonly providerId = MX_PROVIDER_ID;
   readonly countryCode = 'MX';
   readonly capabilities = MX_CAPABILITIES;
+  // ENG-185 — draft: structurally-valid CFDI 4.0 XML, but unsigned (no CSD)
+  // and not transmitted to a PAC. Signing + cancelación are gated as ENG-035c.
+  readonly maturity = 'draft' as const;
 
   async validateConfig(
     input: FiscalAdapterConfig

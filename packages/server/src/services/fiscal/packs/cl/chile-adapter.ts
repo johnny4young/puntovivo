@@ -88,6 +88,10 @@ export class ChileSIIAdapter implements FiscalAdapter {
   readonly providerId = CL_PROVIDER_ID;
   readonly countryCode = 'CL';
   readonly capabilities = CL_CAPABILITIES;
+  // ENG-185 — draft: structurally-valid DTE 1.0 XML with a CAF folio, but
+  // unsigned (no XAdES) and not transmitted to the SII. Signing + SII
+  // delivery + cancelación are gated as ENG-036c.
+  readonly maturity = 'draft' as const;
 
   async validateConfig(
     input: FiscalAdapterConfig

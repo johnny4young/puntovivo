@@ -21,6 +21,7 @@ import { AlertCircle, CheckCircle2, FileSignature } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
+import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -170,6 +171,11 @@ export function CompanyCoFiscalCard() {
               ? t('fiscal:settings.readiness.ready')
               : t('fiscal:settings.readiness.notReady')}
           </span>
+          {/* ENG-185 — honest demo/draft label: DIAN config can be ready,
+              but electronic invoicing does not transmit yet (optional). */}
+          {settingsQuery.data?.maturity && (
+            <FiscalMaturityBadge maturity={settingsQuery.data.maturity} className="ml-2" />
+          )}
           {!isReady && issueLabels.length > 0 && (
             <div className="surface-panel-muted">
               {issueLabels.map(issue => (

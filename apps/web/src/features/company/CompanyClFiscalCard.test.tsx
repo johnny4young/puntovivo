@@ -46,6 +46,7 @@ type ClSettingsResponse = {
     ok: boolean;
     issues: Array<{ code: string; field: string; message: string }>;
   };
+  maturity: 'mock' | 'draft' | 'certified';
 };
 
 // Caso por defecto: tenant CL sin configurar (pack apagado, campos
@@ -83,6 +84,7 @@ const UNCONFIGURED_CL: ClSettingsResponse = {
       },
     ],
   },
+  maturity: 'draft',
 };
 
 let mockSettingsResponse: ClSettingsResponse = UNCONFIGURED_CL;
@@ -149,6 +151,9 @@ describe('CompanyClFiscalCard (ENG-036a)', () => {
     expect(screen.getByText(/Chile — SII/i)).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-cl-readiness')).toHaveTextContent(
       /Not ready/i
+    );
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
+      /Draft/i
     );
     // EmptyState visible; form oculto hasta el CTA.
     expect(screen.getByTestId('fiscal-cl-empty')).toBeInTheDocument();

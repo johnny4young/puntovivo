@@ -42,9 +42,24 @@ import {
   retryFiscalDocumentInput,
 } from '../../schemas/fiscal.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
+import { describeFiscalProvider } from '../../../services/fiscal/registry.js';
+import type { FiscalAdapterMaturity } from '../../../services/fiscal/adapter.js';
 import {
   getDefaultFiscalWorker,
 } from '../../../services/fiscal/fiscal-worker.js';
+
+/**
+ * ENG-185 — resolve a stored `providerId` to its pack maturity so the
+ * document views label demo/draft documents honestly. An unknown / null
+ * provider id defaults to `mock` (most conservative — never reads as
+ * production).
+ */
+function maturityForProvider(
+  providerId: string | null | undefined
+): FiscalAdapterMaturity {
+  if (!providerId) return 'mock';
+  return describeFiscalProvider(providerId)?.maturity ?? 'mock';
+}
 import {
   buildFiscalXmlFilename,
   FISCAL_XML_MIME_ISO_8859_1,
@@ -101,7 +116,7 @@ export const fiscalReportsRouter = router({
       if (input.fromDate) conditions.push(gte(fiscalDocuments.emittedAt, input.fromDate));
       if (input.toDate) conditions.push(lte(fiscalDocuments.emittedAt, input.toDate));
 
-      const items = await ctx.db
+      const rows = await ctx.db
         .select(LIST_SELECT_COLUMNS)
         .from(fiscalDocuments)
         .where(and(...conditions))
@@ -109,6 +124,12 @@ export const fiscalReportsRouter = router({
         .limit(input.limit)
         .offset(input.offset)
         .all();
+      // ENG-185 — derive pack maturity per row from the stored providerId
+      // so the list never presents a mock/draft document as production.
+      const items = rows.map(row => ({
+        ...row,
+        maturity: maturityForProvider(row.providerId),
+      }));
       const totalRow = await ctx.db
         .select({ total: count() })
         .from(fiscalDocuments)
@@ -265,7 +286,7 @@ export const fiscalReportsRouter = router({
         .all();
 
       return {
-        header,
+        header: { ...header, maturity: maturityForProvider(header.providerId) },
         lines,
       };
     }),

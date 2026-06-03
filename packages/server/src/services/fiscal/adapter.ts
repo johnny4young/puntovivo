@@ -164,6 +164,22 @@ export interface FiscalAdapterCapabilities {
 }
 
 /**
+ * ENG-185 — fiscal pack maturity: the "truth guard" axis, orthogonal to a
+ * document's lifecycle status. Tells the UI how real a pack's emission is:
+ *   - `mock`      — computes a deterministic CUFE but NEVER signs or
+ *                   transmits (Colombia today; the real Proveedor
+ *                   Tecnologico swap is gated as ENG-021).
+ *   - `draft`     — emits structurally-valid but UNSIGNED, untransmitted
+ *                   XML (Mexico CFDI / Chile DTE today; signing +
+ *                   transmission are gated as ENG-035c / ENG-036c).
+ *   - `certified` — signs and transmits to the real tax authority. NO pack
+ *                   ships this yet; reserved so a surface can read as
+ *                   production-ready only when a pack genuinely is.
+ * A non-`certified` pack must never be presented as production / accepted.
+ */
+export type FiscalAdapterMaturity = 'mock' | 'draft' | 'certified';
+
+/**
  * ENG-034 — `validateConfig` issue codes. Stable string union so
  * future packs can add new codes without breaking the rest of the
  * matrix. The web layer maps each to a localized hint.
@@ -211,6 +227,13 @@ export interface FiscalAdapter {
   /** ISO 3166-1 alpha-2 country code this adapter serves. */
   readonly countryCode: string;
   readonly capabilities: FiscalAdapterCapabilities;
+  /**
+   * ENG-185 — production-readiness truth marker (see
+   * `FiscalAdapterMaturity`). The registry + UI use it to label demo /
+   * draft packs honestly; nothing below `certified` may be shown as
+   * production-ready, and unsupported countries never reach an adapter.
+   */
+  readonly maturity: FiscalAdapterMaturity;
   /**
    * Pre-flight readiness check. ColombiaMockAdapter returns ok=true
    * unconditionally; real adapters probe required settings (NIT,

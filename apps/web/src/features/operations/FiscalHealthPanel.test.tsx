@@ -90,6 +90,7 @@ describe('FiscalHealthPanel', () => {
         subtotal: 9000,
         taxAmount: 1000,
         providerId: 'mock-co',
+        maturity: 'mock',
         retries: 0,
         xmlRef: null,
       },
@@ -98,6 +99,9 @@ describe('FiscalHealthPanel', () => {
     render(<FiscalHealthPanel />);
     expect(screen.getByText('DEE-000001')).toBeInTheDocument();
     expect(screen.getByText(/cufe-abc-123/i)).toBeInTheDocument();
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
+      /Demo/i
+    );
     expect(screen.getByTestId('fiscal-retry-doc-1')).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-retry-doc-1')).not.toBeDisabled();
   });
@@ -122,6 +126,7 @@ describe('FiscalHealthPanel', () => {
         subtotal: 4500,
         taxAmount: 500,
         providerId: 'mock-co',
+        maturity: 'mock',
         retries: 1,
         xmlRef: null,
       },
@@ -155,6 +160,7 @@ describe('FiscalHealthPanel', () => {
         subtotal: 4500,
         taxAmount: 500,
         providerId: 'mock-co',
+        maturity: 'mock',
         retries: 0,
         xmlRef: null,
       },

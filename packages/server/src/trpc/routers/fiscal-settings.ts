@@ -107,6 +107,7 @@ export const fiscalSettingsRouter = router({
           settings: mx,
           validation,
           providerId: adapter.providerId,
+          maturity: adapter.maturity,
           notImplemented:
             (adapter as { notImplemented?: boolean }).notImplemented ?? false,
           availableInTicket:
@@ -124,6 +125,7 @@ export const fiscalSettingsRouter = router({
           settings: cl,
           validation,
           providerId: adapter.providerId,
+          maturity: adapter.maturity,
           notImplemented:
             (adapter as { notImplemented?: boolean }).notImplemented ?? false,
           availableInTicket:
@@ -142,6 +144,7 @@ export const fiscalSettingsRouter = router({
         settings: co,
         validation: validateCoFiscalConfig(co),
         providerId: adapter.providerId,
+        maturity: adapter.maturity,
         notImplemented:
           (adapter as { notImplemented?: boolean }).notImplemented ?? false,
         availableInTicket:
