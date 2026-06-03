@@ -14,7 +14,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.193",
+    "@ai-sdk/react": "^3.0.197",
     "@codemirror/autocomplete": "^6.20.2",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/language": "^6.12.3",
@@ -25,7 +25,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@lezer/highlight": "^1.2.3",
-    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",
     "@trpc/client": "^11.17.0",
     "@trpc/react-query": "^11.17.0",
@@ -40,15 +40,15 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "qrcode": "^1.5.4",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-hook-form": "^7.76.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-hook-form": "^7.77.0",
     "react-i18next": "^17.0.8",
-    "react-router-dom": "^7.15.1",
+    "react-router-dom": "^7.16.0",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.13"
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -57,7 +57,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/qrcode": "^1.5.6",
-    "@types/react": "^19.2.15",
+    "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.7",
