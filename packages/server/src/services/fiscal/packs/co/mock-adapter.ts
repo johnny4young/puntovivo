@@ -79,6 +79,9 @@ export class ColombiaMockAdapter implements FiscalAdapter {
   readonly providerId = COLOMBIA_PROVIDER_ID;
   readonly countryCode = 'CO';
   readonly capabilities = COLOMBIA_CAPABILITIES;
+  // ENG-185 — mock: deterministic CUFE, no signing, no DIAN transmission.
+  // The real Proveedor Tecnologico swap is gated as ENG-021.
+  readonly maturity = 'mock' as const;
 
   constructor(private readonly options: MockAdapterOptions = {}) {}
 

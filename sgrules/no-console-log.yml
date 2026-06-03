@@ -1,0 +1,14 @@
+# El server usa el logger (Pino). console.log se cuela y no respeta niveles/redaccion.
+# severity: warning => se muestra pero NO bloquea (sube a error cuando quieras gatear).
+id: no-console-log
+language: typescript
+severity: warning
+message: "Usa el logger (Pino), no console.log."
+files:
+  - "packages/server/src/**/*.ts"
+ignores:
+  - "**/*.test.ts"
+  - "**/__tests__/**"
+  - "**/scripts/**"
+rule:
+  pattern: console.log($$$)

@@ -1,0 +1,14 @@
+# Un .only() olvidado salta TODO el resto del suite en silencio -> bug escapado.
+# severity: error  => hace fallar el gate (es siempre incorrecto commitearlo).
+id: no-test-only
+language: typescript
+severity: error
+message: "Stray .only() salta el resto del suite. Quitalo antes de commit."
+files:
+  - "**/*.test.ts"
+  - "**/__tests__/**/*.ts"
+rule:
+  any:
+    - pattern: it.only($$$)
+    - pattern: test.only($$$)
+    - pattern: describe.only($$$)

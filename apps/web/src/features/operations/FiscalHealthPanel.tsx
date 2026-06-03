@@ -8,6 +8,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { FiscalStatusBadge } from '@/components/fiscal/FiscalStatusBadge';
+import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { KpiTile } from '@/components/ui';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
@@ -163,7 +164,11 @@ export function FiscalHealthPanel() {
                         <div className="sku break-all">{item.cufe}</div>
                       </td>
                       <td>
-                        <FiscalStatusBadge status={item.status} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <FiscalStatusBadge status={item.status} />
+                          {/* ENG-185 — flag demo/draft provider docs. */}
+                          <FiscalMaturityBadge maturity={item.maturity} />
+                        </div>
                       </td>
                       <td className="muted whitespace-nowrap">
                         {formatDateTime(item.emittedAt)}

@@ -46,6 +46,7 @@ type MxSettingsResponse = {
     ok: boolean;
     issues: Array<{ code: string; field: string; message: string }>;
   };
+  maturity: 'mock' | 'draft' | 'certified';
 };
 
 // Caso por defecto: tenant MX sin configurar (pack apagado, campos
@@ -77,6 +78,7 @@ const UNCONFIGURED_MX: MxSettingsResponse = {
       },
     ],
   },
+  maturity: 'draft',
 };
 
 let mockSettingsResponse: MxSettingsResponse = UNCONFIGURED_MX;
@@ -133,6 +135,9 @@ describe('CompanyMxFiscalCard (ENG-035a)', () => {
     expect(screen.getByText(/Mexico — CFDI 4.0/i)).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-mx-readiness')).toHaveTextContent(
       /Not ready/i
+    );
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
+      /Draft/i
     );
     // EmptyState visible; form oculto hasta el CTA.
     expect(screen.getByTestId('fiscal-mx-empty')).toBeInTheDocument();

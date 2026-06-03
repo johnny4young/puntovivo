@@ -61,7 +61,7 @@ import { CONSUMIDOR_FINAL, type FiscalEnvironment } from './cufe.js';
 import { tickDefaultFiscalWorker } from './fiscal-worker.js';
 import { allocateNextFolio } from './packs/cl/caf-allocator.js';
 import { mapInternalKindToTipoDte } from './packs/cl/mappings.js';
-import { getFiscalAdapter } from './registry.js';
+import { getFiscalAdapter, isSupportedFiscalCountry } from './registry.js';
 
 export interface EmitFiscalDocumentArgs {
   /** Database handle used for reads and the local fiscal write transaction. */
@@ -800,6 +800,13 @@ export async function enqueueFiscalEmission(args: {
   if (!resolution) return null;
 
   const locale = await resolveTenantLocale(db, tenantId);
+  // ENG-185 — no fiscal pack for this country: skip emission cleanly. This
+  // keeps the sale lifecycle non-fatal (best-effort, like the other null
+  // returns here) and never emits a Colombia-shaped fallback document for a
+  // country we do not actually support.
+  if (!isSupportedFiscalCountry(locale.countryCode)) {
+    return null;
+  }
   const adapter = getFiscalAdapter(locale.countryCode);
   const buyer = await resolveBuyer(db, tenantId, sale.customerId);
   const lines = await resolveLines(db, tenantId, saleId);

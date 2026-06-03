@@ -1,0 +1,20 @@
+# publicProcedure evita el guard de auth. Debe ser raro y justificado.
+# Afinada: solo marca ENDPOINTS publicos (.query/.mutation/.subscription/.input),
+# NO la definicion, los imports, ni protectedProcedure = publicProcedure.use(...).
+# Ignora tests (usan publicProcedure como fixture a proposito).
+# severity: warning => te lo pone enfrente en cada gate para que lo revises.
+id: flag-public-procedure
+language: typescript
+severity: warning
+message: "Endpoint publico (sin auth) -- justificalo o usa protectedProcedure / role guard."
+files:
+  - "packages/server/src/**/*.ts"
+ignores:
+  - "**/*.test.ts"
+  - "**/__tests__/**"
+rule:
+  any:
+    - pattern: publicProcedure.query($$$)
+    - pattern: publicProcedure.mutation($$$)
+    - pattern: publicProcedure.subscription($$$)
+    - pattern: publicProcedure.input($$$)

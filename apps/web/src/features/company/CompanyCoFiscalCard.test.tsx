@@ -47,6 +47,7 @@ type CoSettingsResponse = {
     ok: boolean;
     issues: Array<{ code: string; field: string; message: string }>;
   };
+  maturity: 'mock' | 'draft' | 'certified';
 };
 
 const UNCONFIGURED_CO: CoSettingsResponse = {
@@ -76,6 +77,7 @@ const UNCONFIGURED_CO: CoSettingsResponse = {
       },
     ],
   },
+  maturity: 'mock',
 };
 
 let mockSettingsResponse: CoSettingsResponse = UNCONFIGURED_CO;
@@ -135,6 +137,9 @@ describe('CompanyCoFiscalCard (ENG-184)', () => {
     expect(screen.getByText(/Colombia — DIAN/i)).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-co-readiness')).toHaveTextContent(
       /Not ready/i
+    );
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(
+      /Demo/i
     );
     expect(screen.getByTestId('fiscal-co-empty')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Issuer NIT/i)).not.toBeInTheDocument();

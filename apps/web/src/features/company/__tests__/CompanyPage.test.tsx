@@ -14,12 +14,13 @@
  */
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 
 // Mock countryCode mutable para que cada test pueda flippar el
-// dispatch del tab Fiscal entre MX / CL / CO sin re-mocks.
-let mockCountryCode: 'MX' | 'CL' | 'CO' = 'CO';
+// dispatch del tab Fiscal entre MX / CL / CO / unsupported sin re-mocks.
+// `null` simula el estado loading del locale query.
+let mockCountryCode: 'MX' | 'CL' | 'CO' | 'US' | null = 'CO';
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -43,9 +44,10 @@ vi.mock('@/lib/trpc', () => ({
     tenantLocale: {
       get: {
         useQuery: () => ({
-          data: { countryCode: mockCountryCode },
-          isLoading: false,
+          data: mockCountryCode === null ? undefined : { countryCode: mockCountryCode },
+          isLoading: mockCountryCode === null,
           error: null,
+          refetch: vi.fn(),
         }),
       },
     },
@@ -130,6 +132,10 @@ vi.mock('../CompanyTelemetryCard', () => ({
 import { CompanyPage } from '../CompanyPage';
 
 describe('CompanyPage tab behavior', () => {
+  beforeEach(() => {
+    mockCountryCode = 'CO';
+  });
+
   it('renders the segmented-control with the canonical tabs and lands on Readiness by default for admin (ENG-104)', () => {
     render(<CompanyPage />);
 
@@ -240,6 +246,35 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
     expect(screen.getByTestId('card-fiscal-co')).toBeInTheDocument();
+  });
+
+  it('does not fall back to the CO fiscal card while tenant locale is loading (ENG-185)', async () => {
+    mockCountryCode = null;
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-fiscal'));
+
+    expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-mx')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-fiscal-cl')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Country-specific fiscal configuration/i)
+    ).toBeInTheDocument();
+  });
+
+  it('renders the unsupported-country fiscal message instead of a fallback card (ENG-185)', async () => {
+    mockCountryCode = 'US';
+    const user = userEvent.setup();
+    render(<CompanyPage />);
+
+    await user.click(screen.getByTestId('company-tab-fiscal'));
+
+    expect(screen.queryByTestId('card-fiscal-co')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Electronic invoicing is not available here yet/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
 });
 

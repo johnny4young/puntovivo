@@ -231,7 +231,7 @@ export function CompanyPage() {
   // el query que LocaleProvider ya hace al boot; react-query dedupe
   // la trae de cache en este punto.
   const localeQuery = trpc.tenantLocale.get.useQuery();
-  const tenantCountryCode = localeQuery.data?.countryCode ?? 'CO';
+  const tenantCountryCode = localeQuery.data?.countryCode ?? null;
 
   // ENG-045 — tab state. URL-driven so deep links from elsewhere in
   // the app (e.g. AnomalyDetectionCard's "Activa la IA en
@@ -452,22 +452,53 @@ export function CompanyPage() {
 
                 {activeTab === 'fiscal' && (
                   <div className="space-y-6">
-                    {/*
-                      ENG-035a + ENG-036a — dispatch por país. Cada
-                      card asume internamente que se renderiza sólo
-                      cuando aplica (defensive layer); aquí el page
-                      hace el switch primario para evitar montar
-                      varias cards a la vez.
-                    */}
-                    {tenantCountryCode === 'MX' && <CompanyMxFiscalCard />}
-                    {tenantCountryCode === 'CL' && <CompanyClFiscalCard />}
-                    {tenantCountryCode === 'CO' && <CompanyCoFiscalCard />}
-                    {!['MX', 'CL', 'CO'].includes(tenantCountryCode) && (
-                      <div className="card p-6">
-                        <p className="text-sm text-secondary-600">
-                          {t('fiscal:settings.tabDescription')}
-                        </p>
-                      </div>
+                    {localeQuery.isLoading && (
+                      <PageLoadingState
+                        title={t('fiscal:settings.tabTitle')}
+                        description={t('fiscal:settings.tabDescription')}
+                      />
+                    )}
+                    {localeQuery.error && (
+                      <QueryErrorState
+                        title={t('fiscal:settings.tabTitle')}
+                        message={translateServerError(
+                          localeQuery.error,
+                          t,
+                          t('errors:server.unknown')
+                        )}
+                        onRetry={() => {
+                          void localeQuery.refetch();
+                        }}
+                      />
+                    )}
+                    {!localeQuery.isLoading && !localeQuery.error && (
+                      <>
+                        {/*
+                          ENG-035a + ENG-036a — dispatch por país. Cada
+                          card asume internamente que se renderiza sólo
+                          cuando aplica (defensive layer); aquí el page
+                          hace el switch primario para evitar montar
+                          varias cards a la vez.
+                        */}
+                        {tenantCountryCode === 'MX' && <CompanyMxFiscalCard />}
+                        {tenantCountryCode === 'CL' && <CompanyClFiscalCard />}
+                        {tenantCountryCode === 'CO' && <CompanyCoFiscalCard />}
+                        {tenantCountryCode !== null &&
+                          !['MX', 'CL', 'CO'].includes(tenantCountryCode) && (
+                            <div className="card p-6 space-y-2">
+                              {/* ENG-185 — be explicit: no fiscal pack for this
+                                  country (no Colombia-shaped fallback). */}
+                              <h2 className="text-lg font-semibold text-secondary-950">
+                                {t('fiscal:settings.unsupported.title')}
+                              </h2>
+                              <p className="text-sm text-secondary-600">
+                                {t('fiscal:settings.unsupported.description', {
+                                  country: tenantCountryCode,
+                                })}
+                              </p>
+                            </div>
+                          )}
+                      </>
                     )}
                   </div>
                 )}

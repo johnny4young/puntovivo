@@ -8,6 +8,7 @@ import {
   FiscalStatusBadge,
   type FiscalDocumentStatus,
 } from '@/components/fiscal/FiscalStatusBadge';
+import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 
@@ -201,7 +202,11 @@ export function FiscalDocumentListPage() {
                       {t(`kind.${row.kind as FiscalKind}`)}
                     </td>
                     <td className="py-2 pr-4 text-secondary-800">
-                      <FiscalStatusBadge status={row.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <FiscalStatusBadge status={row.status} />
+                        {/* ENG-185 — never let a mock/draft doc read as production. */}
+                        <FiscalMaturityBadge maturity={row.maturity} />
+                      </div>
                     </td>
                     <td className="py-2 pr-4 font-mono text-xs text-secondary-700">
                       {row.documentNumber}

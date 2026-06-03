@@ -26,6 +26,11 @@
     "notified_correction": "Correction notified",
     "partial_send": "Partially sent"
   },
+  "maturity": {
+    "mock": "Demo",
+    "draft": "Draft",
+    "hint": "Electronic invoicing is not transmitting to the tax authority yet. It is optional and for demo only — your sales still complete normally."
+  },
   "source": {
     "sale": "Sale",
     "void": "Void",
@@ -84,6 +89,10 @@
   "settings": {
     "tabTitle": "Fiscal",
     "tabDescription": "Country-specific fiscal configuration. The pack rendered below depends on this tenant's country code.",
+    "unsupported": {
+      "title": "Electronic invoicing is not available here yet",
+      "description": "There is no fiscal pack for {{country}} yet. You can keep selling normally — electronic invoicing for this country will arrive in a future release."
+    },
     "country": {
       "MX": "Mexico (CFDI 4.0)",
       "CO": "Colombia (DIAN)",

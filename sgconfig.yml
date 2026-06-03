@@ -1,0 +1,5 @@
+# ast-grep config — invariantes estructurales de puntovivo.
+# Corre con: ast-grep scan   (lo hace el gate automaticamente)
+# Doc: https://ast-grep.github.io/guide/project/project-config.html
+ruleDirs:
+  - sgrules

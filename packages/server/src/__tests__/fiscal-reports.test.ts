@@ -269,6 +269,8 @@ describe('reports.fiscal (ENG-020)', () => {
     expect(result.total).toBe(2);
     expect(result.items.every(i => typeof i.cufe === 'string')).toBe(true);
     expect(result.items.map(i => i.cufe).sort()).toEqual([cufeA1, cufeA2].sort());
+    // ENG-185 — every CO row is labelled mock (no production transmission).
+    expect(result.items.every(i => i.maturity === 'mock')).toBe(true);
   });
 
   it('returns the full filtered count even when pagination only returns one row', async () => {
@@ -307,6 +309,8 @@ describe('reports.fiscal (ENG-020)', () => {
     const row = await caller.reports.fiscal.getByCufe({ cufe: cufeA1 });
     expect(row.header.cufe).toBe(cufeA1);
     expect(row.header.buyerName).toBe('Customer rep-a');
+    // ENG-185 — the seeded CO documents come from the mock provider.
+    expect(row.header.maturity).toBe('mock');
     expect(row.lines).toHaveLength(1);
     expect(row.lines[0]?.productName).toBe('Product rep-a');
     expect(row.lines[0]?.productSku).toBe('SKU-rep-a');
