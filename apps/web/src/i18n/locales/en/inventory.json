@@ -51,6 +51,14 @@
     "status": {
       "lowStock": "Low stock",
       "healthy": "Healthy"
+    },
+    "details": {
+      "title": "Stock detail",
+      "viewAria": "View details",
+      "sku": "SKU",
+      "category": "Category",
+      "adjust": "Adjust stock",
+      "close": "Close"
     }
   },
   "entries": {

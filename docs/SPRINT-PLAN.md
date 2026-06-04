@@ -31,6 +31,7 @@ one screen per commit):
 | 7     | `ENG-188` | Shipped | Ring-1 screen focus pass remainder (Setup/`/company` readiness-hub restructure). | **Shipped** (web-only): the flat 10-pill `segmented-control` in `CompanyPage` became a grouped Setup nav — readiness pinned as the admin landing, the other 9 tabs demoted into three labeled groups (Negocio / Facturación y pagos / Sistema), modeled as a navigation (`role="group"` + `aria-current`, panel `role="region"`). The `?tab=` deep-link contract is preserved, so the readiness CTAs / GlobalStatusStrip / AuthProvider keep working. `ci:web` green; live `/company` smoke en/es. Closes the screen-focus wave. |
 | 8     | `ENG-132a` | Shipped | Screen simplification — Products list (first `ENG-132` list-screen slice). | `/products` table trimmed to the smallest useful column set (name+SKU / category / tier-1 / stock / status); provider, location and tier-2/3 prices moved into a row-detail `ProductDetailsDrawer` (additive Details eye action + edit hand-off). ENG-134f keyboard edit + CSV/XLSX export parity preserved. `ci:web` green; live `/products` smoke en/es. Remaining `ENG-132` screens (one per commit): Inventory, Orders, Purchases, Quotations, Customers, Finance. |
 | 9     | `ENG-132b` | Shipped | Screen simplification — Customers list (`ENG-132` list-screen slice). | `/customers` table trimmed to name(+identification) / status / actions; email, phone, type and location moved into a row-detail `CustomerDetailsDrawer` (additive Details eye action + ungated edit hand-off mirroring the row). ENG-134f keyboard edit + ledger/delete gating preserved. Added the FIRST tests for the customers folder (drawer + page). `ci:web` green; live `/customers` smoke en/es. Remaining `ENG-132` screens: Inventory, Orders, Purchases, Quotations, Finance. |
+| 10    | `ENG-132c` | Shipped | Screen simplification — Inventory Stock tab (`ENG-132` list-screen slice). | Stock table trimmed to name(+sku/category) / stock / status / actions; min stock, sell price, valuation and updated date moved into a new `InventoryStockDetailsDrawer` (additive Details eye action + canManage-gated Adjust hand-off to the existing adjustment modal). Scope = Stock tab only (Movements/Entries/Balances untouched). Added drawer test + a pure-function column-set test (exported `getStockColumns`). `ci:web` green; live `/inventory` Stock smoke en/es. Remaining `ENG-132` screens: Inventory Movements/Entries, Orders, Purchases, Quotations, Finance. |
 
 ## Recommended Sequence
 
@@ -38,7 +39,8 @@ one screen per commit):
    under `ENG-186`, `/operations` needs-attention under `ENG-187`, and the `/company` Setup grouped-nav
    restructure under `ENG-188`. The active track is now the **`ENG-132` list-screen simplification**
    (smallest useful column set + secondary detail into a drawer, one screen per commit): Products
-   shipped as `ENG-132a`; remaining Inventory, Orders, Purchases, Quotations, Customers, Finance.
+   (`ENG-132a`), Customers (`ENG-132b`), and Inventory Stock (`ENG-132c`) shipped;
+   remaining Inventory Movements/Entries, Orders, Purchases, Quotations, Finance.
 2. Resume the other pending Plan v3 tickets from [PLAN-V3.md](./PLAN-V3.md) once the `ENG-132`
    list-screen pass is far enough along (or in parallel for non-UI rails like `ENG-133` / `ENG-135`).
 3. Keep gated tickets parked until their gate clears:
