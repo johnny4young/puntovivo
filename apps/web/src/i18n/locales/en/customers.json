@@ -17,6 +17,13 @@
     "active": "Active",
     "inactive": "Inactive"
   },
+  "details": {
+    "title": "Customer details",
+    "viewAria": "View details",
+    "identification": "Identification",
+    "edit": "Edit customer",
+    "close": "Close"
+  },
   "form": {
     "createTitle": "Create Customer",
     "editTitle": "Edit Customer",

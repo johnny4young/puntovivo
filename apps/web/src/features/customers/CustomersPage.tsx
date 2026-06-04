@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Plus, Pencil, Trash2, Mail, Phone, BookOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, Eye } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -13,6 +13,7 @@ import {
   CustomerFormModal,
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
+import { CustomerDetailsDrawer } from '@/features/customers/CustomerDetailsDrawer';
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -24,11 +25,6 @@ function toOptionalString(value: string): string | undefined {
 
 function toNullableString(value: string): string | null {
   return value || null;
-}
-
-function formatLocation(customer: Customer): string {
-  const location = [customer.city, customer.state].filter(Boolean).join(', ');
-  return location || customer.country || '-';
 }
 
 export function CustomersPage() {
@@ -43,6 +39,9 @@ export function CustomersPage() {
   // ENG-089 — V5 ledger panel mounting state. Manager + admin only;
   // the row action button is hidden for cashier roles via `canViewLedger`.
   const [ledgerCustomer, setLedgerCustomer] = useState<Customer | null>(null);
+  // ENG-132b — row-detail Drawer for the columns trimmed off the default
+  // table (email / phone / type / location + identification).
+  const [detailsCustomer, setDetailsCustomer] = useState<Customer | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.customers.list.useQuery({ page: 1, perPage: 50 });
   const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
@@ -189,40 +188,9 @@ export function CustomersPage() {
         </div>
       ),
     },
-    {
-      accessorKey: 'email',
-      header: () => i18next.t('customers:table.email'),
-      size: 220,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2 text-secondary-600">
-          <Mail className="h-4 w-4" />
-          {row.original.email || '-'}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'phone',
-      header: () => i18next.t('customers:table.phone'),
-      size: 160,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2 text-secondary-600">
-          <Phone className="h-4 w-4" />
-          {row.original.phone || '-'}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'clientTypeId',
-      header: () => i18next.t('customers:table.type'),
-      size: 140,
-      cell: ({ row }) => row.original.clientTypeId || '-',
-    },
-    {
-      accessorKey: 'city',
-      header: () => i18next.t('customers:table.location'),
-      size: 180,
-      cell: ({ row }) => <span className="text-secondary-600">{formatLocation(row.original)}</span>,
-    },
+    // ENG-132b — email / phone / type / location trimmed from the default
+    // table into the row-detail Drawer (`onViewDetails`) so the row stays
+    // narrow; name + status carry the at-a-glance signal.
     {
       accessorKey: 'isActive',
       header: () => i18next.t('customers:table.status'),
@@ -235,9 +203,20 @@ export function CustomersPage() {
     },
     {
       id: 'actions',
-      size: 120,
+      size: 150,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
+          {/* ENG-132b — Details is the progressive-disclosure affordance for
+              the trimmed columns (email / phone / type / location); all
+              roles, focusable in tab order. */}
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            aria-label={i18next.t('customers:details.viewAria')}
+            title={i18next.t('customers:details.viewAria')}
+            onClick={() => setDetailsCustomer(row.original)}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
           {canViewLedger && (
             <button
               className="btn-ghost btn-icon h-8 w-8"
@@ -349,6 +328,15 @@ export function CustomersPage() {
         isOpen={!!ledgerCustomer}
         customer={ledgerCustomer}
         onClose={() => setLedgerCustomer(null)}
+      />
+
+      <CustomerDetailsDrawer
+        customer={detailsCustomer}
+        onClose={() => setDetailsCustomer(null)}
+        onEdit={customer => {
+          setDetailsCustomer(null);
+          handleOpenEdit(customer);
+        }}
       />
     </>
   );
