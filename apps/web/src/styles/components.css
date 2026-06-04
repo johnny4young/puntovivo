@@ -1445,6 +1445,16 @@
   .pv-strip.danger .act {
     color: var(--danger-700);
   }
+  /* ENG-187 — amber tone for the Operations Needs-attention warning rows
+     (a lagging-but-not-failed signal, e.g. a sync backlog). */
+  .pv-strip.warning {
+    border-color: color-mix(in oklch, var(--warning-500) 30%, transparent);
+    background: color-mix(in oklch, var(--warning-50) 70%, transparent);
+  }
+  .pv-strip.warning .ic,
+  .pv-strip.warning .act {
+    color: var(--warning-700);
+  }
   .pv-strip.info {
     border-color: color-mix(in oklch, var(--primary-300) 45%, transparent);
     background: color-mix(in oklch, var(--primary-50) 60%, transparent);

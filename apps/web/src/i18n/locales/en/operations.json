@@ -6,6 +6,7 @@
   },
   "tabs": {
     "ariaLabel": "Operations panels",
+    "attention": "Needs attention",
     "sync": "Sync",
     "fiscal": "Fiscal",
     "device": "Devices",
@@ -18,6 +19,29 @@
   "common": {
     "loading": "Loading...",
     "errorGeneric": "Something went wrong loading this view."
+  },
+  "attention": {
+    "kicker": "Needs attention",
+    "title": "What needs attention",
+    "description": "Retryable failures across sync, fiscal, devices, and payments. Open the panel that resolves each one.",
+    "reviewCta": "Review",
+    "reviewAria": "Review {{area}}",
+    "count_one": "{{count}} item pending",
+    "count_other": "{{count}} items pending",
+    "area": {
+      "sync": "Synchronization",
+      "fiscal": "Fiscal documents",
+      "device": "Receipt hardware",
+      "payments": "Electronic payments"
+    },
+    "allClear": {
+      "title": "All clear",
+      "description": "No failures need attention right now. The tabs above hold the full operations detail."
+    },
+    "error": {
+      "title": "Could not load the attention queue",
+      "retry": "Retry"
+    }
   },
   "fiscal": {
     "title": "Fiscal Health",
