@@ -23,6 +23,14 @@
     "inactive": "Inactive",
     "match": "Match"
   },
+  "details": {
+    "title": "Product details",
+    "viewAria": "View details",
+    "sku": "SKU",
+    "minStock": "Min. stock",
+    "edit": "Edit product",
+    "close": "Close"
+  },
   "semantic": {
     "toggleLabel": "Semantic",
     "toggleHint": "Match by meaning, not exact text. Falls back to text search when AI is off.",

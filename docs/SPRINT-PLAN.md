@@ -15,7 +15,9 @@ Run one ticket at a time. The first line of a shipping turn is:
 Executing <ENG-NNN> — <one-liner>
 ```
 
-The current focus wave is the product-truth and retail-scope reset:
+The current focus wave is the product-truth and retail-scope reset, now continuing into the
+`ENG-132` list-screen simplification track (smallest useful column set + secondary-into-drawer,
+one screen per commit):
 
 | Order | Ticket    | Status  | Intent                                                    | Required proof                                                                                                                                       |
 | ----- | --------- | ------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,15 +29,17 @@ The current focus wave is the product-truth and retail-scope reset:
 | 5     | `ENG-186` | Shipped | Ring-1 screen focus pass (re-scoped: `/sales` sellability slice). | `/sales` completes the common sale without desktop scroll at 1440x900 (cart + checkout scroll internally); History + Suspended behind a reusable Drawer; live smoke desktop + mobile, en/es. Operations + Setup slices split to `ENG-187`. |
 | 6     | `ENG-187` | Shipped | Ring-1 screen focus pass — Operations needs-attention (re-scoped: `/operations` slice). | `/operations` defaults to a Needs-attention queue (server aggregation of retryable sync/fiscal/hardware/payment failures, each row deep-links to its panel) + tested all-clear state; live smoke en/es covered the failure row + CTA. Setup/`/company` restructure split to `ENG-188`. |
 | 7     | `ENG-188` | Shipped | Ring-1 screen focus pass remainder (Setup/`/company` readiness-hub restructure). | **Shipped** (web-only): the flat 10-pill `segmented-control` in `CompanyPage` became a grouped Setup nav — readiness pinned as the admin landing, the other 9 tabs demoted into three labeled groups (Negocio / Facturación y pagos / Sistema), modeled as a navigation (`role="group"` + `aria-current`, panel `role="region"`). The `?tab=` deep-link contract is preserved, so the readiness CTAs / GlobalStatusStrip / AuthProvider keep working. `ci:web` green; live `/company` smoke en/es. Closes the screen-focus wave. |
+| 8     | `ENG-132a` | Shipped | Screen simplification — Products list (first `ENG-132` list-screen slice). | `/products` table trimmed to the smallest useful column set (name+SKU / category / tier-1 / stock / status); provider, location and tier-2/3 prices moved into a row-detail `ProductDetailsDrawer` (additive Details eye action + edit hand-off). ENG-134f keyboard edit + CSV/XLSX export parity preserved. `ci:web` green; live `/products` smoke en/es. Remaining `ENG-132` screens (one per commit): Inventory, Orders, Purchases, Quotations, Customers, Finance. |
 
 ## Recommended Sequence
 
 1. The retail screen-focus wave is **closed**: `ENG-182..ENG-188` all shipped — `/sales` sellability
    under `ENG-186`, `/operations` needs-attention under `ENG-187`, and the `/company` Setup grouped-nav
-   restructure under `ENG-188`. The next visible restaurant, AI, platform, or hosted scope can now
-   start from a true retail baseline.
-2. Resume pending Plan v3 tickets from [PLAN-V3.md](./PLAN-V3.md) only after
-   the retail scope reset is true in docs and runtime.
+   restructure under `ENG-188`. The active track is now the **`ENG-132` list-screen simplification**
+   (smallest useful column set + secondary detail into a drawer, one screen per commit): Products
+   shipped as `ENG-132a`; remaining Inventory, Orders, Purchases, Quotations, Customers, Finance.
+2. Resume the other pending Plan v3 tickets from [PLAN-V3.md](./PLAN-V3.md) once the `ENG-132`
+   list-screen pass is far enough along (or in parallel for non-UI rails like `ENG-133` / `ENG-135`).
 3. Keep gated tickets parked until their gate clears:
    `ENG-021`, `ENG-022`, `ENG-023`, `ENG-059`, `ENG-063`, `ENG-160`, and the
    Brazil NFe slice of `ENG-161`.

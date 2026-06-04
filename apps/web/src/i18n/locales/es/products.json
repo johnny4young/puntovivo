@@ -53,6 +53,14 @@
     "inactive": "Inactivo",
     "match": "Coincidencia"
   },
+  "details": {
+    "title": "Detalle del producto",
+    "viewAria": "Ver detalle",
+    "sku": "SKU",
+    "minStock": "Stock mínimo",
+    "edit": "Editar producto",
+    "close": "Cerrar"
+  },
   "form": {
     "createTitle": "Crear producto",
     "editTitle": "Editar producto",
