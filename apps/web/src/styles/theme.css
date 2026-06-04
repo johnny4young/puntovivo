@@ -87,6 +87,7 @@
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-slide-up: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-slide-in-right: slide-in-right 240ms cubic-bezier(0.22, 1, 0.36, 1);
   --animate-pop-in: pop-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-shimmer: shimmer 2.4s linear infinite;
 
@@ -118,6 +119,19 @@
     to {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  /* ENG-186 — slide-over entrance for the desktop Drawer (right panel).
+     The bottom-sheet variant on mobile reuses slide-up. */
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
 

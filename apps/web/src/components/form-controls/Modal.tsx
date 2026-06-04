@@ -1,8 +1,9 @@
-import { useEffect, useRef, useCallback, type ReactNode, type MouseEvent } from 'react';
+import { useRef, type ReactNode, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 
 // ENG-179b — explicit `| undefined` on every optional field so React
 // callers can spread props from a parent state shape that carries
@@ -76,111 +77,19 @@ export function Modal({
 }: ModalProps) {
   const { t } = useTranslation('common');
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
-  const wasOpenRef = useRef(false);
-  // ENG-105f — keep the latest restoreFocusTo accessible from the
-  // focus-restore branch without including it in the effect deps
-  // (a parent that creates a fresh arrow on every render would
-  // otherwise re-fire focus restoration spuriously). The sync runs
-  // inside an effect to satisfy `react-hooks/refs` while staying
-  // current-render-fresh by the time the close transition fires.
-  const restoreFocusToRef = useRef(restoreFocusTo);
-  useEffect(() => {
-    restoreFocusToRef.current = restoreFocusTo;
-  }, [restoreFocusTo]);
 
-  // Focus trap
-  const handleTabKey = useCallback((e: KeyboardEvent) => {
-    if (!modalRef.current) return;
-
-    const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (e.shiftKey && document.activeElement === firstElement) {
-      e.preventDefault();
-      lastElement?.focus();
-    } else if (!e.shiftKey && document.activeElement === lastElement) {
-      e.preventDefault();
-      firstElement?.focus();
-    }
-  }, []);
-
-  // Handle keyboard events
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && closeOnEsc) {
-        onClose();
-      }
-      if (e.key === 'Tab') {
-        handleTabKey(e);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, closeOnEsc, onClose, handleTabKey]);
-
-  // Focus management
-  useEffect(() => {
-    if (isOpen) {
-      wasOpenRef.current = true;
-      // Store the currently focused element
-      previousActiveElement.current = document.activeElement as HTMLElement;
-
-      // Focus the modal or first focusable element
-      const timer = setTimeout(() => {
-        if (modalRef.current) {
-          const activeElement = document.activeElement as HTMLElement | null;
-          if (
-            activeElement &&
-            activeElement !== document.body &&
-            modalRef.current.contains(activeElement)
-          ) {
-            return;
-          }
-
-          const firstFocusable = modalRef.current.querySelector<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-          );
-          firstFocusable?.focus();
-        }
-      }, 50);
-
-      return () => clearTimeout(timer);
-    }
-
-    if (!wasOpenRef.current) {
-      return;
-    }
-    wasOpenRef.current = false;
-
-    // Restore focus on close. The optional override takes
-    // precedence when it returns a focusable element; otherwise
-    // fall back to the element that was focused at open time.
-    const override = restoreFocusToRef.current?.();
-    if (override) {
-      override.focus();
-    } else {
-      previousActiveElement.current?.focus();
-    }
-  }, [isOpen]);
-
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [isOpen]);
+  // ENG-186 (review follow-up) — focus-trap, ESC close, focus restoration
+  // (incl. the ENG-105f restoreFocusTo override) and body-scroll-lock now
+  // live in the shared useDialogA11y hook (also consumed by Drawer). Modal
+  // keeps its historical single-dialog behaviour — it does not pass
+  // `requireTopmost`, so the topmost-dialog arbitration is off.
+  useDialogA11y({
+    isOpen,
+    onClose,
+    closeOnEsc,
+    containerRef: modalRef,
+    restoreFocusTo,
+  });
 
   const handleBackdropClick = (e: MouseEvent<HTMLDivElement>) => {
     if (closeOnBackdrop && e.target === e.currentTarget) {

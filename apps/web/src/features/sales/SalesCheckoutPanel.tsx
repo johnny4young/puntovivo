@@ -134,8 +134,8 @@ export function SalesCheckoutPanel({
   const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
 
   return (
-    <aside className="card p-5 sm:p-6 xl:sticky xl:top-24">
-      <div className="flex items-start justify-between gap-4">
+    <aside className="card p-5 sm:p-6 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+      <div className="flex items-start justify-between gap-4 xl:shrink-0">
         <div>
           <p className="pv-kicker">{t('checkout.kicker')}</p>
           <h2 className="pv-title text-xl">{t('checkout.chargeSummary')}</h2>
@@ -152,7 +152,7 @@ export function SalesCheckoutPanel({
         </button>
       </div>
 
-      <div className="pv-total mt-6">
+      <div className="pv-total mt-6 xl:shrink-0">
         <div className="lbl">{t('checkout.totalDue')}</div>
         <div className="fig">{formatCurrency(draftSummary.total)}</div>
         <div className="brk">
@@ -167,7 +167,7 @@ export function SalesCheckoutPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
           * cart is empty we surface a 4-tile dashed-border grid as a hint
           * to the cashier (scan, scan again, search, suggest). When the
@@ -364,7 +364,14 @@ export function SalesCheckoutPanel({
         {preflightItems.length > 0 && (
           <CheckoutPreflightPanel items={preflightItems} />
         )}
+      </div>
 
+      {/* ENG-186 (review follow-up) — pinned action footer so Cobrar stays in
+          view at xl even when the informational panel above is tall (the
+          cash-session-closed onboarding state). The footer is shrink-0; the
+          block above it scrolls. Below xl these actions are hidden (the
+          SalesMobileCheckoutBar owns mobile), so the footer is inert there. */}
+      <div className="space-y-3 xl:shrink-0 xl:border-t xl:border-line/70 xl:pt-4">
         <button
           className="pv-btn primary lg hidden w-full justify-center xl:inline-flex"
           onClick={primaryAction}

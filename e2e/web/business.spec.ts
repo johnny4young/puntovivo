@@ -134,9 +134,11 @@ async function createCompletedPurchase(
 
 async function openSaleDetails(page: Page, saleNumber: string) {
   await page.goto('/sales');
-  await page.getByRole('tab', { name: /History|Historial/i }).click();
-  await page.getByPlaceholder('Search by invoice...').fill(saleNumber);
-  const viewButton = page.getByRole('button', { name: `View ${saleNumber}` });
+  await page.getByTestId('sales-open-history').click();
+  const historyDrawer = page.getByTestId('sales-history-drawer');
+  await expect(historyDrawer).toBeVisible();
+  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber);
+  const viewButton = historyDrawer.getByRole('button', { name: `View ${saleNumber}` });
   await expect(viewButton).toBeVisible();
   await viewButton.click();
   await expect(page.getByRole('heading', { name: `Sale ${saleNumber}` })).toBeVisible();

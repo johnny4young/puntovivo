@@ -423,14 +423,16 @@ test.describe('keyboard-only /sales smoke (ENG-134d)', () => {
       await page.keyboard.press('Enter');
       await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
 
-      await page.getByRole('tab', { name: /history|historial/i }).click();
+      await page.getByTestId('sales-open-history').click();
+      const historyDrawer = page.getByTestId('sales-history-drawer');
+      await expect(historyDrawer).toBeVisible();
 
       // The SalesHistoryTable refreshes; the most recent row exposes
       // a stable `data-row-id`. Scope by the section that contains
       // the "Sales history" heading so we don't accidentally hit a
       // cart row carrying the same product id (the cart already
       // cleared, but the SalesCartWorkspace ancestor stays mounted).
-      const historySection = page.locator('section', {
+      const historySection = historyDrawer.locator('section', {
         has: page.getByRole('heading', {
           name: /sales history|historial de ventas/i,
         }),

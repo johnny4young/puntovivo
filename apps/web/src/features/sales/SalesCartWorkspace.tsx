@@ -64,8 +64,11 @@ export function SalesCartWorkspace({
     ? ariaKeyshortcutsFor('sales.undo')
     : undefined;
   return (
-    <div className="card p-5 sm:p-6">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    // ENG-186 — at xl the card becomes a bounded flex column so the line-item
+    // table scrolls internally (the header + error stay pinned) and the page
+    // itself does not scroll while completing a sale. Below xl it is plain flow.
+    <div className="card p-5 sm:p-6 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between xl:shrink-0">
         <div>
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('checkout.activeTicket')}</p>
           <h2 className="mt-2 font-display text-3xl text-secondary-950">{t('checkout.currentCart')}</h2>
@@ -110,19 +113,23 @@ export function SalesCartWorkspace({
         </div>
       </div>
 
-      <SaleCartTable
-        items={items}
-        selectedItemKey={selectedItemKey}
-        onQuantityChange={onQuantityChange}
-        onDiscountChange={onDiscountChange}
-        onRemove={onRemove}
-        onSelectItem={itemKey => onSelectItem(itemKey)}
-        quantityInputRefFor={quantityInputRefFor}
-        discountInputRefFor={discountInputRefFor}
-      />
+      {/* ENG-186 — the scrollable region at xl; flex-1 + min-h-0 lets the
+          table take the remaining card height and scroll on overflow. */}
+      <div className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+        <SaleCartTable
+          items={items}
+          selectedItemKey={selectedItemKey}
+          onQuantityChange={onQuantityChange}
+          onDiscountChange={onDiscountChange}
+          onRemove={onRemove}
+          onSelectItem={itemKey => onSelectItem(itemKey)}
+          quantityInputRefFor={quantityInputRefFor}
+          discountInputRefFor={discountInputRefFor}
+        />
+      </div>
 
       {saleError && (
-        <div className="mt-4 rounded-[20px] border border-danger-200/70 bg-danger-50/90 px-4 py-3 text-sm text-danger-700">
+        <div className="mt-4 rounded-[20px] border border-danger-200/70 bg-danger-50/90 px-4 py-3 text-sm text-danger-700 xl:shrink-0">
           {saleError}
         </div>
       )}
