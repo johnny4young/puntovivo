@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, RefreshCw, Search, Sparkles, Tag, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, RefreshCw, Search, Sparkles, Tag, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
@@ -16,6 +16,7 @@ import {
   type ProductFormValues,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
+import { ProductDetailsDrawer } from '@/features/products/ProductDetailsDrawer';
 import { EmbeddingDriftBanner } from '@/features/products/EmbeddingDriftBanner';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { productExportColumns } from '@/features/products/productExport';
@@ -39,7 +40,14 @@ function canManageProducts(role: UserRole | undefined): boolean {
 // changing the public `Product` type for unrelated callers.
 type DisplayProduct = Product & { similarity?: number };
 
+// ENG-132a — the default table renders the smallest useful column set for
+// an at-a-glance catalog scan (name+SKU, category, lead price, stock,
+// status). Provider, location, and the tier-2 / tier-3 prices are secondary
+// metadata moved behind the row-detail Drawer (`onViewDetails`) so the row
+// stays narrow. Every trimmed field is still exported (productExportColumns)
+// and still shown in the Drawer.
 const columns = (
+  onViewDetails: (product: Product) => void,
   onEdit: (product: Product) => void,
   onDelete: (product: Product) => void,
   canEdit: boolean,
@@ -71,18 +79,6 @@ const columns = (
     cell: ({ row }) => row.original.categoryName ?? '-',
   },
   {
-    accessorKey: 'providerName',
-    header: () => i18next.t('products:table.provider'),
-    size: 160,
-    cell: ({ row }) => row.original.providerName ?? '-',
-  },
-  {
-    accessorKey: 'locationName',
-    header: () => i18next.t('products:table.location'),
-    size: 180,
-    cell: ({ row }) => row.original.locationName ?? '-',
-  },
-  {
     accessorKey: 'price',
     header: () => i18next.t('products:table.tier1'),
     size: 110,
@@ -94,20 +90,6 @@ const columns = (
         <span className="lead">{formatCurrency(row.original.price)}</span>
       </span>
     ),
-  },
-  {
-    accessorKey: 'price2',
-    header: () => i18next.t('products:table.tier2'),
-    size: 110,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => formatCurrency(row.original.price2),
-  },
-  {
-    accessorKey: 'price3',
-    header: () => i18next.t('products:table.tier3'),
-    size: 110,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => formatCurrency(row.original.price3),
   },
   {
     accessorKey: 'stock',
@@ -182,9 +164,20 @@ const columns = (
     : []),
   {
     id: 'actions',
-    size: 100,
+    size: 130,
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
+        {/* ENG-132a — Details is the progressive-disclosure affordance for
+            the trimmed columns (provider / location / tier2 / tier3 …);
+            available to every role and focusable in tab order. */}
+        <button
+          className="btn-ghost btn-icon h-8 w-8"
+          onClick={() => onViewDetails(row.original)}
+          aria-label={i18next.t('products:details.viewAria')}
+          title={i18next.t('products:details.viewAria')}
+        >
+          <Eye className="h-4 w-4" />
+        </button>
         <button
           className="btn-ghost btn-icon h-8 w-8"
           onClick={() => onEdit(row.original)}
@@ -302,6 +295,9 @@ export function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  // ENG-132a — row-detail Drawer for the columns trimmed off the default
+  // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
+  const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
   const editingProductDetailQuery = trpc.products.getById.useQuery(
     { id: editingProduct?.id ?? '' },
     { enabled: !!editingProduct?.id }
@@ -426,6 +422,22 @@ export function ProductsPage() {
     setEditingProduct(null);
     setModalInstanceKey(current => current + 1);
     setIsModalOpen(true);
+  };
+
+  // ENG-132a — shared edit entry point used by the table (Pencil button +
+  // onRowActivate, ENG-134f) AND the row-detail Drawer's Edit footer.
+  const handleOpenEdit = (product: Product) => {
+    setEditingProduct(product);
+    setModalInstanceKey(current => current + 1);
+    setIsModalOpen(true);
+  };
+
+  // ENG-132a — read-only product detail Drawer (holds the trimmed columns).
+  const handleOpenDetails = (product: Product) => setDetailsProduct(product);
+  const handleCloseDetails = () => setDetailsProduct(null);
+  const handleEditFromDetails = (product: Product) => {
+    setDetailsProduct(null);
+    handleOpenEdit(product);
   };
 
   const buildProviderPayload = (values: ProductFormValues) => {
@@ -613,38 +625,27 @@ export function ProductsPage() {
               </>
             )}
 
-            {(() => {
-              // ENG-134f — extract the row-edit action so we can wire
-              // it to both the column's Pencil button (mouse path) AND
-              // `onRowActivate` (keyboard Enter/Space path). Defining
-              // it inline as an IIFE keeps the existing canManage /
-              // canDelete / semanticIsActive closures intact.
-              const handleOpenEditRow = (product: Product) => {
-                setEditingProduct(product);
-                setModalInstanceKey(current => current + 1);
-                setIsModalOpen(true);
-              };
-              return (
-                <DataTable
-                  variant="dense"
-                  columns={columns(
-                    handleOpenEditRow,
-                    product => setProductToDelete(product),
-                    canManage,
-                    canDelete,
-                    semanticIsActive
-                  )}
-                  data={displayProducts}
-                  searchKey={semanticModeEnabled ? undefined : 'name'}
-                  searchPlaceholder={t('table.search')}
-                  pageSize={10}
-                  // ENG-134f — only manager / admin can edit; for
-                  // viewer / cashier roles the keyboard path stays
-                  // a no-op (no Pencil button to mirror).
-                  onRowActivate={canManage ? handleOpenEditRow : undefined}
-                />
-              );
-            })()}
+            <DataTable
+              variant="dense"
+              columns={columns(
+                handleOpenDetails,
+                handleOpenEdit,
+                product => setProductToDelete(product),
+                canManage,
+                canDelete,
+                semanticIsActive
+              )}
+              data={displayProducts}
+              searchKey={semanticModeEnabled ? undefined : 'name'}
+              searchPlaceholder={t('table.search')}
+              pageSize={10}
+              // ENG-134f — keyboard row-activate mirrors the Pencil (edit)
+              // action for manager / admin; viewer / cashier have no
+              // editable row so it stays a no-op. ENG-132a added a separate
+              // Details affordance (Eye button, all roles) that is focusable
+              // in tab order, so this keyboard edit parity is unchanged.
+              onRowActivate={canManage ? handleOpenEdit : undefined}
+            />
 
             {semanticIsActive && displayProducts.length === 0 && !semanticSearchQuery.isFetching && (
               <p className="text-sm text-secondary-500">{t('semantic.noResults')}</p>
@@ -690,6 +691,12 @@ export function ProductsPage() {
         }}
         loading={deleteMutation.isPending}
         variant="danger"
+      />
+
+      <ProductDetailsDrawer
+        product={detailsProduct}
+        onClose={handleCloseDetails}
+        onEdit={canManage ? handleEditFromDetails : undefined}
       />
     </div>
   );
