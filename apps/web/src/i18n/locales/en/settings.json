@@ -250,7 +250,12 @@
       "fiscal": "Fiscal",
       "payments": "Payments",
       "modules": "Modules",
-      "restaurant": "Restaurant"
+      "restaurant": "Restaurant",
+      "groups": {
+        "business": "Business",
+        "billing": "Billing & payments",
+        "system": "System"
+      }
     },
     "submitting": "Saving...",
     "save": "Save Company",
