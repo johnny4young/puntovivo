@@ -24,12 +24,14 @@ The current focus wave is the product-truth and retail-scope reset:
 | 2     | `ENG-183` | Shipped | Retail Ring-1 scope gate and module exposure cleanup.     | Fresh retail tenant hides non-core surfaces unless profile/module enables them; tests prove no route/sidebar/palette leaks.                          |
 | 3     | `ENG-184` | Shipped | Colombia retail readiness profile and checkout preflight. | `/company` + `/sales` surface fiscal/hardware/sync/payment as optional reminders (never blockers); basic CO DIAN config card ships; en/es + recovery CTAs proven.          |
 | 4     | `ENG-185` | Shipped | Fiscal adapter truth guard.                               | Unsupported countries fail with a typed error; mock/draft packs are labelled Demo/Draft across cards, document views, and diagnostics; e-invoicing stays optional.   |
-| 5     | `ENG-186` | Pending | Ring-1 screen focus pass.                                 | Live smoke on `/operations`, `/sales`, and `/company` proves primary tasks fit without incoherent overlap.                                           |
+| 5     | `ENG-186` | Shipped | Ring-1 screen focus pass (re-scoped: `/sales` sellability slice). | `/sales` completes the common sale without desktop scroll at 1440x900 (cart + checkout scroll internally); History + Suspended behind a reusable Drawer; live smoke desktop + mobile, en/es. Operations + Setup slices split to `ENG-187`. |
+| 6     | `ENG-187` | Pending | Ring-1 screen focus pass remainder (Operations needs-attention + Setup readiness hub). | Live smoke on `/operations` + `/company` proves the primary task is visible without incoherent overlap; Operations defaults to actionable failures; Setup groups around readiness.                |
 
 ## Recommended Sequence
 
-1. Finish `ENG-186` (the last of the retail-focus wave; `ENG-182..ENG-185` shipped) before adding more
-   visible restaurant, AI, platform, or hosted scope.
+1. Finish `ENG-187` (the screen-focus remainder: Operations needs-attention default + Setup readiness
+   hub; `ENG-182..ENG-186` shipped — the `/sales` sellability slice closed under `ENG-186`) before
+   adding more visible restaurant, AI, platform, or hosted scope.
 2. Resume pending Plan v3 tickets from [PLAN-V3.md](./PLAN-V3.md) only after
    the retail scope reset is true in docs and runtime.
 3. Keep gated tickets parked until their gate clears:

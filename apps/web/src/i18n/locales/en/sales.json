@@ -3,11 +3,9 @@
     "todaySales": "Today's sales",
     "transactions": "Transactions",
     "averageOrder": "Average order",
-    "draftTotal": "Draft total",
-    "viewToggleAriaLabel": "Sales view"
+    "draftTotal": "Draft total"
   },
   "view": {
-    "pos": "Point of sale",
     "history": "History"
   },
   "checkout": {

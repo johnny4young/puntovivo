@@ -2,7 +2,9 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react
 import { useNavigate } from 'react-router-dom';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { History, PauseCircle } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
+import { Drawer } from '@/components/feedback/Drawer';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -77,7 +79,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type {
   CashSession,
   Category,
@@ -202,11 +204,12 @@ export function SalesPage() {
     },
     []
   );
-  // Rediseño §06 — el POS se reduce a carrito + resumen de cobro. El
-  // historial vive detrás de un toggle segmentado para no competir con
-  // el flujo de cobro (los KPIs y el Control de caja ya viven en
-  // Dashboard y Operations → Caja respectivamente).
-  const [activeView, setActiveView] = useState<'pos' | 'history'>('pos');
+  // ENG-186 — el POS es ahora la única superficie de /sales (carrito +
+  // resumen de cobro). El historial pasó de un toggle segmentado a un
+  // cajón lateral (Drawer) para que nunca compita verticalmente con el
+  // flujo de cobro; los KPIs y el Control de caja ya viven en Dashboard
+  // y Operations → Caja respectivamente.
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [productSearchInitialQuery, setProductSearchInitialQuery] = useState('');
@@ -1300,202 +1303,184 @@ export function SalesPage() {
 
   return (
     <>
-      <div className="space-y-6 pb-24 xl:pb-0">
-        {/* Rediseño §06 — toggle segmentado Punto de venta · Historial.
-            El POS queda como carrito + resumen de cobro; el historial
-            es una vista hermana en lugar de competir verticalmente con
-            el flujo de cobro. */}
-        <div className="page-header-row">
-          <div
-            className="segmented-control"
-            role="tablist"
-            aria-label={t('page.viewToggleAriaLabel')}
-          >
-            {(['pos', 'history'] as const).map(view => (
-              <button
-                key={view}
-                type="button"
-                role="tab"
-                aria-selected={activeView === view}
-                className={cn(
-                  'segmented-tab',
-                  activeView === view ? 'segmented-tab-active' : ''
-                )}
-                onClick={() => setActiveView(view)}
-                data-testid={`sales-view-tab-${view}`}
-              >
-                {view === 'pos' ? t('view.pos') : t('view.history')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {activeView === 'pos' ? (
-          <>
-            {/* Rediseño §06 — barra de búsqueda compacta a ancho completo
-                arriba del POS. `productInputRef` es el objetivo del
-                scanner wedge (useBarcodeWedgeListener) y de Alt+P
-                (useScannerFocusRestoration), así que debe permanecer
-                montado y visible mientras la vista POS esté activa. */}
+      <div className="sales-pos-shell space-y-4 pb-24 xl:flex xl:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0 xl:overflow-hidden xl:pb-0">
+        {/* ENG-186 — el POS es la única superficie de /sales. La barra de
+            búsqueda y los accesos a Historial / Ventas suspendidas viven en
+            una fila de acción de altura fija (shrink-0); el carrito y el
+            panel de cobro toman el resto de la altura y hacen scroll por
+            dentro, de modo que cobrar no exige scroll de página a 1440x900.
+            `productInputRef` es el objetivo del scanner wedge
+            (useBarcodeWedgeListener) y de Alt+P (useScannerFocusRestoration),
+            así que permanece montado y visible siempre. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch xl:shrink-0">
+          <div className="min-w-0 flex-1">
             <SalesQuickSearchBar
               query={productSearchQuery}
               onQueryChange={setProductSearchQuery}
               onSubmit={() => handleOpenProductSearch(productSearchQuery)}
               inputRef={productInputRef}
             />
+          </div>
+          <div className="flex gap-2 sm:flex-col sm:justify-end">
+            <button
+              type="button"
+              className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+              onClick={() => setIsHistoryDrawerOpen(true)}
+              data-testid="sales-open-history"
+            >
+              <History className="h-4 w-4" aria-hidden="true" />
+              {t('view.history')}
+            </button>
+            <button
+              type="button"
+              className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+              onClick={() => setIsSuspendedPanelOpen(true)}
+              data-testid="sales-open-suspended"
+            >
+              <PauseCircle className="h-4 w-4" aria-hidden="true" />
+              {t('park.panelTitle')}
+              {suspendedDraftsCount > 0 && (
+                <span
+                  className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-semibold text-primary-700"
+                  data-testid="sales-suspended-count"
+                >
+                  {suspendedDraftsCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
-            {isResumedCart && activeWorkspace?.serverSaleNumber && (
-              <div
-                className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900"
-                role="status"
-                data-testid="resumed-cart-banner"
-              >
-                <p className="font-semibold">
-                  {activeWorkspace.label
-                    ? t('park.resumedBannerWithLabel', {
-                        saleNumber: activeWorkspace.serverSaleNumber,
-                        label: activeWorkspace.label,
-                      })
-                    : t('park.resumedBanner', {
-                        saleNumber: activeWorkspace.serverSaleNumber,
-                      })}
+        {isResumedCart && activeWorkspace?.serverSaleNumber && (
+          <div
+            className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 xl:shrink-0"
+            role="status"
+            data-testid="resumed-cart-banner"
+          >
+            <p className="font-semibold">
+              {activeWorkspace.label
+                ? t('park.resumedBannerWithLabel', {
+                    saleNumber: activeWorkspace.serverSaleNumber,
+                    label: activeWorkspace.label,
+                  })
+                : t('park.resumedBanner', {
+                    saleNumber: activeWorkspace.serverSaleNumber,
+                  })}
+            </p>
+            <p className="mt-1 text-xs text-primary-800/80">
+              {t('park.resumedBannerHint')}
+            </p>
+          </div>
+        )}
+
+        {ownedWorkspaces.length > 1 && (
+          <section
+            className="rounded-2xl border border-line/80 bg-surface px-4 py-3 shadow-sm xl:shrink-0"
+            aria-label={t('park.localWorkspacesTitle')}
+            data-testid="cart-workspace-switcher"
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-secondary-950">
+                  {t('park.localWorkspacesTitle')}
                 </p>
-                <p className="mt-1 text-xs text-primary-800/80">
-                  {t('park.resumedBannerHint')}
+                <p className="text-xs text-secondary-500">
+                  {t('park.localWorkspacesDescription')}
                 </p>
               </div>
+            </div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {ownedWorkspaces.map((workspace, index) => {
+                const workspaceSummary = getCartSummary(workspace.items);
+                const fallbackLabel = t('park.localWorkspaceFallback', {
+                  index: ownedWorkspaces.length - index,
+                });
+                const label =
+                  workspace.label ??
+                  (workspace.serverSaleNumber
+                    ? t('park.localWorkspaceServerDraft', {
+                        saleNumber: workspace.serverSaleNumber,
+                      })
+                    : fallbackLabel);
+                const isActive = workspace.id === activeWorkspace?.id;
+
+                return (
+                  <button
+                    key={workspace.id}
+                    type="button"
+                    className={
+                      isActive
+                        ? 'rounded-2xl border border-primary-300 bg-primary-50 px-3 py-2 text-left text-sm text-primary-900'
+                        : 'rounded-2xl border border-line bg-white px-3 py-2 text-left text-sm text-secondary-700 hover:border-primary-200 hover:bg-primary-50/60'
+                    }
+                    onClick={() => handleSelectWorkspace(workspace.id)}
+                    aria-pressed={isActive}
+                    aria-label={t('park.localWorkspaceSelect', { label })}
+                    data-testid="cart-workspace-switcher-item"
+                  >
+                    <span className="block whitespace-nowrap font-semibold">
+                      {label}
+                    </span>
+                    <span className="mt-1 block whitespace-nowrap text-xs opacity-75">
+                      {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
+                      {formatCurrency(workspaceSummary.total)}
+                    </span>
+                    {isActive && (
+                      <span className="mt-1 inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-[0.65rem] font-semibold text-primary-700">
+                        {t('park.localWorkspaceActive')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
             )}
 
-            {ownedWorkspaces.length > 1 && (
-              <section
-                className="rounded-2xl border border-line/80 bg-surface px-4 py-3 shadow-sm"
-                aria-label={t('park.localWorkspacesTitle')}
-                data-testid="cart-workspace-switcher"
-              >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-secondary-950">
-                      {t('park.localWorkspacesTitle')}
-                    </p>
-                    <p className="text-xs text-secondary-500">
-                      {t('park.localWorkspacesDescription')}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                  {ownedWorkspaces.map((workspace, index) => {
-                    const workspaceSummary = getCartSummary(workspace.items);
-                    const fallbackLabel = t('park.localWorkspaceFallback', {
-                      index: ownedWorkspaces.length - index,
-                    });
-                    const label =
-                      workspace.label ??
-                      (workspace.serverSaleNumber
-                        ? t('park.localWorkspaceServerDraft', {
-                            saleNumber: workspace.serverSaleNumber,
-                          })
-                        : fallbackLabel);
-                    const isActive = workspace.id === activeWorkspace?.id;
-
-                    return (
-                      <button
-                        key={workspace.id}
-                        type="button"
-                        className={
-                          isActive
-                            ? 'rounded-2xl border border-primary-300 bg-primary-50 px-3 py-2 text-left text-sm text-primary-900'
-                            : 'rounded-2xl border border-line bg-white px-3 py-2 text-left text-sm text-secondary-700 hover:border-primary-200 hover:bg-primary-50/60'
-                        }
-                        onClick={() => handleSelectWorkspace(workspace.id)}
-                        aria-pressed={isActive}
-                        aria-label={t('park.localWorkspaceSelect', { label })}
-                        data-testid="cart-workspace-switcher-item"
-                      >
-                        <span className="block whitespace-nowrap font-semibold">
-                          {label}
-                        </span>
-                        <span className="mt-1 block whitespace-nowrap text-xs opacity-75">
-                          {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
-                          {formatCurrency(workspaceSummary.total)}
-                        </span>
-                        {isActive && (
-                          <span className="mt-1 inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-[0.65rem] font-semibold text-primary-700">
-                            {t('park.localWorkspaceActive')}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {isSuspendedPanelOpen && (
-              <SuspendedSalesPanel
-                isOpen={isSuspendedPanelOpen}
-                onClose={() => setIsSuspendedPanelOpen(false)}
-                onResume={handleResumeFromPanel}
-              />
-            )}
-
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
-              <SalesCartWorkspace
-                items={cartItems}
-                selectedItemKey={activeSelectedCartItemKey}
-                itemCount={draftSummary.itemCount}
-                saleError={saleError}
-                onQuantityChange={handleQuantityChange}
-                onDiscountChange={handleDiscountChange}
-                onRemove={handleRemoveItem}
-                onSelectItem={setSelectedCartItemKey}
-                onClearCart={handleClearCart}
-                quantityInputRefFor={quantityInputRefFor}
-                discountInputRefFor={discountInputRefFor}
-                canUndo={canUndoActiveCart}
-                onUndo={handleUndoCart}
-              />
-
-              <SalesCheckoutPanel
-                currentSite={currentSite}
-                cashSession={activeCashSession}
-                registerAssignments={registerAssignments}
-                selectedRegisterAssignment={selectedRegisterAssignment}
-                isCashSessionLoading={activeCashSessionQuery.isLoading}
-                draftSummary={draftSummary}
-                canCharge={canCharge}
-                canOpenCashSession={canOpenCashSession}
-                canCloseCashSession={canCloseCashSession}
-                onOpenSearch={() => handleOpenProductSearch()}
-                onCharge={handleOpenPaymentModal}
-                onOpenCashSession={handleOpenCashSessionModal}
-                onCloseCashSession={handleOpenCloseCashSessionModal}
-                onOpenMovement={handleOpenCashSessionMovementModal}
-                onKickCashDrawer={onKickCashDrawer}
-                isKickingCashDrawer={kickCashDrawerMutation.isPending}
-                onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
-                canSuspend={canCharge && !isResumedCart}
-                onSuspend={handleOpenSuspendPrompt}
-                onNewSale={handleNewSale}
-                suspendedDraftsCount={suspendedDraftsCount}
-                onToggleSuspendedPanel={handleToggleSuspendedPanel}
-                hubReachable={hubReachable}
-                preflightItems={preflight.items}
-              />
-            </section>
-          </>
-        ) : (
-          <SalesHistoryTable
-            sales={sales}
-            isLoading={salesQuery.isLoading}
-            error={salesQuery.error?.message ?? null}
-            onRetry={() => {
-              void salesQuery.refetch();
-            }}
-            onView={setSelectedSaleId}
-            selectedSaleId={selectedHistorySaleId}
-            onSelectedSaleIdChange={setSelectedHistorySaleId}
+        <section className="grid gap-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] xl:grid-rows-[minmax(0,1fr)]">
+          <SalesCartWorkspace
+            items={cartItems}
+            selectedItemKey={activeSelectedCartItemKey}
+            itemCount={draftSummary.itemCount}
+            saleError={saleError}
+            onQuantityChange={handleQuantityChange}
+            onDiscountChange={handleDiscountChange}
+            onRemove={handleRemoveItem}
+            onSelectItem={setSelectedCartItemKey}
+            onClearCart={handleClearCart}
+            quantityInputRefFor={quantityInputRefFor}
+            discountInputRefFor={discountInputRefFor}
+            canUndo={canUndoActiveCart}
+            onUndo={handleUndoCart}
           />
-        )}
+
+          <SalesCheckoutPanel
+            currentSite={currentSite}
+            cashSession={activeCashSession}
+            registerAssignments={registerAssignments}
+            selectedRegisterAssignment={selectedRegisterAssignment}
+            isCashSessionLoading={activeCashSessionQuery.isLoading}
+            draftSummary={draftSummary}
+            canCharge={canCharge}
+            canOpenCashSession={canOpenCashSession}
+            canCloseCashSession={canCloseCashSession}
+            onOpenSearch={() => handleOpenProductSearch()}
+            onCharge={handleOpenPaymentModal}
+            onOpenCashSession={handleOpenCashSessionModal}
+            onCloseCashSession={handleOpenCloseCashSessionModal}
+            onOpenMovement={handleOpenCashSessionMovementModal}
+            onKickCashDrawer={onKickCashDrawer}
+            isKickingCashDrawer={kickCashDrawerMutation.isPending}
+            onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
+            canSuspend={canCharge && !isResumedCart}
+            onSuspend={handleOpenSuspendPrompt}
+            onNewSale={handleNewSale}
+            suspendedDraftsCount={suspendedDraftsCount}
+            onToggleSuspendedPanel={handleToggleSuspendedPanel}
+            hubReachable={hubReachable}
+            preflightItems={preflight.items}
+          />
+        </section>
       </div>
 
       <SalesMobileCheckoutBar
@@ -1515,6 +1500,55 @@ export function SalesPage() {
         onToggleSuspendedPanel={handleToggleSuspendedPanel}
         hubReachable={hubReachable}
       />
+
+      {/* ENG-186 — Historial detrás de un cajón lateral. El header del
+          Drawer aporta el botón de cerrar; la tabla conserva su propio
+          título, por eso el Drawer va sin `title` (solo `ariaLabel`).
+          `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
+          para mantener el flujo de cajero (ENG-105f). */}
+      <Drawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        ariaLabel={t('view.history')}
+        size="lg"
+        contentClassName="p-0"
+        restoreFocusTo={() => productInputRef.current}
+        testId="sales-history-drawer"
+      >
+        <SalesHistoryTable
+          sales={sales}
+          isLoading={salesQuery.isLoading}
+          error={salesQuery.error?.message ?? null}
+          onRetry={() => {
+            void salesQuery.refetch();
+          }}
+          onView={setSelectedSaleId}
+          selectedSaleId={selectedHistorySaleId}
+          onSelectedSaleIdChange={setSelectedHistorySaleId}
+        />
+      </Drawer>
+
+      {/* ENG-186 — Ventas suspendidas detrás de un cajón lateral. El panel
+          trae su propio header (título + cerrar), así que el Drawer va sin
+          chrome (`showCloseButton={false}`, sin `title`). Ctrl+R sigue
+          abriéndolo vía `handleToggleSuspendedPanel`. */}
+      <Drawer
+        isOpen={isSuspendedPanelOpen}
+        onClose={() => setIsSuspendedPanelOpen(false)}
+        ariaLabel={t('park.panelTitle')}
+        showCloseButton={false}
+        size="lg"
+        contentClassName="p-0"
+        restoreFocusTo={() => productInputRef.current}
+        testId="sales-suspended-drawer"
+      >
+        <SuspendedSalesPanel
+          isOpen={isSuspendedPanelOpen}
+          onClose={() => setIsSuspendedPanelOpen(false)}
+          onResume={handleResumeFromPanel}
+        />
+      </Drawer>
+
       {isProductSearchOpen && (
         <ProductSearchDialog
           key={productSearchDialogKey}
