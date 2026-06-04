@@ -9,7 +9,6 @@ import {
   Package,
   RefreshCw,
   Search,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { KpiTile } from '@/components/ui';
@@ -30,6 +29,8 @@ import {
   type InventoryEntryFormValues,
 } from '@/features/inventory/InventoryEntryModal';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
+import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
+import { getStockColumns } from '@/features/inventory/inventoryStockColumns';
 import {
   inventoryEntryExportColumns,
   inventoryMovementExportColumns,
@@ -168,118 +169,6 @@ const movementColumns: ColumnDef<InventoryMovement>[] = [
     ),
   },
 ];
-
-function getStockColumns(
-  onAdjust: (product: InventoryStockItem) => void,
-  canManage: boolean
-): ColumnDef<InventoryStockItem>[] {
-  return [
-    {
-      accessorKey: 'name',
-      header: () => i18next.t('inventory:table.product'),
-      size: 250,
-      // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
-      // glifo tonal + nombre fuerte + SKU mono con categoría debajo.
-      cell: ({ row }) => (
-        <div className="prod">
-          <span className="pic">
-            <Package className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="pname">{row.original.name}</p>
-            <p className="sku">
-              {row.original.sku}
-              {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'stock',
-      header: () => i18next.t('inventory:stock.columns.stock'),
-      size: 130,
-      // Rediseño FASE 6 — barra de nivel proporcional (.pv-stock); `low` la
-      // pinta en danger. Llena al 50% cuando stock == mínimo y crece hacia
-      // 100% (2x mínimo), con piso visible para que siempre se lea.
-      meta: { cellClassName: 'num', headerClassName: 'num' },
-      cell: ({ row }) => {
-        const { stock, minStock, isLowStock } = row.original;
-        const fill =
-          minStock > 0
-            ? Math.max(6, Math.min(100, Math.round((stock / minStock) * 50)))
-            : stock > 0
-              ? 100
-              : 6;
-        return (
-          <span
-            className={cn('pv-stock', isLowStock && 'low')}
-            title={isLowStock ? i18next.t('inventory:stock.status.lowStock') : undefined}
-          >
-            <span>{stock.toLocaleString()}</span>
-            <span className="bar">
-              <i style={{ width: `${fill}%` }} />
-            </span>
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: 'minStock',
-      header: () => i18next.t('inventory:stock.columns.minStock'),
-      size: 110,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
-      cell: ({ row }) => row.original.minStock.toLocaleString(),
-    },
-    {
-      accessorKey: 'price',
-      header: () => i18next.t('inventory:stock.columns.sellPrice'),
-      size: 120,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
-      cell: ({ row }) => formatCurrency(row.original.price),
-    },
-    {
-      accessorKey: 'inventoryValue',
-      header: () => i18next.t('inventory:stock.columns.valuation'),
-      size: 140,
-      meta: { cellClassName: 'num', headerClassName: 'num' },
-      cell: ({ row }) => formatCurrency(row.original.inventoryValue),
-    },
-    {
-      accessorKey: 'updatedAt',
-      header: () => i18next.t('inventory:stock.columns.updated'),
-      size: 170,
-      cell: ({ row }) => <span className="muted">{formatDateTime(row.original.updatedAt)}</span>,
-    },
-    {
-      id: 'status',
-      header: () => i18next.t('inventory:stock.columns.status'),
-      size: 120,
-      cell: ({ row }) => (
-        <span className={cn('pv-badge', row.original.isLowStock ? 'danger' : 'success')}>
-          {row.original.isLowStock
-            ? i18next.t('inventory:stock.status.lowStock')
-            : i18next.t('inventory:stock.status.healthy')}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      size: 80,
-      cell: ({ row }) => (
-        <button
-          className="btn-ghost btn-icon h-8 w-8"
-          onClick={() => onAdjust(row.original)}
-          disabled={!canManage}
-          title={i18next.t('inventory:stock.adjustStock')}
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </button>
-      ),
-    },
-  ];
-}
 
 const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
   {
@@ -546,6 +435,7 @@ interface InventoryDataPanelProps {
   entries: InitialInventoryEntry[];
   canManage: boolean;
   onAdjust: (product: InventoryStockItem) => void;
+  onViewStockDetails: (product: InventoryStockItem) => void;
   stockFilters: ReactNode;
 }
 
@@ -565,6 +455,7 @@ function InventoryDataPanel({
   entries,
   canManage,
   onAdjust,
+  onViewStockDetails,
   stockFilters,
 }: InventoryDataPanelProps) {
   const { t } = useTranslation('inventory');
@@ -629,7 +520,7 @@ function InventoryDataPanel({
               />
               <DataTable
                 variant="dense"
-                columns={getStockColumns(onAdjust, canManage)}
+                columns={getStockColumns(onViewStockDetails, onAdjust, canManage)}
                 data={stockItems}
                 searchKey="name"
                 searchPlaceholder={t('stock.search')}
@@ -694,6 +585,9 @@ export function InventoryPage() {
   const [adjustmentModalKey, setAdjustmentModalKey] = useState(0);
   const [entryModalKey, setEntryModalKey] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState<InventoryAdjustmentProduct | null>(null);
+  // ENG-132c — row-detail Drawer for the Stock columns trimmed off the
+  // default table (min stock, sell price, valuation, updated date).
+  const [detailsStockItem, setDetailsStockItem] = useState<InventoryStockItem | null>(null);
   const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
 
   const categoriesQuery = trpc.categories.tree.useQuery();
@@ -894,6 +788,7 @@ export function InventoryPage() {
         entries={entries}
         canManage={canManage}
         onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+        onViewStockDetails={setDetailsStockItem}
         stockFilters={stockFilters}
       />
       )}
@@ -931,6 +826,19 @@ export function InventoryPage() {
           setSelectedProduct(null);
         }}
         onSubmit={handleAdjustmentSubmit}
+      />
+
+      <InventoryStockDetailsDrawer
+        item={detailsStockItem}
+        onClose={() => setDetailsStockItem(null)}
+        onAdjust={
+          canManage
+            ? item => {
+                setDetailsStockItem(null);
+                openAdjustmentModal(mapStockItemToAdjustmentProduct(item));
+              }
+            : undefined
+        }
       />
 
       <InventoryEntryModal

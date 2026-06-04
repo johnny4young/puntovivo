@@ -51,6 +51,14 @@
     "status": {
       "lowStock": "Stock bajo",
       "healthy": "Saludable"
+    },
+    "details": {
+      "title": "Detalle de stock",
+      "viewAria": "Ver detalle",
+      "sku": "SKU",
+      "category": "Categoría",
+      "adjust": "Ajustar stock",
+      "close": "Cerrar"
     }
   },
   "entries": {
