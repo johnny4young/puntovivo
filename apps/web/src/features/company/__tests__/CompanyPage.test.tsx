@@ -1,21 +1,23 @@
 /**
  * ENG-045 — CompanyPage tab behavior.
  *
- * Covers the segmented-control TAB layout that replaces the
- * stacked-grid of admin-only cards. Heavy children (CompanyForm,
+ * ENG-188 — Covers the grouped Setup nav (readiness pinned as the admin
+ * landing + the remaining tabs demoted into labeled category groups)
+ * that replaced the flat segmented strip. Heavy children (CompanyForm,
  * CompanyLocaleSettingsCard, CompanyAISettingsCard, CompanyMxFiscalCard, …)
  * are mocked
  * to keep the focus on:
- *  - admin sees the tab nav and the active panel
+ *  - admin sees the grouped nav and the active panel
  *  - URL `?tab=ai` deep-links into the AI panel (used by
  *    AnomalyDetectionCard's "Activa la IA" CTA)
- *  - clicking a tab updates aria-selected and the URL
- *  - non-admin users see no tabs (only company form + logos)
+ *  - clicking a tab updates aria-current and the URL
+ *  - non-admin users see no nav (only company form + logos)
  */
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
+import { assertNoA11yViolations } from '@/test/a11y';
 
 // Mock countryCode mutable para que cada test pueda flippar el
 // dispatch del tab Fiscal entre MX / CL / CO / unsupported sin re-mocks.
@@ -136,22 +138,38 @@ describe('CompanyPage tab behavior', () => {
     mockCountryCode = 'CO';
   });
 
-  it('renders the segmented-control with the canonical tabs and lands on Readiness by default for admin (ENG-104)', () => {
+  it('renders the grouped Setup nav with readiness pinned as the admin landing (ENG-188/ENG-104)', () => {
     render(<CompanyPage />);
 
-    // Tab list now includes the readiness tab (ENG-104 — first
-    // entry, default for admin role) on top of the legacy tabs:
-    // general, locale, data, device, ai, fiscal, payments, modules,
-    // restaurant.
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(10);
-    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByTestId('company-tab-fiscal')).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByTestId('company-tab-payments')).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByTestId('company-tab-modules')).toHaveAttribute('aria-selected', 'false');
-    expect(screen.getByTestId('company-tab-restaurant')).toHaveAttribute('aria-selected', 'false');
+    // ENG-188 — readiness is the pinned landing, current by default.
+    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+
+    // The three category groups render with their localized labels.
+    expect(screen.getByText('Business')).toBeInTheDocument();
+    expect(screen.getByText('Billing & payments')).toBeInTheDocument();
+    expect(screen.getByText('System')).toBeInTheDocument();
+
+    // Every config tab is still reachable as a grouped item, none current
+    // while readiness is active.
+    for (const key of [
+      'general',
+      'locale',
+      'restaurant',
+      'fiscal',
+      'payments',
+      'modules',
+      'ai',
+      'data',
+      'device',
+    ]) {
+      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute(
+        'aria-current',
+        'page'
+      );
+    }
 
     // Readiness panel content visible.
     expect(screen.getByTestId('card-readiness')).toBeInTheDocument();
@@ -170,20 +188,28 @@ describe('CompanyPage tab behavior', () => {
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {
     render(<CompanyPage />, { initialEntries: ['/company?tab=ai'] });
 
-    expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-ai')).toBeInTheDocument();
+    // Readiness is no longer the current item.
+    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     // General-tab content should NOT render simultaneously.
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
   });
 
-  it('switches active tab and panel content when the user clicks another tab', async () => {
+  it('switches active item and panel content when the user clicks another tab', async () => {
     const user = userEvent.setup();
     render(<CompanyPage />);
 
     await user.click(screen.getByTestId('company-tab-data'));
 
-    expect(screen.getByTestId('company-tab-data')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('company-tab-general')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('company-tab-data')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     expect(screen.getByTestId('card-sync')).toBeInTheDocument();
     expect(screen.getByTestId('card-backup')).toBeInTheDocument();
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
@@ -276,6 +302,11 @@ describe('CompanyPage tab behavior', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/There is no fiscal pack for US yet/i)).toBeInTheDocument();
   });
+
+  it('has no serious accessibility violations in the grouped Setup nav (ENG-188)', async () => {
+    const { container } = render(<CompanyPage />);
+    await assertNoA11yViolations(container);
+  });
 });
 
 describe('CompanyPage non-admin behavior', () => {
@@ -299,8 +330,9 @@ describe('CompanyPage non-admin behavior', () => {
     const Reloaded = mod.CompanyPage;
     render(<Reloaded />);
 
-    // No tablist rendered for non-admin.
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    // ENG-188 — no grouped Setup nav rendered for non-admin (the
+    // readiness landing + category groups are admin-only).
+    expect(screen.queryByTestId('company-tab-readiness')).not.toBeInTheDocument();
     // Form + logos still visible.
     expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
     expect(screen.getByTestId('card-logos')).toBeInTheDocument();

@@ -219,6 +219,25 @@ function isTabKey(value: string | null): value is TabKey {
   return value !== null && (TAB_KEYS as readonly string[]).includes(value);
 }
 
+/**
+ * ENG-188 — Setup nav grouping. The readiness hub is the pinned landing
+ * (NOT part of any group); the remaining configuration tabs are demoted
+ * into three labeled category groups so `/company` reads as a hierarchy
+ * (readiness first, then the rest organized by theme) instead of a flat
+ * equal-weight strip. Each entry's `tabs` is a subset of `TAB_KEYS`
+ * minus `readiness`; the union across all groups MUST equal
+ * `TAB_KEYS \ {'readiness'}` so every tab stays reachable. `id` resolves
+ * its label via `settings:company.tabs.groups.<id>`.
+ */
+const SETUP_TAB_GROUPS = [
+  { id: 'business', tabs: ['general', 'locale', 'restaurant'] },
+  { id: 'billing', tabs: ['fiscal', 'payments'] },
+  { id: 'system', tabs: ['modules', 'ai', 'data', 'device'] },
+] as const satisfies ReadonlyArray<{ id: string; tabs: readonly TabKey[] }>;
+
+/** Category-group identifiers used by the Setup grouped nav (ENG-188). */
+type SetupTabGroupId = (typeof SETUP_TAB_GROUPS)[number]['id'];
+
 export function CompanyPage() {
   const { t } = useTranslation(['settings', 'fiscal']);
   const { user } = useAuth();
@@ -294,6 +313,15 @@ export function CompanyPage() {
     [t]
   );
 
+  const groupLabels: Record<SetupTabGroupId, string> = useMemo(
+    () => ({
+      business: t('company.tabs.groups.business'),
+      billing: t('company.tabs.groups.billing'),
+      system: t('company.tabs.groups.system'),
+    }),
+    [t]
+  );
+
   return (
     <div className="space-y-6">
       {!companyQuery.isLoading && !companyQuery.error && (
@@ -343,36 +371,69 @@ export function CompanyPage() {
 
           {canEdit && (
             <>
+              {/* ENG-188 — grouped Setup nav: the readiness hub is the
+                  pinned landing, the remaining tabs are demoted into
+                  labeled category groups. Modeled as a navigation (group
+                  + aria-current) rather than a single tablist because it
+                  is a categorized settings menu, not one flat tab strip.
+                  The `?tab=` URL contract is unchanged. */}
               <nav
-                className="segmented-control"
-                role="tablist"
+                className="company-setup-nav"
                 aria-label={t('company.tabs.ariaLabel')}
               >
-                {TAB_KEYS.map(key => {
-                  const selected = activeTab === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      aria-controls={`company-tabpanel-${key}`}
-                      id={`company-tab-${key}`}
-                      tabIndex={selected ? 0 : -1}
-                      className={cn('segmented-tab', selected && 'segmented-tab-active')}
-                      onClick={() => handleTabChange(key)}
-                      data-testid={`company-tab-${key}`}
+                <button
+                  type="button"
+                  className={cn(
+                    'setup-nav-readiness',
+                    activeTab === 'readiness' && 'setup-nav-readiness-active'
+                  )}
+                  aria-current={activeTab === 'readiness' ? 'page' : undefined}
+                  onClick={() => handleTabChange('readiness')}
+                  data-testid="company-tab-readiness"
+                >
+                  {tabLabels.readiness}
+                </button>
+
+                {SETUP_TAB_GROUPS.map(group => (
+                  <div
+                    key={group.id}
+                    role="group"
+                    aria-labelledby={`setup-group-${group.id}`}
+                    className="setup-nav-group"
+                  >
+                    <p
+                      id={`setup-group-${group.id}`}
+                      className="setup-nav-group-label"
                     >
-                      {tabLabels[key]}
-                    </button>
-                  );
-                })}
+                      {groupLabels[group.id]}
+                    </p>
+                    <div className="setup-nav-group-items">
+                      {group.tabs.map(key => {
+                        const selected = activeTab === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={cn(
+                              'setup-nav-item',
+                              selected && 'setup-nav-item-active'
+                            )}
+                            aria-current={selected ? 'page' : undefined}
+                            onClick={() => handleTabChange(key)}
+                            data-testid={`company-tab-${key}`}
+                          >
+                            {tabLabels[key]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </nav>
 
-              <div
-                role="tabpanel"
-                id={`company-tabpanel-${activeTab}`}
-                aria-labelledby={`company-tab-${activeTab}`}
+              <section
+                role="region"
+                aria-label={tabLabels[activeTab]}
                 data-testid={`company-tabpanel-${activeTab}`}
               >
                 {activeTab === 'readiness' && (
@@ -504,7 +565,7 @@ export function CompanyPage() {
                     )}
                   </div>
                 )}
-              </div>
+              </section>
             </>
           )}
         </>

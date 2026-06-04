@@ -348,6 +348,57 @@
   }
 
   /* ==========================================================================
+   * 5b. SETUP GROUPED NAV (ENG-188)
+   *
+   * `/company` Setup navigation. The readiness hub is the pinned landing
+   * (.setup-nav-readiness); the remaining configuration tabs are demoted
+   * into labeled category groups (.setup-nav-group) of pill items
+   * (.setup-nav-item). Active state is driven by [aria-current] (a
+   * navigation model, not a single tablist) — see CompanyPage.tsx. Items
+   * intentionally mirror .segmented-tab so the visual language matches.
+   * ======================================================================== */
+
+  .company-setup-nav {
+    @apply flex flex-col gap-4 rounded-[24px] border border-line/80 bg-surface-2/82 p-3;
+  }
+
+  .setup-nav-readiness {
+    @apply flex w-full items-center gap-2 rounded-[18px] border border-primary-200/60 bg-primary-50/55 px-4 py-3 text-left text-sm font-semibold text-secondary-900 transition-colors;
+  }
+
+  .setup-nav-readiness:hover {
+    @apply bg-primary-50;
+  }
+
+  .setup-nav-readiness-active {
+    @apply border-transparent bg-primary text-primary-foreground shadow-[0_14px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)];
+  }
+
+  .setup-nav-group {
+    @apply flex flex-col gap-2;
+  }
+
+  .setup-nav-group-label {
+    @apply px-1 text-[11px] font-semibold uppercase tracking-wide text-secondary-500;
+  }
+
+  .setup-nav-group-items {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .setup-nav-item {
+    @apply rounded-[18px] px-4 py-2.5 text-sm font-medium text-secondary-600 transition-colors;
+  }
+
+  .setup-nav-item:hover {
+    @apply bg-surface text-secondary-950;
+  }
+
+  .setup-nav-item-active {
+    @apply bg-primary text-primary-foreground shadow-[0_14px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)];
+  }
+
+  /* ==========================================================================
    * 6. SETTINGS
    *
    * .setting-toggle-card        — Selectable card for settings like theme

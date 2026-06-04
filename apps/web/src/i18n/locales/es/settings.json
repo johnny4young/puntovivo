@@ -250,7 +250,12 @@
       "fiscal": "Fiscal",
       "payments": "Pagos",
       "modules": "Módulos",
-      "restaurant": "Restaurante"
+      "restaurant": "Restaurante",
+      "groups": {
+        "business": "Negocio",
+        "billing": "Facturación y pagos",
+        "system": "Sistema"
+      }
     },
     "submitting": "Guardando...",
     "save": "Guardar empresa",
