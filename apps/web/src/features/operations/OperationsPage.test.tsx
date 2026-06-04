@@ -2,11 +2,11 @@
  * ENG-065a / ENG-065b / ENG-065c — Tests for OperationsPage tab shell.
  *
  * Asserts:
- *   - All 8 tabs render in the role list visible to manager + admin.
- *   - Default tab is `sync`.
- *   - `?tab=fiscal`, `?tab=device`, `?tab=cash`, `?tab=payments`,
- *     `?tab=inventory`, `?tab=diagnostics`, `?tab=authority` deep links
- *     land on the right panel.
+ *   - All 9 tabs render in the role list visible to manager + admin.
+ *   - Default tab is `attention` (ENG-187 — the Needs-attention queue).
+ *   - `?tab=sync`, `?tab=fiscal`, `?tab=device`, `?tab=cash`,
+ *     `?tab=payments`, `?tab=inventory`, `?tab=diagnostics`,
+ *     `?tab=authority` deep links land on the right panel.
  *   - Garbage tab values fall back to the default.
  *   - Clicking a tab updates URL + aria-selected.
  *
@@ -191,6 +191,18 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }),
       },
     },
+    operations: {
+      needsAttention: {
+        useQuery: () => ({
+          data: { areas: [], totalCount: 0, highestSeverity: null },
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
   },
   vanillaClient: {
     sync: {
@@ -217,8 +229,9 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 describe('OperationsPage', () => {
-  it('renders the eight tabs in order', () => {
+  it('renders the nine tabs in order', () => {
     render(<OperationsPage />);
+    expect(screen.getByTestId('operations-tab-attention')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-sync')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-fiscal')).toBeInTheDocument();
     expect(screen.getByTestId('operations-tab-device')).toBeInTheDocument();
@@ -229,10 +242,14 @@ describe('OperationsPage', () => {
     expect(screen.getByTestId('operations-tab-authority')).toBeInTheDocument();
   });
 
-  it('defaults to the sync tab', () => {
+  it('defaults to the attention tab', () => {
     render(<OperationsPage />);
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tabpanel-sync')).toBeInTheDocument();
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('operations-tabpanel-attention')).toBeInTheDocument();
+    expect(screen.getByTestId('needs-attention-panel')).toBeInTheDocument();
   });
 
   it('lands on the fiscal panel via ?tab=fiscal deep link', () => {
@@ -282,17 +299,32 @@ describe('OperationsPage', () => {
 
   it('falls back to the default tab when ?tab=garbage', () => {
     render(<OperationsPage />, { initialEntries: ['/operations?tab=zzznotreal'] });
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
+
+  it('lands on the sync panel via ?tab=sync deep link', () => {
+    render(<OperationsPage />, { initialEntries: ['/operations?tab=sync'] });
     expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tabpanel-sync')).toBeInTheDocument();
   });
 
   it('switches tabs on click and updates aria-selected', () => {
     render(<OperationsPage />);
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
 
     fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
 
     expect(screen.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('operations-tab-sync')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('operations-tab-attention')).toHaveAttribute(
+      'aria-selected',
+      'false'
+    );
     expect(screen.getByTestId('operations-tabpanel-fiscal')).toBeInTheDocument();
   });
 

@@ -25,13 +25,15 @@ The current focus wave is the product-truth and retail-scope reset:
 | 3     | `ENG-184` | Shipped | Colombia retail readiness profile and checkout preflight. | `/company` + `/sales` surface fiscal/hardware/sync/payment as optional reminders (never blockers); basic CO DIAN config card ships; en/es + recovery CTAs proven.          |
 | 4     | `ENG-185` | Shipped | Fiscal adapter truth guard.                               | Unsupported countries fail with a typed error; mock/draft packs are labelled Demo/Draft across cards, document views, and diagnostics; e-invoicing stays optional.   |
 | 5     | `ENG-186` | Shipped | Ring-1 screen focus pass (re-scoped: `/sales` sellability slice). | `/sales` completes the common sale without desktop scroll at 1440x900 (cart + checkout scroll internally); History + Suspended behind a reusable Drawer; live smoke desktop + mobile, en/es. Operations + Setup slices split to `ENG-187`. |
-| 6     | `ENG-187` | Pending | Ring-1 screen focus pass remainder (Operations needs-attention + Setup readiness hub). | Live smoke on `/operations` + `/company` proves the primary task is visible without incoherent overlap; Operations defaults to actionable failures; Setup groups around readiness.                |
+| 6     | `ENG-187` | Shipped | Ring-1 screen focus pass — Operations needs-attention (re-scoped: `/operations` slice). | `/operations` defaults to a Needs-attention queue (server aggregation of retryable sync/fiscal/hardware/payment failures, each row deep-links to its panel) + tested all-clear state; live smoke en/es covered the failure row + CTA. Setup/`/company` restructure split to `ENG-188`. |
+| 7     | `ENG-188` | Pending | Ring-1 screen focus pass remainder (Setup/`/company` readiness-hub restructure). | Live smoke on `/company` proves Setup is organized around the readiness checklist rather than a flat 10-tab strip; readiness hub stays the admin landing.                |
 
 ## Recommended Sequence
 
-1. Finish `ENG-187` (the screen-focus remainder: Operations needs-attention default + Setup readiness
-   hub; `ENG-182..ENG-186` shipped — the `/sales` sellability slice closed under `ENG-186`) before
-   adding more visible restaurant, AI, platform, or hosted scope.
+1. Finish `ENG-188` (the screen-focus remainder: Setup/`/company` readiness-hub restructure;
+   `ENG-182..ENG-187` shipped — `/sales` sellability under `ENG-186`, `/operations` needs-attention
+   under `ENG-187`) before adding more visible restaurant, AI, platform, or hosted scope. Low urgency:
+   `/company` already opens on its readiness hub.
 2. Resume pending Plan v3 tickets from [PLAN-V3.md](./PLAN-V3.md) only after
    the retail scope reset is true in docs and runtime.
 3. Keep gated tickets parked until their gate clears:

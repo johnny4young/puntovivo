@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NeedsAttentionPanel } from './NeedsAttentionPanel';
 import { SyncHealthPanel } from './SyncHealthPanel';
 import { FiscalHealthPanel } from './FiscalHealthPanel';
 import { DeviceHealthPanel } from './DeviceHealthPanel';
@@ -21,14 +22,20 @@ import { AuthorityHealthPanel } from './AuthorityHealthPanel';
  * shipped in ENG-065c, the authority-node panel (ENG-075) and the
  * payment reconciliation foundation (ENG-038).
  *
+ * ENG-187 — the default landing is the "Needs attention" queue (an
+ * aggregated view of the retryable failures across sync / fiscal /
+ * hardware / payments), so a manager sees what failed first instead of
+ * the flat Sync tab. Each queue row deep-links to the resolving panel.
+ *
  * Tab state is URL-driven
- * (`?tab=sync|fiscal|device|cash|payments|inventory|diagnostics|authority`)
+ * (`?tab=attention|sync|fiscal|device|cash|payments|inventory|diagnostics|authority`)
  * so deep links from elsewhere in the app (e.g. an alert banner
  * pointing at a specific failure surface) land directly on the right
  * panel without manual navigation. `replace: true` keeps the back
  * button quiet.
  */
 const TAB_KEYS = [
+  'attention',
   'sync',
   'fiscal',
   'device',
@@ -48,11 +55,11 @@ export function OperationsPage() {
   const { t } = useTranslation('operations');
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'sync';
+  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : 'attention';
 
   function handleTabChange(next: TabKey): void {
     const nextParams = new URLSearchParams(searchParams);
-    if (next === 'sync') {
+    if (next === 'attention') {
       nextParams.delete('tab'); // default tab keeps the URL clean
     } else {
       nextParams.set('tab', next);
@@ -62,6 +69,7 @@ export function OperationsPage() {
 
   const tabLabels: Record<TabKey, string> = useMemo(
     () => ({
+      attention: t('tabs.attention'),
       sync: t('tabs.sync'),
       fiscal: t('tabs.fiscal'),
       device: t('tabs.device'),
@@ -118,6 +126,9 @@ export function OperationsPage() {
         aria-labelledby={`operations-tab-${activeTab}`}
         data-testid={`operations-tabpanel-${activeTab}`}
       >
+        {activeTab === 'attention' && (
+          <NeedsAttentionPanel onReviewArea={handleTabChange} />
+        )}
         {activeTab === 'sync' && <SyncHealthPanel />}
         {activeTab === 'fiscal' && <FiscalHealthPanel />}
         {activeTab === 'device' && <DeviceHealthPanel />}

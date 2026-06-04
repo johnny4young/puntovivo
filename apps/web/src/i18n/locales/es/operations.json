@@ -6,6 +6,7 @@
   },
   "tabs": {
     "ariaLabel": "Paneles de operaciones",
+    "attention": "Necesita atención",
     "sync": "Sincronización",
     "fiscal": "Fiscal",
     "device": "Dispositivos",
@@ -18,6 +19,29 @@
   "common": {
     "loading": "Cargando...",
     "errorGeneric": "Algo salió mal al cargar esta vista."
+  },
+  "attention": {
+    "kicker": "Necesita atención",
+    "title": "Qué necesita atención",
+    "description": "Fallos que puedes reintentar en sincronización, facturación, dispositivos y pagos. Abre el panel que resuelve cada uno.",
+    "reviewCta": "Revisar",
+    "reviewAria": "Revisar {{area}}",
+    "count_one": "{{count}} pendiente",
+    "count_other": "{{count}} pendientes",
+    "area": {
+      "sync": "Sincronización",
+      "fiscal": "Documentos fiscales",
+      "device": "Hardware de recibos",
+      "payments": "Pagos electrónicos"
+    },
+    "allClear": {
+      "title": "Todo en orden",
+      "description": "No hay fallos por atender ahora. Las pestañas de arriba tienen el detalle completo de operaciones."
+    },
+    "error": {
+      "title": "No se pudo cargar la cola de atención",
+      "retry": "Reintentar"
+    }
   },
   "fiscal": {
     "title": "Salud fiscal",

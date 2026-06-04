@@ -17,7 +17,12 @@
 import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { fiscalOutbox, sitePeripherals, syncOutbox } from '../../db/schema.js';
+import {
+  fiscalOutbox,
+  sitePeripherals,
+  syncConflicts,
+  syncOutbox,
+} from '../../db/schema.js';
 import {
   readCoFiscalSettings,
   validateCoFiscalConfig,
@@ -116,7 +121,13 @@ export async function countActiveReceiptPrinters(
   return Number(row?.total ?? 0);
 }
 
-/** Sync-outbox backlog snapshot: in-flight work + unresolved conflicts. */
+/**
+ * Sync backlog snapshot: in-flight outbox work + unresolved conflicts.
+ *
+ * Pending conflicts live in `sync_conflicts`; legacy terminal outbox rows
+ * (`conflict` / `dead_letter`) still count so older DB state does not fall
+ * through the readiness / Operations attention probes.
+ */
 export interface SyncBacklog {
   /** Rows still pending sync (queued / submitting / retrying). */
   pending: number;
@@ -125,7 +136,7 @@ export interface SyncBacklog {
 }
 
 const SYNC_PENDING_STATUSES = ['queued', 'submitting', 'retrying'] as const;
-const SYNC_CONFLICT_STATUSES = ['conflict', 'dead_letter'] as const;
+const SYNC_TERMINAL_CONFLICT_STATUSES = ['conflict', 'dead_letter'] as const;
 
 /**
  * Read the sync backlog for the tenant. A backlog never blocks a sale
@@ -136,28 +147,41 @@ export async function readSyncBacklog(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<SyncBacklog> {
-  const pendingRow = await db
-    .select({ total: count(syncOutbox.id) })
-    .from(syncOutbox)
-    .where(
-      and(
-        eq(syncOutbox.tenantId, tenantId),
-        inArray(syncOutbox.status, [...SYNC_PENDING_STATUSES])
+  const [pendingRow, terminalOutboxRow, conflictRow] = await Promise.all([
+    db
+      .select({ total: count(syncOutbox.id) })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          inArray(syncOutbox.status, [...SYNC_PENDING_STATUSES])
+        )
       )
-    )
-    .get();
-  const conflictRow = await db
-    .select({ total: count(syncOutbox.id) })
-    .from(syncOutbox)
-    .where(
-      and(
-        eq(syncOutbox.tenantId, tenantId),
-        inArray(syncOutbox.status, [...SYNC_CONFLICT_STATUSES])
+      .get(),
+    db
+      .select({ total: count(syncOutbox.id) })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          inArray(syncOutbox.status, [...SYNC_TERMINAL_CONFLICT_STATUSES])
+        )
       )
-    )
-    .get();
+      .get(),
+    db
+      .select({ total: count(syncConflicts.id) })
+      .from(syncConflicts)
+      .where(
+        and(
+          eq(syncConflicts.tenantId, tenantId),
+          eq(syncConflicts.status, 'pending')
+        )
+      )
+      .get(),
+  ]);
   return {
     pending: Number(pendingRow?.total ?? 0),
-    conflicts: Number(conflictRow?.total ?? 0),
+    conflicts:
+      Number(terminalOutboxRow?.total ?? 0) + Number(conflictRow?.total ?? 0),
   };
 }
