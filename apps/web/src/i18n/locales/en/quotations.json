@@ -55,6 +55,7 @@
     },
     "loading": "Loading quotation…",
     "error": "Unable to load quotation",
+    "site": "Site",
     "createdAt": "Created at",
     "createdBy": "Created by",
     "validUntil": "Valid until",

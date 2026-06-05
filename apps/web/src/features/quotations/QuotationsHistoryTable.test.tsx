@@ -132,6 +132,23 @@ describe('QuotationsHistoryTable', () => {
     expect(screen.getByText('Sent')).toBeInTheDocument();
   });
 
+  it('renders the smallest useful column set — site / items / valid-until / created-at trimmed (ENG-132d)', () => {
+    setListResult([draftEntry]);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+
+    // Core columns stay.
+    expect(screen.getByRole('columnheader', { name: 'Number' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Customer' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+
+    // Trimmed columns are gone (reachable via the View detail modal).
+    expect(screen.queryByRole('columnheader', { name: 'Site' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Items' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Valid until' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Created at' })).not.toBeInTheDocument();
+  });
+
   it('exposes draft transition actions (Send, Reject, Expire) and a Delete on draft rows', () => {
     setListResult([draftEntry]);
     render(<QuotationsHistoryTable onOpenDetails={() => {}} />);

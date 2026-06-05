@@ -175,6 +175,15 @@ export function QuotationDetailsModal({
             * elevates the validity date to a first-class signal. */}
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
             <dl className="card-inset grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+              {/* ENG-132d — site moved here from the trimmed history column. */}
+              <div>
+                <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                  {t('details.site')}
+                </dt>
+                <dd className="mt-1 text-sm text-secondary-900">
+                  {detailQuery.data.siteName}
+                </dd>
+              </div>
               <div>
                 <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
                   {t('details.createdAt')}
