@@ -7,7 +7,7 @@ import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { purchaseHistoryExportColumns } from '@/features/purchases/purchaseHistoryExport';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
 const purchaseStatusClassNames: Record<Purchase['status'], string> = {
@@ -51,23 +51,15 @@ export function PurchasesHistoryTable({
           </span>
         ),
       },
-      {
-        accessorKey: 'createdAt',
-        header: t('table.date'),
-        size: 180,
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
+      // ENG-132f — date / site / returns trimmed from the default table;
+      // each stays reachable via the View detail modal (created, site,
+      // supplier-returns summary + return history). Status keeps the return
+      // state legible at a glance.
       {
         accessorKey: 'providerName',
         header: t('table.provider'),
         size: 220,
         cell: ({ row }) => row.original.providerName,
-      },
-      {
-        accessorKey: 'siteName',
-        header: t('table.site'),
-        size: 160,
-        cell: ({ row }) => row.original.siteName,
       },
       {
         accessorKey: 'status',
@@ -78,61 +70,6 @@ export function PurchasesHistoryTable({
             {t(`status.${row.original.status}`)}
           </span>
         ),
-      },
-      {
-        id: 'returns',
-        header: t('table.returns'),
-        size: 220,
-        cell: ({ row }) => {
-          const returnedAmount = row.original.returnedAmount ?? 0;
-          const returnCount = row.original.returnCount ?? 0;
-
-          if (row.original.status === 'returned') {
-            return (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-danger-600">{t('table.fullyReturned')}</p>
-                <p className="text-xs text-secondary-500">
-                  {t('table.reversed', { amount: formatCurrency(returnedAmount) })}
-                </p>
-                {row.original.latestReturnCreatedByName && (
-                  <p className="text-xs text-secondary-500">
-                    {t('table.by', { name: row.original.latestReturnCreatedByName })}
-                  </p>
-                )}
-              </div>
-            );
-          }
-
-          if (row.original.status === 'partial_returned') {
-            return (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-primary-700">
-                  {t('table.returnCount', { count: returnCount })}
-                </p>
-                <p className="text-xs text-secondary-500">
-                  {t('table.reversed', { amount: formatCurrency(returnedAmount) })}
-                </p>
-                {row.original.returnedAt && (
-                  <p className="text-xs text-secondary-500">
-                    {t('table.latest', { date: formatDateTime(row.original.returnedAt) })}
-                  </p>
-                )}
-                {row.original.latestReturnReason && (
-                  <p className="line-clamp-2 text-xs text-secondary-500">
-                    {row.original.latestReturnReason}
-                  </p>
-                )}
-                {row.original.latestReturnCreatedByName && (
-                  <p className="text-xs text-secondary-500">
-                    {t('table.by', { name: row.original.latestReturnCreatedByName })}
-                  </p>
-                )}
-              </div>
-            );
-          }
-
-          return <span className="text-sm text-secondary-500">{t('table.open')}</span>;
-        },
       },
       {
         accessorKey: 'total',
