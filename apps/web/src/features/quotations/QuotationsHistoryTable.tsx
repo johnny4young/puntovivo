@@ -11,7 +11,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type {
   QuotationListEntry,
   QuotationTransitionStatus,
@@ -125,15 +125,8 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
             <span className="text-secondary-500">{t('history.customerNone')}</span>
           ),
       },
-      {
-        accessorKey: 'siteName',
-        header: () => t('history.columns.site'),
-      },
-      {
-        accessorKey: 'itemCount',
-        header: () => t('history.columns.items'),
-        cell: ({ row }) => row.original.itemCount.toLocaleString(),
-      },
+      // ENG-132d — site / items / valid-until / created-at trimmed from the
+      // default table; the detail stays reachable via the View modal.
       {
         accessorKey: 'total',
         header: () => t('history.columns.total'),
@@ -144,14 +137,6 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
         ),
       },
       {
-        accessorKey: 'validUntil',
-        header: () => t('history.columns.validUntil'),
-        cell: ({ row }) =>
-          row.original.validUntil
-            ? formatDate(row.original.validUntil)
-            : t('history.validUntilNever'),
-      },
-      {
         accessorKey: 'status',
         header: () => t('history.columns.status'),
         cell: ({ row }) => (
@@ -159,11 +144,6 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
             {t(`status.${row.original.status}`)}
           </span>
         ),
-      },
-      {
-        accessorKey: 'createdAt',
-        header: () => t('history.columns.createdAt'),
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         id: 'actions',

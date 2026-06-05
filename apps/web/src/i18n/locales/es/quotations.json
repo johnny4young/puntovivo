@@ -55,6 +55,7 @@
     },
     "loading": "Cargando cotización…",
     "error": "No se pudo cargar la cotización",
+    "site": "Sede",
     "createdAt": "Creada",
     "createdBy": "Creada por",
     "validUntil": "Válida hasta",
