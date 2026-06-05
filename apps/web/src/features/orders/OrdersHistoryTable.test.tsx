@@ -27,7 +27,7 @@ function createOrder(overrides?: Partial<Order>): Order {
 }
 
 describe('OrdersHistoryTable', () => {
-  it('shows receipt progress and a quick receive action for open orders', async () => {
+  it('exposes a status-gated quick receive action and a view action', async () => {
     const user = userEvent.setup();
     const onView = vi.fn();
     const onReceive = vi.fn();
@@ -57,9 +57,8 @@ describe('OrdersHistoryTable', () => {
       />
     );
 
-    expect(screen.getByText('2 receipts')).toBeInTheDocument();
-    expect(screen.getByText('Latest COM-000015')).toBeInTheDocument();
-
+    // ENG-132e — receipt progress moved into the detail modal; only the
+    // open order (submitted / partial_received) keeps a Receive action.
     await user.click(screen.getByRole('button', { name: 'Receive' }));
     expect(onReceive).toHaveBeenCalledWith('order-1');
 
@@ -67,6 +66,32 @@ describe('OrdersHistoryTable', () => {
 
     await user.click(screen.getByRole('button', { name: 'View PED-000001' }));
     expect(onView).toHaveBeenCalledWith('order-1');
+  });
+
+  it('renders the smallest useful column set — date / site / receipts trimmed (ENG-132e)', () => {
+    render(
+      <OrdersHistoryTable
+        orders={[createOrder()]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        canManageReceipts={false}
+        onView={vi.fn()}
+        onReceive={vi.fn()}
+      />
+    );
+
+    // Core columns stay.
+    expect(screen.getByRole('columnheader', { name: 'Order #' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Provider' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Total' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument();
+
+    // Trimmed columns are gone (reachable via the View detail modal).
+    expect(screen.queryByRole('columnheader', { name: 'Date' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Site' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Receipts' })).not.toBeInTheDocument();
   });
 
   it('fires onView with the order id when Enter is pressed on a focused row (ENG-134f)', async () => {

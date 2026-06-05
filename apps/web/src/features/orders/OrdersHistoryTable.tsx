@@ -5,7 +5,7 @@ import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Order } from '@/types';
 
 const orderStatusClassNames: Record<Order['status'], string> = {
@@ -46,23 +46,15 @@ export function OrdersHistoryTable({
           <span className="font-mono font-medium text-primary-800">{row.original.orderNumber}</span>
         ),
       },
-      {
-        accessorKey: 'createdAt',
-        header: t('table.date'),
-        size: 180,
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
+      // ENG-132e — date / site / receipts trimmed from the default table;
+      // each stays reachable via the View detail modal (created, site,
+      // staged-delivery + receipts list). Status keeps receiving progress
+      // legible at a glance.
       {
         accessorKey: 'providerName',
         header: t('table.provider'),
         size: 220,
         cell: ({ row }) => row.original.providerName,
-      },
-      {
-        accessorKey: 'siteName',
-        header: t('table.site'),
-        size: 160,
-        cell: ({ row }) => row.original.siteName,
       },
       {
         accessorKey: 'status',
@@ -73,29 +65,6 @@ export function OrdersHistoryTable({
             {t(`status.${row.original.status}`)}
           </span>
         ),
-      },
-      {
-        id: 'receipts',
-        header: t('table.receipts'),
-        size: 180,
-        cell: ({ row }) => {
-          const receiptCount = row.original.linkedPurchaseCount ?? 0;
-
-          if (receiptCount === 0) {
-            return <span className="text-sm text-secondary-500">{t('table.noReceipts')}</span>;
-          }
-
-          return (
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-secondary-900">
-                {t('table.receiptCount', { count: receiptCount })}
-              </p>
-              <p className="text-xs text-secondary-500">
-                {t('table.latestReceipt', { number: row.original.receivedPurchaseNumber ?? '—' })}
-              </p>
-            </div>
-          );
-        },
       },
       {
         accessorKey: 'total',
