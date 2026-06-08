@@ -29,6 +29,11 @@
       "adjustment": "Adjustment",
       "transfer": "Transfer",
       "return": "Return"
+    },
+    "details": {
+      "title": "Movement detail",
+      "viewAria": "View details",
+      "close": "Close"
     }
   },
   "stock": {
@@ -66,7 +71,12 @@
     "loadingShort": "Loading entries…",
     "error": "Unable to load inventory entries",
     "search": "Search entries by product...",
-    "exportTitle": "Initial Inventory Entries"
+    "exportTitle": "Initial Inventory Entries",
+    "details": {
+      "title": "Entry detail",
+      "viewAria": "View details",
+      "close": "Close"
+    }
   },
   "balances": {
     "siteSelector": "Site",

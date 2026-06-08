@@ -15,11 +15,43 @@ documented in the same PR that produces it.
 | --- | --- | --- |
 | Per-chunk JavaScript gzipped bundle size | `ci:web` | `scripts/check-bundle-size.mjs` after `vite build` |
 | tRPC procedure p95 latency for a curated set of read routes | `ci:server` | `__tests__/perf-trpc-latency.test.ts` via vitest |
+| Electron main + renderer working-set memory (warn-first) | `ci:desktop` | `scripts/check-electron-memory.mjs` (launches the app in measure mode) |
 
 The remaining cells in `ENG-133` (Lighthouse-CI for top routes,
-Electron main + renderer memory ceiling, Operations Center surface
-of the latest baseline) ride in follow-ups so the first slice stays
-shippable.
+and turning the Electron memory gate into a hard-fail once the
+ubuntu desktop CI job is hardened to launch Electron under xvfb,
+plus the Operations Center surface of the latest baseline) ride in
+follow-ups so each slice stays shippable.
+
+### Electron memory (warn-first)
+
+`scripts/check-electron-memory.mjs` launches the built Electron app
+with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
+renderer to finish loading plus a short settle window, reads each
+Electron process' working-set via `app.getAppMetrics()`, prints one
+`PUNTOVIVO_MEMORY_METRICS=<json>` line, and quits. The gate maps the
+`Browser` process to `main` and the `Tab` process to `renderer`
+(GPU / utility processes are excluded), sums them in MB, and compares
+against `perf-budget.json::electronMemoryMb.perProcessMb` with the
+shared `thresholdPercent`.
+
+Two deliberate tolerant paths keep it from breaking the build today:
+
+- **Warn-first.** An over-ceiling process prints a `WARN` and still
+  exits 0. Pass `--strict` (or `PUNTOVIVO_MEMORY_STRICT=1`) to make a
+  regression exit 1 — that is the one-line flip for the hard-fail
+  phase, once the baseline is trusted.
+- **Self-skip.** If the `.vite/build` main bundle is absent, the
+  electron binary is unresolvable, the launch errors, or no metrics
+  line comes back, the gate prints a `WARN: skipped` and exits 0. This
+  is why `ci:desktop` stays green on `ubuntu-latest`, which does not
+  build the desktop bundle or run a virtual display — the real
+  measurement happens locally (`pnpm run perf:electron-memory`) and in
+  CI once the xvfb + desktop-build hardening lands.
+
+The pure comparison/parse helpers are unit-tested by
+`scripts/check-electron-memory.test.mjs` (wired into `ci:desktop`
+before the gate); the launch path is proven by the local run.
 
 ## Why budgets matter
 

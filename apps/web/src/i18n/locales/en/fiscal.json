@@ -52,6 +52,11 @@
       "total": "Total",
       "provider": "Provider",
       "actions": "Actions"
+    },
+    "details": {
+      "title": "Document detail",
+      "viewAria": "View details",
+      "close": "Close"
     }
   },
   "document": {

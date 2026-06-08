@@ -13,4 +13,15 @@
 // that purely mirror a tRPC output should be added here as
 // `inferRouterOutputs<AppRouter>['router']['procedure']` aliases rather
 // than re-declared by hand.
-export {};
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@puntovivo/server';
+
+/**
+ * ENG-132h — one row of the admin fiscal-documents list
+ * (`reports.fiscal.list`). Mirrors the frozen `fiscal_documents` snapshot the
+ * server returns (buyer name, total, CUFE, provider id, xml ref, …) without any
+ * `customers` / `products` join. Consumed by `FiscalDocumentListPage` and its
+ * row-detail drawer.
+ */
+export type FiscalDocumentListItem =
+  inferRouterOutputs<AppRouter>['reports']['fiscal']['list']['items'][number];

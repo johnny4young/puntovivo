@@ -1848,6 +1848,62 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
+  // ENG-133b — memory-measurement mode. When launched with
+  // PUNTOVIVO_MEASURE_MEMORY=1 (the `scripts/check-electron-memory.mjs`
+  // perf gate), wait for the renderer to finish loading + a short settle
+  // window, capture each Electron process' working-set via
+  // `app.getAppMetrics()`, print ONE machine-parseable line to stdout, then
+  // quit. Flag-gated, so dev / packaged runs are completely unaffected.
+  //
+  // Register before loadURL/loadFile: a warm Vite dev server or packaged file
+  // load can finish immediately, and missing this event would leave the
+  // measurement launcher waiting until its hard timeout.
+  if (process.env.PUNTOVIVO_MEASURE_MEMORY === '1') {
+    const measuredWebContents = mainWindow.webContents;
+    measuredWebContents.once('did-finish-load', () => {
+      // Let the renderer settle, then VERIFY the real app actually mounted
+      // before snapshotting memory. `did-finish-load` also fires on the
+      // Chromium error page shown when the dev:web server is down, and
+      // measuring that blank renderer would report a misleading PASS against
+      // the app-calibrated budget. Checking that #root has children is a
+      // deterministic "the React app mounted" signal (the error page has no
+      // populated #root). If it did not mount, emit a SKIP marker so the perf
+      // gate self-skips warn-first. Run with dev:web up — see PERF-BUDGETS.md.
+      setTimeout(() => {
+        const shutdown = () =>
+          void stopEmbeddedServer()
+            .catch(err => {
+              mainLog.warn({ err }, 'failed to stop embedded server after memory measurement');
+            })
+            .finally(() => {
+              app.exit(0);
+            });
+
+        void measuredWebContents
+          .executeJavaScript(
+            'Boolean(document.getElementById("root") && document.getElementById("root").childElementCount > 0)'
+          )
+          .catch(() => false)
+          .then(appMounted => {
+            if (!appMounted) {
+              process.stdout.write('PUNTOVIVO_MEMORY_SKIP=app-not-mounted\n');
+              shutdown();
+              return;
+            }
+
+            const metrics = app.getAppMetrics().map(metric => ({
+              type: metric.type,
+              workingSetKb: metric.memory.workingSetSize,
+            }));
+            process.stdout.write(
+              `PUNTOVIVO_MEMORY_METRICS=${JSON.stringify(metrics)}\n`
+            );
+            shutdown();
+          });
+      }, 2000);
+    });
+  }
+
   // Load the renderer based on mode
   if (isDev) {
     // Development mode: load from web dev server

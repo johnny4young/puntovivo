@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18next, { type TFunction } from 'i18next';
-import { type ColumnDef } from '@tanstack/react-table';
+import { type TFunction } from 'i18next';
 import {
   ArrowDownCircle,
   Boxes,
   ClipboardList,
-  Package,
   RefreshCw,
   Search,
 } from 'lucide-react';
@@ -30,7 +28,14 @@ import {
 } from '@/features/inventory/InventoryEntryModal';
 import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPanel';
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
+import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
+import { InventoryEntryDetailsDrawer } from '@/features/inventory/InventoryEntryDetailsDrawer';
 import { getStockColumns } from '@/features/inventory/inventoryStockColumns';
+import {
+  getMovementColumns,
+  getMovementDelta,
+} from '@/features/inventory/inventoryMovementColumns';
+import { getEntryColumns } from '@/features/inventory/inventoryEntryColumns';
 import {
   inventoryEntryExportColumns,
   inventoryMovementExportColumns,
@@ -39,7 +44,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import type {
   Category,
   InitialInventoryEntry,
@@ -52,16 +57,6 @@ import type {
 type InventoryView = 'movements' | 'stock' | 'entries' | 'balances';
 type SearchMode = 'adjustment' | 'entry';
 
-// Rediseño §10 — el tipo de movimiento se lee como badge tonal (.pv-badge),
-// no como ícono: el dato dominante de la fila es el signo coloreado del delta.
-const movementBadgeTones = {
-  purchase: 'success',
-  sale: 'danger',
-  adjustment: 'warning',
-  transfer: 'primary',
-  return: 'success',
-} as const;
-
 const viewKeys: Record<InventoryView, string> = {
   movements: 'page.tabs.movements',
   stock: 'page.tabs.stockQuery',
@@ -72,187 +67,6 @@ const viewKeys: Record<InventoryView, string> = {
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
-
-function getMovementDelta(movement: InventoryMovement): number {
-  if (movement.type === 'sale' || movement.type === 'transfer') {
-    return movement.previousStock - movement.newStock > 0 ? -movement.quantity : movement.quantity;
-  }
-
-  if (movement.type === 'adjustment') {
-    return movement.newStock - movement.previousStock;
-  }
-
-  return movement.quantity;
-}
-
-const movementColumns: ColumnDef<InventoryMovement>[] = [
-  {
-    accessorKey: 'createdAt',
-    header: () => i18next.t('inventory:table.date'),
-    size: 180,
-    cell: ({ row }) => formatDateTime(row.original.createdAt),
-  },
-  {
-    accessorKey: 'productName',
-    header: () => i18next.t('inventory:table.product'),
-    size: 230,
-    // Rediseño FASE 3 — nombre fuerte + SKU mono (.pname/.sku de pv-table).
-    cell: ({ row }) => (
-      <div>
-        <p className="pname">{row.original.productName ?? i18next.t('inventory:table.unknownProduct')}</p>
-        <p className="sku">
-          {row.original.productSku ?? i18next.t('inventory:table.noSku')}
-          {row.original.categoryName ? ` · ${row.original.categoryName}` : ''}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: 'delta',
-    header: () => i18next.t('inventory:table.movement'),
-    size: 120,
-    // Rediseño §10 — el signo coloreado del movimiento (.pv-mv.up/.down) es el
-    // dato dominante de la fila: cifra mono más grande, alineada a la derecha,
-    // delante del tipo (que ahora es solo un badge de apoyo).
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => {
-      const delta = getMovementDelta(row.original);
-      return (
-        <span className={cn('pv-mv text-base', delta > 0 && 'up', delta < 0 && 'down')}>
-          {delta > 0 ? '+' : ''}
-          {delta.toLocaleString()}
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: 'type',
-    header: () => i18next.t('inventory:table.type'),
-    size: 140,
-    // Rediseño §10 — tipo como badge tonal (.pv-badge) en vez de un ícono;
-    // el tono semántico (entrada=success, salida=danger, ajuste=warning,
-    // traslado=primary) refuerza el signo sin competir con él.
-    cell: ({ row }) => {
-      const type = row.original.type;
-      return (
-        <span className={cn('pv-badge', movementBadgeTones[type] ?? 'neutral')}>
-          {i18next.t(`inventory:movements.types.${type}`)}
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: 'newStock',
-    header: () => i18next.t('inventory:table.stockAfter'),
-    size: 110,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => row.original.newStock.toLocaleString(),
-  },
-  {
-    accessorKey: 'reference',
-    header: () => i18next.t('inventory:table.reference'),
-    size: 150,
-    // Rediseño FASE 3 — referencia legible en chip mono (.pv-ref-chip).
-    cell: ({ row }) =>
-      row.original.reference ? (
-        <span className="pv-ref-chip">{row.original.reference}</span>
-      ) : (
-        <span className="muted">—</span>
-      ),
-  },
-  {
-    accessorKey: 'notes',
-    header: () => i18next.t('inventory:table.notes'),
-    size: 220,
-    cell: ({ row }) => (
-      <span className="block max-w-[220px] truncate text-secondary-500">{row.original.notes || '—'}</span>
-    ),
-  },
-];
-
-const entryColumns: ColumnDef<InitialInventoryEntry>[] = [
-  {
-    accessorKey: 'createdAt',
-    header: () => i18next.t('inventory:table.date'),
-    size: 180,
-    cell: ({ row }) => <span className="muted">{formatDateTime(row.original.createdAt)}</span>,
-  },
-  {
-    accessorKey: 'mode',
-    header: () => i18next.t('inventory:table.mode'),
-    size: 160,
-    // Rediseño FASE 6 — modo como badge tonal (.pv-badge): inventario
-    // inicial en primary, conteo físico en warning.
-    cell: ({ row }) => (
-      <span className={cn('pv-badge', row.original.mode === 'initial' ? 'primary' : 'warning')}>
-        {row.original.mode === 'initial'
-          ? i18next.t('inventory:table.initialInventory')
-          : i18next.t('inventory:table.physicalCount')}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'productName',
-    header: () => i18next.t('inventory:table.product'),
-    size: 240,
-    // Rediseño FASE 6 — celda ancla (.pv-table .prod/.pic/.pname/.sku).
-    cell: ({ row }) => (
-      <div className="prod">
-        <span className="pic">
-          <Package className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="pname">
-            {row.original.productName ?? i18next.t('inventory:table.unknownProduct')}
-          </p>
-          <p className="sku">{row.original.productSku ?? i18next.t('inventory:table.noSku')}</p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'unitName',
-    header: () => i18next.t('inventory:table.unit'),
-    size: 140,
-    cell: ({ row }) => row.original.unitAbbreviation ?? row.original.unitName ?? '—',
-  },
-  {
-    accessorKey: 'quantity',
-    header: () => i18next.t('inventory:table.countedQty'),
-    size: 110,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => row.original.quantity.toLocaleString(),
-  },
-  {
-    accessorKey: 'normalizedQuantity',
-    header: () => i18next.t('inventory:table.normalized'),
-    size: 120,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => row.original.normalizedQuantity.toLocaleString(),
-  },
-  {
-    accessorKey: 'cost',
-    header: () => i18next.t('inventory:table.cost'),
-    size: 120,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => formatCurrency(row.original.cost),
-  },
-  {
-    accessorKey: 'newStock',
-    header: () => i18next.t('inventory:table.stockAfter'),
-    size: 120,
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => row.original.newStock.toLocaleString(),
-  },
-  {
-    accessorKey: 'notes',
-    header: () => i18next.t('inventory:table.notes'),
-    size: 220,
-    cell: ({ row }) => (
-      <span className="block max-w-[220px] truncate text-secondary-500">{row.original.notes || '—'}</span>
-    ),
-  },
-];
 
 function mapStockItemToAdjustmentProduct(product: InventoryStockItem): InventoryAdjustmentProduct {
   return {
@@ -436,6 +250,8 @@ interface InventoryDataPanelProps {
   canManage: boolean;
   onAdjust: (product: InventoryStockItem) => void;
   onViewStockDetails: (product: InventoryStockItem) => void;
+  onViewMovementDetails: (movement: InventoryMovement) => void;
+  onViewEntryDetails: (entry: InitialInventoryEntry) => void;
   stockFilters: ReactNode;
 }
 
@@ -456,6 +272,8 @@ function InventoryDataPanel({
   canManage,
   onAdjust,
   onViewStockDetails,
+  onViewMovementDetails,
+  onViewEntryDetails,
   stockFilters,
 }: InventoryDataPanelProps) {
   const { t } = useTranslation('inventory');
@@ -484,7 +302,7 @@ function InventoryDataPanel({
               />
               <DataTable
                 variant="dense"
-                columns={movementColumns}
+                columns={getMovementColumns(onViewMovementDetails)}
                 data={movements}
                 searchKey="productName"
                 searchPlaceholder={t('movements.search')}
@@ -554,7 +372,7 @@ function InventoryDataPanel({
               />
               <DataTable
                 variant="dense"
-                columns={entryColumns}
+                columns={getEntryColumns(onViewEntryDetails)}
                 data={entries}
                 searchKey="productName"
                 searchPlaceholder={t('entries.search')}
@@ -588,6 +406,11 @@ export function InventoryPage() {
   // ENG-132c — row-detail Drawer for the Stock columns trimmed off the
   // default table (min stock, sell price, valuation, updated date).
   const [detailsStockItem, setDetailsStockItem] = useState<InventoryStockItem | null>(null);
+  // ENG-132g — row-detail Drawers for the Movements / Entries columns trimmed
+  // off their default tables (stock-after, reference, notes / unit, normalized,
+  // cost, stock-after, notes).
+  const [detailsMovement, setDetailsMovement] = useState<InventoryMovement | null>(null);
+  const [detailsEntry, setDetailsEntry] = useState<InitialInventoryEntry | null>(null);
   const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
 
   const categoriesQuery = trpc.categories.tree.useQuery();
@@ -789,6 +612,8 @@ export function InventoryPage() {
         canManage={canManage}
         onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
         onViewStockDetails={setDetailsStockItem}
+        onViewMovementDetails={setDetailsMovement}
+        onViewEntryDetails={setDetailsEntry}
         stockFilters={stockFilters}
       />
       )}
@@ -839,6 +664,16 @@ export function InventoryPage() {
               }
             : undefined
         }
+      />
+
+      <InventoryMovementDetailsDrawer
+        item={detailsMovement}
+        onClose={() => setDetailsMovement(null)}
+      />
+
+      <InventoryEntryDetailsDrawer
+        item={detailsEntry}
+        onClose={() => setDetailsEntry(null)}
       />
 
       <InventoryEntryModal

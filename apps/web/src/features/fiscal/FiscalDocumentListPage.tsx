@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keepPreviousData } from '@tanstack/react-query';
-import { FileCode2 } from 'lucide-react';
+import { Eye, FileCode2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import {
@@ -10,7 +10,9 @@ import {
 } from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { TablePagination } from '@/components/tables/TablePagination';
+import type { FiscalDocumentListItem } from '@/types';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
+import { FiscalDocumentDetailsDrawer } from './FiscalDocumentDetailsDrawer';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
 type FiscalSource = 'sale' | 'void' | 'return';
@@ -65,6 +67,9 @@ export function FiscalDocumentListPage() {
     cufe: string;
     documentNumber: string;
   } | null>(null);
+  // ENG-132h — row-detail Drawer holding the columns trimmed off the default
+  // table (provider id, full CUFE) plus the full record.
+  const [detailsDoc, setDetailsDoc] = useState<FiscalDocumentListItem | null>(null);
 
   const queryInput = useMemo(
     () => ({
@@ -185,8 +190,8 @@ export function FiscalDocumentListPage() {
                   <th className="py-2 pr-4">{t('list.columns.documentNumber')}</th>
                   <th className="py-2 pr-4">{t('list.columns.buyer')}</th>
                   <th className="py-2 pr-4 text-right">{t('list.columns.total')}</th>
-                  <th className="py-2 pr-4">{t('list.columns.provider')}</th>
-                  <th className="py-2 pr-4">{t('list.columns.cufe')}</th>
+                  {/* ENG-132h — provider id + (truncated) CUFE trimmed into the
+                      row-detail drawer; the drawer shows the full CUFE + XML. */}
                   <th className="py-2 text-right">
                     <span className="sr-only">{t('list.columns.actions')}</span>
                   </th>
@@ -215,28 +220,37 @@ export function FiscalDocumentListPage() {
                     <td className="py-2 pr-4 text-right text-secondary-800">
                       {formatCurrency(row.totalAmount, row.currencyCode)}
                     </td>
-                    <td className="py-2 pr-4 text-secondary-700">{row.providerId}</td>
-                    <td className="py-2 pr-4 font-mono text-[0.7rem] text-secondary-500">
-                      {row.cufe.slice(0, 12)}…{row.cufe.slice(-6)}
-                    </td>
                     <td className="py-2 text-right">
-                      {row.xmlRef ? (
+                      <div className="inline-flex items-center justify-end gap-1">
+                        {/* ENG-132h — Details (eye) is the progressive-disclosure
+                            affordance for the trimmed provider / CUFE columns. */}
                         <button
                           type="button"
                           className="btn btn-ghost btn-xs inline-flex items-center gap-1"
-                          onClick={() =>
-                            setXmlModalDoc({
-                              documentId: row.id,
-                              cufe: row.cufe,
-                              documentNumber: row.documentNumber,
-                            })
-                          }
-                          aria-label={t('document.xml.viewButton')}
+                          onClick={() => setDetailsDoc(row)}
+                          aria-label={t('list.details.viewAria')}
+                          title={t('list.details.viewAria')}
                         >
-                          <FileCode2 className="h-3.5 w-3.5" aria-hidden />
-                          <span>{t('document.xml.viewButton')}</span>
+                          <Eye className="h-3.5 w-3.5" aria-hidden />
                         </button>
-                      ) : null}
+                        {row.xmlRef ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs inline-flex items-center gap-1"
+                            onClick={() =>
+                              setXmlModalDoc({
+                                documentId: row.id,
+                                cufe: row.cufe,
+                                documentNumber: row.documentNumber,
+                              })
+                            }
+                            aria-label={t('document.xml.viewButton')}
+                          >
+                            <FileCode2 className="h-3.5 w-3.5" aria-hidden />
+                            <span>{t('document.xml.viewButton')}</span>
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -253,6 +267,19 @@ export function FiscalDocumentListPage() {
           </div>
         )}
       </div>
+
+      <FiscalDocumentDetailsDrawer
+        item={detailsDoc}
+        onClose={() => setDetailsDoc(null)}
+        onViewXml={doc => {
+          setDetailsDoc(null);
+          setXmlModalDoc({
+            documentId: doc.id,
+            cufe: doc.cufe,
+            documentNumber: doc.documentNumber,
+          });
+        }}
+      />
 
       <FiscalDocumentXmlModal
         isOpen={xmlModalDoc !== null}

@@ -51,5 +51,14 @@
       "auditLogs.list": 80,
       "setupReadiness.get": 80
     }
+  },
+  "electronMemoryMb": {
+    "$comment": "ENG-133b — Electron main + renderer working-set ceiling in MB, measured via app.getAppMetrics() by scripts/check-electron-memory.mjs (PUNTOVIVO_MEASURE_MEMORY mode). Phase 1 is warn-first: the gate prints the report but never fails the build (pass --strict / PUNTOVIVO_MEMORY_STRICT=1 to enforce). It also self-skips when Electron cannot launch (no .vite/build bundle / no display), so ci:desktop stays green on ubuntu until the xvfb CI-launch hardening lands. Baselines captured from a real local run; bump deliberately with the regressing PR.",
+    "thresholdPercent": 25,
+    "$baseline": "ENG-133b — captured locally (macOS, renderer served by dev:web): main ~250-258 MB, renderer ~159-160 MB across runs. Baselines set just above the observed max; the 25% threshold absorbs run-to-run working-set variance in the warn-first phase.",
+    "perProcessMb": {
+      "main": 260,
+      "renderer": 165
+    }
   }
 }
