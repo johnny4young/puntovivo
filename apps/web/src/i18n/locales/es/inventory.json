@@ -29,6 +29,11 @@
       "adjustment": "Ajuste",
       "transfer": "Transferencia",
       "return": "Devolución"
+    },
+    "details": {
+      "title": "Detalle de movimiento",
+      "viewAria": "Ver detalle",
+      "close": "Cerrar"
     }
   },
   "stock": {
@@ -66,7 +71,12 @@
     "loadingShort": "Cargando entradas…",
     "error": "No se pudieron cargar las entradas de inventario",
     "search": "Buscar entradas por producto...",
-    "exportTitle": "Entradas de inventario inicial"
+    "exportTitle": "Entradas de inventario inicial",
+    "details": {
+      "title": "Detalle de entrada",
+      "viewAria": "Ver detalle",
+      "close": "Cerrar"
+    }
   },
   "balances": {
     "siteSelector": "Sede",
