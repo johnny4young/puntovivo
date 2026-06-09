@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + tRPC p95 latency).
+> Status: shipped engine (bundle-size + tRPC p95 latency + Electron memory + Lighthouse web vitals).
 > Roadmap anchor: `ENG-133`.
 > Source of truth: `perf-budget.json` at the repo root.
 
@@ -16,12 +16,14 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size | `ci:web` | `scripts/check-bundle-size.mjs` after `vite build` |
 | tRPC procedure p95 latency for a curated set of read routes | `ci:server` | `__tests__/perf-trpc-latency.test.ts` via vitest |
 | Electron main + renderer working-set memory (warn-first) | `ci:desktop` | `scripts/check-electron-memory.mjs` (launches the app in measure mode) |
+| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (warn-first, LOCAL) | `pnpm run perf:lighthouse` (not push-CI) | `scripts/check-lighthouse.mjs` (launches Chromium, logs in, measures) |
 
-The remaining cells in `ENG-133` (Lighthouse-CI for top routes,
-and turning the Electron memory gate into a hard-fail once the
-ubuntu desktop CI job is hardened to launch Electron under xvfb,
-plus the Operations Center surface of the latest baseline) ride in
-follow-ups so each slice stays shippable.
+The remaining cells in `ENG-133` (turning the Electron memory gate
+into a hard-fail once the ubuntu desktop CI job is hardened to launch
+Electron under xvfb, and the Operations Center surface of the latest
+baseline — re-routed to `ENG-128`) ride in follow-ups so each slice
+stays shippable. The Lighthouse gate shipped in `ENG-133c` (local-only;
+see below).
 
 ### Electron memory (warn-first)
 
@@ -52,6 +54,42 @@ Two deliberate tolerant paths keep it from breaking the build today:
 The pure comparison/parse helpers are unit-tested by
 `scripts/check-electron-memory.test.mjs` (wired into `ci:desktop`
 before the gate); the launch path is proven by the local run.
+
+### Lighthouse web vitals (warn-first, LOCAL)
+
+`scripts/check-lighthouse.mjs` (`pnpm run perf:lighthouse`) measures the
+front-end load experience — LCP, TTI, CLS, and the Lighthouse performance
+score — for the top user-facing routes (`/login`, `/dashboard`, `/sales`,
+`/products`), compared against `perf-budget.json::lighthouse.perRoute` with the
+section `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
+regress past `budget * (1 + t/100)`; the `higher-is-better` score regresses
+below `budget * (1 - t/100)`.
+
+How a run works:
+
+1. Launch a real Chromium via Playwright with a CDP port.
+2. Log in ONCE (the demo-seed admin from `docs/DEV-SEED.md`). The refresh token
+   lands in an httpOnly cookie; the in-memory access token is re-minted via
+   `auth.refresh` on each navigation, so authenticated routes measure correctly
+   with `disableStorageReset:true`.
+3. Warm up each route (the Vite dev server compiles route modules on first hit —
+   a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
+4. Run Lighthouse per route and compare.
+
+Two deliberate tolerant paths, same as the memory gate:
+
+- **Warn-first.** An over-budget metric prints a `WARN` and still exits 0. Pass
+  `--strict` (or `PUNTOVIVO_LIGHTHOUSE_STRICT=1`) to make a regression exit 1.
+- **Self-skip.** If Playwright/Lighthouse is unavailable, the dev:web/dev:server
+  stack is not up, or the browser fails to launch, the gate prints a
+  `WARN: skipped` and exits 0.
+
+This gate is **LOCAL-only — it is NOT wired into push-CI**. A real Chromium
+launch plus a running `dev:server` + `dev:web` is too heavy for the Actions
+budget (the repo took the same stance on the Playwright e2e suite). Only the
+pure helpers ride `ci:web` via `scripts/check-lighthouse.test.mjs`. The measured
+numbers are DEV-build figures under Lighthouse's simulated throttle, not
+production values — the gate detects regressions from the local baseline.
 
 ## Why budgets matter
 
@@ -216,10 +254,30 @@ pnpm --filter @puntovivo/server run test:coverage -- perf-trpc-latency
 When the test fails it prints the measured p95 in the error
 message. Use that number as the new baseline.
 
+For Lighthouse web vitals:
+
+```
+pnpm run seed:dev                      # demo-co tenant in local.db
+pnpm run dev:server                    # 8090 (background)
+pnpm run dev:web                       # 3000 (background)
+pnpm run perf:lighthouse
+```
+
+The script prints a `check-lighthouse: measured = {...}` line with the raw
+LCP / TTI / CLS / score per route; copy those into
+`perf-budget.json::lighthouse.perRoute` (round timings up a little to absorb
+run-to-run variance). Re-run a couple of times — the warm numbers stabilise
+once Vite has compiled each route. Note these are DEV-build figures, not
+production.
+
 ## Out-of-scope follow-ups
 
-- **Lighthouse-CI** for top user-facing routes (LCP, TTI, CLS).
-- **Electron main + renderer memory ceiling** captured in `ci:desktop`.
+- **Electron main + renderer memory hard-fail** in `ci:desktop` once the ubuntu
+  job is hardened to launch Electron under xvfb (the gate self-skips there
+  today).
+- **Lighthouse in push-CI** — today the gate is local-only; promoting it to CI
+  needs a browser + the served stack in the runner (and the Actions-minute
+  trade-off the repo deliberately avoids).
 - **Operations Center surface** of the latest measured baseline so
   the operator can see the current state without opening the JSON
   file. Will land alongside `ENG-128` supportability so the surface

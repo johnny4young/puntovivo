@@ -60,5 +60,16 @@
       "main": 260,
       "renderer": 165
     }
+  },
+  "lighthouse": {
+    "$comment": "ENG-133c — Lighthouse web-vitals budgets per top user-facing route, measured LOCALLY by scripts/check-lighthouse.mjs (pnpm run perf:lighthouse). lcpMs/ttiMs in ms (lower is better), cls unitless (lower is better), score 0-100 (higher is better). Warn-first: the gate prints the report but never fails (pass --strict / PUNTOVIVO_LIGHTHOUSE_STRICT=1 to enforce). It self-skips when the browser/lighthouse is unavailable or the dev:web/dev:server stack is not up. This gate is LOCAL-only (not wired into push-CI) because a real Chromium launch is too heavy for the Actions budget; only the pure-helper node --test rides ci:web.",
+    "thresholdPercent": 30,
+    "$baseline": "ENG-133c — captured locally (macOS, DEV build served by dev:server + dev:web, demo-co seed, Lighthouse desktop preset with simulated throttling). The script warms each route first (Vite compiles route modules on first hit), then measures warm. These are DEV-build numbers (no minify/treeshake) under Lighthouse's 4x-CPU throttle, NOT production figures — the gate detects regressions from this local baseline. The 30% threshold absorbs Lighthouse run-to-run variance in the warn-first phase. Re-capture deliberately with pnpm run perf:lighthouse and copy the printed measured= values.",
+    "perRoute": {
+      "login": { "lcpMs": 3400, "ttiMs": 3400, "cls": 0.02, "score": 70 },
+      "dashboard": { "lcpMs": 3600, "ttiMs": 3600, "cls": 0.05, "score": 66 },
+      "sales": { "lcpMs": 4600, "ttiMs": 4600, "cls": 0.05, "score": 58 },
+      "products": { "lcpMs": 4100, "ttiMs": 4100, "cls": 0.05, "score": 62 }
+    }
   }
 }
