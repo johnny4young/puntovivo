@@ -456,6 +456,55 @@ export function ensureSetupAcknowledged(
 }
 
 /**
+ * ENG-134g — the module-gated surfaces (`/touch`, `/kds`,
+ * `/customer-display`, `/m`, `/delivery`) ship OFF by default on a
+ * fresh retail tenant, so the Playwright a11y smoke could never reach
+ * them (`SurfaceShellRoute` redirects to `/dashboard` when the module
+ * is off). The baseline flips them on for the e2e tenant so the smoke
+ * can axe-scan each surface. The ids match `CLIENT_MODULE_IDS` in
+ * `apps/web/src/features/modules/manifest.ts`.
+ */
+export const E2E_ENABLED_MODULES: readonly string[] = [
+  'pos-touch',
+  'kds',
+  'customer-display',
+  'mobile-waiter',
+  'delivery',
+] as const;
+
+/**
+ * Force-enable the given tenant modules by writing an explicit `true`
+ * override into `tenants.settings.modules.<id>`. This is the exact
+ * write the `modules.setActive` tRPC mutation performs
+ * (`json_set` of `$.modules.<id>` to a real JSON boolean —
+ * `packages/server/src/trpc/routers/modules.ts`), so the server's
+ * `resolveModulesState` reads it back as effectively-enabled and the
+ * renderer's `modules.getEffective` gate lets the surface render.
+ * Idempotent: re-running overwrites the same `true` value. The hyphen
+ * in ids like `pos-touch` is valid in an unquoted SQLite JSON path
+ * (the production mutation relies on the same shape).
+ */
+export function ensureModulesEnabled(
+  db: Database.Database,
+  tenantId: string,
+  moduleIds: readonly string[] = E2E_ENABLED_MODULES
+): void {
+  const stmt = db.prepare(
+    `update tenants
+        set settings = json_set(
+              coalesce(settings, '{}'),
+              ?,
+              json('true')
+            ),
+            updated_at = datetime('now')
+      where id = ?`
+  );
+  for (const moduleId of moduleIds) {
+    stmt.run(`$.modules.${moduleId}`, tenantId);
+  }
+}
+
+/**
  * Resolve the first tenant + its first company in the DB. Both E2E
  * runners assume a single tenant (seeded by `seedDefaultData` in
  * `packages/server/src/db/seed.ts`); throws if the DB is missing
@@ -492,6 +541,7 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
   db.transaction(() => {
     cleanupPriorRunArtifacts(db, tenantId);
     ensureSetupAcknowledged(db, tenantId);
+    ensureModulesEnabled(db, tenantId);
   })();
 
   ensureSecondarySite(db, tenantId, companyId);
