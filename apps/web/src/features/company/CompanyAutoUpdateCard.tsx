@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -9,9 +9,18 @@ import { formatDateTime } from '@/lib/utils';
 
 type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
 
+/**
+ * How an available update reaches the user. `auto` (public repo) downloads +
+ * installs via Squirrel; `manual` (private repo, notify-only) just surfaces the
+ * release so the user downloads it themselves. Optional for back-compat with
+ * older desktop builds whose status payload predates this field.
+ */
+type AutoUpdateInstallMode = 'auto' | 'manual';
+
 interface AutoUpdateStatus {
   isAvailable: boolean;
   state: AutoUpdateState;
+  installMode?: AutoUpdateInstallMode;
   currentVersion: string;
   lastCheckedAt: string | null;
   releaseName: string | null;
@@ -27,6 +36,7 @@ const autoUpdateStatusQueryKey = ['desktop', 'auto-update-status'] as const;
 const defaultAutoUpdateStatus: AutoUpdateStatus = {
   isAvailable: false,
   state: 'unavailable',
+  installMode: 'auto',
   currentVersion: '',
   lastCheckedAt: null,
   releaseName: null,
@@ -41,15 +51,20 @@ type BadgeTone = 'success' | 'warning' | 'danger' | 'primary' | 'neutral';
 
 interface StatusBadgeProps {
   state: AutoUpdateState;
+  installMode: AutoUpdateInstallMode;
 }
 
-function StatusBadge({ state }: StatusBadgeProps) {
+function StatusBadge({ state, installMode }: StatusBadgeProps) {
   const { t } = useTranslation('settings');
   const labelMap: Record<AutoUpdateState, string> = {
     unavailable: t('company.updater.statusBadge.unavailable'),
     idle: t('company.updater.statusBadge.idle'),
     checking: t('company.updater.statusBadge.checking'),
-    available: t('company.updater.statusBadge.available'),
+    // In notify-only mode "available" means downloadable, not downloading.
+    available:
+      installMode === 'manual'
+        ? t('company.updater.statusBadge.availableManual')
+        : t('company.updater.statusBadge.available'),
     downloaded: t('company.updater.statusBadge.downloaded'),
     error: t('company.updater.statusBadge.error'),
   };
@@ -80,13 +95,16 @@ function UpdateMetric({ label, value }: UpdateMetricProps) {
 }
 
 function getStatusMessage(status: AutoUpdateStatus, t: (key: string) => string): string {
+  const installMode = status.installMode ?? 'auto';
   switch (status.state) {
     case 'unavailable':
       return status.reason ?? t('company.updater.statusMessage.unavailable');
     case 'checking':
       return t('company.updater.statusMessage.checking');
     case 'available':
-      return t('company.updater.statusMessage.available');
+      return installMode === 'manual'
+        ? t('company.updater.statusMessage.availableManual')
+        : t('company.updater.statusMessage.available');
     case 'downloaded':
       return t('company.updater.statusMessage.downloaded');
     case 'error':
@@ -154,6 +172,8 @@ export function CompanyAutoUpdateCard() {
   });
 
   const status = statusQuery.data ?? defaultAutoUpdateStatus;
+  const installMode: AutoUpdateInstallMode = status.installMode ?? 'auto';
+  const canViewRelease = status.state === 'available' && Boolean(status.updateUrl);
   const releaseLabel =
     status.releaseName ?? (status.state === 'downloaded' ? t('company.updater.downloadedUpdateReady') : t('company.updater.none'));
   const currentVersionLabel = status.currentVersion || t('company.updater.unknown');
@@ -178,26 +198,54 @@ export function CompanyAutoUpdateCard() {
         {checkMutation.isPending ? t('company.updater.actions.checking') : t('company.updater.actions.checkForUpdates')}
       </button>
 
-      <button
-        type="button"
-        className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={
-          !isDesktop ||
-          status.state !== 'downloaded' ||
-          checkMutation.isPending ||
-          restartMutation.isPending
-        }
-        onClick={() => {
-          void restartMutation.mutateAsync();
-        }}
-      >
-        {restartMutation.isPending ? (
-          <RefreshCw className="animate-spin" aria-hidden="true" />
+      {installMode === 'manual' ? (
+        // Notify-only: no in-place install — the user opens the release page to
+        // download. The https link routes through the main process'
+        // setWindowOpenHandler -> shell.openExternal (sandbox-safe).
+        canViewRelease && status.updateUrl ? (
+          <a
+            className="pv-btn primary"
+            href={status.updateUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink aria-hidden="true" />
+            {t('company.updater.actions.viewRelease')}
+          </a>
         ) : (
-          <RotateCcw aria-hidden="true" />
-        )}
-        {restartMutation.isPending ? t('company.updater.actions.restarting') : t('company.updater.actions.restartToInstall')}
-      </button>
+          <button
+            type="button"
+            className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
+            disabled
+          >
+            <ExternalLink aria-hidden="true" />
+            {t('company.updater.actions.viewRelease')}
+          </button>
+        )
+      ) : (
+        <button
+          type="button"
+          className="pv-btn primary disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={
+            !isDesktop ||
+            status.state !== 'downloaded' ||
+            checkMutation.isPending ||
+            restartMutation.isPending
+          }
+          onClick={() => {
+            void restartMutation.mutateAsync();
+          }}
+        >
+          {restartMutation.isPending ? (
+            <RefreshCw className="animate-spin" aria-hidden="true" />
+          ) : (
+            <RotateCcw aria-hidden="true" />
+          )}
+          {restartMutation.isPending
+            ? t('company.updater.actions.restarting')
+            : t('company.updater.actions.restartToInstall')}
+        </button>
+      )}
     </div>
   );
 
@@ -229,7 +277,7 @@ export function CompanyAutoUpdateCard() {
           <p className="text-sm font-medium text-fg1">{t('company.updater.updaterStatus')}</p>
           <p className="text-sm text-fg3">{getStatusMessage(status, t)}</p>
         </div>
-        <StatusBadge state={status.state} />
+        <StatusBadge state={status.state} installMode={installMode} />
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -250,10 +298,17 @@ export function CompanyAutoUpdateCard() {
 
       <div className="mt-4">{isDesktop ? actions : <DisabledControl>{actions}</DisabledControl>}</div>
 
-      {status.state === 'available' && (
+      {status.state === 'available' && installMode === 'auto' && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
           <Download className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
           <p>{t('company.updater.downloading')}</p>
+        </div>
+      )}
+
+      {status.state === 'available' && installMode === 'manual' && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          <Download className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <p>{t('company.updater.availableManualHint')}</p>
         </div>
       )}
     </section>

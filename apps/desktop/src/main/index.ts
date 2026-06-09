@@ -70,6 +70,7 @@ import {
   initAutoUpdater,
   refreshAutoUpdateTranslations,
   restartToApplyAppUpdate,
+  stopAutoUpdater,
 } from './auto-updater';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from './i18n';
 import { buildMainWindowWebPreferences } from './window-config.js';
@@ -2183,6 +2184,8 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', event => {
   destroyTray();
+  // Stop the notify-only update poll so its timer never outlives the app.
+  stopAutoUpdater();
 
   // DK-005 — `will-quit` listeners are synchronous, so a fire-and-forget
   // `stopEmbeddedServer()` let the process exit while the SQLite/WAL

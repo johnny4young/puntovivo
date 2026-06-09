@@ -8,6 +8,7 @@ export interface ElectronAPI {
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
     releaseName: string | null;
@@ -20,6 +21,7 @@ export interface ElectronAPI {
   checkForAppUpdates: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
     releaseName: string | null;

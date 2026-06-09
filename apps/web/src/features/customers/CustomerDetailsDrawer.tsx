@@ -17,7 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn } from '@/lib/utils';
-import type { Customer } from '@/types';
+import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
+import type { Customer, CustomerCatalogItem } from '@/types';
 
 /**
  * Props for {@link CustomerDetailsDrawer}. The Drawer is open exactly when
@@ -26,6 +27,17 @@ import type { Customer } from '@/types';
 export interface CustomerDetailsDrawerProps {
   /** The customer to detail. `null` keeps the Drawer closed. */
   customer: Customer | null;
+  /**
+   * Identification-type catalog rows, used to resolve the customer's
+   * `identificationTypeId` to its human code (never the internal id). Defaults
+   * to empty: the resolver then falls back to the raw stored value.
+   */
+  identificationTypes?: readonly CustomerCatalogItem[] | undefined;
+  /**
+   * Client-type catalog rows, used to resolve the customer's `clientTypeId` to
+   * its human name. Defaults to empty (resolver falls back to the raw value).
+   */
+  clientTypes?: readonly CustomerCatalogItem[] | undefined;
   /** Close the Drawer (ESC / backdrop / close button). */
   onClose: () => void;
   /**
@@ -52,14 +64,22 @@ function formatLocation(customer: Customer): string {
   return location || customer.country || '-';
 }
 
-/** Identification type + tax id (mirrors the table's name sub-label). */
-function formatIdentification(customer: Customer): string {
-  const parts = [customer.identificationTypeId, customer.taxId].filter(Boolean);
+/** Identification type (resolved to its code, never the internal id) + tax id. */
+function formatIdentification(
+  customer: Customer,
+  identificationTypes: readonly CustomerCatalogItem[]
+): string {
+  const parts = [
+    resolveCatalogLabel(identificationTypes, customer.identificationTypeId),
+    customer.taxId,
+  ].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : '-';
 }
 
 export function CustomerDetailsDrawer({
   customer,
+  identificationTypes = [],
+  clientTypes = [],
   onClose,
   onEdit,
 }: CustomerDetailsDrawerProps) {
@@ -96,11 +116,14 @@ export function CustomerDetailsDrawer({
         <dl data-testid="customer-details-fields">
           <DetailField
             label={t('details.identification')}
-            value={formatIdentification(customer)}
+            value={formatIdentification(customer, identificationTypes)}
           />
           <DetailField label={t('table.email')} value={customer.email || '-'} />
           <DetailField label={t('table.phone')} value={customer.phone || '-'} />
-          <DetailField label={t('table.type')} value={customer.clientTypeId || '-'} />
+          <DetailField
+            label={t('table.type')}
+            value={resolveCatalogLabel(clientTypes, customer.clientTypeId, 'name') || '-'}
+          />
           <DetailField label={t('table.location')} value={formatLocation(customer)} />
           <DetailField
             label={t('table.status')}

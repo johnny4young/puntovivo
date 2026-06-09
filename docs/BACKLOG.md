@@ -108,6 +108,8 @@ research.
 - `[web][consistency]` Standardize cache invalidation on `invalidateGroups` across the remaining ~16 feature files (ENG-181 continuation). — 2026-06-01 (codebase review follow-up)
 - `[ux][design-system]` Unify divergent badge systems (CVA Badge vs `.badge-*` CSS) and the page-title heading scale. — 2026-06-01 (codebase review follow-up)
 - `[web][architecture]` Invert the AuthProvider → sales-store logout-cleanup coupling via a lifecycle registry. — 2026-06-01 (codebase review follow-up)
+- `[infra][desktop][updater]` When the source is released publicly: set `PUNTOVIVO_UPDATE_REPO_PRIVATE=false` to flip the updater from notify-only to auto-download (Squirrel / update.electronjs.org), then verify end-to-end that (a) `release.yml` un-drafts the release before the updater polls, (b) macOS builds are signed + notarized so Squirrel.Mac applies the update, (c) Windows Squirrel auto-update works against the public repo. — 2026-06-08 (auto-updater notify-only follow-up)
+- `[infra][desktop][updater]` Provide/document a read-only `PUNTOVIVO_UPDATE_TOKEN` so the notify-only check can detect new versions against the PRIVATE repo during internal/QA builds; without it the check honestly reports "requires repo access" (GitHub returns 404 for a private repo with no auth). — 2026-06-08 (auto-updater notify-only follow-up)
 
 ## 2. Small bugs / polish
 
@@ -133,6 +135,7 @@ Outcome is a recommendation or an ADR, not shipped feature code.
 - `[product][research]` Pilot evidence loop: define the 5-10 store-facing observations (time-to-first-sale, failed-checkout reasons, printer/scanner failure rate, DIAN retry rate, day-close variance, support tickets/store-day) that decide retail-vs-vertical focus. Outcome is a pilot scorecard. — 2026-05-31 (product-focus research)
 - `[product][strategy]` Packaging/tier decision once Ring-1 is pilot-ready: are AI, restaurant surfaces, delivery, public API, and advanced BI paid add-ons, services, or hidden until needed? Do not implement gates until ENG-182..ENG-186 land. — 2026-05-31 (product-focus research)
 - `[ux][research]` Field-test the Ring-1 screen focus pass with one cashier script (open session → scan/add → attach customer → split payment → print → refund → close day); record hesitation before more simplification tickets beyond ENG-186. — 2026-05-31 (product-focus research)
+- `[infra][desktop][updater]` Cross-platform AUTO-download while the repo stays private (or Linux auto-update at all): today's auto path rides update.electronjs.org which only serves public-repo Squirrel (macOS/Windows) — Linux deb/rpm never auto-update. If wanted, evaluate a self-hosted feed (static storage in Squirrel format) or migrating Windows→NSIS / Linux→AppImage with electron-updater. Outcome is an ADR on the feed strategy, not code. — 2026-06-08 (auto-updater notify-only follow-up)
 
 ## 4. Parked feature requests
 
