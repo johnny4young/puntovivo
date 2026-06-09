@@ -475,6 +475,7 @@
       "downloadedUpdateReady": "Downloaded update ready",
       "updatePublished": "Update published",
       "downloading": "The updater has found a newer release and is downloading it in the background.",
+      "availableManualHint": "A new version is available. Open the release page to download and install it.",
       "unknown": "Unknown",
       "none": "None",
       "statusBadge": {
@@ -482,6 +483,7 @@
         "idle": "Up to Date",
         "checking": "Checking",
         "available": "Downloading",
+        "availableManual": "Available",
         "downloaded": "Ready to Install",
         "error": "Error"
       },
@@ -489,6 +491,7 @@
         "unavailable": "Automatic updates are not available in this runtime.",
         "checking": "Checking the update service for a newer desktop build.",
         "available": "A new desktop version is being downloaded in the background.",
+        "availableManual": "A new version is available to download.",
         "downloaded": "A downloaded update is ready. Restart the desktop app to apply it.",
         "error": "The last update check failed.",
         "idle": "This workstation is on the latest available desktop build."
@@ -497,7 +500,8 @@
         "checking": "Checking...",
         "checkForUpdates": "Check for Updates",
         "restarting": "Restarting...",
-        "restartToInstall": "Restart to Install"
+        "restartToInstall": "Restart to Install",
+        "viewRelease": "View release"
       },
       "toast": {
         "checkingForUpdates": "Checking for updates",

@@ -5,6 +5,7 @@ interface DesktopElectronAPI {
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
     releaseName: string | null;
@@ -17,6 +18,7 @@ interface DesktopElectronAPI {
   checkForAppUpdates: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
+    installMode: 'auto' | 'manual';
     currentVersion: string;
     lastCheckedAt: string | null;
     releaseName: string | null;

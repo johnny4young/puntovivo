@@ -27,6 +27,9 @@
     "disabledByEnv": "Las actualizaciones automáticas están deshabilitadas por la variable de entorno AUTO_UPDATE.",
     "platformUnsupported": "Las actualizaciones automáticas no son compatibles en {{platform}}.",
     "noDownloadedUpdate": "No hay ninguna actualización descargada lista para instalar.",
-    "initFailed": "No se pudo inicializar el actualizador automático"
+    "initFailed": "No se pudo inicializar el actualizador automático",
+    "requiresRepoAccess": "La verificación de actualizaciones requiere acceso al repositorio de versiones.",
+    "checkFailed": "No se pudo verificar si hay actualizaciones. Intenta de nuevo más tarde.",
+    "manualInstallRequired": "Esta versión notifica las actualizaciones; abre la página de la versión para descargar la nueva."
   }
 }

@@ -14,6 +14,7 @@ import {
   type CustomerFormValues,
 } from '@/features/customers/CustomerFormModal';
 import { CustomerDetailsDrawer } from '@/features/customers/CustomerDetailsDrawer';
+import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
 import { CustomerLedgerModal } from '@/features/customers/CustomerLedgerModal';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -182,7 +183,8 @@ export function CustomersPage() {
           <div>
             <p className="pname">{row.original.name}</p>
             <p className="sku">
-              {row.original.identificationTypeId || 'ID'} {row.original.taxId || 'Not set'}
+              {resolveCatalogLabel(identificationTypes, row.original.identificationTypeId) || 'ID'}{' '}
+              {row.original.taxId || 'Not set'}
             </p>
           </div>
         </div>
@@ -332,6 +334,8 @@ export function CustomersPage() {
 
       <CustomerDetailsDrawer
         customer={detailsCustomer}
+        identificationTypes={identificationTypes}
+        clientTypes={clientTypes}
         onClose={() => setDetailsCustomer(null)}
         onEdit={customer => {
           setDetailsCustomer(null);

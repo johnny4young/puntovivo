@@ -27,6 +27,9 @@
     "disabledByEnv": "Automatic updates are disabled by the AUTO_UPDATE environment variable.",
     "platformUnsupported": "Automatic updates are not supported on {{platform}}.",
     "noDownloadedUpdate": "No downloaded update is ready to install.",
-    "initFailed": "Failed to initialize auto-updater"
+    "initFailed": "Failed to initialize auto-updater",
+    "requiresRepoAccess": "Update checks require access to the release repository.",
+    "checkFailed": "Could not check for updates. Please try again later.",
+    "manualInstallRequired": "This build notifies about updates; open the release page to download the new version."
   }
 }

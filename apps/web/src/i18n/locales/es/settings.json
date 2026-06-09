@@ -475,6 +475,7 @@
       "downloadedUpdateReady": "Actualización descargada lista",
       "updatePublished": "Actualización publicada",
       "downloading": "El actualizador encontró una versión más reciente y la está descargando en segundo plano.",
+      "availableManualHint": "Hay una nueva versión disponible. Abre la página de la versión para descargarla e instalarla.",
       "unknown": "Desconocido",
       "none": "Ninguna",
       "statusBadge": {
@@ -482,6 +483,7 @@
         "idle": "Al día",
         "checking": "Verificando",
         "available": "Descargando",
+        "availableManual": "Disponible",
         "downloaded": "Lista para instalar",
         "error": "Error"
       },
@@ -489,6 +491,7 @@
         "unavailable": "Las actualizaciones automáticas no están disponibles en este entorno.",
         "checking": "Verificando el servicio de actualizaciones para una versión más reciente.",
         "available": "Se está descargando una nueva versión en segundo plano.",
+        "availableManual": "Hay una nueva versión disponible para descargar.",
         "downloaded": "Hay una actualización descargada lista. Reinicia la app para aplicarla.",
         "error": "La última verificación de actualizaciones falló.",
         "idle": "Esta estación de trabajo tiene la última versión disponible."
@@ -497,7 +500,8 @@
         "checking": "Verificando...",
         "checkForUpdates": "Buscar actualizaciones",
         "restarting": "Reiniciando...",
-        "restartToInstall": "Reiniciar para instalar"
+        "restartToInstall": "Reiniciar para instalar",
+        "viewRelease": "Ver versión"
       },
       "toast": {
         "checkingForUpdates": "Buscando actualizaciones",

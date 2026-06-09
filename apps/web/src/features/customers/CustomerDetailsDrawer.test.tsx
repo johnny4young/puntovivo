@@ -49,6 +49,47 @@ describe('CustomerDetailsDrawer (ENG-132b)', () => {
     ).toBeInTheDocument();
   });
 
+  it('resolves id-valued identification/type references to human labels', () => {
+    const idCustomer = {
+      ...customer,
+      identificationTypeId: 'id-cc-nanoid',
+      clientTypeId: 'id-mayorista-nanoid',
+    } as unknown as Customer;
+    render(
+      <CustomerDetailsDrawer
+        customer={idCustomer}
+        identificationTypes={[
+          {
+            id: 'id-cc-nanoid',
+            tenantId: 't1',
+            code: 'CC',
+            name: 'Cédula de ciudadanía',
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ]}
+        clientTypes={[
+          {
+            id: 'id-mayorista-nanoid',
+            tenantId: 't1',
+            code: 'MAY',
+            name: 'Mayorista',
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ]}
+        onClose={vi.fn()}
+      />
+    );
+
+    // The raw nanoids must NOT leak; the resolved code + name show instead.
+    expect(screen.getByText('CC 900123456')).toBeInTheDocument();
+    expect(screen.getByText('Mayorista')).toBeInTheDocument();
+    expect(screen.queryByText(/id-cc-nanoid|id-mayorista-nanoid/)).not.toBeInTheDocument();
+  });
+
   it('calls onEdit with the customer when the Edit footer action is clicked', () => {
     const onEdit = vi.fn();
     render(<CustomerDetailsDrawer customer={customer} onClose={vi.fn()} onEdit={onEdit} />);

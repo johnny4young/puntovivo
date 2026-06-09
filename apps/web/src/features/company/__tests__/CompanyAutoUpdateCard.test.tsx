@@ -103,6 +103,50 @@ describe('CompanyAutoUpdateCard', () => {
     });
   });
 
+  it('offers a release link (not a restart) in notify-only manual mode', async () => {
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn().mockResolvedValue({
+        isAvailable: true,
+        state: 'available',
+        installMode: 'manual',
+        currentVersion: '1.0.0',
+        lastCheckedAt: '2026-04-08T16:00:00.000Z',
+        releaseName: 'v1.2.0',
+        releaseNotes: 'Notify-only release',
+        releaseDate: '2026-04-08T15:30:00.000Z',
+        updateUrl: 'https://github.com/johnny4young/puntovivo/releases/tag/v1.2.0',
+        error: null,
+        reason: null,
+      }),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      printReceipt: vi.fn(),
+    };
+
+    renderWithQueryClient(<CompanyAutoUpdateCard />);
+
+    const releaseLink = await screen.findByRole('link', { name: /view release/i });
+    expect(releaseLink).toHaveAttribute(
+      'href',
+      'https://github.com/johnny4young/puntovivo/releases/tag/v1.2.0'
+    );
+    // Manual mode never offers an in-place restart/install.
+    expect(
+      screen.queryByRole('button', { name: /restart to install/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('restarts to install a downloaded update', async () => {
     const user = userEvent.setup();
     const restartToApplyAppUpdate = vi.fn().mockResolvedValue({ success: true });
