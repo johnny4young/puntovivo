@@ -22,6 +22,12 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
 import { tenants, users } from '../db/schema.js';
+import { resolveCachedNodeBinding } from '../db/native-binding.js';
+
+// Raw probe connections must load the same Node-ABI addon initDatabase
+// selects, or they die on dlopen whenever the on-disk default carries the
+// Electron build.
+const nativeBinding = resolveCachedNodeBinding();
 
 interface DrizzleMigrationRow {
   id: number;
@@ -104,7 +110,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
   it('applies the baseline migration exactly once on a fresh in-memory DB', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
 
-    const sqlite = new Database(':memory:'); // dummy for type
+    const sqlite = new Database(':memory:', { nativeBinding }); // dummy for type
     sqlite.close();
     // The production code shares a single better-sqlite3 handle behind
     // Drizzle; reach it through the exported accessor the codebase
@@ -171,7 +177,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // have been materialised by a transitional release before the
     // upgrade (the seedCatalogs hook skips missing catalog tables with
     // an actionable warning).
-    const legacySqlite = new Database(dbPath);
+    const legacySqlite = new Database(dbPath, { nativeBinding });
     legacySqlite
       .prepare(
         'CREATE TABLE IF NOT EXISTS tenants (' +
@@ -226,7 +232,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // mark 0039 as applied and the first catalog write would crash at
     // runtime instead — the adoption guard must refuse the boot with an
     // actionable error and must NOT seed the journal.
-    const staleSqlite = new Database(dbPath);
+    const staleSqlite = new Database(dbPath, { nativeBinding });
     staleSqlite
       .prepare(
         'CREATE TABLE IF NOT EXISTS products (' +
@@ -245,7 +251,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // The guard fired BEFORE the journal seed: a follow-up inspection of
     // the raw file must show no pinned migrations, so a corrected upgrade
     // path (bridge release) can still adopt it properly later.
-    const inspect = new Database(dbPath, { readonly: true });
+    const inspect = new Database(dbPath, { readonly: true, nativeBinding });
     const trackingTable = inspect
       .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name = '__drizzle_migrations'"
@@ -349,7 +355,7 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     createdPaths.push(dir);
     const dbPath = join(dir, 'adopted.db');
 
-    const legacy = new Database(dbPath);
+    const legacy = new Database(dbPath, { nativeBinding });
     const runDdl = (sql: string): void => {
       legacy.prepare(sql).run();
     };

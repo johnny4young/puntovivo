@@ -21,6 +21,12 @@ import {
   DEVELOPMENT_ADMIN_PASSWORD_ENV,
 } from '../db/seed.js';
 import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
+import { resolveCachedNodeBinding } from '../db/native-binding.js';
+
+// Raw probe connections must load the same Node-ABI addon initDatabase
+// selects, or they die on dlopen whenever the on-disk default carries the
+// Electron build.
+const nativeBinding = resolveCachedNodeBinding();
 
 describe('database foundation seed', () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -115,7 +121,7 @@ describe('database foundation seed', () => {
     // carries the expected columns + indexes — and asserts the
     // adoption shim preserves them through a boot.
     const dbPath = join(tmpdir(), `puntovivo-legacy-${Date.now()}.sqlite`);
-    const legacyDb = new Database(dbPath);
+    const legacyDb = new Database(dbPath, { nativeBinding });
 
     const runDdl = (sql: string): void => {
       legacyDb.prepare(sql).run();
@@ -167,7 +173,7 @@ describe('database foundation seed', () => {
         seedData: false,
       });
 
-      const inspectionDb = new Database(dbPath, { readonly: true });
+      const inspectionDb = new Database(dbPath, { readonly: true, nativeBinding });
       const columns = inspectionDb
         .prepare('PRAGMA table_info(purchase_items)')
         .all() as Array<{ name: string }>;
