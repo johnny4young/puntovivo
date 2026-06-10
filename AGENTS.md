@@ -40,7 +40,7 @@ Current desktop runtime is Electron `41.7.1`. The `rebuild` script no longer har
 
 **Electron 42 is gated upstream**: `better-sqlite3` 12.10.0 (latest, 2026-05-15) does not compile against V8 14.x. The native code uses `External::Value()` / `External::New()` / `SetNativeDataProperty` shapes that V8 14 changed. Upstream tracking issue: [WiseLibs/better-sqlite3#1474](https://github.com/WiseLibs/better-sqlite3/issues/1474). Once `better-sqlite3` ships V8 14 support, bump `electron` to `^42.x` and re-run `preflight:desktop` — the rest of the upgrade (Electron-42-aware `ensure-electron-binary.mjs`, `@electron/fuses@^2.1.1` with `WasmTrapHandlers` + `GrantFileProtocolExtraPrivileges: false`) is already in place.
 
-If Node-based server tests fail after an Electron rebuild, rebuild `better-sqlite3` for the current Node runtime:
+Since 2026-06-10, every Node-runtime path that goes through `initDatabase` (vitest, `seed:dev`, `dev:server`, tsx scripts) self-selects the cached Node-ABI addon via the constructor's `nativeBinding` option (`packages/server/src/db/native-binding.ts`), so those paths keep working no matter which ABI the swapped on-disk default currently carries. The dance only still matters for DIRECT `better-sqlite3` consumers outside that path (`e2e/web/global-setup.ts` — its chain runs `native:ensure:node` first). If one of those fails after an Electron rebuild, rebuild for the current Node runtime:
 
 ```
 node packages/server/scripts/rebuild-better-sqlite3-node.mjs
@@ -51,6 +51,8 @@ node packages/server/scripts/rebuild-better-sqlite3-node.mjs
 Electron 41 uses MODULE_VERSION 145 (its own embedded Node.js runtime). Standalone Node.js 24.x uses MODULE_VERSION 137. These are different runtimes — there is no public Node.js release with MODULE_VERSION 145, and you cannot make the system Node.js match Electron's internal version.
 
 The `scripts/ensure-native-runtime.mjs` script handles this by caching both compiled versions of `better-sqlite3` under `node_modules/.cache/puntovivo/native-binaries/` and swapping between them automatically at startup. This cache can become stale if workspace symlinks break (e.g. after a fresh `pnpm install` with no rebuild). When that happens, re-run the rebuild commands above.
+
+`packages/server/src/db/native-binding.ts` consumes that same cache from the other side: under plain Node it points the Database constructor's `nativeBinding` straight at the cached Node-ABI artifact (replicating the script's cache key), and under Electron / the desktop CJS bundle it returns undefined so the default lookup and packaged builds stay untouched. A key-shape drift between the two files degrades to a cache miss (default lookup), never a wrong binary — `db-native-binding.test.ts` pins the replication.
 
 **Long-term fix to track:** Migrate `better-sqlite3` to a build that uses N-API. N-API is ABI-stable across Node.js and Electron versions, meaning a single compiled binary would work everywhere without the dual-binary swap. However, `better-sqlite3` v12 does not use N-API in its critical bindings — this depends on an upstream change in that library.
 

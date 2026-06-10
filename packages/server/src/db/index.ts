@@ -15,6 +15,7 @@ import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createModuleLogger } from '../logging/logger.js';
+import { resolveCachedNodeBinding } from './native-binding.js';
 import * as schema from './schema.js';
 import { seedDefaultData } from './seed.js';
 
@@ -84,6 +85,15 @@ export interface DatabaseOptions {
    * and there is no on-disk surface to protect either way.
    */
   encryptionKey?: string | undefined;
+  /**
+   * Explicit path to the better-sqlite3 native addon (.node) to load,
+   * forwarded to the Database constructor's `nativeBinding` option. When
+   * omitted, plain-Node runtimes auto-select the cached Node-ABI artifact
+   * (see db/native-binding.ts) so they no longer depend on which ABI the
+   * swapped on-disk default currently carries; Electron and packaged
+   * builds keep better-sqlite3's default lookup.
+   */
+  nativeBindingPath?: string | undefined;
 }
 
 /**
@@ -135,6 +145,7 @@ export async function initDatabase(
     migrationsFolder,
     encryptionKey,
     sqliteBusyTimeoutMs,
+    nativeBindingPath,
   } = options;
   const effectiveMigrationsFolder = migrationsFolder ?? getDefaultMigrationsFolder();
   const busyTimeoutMs = normalizeSqliteBusyTimeoutMs(sqliteBusyTimeoutMs);
@@ -155,6 +166,10 @@ export async function initDatabase(
   // sqlite stays quiet.
   sqlite = new Database(dbPath, {
     verbose: verbose ? (statement: unknown) => dbLog.trace({ statement }, 'sqlite') : undefined,
+    // ABI-dance killer: under plain Node, load the cached Node-ABI addon
+    // directly so the on-disk default can stay on the Electron build the
+    // desktop needs (undefined → better-sqlite3's normal lookup).
+    nativeBinding: nativeBindingPath ?? resolveCachedNodeBinding(),
   });
 
   // ENG-167 — Apply the SQLCipher key BEFORE any other PRAGMA so the
