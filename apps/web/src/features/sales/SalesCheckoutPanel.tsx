@@ -134,7 +134,7 @@ export function SalesCheckoutPanel({
   const showSuspendedToggle = Boolean(onToggleSuspendedPanel);
 
   return (
-    <aside className="card p-5 sm:p-6 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+    <aside className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
       <div className="flex items-start justify-between gap-4 xl:shrink-0">
         <div>
           <p className="pv-kicker">{t('checkout.kicker')}</p>
@@ -167,7 +167,7 @@ export function SalesCheckoutPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
         {/* ENG-081 V4 — "Último escaneado" + "Sugerencia rápida". When the
           * cart is empty we surface a 4-tile dashed-border grid as a hint
           * to the cashier (scan, scan again, search, suggest). When the
@@ -366,10 +366,10 @@ export function SalesCheckoutPanel({
         )}
       </div>
 
-      {/* ENG-186 (review follow-up) — pinned action footer so Cobrar stays in
-          view at xl even when the informational panel above is tall (the
-          cash-session-closed onboarding state). The footer is shrink-0; the
-          block above it scrolls. Below xl these actions are hidden (the
+      {/* ENG-186/189 (review follow-up) — in the `pos:` lockup this is the
+          pinned action footer so Cobrar stays in view while the block above it
+          scrolls. At xl-but-short viewports it remains in normal page flow so
+          cash controls are reachable. Below xl these actions are hidden (the
           SalesMobileCheckoutBar owns mobile), so the footer is inert there. */}
       <div className="space-y-3 xl:shrink-0 xl:border-t xl:border-line/70 xl:pt-4">
         <button
