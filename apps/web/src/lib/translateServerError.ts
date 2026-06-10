@@ -269,6 +269,66 @@ export function isNetworkConnectivityError(error: unknown): boolean {
 }
 
 /**
+ * A tRPC input-validation failure surfaces the raw Zod issues array as the
+ * error message (a JSON-encoded `[{ code, path, message, ... }]`). Rendering
+ * that verbatim to a non-technical operator is gibberish, so detect the shape
+ * and let the caller swap in a localized "check the fields" message.
+ *
+ * Matches BOTH signals so a legitimate human message that merely begins with
+ * "[" is never misclassified:
+ * - the tRPC error data carries `code: 'BAD_REQUEST'`, AND/OR
+ * - the message parses as a JSON array whose entries look like Zod issues
+ *   (objects carrying a `code` and a `path`).
+ */
+export function isZodValidationError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const data = (error as { data?: { code?: unknown; zodError?: unknown } }).data;
+
+  // Strongest signal first: the server's errorFormatter attaches the
+  // flattened ZodError as `data.zodError` on every Zod-caused BAD_REQUEST
+  // (packages/server/src/trpc/init.ts). This survives any future change to
+  // how tRPC serializes the cause into `message`.
+  if (data && typeof data === 'object' && data.zodError != null) {
+    return true;
+  }
+
+  const isBadRequest =
+    !!data && typeof data === 'object' && data.code === 'BAD_REQUEST';
+
+  for (const message of collectErrorMessages(error)) {
+    const trimmed = message.trim();
+    if (!trimmed.startsWith('[')) {
+      continue;
+    }
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        parsed.every(
+          issue =>
+            !!issue &&
+            typeof issue === 'object' &&
+            'code' in issue &&
+            'path' in issue
+        )
+      ) {
+        return true;
+      }
+    } catch {
+      // Not JSON — a normal message that happens to start with "[".
+    }
+  }
+
+  // The data shape alone is enough when the message was already consumed
+  // (e.g. an empty-message BAD_REQUEST from a downstream formatter).
+  return isBadRequest && collectErrorMessages(error).length === 0;
+}
+
+/**
  * Translate a server error into a localized user-facing message.
  *
  * Resolution order:
@@ -303,6 +363,17 @@ export function translateServerError(
 
   if (isNetworkConnectivityError(error)) {
     const translationKey = 'errors:server.networkUnavailable';
+    const translated = t(translationKey);
+    if (typeof translated === 'string' && translated !== translationKey) {
+      return translated;
+    }
+  }
+
+  // Never leak a raw Zod issues array to the operator: a BAD_REQUEST whose
+  // message is the stringified `[{ code, path, ... }]` becomes a single
+  // localized "check the fields" line instead of developer JSON.
+  if (isZodValidationError(error)) {
+    const translationKey = 'errors:server.validationFailed';
     const translated = t(translationKey);
     if (typeof translated === 'string' && translated !== translationKey) {
       return translated;

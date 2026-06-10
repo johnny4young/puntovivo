@@ -1,5 +1,17 @@
 import { roundMoney as round } from '../lib/money.js';
 
+/**
+ * Cost → price ↔ margin conversions for the product catalog.
+ *
+ * MIRROR CONTRACT: apps/web/src/features/products/pricing.ts carries a
+ * logic-identical copy (the renderer cannot import server runtime code, so
+ * the form preview computes locally). Any change here MUST be replicated
+ * there, or the price the form shows will disagree with what the server
+ * persists.
+ *
+ * Every intermediate rounds through roundMoney (ENG-176a) so derived
+ * margins/prices stay coherent with the transactional money path.
+ */
 export interface PricingInput {
   cost: number;
   marginPercent?: number | null;

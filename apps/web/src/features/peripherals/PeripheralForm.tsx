@@ -195,10 +195,10 @@ export function PeripheralForm({
       if (typeof parsedConfig !== 'object' || parsedConfig === null || Array.isArray(parsedConfig)) {
         throw new Error('Config must be a JSON object');
       }
-    } catch (err) {
-      setValidationError(
-        err instanceof Error ? err.message : 'Invalid JSON in configuration'
-      );
+    } catch {
+      // JSON.parse SyntaxErrors are technical English strings — never
+      // surface them to the operator; the i18n message covers every shape.
+      setValidationError(t('fields.configInvalidJson'));
       return;
     }
     setValidationError(null);

@@ -66,6 +66,10 @@ backend/server
 playwright-report/
 test-results/
 
+# Audit evidence (screenshots, scratch notes) — kept on disk for the
+# operator to review, never committed (binary churn).
+.audit/
+
 # Claude Code + OpenAI Agents per-developer state. Skills live under
 # `.claude/skills/` and `.agents/skills/` — both are intentionally
 # kept OUT of git history because they evolve with each contributor's
@@ -80,5 +84,3 @@ test-results/
 .claude/settings.local.json
 .claude/launch.json
 .claude/preview.json
-
-apps/web/tsconfig.node.tsbuildinfo

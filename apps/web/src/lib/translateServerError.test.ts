@@ -6,6 +6,7 @@ import {
   KNOWN_SERVER_ERROR_CODES,
   extractServerErrorCode,
   isNetworkConnectivityError,
+  isZodValidationError,
   translateServerError,
 } from './translateServerError';
 
@@ -245,5 +246,83 @@ describe('translateServerError', () => {
     const t = makeFakeT({});
     expect(translateServerError({ message: '   ' }, t, fallback)).toBe(fallback);
     expect(translateServerError(new Error('   '), t, fallback)).toBe(fallback);
+  });
+
+  describe('Zod validation errors never leak raw JSON to the user', () => {
+    // The exact shape observed in the desktop smoke: products.create without a
+    // unit returns a BAD_REQUEST whose message is the stringified Zod issues.
+    const zodIssuesMessage = JSON.stringify([
+      {
+        origin: 'string',
+        code: 'too_small',
+        minimum: 1,
+        inclusive: true,
+        path: ['unitAssignments', 0, 'unitId'],
+        message: 'Unit is required',
+      },
+    ]);
+
+    it('detects a stringified Zod issues array as a validation error', () => {
+      expect(
+        isZodValidationError({ data: { code: 'BAD_REQUEST' }, message: zodIssuesMessage })
+      ).toBe(true);
+      // message alone (no data) still classifies via the parsed shape.
+      expect(isZodValidationError({ message: zodIssuesMessage })).toBe(true);
+    });
+
+    it('detects the structured data.zodError signal regardless of the message text', () => {
+      // The server errorFormatter attaches cause.flatten() as data.zodError
+      // (trpc/init.ts) — the durable signal even if message serialization
+      // changes shape in a future tRPC version.
+      expect(
+        isZodValidationError({
+          data: {
+            code: 'BAD_REQUEST',
+            zodError: { formErrors: [], fieldErrors: { unitId: ['Unit is required'] } },
+          },
+          message: 'whatever shape the client renders',
+        })
+      ).toBe(true);
+      // null zodError (non-Zod BAD_REQUEST) does NOT classify via this signal.
+      expect(
+        isZodValidationError({
+          data: { code: 'BAD_REQUEST', zodError: null },
+          message: 'Sale is already voided',
+        })
+      ).toBe(false);
+    });
+
+    it('does NOT misclassify a normal message that merely starts with "["', () => {
+      expect(
+        isZodValidationError({ message: '[Demo] Could not save the product' })
+      ).toBe(false);
+      expect(isZodValidationError({ message: 'Sale is already voided' })).toBe(false);
+    });
+
+    it('translates the Zod array to the localized validationFailed message, not the raw JSON', () => {
+      const t = makeFakeT({
+        'errors:server.validationFailed':
+          'Hay campos vacíos o con datos inválidos. Revisa los campos marcados.',
+      });
+      const error = { data: { code: 'BAD_REQUEST' }, message: zodIssuesMessage };
+      const result = translateServerError(error, t, fallback);
+      expect(result).toBe(
+        'Hay campos vacíos o con datos inválidos. Revisa los campos marcados.'
+      );
+      expect(result).not.toContain('too_small');
+      expect(result).not.toContain('unitAssignments');
+    });
+
+    it('still prefers a stable errorCode over the validation fallback when both are present', () => {
+      const t = makeFakeT({
+        'errors:server.SALE_PAYMENTS_SUM_MISMATCH': 'Payments do not add up.',
+        'errors:server.validationFailed': 'Check the fields.',
+      });
+      const error = {
+        data: { code: 'BAD_REQUEST', errorCode: 'SALE_PAYMENTS_SUM_MISMATCH' },
+        message: zodIssuesMessage,
+      };
+      expect(translateServerError(error, t, fallback)).toBe('Payments do not add up.');
+    });
   });
 });

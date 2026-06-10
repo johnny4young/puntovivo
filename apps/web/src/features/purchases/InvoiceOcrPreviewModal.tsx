@@ -131,10 +131,10 @@ export function InvoiceOcrPreviewModal({
     let dataUrl: string;
     try {
       dataUrl = await readFileAsBase64(file);
-    } catch (error) {
-      setValidationError(
-        error instanceof Error ? error.message : t('purchases:ocr.errors.readFailed')
-      );
+    } catch {
+      // FileReader failures carry browser-English messages — show only the
+      // localized copy to the operator.
+      setValidationError(t('purchases:ocr.errors.readFailed'));
       return;
     }
 
