@@ -296,7 +296,9 @@ export const categoriesRouter = router({
       });
     }
 
-    await ctx.db.delete(categories).where(eq(categories.id, input.id));
+    await ctx.db
+      .delete(categories)
+      .where(and(eq(categories.id, input.id), eq(categories.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'categories',

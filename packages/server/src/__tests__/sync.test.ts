@@ -199,6 +199,22 @@ describe('Sync tRPC Router', () => {
       expect(result.operation).toBe('create');
       expect(result.createdAt).toBeDefined();
     });
+
+    it('rejects an entityType outside the SYNC_ENTITY_TYPES whitelist at the schema boundary', async () => {
+      const caller = appRouter.createCaller(userCtx());
+
+      await expect(
+        caller.sync.addToQueue({
+          // Cast: the typed client can no longer express this, but a raw
+          // HTTP caller could still send it — the zod enum must reject it
+          // with BAD_REQUEST instead of reaching resolveConflictPolicy.
+          entityType: 'not_a_real_entity' as never,
+          entityId: nanoid(),
+          operation: 'create',
+          data: {},
+        })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
   });
 
   describe('sync.listQueue', () => {

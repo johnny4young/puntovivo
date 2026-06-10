@@ -149,7 +149,10 @@ export const sitesRouter = router({
     if (updates.phone !== undefined) updateData.phone = updates.phone ?? null;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(sites).set(updateData).where(eq(sites.id, id));
+    await ctx.db
+      .update(sites)
+      .set(updateData)
+      .where(and(eq(sites.id, id), eq(sites.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'sites',

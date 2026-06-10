@@ -23,6 +23,15 @@ import type {
   SalePaymentStatus,
 } from './types.js';
 
+/**
+ * Tolerance for Σ(tenders) vs sale total. Tender amounts are 2-decimal
+ * by schema, but their FLOAT sum can drift by ~1e-16 per addition
+ * (0.10 + 0.20 = 0.30000000000000004), so an exact equality check would
+ * reject legitimate split payments. Half a cent is the tightest bound
+ * that absorbs that drift while still rejecting any real 1-cent
+ * mismatch — do NOT widen it; see the PAYMENT_SUM_EPSILON regression
+ * tests in application-sales-completeSale.test.ts (ENG-176a context).
+ */
 const PAYMENT_SUM_EPSILON = 0.005;
 
 /**

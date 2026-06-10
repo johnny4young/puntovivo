@@ -239,7 +239,47 @@ export async function initDatabase(
         `migrations folder missing at ${effectiveMigrationsFolder}; ship the Drizzle migrations alongside the server bundle (dev resolves the module-local path; packaged builds pass migrationsFolder explicitly)`
       );
     }
-    drizzleMigrate(db, { migrationsFolder: effectiveMigrationsFolder });
+    try {
+      drizzleMigrate(db, { migrationsFolder: effectiveMigrationsFolder });
+    } catch (err) {
+      // A migration failure on boot is an operator-facing event (the POS
+      // refuses to start): name WHICH migration failed and how far the
+      // journal got, instead of surfacing drizzle's bare SQL error. The
+      // applied-count is read best-effort — if even that fails, the
+      // original error still propagates with context.
+      let progress = 'unknown';
+      let failedTag = 'unknown';
+      try {
+        const journal = JSON.parse(
+          readFileSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'), 'utf8')
+        ) as DrizzleJournal;
+        const appliedRow = sqlite
+          .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
+          .get() as { n?: number } | undefined;
+        const applied = appliedRow?.n ?? 0;
+        const ordered = [...journal.entries].sort((a, b) => a.idx - b.idx);
+        progress = `${applied}/${ordered.length}`;
+        failedTag = ordered[applied]?.tag ?? 'unknown';
+      } catch {
+        // best-effort context only
+      }
+      dbLog.error(
+        {
+          err,
+          dbPath,
+          migrationsFolder: effectiveMigrationsFolder,
+          appliedMigrations: progress,
+          failedMigration: failedTag,
+        },
+        'database migration failed during boot'
+      );
+      throw new Error(
+        `Database migration failed at ${failedTag} (applied ${progress}): ${
+          err instanceof Error ? err.message : String(err)
+        }. The failing migration was rolled back, so the schema is unchanged by this step; fix the cause (disk space, corrupted file, manual schema edits) and restart.`,
+        { cause: err }
+      );
+    }
 
     // ENG-002 Step 3 — post-migration catalog seeds. Idempotent via
     // `INSERT OR IGNORE`; table-existence-gated, so adopted DBs
@@ -361,6 +401,43 @@ function ensureMigrationBaseline(
     // Either this DB already adopted the shim, or drizzleMigrate already
     // ran on a fresh boot. Either way, hands off.
     return;
+  }
+
+  // Adoption guard — pinning the journal marks EVERY migration as applied,
+  // so an install whose tables predate the journal (the operator skipped
+  // the transitional release) would silently adopt and then break on the
+  // first write that touches a column it never received. Probe a small set
+  // of sentinel columns from the structural money / catalog migrations:
+  // when the table exists but the column is missing, refuse the adoption
+  // with an actionable upgrade path instead. Absent tables stay on the
+  // soft-warning path (`seedCatalogs`) — partial DBs are legitimate in
+  // tests and in pre-catalog installs.
+  const ADOPTION_SENTINELS: ReadonlyArray<{
+    table: string;
+    column: string;
+    migration: string;
+  }> = [
+    { table: 'cash_sessions', column: 'expected_balance', migration: '0000_baseline (ENG-176a)' },
+    { table: 'sales', column: 'currency_code', migration: '0000_baseline (ENG-176b)' },
+    { table: 'products', column: 'version', migration: '0000_baseline (ENG-177a)' },
+  ];
+  for (const sentinel of ADOPTION_SENTINELS) {
+    const tableRow = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1")
+      .get(sentinel.table);
+    if (!tableRow) {
+      continue;
+    }
+    const columns = sqlite
+      .prepare(`PRAGMA table_info(${sentinel.table})`)
+      .all() as Array<{ name: string }>;
+    if (!columns.some(column => column.name === sentinel.column)) {
+      throw new Error(
+        `Cannot adopt this database: table '${sentinel.table}' is missing column '${sentinel.column}' (added by migration ${sentinel.migration}). ` +
+          'This install predates the versioned-migration baseline, so adopting it would silently skip schema changes it never received. ' +
+          'Upgrade through a transitional release that still runs the legacy bootstrap, or start from a fresh database and restore your data.'
+      );
+    }
   }
 
   const orderedEntries = [...journal.entries].sort((a, b) => a.idx - b.idx);

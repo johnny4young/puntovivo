@@ -1,3 +1,4 @@
+import { roundMoney } from '@/lib/money';
 import type { ProductSearchSelection } from '@/types';
 
 // ENG-179b — explicit `| undefined` on optional fields.
@@ -24,10 +25,6 @@ export interface SaleCartSummary {
   subtotal: number;
   taxAmount: number;
   total: number;
-}
-
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
 }
 
 function roundQuantity(value: number) {
@@ -117,9 +114,9 @@ export function getLineTotals(item: SaleCartItem) {
   const normalizedQuantity = item.quantity * item.unitEquivalence;
 
   return {
-    subtotal: roundCurrency(subtotal),
-    taxAmount: roundCurrency(taxAmount),
-    total: roundCurrency(total),
+    subtotal: roundMoney(subtotal),
+    taxAmount: roundMoney(taxAmount),
+    total: roundMoney(total),
     normalizedQuantity,
   };
 }
@@ -131,9 +128,9 @@ export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {
 
       return {
         itemCount: summary.itemCount + item.quantity,
-        subtotal: roundCurrency(summary.subtotal + lineTotals.subtotal),
-        taxAmount: roundCurrency(summary.taxAmount + lineTotals.taxAmount),
-        total: roundCurrency(summary.total + lineTotals.total),
+        subtotal: roundMoney(summary.subtotal + lineTotals.subtotal),
+        taxAmount: roundMoney(summary.taxAmount + lineTotals.taxAmount),
+        total: roundMoney(summary.total + lineTotals.total),
       };
     },
     {

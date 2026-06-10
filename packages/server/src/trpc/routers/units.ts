@@ -128,7 +128,10 @@ export const unitsRouter = router({
     if (updates.abbreviation !== undefined) updateData.abbreviation = updates.abbreviation;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(units).set(updateData).where(eq(units.id, id));
+    await ctx.db
+      .update(units)
+      .set(updateData)
+      .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'units',
@@ -153,7 +156,9 @@ export const unitsRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
     }
 
-    await ctx.db.delete(units).where(eq(units.id, input.id));
+    await ctx.db
+      .delete(units)
+      .where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'units',

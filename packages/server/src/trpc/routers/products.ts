@@ -917,7 +917,7 @@ export const productsRouter = router({
         syncStatus: 'pending',
         syncVersion: (existing.syncVersion ?? 0) + 1,
       })
-      .where(eq(products.id, input.id));
+      .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'products',

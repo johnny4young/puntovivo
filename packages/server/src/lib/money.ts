@@ -41,11 +41,23 @@
  * `currency_code` per-row and a future iteration can refine to
  * `roundMoney(value, currency_code)` using `currency_catalog.decimals`.
  *
+ * Negative values round half-away-from-zero too (auditoría 2026-06):
+ * `Math.round` alone rounds negative halves toward +infinity
+ * (`Math.round(-234.5) === -234`), which would make
+ * `roundMoney(-2.345)` land on -2.34 while SQLite's `round()` and this
+ * doc promise -2.35. Mirroring on `Math.abs` keeps both signs on the
+ * same rule; the explicit `-0` normalization covers the sign
+ * multiplication when a tiny negative collapses to zero (a NaN input
+ * still propagates as NaN instead of silently coining 0.00).
+ *
  * @example
  * roundMoney(99.99000000001) === 99.99
  * roundMoney(0.1 + 0.2) === 0.30
  * roundMoney(100 / 1.19) === 84.03
+ * roundMoney(-2.345) === -2.35
  */
 export function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  const rounded =
+    Math.sign(value) * (Math.round((Math.abs(value) + Number.EPSILON) * 100) / 100);
+  return Object.is(rounded, -0) ? 0 : rounded;
 }

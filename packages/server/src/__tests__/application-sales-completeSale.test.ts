@@ -369,6 +369,225 @@ describe('completeSale (fresh path)', () => {
     });
   });
 
+  it('accumulates a multi-line IVA 19% cart without sub-cent drift (ENG-176a per-line rounding)', async () => {
+    const productId = await seedProduct({
+      name: 'CS Multi-line IVA',
+      sku: 'CS-MULTILINE-19',
+      stock: 10,
+      price: 50,
+      taxRate: 19,
+    });
+
+    // 5 lines of 50.00 tax-inclusive @ 19%. Per resolveSaleItems each line
+    // rounds independently: base = roundMoney(50 / 1.19) = 42.02,
+    // tax = roundMoney(50 - 42.02) = 7.98. Accumulated: subtotal 210.10,
+    // tax 39.90, total 250.00 — every intermediate is cents-exact, so the
+    // storage CHECK (round(col,2) = col) holds and a refactor that stops
+    // rounding per line would shift these totals.
+    const result = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: Array.from({ length: 5 }, () => ({
+        productId,
+        unitId: baseUnitId,
+        quantity: 1,
+        unitPrice: 50,
+        discount: 0,
+        taxRate: 19,
+      })),
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 250,
+      discountAmount: 0,
+    });
+
+    const saleRow = await getDatabase()
+      .select({
+        subtotal: sales.subtotal,
+        taxAmount: sales.taxAmount,
+        total: sales.total,
+      })
+      .from(sales)
+      .where(eq(sales.id, (result.sale as { id: string }).id))
+      .get();
+    expect(saleRow).toEqual({ subtotal: 210.1, taxAmount: 39.9, total: 250 });
+    expect(result.change).toBe(0);
+  });
+
+  it('accepts a 100% header discount (total = 0) and skips the zero cash movement', async () => {
+    const productId = await seedProduct({
+      name: 'CS Full Discount',
+      sku: 'CS-DISC-100',
+      stock: 5,
+      price: 50,
+      taxRate: 19,
+    });
+
+    // discount == total is a legal promotional giveaway: the guard only
+    // rejects baseTotal < 0. The sale must persist with total = 0, the
+    // line snapshot keeps the pre-discount base/tax split, inventory
+    // still decrements, and insertCashMovement skips the 0-amount
+    // movement (its <= 0 guard) instead of writing a zero row.
+    const result = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 50,
+          discount: 0,
+          taxRate: 19,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 0,
+      discountAmount: 50,
+    });
+
+    const saleId = (result.sale as { id: string }).id;
+    const saleRow = await getDatabase()
+      .select({
+        subtotal: sales.subtotal,
+        taxAmount: sales.taxAmount,
+        discountAmount: sales.discountAmount,
+        total: sales.total,
+        paymentStatus: sales.paymentStatus,
+      })
+      .from(sales)
+      .where(eq(sales.id, saleId))
+      .get();
+    expect(saleRow).toEqual({
+      subtotal: 42.02,
+      taxAmount: 7.98,
+      discountAmount: 50,
+      total: 0,
+      paymentStatus: 'paid',
+    });
+
+    const product = await getDatabase()
+      .select({ stock: products.stock })
+      .from(products)
+      .where(eq(products.id, productId))
+      .get();
+    expect(product?.stock).toBe(4);
+
+    const movements = await getDatabase()
+      .select({ id: cashMovements.id })
+      .from(cashMovements)
+      .where(eq(cashMovements.referenceId, saleId))
+      .all();
+    expect(movements).toHaveLength(0);
+  });
+
+  it('normalizes a sub-cent amountReceived at the boundary (paid threshold + clean change)', async () => {
+    const productId = await seedProduct({
+      name: 'CS Subcent Tender',
+      sku: 'CS-SUBCENT',
+      stock: 5,
+      price: 100,
+      taxRate: 0,
+    });
+
+    // The Zod schema only enforces >= 0 on amountReceived, so a raw HTTP
+    // caller can send 99.999 against a 100.00 total. The boundary
+    // normalization (auditoría 2026-06) rounds it to 100.00 BEFORE the
+    // paid/partial threshold and the change math run: the sale is paid
+    // with zero change, instead of partial-by-float-noise.
+    const result = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+          taxRate: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 99.999,
+      discountAmount: 0,
+    });
+
+    expect(result.sale).toMatchObject({ paymentStatus: 'paid', total: 100 });
+    expect(result.change).toBe(0);
+  });
+
+  it('tolerates IEEE-754 drift in a split-tender sum but rejects a real cent mismatch (PAYMENT_SUM_EPSILON)', async () => {
+    const productId = await seedProduct({
+      name: 'CS Split Drift',
+      sku: 'CS-SPLIT-DRIFT',
+      stock: 10,
+      price: 0.3,
+      taxRate: 0,
+    });
+
+    // 0.1 + 0.2 sums to 0.30000000000000004 in IEEE-754 — the epsilon
+    // tolerance (|sum - total| < 0.005) exists exactly for this: a
+    // 2-decimal tender pair whose float sum drifts by ~4e-17 must pass.
+    const accepted = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        {
+          productId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 0.3,
+          discount: 0,
+          taxRate: 0,
+        },
+      ],
+      payments: [
+        { method: 'cash', amount: 0.1, reference: null },
+        { method: 'card', amount: 0.2, reference: null },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      discountAmount: 0,
+    });
+    expect((accepted.sale as { total: number }).total).toBe(0.3);
+
+    // A genuine one-cent mismatch (0.1 + 0.21 = 0.31 vs total 0.30) is
+    // >= 0.005 away and must be rejected before any write.
+    await expect(
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 0.3,
+            discount: 0,
+            taxRate: 0,
+          },
+        ],
+        payments: [
+          { method: 'cash', amount: 0.1, reference: null },
+          { method: 'card', amount: 0.21, reference: null },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        discountAmount: 0,
+      })
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/sum|total/i),
+    });
+  });
+
   it('persists one payment row per tender on a split payment', async () => {
     const productId = await seedProduct({
       name: 'CS Split tender',

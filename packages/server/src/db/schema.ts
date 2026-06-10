@@ -1891,6 +1891,12 @@ export const sales = sqliteTable(
   },
   table => [
     index('idx_sales_tenant').on(table.tenantId),
+    // The sales history list (`sales.list`) filters by tenant and orders by
+    // `created_at DESC` with LIMIT/OFFSET; the composite lets SQLite walk
+    // the index in order instead of sorting the tenant's full sale history
+    // on every page load. Mirrors idx_inventory_movements_tenant_created /
+    // idx_audit_logs_tenant_created.
+    index('idx_sales_tenant_created').on(table.tenantId, table.createdAt),
     index('idx_sales_customer').on(table.customerId),
     index('idx_sales_cash_session').on(table.cashSessionId),
     index('idx_sales_created_by').on(table.createdBy),
@@ -2315,9 +2321,7 @@ export const paymentOutbox = sqliteTable(
     payloadVersion: integer('payload_version').notNull().default(1),
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
-    lastError: text('last_error', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
@@ -3166,7 +3170,7 @@ export const idempotencyKeys = sqliteTable(
       .notNull()
       .default('processing'),
     resultRef: text('result_ref', { mode: 'json' }).$type<unknown | null>(),
-    lockedAt: text('locked_at').notNull(),
+    lockedAt: text('locked_at').notNull().default('1970-01-01T00:00:00.000Z'),
     completedAt: text('completed_at'),
     createdAt: text('created_at')
       .notNull()
@@ -3480,6 +3484,13 @@ export const receiptTemplates = sqliteTable(
     index('idx_receipt_templates_tenant').on(table.tenantId),
     index('idx_receipt_templates_tenant_kind').on(table.tenantId, table.kind),
     index('idx_receipt_templates_tenant_active').on(table.tenantId, table.isActive),
+    // At most ONE default template per (tenant, kind); non-default rows
+    // are unlimited. Previously hand-appended SQL (the old
+    // 0001_receipt_templates.sql) because drizzle could not emit partial
+    // indexes; declared here since the 2026-06 baseline squash.
+    uniqueIndex('idx_receipt_templates_tenant_kind_default')
+      .on(table.tenantId, table.kind)
+      .where(sql`${table.isDefault} = 1`),
   ]
 );
 
@@ -3907,9 +3918,9 @@ export const fiscalDocuments = sqliteTable(
     /** Provider that emitted the document. Fase A = 'mock'. */
     providerId: text('provider_id').notNull(),
     /** PT response JSON snapshot for troubleshooting. Null for MockAdapter. */
-    providerResponse: text('provider_response', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    providerResponse: text('provider_response', { mode: 'json' }).$type<
+      Record<string, unknown> | null
+    >(),
     /** Reference to the XML blob (storage path). Null until stored. */
     xmlRef: text('xml_ref'),
     /** Retry count for the contingency queue. */
@@ -4110,9 +4121,7 @@ export const fiscalOutbox = sqliteTable(
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
     /** `NormalizedOutboxError` written by the kernel on `fail`. */
-    lastError: text('last_error', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
@@ -4227,9 +4236,9 @@ export const sitePeripherals = sqliteTable(
     /** Result of the most recent test; null until first run. */
     lastTestResult: text('last_test_result', { enum: peripheralTestResultEnum }),
     /** Free-form forensics blob for the last test (errors, latency, etc.). */
-    lastTestDetails: text('last_test_details', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastTestDetails: text('last_test_details', { mode: 'json' }).$type<
+      Record<string, unknown> | null
+    >(),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -4340,9 +4349,7 @@ export const hardwareOutbox = sqliteTable(
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
     /** `NormalizedHardwareError` + transport-level details written by the kernel on `fail`. */
-    lastError: text('last_error', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
@@ -4374,10 +4381,14 @@ export const hardwareOutbox = sqliteTable(
     index('idx_hardware_outbox_peripheral').on(table.peripheralId),
     // Operations Center listing + peek.
     index('idx_hardware_outbox_tenant_created').on(table.tenantId, table.createdAt),
-    // ENG-067b — partial unique idempotency idx is hand-appended in
-    // 0018_hardware_outbox_idempotency.sql since SQLite's Drizzle
-    // dialect cannot emit `WHERE idempotency_key IS NOT NULL` from
-    // the table builder. Mirror of the sync_outbox pattern.
+    // ENG-067b — partial unique idempotency guard: at most one outbox row
+    // per (tenant, kind, idempotency_key) among rows that CARRY a key;
+    // null-keyed rows are unlimited. Previously hand-appended SQL (the old
+    // 0018_hardware_outbox_idempotency.sql); declared here since the
+    // 2026-06 baseline squash. Mirror of the sync_outbox pattern.
+    uniqueIndex('idx_hardware_outbox_idempotent')
+      .on(table.tenantId, table.kind, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
   ]
 );
 
@@ -4491,9 +4502,7 @@ export const syncOutbox = sqliteTable(
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
     /** `NormalizedOutboxError` written by the kernel on `fail`. */
-    lastError: text('last_error', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),
@@ -5053,9 +5062,7 @@ export const webhookOutbox = sqliteTable(
     attempts: integer('attempts').notNull().default(0),
     nextRetryAt: text('next_retry_at'),
     /** Normalized error written by the kernel on `fail`. */
-    lastError: text('last_error', { mode: 'json' })
-      .$type<Record<string, unknown> | null>()
-      .default(null),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
     priority: real('priority').notNull().default(0),
     claimToken: text('claim_token'),
     lockedAt: text('locked_at'),

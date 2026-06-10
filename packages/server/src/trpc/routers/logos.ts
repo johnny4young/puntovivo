@@ -103,7 +103,7 @@ export const logosRouter = router({
         isActive: nextIsActive,
         updatedAt: now,
       })
-      .where(eq(logos.id, id));
+      .where(and(eq(logos.id, id), eq(logos.tenantId, ctx.tenantId)));
 
     const assignedCompanies = await ctx.db
       .select({ id: companies.id })
@@ -158,7 +158,9 @@ export const logosRouter = router({
       });
     }
 
-    await ctx.db.delete(logos).where(eq(logos.id, input.id));
+    await ctx.db
+      .delete(logos)
+      .where(and(eq(logos.id, input.id), eq(logos.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'logos',

@@ -18,6 +18,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   auditLogs,
+  cashMovements,
   cashSessions,
   fiscalDocuments,
   fiscalNumberingResolutions,
@@ -302,6 +303,41 @@ describe('closeCashSession — over/short totals', () => {
       ],
     });
     expect(result.overShort).toBe(-10);
+  });
+
+  it('rejects a paid_out that would drive expectedBalance negative and rolls back atomically', async () => {
+    // Auditoría 2026-06 — the drawer can never owe money: the storage
+    // CHECK chk_cash_sessions_expected_nonneg is the last line of
+    // defense when a manual outflow exceeds what the drawer holds. The
+    // movement insert and the expected_balance advance run in ONE
+    // transaction, so the rejection must leave no partial state: no
+    // movement row, expectedBalance untouched, session still open.
+    const sessionId = await ensureFreshSession('overdraw-shift', 50);
+
+    await expect(
+      recordCashMovement(buildContext(), {
+        type: 'paid_out',
+        amount: 100,
+        note: 'Overdraw attempt',
+      })
+    ).rejects.toThrow(/chk_cash_sessions_expected_nonneg|CHECK constraint/);
+
+    const session = await getDatabase()
+      .select({
+        status: cashSessions.status,
+        expectedBalance: cashSessions.expectedBalance,
+      })
+      .from(cashSessions)
+      .where(eq(cashSessions.id, sessionId))
+      .get();
+    expect(session).toEqual({ status: 'open', expectedBalance: 50 });
+
+    const movements = await getDatabase()
+      .select({ id: cashMovements.id })
+      .from(cashMovements)
+      .where(eq(cashMovements.sessionId, sessionId))
+      .all();
+    expect(movements).toHaveLength(0);
   });
 });
 

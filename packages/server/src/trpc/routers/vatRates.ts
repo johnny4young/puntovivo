@@ -126,7 +126,10 @@ export const vatRatesRouter = router({
     if (updates.rate !== undefined) updateData.rate = updates.rate;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(vatRates).set(updateData).where(eq(vatRates.id, id));
+    await ctx.db
+      .update(vatRates)
+      .set(updateData)
+      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'vat_rates',
@@ -151,7 +154,9 @@ export const vatRatesRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'VAT rate not found' });
     }
 
-    await ctx.db.delete(vatRates).where(eq(vatRates.id, input.id));
+    await ctx.db
+      .delete(vatRates)
+      .where(and(eq(vatRates.id, input.id), eq(vatRates.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'vat_rates',

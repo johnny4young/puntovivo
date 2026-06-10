@@ -637,6 +637,14 @@ async function runFreshSale(
   const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
 
   // Phase 2 Tier-2 step 5 — resolve the tender list (split or legacy).
+  // Auditoría 2026-06 — normalize the legacy tender at the boundary: the
+  // Zod schema only enforces >= 0, so a sub-cent amountReceived (99.999)
+  // would otherwise drive the paid/partial threshold and the returned
+  // change with float noise. Round once here so every consumer below
+  // (payment status, change, cash collected, insufficient-cash guard)
+  // operates on the cents the cashier actually handles.
+  const amountReceived =
+    input.amountReceived === undefined ? undefined : roundMoney(input.amountReceived);
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
     method: payment.method,
     amount: payment.amount,
@@ -645,7 +653,7 @@ async function runFreshSale(
   const resolvedPayments = resolveSalePayments({
     payments: tenderInputs,
     legacyMethod: input.paymentMethod,
-    amountReceived: input.amountReceived,
+    amountReceived,
     total,
   });
   const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
@@ -657,16 +665,19 @@ async function runFreshSale(
     .reduce((sum, row) => roundMoney(sum + row.amount), 0);
 
   const paymentStatus = getPaymentStatus({
-    amountReceived: input.amountReceived,
+    amountReceived,
     paymentMethod: resolvedPayments.dominantMethod,
     requestedStatus: input.paymentStatus,
     total,
     isSplit: isSplitPayment,
     creditAmount: creditSaleAmount,
   });
+  // Both operands are 2-decimal by now, but their float difference can
+  // still drift (24.00 - 23.80 = 0.20000000000000284) — round the change
+  // the cashier hands back.
   const change =
-    input.amountReceived !== undefined && input.amountReceived > total
-      ? input.amountReceived - total
+    amountReceived !== undefined && amountReceived > total
+      ? roundMoney(amountReceived - total)
       : 0;
 
   // Cash collected is the sum of cash-method tenders when split, or the
@@ -685,7 +696,7 @@ async function runFreshSale(
             .reduce((acc, payment) => roundMoney(acc + payment.amount), 0)
         : getCashCollectedAmount({
             paymentMethod: input.paymentMethod,
-            amountReceived: input.amountReceived,
+            amountReceived,
             total,
             change,
           })
@@ -693,9 +704,9 @@ async function runFreshSale(
 
   if (
     !isSplitPayment &&
-    input.amountReceived !== undefined &&
+    amountReceived !== undefined &&
     paymentStatus === 'paid' &&
-    input.amountReceived < total
+    amountReceived < total
   ) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -1275,6 +1286,14 @@ async function runCompleteDraft(
   const serviceChargeRate =
     serviceChargeAmount > 0 ? restaurantSettings.serviceChargeRate : null;
   const total = roundMoney(baseTotal + tipAmount + serviceChargeAmount);
+  // Auditoría 2026-06 — normalize the legacy tender at the boundary: the
+  // Zod schema only enforces >= 0, so a sub-cent amountReceived (99.999)
+  // would otherwise drive the paid/partial threshold and the returned
+  // change with float noise. Round once here so every consumer below
+  // (payment status, change, cash collected, insufficient-cash guard)
+  // operates on the cents the cashier actually handles.
+  const amountReceived =
+    input.amountReceived === undefined ? undefined : roundMoney(input.amountReceived);
   const tenderInputs: CompleteSaleTender[] | undefined = input.payments?.map(payment => ({
     method: payment.method,
     amount: payment.amount,
@@ -1283,7 +1302,7 @@ async function runCompleteDraft(
   const resolvedPayments = resolveSalePayments({
     payments: tenderInputs,
     legacyMethod: input.paymentMethod,
-    amountReceived: input.amountReceived,
+    amountReceived,
     total,
   });
   const isSplitPayment = input.payments !== undefined && input.payments.length > 0;
@@ -1295,16 +1314,19 @@ async function runCompleteDraft(
     .reduce((sum, row) => roundMoney(sum + row.amount), 0);
 
   const paymentStatus = getPaymentStatus({
-    amountReceived: input.amountReceived,
+    amountReceived,
     paymentMethod: resolvedPayments.dominantMethod,
     requestedStatus: input.paymentStatus,
     total,
     isSplit: isSplitPayment,
     creditAmount: creditSaleAmount,
   });
+  // Both operands are 2-decimal by now, but their float difference can
+  // still drift (24.00 - 23.80 = 0.20000000000000284) — round the change
+  // the cashier hands back.
   const change =
-    input.amountReceived !== undefined && input.amountReceived > total
-      ? input.amountReceived - total
+    amountReceived !== undefined && amountReceived > total
+      ? roundMoney(amountReceived - total)
       : 0;
   // ENG-176a-rounding — see the resumeDraft path for the rationale:
   // accumulating two 2-decimal floats can drift, defend at the source.
@@ -1314,16 +1336,16 @@ async function runCompleteDraft(
         .reduce((acc, payment) => roundMoney(acc + payment.amount), 0)
     : getCashCollectedAmount({
         paymentMethod: input.paymentMethod,
-        amountReceived: input.amountReceived,
+        amountReceived,
         total,
         change,
       });
 
   if (
     !isSplitPayment &&
-    input.amountReceived !== undefined &&
+    amountReceived !== undefined &&
     paymentStatus === 'paid' &&
-    input.amountReceived < total
+    amountReceived < total
   ) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
