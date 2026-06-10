@@ -64,10 +64,11 @@ export function SalesCartWorkspace({
     ? ariaKeyshortcutsFor('sales.undo')
     : undefined;
   return (
-    // ENG-186 — at xl the card becomes a bounded flex column so the line-item
-    // table scrolls internally (the header + error stay pinned) and the page
-    // itself does not scroll while completing a sale. Below xl it is plain flow.
-    <div className="card p-5 sm:p-6 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+    // ENG-186/189 — at the `pos:` breakpoint (wide + >=900px tall) the card
+    // becomes a bounded flex column so the line-item table scrolls internally
+    // and the page itself does not scroll while completing a sale. Below `pos:`
+    // it is plain flow so short cashier viewports can reach every control.
+    <div className="card p-5 sm:p-6 xl:flex pos:h-full pos:min-h-0 xl:flex-col pos:overflow-hidden">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between xl:shrink-0">
         <div>
           <p className="page-kicker text-[0.62rem] tracking-[0.24em]">{t('checkout.activeTicket')}</p>
@@ -113,9 +114,9 @@ export function SalesCartWorkspace({
         </div>
       </div>
 
-      {/* ENG-186 — the scrollable region at xl; flex-1 + min-h-0 lets the
+      {/* ENG-186/189 — the scrollable region at `pos:`; flex-1 + min-h-0 lets the
           table take the remaining card height and scroll on overflow. */}
-      <div className="xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+      <div className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
         <SaleCartTable
           items={items}
           selectedItemKey={selectedItemKey}

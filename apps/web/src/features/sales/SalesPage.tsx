@@ -1303,12 +1303,15 @@ export function SalesPage() {
 
   return (
     <>
-      <div className="sales-pos-shell space-y-4 pb-24 xl:flex xl:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0 xl:overflow-hidden xl:pb-0">
-        {/* ENG-186 — el POS es la única superficie de /sales. La barra de
+      <div className="sales-pos-shell space-y-4 pb-24 xl:flex pos:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0 pos:overflow-hidden pos:pb-0">
+        {/* ENG-186/189 — el POS es la única superficie de /sales. En el
+            breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
             búsqueda y los accesos a Historial / Ventas suspendidas viven en
             una fila de acción de altura fija (shrink-0); el carrito y el
             panel de cobro toman el resto de la altura y hacen scroll por
             dentro, de modo que cobrar no exige scroll de página a 1440x900.
+            Por debajo de `pos:` vuelve el scroll natural de página para que
+            los controles de caja sean alcanzables.
             `productInputRef` es el objetivo del scanner wedge
             (useBarcodeWedgeListener) y de Alt+P (useScannerFocusRestoration),
             así que permanece montado y visible siempre. */}
@@ -1437,7 +1440,7 @@ export function SalesPage() {
           </section>
             )}
 
-        <section className="grid gap-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] xl:grid-rows-[minmax(0,1fr)]">
+        <section className="grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
           <SalesCartWorkspace
             items={cartItems}
             selectedItemKey={activeSelectedCartItemKey}

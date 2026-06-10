@@ -147,6 +147,21 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ENG-189 — `pos:` gates the ENG-186 /sales no-page-scroll lockup (internal
+ * column scroll) on BOTH a wide AND a tall-enough viewport. The lockup pins
+ * the checkout total + Cobrar and scrolls the cart/checkout panels inside a
+ * fixed-height grid. At short viewports (e.g. 1280x720 / 1366x768, common
+ * cashier screens) that fixed height collapses the checkout scroll region to
+ * 0 and buries the cash-session controls (Registrar movimiento / Cerrar caja)
+ * off-screen with no way to reach them. Below this threshold the lockup
+ * classes fall back to the natural stacked flow and the app shell scrolls, so
+ * every control stays reachable; at >= 900px tall the ENG-186 layout applies.
+ * 900px is the ENG-186 design target (1440x900) where the Cobrar footer stays
+ * pinned; below it the checkout scroll region collapses (measured: a 0px region
+ * at 840px tall with the sync-conflict banner present), so we fall back to page
+ * scroll there to keep the cash-session controls reachable. */
+@custom-variant pos (@media (min-width: 1280px) and (min-height: 900px));
+
 /* ENG-080b — Inter is the canonical UI face per the design-system
  * handoff. Locally-served 400 / 700 ship as woff2 next to the app
  * bundle; the heavier weights (500 / 600 / 800) come from Google
