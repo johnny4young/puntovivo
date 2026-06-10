@@ -297,7 +297,7 @@ export const usersRouter = router({
           sessionVersion: sql`${users.sessionVersion} + 1`,
           updatedAt: now,
         })
-        .where(eq(users.id, input.id));
+        .where(and(eq(users.id, input.id), eq(users.tenantId, ctx.tenantId)));
 
       if (input.id === ctx.user!.id) {
         clearRefreshCookie(ctx.req, ctx.res);

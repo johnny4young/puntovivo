@@ -37,6 +37,14 @@ import {
   appSettings,
   syncConflicts,
   syncOutbox,
+  // Drizzle operators re-exported by the server package: they must come
+  // from the same drizzle-orm instance that typed the schema tables above
+  // (a direct 'drizzle-orm' import here is a phantom dependency that can
+  // resolve to a different module identity and break the typecheck).
+  and,
+  eq,
+  inArray,
+  sql,
 } from '@puntovivo/server';
 
 // ENG-006 — three child loggers for the Electron main. `electron-main`
@@ -63,7 +71,6 @@ const RENDERER_LEVEL_MAP = {
   import('electron').WebContentsConsoleMessageEventParams['level'],
   'debug' | 'info' | 'warn' | 'error'
 >;
-import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   checkForAppUpdates,
   getAutoUpdateStatus,
@@ -1847,6 +1854,41 @@ function createWindow(): void {
     }
     void shell.openExternal(details.url);
     return { action: 'deny' };
+  });
+
+  // `setWindowOpenHandler` only covers window.open(); a top-frame
+  // navigation (location.href = ..., a dragged link, a javascript:/data:
+  // URL) bypasses it entirely. The SPA navigates via the history API
+  // (which never fires will-navigate), so the only legitimate top-frame
+  // navigations are reloads of the app itself: the dev-server origin in
+  // dev, or the packaged dist bundle under file:. Everything else is
+  // cancelled; https targets are handed to the system browser through
+  // the same external-URL policy as window.open.
+  const isInAppNavigation = (target: string): boolean => {
+    try {
+      const url = new URL(target);
+      if (isDev) {
+        return url.origin === new URL(WEB_DEV_SERVER_URL).origin;
+      }
+      if (url.protocol !== 'file:') {
+        return false;
+      }
+      const packagedDist = join(process.resourcesPath, 'dist');
+      return decodeURIComponent(url.pathname).startsWith(packagedDist);
+    } catch {
+      return false;
+    }
+  };
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isInAppNavigation(url)) {
+      return;
+    }
+    event.preventDefault();
+    if (isAllowedExternalUrl(url)) {
+      void shell.openExternal(url);
+      return;
+    }
+    mainLog.warn({ url }, 'blocked unsupported renderer navigation');
   });
 
   // ENG-133b — memory-measurement mode. When launched with

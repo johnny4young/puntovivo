@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { roundMoney } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
@@ -159,10 +160,6 @@ function getDefaultValues(
   };
 }
 
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function coerceTipAmount(value: unknown): number {
   if (value === '' || value === null || value === undefined) {
     return 0;
@@ -193,7 +190,7 @@ export function SalePaymentModal({
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
   const serviceChargeAmount = useMemo(
-    () => (serviceChargeRate > 0 ? roundCurrency((total * serviceChargeRate) / 100) : 0),
+    () => (serviceChargeRate > 0 ? roundMoney((total * serviceChargeRate) / 100) : 0),
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
@@ -254,7 +251,7 @@ export function SalePaymentModal({
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
-  const grandTotal = roundCurrency(total + serviceChargeAmount + tipAmount);
+  const grandTotal = roundMoney(total + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
 
@@ -360,7 +357,7 @@ export function SalePaymentModal({
     // ENG-039d — percentage base is `total` (subtotal + tax - discount)
     // before tip is layered on. This is the customer-facing "what I
     // owe" amount and matches the LATAM hospitality convention.
-    const nextAmount = roundCurrency((total * percentage) / 100);
+    const nextAmount = roundMoney((total * percentage) / 100);
     syncPaymentInputsForTip(nextAmount);
     form.setValue('tipAmount', nextAmount, { shouldDirty: true, shouldValidate: false });
     form.setValue('tipMethod', percentage === 0 ? null : 'percentage', { shouldDirty: true });
@@ -371,7 +368,7 @@ export function SalePaymentModal({
     // ENG-039d3 — service charge is fixed for the cart; only the tip
     // delta moves grandTotal across calls. Including it keeps the
     // auto-sync of amountReceived / first tender consistent.
-    const nextGrandTotal = roundCurrency(total + serviceChargeAmount + nextTipAmount);
+    const nextGrandTotal = roundMoney(total + serviceChargeAmount + nextTipAmount);
 
     if (splitMode) {
       const currentTenders = form.getValues('tenders');

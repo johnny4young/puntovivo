@@ -69,7 +69,10 @@ export const sequentialsRouter = router({
         updatedAt: now,
       };
 
-      await ctx.db.update(sequentials).set(updateData).where(eq(sequentials.id, existing.id));
+      await ctx.db
+        .update(sequentials)
+        .set(updateData)
+        .where(and(eq(sequentials.id, existing.id), eq(sequentials.tenantId, ctx.tenantId)));
 
       await enqueueSync(ctx, {
         entityType: 'sequentials',

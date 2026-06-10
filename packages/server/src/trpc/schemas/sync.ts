@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+import { SYNC_ENTITY_TYPES } from '../../services/sync/contract.js';
 import { syncOperationEnum } from './common.js';
 
 // ============================================================================
@@ -18,7 +19,11 @@ export const listQueueInput = z.object({
 });
 
 export const addToQueueInput = z.object({
-  entityType: z.string().min(1, 'Entity type is required'),
+  // Whitelist at the schema boundary: `resolveConflictPolicy` already
+  // throws on unknown entity types at runtime, but rejecting them here
+  // returns a clean BAD_REQUEST instead of an internal error and keeps
+  // the API contract explicit.
+  entityType: z.enum(SYNC_ENTITY_TYPES),
   entityId: z.string().min(1, 'Entity ID is required'),
   operation: syncOperationEnum,
   data: z.record(z.string(), z.unknown()).optional(),

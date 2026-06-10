@@ -348,7 +348,10 @@ export const countriesRouter = router({
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(countries).set(updateData).where(eq(countries.id, id));
+    await ctx.db
+      .update(countries)
+      .set(updateData)
+      .where(and(eq(countries.id, id), eq(countries.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'countries',
@@ -552,7 +555,10 @@ export const departmentsRouter = router({
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(departments).set(updateData).where(eq(departments.id, id));
+    await ctx.db
+      .update(departments)
+      .set(updateData)
+      .where(and(eq(departments.id, id), eq(departments.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'departments',
@@ -776,7 +782,10 @@ export const citiesRouter = router({
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db.update(cities).set(updateData).where(eq(cities.id, id));
+    await ctx.db
+      .update(cities)
+      .set(updateData)
+      .where(and(eq(cities.id, id), eq(cities.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'cities',
@@ -818,7 +827,9 @@ export const citiesRouter = router({
       });
     }
 
-    await ctx.db.delete(cities).where(eq(cities.id, input.id));
+    await ctx.db
+      .delete(cities)
+      .where(and(eq(cities.id, input.id), eq(cities.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'cities',

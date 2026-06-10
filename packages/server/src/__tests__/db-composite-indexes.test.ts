@@ -97,7 +97,12 @@ describe('composite indexes added by ENG-175 (migration 0034)', () => {
     const info = readIndex('idx_restaurant_tables_unique_active_name');
     expect(info.tbl_name).toBe('restaurant_tables');
     expect(info.sql).toContain('UNIQUE');
-    expect(info.sql).toMatch(/WHERE\s+["`]?is_active["`]?\s*=\s*1/i);
+    // Accept both the legacy hand-written emission (WHERE `is_active` = 1)
+    // and drizzle-kit's table-qualified one
+    // (WHERE "restaurant_tables"."is_active" = 1) — same semantic pin.
+    expect(info.sql).toMatch(
+      /WHERE\s+(?:["`]?restaurant_tables["`]?\s*\.\s*)?["`]?is_active["`]?\s*=\s*1/i
+    );
     expect(readIndexColumns('idx_restaurant_tables_unique_active_name')).toEqual([
       'tenant_id',
       'site_id',

@@ -1,3 +1,4 @@
+import { roundMoney } from '@/lib/money';
 import type { ProductSearchSelection } from '@/types';
 
 export interface OrderCartItem {
@@ -19,10 +20,6 @@ export interface OrderCartSummary {
   total: number;
 }
 
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
 export function getOrderCartKey(productId: string, unitId: string) {
   return `${productId}:${unitId}`;
 }
@@ -33,7 +30,7 @@ export function buildOrderCartItem(selection: ProductSearchSelection): OrderCart
     selection.unit.unitAbbreviation ??
     selection.product.baseUnitAbbreviation ??
     selection.unit.unitId;
-  const costPerUnit = roundCurrency((selection.product.cost ?? 0) * selection.unit.equivalence);
+  const costPerUnit = roundMoney((selection.product.cost ?? 0) * selection.unit.equivalence);
 
   return {
     key: getOrderCartKey(selection.product.id, selection.unit.unitId),
@@ -73,7 +70,7 @@ export function updateOrderCartItem(
 }
 
 export function getOrderLineTotal(item: OrderCartItem) {
-  return roundCurrency(item.costPerUnit * item.quantity);
+  return roundMoney(item.costPerUnit * item.quantity);
 }
 
 export function getOrderNormalizedQuantity(item: OrderCartItem) {
@@ -85,7 +82,7 @@ export function getOrderCartSummary(items: OrderCartItem[]): OrderCartSummary {
     (summary, item) => ({
       itemCount: summary.itemCount + item.quantity,
       normalizedUnits: summary.normalizedUnits + getOrderNormalizedQuantity(item),
-      total: roundCurrency(summary.total + getOrderLineTotal(item)),
+      total: roundMoney(summary.total + getOrderLineTotal(item)),
     }),
     {
       itemCount: 0,

@@ -754,6 +754,13 @@ declare module 'fastify' {
 
 // Re-export types and utilities
 export * from './db/schema.js';
+// The desktop main queries the embedded DB with the schema tables above,
+// so it must use Drizzle operators from the SAME drizzle-orm instance
+// that typed those columns. Importing 'drizzle-orm' directly in
+// apps/desktop is a phantom dependency (it is not in that package.json)
+// that can resolve to a different module identity (root hoist vs the
+// .pnpm peer instance) and break its typecheck. Consume these instead.
+export { and, eq, inArray, sql } from 'drizzle-orm';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
 export { SseManager, type SseClient } from './realtime/sse.js';
 export type { AppRouter } from './trpc/router.js';
