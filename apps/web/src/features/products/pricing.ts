@@ -1,5 +1,13 @@
 import { roundMoney as round } from '@/lib/money';
 
+/**
+ * Cost → price ↔ margin conversions for the product form preview.
+ *
+ * MIRROR CONTRACT: packages/server/src/services/pricing.ts is the
+ * authoritative copy this file mirrors (the renderer cannot import server
+ * runtime code). Any change here MUST be replicated there — a drifted copy
+ * makes the form preview disagree with what the server persists.
+ */
 export interface PricingInput {
   cost: number;
   marginPercent?: number | null;

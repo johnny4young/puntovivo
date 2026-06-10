@@ -314,7 +314,15 @@ async function main(): Promise<void> {
   }
   banner('');
 
-  const db = await initDatabase({ dbPath, runMigrations: true, seedData: true });
+  // Honor PUNTOVIVO_DB_KEY exactly like standalone.ts does: without it,
+  // seeding the launcher-managed shared dev DB writes a PLAINTEXT file that
+  // the desktop later fails to open with SQLITE_NOTADB (it keys every open).
+  const db = await initDatabase({
+    dbPath,
+    runMigrations: true,
+    seedData: true,
+    encryptionKey: process.env.PUNTOVIVO_DB_KEY,
+  });
 
   try {
     if (options.reset) {

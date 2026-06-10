@@ -5,7 +5,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    // Composite projects must emit (TS6310 forbids noEmit here). Keep the
+    // artifacts OUT of the package root: an in-tree vite.config.js would
+    // shadow vite.config.ts (Vite resolves .js first) and freeze the config.
+    "outDir": "node_modules/.tmp/tsconfig-node",
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig-node/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }

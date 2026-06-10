@@ -157,6 +157,7 @@
     "SYNC_OUTBOX_DEAD_LETTER": "Esa entrada de sincronización está en cola muerta. Márcala como resuelta o escala a un administrador.",
     "SYNC_OUTBOX_NOT_FOUND": "Esa entrada de sincronización ya no existe para este tenant. Refresca y vuelve a intentarlo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
+    "validationFailed": "Hay campos vacíos o con datos inválidos. Revisa los campos marcados e inténtalo de nuevo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo."
   }
 }

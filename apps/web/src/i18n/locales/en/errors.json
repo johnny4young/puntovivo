@@ -157,6 +157,7 @@
     "SYNC_OUTBOX_DEAD_LETTER": "That sync entry is in dead-letter. Mark it resolved or escalate to an administrator.",
     "SYNC_OUTBOX_NOT_FOUND": "That sync entry no longer exists for this tenant. Refresh and try again.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
+    "validationFailed": "Some fields are missing or invalid. Check the highlighted fields and try again.",
     "unknown": "Something went wrong. Please try again."
   }
 }

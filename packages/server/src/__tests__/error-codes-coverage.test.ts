@@ -92,10 +92,17 @@ describe('ENG-181 — SERVER_ERROR_CODES ↔ i18n key parity', () => {
 
   // Reserved client-side fallback keys that have no SERVER_ERROR_CODES
   // counterpart because they describe transport-level conditions the
-  // server cannot label (the request never reached it).
+  // server cannot label (the request never reached it) or client-side
+  // shaping of an uncoded server response.
   // - `unknown`: catch-all when the error has no resolvable code.
   // - `networkUnavailable`: the tRPC client never got past TCP/DNS.
-  const CLIENT_ONLY_KEYS = new Set<string>(['unknown', 'networkUnavailable']);
+  // - `validationFailed`: client-side reshaping of a raw Zod BAD_REQUEST
+  //   so the operator never sees the stringified issues array.
+  const CLIENT_ONLY_KEYS = new Set<string>([
+    'unknown',
+    'networkUnavailable',
+    'validationFailed',
+  ]);
 
   it('no orphan errors.server.<CODE> keys exist that the enum does not declare', () => {
     const allowed = new Set<string>([...CLIENT_ONLY_KEYS, ...codes]);
