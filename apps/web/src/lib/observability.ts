@@ -19,9 +19,9 @@
  * The forwarder is a tiny `RenderTelemetrySink` interface; the
  * adapter PR registers an implementation at boot. Until then a noop
  * sink is the default. This mirrors the server-side `TelemetrySink`
- * (packages/server/src/observability/sink.ts) so a future end-to-end
- * trace propagation effort (renderer → server correlationId in
- * headers) has a parallel shape on both sides.
+ * (packages/server/src/observability/sink.ts), and ENG-135c now
+ * stamps renderer errors with the last renderer-minted correlation id
+ * sent to the server.
  *
  * ENG-173 extends this module with `installWebVitalsReporter()`, which
  * forwards Core Web Vitals (LCP / CLS / INP / TTFB / FCP) to the public
@@ -32,7 +32,7 @@
  */
 
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
-import { vanillaClient } from './trpc';
+import { getLastCorrelationId, vanillaClient } from './trpc';
 
 export interface RenderErrorContext {
   /**
@@ -55,6 +55,15 @@ export interface RenderErrorContext {
    * group events.
    */
   source: 'render' | 'window' | 'rejection';
+  /**
+   * ENG-135c — the correlation id of the MOST RECENT tRPC request
+   * from this page (renderer-minted; the server adopts the same id
+   * into its logs and sink events). An approximation under
+   * concurrent in-flight requests; null before the first request.
+   * Defaults from `getLastCorrelationId()` when the caller does not
+   * supply one explicitly.
+   */
+  correlationId?: string | null;
 }
 
 export interface RenderTelemetrySink {
@@ -115,7 +124,14 @@ export function captureRenderError(
 ): void {
   const resolvedTenant =
     context.tenantId !== undefined ? context.tenantId : activeTenantId;
-  const payload: RenderErrorContext = { ...context, tenantId: resolvedTenant };
+  const payload: RenderErrorContext = {
+    ...context,
+    tenantId: resolvedTenant,
+    // ENG-135c — stamp the id of the page's most recent tRPC request
+    // so this event and the server trace it (most likely) belongs to
+    // share one identifier. See RenderErrorContext.correlationId.
+    correlationId: context.correlationId ?? getLastCorrelationId(),
+  };
   if (typeof console !== 'undefined' && console.error) {
     console.error('captured render error', { err, ...payload });
   }

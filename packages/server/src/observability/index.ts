@@ -24,6 +24,12 @@ export {
   type TelemetrySink,
 } from './sink.js';
 export { redactErrorAttrs } from './redact.js';
+// ENG-135c — client-supplied correlation id intake (strict
+// sanitization; correlation-only usage, never logic).
+export {
+  CORRELATION_ID_HEADER,
+  sanitizeCorrelationId,
+} from './correlation.js';
 // ENG-135b — Sentry / GlitchTip adapter (DSN-gated; see the module
 // doc for the consent layers and the never-throw contract).
 export {

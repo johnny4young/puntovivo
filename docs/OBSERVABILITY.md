@@ -68,15 +68,42 @@ Shipped by ENG-135b (2026-06-10):
   `unhandledRejection` handlers with structured logging, telemetry
   capture, and bounded-flush fail-fast exit.
 
+Shipped by ENG-135c (2026-06-10):
+- Trace propagation renderer → server: the web client mints a
+  fresh `x-correlation-id` per tRPC request (UUID v4); the server
+  adopts it — strictly sanitized — into the request-scoped log
+  bindings, the tracing-middleware attrs, and every sink event.
+  `captureRenderError` stamps the page's most recent id on client
+  error events, so the renderer event and the server trace share
+  one identifier. See "Correlation ids" below.
+
 Remaining (re-routed to follow-up tickets):
 - Per-tenant error rate dashboard + crash-free sessions metric
   (needs a real centralized instance to aggregate against).
-- Trace propagation end-to-end (renderer → main → server → DB).
-  V1 stops at the server boundary: the correlationId is server
-  reqId; the renderer does not yet echo it on its next call.
 - Validation against a real provisioned Sentry / GlitchTip
   instance (the ENG-135b smoke verified envelopes against a local
   HTTP catcher only).
+
+## Correlation ids (ENG-135c)
+
+The id is minted CLIENT-side, one per tRPC request, in the
+`headers()` callback of the link (`apps/web/src/lib/trpc.ts`) and
+shipped as `x-correlation-id`. Server intake
+(`observability/correlation.ts::sanitizeCorrelationId`) enforces
+`[A-Za-z0-9_-]{8,64}` — the header is attacker-controlled, so it
+is used EXCLUSIVELY for log/telemetry correlation, never for
+authorization or business logic, and the non-spoofable Fastify
+`requestId` stays as an independent binding on every log line.
+Invalid or absent headers fall back to the Fastify reqId, which is
+exactly the pre-ENG-135c behaviour (SSE and curl callers are
+unaffected; EventSource cannot send custom headers, so SSE stays
+on reqId by design).
+
+Client error events (`captureRenderError`) carry the id of the
+page's MOST RECENT request — an approximation under concurrent
+in-flight requests, but enough to jump from a renderer event in
+the centralized pipe to the matching server trace. A per-user-
+interaction id is a possible future refinement.
 
 ## Consent layers (ENG-135b)
 

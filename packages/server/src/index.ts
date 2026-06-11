@@ -54,7 +54,11 @@ import {
 } from './security/csrf.js';
 import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
-import { initServerTelemetryAdapter } from './observability/index.js';
+import {
+  CORRELATION_ID_HEADER,
+  initServerTelemetryAdapter,
+  sanitizeCorrelationId,
+} from './observability/index.js';
 
 export interface ServerOptions {
   // ENG-179b — explicit `| undefined` on every optional field so
@@ -171,6 +175,17 @@ export function buildRequestScopedLoggerBindings(
   const bindings: Record<string, string> = { requestId: request.id };
   if (typeof deviceId === 'string' && deviceId.length > 0) {
     bindings.deviceId = deviceId;
+  }
+  // ENG-135c — adopt the renderer-minted correlation id (strictly
+  // sanitized; correlation-only) so every log line of this request —
+  // including the DB-adjacent work it triggers — carries the same id
+  // the client attached to its own error events. The Fastify
+  // requestId binding above stays as the non-spoofable identity.
+  const correlationId = sanitizeCorrelationId(
+    request.headers[CORRELATION_ID_HEADER]
+  );
+  if (correlationId) {
+    bindings.correlationId = correlationId;
   }
   return bindings;
 }
@@ -485,6 +500,10 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       // ENG-052 — Command Envelope (ADR-0002) headers.
       'x-device-id',
       'x-puntovivo-envelope',
+      // ENG-135c — renderer-minted correlation id; the allowlist is
+      // explicit (not reflective), so without this entry the browser
+      // preflight strips the header silently.
+      CORRELATION_ID_HEADER,
     ],
     credentials: true,
   });
