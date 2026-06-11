@@ -94,11 +94,34 @@ import { isAllowedExternalUrl } from './external-url-policy.js';
 // decide whether to redirect to the login screen.
 import * as desktopSession from './session/desktopSession.js';
 import { verifyTokenWithServer } from '@puntovivo/server';
+// ENG-135b — process crash path: captureProcessCrash forwards a
+// tenant-less, redacted crash event to the telemetry sink (live only
+// when the operator provisioned PUNTOVIVO_SENTRY_DSN);
+// flushServerTelemetry drains the SDK buffer before the exit.
+import {
+  captureProcessCrash,
+  flushServerTelemetry,
+} from '@puntovivo/server';
+import { installProcessCrashHandlers } from './crash-telemetry.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
+
+// ENG-135b — install the crash handlers before ANY async boot work
+// (embedded server boot, window creation, IPC registration) so a
+// failure in those paths lands a structured log + telemetry event
+// instead of dying with Electron's default dialog. uncaughtException
+// keeps fail-fast semantics (exit 1 after a bounded flush);
+// unhandledRejection logs + captures without exiting.
+installProcessCrashHandlers({
+  log: mainLog,
+  captureCrash: captureProcessCrash,
+  flushTelemetry: flushServerTelemetry,
+  exit: (code) => app.exit(code),
+  proc: process,
+});
 
 // Pin the app name BEFORE the first `app.getPath('userData')` read (DB_PATH
 // below). Packaged builds inherit the name from the macOS Info.plist /
@@ -2169,6 +2192,9 @@ app.whenReady().then(async () => {
         isPackagedBuild,
         runtime: rendererSecurityRuntime,
         webDevServerUrl: WEB_DEV_SERVER_URL,
+        // ENG-135b — let a telemetry-enabled renderer POST envelopes
+        // to the DSN origin; unset keeps the strict baseline CSP.
+        sentryDsn: process.env.PUNTOVIVO_SENTRY_DSN,
       }),
     };
     callback({ responseHeaders });

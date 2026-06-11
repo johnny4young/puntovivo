@@ -5,6 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // ENG-135b — strip ambient telemetry env vars before any test
+    // boots a server, so a dev shell with PUNTOVIVO_SENTRY_DSN
+    // exported can never activate the real SDK across the suite.
+    setupFiles: ['./vitest.setup.ts'],
     coverage: {
       // v8 is the cheapest provider for a Node-only workspace; istanbul
       // would add an instrumentation pass we don't need.

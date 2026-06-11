@@ -1,11 +1,49 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
+/**
+ * ENG-135b — when the build carries a telemetry DSN, the meta CSP in
+ * index.html must allow the renderer to POST envelopes to that
+ * origin, or the browser silently drops every event (connect-src
+ * violation — caught by the ENG-135b live smoke). The origin is
+ * derived from the same VITE_PUNTOVIVO_SENTRY_DSN that gates the
+ * lazy SDK chunk, so the CSP widens ONLY in builds that actually
+ * ship the adapter; a DSN-less build keeps the strict baseline.
+ * Invalid DSNs leave the HTML untouched (the adapter would not
+ * initialise against them anyway).
+ */
+function sentryConnectSrcPlugin(dsn: string | undefined): Plugin {
+  return {
+    name: 'puntovivo-sentry-connect-src',
+    transformIndexHtml(html) {
+      const trimmed = dsn?.trim();
+      if (!trimmed) return html;
+      let origin: string;
+      try {
+        origin = new URL(trimmed).origin;
+      } catch {
+        return html;
+      }
+      return html.replace(
+        /(connect-src[^;]*)(;)/,
+        (match, sources: string, end: string) =>
+          sources.includes(origin) ? match : `${sources} ${origin}${end}`
+      );
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [tailwindcss(), react()],
+  plugins: [
+    tailwindcss(),
+    react(),
+    sentryConnectSrcPlugin(
+      loadEnv(mode, __dirname, 'VITE_').VITE_PUNTOVIVO_SENTRY_DSN
+    ),
+  ],
   resolve: {
     // ENG-172 — keep a single React instance across the app and every
     // hooks-based dependency (e.g. @tanstack/react-virtual). Prevents a

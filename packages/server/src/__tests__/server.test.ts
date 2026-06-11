@@ -139,8 +139,9 @@ describe('CSRF protection', () => {
     });
 
     expect(response.statusCode).toBe(403);
-    const body = JSON.parse(response.body) as { error: string };
-    expect(body.error).toBe('CSRF_VALIDATION_FAILED');
+    // ENG-135b follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
+    const body = JSON.parse(response.body) as { error: { message: string } };
+    expect(body.error.message).toContain('CSRF_VALIDATION_FAILED');
   });
 
   it('allows unsafe methods when no refresh cookie is present (unauthenticated)', async () => {
@@ -176,9 +177,13 @@ describe('CSRF protection', () => {
     });
 
     expect(response.statusCode).toBe(403);
+    // ENG-135b follow-up — tRPC-shaped envelope (see index.ts CSRF hook).
     expect(response.json()).toEqual({
-      error: 'CSRF_VALIDATION_FAILED',
-      message: 'Missing or invalid CSRF token',
+      error: {
+        message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',
+        code: -32003,
+        data: { code: 'FORBIDDEN', httpStatus: 403 },
+      },
     });
   });
 });

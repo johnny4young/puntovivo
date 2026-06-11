@@ -76,6 +76,13 @@ export function buildRendererContentSecurityPolicy(args: {
   isPackagedBuild: boolean;
   runtime: RuntimeSecurityConfig;
   webDevServerUrl: string;
+  /**
+   * ENG-135b — telemetry DSN (PUNTOVIVO_SENTRY_DSN). When set, its
+   * origin joins connect-src so a renderer built with the lazy
+   * Sentry adapter can POST envelopes; unset keeps the strict
+   * baseline. Invalid values are ignored (originFromUrl → null).
+   */
+  sentryDsn?: string | null | undefined;
 }): string {
   const apiOrigins = buildApiOrigins(args.runtime);
   const devServerOrigin = originFromUrl(args.webDevServerUrl);
@@ -84,6 +91,7 @@ export function buildRendererContentSecurityPolicy(args: {
     ...apiOrigins,
     webSocketOriginFromHttpOrigin(devServerOrigin),
     ...FONT_CONNECT_SOURCES,
+    originFromUrl(args.sentryDsn),
   ]);
   const scriptSrc = args.isPackagedBuild
     ? "'self'"
@@ -107,6 +115,8 @@ export function buildRendererSecurityHeaders(args: {
   isPackagedBuild: boolean;
   runtime: RuntimeSecurityConfig;
   webDevServerUrl: string;
+  /** See {@link buildRendererContentSecurityPolicy}. */
+  sentryDsn?: string | null | undefined;
 }): Record<string, string[]> {
   return {
     'Content-Security-Policy': [buildRendererContentSecurityPolicy(args)],

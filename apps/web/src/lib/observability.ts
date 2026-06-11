@@ -122,6 +122,39 @@ export function captureRenderError(
   safeInvoke(() => activeRenderSink.captureRenderError(err, payload));
 }
 
+let renderAdapterInstallRequested = false;
+
+/**
+ * ENG-135b — load and register the Sentry / GlitchTip adapter when
+ * the operator provisioned `VITE_PUNTOVIVO_SENTRY_DSN`. The adapter
+ * module (`lib/sentry.ts`) statically imports `@sentry/browser`, so
+ * the dynamic `import()` below is what keeps the SDK out of the
+ * eager bundle: without the DSN the chunk is never even fetched.
+ *
+ * Fire-and-forget by design — the import resolves in the background
+ * and must never delay `createRoot(...).render`. Errors raised
+ * before the adapter finishes loading still hit the console fallback
+ * in `captureRenderError`; only the centralized copy is lost, which
+ * matches the best-effort contract of the sink.
+ */
+export function installRenderTelemetryAdapter(): void {
+  if (renderAdapterInstallRequested || typeof window === 'undefined') {
+    return;
+  }
+  const dsn = import.meta.env.VITE_PUNTOVIVO_SENTRY_DSN?.trim();
+  if (!dsn) {
+    return;
+  }
+  renderAdapterInstallRequested = true;
+  void import('./sentry')
+    .then((mod) => mod.initSentryRenderSink(dsn))
+    .catch((err) => {
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('render telemetry adapter failed to load', err);
+      }
+    });
+}
+
 let listenersInstalled = false;
 let errorListener: ((event: ErrorEvent) => void) | null = null;
 let rejectionListener: ((event: PromiseRejectionEvent) => void) | null = null;
@@ -252,6 +285,7 @@ export function installWebVitalsReporter(): void {
 export function __resetRenderObservabilityForTests(): void {
   activeRenderSink = noopRenderSink;
   activeTenantId = null;
+  renderAdapterInstallRequested = false;
   if (typeof window !== 'undefined') {
     if (errorListener) window.removeEventListener('error', errorListener);
     if (rejectionListener)

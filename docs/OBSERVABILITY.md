@@ -2,7 +2,8 @@
 
 > Status: shipped engine (sink interface + capture helpers + tracing
 > middleware + tenant opt-in + audit row/cache invalidation +
-> render-error wiring).
+> render-error wiring) + shipped adapter (ENG-135b: Sentry/GlitchTip
+> DSN-gated adapter on server and web + Electron main crash path).
 > Roadmap anchor: `ENG-135`.
 
 This doc explains how Puntovivo records errors, measures spans, and
@@ -23,6 +24,9 @@ health without a tenant-by-tenant phone call.
 | `window.error` + `window.unhandledrejection` listeners | Mounted in `apps/web/src/main.tsx` via `installGlobalErrorListeners()` | Catches escapes from the React tree (uncaught promise rejections, async errors). |
 | Per-tenant opt-in toggle + audit | `companies.updateTelemetryOptIn` + `telemetry.opt_in.updated` audit | Admin-only, scoped by `ctx.tenantId`; setting update + audit row are transactional, and the opt-in cache is invalidated immediately. |
 | Redaction policy on attrs sent to the sink | `packages/server/src/observability/redact.ts` | Walks the attrs bag and masks `password / token / authorization / refreshToken / email`. Mirrors the spirit of pino `REDACT_PATHS` (ENG-006). |
+| Sentry / GlitchTip adapter (server) | `packages/server/src/observability/sentry.ts`, wired in `createServer` | ENG-135b. Activates only when `PUNTOVIVO_SENTRY_DSN` is set; otherwise the SDK is never imported. Never throws — a malformed DSN can never block a boot. |
+| Sentry / GlitchTip adapter (web) | `apps/web/src/lib/sentry.ts` via `installRenderTelemetryAdapter()` | ENG-135b. Lazy chunk gated on `VITE_PUNTOVIVO_SENTRY_DSN` at BUILD time; a DSN-less build ships zero SDK bytes (the dynamic import is dead-code-eliminated). |
+| Electron main crash path | `apps/desktop/src/main/crash-telemetry.ts` | ENG-135b. `uncaughtException` → structured log + `captureProcessCrash` + bounded flush + exit 1; `unhandledRejection` → log + capture without exit. |
 
 ## Why opt-in matters
 
@@ -55,40 +59,86 @@ Shipped now:
   + `RenderTelemetrySink` interface (also noop by default).
 - `CompanyTelemetryCard` admin control in the `/company` data tab.
 
+Shipped by ENG-135b (2026-06-10):
+- `@sentry/node` (server) + `@sentry/browser` (web) installed and
+  registered through the existing sink interfaces, DSN-gated on
+  both sides. GlitchTip speaks the Sentry protocol, so the same
+  adapter covers both backends — only the DSN changes.
+- Electron main process crash path: `uncaughtException` /
+  `unhandledRejection` handlers with structured logging, telemetry
+  capture, and bounded-flush fail-fast exit.
+
 Remaining (re-routed to follow-up tickets):
-- Install `@sentry/node` + `@sentry/browser` (or self-hosted
-  GlitchTip equivalents) and register the adapter via the
-  existing sink interfaces. The bundle-size gate (ENG-133) will
-  flag the new browser chunk so the budget bump and the install
-  ride the same PR.
-- Per-tenant error rate dashboard + crash-free sessions metric.
+- Per-tenant error rate dashboard + crash-free sessions metric
+  (needs a real centralized instance to aggregate against).
 - Trace propagation end-to-end (renderer → main → server → DB).
   V1 stops at the server boundary: the correlationId is server
   reqId; the renderer does not yet echo it on its next call.
-- Electron main process telemetry init (the embedded Fastify is
-  in-process so the server-side wiring already covers tenant calls;
-  what is missing is the main-process crash path).
+- Validation against a real provisioned Sentry / GlitchTip
+  instance (the ENG-135b smoke verified envelopes against a local
+  HTTP catcher only).
 
-## How to wire an adapter
+## Consent layers (ENG-135b)
 
-When the operator has provisioned a DSN (Sentry, GlitchTip, OTLP
-collector), the adapter PR follows this shape:
+Two consent layers, deliberately different:
 
-1. Install the SDK as a workspace devDep — `@sentry/node` for the
-   server, `@sentry/browser` for the web bundle.
-2. At server boot (`packages/server/src/index.ts`), after the
-   Fastify instance is created, instantiate the SDK and call
-   `registerTelemetrySink({ captureException, recordSpan })` with
-   thin wrappers around the SDK's `captureException` /
-   `startSpan` methods.
-3. In the web bundle (`apps/web/src/main.tsx`), do the same with
-   `registerRenderTelemetrySink({ captureRenderError })`.
-4. Read the DSN from env vars (`PUNTOVIVO_SENTRY_DSN` server-side,
-   `VITE_PUNTOVIVO_SENTRY_DSN` browser-side). When unset, register
-   the noop sink and skip the SDK init entirely so dev / test
-   sessions emit zero network traffic.
-5. Bump the bundle-size baseline (`perf-budget.json`) in the same
-   PR — the new chunk is expected, the gate just needs to know.
+1. **Tenant-attributed events** (everything flowing through
+   `captureException` / `withSpan` / the tRPC tracing middleware)
+   keep the per-tenant opt-in gate: the sink only sees them when
+   the tenant flipped `telemetryOptIn` AND the operator provisioned
+   a DSN. Both switches are required.
+2. **Tenant-less app diagnostics** (process crashes via
+   `captureProcessCrash`, render errors from the web adapter) are
+   gated on the DSN alone: configuring `PUNTOVIVO_SENTRY_DSN` /
+   `VITE_PUNTOVIVO_SENTRY_DSN` IS the operator-level consent. A
+   process crash carries no tenant context, so the per-tenant gate
+   cannot apply — gating on it would make the crash path vacuous.
+   Render errors are forwarded TENANT-LESS by construction: the
+   web adapter strips `tenantId` from the context before the SDK
+   sees it, because the renderer cannot verify the tenant's opt-in
+   reliably. Per-tenant attribution of render errors arrives with
+   the opt-in-aware follow-up.
+
+Attrs are redacted (`redactErrorAttrs`) before the sink sees them
+on every path, including crashes.
+
+## How to enable the centralized pipe
+
+The adapter is shipped; enabling it is configuration only:
+
+1. Provision a DSN — a Sentry project or a self-hosted GlitchTip
+   instance (same protocol, same SDK).
+2. Server / desktop: set `PUNTOVIVO_SENTRY_DSN` in the process
+   environment. Both the standalone server and the embedded
+   desktop server pick it up inside `createServer`. Optionally set
+   `PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE` (0..1, default 0) to also
+   fan out spans — errors flow regardless.
+3. Web: build with `VITE_PUNTOVIVO_SENTRY_DSN` set. This is a
+   BUILD-time decision (Vite inlines `import.meta.env`): a build
+   without the var ships zero SDK bytes (the lazy chunk is
+   dead-code-eliminated); a build with it emits a `sentry-*.js`
+   lazy chunk (~28 kB gz) that loads after mount. In dev,
+   `.env.local` works because the dev server reads env at boot.
+4. The SDK initialises with `defaultIntegrations: false` on both
+   sides: no http/undici monkey-patching (which would distort the
+   ENG-133 p95 latency budgets) and no double-capture of window
+   errors (our `installGlobalErrorListeners` is the single source;
+   `dedupeIntegration` rides along as insurance on the web).
+5. CSP is widened automatically — no manual step. The browser can
+   only POST envelopes to origins in `connect-src`, so a
+   `sentryConnectSrcPlugin` in `apps/web/vite.config.ts` injects the
+   DSN origin into the index.html meta CSP at build time, and
+   `buildRendererContentSecurityPolicy` (Electron) appends it from
+   `PUNTOVIVO_SENTRY_DSN` at runtime. DSN-less builds keep the
+   strict baseline. (Found live during the ENG-135b smoke: without
+   this, the browser silently blocks every envelope.)
+
+Bundle-size note: the `sentry-*.js` chunk has NO `perf-budget.json`
+entry on purpose — the chunk only exists in DSN-set builds, so a
+budget entry would emit a "chunk in budget but absent" warning on
+every standard CI build. A DSN-set build instead surfaces it under
+the gate's "new chunks" warning (which does not fail), measured at
+~28 kB gz when ENG-135b landed.
 
 ## Redaction contract
 

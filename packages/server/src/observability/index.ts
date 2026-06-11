@@ -10,6 +10,7 @@
 
 export {
   captureException,
+  captureProcessCrash,
   clearTelemetryOptInCacheForTenant,
   recordSpan,
   withSpan,
@@ -23,3 +24,12 @@ export {
   type TelemetrySink,
 } from './sink.js';
 export { redactErrorAttrs } from './redact.js';
+// ENG-135b — Sentry / GlitchTip adapter (DSN-gated; see the module
+// doc for the consent layers and the never-throw contract).
+export {
+  initServerTelemetryAdapter,
+  flushServerTelemetry,
+  isServerTelemetryAdapterActive,
+  __resetServerTelemetryAdapterForTests,
+  type ServerTelemetryAdapterOptions,
+} from './sentry.js';

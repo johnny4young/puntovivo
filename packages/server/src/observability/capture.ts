@@ -204,6 +204,38 @@ export async function withSpan<T>(
   }
 }
 
+/**
+ * ENG-135b — capture a process-level crash (Electron main
+ * `uncaughtException` / `unhandledRejection`, or any other
+ * tenant-less lifecycle failure).
+ *
+ * Deliberately different consent model from `captureException`:
+ * process crashes carry NO tenant context, so the per-tenant opt-in
+ * gate cannot apply — gating on it would make the crash path
+ * vacuous. Instead, the operator-level consent is the DSN itself:
+ * the sink is only ever non-noop when the operator provisioned
+ * `PUNTOVIVO_SENTRY_DSN` (see observability/sentry.ts and
+ * docs/OBSERVABILITY.md § consent layers). Attrs are still redacted
+ * before the sink sees them.
+ *
+ * Synchronous on purpose — crash paths cannot await a DB lookup,
+ * and there is none to make. Never throws.
+ */
+export function captureProcessCrash(
+  err: unknown,
+  attrs: TelemetryEventAttrs = {}
+): void {
+  // Local log is unconditional, exactly like captureException.
+  log.error({ ...attrs, err }, 'process crash captured');
+
+  const sink = getActiveTelemetrySink();
+  if (sink === noopSink) {
+    return;
+  }
+  const safeAttrs = redactErrorAttrs(attrs);
+  safeInvokeSink(() => sink.captureException(err, safeAttrs));
+}
+
 export async function recordSpan(
   name: string,
   attrs: TelemetryEventAttrs,

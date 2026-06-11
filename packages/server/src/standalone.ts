@@ -37,6 +37,10 @@
 import './loadEnv.js';
 
 import { createServer, createModuleLogger } from './index.js';
+import {
+  captureProcessCrash,
+  flushServerTelemetry,
+} from './observability/index.js';
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
 import { join, dirname } from 'path';
@@ -121,13 +125,37 @@ async function main(): Promise<void> {
     process.on('SIGTERM', () => {
       void shutdown('SIGTERM');
     });
+    // ENG-135b — forward both crash classes to the telemetry sink
+    // (tenant-less app diagnostics, live only when the operator set
+    // PUNTOVIVO_SENTRY_DSN; see docs/OBSERVABILITY.md consent layers)
+    // and give the SDK a bounded flush window before the existing
+    // graceful shutdown exits the process. flushServerTelemetry never
+    // rejects and resolves within its timeout, so the shutdown can
+    // never be wedged by a dead transport. Unlike the Electron main
+    // (which logs rejections without exiting — a POS terminal must
+    // not die over one), the standalone keeps its pre-existing
+    // shutdown-on-rejection stance: it runs under a supervisor
+    // (systemd / pm2 / tsx watch) where fail-fast plus restart is
+    // the safer contract for a site_hub.
     process.on('unhandledRejection', reason => {
       log.fatal({ err: reason }, 'unhandled rejection');
-      void shutdown('unhandledRejection');
+      captureProcessCrash(reason, {
+        source: 'standalone-server',
+        kind: 'unhandledRejection',
+      });
+      void flushServerTelemetry().finally(() => {
+        void shutdown('unhandledRejection');
+      });
     });
     process.on('uncaughtException', err => {
       log.fatal({ err }, 'uncaught exception');
-      void shutdown('uncaughtException');
+      captureProcessCrash(err, {
+        source: 'standalone-server',
+        kind: 'uncaughtException',
+      });
+      void flushServerTelemetry().finally(() => {
+        void shutdown('uncaughtException');
+      });
     });
 
     // Start server

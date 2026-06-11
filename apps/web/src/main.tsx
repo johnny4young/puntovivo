@@ -9,6 +9,7 @@ import { ToastProvider } from './components/feedback/ToastProvider';
 import { ThemeProvider } from './components/feedback/ThemeProvider';
 import {
   installGlobalErrorListeners,
+  installRenderTelemetryAdapter,
   installWebVitalsReporter,
 } from './lib/observability';
 import App from './App';
@@ -18,6 +19,10 @@ import './index.css';
 // listeners before the React tree mounts so even a crash in the
 // `Root` render still reaches the observability pipe.
 installGlobalErrorListeners();
+// ENG-135b — lazy-load the Sentry / GlitchTip adapter when a DSN is
+// configured. Fire-and-forget: never delays the render below, and
+// without VITE_PUNTOVIVO_SENTRY_DSN it is a single env read.
+installRenderTelemetryAdapter();
 // ENG-173 — install the Web Vitals reporter at the same bootstrap point so
 // LCP / CLS / INP for the very first (login) paint are captured. Sampled +
 // background-only; no effect on the render path.
