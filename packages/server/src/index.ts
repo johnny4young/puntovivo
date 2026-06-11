@@ -54,6 +54,7 @@ import {
 } from './security/csrf.js';
 import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
+import { initServerTelemetryAdapter } from './observability/index.js';
 
 export interface ServerOptions {
   // ENG-179b — explicit `| undefined` on every optional field so
@@ -418,6 +419,14 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
   app.server.setTimeout(SERVER_SOCKET_TIMEOUT_MS);
 
+  // ENG-135b — wire the centralized telemetry adapter (Sentry /
+  // GlitchTip) when the operator provisioned PUNTOVIVO_SENTRY_DSN.
+  // Without the DSN this is a single env read — the SDK is never
+  // imported and the noopSink stays active. The adapter never
+  // throws, so a malformed DSN can never block a boot (a telemetry
+  // failure must never block a sale — same stance as ENG-020/054).
+  await initServerTelemetryAdapter({ appVersion });
+
   // ENG-166 — security headers. helmet ships sane defaults for
   // X-Frame-Options (DENY), X-Content-Type-Options (nosniff),
   // Referrer-Policy (no-referrer), Cross-Origin-Resource-Policy, etc.
@@ -518,9 +527,19 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       return;
     }
 
+    // ENG-135b follow-up — reply with a tRPC-shaped error envelope so
+    // the web client surfaces the real message instead of the cryptic
+    // 'Unable to transform response from server' it produced for the
+    // previous plain {error,message} body (the hook answers before the
+    // tRPC handler, so the shape must be hand-built; -32003 is the
+    // JSON-RPC code tRPC v11 assigns to FORBIDDEN). The stable
+    // CSRF_VALIDATION_FAILED token stays grep-able in the message.
     reply.code(403).send({
-      error: 'CSRF_VALIDATION_FAILED',
-      message: 'Missing or invalid CSRF token',
+      error: {
+        message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',
+        code: -32003,
+        data: { code: 'FORBIDDEN', httpStatus: 403 },
+      },
     });
   });
 
@@ -792,6 +811,15 @@ export {
   type RuntimeConfig,
   type ResolveRuntimeConfigOptions,
 } from './config/runtime.js';
+// ENG-135b — the Electron main installs process crash handlers
+// (apps/desktop/src/main/crash-telemetry.ts) and forwards through
+// these: captureProcessCrash invokes the active telemetry sink
+// directly (tenant-less app diagnostics, redacted, DSN-gated), and
+// flushServerTelemetry drains the SDK buffer before app.exit(1).
+export {
+  captureProcessCrash,
+  flushServerTelemetry,
+} from './observability/index.js';
 // ENG-074b — ESC/POS transport resolver. The Electron main imports
 // this so the hub_client local hardware bridge can dispatch bytes
 // returned from `peripherals.buildReceiptBytes` /

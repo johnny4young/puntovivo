@@ -495,9 +495,15 @@ describe('Auth tRPC Router', () => {
       });
 
       expect(response.statusCode).toBe(403);
+      // ENG-135b follow-up — the 403 body is a tRPC-shaped error
+      // envelope so the web client renders the real message instead
+      // of 'Unable to transform response from server'.
       expect(response.json()).toEqual({
-        error: 'CSRF_VALIDATION_FAILED',
-        message: 'Missing or invalid CSRF token',
+        error: {
+          message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',
+          code: -32003,
+          data: { code: 'FORBIDDEN', httpStatus: 403 },
+        },
       });
     });
 

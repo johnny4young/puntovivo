@@ -234,6 +234,15 @@ changed.
    regex-based — your chunk's name (without the `-<hash>.js`
    suffix) must match the budget key verbatim.
 
+Exception — conditional chunks: a chunk that only exists in some
+builds gets NO budget entry, because the entry would emit a
+"chunk in budget but absent" warning on every build that lacks it.
+The one case today is `sentry` (ENG-135b): the lazy adapter chunk
+(~28 kB gz) only exists when the build ran with
+`VITE_PUNTOVIVO_SENTRY_DSN` set; a DSN-less build (the CI default)
+dead-code-eliminates it entirely. A DSN build surfaces it under
+the gate's "new chunks" warning, which does not fail.
+
 ## Capturing baselines from scratch
 
 ```

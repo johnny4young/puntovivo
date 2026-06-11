@@ -9,6 +9,7 @@
     "$retune3": "ENG-170b — lazy i18n namespaces. The 30 non-bootstrap locale namespaces left the entry as their own dynamic-import chunks (fiscal/kds/aiSettings/... two per ns for en+es). The gate-measured index chunk is 152.75 KB gz after the split, so the ceiling tightens 160->153 to pin the real build output. The per-namespace chunks are < 5 KB gz each so they ride the gate's untracked-chunk warning, not the budget.",
     "$retune4": "ENG-172 — DataTable row virtualisation adds @tanstack/react-virtual (~4 KB gz) to the shared table chunk (TableLoadingState, which carries DataTable + @tanstack/react-table). Gate-measured 21.17 KB gz after the dep lands, so the ceiling lifts 17->22 to pin the real output. No other tracked chunk moved; the index entry is unchanged.",
     "$retune5": "ENG-187 — OperationsPage now owns the default needs-attention panel (tRPC query state, empty/error/loading states, and review CTAs). Gate-measured 16.86 KB gz after the route became the default attention queue, so the ceiling lifts 16->17 to pin the shipped route payload within the 5% threshold.",
+    "$retune6": "ENG-135b follow-up — four chunks had drifted past the 5 KB gz tracking floor and were riding the new-chunk warning on every build: the settings / sales / operations i18n namespace chunks (each name covers an en+es pair; the gate's strip-hash map collapses the pair to one key, so the budget pins the LARGER of the two) and the AuthProvider code split. Gate-measured settings 8.00 / sales 7.22 / AuthProvider 5.86 / operations 5.33 KB gz; entries set at the measured size rounded up.",
     "perChunkGzKb": {
       "index": 153,
       "xlsx": 264,
@@ -35,8 +36,12 @@
       "DashboardPage": 9,
       "OrdersPage": 9,
       "ProductFormModal": 8,
+      "settings": 8,
+      "sales": 8,
       "CustomersPage": 7,
-      "GeographyPage": 6
+      "GeographyPage": 6,
+      "AuthProvider": 6,
+      "operations": 6
     }
   },
   "trpcLatencyMs": {

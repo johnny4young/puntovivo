@@ -61,4 +61,32 @@ describe('renderer security headers (ENG-166)', () => {
       false
     );
   });
+
+  // ENG-135b — a telemetry-enabled renderer must be able to POST
+  // envelopes to the DSN origin; without a DSN the baseline CSP
+  // stays strict, and a malformed DSN never widens it.
+  it('adds the telemetry DSN origin to connect-src only when a valid DSN is set', () => {
+    const withDsn = buildRendererContentSecurityPolicy({
+      isPackagedBuild: true,
+      runtime: defaultRuntime,
+      webDevServerUrl: 'http://localhost:3000',
+      sentryDsn: 'https://key@o0.ingest.sentry.io/1',
+    });
+    assert.match(withDsn, /connect-src[^;]*https:\/\/o0\.ingest\.sentry\.io/);
+
+    const withoutDsn = buildRendererContentSecurityPolicy({
+      isPackagedBuild: true,
+      runtime: defaultRuntime,
+      webDevServerUrl: 'http://localhost:3000',
+    });
+    assert.doesNotMatch(withoutDsn, /sentry/);
+
+    const malformed = buildRendererContentSecurityPolicy({
+      isPackagedBuild: true,
+      runtime: defaultRuntime,
+      webDevServerUrl: 'http://localhost:3000',
+      sentryDsn: 'not-a-dsn',
+    });
+    assert.equal(malformed, withoutDsn);
+  });
 });
