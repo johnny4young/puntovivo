@@ -49,6 +49,8 @@ function buildCtx(args: {
   tenantId: string | null;
   userId: string | null;
   reqId?: string;
+  /** ENG-135c — optional request headers (e.g. x-correlation-id). */
+  headers?: Record<string, string | string[]>;
   server: PuntovivoServer;
 }): BuiltCtx {
   const logs: RecordedLog[] = [];
@@ -63,7 +65,7 @@ function buildCtx(args: {
       id: args.reqId ?? `req-${nanoid()}`,
       log: recordingLog,
       server: args.server.app,
-      headers: {},
+      headers: args.headers ?? {},
     } as unknown as Context['req'],
     res: {} as Context['res'],
     db: getDatabase(),
@@ -280,5 +282,54 @@ describe('trpc tracing middleware (ENG-135)', () => {
     expect(b.logs).toHaveLength(1);
     expect(a.logs[0]?.bindings.correlationId).toBe('corr-a');
     expect(b.logs[0]?.bindings.correlationId).toBe('corr-b');
+  });
+
+  // ENG-135c — the renderer-minted x-correlation-id header (after
+  // strict sanitization) takes precedence over the Fastify reqId so
+  // client error events and server traces share one identifier.
+  it('adopts a valid x-correlation-id header over the Fastify reqId', async () => {
+    const { sink, spans } = buildRecordingSink();
+    registerTelemetrySink(sink);
+    const clientId = '6f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b';
+    const { ctx, logs } = buildCtx({
+      tenantId: optInTenantId,
+      userId: optInUserId,
+      reqId: 'req-fastify-internal',
+      headers: { 'x-correlation-id': clientId },
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+    await caller.ok();
+    expect(logs[0]?.bindings.correlationId).toBe(clientId);
+    await vi.waitFor(() => {
+      expect(spans).toHaveLength(1);
+    });
+    expect(spans[0]?.attrs.correlationId).toBe(clientId);
+  });
+
+  it('falls back to the Fastify reqId when the header is invalid', async () => {
+    const { ctx, logs } = buildCtx({
+      tenantId: optInTenantId,
+      userId: optInUserId,
+      reqId: 'req-fallback',
+      headers: { 'x-correlation-id': 'bad id with spaces <script>' },
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+    await caller.ok();
+    expect(logs[0]?.bindings.correlationId).toBe('req-fallback');
+  });
+
+  it('takes the first entry when the header arrives as an array', async () => {
+    const { ctx, logs } = buildCtx({
+      tenantId: optInTenantId,
+      userId: optInUserId,
+      reqId: 'req-array',
+      headers: { 'x-correlation-id': ['client-id-first', 'client-id-shadow'] },
+      server,
+    });
+    const caller = harnessRouter.createCaller(ctx);
+    await caller.ok();
+    expect(logs[0]?.bindings.correlationId).toBe('client-id-first');
   });
 });

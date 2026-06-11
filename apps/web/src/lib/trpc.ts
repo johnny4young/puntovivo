@@ -42,16 +42,64 @@ function getCookieValue(name: string): string | null {
 }
 
 /**
+ * ENG-135c — renderer-minted correlation id, one per tRPC request.
+ * Mirrors the server-side constant in
+ * packages/server/src/observability/correlation.ts (the client does
+ * not import server runtime modules, only the AppRouter type).
+ */
+const CORRELATION_ID_HEADER = 'x-correlation-id';
+
+let lastCorrelationId: string | null = null;
+
+/**
+ * Mint a fresh correlation id. `crypto.randomUUID` exists in every
+ * modern browser, the Electron renderer, and jsdom; the fallback
+ * keeps ancient webviews working with a lower-entropy id that still
+ * satisfies the server's `[A-Za-z0-9_-]{8,64}` intake.
+ */
+function generateCorrelationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `cid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * The id attached to the MOST RECENT tRPC request from this page.
+ * `captureRenderError` stamps it on client error events so the
+ * renderer event and the server trace of the request that (most
+ * likely) caused it share one identifier. Under concurrent in-flight
+ * requests this is an approximation — documented in
+ * docs/OBSERVABILITY.md. Null until the first request fires.
+ */
+export function getLastCorrelationId(): string | null {
+  return lastCorrelationId;
+}
+
+/** Test-only: reset the per-page correlation state between cases. */
+export function __resetCorrelationForTests(): void {
+  lastCorrelationId = null;
+}
+
+/**
  * Assemble the per-request header set for every tRPC call: the bearer access
  * token, the selected `x-site-id`, the CSRF double-submit token read from the
- * cookie, and the device id. Each header is omitted when its source is unset,
- * so anonymous / pre-registration requests stay valid.
+ * cookie, the device id, and a freshly minted correlation id. Each header is
+ * omitted when its source is unset, so anonymous / pre-registration requests
+ * stay valid (the correlation id is always present — it has no precondition).
  */
 export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const siteId = getStoredSiteId();
   const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
   const deviceId = getCachedDeviceIdSync();
+
+  // ENG-135c — a NEW id per request: the server adopts it (after
+  // strict sanitization) into its request-scoped logs, tracing
+  // middleware attrs, and sink events.
+  const correlationId = generateCorrelationId();
+  lastCorrelationId = correlationId;
+  headers[CORRELATION_ID_HEADER] = correlationId;
 
   if (accessToken) {
     headers.authorization = `Bearer ${accessToken}`;
@@ -122,6 +170,14 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
     if (csrfToken) {
       headers.set(CSRF_HEADER_NAME, csrfToken);
     }
+
+    // ENG-135c — the refresh round-trip builds its headers manually
+    // (it bypasses getTrpcHeaders), so mint its correlation id here;
+    // a failing refresh is exactly the kind of trace support needs
+    // to find from a renderer auth error.
+    const correlationId = generateCorrelationId();
+    lastCorrelationId = correlationId;
+    headers.set(CORRELATION_ID_HEADER, correlationId);
 
     const response = await fetchImpl(REFRESH_PATH, {
       method: 'POST',

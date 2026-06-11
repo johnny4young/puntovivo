@@ -12,6 +12,9 @@ vi.mock('../trpc', () => ({
   vanillaClient: {
     observability: { reportWebVital: { mutate: mutateMock } },
   },
+  // ENG-135c — captureRenderError defaults its correlationId from
+  // this; the webVitals cases never mint requests, so null is right.
+  getLastCorrelationId: () => null,
 }));
 
 vi.mock('web-vitals', () => ({

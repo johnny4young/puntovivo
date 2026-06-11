@@ -70,4 +70,35 @@ describe('buildRequestScopedLoggerBindings', () => {
       expect(typeof value).toBe('string');
     }
   });
+
+  // ENG-135c — renderer-minted correlation id intake.
+  it('adopts a valid x-correlation-id header alongside the requestId', () => {
+    const bindings = buildRequestScopedLoggerBindings(
+      makeStubRequest('req-006', {
+        'x-correlation-id': '6f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b',
+      })
+    );
+    expect(bindings).toEqual({
+      requestId: 'req-006',
+      correlationId: '6f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b',
+    });
+  });
+
+  it('drops an invalid correlation id (the requestId binding survives)', () => {
+    const bindings = buildRequestScopedLoggerBindings(
+      makeStubRequest('req-007', {
+        'x-correlation-id': 'spaces and <chars> are rejected',
+      })
+    );
+    expect(bindings).toEqual({ requestId: 'req-007' });
+  });
+
+  it('takes the first entry when the correlation header arrives as an array', () => {
+    const bindings = buildRequestScopedLoggerBindings(
+      makeStubRequest('req-008', {
+        'x-correlation-id': ['client-id-first', 'client-id-shadow'],
+      })
+    );
+    expect(bindings.correlationId).toBe('client-id-first');
+  });
 });

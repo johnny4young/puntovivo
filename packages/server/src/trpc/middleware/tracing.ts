@@ -7,10 +7,10 @@
  *     `createContext` from the JWT). Procedures called without a
  *     valid session see both fields as null — that is acceptable,
  *     anonymous calls still get a correlationId.
- *   - Reads `correlationId` from `ctx.req.id` (Fastify reqId,
- *     already stamped on `request.log` by the onRequest hook from
- *     ENG-052b). The alias is semantic — both names refer to the
- *     same value.
+ *   - Reads `correlationId` from the renderer-minted
+ *     `x-correlation-id` header when present and valid; otherwise
+ *     falls back to `ctx.req.id` (Fastify reqId, already stamped on
+ *     `request.log` by the onRequest hook from ENG-052b).
  *   - Measures `performance.now()` start / end and logs the result
  *     at info level on success, error level on failure.
  *   - On failure routes the error through `captureException` so
@@ -27,7 +27,9 @@
 
 import {
   captureException,
+  CORRELATION_ID_HEADER,
   recordSpan,
+  sanitizeCorrelationId,
   type TelemetryEventAttrs,
 } from '../../observability/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -36,6 +38,17 @@ import type { Context } from '../context.js';
 const fallbackLog = createModuleLogger('trpc-tracing');
 
 function resolveCorrelationId(ctx: Context): string | null {
+  // ENG-135c — the renderer-minted id (strictly sanitized) wins so
+  // the client error event and this server trace share one
+  // identifier. Header-less callers (SSE, curl, older tests) fall
+  // back to the Fastify reqId — exactly today's behaviour. The
+  // optional chains keep unit-test ctx stubs without headers safe.
+  const fromHeader = sanitizeCorrelationId(
+    (ctx.req as { headers?: Record<string, unknown> } | undefined)?.headers?.[
+      CORRELATION_ID_HEADER
+    ]
+  );
+  if (fromHeader) return fromHeader;
   const reqId = ctx.req?.id;
   if (typeof reqId === 'string' && reqId.length > 0) return reqId;
   if (typeof reqId === 'number') return String(reqId);
