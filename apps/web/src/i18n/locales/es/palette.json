@@ -5,7 +5,8 @@
   "noResultsHint": "Prueba con otra palabra, o cierra la paleta con Esc y usa el menú lateral.",
   "groups": {
     "navigate": "Ir a",
-    "command": "Ejecutar"
+    "command": "Ejecutar",
+    "recent": "Recientes"
   },
   "actions": {
     "navigate": {

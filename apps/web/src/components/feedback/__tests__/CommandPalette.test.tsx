@@ -328,4 +328,134 @@ describe('CommandPalette (ENG-105a)', () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
+
+  // ENG-105g — most-used / recent ordering. The Recent section only
+  // exists when usage was recorded for THIS tenant; a clean storage
+  // renders the exact pre-ENG-105g catalogue order (pinned below).
+  describe('recent ordering (ENG-105g)', () => {
+    const USAGE_KEY = 'palette_usage:tenant-1';
+
+    const seedUsage = (usage: Record<string, { count: number; lastUsedAt: number }>) => {
+      window.localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
+    };
+
+    beforeEach(() => {
+      window.localStorage.removeItem(USAGE_KEY);
+    });
+
+    it('renders no Recent section and the original first item with a clean storage', async () => {
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette');
+
+      expect(
+        screen.queryByTestId('command-palette-recent-header')
+      ).not.toBeInTheDocument();
+      // The catalogue-order contract from ENG-105a stays intact: the
+      // first option is still the dashboard.
+      const listbox = screen.getByRole('listbox');
+      const firstOption = listbox.querySelector('[data-palette-item]');
+      expect(firstOption?.id).toBe(
+        'command-palette-item-navigate.dashboard'
+      );
+    });
+
+    it('surfaces used actions in a Recent section ordered by count then recency, without duplicates', async () => {
+      seedUsage({
+        'navigate.products': { count: 5, lastUsedAt: 100 },
+        'navigate.customers': { count: 2, lastUsedAt: 300 },
+        'navigate.sales': { count: 2, lastUsedAt: 200 },
+      });
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette');
+
+      expect(
+        screen.getByTestId('command-palette-recent-header')
+      ).toBeInTheDocument();
+      const listbox = screen.getByRole('listbox');
+      const optionIds = Array.from(
+        listbox.querySelectorAll('[data-palette-item]')
+      ).map(el => el.id);
+      expect(optionIds.slice(0, 3)).toEqual([
+        'command-palette-item-navigate.products',
+        'command-palette-item-navigate.customers',
+        'command-palette-item-navigate.sales',
+      ]);
+      // No duplicates: each used action appears exactly once.
+      expect(
+        optionIds.filter(id => id === 'command-palette-item-navigate.products')
+      ).toHaveLength(1);
+      // The divider separates the section from the catalogue.
+      expect(
+        screen.getByTestId('command-palette-catalogue-divider')
+      ).toBeInTheDocument();
+    });
+
+    it('hides the Recent section while a query is active', async () => {
+      seedUsage({ 'navigate.products': { count: 5, lastUsedAt: 100 } });
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette');
+      const input = screen.getByTestId('command-palette-search');
+
+      fireEvent.change(input, { target: { value: 'prod' } });
+      expect(
+        screen.queryByTestId('command-palette-recent-header')
+      ).not.toBeInTheDocument();
+    });
+
+    it('caps the Recent section at five actions', async () => {
+      seedUsage({
+        'navigate.dashboard': { count: 9, lastUsedAt: 1 },
+        'navigate.sales': { count: 8, lastUsedAt: 2 },
+        'navigate.products': { count: 7, lastUsedAt: 3 },
+        'navigate.customers': { count: 6, lastUsedAt: 4 },
+        'navigate.inventory': { count: 5, lastUsedAt: 5 },
+        'navigate.orders': { count: 4, lastUsedAt: 6 },
+      });
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette');
+
+      const listbox = screen.getByRole('listbox');
+      const optionIds = Array.from(
+        listbox.querySelectorAll('[data-palette-item]')
+      ).map(el => el.id);
+      // The sixth most-used action ranks below the divider, in its
+      // normal catalogue position — not as a sixth recent entry.
+      expect(optionIds[5]).not.toBe('command-palette-item-navigate.orders');
+    });
+
+    it('excludes role-gated actions from Recent even when usage exists (ranking runs after the gate)', async () => {
+      mockUserRole = 'cashier';
+      seedUsage({
+        // Admin-only destination a previous admin session used on
+        // this same device+tenant.
+        'navigate.auditLogs': { count: 9, lastUsedAt: 100 },
+        'navigate.sales': { count: 1, lastUsedAt: 1 },
+      });
+      render(<CommandPalette isOpen onClose={vi.fn()} />);
+      await screen.findByTestId('command-palette');
+
+      expect(
+        screen.queryByTestId('command-palette-item-navigate.auditLogs')
+      ).not.toBeInTheDocument();
+      const listbox = screen.getByRole('listbox');
+      const firstOption = listbox.querySelector('[data-palette-item]');
+      expect(firstOption?.id).toBe('command-palette-item-navigate.sales');
+    });
+
+    it('records usage when an action is performed so the next open ranks it', async () => {
+      const onClose = vi.fn();
+      render(<CommandPalette isOpen onClose={onClose} />);
+      const container = await screen.findByTestId('command-palette');
+
+      // Activate the second item (sales) with the keyboard.
+      fireEvent.keyDown(container, { key: 'ArrowDown' });
+      fireEvent.keyDown(container, { key: 'Enter' });
+
+      expect(navigateMock).toHaveBeenCalledWith('/sales');
+      const stored = JSON.parse(
+        window.localStorage.getItem(USAGE_KEY) ?? '{}'
+      ) as Record<string, { count: number }>;
+      expect(stored['navigate.sales']?.count).toBe(1);
+    });
+  });
 });

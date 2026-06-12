@@ -77,6 +77,21 @@ plugged into a Linux workstation still fires.
 - **Shortcut hints**: when an action declares `shortcutId`, the
   palette renders the formatted keys on the right gutter. `⌘K` on
   macOS, `Ctrl+K` elsewhere.
+- **Recent ordering** (ENG-105g): the palette records every action
+  activation DEVICE-LOCALLY (`localStorage` key
+  `palette_usage:<tenantId>`, helper `lib/paletteUsage.ts`; nothing
+  travels to the server). When opened with an EMPTY query, a
+  "Recent" section surfaces the top 5 used actions (count desc,
+  tiebreak by recency) above the stable catalogue, without
+  duplicating them below. An active query disables the section —
+  text search keeps the predictable filter behaviour. The ranking
+  runs AFTER the role/module gate, so an action a previous admin
+  used on the same device never leaks into a cashier's section.
+  Section headers are presentational (`aria-hidden`): the listbox
+  stays a flat option list for assistive tech, and the wrap-around
+  semantics from ENG-105d operate over the combined list. With no
+  usage recorded the palette renders the exact pre-ENG-105g
+  catalogue order.
 
 ## How to add a shortcut
 
