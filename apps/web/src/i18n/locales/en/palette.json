@@ -5,7 +5,8 @@
   "noResultsHint": "Try a different keyword, or close the palette with Esc and use the sidebar.",
   "groups": {
     "navigate": "Go to",
-    "command": "Run"
+    "command": "Run",
+    "recent": "Recent"
   },
   "actions": {
     "navigate": {

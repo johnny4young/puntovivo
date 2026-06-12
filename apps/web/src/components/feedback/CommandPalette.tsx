@@ -13,7 +13,7 @@
  * @module components/feedback/CommandPalette
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
@@ -26,6 +26,11 @@ import {
   type CommandAction,
   type CommandActionContext,
 } from '@/lib/commandPaletteActions';
+import {
+  loadPaletteUsage,
+  rankRecentActions,
+  recordPaletteActionUsage,
+} from '@/lib/paletteUsage';
 import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 
@@ -98,6 +103,15 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     [user?.role, modules, isPlaceholder]
   );
 
+  // ENG-105g — device-local usage map, read once per palette open
+  // (the body remounts on every open, so each open sees the latest
+  // ranking without any effect/state plumbing).
+  const tenantId = user?.tenantId ?? null;
+  const usage = useMemo(
+    () => loadPaletteUsage(tenantId),
+    [tenantId]
+  );
+
   const filtered = useMemo(
     () =>
       filterActionsByQuery(
@@ -109,12 +123,38 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     [visibleActions, query, resolveLabel, resolveDescription]
   );
 
+  // ENG-105g — "Recent" section: only when the query is empty (an
+  // active search keeps the predictable catalogue-filter behaviour),
+  // ranked AFTER the role/module gate (visibleActions), top
+  // count-then-recency. With no usage recorded this is empty and the
+  // palette renders exactly the pre-ENG-105g list.
+  const recentActions = useMemo(
+    () =>
+      query.trim() === '' ? rankRecentActions(visibleActions, usage) : [],
+    [query, visibleActions, usage]
+  );
+
+  // The flat option list the keyboard/ARIA machinery operates on:
+  // recent section first, then the catalogue WITHOUT the duplicated
+  // recent ids. Section headers are presentational only — indexes,
+  // wrap-around, and aria-activedescendant all run over this array.
+  const orderedActions = useMemo(() => {
+    if (recentActions.length === 0) {
+      return filtered;
+    }
+    const recentIds = new Set(recentActions.map(action => action.id));
+    return [
+      ...recentActions,
+      ...filtered.filter(action => !recentIds.has(action.id)),
+    ];
+  }, [recentActions, filtered]);
+
   // Derive a clamped selection at render time — when the filter
   // shrinks, the index automatically follows without a setState in
   // an effect (avoids cascading renders).
   const selectedIndex = Math.min(
     Math.max(0, rawSelectedIndex),
-    Math.max(0, filtered.length - 1)
+    Math.max(0, orderedActions.length - 1)
   );
   const setSelectedIndex = setRawSelectedIndex;
 
@@ -131,7 +171,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   // Keep the selected row scrolled into view as the user navigates
   // through a long list. Reads the DOM after render; no setState.
   useEffect(() => {
-    if (filtered.length === 0) return;
+    if (orderedActions.length === 0) return;
     const items = listRef.current?.querySelectorAll('[data-palette-item]');
     if (!items) return;
     const target = items[selectedIndex];
@@ -140,10 +180,13 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     if (target instanceof HTMLElement && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'nearest' });
     }
-  }, [selectedIndex, filtered]);
+  }, [selectedIndex, orderedActions]);
 
   const performAction = (action: CommandAction) => {
     const ctx: CommandActionContext = { navigate, logout };
+    // ENG-105g — remember the activation (device-local, best-effort)
+    // so the next open ranks this action into the Recent section.
+    recordPaletteActionUsage(action.id, tenantId);
     onClose();
     void Promise.resolve(action.perform(ctx)).catch(err => {
       console.error('command palette action threw', { actionId: action.id, err });
@@ -156,17 +199,17 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     // detouring through Home/End. Empty-list guards stay no-op.
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      if (filtered.length === 0) return;
+      if (orderedActions.length === 0) return;
       setSelectedIndex(
-        selectedIndex + 1 >= filtered.length ? 0 : selectedIndex + 1
+        selectedIndex + 1 >= orderedActions.length ? 0 : selectedIndex + 1
       );
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      if (filtered.length === 0) return;
+      if (orderedActions.length === 0) return;
       setSelectedIndex(
-        selectedIndex - 1 < 0 ? filtered.length - 1 : selectedIndex - 1
+        selectedIndex - 1 < 0 ? orderedActions.length - 1 : selectedIndex - 1
       );
       return;
     }
@@ -177,12 +220,12 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     }
     if (event.key === 'End') {
       event.preventDefault();
-      setSelectedIndex(Math.max(0, filtered.length - 1));
+      setSelectedIndex(Math.max(0, orderedActions.length - 1));
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const action = filtered[selectedIndex];
+      const action = orderedActions[selectedIndex];
       if (action) {
         performAction(action);
       }
@@ -215,15 +258,15 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
             aria-controls="command-palette-listbox"
             aria-autocomplete="list"
             aria-activedescendant={
-              filtered[selectedIndex]
-                ? `command-palette-item-${filtered[selectedIndex]!.id}`
+              orderedActions[selectedIndex]
+                ? `command-palette-item-${orderedActions[selectedIndex]!.id}`
                 : undefined
             }
             data-testid="command-palette-search"
             className="w-full bg-transparent text-[14px] text-secondary-900 outline-none placeholder:text-secondary-500"
           />
         </div>
-        {filtered.length === 0 ? (
+        {orderedActions.length === 0 ? (
           <div
             className="px-4 py-6 text-center text-sm text-secondary-500"
             data-testid="command-palette-empty"
@@ -243,7 +286,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
             aria-label={t('palette:title')}
             className="max-h-[20rem] overflow-y-auto py-1"
           >
-            {filtered.map((action, index) => {
+            {orderedActions.map((action, index) => {
               const isSelected = index === selectedIndex;
               const shortcut = action.shortcutId
                 ? getShortcutById(action.shortcutId)
@@ -251,42 +294,67 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
               const shortcutHint = shortcut
                 ? formatKeysForDisplay(shortcut.keys)
                 : null;
+              // ENG-105g — presentational section headers. They are
+              // NOT options: no data-palette-item (the scroll/index
+              // machinery skips them) and aria-hidden (the listbox
+              // stays a flat option list for assistive tech).
+              const sectionHeader =
+                recentActions.length > 0 && index === 0 ? (
+                  <li
+                    aria-hidden="true"
+                    role="presentation"
+                    data-testid="command-palette-recent-header"
+                    className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-secondary-500"
+                  >
+                    {t('palette:groups.recent')}
+                  </li>
+                ) : recentActions.length > 0 &&
+                  index === recentActions.length ? (
+                  <li
+                    aria-hidden="true"
+                    role="presentation"
+                    data-testid="command-palette-catalogue-divider"
+                    className="mx-4 mb-1 mt-2 border-t border-line/70"
+                  />
+                ) : null;
               return (
-                <li
-                  key={action.id}
-                  id={`command-palette-item-${action.id}`}
-                  data-palette-item
-                  data-testid={`command-palette-item-${action.id}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
-                    isSelected
-                      ? 'bg-primary-50/80 text-primary-900'
-                      : 'text-secondary-700 hover:bg-secondary-50/60'
-                  )}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  onClick={() => performAction(action)}
-                >
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium text-secondary-950">
-                      {resolveLabel(action)}
-                    </span>
-                    {action.descriptionKey && (
-                      <span className="truncate text-[11.5px] text-secondary-500">
-                        {resolveDescription(action)}
+                <Fragment key={action.id}>
+                  {sectionHeader}
+                  <li
+                    id={`command-palette-item-${action.id}`}
+                    data-palette-item
+                    data-testid={`command-palette-item-${action.id}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-[13px] transition',
+                      isSelected
+                        ? 'bg-primary-50/80 text-primary-900'
+                        : 'text-secondary-700 hover:bg-secondary-50/60'
+                    )}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    onClick={() => performAction(action)}
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-medium text-secondary-950">
+                        {resolveLabel(action)}
+                      </span>
+                      {action.descriptionKey && (
+                        <span className="truncate text-[11.5px] text-secondary-500">
+                          {resolveDescription(action)}
+                        </span>
+                      )}
+                    </div>
+                    {shortcutHint && (
+                      <span
+                        className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
+                        data-testid={`command-palette-shortcut-${action.id}`}
+                      >
+                        {shortcutHint}
                       </span>
                     )}
-                  </div>
-                  {shortcutHint && (
-                    <span
-                      className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
-                      data-testid={`command-palette-shortcut-${action.id}`}
-                    >
-                      {shortcutHint}
-                    </span>
-                  )}
-                </li>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>
