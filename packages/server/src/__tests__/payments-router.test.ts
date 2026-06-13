@@ -10,9 +10,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashSessions,
+  companies,
   paymentOutbox,
   salePayments,
   sales,
+  sites,
   tenants,
   users,
   type PaymentRailId,
@@ -85,8 +88,52 @@ async function seedHarness(suffix: string): Promise<RouterHarness> {
       updatedAt: now,
     },
   ]);
+  // ENG-177c — `sales` now enforces `cash_session_id IS NOT NULL OR
+  // status = 'draft'`. The reconciliation fixtures insert completed
+  // sales directly, so seed a company + site + closed session and stamp
+  // it on every fixture sale (the reconciler matches by sale_payment ↔
+  // payment_outbox, so the specific session is irrelevant here).
+  const companyId = `payments-rtr-co-${suffix}`;
+  const siteId = `payments-rtr-site-${suffix}`;
+  const cashSessionId = `payments-rtr-cs-${suffix}`;
+  await db.insert(companies).values({
+    id: companyId,
+    tenantId,
+    name: `PaymentsRtr Co ${suffix}`,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(sites).values({
+    id: siteId,
+    tenantId,
+    companyId,
+    name: `PaymentsRtr Site ${suffix}`,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(cashSessions).values({
+    id: cashSessionId,
+    tenantId,
+    siteId,
+    cashierId,
+    registerName: `reg-${suffix}`,
+    openingFloat: 0,
+    openingCountDenominations: [],
+    expectedBalance: 0,
+    status: 'closed',
+    openedAt: now,
+    closedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  cashSessionByTenant.set(tenantId, cashSessionId);
   return { tenantId, adminId, managerId, cashierId };
 }
+
+// ENG-177c — maps each seeded tenant to its fixture cash session so
+// `insertSalePayment` can satisfy the committed-sale CHECK constraint.
+const cashSessionByTenant = new Map<string, string>();
 
 async function insertSalePayment(args: {
   tenantId: string;
@@ -111,6 +158,7 @@ async function insertSalePayment(args: {
     paymentMethod: args.method,
     paymentStatus: 'paid',
     status: 'completed',
+    cashSessionId: cashSessionByTenant.get(args.tenantId) ?? null,
     createdBy: args.adminId,
     createdAt,
     updatedAt: createdAt,

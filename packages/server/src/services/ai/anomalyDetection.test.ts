@@ -154,6 +154,23 @@ async function makeSale(opts: MakeSaleOpts): Promise<string> {
   const db = getDatabase();
   const id = nanoid();
   const iso = opts.createdAt.toISOString();
+  const status = opts.status ?? 'completed';
+  // ENG-177c — the schema now enforces `cash_session_id IS NOT NULL OR
+  // status = 'draft'`. These fixtures bypass the application layer, so a
+  // committed sale without a supplied session would violate the CHECK.
+  // Attach a throwaway closed session; the anomaly detectors group by
+  // cashier (created_by), so the specific session is irrelevant to every
+  // assertion in this file.
+  let cashSessionId = opts.cashSessionId ?? null;
+  if (cashSessionId === null && status !== 'draft') {
+    cashSessionId = await makeSession({
+      tenantId: opts.tenantId,
+      siteId: opts.tenantId === tenantA ? siteA : siteB,
+      cashierId: opts.cashierId,
+      openedAt: opts.createdAt,
+      closedAt: opts.createdAt,
+    });
+  }
   await db.insert(sales).values({
     id,
     tenantId: opts.tenantId,
@@ -165,8 +182,8 @@ async function makeSale(opts: MakeSaleOpts): Promise<string> {
     total: opts.total ?? 100,
     paymentMethod: 'cash',
     paymentStatus: 'paid',
-    status: opts.status ?? 'completed',
-    cashSessionId: opts.cashSessionId ?? null,
+    status,
+    cashSessionId,
     notes: null,
     createdBy: opts.cashierId,
     createdAt: iso,

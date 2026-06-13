@@ -21,15 +21,19 @@ import {
 } from '../../__fixtures__/payment-statements/index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashSessions,
+  companies,
   paymentOutbox,
   salePayments,
   sales,
+  sites,
   tenants,
   users,
 } from '../db/schema.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { runReconciliationPass } from '../services/payments/reconciliation.js';
 import type { TiebreakFn } from '../services/payments/ai-tiebreak.js';
+import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 
 const TENANT_ID = 'eng038c-fixture-tenant';
 const ADMIN_ID = 'eng038c-fixture-admin';
@@ -69,6 +73,13 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
   // through `payment_outbox.sale_payment_id`, but the test invariant is
   // that the deterministic fixture and the seeded DB stay in lockstep.
   const tenders = listPosTenders(fixture);
+  // ENG-177c — committed sales need a cash session; one shared closed
+  // session for the whole fixture satisfies the CHECK (the reconciler
+  // matches via sale_payment ↔ payment_outbox, never the session).
+  const cashSessionId = await seedCommittedSaleSession({
+    tenantId: TENANT_ID,
+    cashierId: ADMIN_ID,
+  });
   for (const tender of tenders) {
     const saleId = `sale-${tender.salePaymentId}`;
     await db.insert(sales).values({
@@ -82,6 +93,7 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
       paymentMethod: 'card',
       paymentStatus: 'paid',
       status: 'completed',
+      cashSessionId,
       createdBy: ADMIN_ID,
       createdAt: tender.createdAt,
       updatedAt: tender.createdAt,
@@ -130,6 +142,12 @@ async function cleanupTenant(): Promise<void> {
   await db.delete(paymentOutbox).where(eq(paymentOutbox.tenantId, TENANT_ID));
   await db.delete(salePayments).where(eq(salePayments.tenantId, TENANT_ID));
   await db.delete(sales).where(eq(sales.tenantId, TENANT_ID));
+  // ENG-177c — the committed-sale fixture now seeds a cash session +
+  // company + site; delete them in FK order before the tenant so the
+  // final tenant delete does not hit a RESTRICT on a dangling reference.
+  await db.delete(cashSessions).where(eq(cashSessions.tenantId, TENANT_ID));
+  await db.delete(sites).where(eq(sites.tenantId, TENANT_ID));
+  await db.delete(companies).where(eq(companies.tenantId, TENANT_ID));
   await db.delete(users).where(eq(users.tenantId, TENANT_ID));
   await db.delete(tenants).where(eq(tenants.id, TENANT_ID));
 }

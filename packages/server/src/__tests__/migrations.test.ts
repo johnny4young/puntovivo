@@ -2,11 +2,11 @@
  * Versioned Drizzle migrations (ENG-002) — integration tests
  *
  * Covers three end-to-end scenarios:
- *  - Fresh DB boot → the baseline migration lands exactly once.
+ *  - Fresh DB boot → the full migration journal lands exactly once.
  *  - Pre-ENG-002 install adopted via the shim → baseline row is seeded
- *    without re-running DDL.
+ *    without re-running baseline DDL, then newer migrations run.
  *  - Restarting the server against the same DB file → no-op, count stays
- *    at 1, no errors.
+ *    at the journal length, no errors.
  *
  * The baseline hash check doubles as a regression pin: anyone regenerating
  * the baseline SQL (tightening a default, removing a column, etc.) MUST
@@ -50,6 +50,14 @@ function readBaseline(): ExpectedMigration {
   return readExpectedMigrations()[0]!;
 }
 
+function readMigrationSql(tag: string): string {
+  return readFileSync(resolve(MIGRATIONS_FOLDER, `${tag}.sql`), 'utf8');
+}
+
+function readBaselineSql(): string {
+  return readMigrationSql(readBaseline().tag);
+}
+
 /**
  * Read every migration entry from `meta/_journal.json` so the assertions
  * scale automatically when new migrations are added on top of the
@@ -90,6 +98,13 @@ function listMigrationRows(sqlite: Database.Database): DrizzleMigrationRow[] {
   return sqlite
     .prepare('SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id')
     .all() as DrizzleMigrationRow[];
+}
+
+function getTableSql(sqlite: Database.Database, tableName: string): string {
+  const row = sqlite
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(tableName) as { sql?: string } | undefined;
+  return row?.sql ?? '';
 }
 
 describe('Versioned Drizzle migrations (ENG-002)', () => {
@@ -158,42 +173,28 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     // column would then carry 'null' and silently dodge IS NULL checks.
     // The 2026-06 squash removed every instance; this pin keeps any
     // regenerated baseline (or future migration) honest.
-    const baselineSql = readFileSync(
-      resolve(MIGRATIONS_FOLDER, `${readBaseline().tag}.sql`),
-      'utf8'
-    );
+    const baselineSql = readBaselineSql();
     expect(baselineSql).not.toMatch(/DEFAULT\s+'null'/i);
   });
 
-  it('adopts a pre-ENG-002 install by seeding the baseline row without re-running DDL', async () => {
+  it('adopts a pre-ENG-002 install by seeding only the baseline, then running newer DDL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-'));
     createdPaths.push(dir);
     const dbPath = join(dir, 'legacy.db');
 
     // Simulate a DB bootstrapped BEFORE versioned migrations existed:
-    // `tenants` already present, `__drizzle_migrations` absent. We only
-    // seed the `tenants` table (not the full schema) because the adoption
-    // check keys off its existence; the rest of the schema is assumed to
-    // have been materialised by a transitional release before the
-    // upgrade (the seedCatalogs hook skips missing catalog tables with
-    // an actionable warning).
+    // the full squashed-baseline schema is already present, but
+    // `__drizzle_migrations` is absent. The adoption shim must mark only
+    // that baseline as applied; post-baseline migrations still have to
+    // execute on top of the existing objects.
     const legacySqlite = new Database(dbPath, { nativeBinding });
+    legacySqlite.exec(readBaselineSql());
     legacySqlite
-      .prepare(
-        'CREATE TABLE IF NOT EXISTS tenants (' +
-          'id TEXT PRIMARY KEY, ' +
-          'name TEXT NOT NULL, ' +
-          "slug TEXT NOT NULL DEFAULT '', " +
-          'settings TEXT, ' +
-          'is_active INTEGER DEFAULT 1, ' +
-          "created_at TEXT NOT NULL DEFAULT (datetime('now')), " +
-          "updated_at TEXT NOT NULL DEFAULT (datetime('now'))" +
-          ')'
-      )
-      .run();
-    legacySqlite
-      .prepare('INSERT INTO tenants (id, name, slug) VALUES (?, ?, ?)')
-      .run('legacy-tenant', 'Legacy Tenant', 'legacy');
+      .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+      .run('legacy-setting', 'preserved');
+    expect(getTableSql(legacySqlite, 'sales')).not.toContain(
+      'chk_sales_cash_session_or_draft'
+    );
     legacySqlite.close();
 
     // Now boot through the production path. The shim should fire because
@@ -206,19 +207,20 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
     };
     const rows = listMigrationRows(liveDb.$client);
 
-    // Exactly the journal entries — no double-insert, no rerun. The shim
-    // adopts pre-ENG-002 installs by seeding the baseline row, and any
-    // migration applied after the baseline (e.g. Iter 2's
-    // `0001_receipt_templates`) must also be present because the
-    // standard migrator runs them on top of the seeded baseline.
+    // Exactly the journal entries — no double-insert. The baseline row
+    // came from the adoption shim, and every newer migration came from
+    // the standard migrator running on top of that seeded baseline.
     expectMigrationsMatchJournal(rows);
+    expect(getTableSql(liveDb.$client, 'sales')).toContain(
+      'chk_sales_cash_session_or_draft'
+    );
 
-    // The legacy tenant row must still be there — proves the shim did
+    // The legacy row must still be there — proves the shim did
     // not wipe or re-create the DB.
-    const preservedTenant = liveDb.$client
-      .prepare('SELECT id, name FROM tenants WHERE id = ?')
-      .get('legacy-tenant') as { id: string; name: string } | undefined;
-    expect(preservedTenant?.name).toBe('Legacy Tenant');
+    const preservedSetting = liveDb.$client
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('legacy-setting') as { value: string } | undefined;
+    expect(preservedSetting?.value).toBe('preserved');
   });
 
   it('refuses to adopt a DB whose tables predate the journal (sentinel column missing)', async () => {
@@ -344,74 +346,18 @@ describe('Versioned Drizzle migrations (ENG-002)', () => {
   });
 
   it('populates catalog rows on an adopted DB whose schema was already materialised', async () => {
-    // ENG-002 Step 3 regression pin: adopted DBs whose journal is
-    // pinned by ensureMigrationBaseline() skip every migration, so
-    // seedCatalogs() is the only path that still writes the seed
-    // rows on every boot. This test seeds the catalog tables empty
-    // (mimicking a DB that went through dual-path materialisation at
-    // least once but whose catalog rows got wiped or never populated)
-    // and asserts the post-migration hook refills them.
+    // ENG-002 Step 3 regression pin: adopted DBs whose baseline is
+    // pinned by ensureMigrationBaseline() still rely on seedCatalogs()
+    // to write the catalog rows on every boot. This test materialises
+    // the full baseline schema without Drizzle's tracking table and
+    // asserts the post-migration hook refills the empty catalogs after
+    // newer migrations run.
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-adopted-catalogs-'));
     createdPaths.push(dir);
     const dbPath = join(dir, 'adopted.db');
 
     const legacy = new Database(dbPath, { nativeBinding });
-    const runDdl = (sql: string): void => {
-      legacy.prepare(sql).run();
-    };
-    // Pre-existing schema: a handful of tables that the shim probe
-    // keys off (tenants) plus the catalog tables the seeder targets,
-    // empty. This is a realistic shape for an install that booted
-    // under dual-path code and then had its catalog rows cleared
-    // for a test scenario — the seeder is the recovery path.
-    runDdl(
-      'CREATE TABLE IF NOT EXISTS tenants (' +
-        'id TEXT PRIMARY KEY, ' +
-        'name TEXT NOT NULL, ' +
-        "slug TEXT NOT NULL DEFAULT '', " +
-        'settings TEXT, ' +
-        'is_active INTEGER DEFAULT 1, ' +
-        "created_at TEXT NOT NULL DEFAULT (datetime('now')), " +
-        "updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
-    );
-    runDdl(
-      'CREATE TABLE IF NOT EXISTS currency_catalog (' +
-        'code TEXT PRIMARY KEY, ' +
-        'name_en TEXT NOT NULL, ' +
-        'name_es TEXT NOT NULL, ' +
-        'symbol TEXT NOT NULL, ' +
-        'decimals INTEGER NOT NULL, ' +
-        'display_decimals INTEGER NOT NULL)'
-    );
-    runDdl(
-      'CREATE TABLE IF NOT EXISTS country_catalog (' +
-        'code TEXT PRIMARY KEY, ' +
-        'name_en TEXT NOT NULL, ' +
-        'name_es TEXT NOT NULL, ' +
-        'default_locale TEXT NOT NULL, ' +
-        'general_locale TEXT NOT NULL, ' +
-        'default_currency_code TEXT NOT NULL, ' +
-        "additional_currency_codes TEXT NOT NULL DEFAULT '[]', " +
-        'default_timezone TEXT NOT NULL, ' +
-        'first_day_of_week INTEGER NOT NULL, ' +
-        'date_format_short TEXT NOT NULL, ' +
-        'date_format_long TEXT NOT NULL, ' +
-        "tax_id_types_hint TEXT NOT NULL DEFAULT '[]', " +
-        'ui_locale_ready INTEGER NOT NULL DEFAULT 1)'
-    );
-    // ENG-176c — adopted DBs that ran through every migration up to
-    // 0038 carry the renamed `fiscal_identification_types` (composite
-    // PK) shape; the bridge shim keeps that name intact on rollout.
-    runDdl(
-      'CREATE TABLE IF NOT EXISTS fiscal_identification_types (' +
-        'country_code TEXT NOT NULL, ' +
-        'code TEXT NOT NULL, ' +
-        'abbr TEXT NOT NULL, ' +
-        'name_es TEXT NOT NULL, ' +
-        'name_en TEXT NOT NULL, ' +
-        'natural_person INTEGER NOT NULL, ' +
-        'PRIMARY KEY (country_code, code))'
-    );
+    legacy.exec(readBaselineSql());
     legacy.close();
 
     await initDatabase({ dbPath, seedData: false });

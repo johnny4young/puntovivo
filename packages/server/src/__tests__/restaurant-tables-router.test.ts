@@ -13,6 +13,7 @@ import { getDatabase } from '../db/index.js';
 import { nanoid } from 'nanoid';
 import {
   auditLogs,
+  cashSessions,
   companies,
   restaurantTables,
   sales,
@@ -105,8 +106,34 @@ async function seedHarness(suffix: string): Promise<Harness> {
       updatedAt: now,
     },
   ]);
+  // ENG-177c — a committed sale now requires a cash session at the
+  // schema level (CHECK cash_session_id IS NOT NULL OR status='draft').
+  // Seed one closed session per harness so the `insertDraftOnTable`
+  // fixture can stamp it on its non-draft rows; the draft-status read
+  // model ignores the session entirely.
+  const cashSessionId = `rt-cs-${suffix}`;
+  await db.insert(cashSessions).values({
+    id: cashSessionId,
+    tenantId,
+    siteId,
+    cashierId,
+    registerName: `reg-${suffix}`,
+    openingFloat: 0,
+    openingCountDenominations: [],
+    expectedBalance: 0,
+    status: 'closed',
+    openedAt: now,
+    closedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  cashSessionByTenant.set(tenantId, cashSessionId);
   return { tenantId, adminId, managerId, cashierId, siteId };
 }
+
+// ENG-177c — maps each seeded tenant to its fixture cash session so the
+// non-draft `insertDraftOnTable` rows satisfy the committed-sale CHECK.
+const cashSessionByTenant = new Map<string, string>();
 
 function buildCtx(
   tenantId: string,
@@ -384,6 +411,7 @@ describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
     const id = nanoid();
     const now = overrides.suspendedAt ?? new Date().toISOString();
     const suspended = overrides.suspended ?? true;
+    const status = overrides.status ?? 'draft';
     await db.insert(sales).values({
       id,
       tenantId: tenantIdValue,
@@ -395,7 +423,10 @@ describe('restaurantTables.listWithDraftStatus (ENG-039c)', () => {
       discountAmount: 0,
       paymentMethod: 'cash',
       paymentStatus: 'pending',
-      status: overrides.status ?? 'draft',
+      status,
+      // ENG-177c — committed rows need a session; drafts stay null
+      // (exempt) so this fixture still exercises the null-session path.
+      cashSessionId: status === 'draft' ? null : cashSessionByTenant.get(tenantIdValue) ?? null,
       createdBy: actorId,
       suspendedAt: suspended ? now : null,
       suspendedBy: suspended ? actorId : null,

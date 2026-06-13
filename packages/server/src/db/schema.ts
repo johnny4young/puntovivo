@@ -1922,6 +1922,21 @@ export const sales = sqliteTable(
     // settleCurrencyCode IS NULL). A negative or zero rate has no
     // accounting meaning and would silently zero out totals.
     check('chk_sales_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
+    // ENG-177c — defense-in-depth for the cash-session invariant. The
+    // rule "every committed sale is bound to a cash session" is enforced
+    // in application code (requireActiveCashSession + the in-tx
+    // assertCashSessionStillOpen, ENG-042/055), but a raw write, a future
+    // sync path, or a bug could otherwise persist a non-draft sale with a
+    // null cashSessionId. Drafts are exempt by design (a sale may be
+    // started before its session is resolved); every other status must
+    // carry a session. No row written through the app violates this today
+    // (both INSERT sites bind a session, even for drafts), so the
+    // constraint is purely additive — it pins the invariant at the
+    // storage layer.
+    check(
+      'chk_sales_cash_session_or_draft',
+      sql`${table.cashSessionId} IS NOT NULL OR ${table.status} = 'draft'`
+    ),
   ]
 );
 

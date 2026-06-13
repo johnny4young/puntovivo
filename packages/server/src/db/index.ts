@@ -231,15 +231,17 @@ export async function initDatabase(
   if (runMigrations) {
     // Adoption shim for DBs that predate versioned migrations: when the
     // DB already has user tables but no `__drizzle_migrations` row, seed
-    // the full journal so `drizzleMigrate` treats every migration as
-    // already applied and skips DDL that would collide with the
-    // pre-existing objects.
+    // the squashed baseline migration so `drizzleMigrate` skips the
+    // baseline DDL that would collide with pre-existing objects. Newer
+    // migrations still run unless the adopted DB lacks their target
+    // table entirely (partial legacy/test DBs have nothing to migrate).
     ensureMigrationBaseline(sqlite, effectiveMigrationsFolder);
 
     // Apply every migration whose `folderMillis` is greater than the
     // latest row in `__drizzle_migrations`. On a fresh DB this runs
-    // the full journal; on an adopted DB the shim above pinned it so
-    // this is a no-op.
+    // the full journal; on an adopted DB the shim above pins the
+    // baseline and only absent-target no-op migrations, so applicable
+    // post-baseline migrations still execute normally.
     //
     // Hard-fail when the migrations folder is absent: every real boot
     // path ships it (dev resolves the default via `getDefaultMigrationsFolder()`,
@@ -254,6 +256,41 @@ export async function initDatabase(
         `migrations folder missing at ${effectiveMigrationsFolder}; ship the Drizzle migrations alongside the server bundle (dev resolves the module-local path; packaged builds pass migrationsFolder explicitly)`
       );
     }
+    // ENG-177c — snapshot the applied-migration count so the
+    // post-migrate integrity check below runs ONLY on a boot that
+    // actually lands a migration. A steady-state boot must not pay a
+    // full-DB `foreign_key_check`, and must never refuse to start over a
+    // pre-existing orphan it did not create. The tracking table does not
+    // exist until the first migrate, so a missing table reads as zero.
+    // Capture the non-null connection so the closure keeps the
+    // narrowing the surrounding straight-line code already established
+    // (`sqlite` is the module-level `Database | null`).
+    const migrationsConn = sqlite;
+    const countAppliedMigrations = (): number => {
+      try {
+        const row = migrationsConn
+          .prepare('SELECT COUNT(*) AS n FROM __drizzle_migrations')
+          .get() as { n?: number } | undefined;
+        return row?.n ?? 0;
+      } catch {
+        return 0;
+      }
+    };
+    const appliedMigrationsBefore = countAppliedMigrations();
+
+    // ENG-177c — table-rebuild migrations (e.g. adding a CHECK to a core
+    // table) must run with foreign-key enforcement OFF at the connection
+    // level. drizzle-orm wraps every pending migration in a single
+    // BEGIN/COMMIT, and `PRAGMA foreign_keys` is a no-op inside a
+    // transaction (verified empirically), so a rebuild's `DROP TABLE`
+    // would otherwise fire ON DELETE CASCADE on child rows (sale_items,
+    // sale_payments, ...) and silently destroy data on any install that
+    // already has rows. We disable enforcement only for the migrate span
+    // and restore it in `finally`, then assert integrity with
+    // `foreign_key_check` below. Setting it here (before drizzle's BEGIN)
+    // is what makes the OFF take effect — it must NOT live inside a
+    // migration file.
+    sqlite.pragma('foreign_keys = OFF');
     try {
       drizzleMigrate(db, { migrationsFolder: effectiveMigrationsFolder });
     } catch (err) {
@@ -294,6 +331,32 @@ export async function initDatabase(
         }. The failing migration was rolled back, so the schema is unchanged by this step; fix the cause (disk space, corrupted file, manual schema edits) and restart.`,
         { cause: err }
       );
+    } finally {
+      // Restore enforcement for normal operation regardless of whether
+      // migrate succeeded — every runtime query after boot relies on it.
+      sqlite.pragma('foreign_keys = ON');
+    }
+
+    // ENG-177c — with enforcement re-enabled, surface any orphaned row a
+    // migration may have introduced (e.g. a botched table rebuild that
+    // dropped a parent without re-pointing children) instead of limping
+    // on with silent corruption. Gated on "a migration actually ran this
+    // boot" so a steady-state boot pays nothing and an adopted DB with a
+    // pre-existing orphan is never refused over a migration it skipped.
+    // On a fresh boot the data tables are still empty here (seeds run
+    // below), so the check is trivially clean.
+    if (countAppliedMigrations() > appliedMigrationsBefore) {
+      const fkViolations = sqlite.pragma('foreign_key_check') as unknown[];
+      if (Array.isArray(fkViolations) && fkViolations.length > 0) {
+        dbLog.error(
+          { dbPath, violationCount: fkViolations.length, violations: fkViolations.slice(0, 10) },
+          'foreign-key integrity check failed after migrations'
+        );
+        throw new Error(
+          `Database failed its foreign-key integrity check after migrations (${fkViolations.length} orphaned reference(s)). ` +
+            'The app did not start to avoid operating on a corrupt schema; restore from a backup or fix the offending rows.'
+        );
+      }
     }
 
     // ENG-002 Step 3 — post-migration catalog seeds. Idempotent via
@@ -351,24 +414,27 @@ interface DrizzleJournal {
  * ENG-002 — adoption shim for DBs that predate versioned migrations.
  *
  * If the DB already carries application data (probed via any user
- * table) but has no `__drizzle_migrations` row, this function seeds
- * **every** journal entry with the exact (hash, created_at) tuple
- * that drizzle-orm's migrator would have written itself. That way the
- * first real `drizzleMigrate()` call finds nothing pending and skips
- * all DDL that would collide with the existing objects.
+ * table) but has no `__drizzle_migrations` row, this function seeds the
+ * squashed baseline entry with the exact (hash, created_at) tuple that
+ * drizzle-orm's migrator would have written itself. That way the first
+ * real `drizzleMigrate()` call skips the baseline DDL that would collide
+ * with the existing objects, then applies every newer migration that is
+ * relevant to the adopted schema.
  *
  * No-op on fresh DBs (let migrate() run everything from scratch) and
  * on already-adopted DBs (tracking row exists).
  *
- * Rationale for seeding the full journal: legacy installs reached the
- * current schema shape via a now-retired raw-DDL bootstrap. Running an
- * `ALTER TABLE` in a later migration against such a DB is not safe if
- * the target column was already present from that bootstrap. Pinning
- * the whole journal at adoption time avoids the replay. Operators who
- * skipped the transitional release that ran the raw-DDL path must
- * adopt a bridge build once before upgrading — the post-migration
- * `seedCatalogs()` hook logs an actionable warning when the expected
- * tables are absent.
+ * Rationale for seeding the baseline: legacy installs reached the
+ * baseline schema shape via a now-retired raw-DDL bootstrap. Replaying
+ * that baseline would collide with the existing tables, but pinning the
+ * whole journal would also skip newer constraints/data fixes (for
+ * example ENG-177c's sales CHECK). Operators who skipped the
+ * transitional release that ran the raw-DDL path must adopt a bridge
+ * build once before upgrading — the post-migration `seedCatalogs()`
+ * hook logs an actionable warning when the expected tables are absent.
+ * Partial test/legacy DBs may omit a post-baseline target table entirely;
+ * those specific migrations can be marked applied because there is
+ * nothing for them to rewrite.
  */
 function ensureMigrationBaseline(
   sqlite: Database.Database,
@@ -418,15 +484,17 @@ function ensureMigrationBaseline(
     return;
   }
 
-  // Adoption guard — pinning the journal marks EVERY migration as applied,
-  // so an install whose tables predate the journal (the operator skipped
-  // the transitional release) would silently adopt and then break on the
-  // first write that touches a column it never received. Probe a small set
-  // of sentinel columns from the structural money / catalog migrations:
-  // when the table exists but the column is missing, refuse the adoption
-  // with an actionable upgrade path instead. Absent tables stay on the
-  // soft-warning path (`seedCatalogs`) — partial DBs are legitimate in
-  // tests and in pre-catalog installs.
+  // Adoption guard — pinning the baseline marks the whole squashed
+  // pre-production history as applied, so an install whose tables predate
+  // that history (the operator skipped the transitional release) would
+  // silently adopt and then break on the first write that touches a column
+  // it never received. Probe a small set of sentinel columns from the
+  // structural money / catalog migrations: when the table exists but the
+  // column is missing, refuse the adoption with an actionable upgrade path
+  // instead. Absent sentinel tables stay out of this guard so bootstrap
+  // tests can still exercise minimal DB shapes, but real legacy upgrades
+  // are expected to carry the full baseline schema before post-baseline
+  // migrations run.
   const ADOPTION_SENTINELS: ReadonlyArray<{
     table: string;
     column: string;
@@ -456,15 +524,49 @@ function ensureMigrationBaseline(
   }
 
   const orderedEntries = [...journal.entries].sort((a, b) => a.idx - b.idx);
+  const tableExists = (name: string): boolean =>
+    Boolean(
+      sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1"
+        )
+        .get(name)
+    );
+
+  const baselineEntries = orderedEntries.filter(entry =>
+    entry.tag.endsWith('_baseline')
+  );
+  if (baselineEntries.length === 0) {
+    throw new Error(
+      'Cannot adopt this database: the migrations journal does not include a baseline entry. ' +
+        'Fresh databases can run the full journal, but existing pre-migration databases need a squashed baseline marker to avoid replaying CREATE TABLE statements.'
+    );
+  }
+  const shouldSeedPostBaselineMigration = (entry: DrizzleJournalEntry): boolean => {
+    // ENG-177c — if a partial adopted DB does not even have `sales`,
+    // the table-rebuild CHECK migration has no target. Mark it applied
+    // so minimal legacy/test DBs keep booting; when `sales` exists, the
+    // migration remains pending and applies the DB-level invariant.
+    if (entry.tag === '0001_eng177c_sales_cash_session_check') {
+      return !tableExists('sales');
+    }
+    return false;
+  };
+  const adoptionEntries = orderedEntries.filter(
+    entry =>
+      entry.tag.endsWith('_baseline') ||
+      shouldSeedPostBaselineMigration(entry)
+  );
   const insert = sqlite.prepare(
     'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)'
   );
 
   // Compute each migration hash exactly like drizzle-orm's
   // `readMigrationFiles` does: sha256 of the raw `.sql` contents, no
-  // normalisation. Seed them in journal order so the primary-key `id`
-  // column matches the expected migration index.
-  for (const entry of orderedEntries) {
+  // normalisation. Seed only the baseline marker(s) plus explicitly
+  // absent-target no-ops; applicable newer journal entries must remain
+  // pending so drizzleMigrate applies them.
+  for (const entry of adoptionEntries) {
     const sqlPath = resolve(migrationsFolder, `${entry.tag}.sql`);
     const sqlContents = readFileSync(sqlPath, 'utf8');
     const hash = createHash('sha256').update(sqlContents).digest('hex');

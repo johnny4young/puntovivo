@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { customers, products, saleItems, sales, users } from '../db/schema.js';
+import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -159,6 +160,10 @@ describe('Dashboard tRPC Router', () => {
       },
     ]);
 
+    // ENG-177c — committed sales need a cash session; one shared closed
+    // session satisfies the CHECK without affecting any dashboard metric
+    // (the aggregates sum sales, never sessions).
+    const dashSessionId = await seedCommittedSaleSession({ tenantId, cashierId: userId });
     await db.insert(sales).values([
       {
         id: todaySaleId,
@@ -172,6 +177,7 @@ describe('Dashboard tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        cashSessionId: dashSessionId,
         createdBy: userId,
         createdAt: todayIso,
         updatedAt: todayIso,
@@ -188,6 +194,7 @@ describe('Dashboard tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        cashSessionId: dashSessionId,
         createdBy: userId,
         createdAt: sixDaysAgoIso,
         updatedAt: sixDaysAgoIso,
@@ -204,6 +211,7 @@ describe('Dashboard tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        cashSessionId: dashSessionId,
         createdBy: userId,
         createdAt: thirtyFiveDaysAgoIso,
         updatedAt: thirtyFiveDaysAgoIso,
@@ -220,6 +228,7 @@ describe('Dashboard tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'refunded',
         status: 'completed',
+        cashSessionId: dashSessionId,
         createdBy: userId,
         createdAt: new Date(
           Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 10)

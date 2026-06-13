@@ -26,6 +26,7 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { ESCPOS_BYTES } from '../services/peripherals/escpos/byte-builder.js';
 
 let server: PuntovivoServer;
@@ -98,6 +99,12 @@ beforeAll(async () => {
   // does not create sales by default in :memory: mode, so the test
   // owns its fixture.
   seededSaleId = nanoid();
+  // ENG-177c — a committed sale needs a cash session at the schema level.
+  const seededSessionId = await seedCommittedSaleSession({
+    tenantId,
+    cashierId: userId,
+    siteId,
+  });
   await db.insert(sales).values({
     id: seededSaleId,
     tenantId,
@@ -109,6 +116,7 @@ beforeAll(async () => {
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     status: 'completed',
+    cashSessionId: seededSessionId,
     createdBy: userId,
   });
 
@@ -147,6 +155,11 @@ beforeAll(async () => {
   // tenant — reuse the seeded admin since FK only checks the user
   // exists, not their tenant scoping.
   foreignSaleId = nanoid();
+  const foreignSessionId = await seedCommittedSaleSession({
+    tenantId: foreignTenantId,
+    cashierId: userId,
+    siteId: foreignSiteId,
+  });
   await db.insert(sales).values({
     id: foreignSaleId,
     tenantId: foreignTenantId,
@@ -158,6 +171,7 @@ beforeAll(async () => {
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     status: 'completed',
+    cashSessionId: foreignSessionId,
     createdBy: userId,
   });
 });
