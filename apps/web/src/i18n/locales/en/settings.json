@@ -546,6 +546,30 @@
       "empty": {
         "title": "No backups yet",
         "description": "Create a backup to keep a restore point of the local database."
+      },
+      "keyPrompt": {
+        "title": "Backup key required",
+        "message": "This backup was created on a different device, so it is protected with that device's backup key. Open the backup card on the source device, reveal its backup key, and enter it here.",
+        "inputLabel": "Backup key (64 hexadecimal characters)",
+        "inputPlaceholder": "e.g. 4f2a... (64 characters)",
+        "invalidShape": "The backup key must be exactly 64 hexadecimal characters.",
+        "mismatch": "That key does not open this backup. Check the key on the source device and try again.",
+        "statusWaiting": "The selected backup needs the source device's key to continue.",
+        "cancel": "Cancel",
+        "submit": "Restore with this key"
+      },
+      "revealKey": {
+        "button": "View backup key",
+        "confirmTitle": "Reveal the backup key?",
+        "confirmMessage": "Anyone holding this key can read this device's backups. Only share it to restore a backup on another of your devices, and never send it over channels you do not trust.",
+        "confirmCta": "Reveal key",
+        "title": "Backup key for this device",
+        "message": "Enter this key on the destination device when it asks for the backup key during a restore.",
+        "copy": "Copy key",
+        "copied": "Backup key copied to the clipboard",
+        "copyFailed": "Could not copy the key. Select and copy it manually.",
+        "done": "Done",
+        "failed": "Could not retrieve the backup key"
       }
     },
     "telemetry": {

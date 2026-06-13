@@ -26,7 +26,15 @@ import {
   createBackupFileName as createBackupZipFileName,
   extractBackupBundle,
   assertSqliteIntegrity,
+  // ENG-167b — cleartext detection + in-place rekey for the
+  // cross-device restore completion path.
+  isCleartextSqliteFile,
+  rekeySqliteDatabase,
+  sweepStaleBackupStaging,
+  type ExtractBackupBundleResult,
 } from './backup/backup-bundle.js';
+// ENG-167b — one-shot first-boot encryption of pre-Step-1 databases.
+import { migrateCleartextDatabase } from './db-migrate-encryption.js';
 import {
   createServer,
   createModuleLogger,
@@ -222,6 +230,14 @@ interface DesktopDatabaseActionResult {
    */
   sizeBytes?: number;
   error?: string;
+  /**
+   * ENG-167b — the selected bundle is encrypted with a DIFFERENT
+   * device's key. The staging copy is held server-side under `token`;
+   * the renderer prompts the operator for the source device's backup
+   * key and completes the restore via `provideRestoreKey(token, key)`.
+   */
+  needsKey?: boolean;
+  token?: string;
 }
 
 interface ReceiptPrintSettings {
@@ -491,6 +507,21 @@ async function startEmbeddedServer(): Promise<PuntovivoServer> {
   // libsecret on Linux) throws here and aborts the boot instead of
   // sliding into a cleartext fallback.
   const encryptionKey = await resolveDatabaseEncryptionKey();
+
+  // ENG-167b — one-shot migration of a pre-encryption cleartext
+  // database. Runs between key resolution and createServer so the
+  // server only ever opens an encrypted file. The dev-shared
+  // DATABASE_URL database is excluded: it is already encrypted with
+  // the fixed dev key the launcher injects. A migration failure
+  // throws (after restoring the cleartext copy) and aborts the boot.
+  await migrateCleartextDatabase({
+    dbPath: DB_PATH,
+    encryptionKey,
+    skipReason: DEV_SHARED_DB_PATH
+      ? 'dev-shared DATABASE_URL database (already encrypted with the dev key)'
+      : undefined,
+    log: mainLog,
+  });
 
   mainLog.info(
     {
@@ -2092,39 +2123,48 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
   // check + format detection happens against an extracted staging
   // copy, so a corrupted file never touches the live DB.
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
+  let keepStaging = false;
   try {
     await access(selectedBackupPath);
 
     const extracted = await extractBackupBundle(selectedBackupPath, stagingDir);
     const encryptionKey = await resolveDatabaseEncryptionKey();
-    await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
 
-    await runWithServerRestart(
-      async () => {
-        await ensureParentDirectoryExists(DB_PATH);
-        await removeSqliteSidecars(DB_PATH);
-        await copyFile(extracted.dbPath, DB_PATH);
-        await removeSqliteSidecars(DB_PATH);
+    try {
+      await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
+    } catch (localKeyError) {
+      // ENG-167b — the staged DB does not open with THIS device's
+      // key. Two legitimate shapes before giving up:
+      //   1. A legacy pre-encryption bundle (cleartext): verify it
+      //      keyless and restore as-is — the one-shot migration on
+      //      the next boot encrypts it under the local key.
+      //   2. A bundle from a DIFFERENT device: hold the staging copy
+      //      and ask the renderer to prompt for the source device's
+      //      backup key (completed via provideRestoreKey).
+      if (await isCleartextSqliteFile(extracted.dbPath)) {
+        await assertSqliteIntegrity(extracted.dbPath, {});
+        backupLog.info(
+          { source: selectedBackupPath },
+          'restore: legacy cleartext bundle accepted; next boot will encrypt it'
+        );
+      } else {
+        keepStaging = true;
+        const token = await stashPendingRestore(stagingDir, extracted, selectedBackupPath);
+        backupLog.info(
+          { source: selectedBackupPath },
+          'restore: bundle is encrypted with a foreign key; prompting for it'
+        );
+        return {
+          success: false,
+          cancelled: false,
+          needsKey: true,
+          token,
+        };
+      }
+      void localKeyError;
+    }
 
-        // ENG-066 — preserve the bundled device identity when present;
-        // legacy raw `.db` restores keep the destination identity
-        // since the bundle didn't carry one.
-        if (extracted.deviceIdPath) {
-          try {
-            const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
-            if (deviceId) {
-              await writeDeviceIdToDir(app.getPath('userData'), deviceId);
-            }
-          } catch (err) {
-            backupLog.warn(
-              { err },
-              'restore: failed to preserve device-id from bundle; keeping destination identity'
-            );
-          }
-        }
-      },
-      { reloadWindow: true }
-    );
+    await swapRestoredDatabase(extracted);
 
     backupLog.info(
       { source: selectedBackupPath, format: extracted.format },
@@ -2148,7 +2188,229 @@ async function handleRestoreDatabaseBackup(): Promise<DesktopDatabaseActionResul
       error: message,
     };
   } finally {
-    await rm(stagingDir, { recursive: true, force: true });
+    if (!keepStaging) {
+      await rm(stagingDir, { recursive: true, force: true });
+    }
+  }
+}
+
+/**
+ * ENG-066/167b — promote a validated staging DB into the live
+ * location under a server restart, preserving the bundled device
+ * identity when present. Shared by the direct restore path and the
+ * foreign-key completion path (provideRestoreKey).
+ */
+async function swapRestoredDatabase(
+  extracted: ExtractBackupBundleResult
+): Promise<void> {
+  await runWithServerRestart(
+    async () => {
+      await ensureParentDirectoryExists(DB_PATH);
+      await removeSqliteSidecars(DB_PATH);
+      await copyFile(extracted.dbPath, DB_PATH);
+      await removeSqliteSidecars(DB_PATH);
+
+      // ENG-066 — preserve the bundled device identity when present;
+      // legacy raw `.db` restores keep the destination identity
+      // since the bundle didn't carry one.
+      if (extracted.deviceIdPath) {
+        try {
+          const deviceId = (await readFile(extracted.deviceIdPath, 'utf8')).trim();
+          if (deviceId) {
+            await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+          }
+        } catch (err) {
+          backupLog.warn(
+            { err },
+            'restore: failed to preserve device-id from bundle; keeping destination identity'
+          );
+        }
+      }
+    },
+    { reloadWindow: true }
+  );
+}
+
+/**
+ * ENG-167b — single pending cross-device restore slot. Holding ONE
+ * staging at a time is deliberate: the restore flow is operator-
+ * driven and modal; a new restore invocation discards any previous
+ * pending staging. The token is an opaque random id the renderer
+ * must echo back so a stale/duplicated prompt cannot complete
+ * someone else's staging.
+ */
+interface PendingRestore {
+  token: string;
+  stagingDir: string;
+  extracted: ExtractBackupBundleResult;
+  sourcePath: string;
+}
+
+let pendingRestore: PendingRestore | null = null;
+
+async function stashPendingRestore(
+  stagingDir: string,
+  extracted: ExtractBackupBundleResult,
+  sourcePath: string
+): Promise<string> {
+  await clearPendingRestore();
+  const token = randomUUID();
+  pendingRestore = { token, stagingDir, extracted, sourcePath };
+  return token;
+}
+
+async function clearPendingRestore(): Promise<void> {
+  if (!pendingRestore) return;
+  const stale = pendingRestore;
+  pendingRestore = null;
+  await rm(stale.stagingDir, { recursive: true, force: true });
+}
+
+/**
+ * ENG-167b — complete a cross-device restore with the SOURCE
+ * device's backup key. Validates the staged DB with the foreign key,
+ * rekeys it IN STAGING to this device's key (every install keeps
+ * exactly one key envelope — the threat model does not change), and
+ * promotes it through the same swap path as a direct restore.
+ *
+ * A wrong key returns a retryable error WITHOUT discarding the
+ * staging; an invalid token or key shape discards nothing either —
+ * only a successful completion (or a new restore invocation) clears
+ * the slot.
+ */
+async function handleProvideRestoreKey(
+  _event: Electron.IpcMainInvokeEvent,
+  token: unknown,
+  keyHex: unknown
+): Promise<DesktopDatabaseActionResult> {
+  desktopSession.requireOneOfRoles(['admin']);
+
+  // Snapshot the slot ONCE so every later read (shape-error token,
+  // integrity check, finally guard) sees the same pending restore
+  // even if the module slot is concurrently replaced.
+  const pending = pendingRestore;
+  if (!pending || typeof token !== 'string' || token !== pending.token) {
+    return {
+      success: false,
+      cancelled: false,
+      error: t('backup.restoreKeyNoPending'),
+    };
+  }
+  if (typeof keyHex !== 'string' || !/^[0-9a-f]{64}$/i.test(keyHex.trim())) {
+    return {
+      success: false,
+      cancelled: false,
+      needsKey: true,
+      token: pending.token,
+      error: t('backup.restoreKeyInvalidShape'),
+    };
+  }
+
+  const foreignKey = keyHex.trim().toLowerCase();
+  let keepPending = false;
+  try {
+    try {
+      await assertSqliteIntegrity(pending.extracted.dbPath, {
+        encryptionKey: foreignKey,
+      });
+    } catch {
+      // Wrong key for this bundle — keep the staging, let the
+      // operator retry with a corrected key.
+      keepPending = true;
+      return {
+        success: false,
+        cancelled: false,
+        needsKey: true,
+        token: pending.token,
+        error: t('backup.restoreKeyMismatch'),
+      };
+    }
+
+    const localKey = await resolveDatabaseEncryptionKey();
+    rekeySqliteDatabase(pending.extracted.dbPath, {
+      fromKey: foreignKey,
+      toKey: localKey,
+    });
+    await assertSqliteIntegrity(pending.extracted.dbPath, {
+      encryptionKey: localKey,
+    });
+
+    await swapRestoredDatabase(pending.extracted);
+    backupLog.info(
+      { source: pending.sourcePath },
+      'cross-device backup restored and rekeyed to the local key'
+    );
+    return {
+      success: true,
+      cancelled: false,
+      path: pending.sourcePath,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : t('backup.restoreFailed');
+    backupLog.error(
+      { err: error, source: pending.sourcePath },
+      'failed to complete cross-device restore'
+    );
+    return { success: false, cancelled: false, error: message };
+  } finally {
+    // Success or hard failure drops the staging; the wrong-key retry
+    // path (keepPending) and the pre-try bad-shape return keep it.
+    if (!keepPending && pendingRestore === pending) {
+      await clearPendingRestore();
+    }
+  }
+}
+
+/**
+ * ENG-167b — discard the pending cross-device restore staging the
+ * moment the operator dismisses the key prompt, instead of leaving
+ * the staged copy in the tmpdir until the next restore attempt, the
+ * app quit, or the startup sweep collects it. Admin-gated BEFORE the
+ * token is even looked at (same hardening order as the sibling
+ * handlers); a stale or foreign token is a silent no-op so a
+ * duplicated prompt cannot discard a newer staging.
+ */
+async function handleCancelRestoreStaging(
+  _event: Electron.IpcMainInvokeEvent,
+  token: unknown
+): Promise<{ success: boolean }> {
+  desktopSession.requireOneOfRoles(['admin']);
+  const pending = pendingRestore;
+  if (!pending || typeof token !== 'string' || token !== pending.token) {
+    return { success: false };
+  }
+  await clearPendingRestore();
+  backupLog.info(
+    { source: pending.sourcePath },
+    'pending cross-device restore discarded by the operator'
+  );
+  return { success: true };
+}
+
+/**
+ * ENG-167b — reveal this install's backup encryption key so the
+ * operator can restore its bundles on ANOTHER device. Admin-only;
+ * the renderer gates the reveal behind an explicit confirmation with
+ * a strong warning (docs/SECURITY.md documents the trade-off: the
+ * key is the at-rest secret — whoever holds it can read the
+ * backups). The key never leaves the machine through any other
+ * channel.
+ */
+async function handleGetBackupEncryptionKey(): Promise<{
+  success: boolean;
+  key?: string;
+  error?: string;
+}> {
+  desktopSession.requireOneOfRoles(['admin']);
+  try {
+    const key = await resolveDatabaseEncryptionKey();
+    backupLog.info({}, 'backup encryption key revealed to admin');
+    return { success: true, key };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -2202,6 +2464,21 @@ app.whenReady().then(async () => {
 
   // Initialize auto-updater (configurable via env)
   initAutoUpdater();
+
+  // ENG-167b — best-effort sweep of staging dirs orphaned in the OS
+  // tmpdir by a crash or by quitting while a cross-device restore
+  // was waiting for its key. Fire-and-forget: boot never waits on
+  // tmp hygiene, and the age guard inside the helper protects any
+  // concurrently running instance's live staging.
+  void sweepStaleBackupStaging()
+    .then(removed => {
+      if (removed.length > 0) {
+        backupLog.info({ removed }, 'swept stale backup/restore staging directories');
+      }
+    })
+    .catch(err => {
+      backupLog.warn({ err }, 'failed to sweep stale backup staging directories');
+    });
 
   // Start embedded Fastify server
   try {
@@ -2270,6 +2547,15 @@ app.on('will-quit', event => {
     .catch(err => {
       mainLog.error({ err }, 'failed to stop embedded server during shutdown');
     })
+    // ENG-167b — a quit while a cross-device restore is waiting for
+    // its key would otherwise orphan the staging dir in the tmpdir
+    // (the pending slot deliberately survives between needsKey and
+    // provideRestoreKey). Discard it inside the deferred-quit window
+    // so the rm completes before the process exits.
+    .then(() => clearPendingRestore())
+    .catch(err => {
+      backupLog.warn({ err }, 'failed to discard pending restore staging during shutdown');
+    })
     .finally(() => {
       serverShutdownComplete = true;
       app.quit();
@@ -2320,6 +2606,10 @@ ipcMain.handle('check-for-app-updates', () => checkForAppUpdates());
 ipcMain.handle('restart-to-apply-app-update', () => restartToApplyAppUpdate());
 ipcMain.handle('create-database-backup', handleCreateDatabaseBackup);
 ipcMain.handle('restore-database-backup', handleRestoreDatabaseBackup);
+// ENG-167b — cross-device restore completion + admin key reveal.
+ipcMain.handle('provide-restore-key', handleProvideRestoreKey);
+ipcMain.handle('cancel-restore-staging', handleCancelRestoreStaging);
+ipcMain.handle('get-backup-encryption-key', handleGetBackupEncryptionKey);
 ipcMain.handle('get-receipt-print-settings', async () => {
   return getReceiptPrintSettings();
 });

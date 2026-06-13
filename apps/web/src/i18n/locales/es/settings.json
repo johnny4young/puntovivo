@@ -546,6 +546,30 @@
       "empty": {
         "title": "Aún no hay respaldos",
         "description": "Crea un respaldo para guardar un punto de restauración de la base local."
+      },
+      "keyPrompt": {
+        "title": "Se necesita la clave del respaldo",
+        "message": "Este respaldo se creó en otro equipo, así que está protegido con la clave de ese equipo. Abre la tarjeta de respaldos en el equipo de origen, revela su clave de respaldo e ingrésala aquí.",
+        "inputLabel": "Clave de respaldo (64 caracteres hexadecimales)",
+        "inputPlaceholder": "p. ej. 4f2a... (64 caracteres)",
+        "invalidShape": "La clave de respaldo debe tener exactamente 64 caracteres hexadecimales.",
+        "mismatch": "Esa clave no abre esta copia. Verifica la clave en el equipo de origen e inténtalo de nuevo.",
+        "statusWaiting": "El respaldo seleccionado necesita la clave del equipo de origen para continuar.",
+        "cancel": "Cancelar",
+        "submit": "Restaurar con esta clave"
+      },
+      "revealKey": {
+        "button": "Ver clave de respaldo",
+        "confirmTitle": "¿Revelar la clave de respaldo?",
+        "confirmMessage": "Cualquiera que tenga esta clave puede leer los respaldos de este equipo. Compártela solo para restaurar un respaldo en otro de tus equipos, y nunca la envíes por canales que no sean de confianza.",
+        "confirmCta": "Revelar clave",
+        "title": "Clave de respaldo de este equipo",
+        "message": "Ingresa esta clave en el equipo de destino cuando la pida durante una restauración.",
+        "copy": "Copiar clave",
+        "copied": "Clave de respaldo copiada al portapapeles",
+        "copyFailed": "No se pudo copiar la clave. Selecciónala y cópiala manualmente.",
+        "done": "Listo",
+        "failed": "No se pudo obtener la clave de respaldo"
       }
     },
     "telemetry": {

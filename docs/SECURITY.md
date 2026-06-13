@@ -1,6 +1,6 @@
 # Security Notes
 
-> Updated: May 25, 2026 (ENG-166 + ENG-174 closure + ENG-167 Step-1)
+> Updated: June 11, 2026 (ENG-166 + ENG-174 closure + ENG-167 Step-1 + ENG-167b)
 
 ## Current Security Posture
 
@@ -509,10 +509,10 @@ stale plain-better-sqlite3 binaries automatically.
 
 **Standalone server (`dev:server`).** The standalone binary reads
 `process.env.PUNTOVIVO_DB_KEY` and forwards it as `encryptionKey`.
-When unset the legacy cleartext path remains in effect — required
-for the existing dev workflow against
-`packages/server/data/local.db` until ENG-167b ships the one-shot
-migration UX. Document this as a dev-only surface; production
+When unset the legacy cleartext path remains in effect for the
+standalone dev workflow against `packages/server/data/local.db`.
+ENG-167b intentionally keeps that dev-only route cleartext while the
+Electron boot path performs the one-shot local DB migration; production
 Electron builds always encrypt because the main process never omits
 the key.
 
@@ -528,15 +528,49 @@ unavailable-keychain abort, plus the two error paths for a
 corrupt envelope. `backup-restore.test.ts` also verifies that backup
 ZIPs produced from encrypted DBs keep `local.db` encrypted.
 
-**What Step-1 explicitly does NOT cover.** ENG-167b will land the
-one-shot migration of pre-encryption cleartext DBs, the
-restore-from-different-device key prompt UX, and cross-OS matrix
-validation through
-[`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
-ENG-167 stays in `Status: Partial` until those land. **Pre-Step-1
-cleartext DBs on dev machines will fail to open on first boot
-post-merge** — wipe the data directory or restore from a Step-1
-backup. Production rollout is therefore gated on ENG-167b.
+### ENG-167b — cleartext migration + cross-device restore (2026-06-11)
+
+ENG-167b closed the production gate left by Step-1:
+
+**One-shot first-boot migration.** `apps/desktop/src/main/db-migrate-encryption.ts`
+runs between key resolution and `createServer`. A pre-Step-1
+cleartext `local.db` (detected by its readable "SQLite format 3"
+header — a SQLCipher file encrypts page 1 including the header) is
+checkpointed (WAL TRUNCATE), copied to `local.db.pre-encryption.bak`,
+encrypted IN PLACE via `PRAGMA rekey`, and integrity-verified with
+the install key. **The cleartext `.bak` exists ONLY for the duration
+of the migration and is deleted after a successful verification** —
+leaving it would bypass the at-rest model this feature enforces. If
+the verification fails, the `.bak` is restored byte-for-byte and the
+boot aborts with an actionable error: the app never starts on a
+half-encrypted file. The dev-shared `DATABASE_URL` database is
+excluded (already encrypted with the launcher-injected dev key).
+Threat-model note: a crash exactly between the `.bak` copy and its
+deletion leaves a cleartext copy on disk until the next successful
+boot — an accepted, bounded exposure window during a one-time
+upgrade event.
+
+**Cross-device restore + key reveal.** A backup ZIP carries the DB
+encrypted under the SOURCE device's key. Restoring it on another
+device now prompts for that key (`provide-restore-key` IPC): the
+staged DB is verified with the foreign key, **rekeyed in staging to
+the destination's own key**, re-verified, and only then swapped —
+every install keeps exactly one `safeStorage` envelope, so the
+at-rest trust boundary is unchanged. To make that flow operable,
+the backup card gains an admin-only "View backup key" action
+(`get-backup-encryption-key` IPC) gated behind an explicit warning
+confirmation. **Trade-off accepted:** revealing the key turns it
+into a transportable secret; whoever holds it can read this
+device's backups. The UI warns accordingly, the reveal is logged,
+and the key never leaves the machine through any other channel.
+Legacy pre-encryption cleartext bundles restore directly and are
+encrypted by the migration on the next boot.
+
+**What remains for ENG-167.** Only the cross-OS matrix validation
+through
+[`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml)
+(operator-run; Linux + macOS + Windows). ENG-167 stays
+`Status: Partial` until that run is recorded.
 
 ## Token + session lifecycle (ENG-168)
 

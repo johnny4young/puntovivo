@@ -72,6 +72,47 @@ export interface ElectronAPI {
     cancelled: boolean;
     path?: string;
     error?: string;
+    /**
+     * ENG-167b — the selected bundle is encrypted with a DIFFERENT
+     * device's key; the renderer must prompt for it and complete the
+     * restore via `provideRestoreKey(token, keyHex)`.
+     */
+    needsKey?: boolean;
+    token?: string;
+  }>;
+  /**
+   * ENG-167b — complete a cross-device restore with the SOURCE
+   * device's 64-hex backup key. A wrong key returns
+   * `{ needsKey: true, error }` and keeps the staged bundle so the
+   * operator can retry.
+   */
+  provideRestoreKey: (
+    token: string,
+    keyHex: string
+  ) => Promise<{
+    success: boolean;
+    cancelled: boolean;
+    path?: string;
+    error?: string;
+    needsKey?: boolean;
+    token?: string;
+  }>;
+  /**
+   * ENG-167b — discard the pending cross-device restore staging when
+   * the operator dismisses the key prompt. A stale token is a silent
+   * no-op (`success: false`).
+   */
+  cancelRestoreStaging: (token: string) => Promise<{ success: boolean }>;
+  /**
+   * ENG-167b — reveal THIS install's backup encryption key (admin
+   * only; the renderer gates the reveal behind an explicit
+   * confirmation). Needed to restore this device's bundles on
+   * another machine.
+   */
+  getBackupEncryptionKey: () => Promise<{
+    success: boolean;
+    key?: string;
+    error?: string;
   }>;
   printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
@@ -239,6 +280,10 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke('update-receipt-print-settings', settings),
   createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
+  provideRestoreKey: (token, keyHex) =>
+    ipcRenderer.invoke('provide-restore-key', token, keyHex),
+  cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),
+  getBackupEncryptionKey: () => ipcRenderer.invoke('get-backup-encryption-key'),
   printReceipt: (receiptHtml: string) => ipcRenderer.invoke('print-receipt', receiptHtml),
   updateMainLocale: (locale: string) => ipcRenderer.invoke('update-main-locale', locale),
   device: deviceAPI,

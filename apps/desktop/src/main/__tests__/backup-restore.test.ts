@@ -22,7 +22,7 @@
 import { describe, it, before, after } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -36,6 +36,9 @@ import {
   createBackupFileName,
   detectBackupFormat,
   extractBackupBundle,
+  isCleartextSqliteFile,
+  rekeySqliteDatabase,
+  sweepStaleBackupStaging,
 } from '../backup/backup-bundle.ts';
 import JSZip from 'jszip';
 
@@ -324,5 +327,116 @@ describe('extractBackupBundle (ENG-066)', () => {
       extractBackupBundle(path, join(dir, 'unused')),
       /missing the required.*local\.db/i
     );
+  });
+});
+
+// ENG-167b — helpers the cross-device restore and the first-boot
+// encryption migration are built on.
+describe('isCleartextSqliteFile / rekeySqliteDatabase (ENG-167b)', () => {
+  const FOREIGN_KEY = 'b'.repeat(64);
+
+  it('detects cleartext SQLite, rejects encrypted files and missing paths', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'cleartext-detect-'));
+
+    const clearPath = join(dir, 'clear.db');
+    seedSourceDb(clearPath);
+    assert.equal(await isCleartextSqliteFile(clearPath), true);
+
+    const encryptedPath = join(dir, 'encrypted.db');
+    seedEncryptedSourceDb(encryptedPath);
+    assert.equal(await isCleartextSqliteFile(encryptedPath), false);
+
+    assert.equal(await isCleartextSqliteFile(join(dir, 'missing.db')), false);
+  });
+
+  it('rekeys an encrypted DB from a foreign key to the local key (cross-device restore path)', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'rekey-cross-'));
+    const dbPath = join(dir, 'foreign.db');
+
+    // Seed under the FOREIGN key (the source device).
+    const source = new Database(dbPath);
+    source.pragma("cipher = 'sqlcipher'");
+    source.pragma('legacy = 4');
+    source.pragma(`key = "x'${FOREIGN_KEY}'"`);
+    source.exec("CREATE TABLE sales (id TEXT PRIMARY KEY, total REAL NOT NULL);");
+    source.exec("INSERT INTO sales VALUES ('s-1', 42.0);");
+    source.close();
+
+    // The local key cannot open it before the rekey.
+    await assert.rejects(
+      assertSqliteIntegrity(dbPath, { encryptionKey: ENCRYPTION_KEY })
+    );
+
+    rekeySqliteDatabase(dbPath, { fromKey: FOREIGN_KEY, toKey: ENCRYPTION_KEY });
+
+    // Now the local key opens it and the data survived…
+    await assertSqliteIntegrity(dbPath, { encryptionKey: ENCRYPTION_KEY });
+    const reopened = new Database(dbPath, { fileMustExist: true });
+    reopened.pragma("cipher = 'sqlcipher'");
+    reopened.pragma('legacy = 4');
+    reopened.pragma(`key = "x'${ENCRYPTION_KEY}'"`);
+    const row = reopened.prepare('SELECT total FROM sales WHERE id = ?').get('s-1') as {
+      total: number;
+    };
+    reopened.close();
+    assert.equal(row.total, 42.0);
+
+    // …and the foreign key no longer does.
+    await assert.rejects(
+      assertSqliteIntegrity(dbPath, { encryptionKey: FOREIGN_KEY })
+    );
+  });
+
+  it('rejects malformed keys without touching the file', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'rekey-badkey-'));
+    const dbPath = join(dir, 'clear.db');
+    seedSourceDb(dbPath);
+    const before = await readFile(dbPath);
+
+    assert.throws(() =>
+      rekeySqliteDatabase(dbPath, { toKey: 'definitely-not-hex' })
+    );
+    assert.deepEqual(await readFile(dbPath), before);
+  });
+});
+
+describe('sweepStaleBackupStaging (ENG-167b)', () => {
+  async function dirExists(path: string): Promise<boolean> {
+    try {
+      return (await stat(path)).isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  it('removes only prefixed staging dirs older than the age threshold', async () => {
+    // These live in the REAL OS tmpdir on purpose — that is the
+    // surface the sweep operates on at startup.
+    const staleRestore = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
+    const staleBackup = await mkdtemp(join(tmpdir(), 'puntovivo-backup-'));
+    const freshRestore = await mkdtemp(join(tmpdir(), 'puntovivo-restore-'));
+    const unrelated = await mkdtemp(join(tmpdir(), 'puntovivo-unrelated-'));
+    try {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      await utimes(staleRestore, twoHoursAgo, twoHoursAgo);
+      await utimes(staleBackup, twoHoursAgo, twoHoursAgo);
+      await utimes(unrelated, twoHoursAgo, twoHoursAgo);
+
+      const removed = await sweepStaleBackupStaging();
+
+      // Stale + prefixed: swept (and reported).
+      assert.equal(removed.includes(staleRestore), true);
+      assert.equal(removed.includes(staleBackup), true);
+      assert.equal(await dirExists(staleRestore), false);
+      assert.equal(await dirExists(staleBackup), false);
+      // Fresh prefixed dir (a concurrently running instance's live
+      // staging) and old-but-unprefixed dirs survive.
+      assert.equal(await dirExists(freshRestore), true);
+      assert.equal(await dirExists(unrelated), true);
+    } finally {
+      for (const path of [staleRestore, staleBackup, freshRestore, unrelated]) {
+        await rm(path, { recursive: true, force: true });
+      }
+    }
   });
 });

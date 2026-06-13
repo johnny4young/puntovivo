@@ -16,7 +16,10 @@
     "restoreDialogTitle": "Restaurar copia de seguridad",
     "fileFilterName": "Base de datos SQLite",
     "createFailed": "No se pudo crear la copia de seguridad",
-    "restoreFailed": "No se pudo restaurar la base de datos"
+    "restoreFailed": "No se pudo restaurar la base de datos",
+    "restoreKeyNoPending": "No hay una restauración esperando clave. Inicia la restauración de nuevo.",
+    "restoreKeyInvalidShape": "La clave de respaldo debe tener 64 caracteres hexadecimales.",
+    "restoreKeyMismatch": "Esa clave no abre esta copia. Verifica la clave mostrada en el equipo de origen e inténtalo de nuevo."
   },
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo"
