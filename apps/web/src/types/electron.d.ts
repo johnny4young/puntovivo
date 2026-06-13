@@ -74,6 +74,35 @@ export interface ElectronAPI {
     cancelled: boolean;
     path?: string;
     error?: string;
+    /**
+     * ENG-167b — the bundle is encrypted with another device's key;
+     * prompt the operator and complete via `provideRestoreKey`.
+     */
+    needsKey?: boolean;
+    token?: string;
+  }>;
+  /** ENG-167b — complete a cross-device restore with the source key. */
+  provideRestoreKey?: (
+    token: string,
+    keyHex: string
+  ) => Promise<{
+    success: boolean;
+    cancelled: boolean;
+    path?: string;
+    error?: string;
+    needsKey?: boolean;
+    token?: string;
+  }>;
+  /**
+   * ENG-167b — discard the pending restore staging when the key
+   * prompt is dismissed; stale tokens are a silent no-op.
+   */
+  cancelRestoreStaging?: (token: string) => Promise<{ success: boolean }>;
+  /** ENG-167b — admin-gated reveal of this install's backup key. */
+  getBackupEncryptionKey?: () => Promise<{
+    success: boolean;
+    key?: string;
+    error?: string;
   }>;
   printReceipt: (
     receiptHtml: string

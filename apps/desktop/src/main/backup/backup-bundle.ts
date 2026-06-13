@@ -18,10 +18,10 @@
  *   - **Restore**: detect format by reading the first four bytes.
  *     ZIP magic = `50 4b 03 04`. SQLite magic = `53 51 4c 69` ("SQLi"
  *     from the "SQLite format 3" header). For ZIP: extract `local.db`
- *     + `device-id.txt` to a temp dir. For raw `.db`: copy to a temp
- *     path. In both cases, run `PRAGMA integrity_check` BEFORE handing
- *     the path back to the caller. If integrity check fails, throw
- *     and let the IPC handler keep the live state untouched.
+ *     + `device-id.txt` to a temp dir. For raw `.db`: hand the source
+ *     path back. The IPC restore handler then runs `PRAGMA integrity_check`
+ *     with the local key, the cleartext fallback, or the operator-supplied
+ *     source key before swapping anything into the live location.
  *
  * The helpers are PURE — no Electron / IPC dependencies — so they're
  * unit-testable via `node --test`.
@@ -29,7 +29,7 @@
  * @module main/backup/backup-bundle
  */
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -245,6 +245,111 @@ export async function detectBackupFormat(
   } finally {
     if (handle) await handle.close();
   }
+}
+
+/**
+ * ENG-167b — is the file a readable-header (CLEARTEXT) SQLite DB?
+ *
+ * A pre-encryption database keeps the plain "SQLite format 3\0"
+ * magic in its first bytes; a SQLCipher database encrypts page 1
+ * including the header, so `detectBackupFormat` reports 'unknown'
+ * for it. This makes cleartext detection a pure 16-byte read — no
+ * connection, no key, fully deterministic. Returns false for
+ * missing files (a fresh install has nothing to migrate).
+ */
+export async function isCleartextSqliteFile(path: string): Promise<boolean> {
+  try {
+    return (await detectBackupFormat(path)) === 'sqlite';
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * ENG-167b — re-encrypt a SQLite database IN PLACE to `toKey`.
+ *
+ * Two callers, one contract:
+ *   - First-boot migration: `fromKey` undefined (cleartext source)
+ *     → the file ends up SQLCipher-v4-encrypted under the install key.
+ *   - Cross-device restore: `fromKey` = the SOURCE device's key →
+ *     the staged file is rekeyed to THIS device's key so every
+ *     install keeps exactly one key envelope.
+ *
+ * `PRAGMA rekey` rewrites every page under the new key (verified
+ * empirically against better-sqlite3-multiple-ciphers 12.10: the
+ * header becomes unreadable and keyless opens fail SQLITE_NOTADB).
+ * The caller is responsible for crash-safety around the in-place
+ * rewrite (the migration keeps a .bak; the restore works on a
+ * staging copy), and MUST run `assertSqliteIntegrity` with `toKey`
+ * afterwards before trusting the file.
+ */
+export function rekeySqliteDatabase(
+  dbPath: string,
+  options: { fromKey?: string | undefined; toKey: string }
+): void {
+  assertEncryptionKeyShape(options.toKey);
+  const db = new Database(dbPath, { fileMustExist: true });
+  try {
+    db.pragma("cipher = 'sqlcipher'");
+    db.pragma('legacy = 4');
+    if (options.fromKey !== undefined) {
+      assertEncryptionKeyShape(options.fromKey);
+      db.pragma(`key = "x'${options.fromKey}'"`);
+    }
+    db.pragma(`rekey = "x'${options.toKey}'"`);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * ENG-167b — staging-directory prefixes this module family creates
+ * under the OS tmpdir (`createBackupBundle` and the restore flow in
+ * the desktop main, respectively).
+ */
+const STAGING_PREFIXES = ['puntovivo-backup-', 'puntovivo-restore-'] as const;
+
+/**
+ * ENG-167b — remove stale staging directories left in the OS tmpdir
+ * by a crash, or by an app quit while a cross-device restore was
+ * waiting for its key (the pending staging is deliberately kept
+ * alive between needsKey and provideRestoreKey, so a quit in that
+ * window orphans it). Runs best-effort at startup.
+ *
+ * Only directories carrying our mkdtemp prefixes AND older than
+ * `maxAgeMs` are removed — the age guard ensures a staging owned by
+ * a concurrently running instance is never swept. Per-entry failures
+ * are swallowed (the OS tmp cleaner is the final backstop). Returns
+ * the paths it removed so the caller can log them.
+ */
+export async function sweepStaleBackupStaging(
+  maxAgeMs: number = 60 * 60 * 1000
+): Promise<string[]> {
+  const removed: string[] = [];
+  let entries: string[];
+  try {
+    entries = await readdir(tmpdir());
+  } catch {
+    return removed;
+  }
+  const cutoffMs = Date.now() - maxAgeMs;
+  for (const name of entries) {
+    if (!STAGING_PREFIXES.some(prefix => name.startsWith(prefix))) continue;
+    const fullPath = join(tmpdir(), name);
+    try {
+      const info = await stat(fullPath);
+      if (!info.isDirectory() || info.mtimeMs > cutoffMs) continue;
+      await rm(fullPath, { recursive: true, force: true });
+      removed.push(fullPath);
+    } catch {
+      // Best-effort: a racing removal or permission oddity on one
+      // entry must not abort the sweep of the rest.
+    }
+  }
+  return removed;
 }
 
 // ENG-179b — explicit `| undefined` on optional fields.

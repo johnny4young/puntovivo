@@ -414,14 +414,22 @@ the Chromium sandbox bars all Node access (ENG-004), and queries
 travel through tRPC to the in-process Fastify, which is the only
 holder of the live connection.
 
-**What ENG-167 Step-1 deliberately leaves for ENG-167b.** Pre-Step-1
-cleartext DBs require a one-shot migration on first boot of the
-upgraded build; restore from a different device needs a key prompt
-UX; cross-OS validation must run through
+**ENG-167b (2026-06-11) — migration + cross-device restore.** The
+desktop boot now runs `migrateCleartextDatabase()`
+(`apps/desktop/src/main/db-migrate-encryption.ts`) between key
+resolution and `createServer`: a pre-Step-1 cleartext `local.db`
+(detected by its readable SQLite header — a SQLCipher file encrypts
+page 1) is WAL-checkpointed, copied to a temporary
+`.pre-encryption.bak`, encrypted in place via `PRAGMA rekey`,
+integrity-verified, and the `.bak` deleted; a failed verification
+restores the original and aborts the boot. The dev-shared
+`DATABASE_URL` route is excluded. Restores of bundles from another
+device prompt for the source key and REKEY the staged file to the
+local key before the swap (`provide-restore-key` /
+`get-backup-encryption-key` IPC; threat model in
+[SECURITY.md](./SECURITY.md)). The only ENG-167 remainder is the
+operator-run cross-OS matrix through
 [`.github/workflows/build-desktop.yml`](../.github/workflows/build-desktop.yml).
-Until ENG-167b lands, the ticket stays `Status: Partial` and the
-production rollout is gated on the migration UX so existing
-installs do not break.
 
 ## Future Data Topology Direction
 

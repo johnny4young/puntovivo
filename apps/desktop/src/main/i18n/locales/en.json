@@ -16,7 +16,10 @@
     "restoreDialogTitle": "Restore Database Backup",
     "fileFilterName": "SQLite Database",
     "createFailed": "Backup creation failed",
-    "restoreFailed": "Database restore failed"
+    "restoreFailed": "Database restore failed",
+    "restoreKeyNoPending": "There is no restore waiting for a key. Start the restore again.",
+    "restoreKeyInvalidShape": "The backup key must be 64 hexadecimal characters.",
+    "restoreKeyMismatch": "That key does not open this backup. Check the key shown on the source device and try again."
   },
   "print": {
     "receiptFailed": "Receipt printing failed"
