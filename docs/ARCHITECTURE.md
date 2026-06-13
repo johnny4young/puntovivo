@@ -331,6 +331,13 @@ opaque to a future maintainer.
   remain intact and are pinned by regression tests in
   `packages/server/src/__tests__/db-fk-policy.test.ts`. Any new cascade
   added in a later ticket must extend that suite.
+- **Table-recreation migrations + cascade (ENG-177c)**: a migration
+  that recreates a parent table with cascade children (e.g. the `sales`
+  rebuild that added `chk_sales_cash_session_or_draft`) MUST run under
+  the connection-level `foreign_keys = OFF` bracket in `db/index.ts`
+  (see "Database open path" step 5). Without it, the rebuild's
+  `DROP TABLE` cascade-deletes the children. The bracket already covers
+  every migration, so new rebuilds inherit the safety automatically.
 
 ## Optimistic concurrency — live-edit guard (ENG-177a)
 
@@ -397,8 +404,40 @@ read or write speaks to a keyed page cipher:
    `wal_autocheckpoint`.
 5. **Drizzle handle + migrations** (ENG-002): `drizzle(sqlite,
    { schema })` then `drizzleMigrate(...)` against the explicit
-   migrations folder.
+   migrations folder. Legacy DB adoption seeds only the squashed
+   baseline marker in `__drizzle_migrations`; newer migrations remain
+   pending and still run on any adopted DB whose target tables exist.
+   Partial legacy/test DBs that lack a target table entirely may mark
+   that specific migration as an absent-target no-op, because there is
+   nothing to rewrite. **FK-safe rebuild bracket (ENG-177c):** the
+   migrate call is wrapped in connection-level `foreign_keys = OFF`
+   → migrate → `foreign_keys = ON`. SQLite cannot `ALTER TABLE ADD
+   CHECK`, so a constraint change recreates the table (CREATE
+   `__new_<t>` / INSERT…SELECT / DROP / RENAME); drizzle-orm runs every
+   migration inside one `BEGIN`/`COMMIT`, and `PRAGMA foreign_keys` is a
+   no-op inside a transaction, so an in-migration toggle cannot protect
+   the `DROP TABLE` from firing ON DELETE CASCADE on child rows.
+   Disabling enforcement at the connection level *before* the
+   transaction is the only lever that preserves data (verified
+   empirically). After restoring enforcement, a `PRAGMA
+   foreign_key_check` aborts the boot if any orphaned reference exists,
+   so a botched rebuild surfaces loudly instead of corrupting silently.
 6. **Catalogue seed** (ENG-002 Step 3): `seedCatalogs(db)`.
+
+### Schema-enforced cash-session invariant (ENG-177c)
+
+`sales` carries `chk_sales_cash_session_or_draft`
+(`CHECK (cash_session_id IS NOT NULL OR status = 'draft')`). The rule
+that every committed sale is bound to a cash session is enforced in
+application code (`requireActiveCashSession` + the in-tx
+`assertCashSessionStillOpen`, ENG-042/055); this constraint pins it at
+the storage layer so a raw write, a future sync path, or a bug cannot
+persist a `completed` / `cancelled` / `voided` sale with a null session.
+Drafts are exempt by design. It is purely additive — both `sales` INSERT
+sites already bind a session today (even for drafts), so no row violates
+it. Adding it is the motivating example for the FK-safe rebuild bracket
+above. Pinned by
+`packages/server/src/__tests__/sales-cash-session-constraint.test.ts`.
 7. **Optional default-data seed.**
 
 **Where the key comes from.** Electron main

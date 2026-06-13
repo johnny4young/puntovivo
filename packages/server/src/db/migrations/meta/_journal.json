@@ -8,6 +8,13 @@
       "when": 1781101737604,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781321675997,
+      "tag": "0001_eng177c_sales_cash_session_check",
+      "breakpoints": true
     }
   ]
 }

@@ -65,12 +65,16 @@ describe('FK onDelete cascade behaviour (ENG-175b)', () => {
     const { tenantId, userId } = seedTenantAndUser();
 
     const saleId = newId();
+    // ENG-177c — this exercises the sale → sale_items cascade, which is
+    // status-agnostic. Use a draft (exempt from the new
+    // chk_sales_cash_session_or_draft CHECK) so the fixture needs no
+    // cash session; a draft cart legitimately carries line items.
     db()
       .prepare(
         `INSERT INTO sales (
           id, tenant_id, sale_number, created_by, status, payment_method,
           payment_status, subtotal, tax_amount, total, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'completed', 'cash', 'paid', 0, 0, 0, ?, ?)`
+        ) VALUES (?, ?, ?, ?, 'draft', 'cash', 'paid', 0, 0, 0, ?, ?)`
       )
       .run(saleId, tenantId, `S-${saleId.slice(0, 6)}`, userId, NOW, NOW);
 

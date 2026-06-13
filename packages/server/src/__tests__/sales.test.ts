@@ -180,6 +180,8 @@ describe('Sales tRPC Router', () => {
     yesterdayLocal.setHours(12, 0, 0, 0);
     const yesterday = yesterdayLocal.toISOString();
 
+    // ENG-177c — committed sales need a cash session; bind the active
+    // one seeded above (these reporting fixtures bypass sales.complete).
     await db.insert(sales).values([
       {
         id: nanoid(),
@@ -192,6 +194,7 @@ describe('Sales tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        cashSessionId: activeCashSessionId,
         createdBy: userId,
         createdAt: today,
         updatedAt: today,
@@ -207,6 +210,7 @@ describe('Sales tRPC Router', () => {
         paymentMethod: 'transfer',
         paymentStatus: 'pending',
         status: 'completed',
+        cashSessionId: activeCashSessionId,
         createdBy: userId,
         createdAt: today,
         updatedAt: today,
@@ -222,6 +226,7 @@ describe('Sales tRPC Router', () => {
         paymentMethod: 'cash',
         paymentStatus: 'paid',
         status: 'completed',
+        cashSessionId: activeCashSessionId,
         createdBy: userId,
         createdAt: yesterday,
         updatedAt: yesterday,
