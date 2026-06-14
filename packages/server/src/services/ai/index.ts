@@ -50,7 +50,7 @@ export {
   type AnomalyDetectionResult,
   type AnomalyKind,
   type AnomalySeverity,
-} from './anomalyDetection.js';
+} from './anomalyDetection/index.js';
 
 export {
   embedText,

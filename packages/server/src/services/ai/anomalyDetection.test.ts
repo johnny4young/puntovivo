@@ -29,7 +29,7 @@ import {
   users,
 } from '../../db/schema.js';
 
-import { detectAnomalies, anomalyDetectionConstants } from './anomalyDetection.js';
+import { detectAnomalies, anomalyDetectionConstants } from './anomalyDetection/index.js';
 
 let server: PuntovivoServer;
 let tenantA: string;
