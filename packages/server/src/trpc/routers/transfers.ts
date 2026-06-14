@@ -21,7 +21,7 @@ import {
   listRecentTransfers,
   receiveInventoryTransfer,
   voidInventoryTransfer,
-} from '../../services/inventory-transfers.js';
+} from '../../services/inventory-transfers/index.js';
 import {
   createTransferInput,
   getTransferInput,
