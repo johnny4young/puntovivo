@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   __resetProcedureRateLimitForTest,
   checkProcedureRateLimit,
+  consumeRateLimitBucket,
 } from '../trpc/middleware/procedureRateLimit.js';
 
 describe('checkProcedureRateLimit', () => {
@@ -141,5 +142,64 @@ describe('checkProcedureRateLimit', () => {
         process.env.PUNTOVIVO_RUNTIME_ENV = originalRuntimeEnv;
       }
     }
+  });
+
+  // ENG-165 — per-tenant/site buckets.
+  it('isolates buckets per tenant/site when keyed by tenantId + siteId + userId', () => {
+    const base = {
+      name: 'rl.read',
+      max: 1,
+      windowMs: 60_000,
+      keyBy: ['tenantId' as const, 'siteId' as const, 'userId' as const],
+      ip: null as string | null,
+      enforceInTest: true,
+    };
+
+    // Same user id under two tenants/sites → independent buckets.
+    expect(
+      checkProcedureRateLimit({ ...base, tenantId: 't-1', siteId: 's-1', userId: 'u-1' })
+    ).toBe('allowed');
+    expect(
+      checkProcedureRateLimit({ ...base, tenantId: 't-1', siteId: 's-2', userId: 'u-1' })
+    ).toBe('allowed');
+    expect(
+      checkProcedureRateLimit({ ...base, tenantId: 't-2', siteId: 's-1', userId: 'u-1' })
+    ).toBe('allowed');
+    expect(
+      checkProcedureRateLimit({ ...base, tenantId: 't-1', siteId: 's-1', userId: 'u-1' })
+    ).toBe('denied');
+  });
+});
+
+// ENG-165 — the rich consume that reports a once-per-window denial.
+describe('consumeRateLimitBucket', () => {
+  afterEach(() => {
+    __resetProcedureRateLimitForTest();
+  });
+
+  it('flags only the FIRST denial of a window as firstDenial', () => {
+    const opts = {
+      name: 'rl.consume',
+      max: 1,
+      windowMs: 60_000,
+      keyBy: ['ip' as const],
+      ip: '7.7.7.7',
+      enforceInTest: true,
+    };
+
+    expect(consumeRateLimitBucket(opts)).toEqual({
+      outcome: 'allowed',
+      firstDenial: false,
+    });
+    // First denial in the window → firstDenial true (audit-once signal).
+    expect(consumeRateLimitBucket(opts)).toEqual({
+      outcome: 'denied',
+      firstDenial: true,
+    });
+    // Subsequent denials in the same window → firstDenial false.
+    expect(consumeRateLimitBucket(opts)).toEqual({
+      outcome: 'denied',
+      firstDenial: false,
+    });
   });
 });

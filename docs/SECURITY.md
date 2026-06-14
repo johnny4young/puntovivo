@@ -341,9 +341,31 @@ slice. Each item below is now pinned by a regression test under
   | `users.create`         | 20           | 1 h    | userId  |
   | `users.resetPassword`  | 10           | 1 h    | userId  |
 
-  Stricter caps for the rest of the tRPC surface (and a tenant-scoped
-  bucket plan) ship in ENG-165. The middleware bypasses entirely under
-  `NODE_ENV === 'test'` so existing high-volume suites do not trip.
+  The middleware bypasses entirely under `NODE_ENV === 'test'` so
+  existing high-volume suites do not trip.
+- **tRPC-aware bucket rate limiting (ENG-165)** covers the rest of the
+  surface. `bucketRateLimit` runs on the base `publicProcedure`, so every
+  tRPC call is bucketed by its shape — replacing the uniform 100/min/IP
+  treatment with per-tenant/user isolation, plus per-site
+  isolation for sales writes, so a busy store behind one NAT is never
+  throttled by IP:
+
+  | Bucket        | Procedure shape                       | Key by         | Default     | Env override prefix                     |
+  | ------------- | ------------------------------------- | -------------- | ----------- | --------------------------------------- |
+  | (skipped)     | `auth.*`                              | —              | —           | (uses the strict auth caps above)       |
+  | `sales-write` | authed `sales.*` mutation             | tenant + site + user | 240 / min   | `PUNTOVIVO_RATE_LIMIT_SALES_WRITE_*`    |
+  | `write`       | other authed mutation                 | tenant + user  | 120 / min   | `PUNTOVIVO_RATE_LIMIT_WRITE_*`          |
+  | `read`        | authed query                          | tenant + user  | 600 / min   | `PUNTOVIVO_RATE_LIMIT_READ_*`           |
+  | `public`      | unauthenticated non-auth              | IP             | 60 / min    | `PUNTOVIVO_RATE_LIMIT_PUBLIC_*`         |
+  | `public-api`  | `publicApi.*` (ready for ENG-118)     | tenant + IP    | 120 / min   | `PUNTOVIVO_RATE_LIMIT_PUBLIC_API_*`     |
+
+  Each prefix takes `_MAX` (cap) and `_WINDOW_MS` (window). A bucket hit
+  writes ONE `system_audit_logs` row per window
+  (`action: rate_limit.exceeded`; the offending tenant / site / user / ip live
+  in `metadata`) and throws `TOO_MANY_REQUESTS`. State reuses the
+  in-memory `procedureRateLimit` store, so the same `NODE_ENV === 'test'`
+  bypass applies. The global `@fastify/rate-limit` (100/min/IP) stays as
+  the coarse cross-route DOS backstop.
 
 ### Input boundary
 

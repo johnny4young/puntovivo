@@ -67,4 +67,17 @@ import { tracingMiddlewareFn } from './middleware/tracing.js';
 const tracingMiddleware = t.middleware(
   tracingMiddlewareFn as Parameters<typeof t.middleware>[0]
 );
-export const publicProcedure = t.procedure.use(tracingMiddleware);
+
+// ENG-165 — tRPC-aware rate limiting runs on the base procedure so every
+// call is bucketed by (procedure shape, tenant, user). Wrapped here as a
+// bare function (like tracing) so `bucketRateLimit.ts` never imports
+// `init.ts` — that edge would close a circular module load. The
+// underlying store self-bypasses under the test runner, so this does not
+// throttle the suite.
+import { bucketRateLimitFn } from './middleware/bucketRateLimit.js';
+const bucketRateLimitMiddleware = t.middleware(
+  bucketRateLimitFn as Parameters<typeof t.middleware>[0]
+);
+export const publicProcedure = t.procedure
+  .use(tracingMiddleware)
+  .use(bucketRateLimitMiddleware);
