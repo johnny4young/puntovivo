@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { paginationInput } from './common.js';
+import { emailField, paginationInput } from './common.js';
 
 export const listProvidersInput = paginationInput.extend({
   search: z.string().optional(),
@@ -22,7 +22,8 @@ export const createProviderInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   taxId: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email('Invalid email address').optional(),
+  // ENG-169 — normalise (trim + lowercase) at the boundary.
+  email: emailField('Invalid email address').optional(),
   address: z.string().optional(),
   cityId: z.string().optional(),
   contactName: z.string().optional(),
@@ -36,7 +37,7 @@ export const updateProviderInput = z.object({
   name: z.string().min(1).max(255).optional(),
   taxId: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  email: z.string().email().nullable().optional(),
+  email: emailField().nullable().optional(),
   address: z.string().nullable().optional(),
   cityId: z.string().nullable().optional(),
   contactName: z.string().nullable().optional(),

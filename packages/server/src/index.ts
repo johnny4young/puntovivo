@@ -278,6 +278,26 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     appVersion = 'unknown',
   } = options;
 
+  // ENG-169 — refuse to start a production server with verbose logging
+  // unless the operator opts in explicitly. Verbose mode attaches the
+  // full pino instance to every request (headers + bodies), which is a
+  // dev convenience but a data-leak + throughput cost in production. The
+  // PUNTOVIVO_ALLOW_VERBOSE_PROD escape hatch exists for deliberate prod
+  // debugging and logs a structured warning when it fires.
+  if (verbose && process.env.NODE_ENV === 'production') {
+    if (process.env.PUNTOVIVO_ALLOW_VERBOSE_PROD !== '1') {
+      throw new Error(
+        '[runtime-config] Refusing to start: verbose logging is enabled while NODE_ENV=production. ' +
+          'Verbose mode logs request-level detail and is unsafe for production. ' +
+          'Unset VERBOSE (or pass verbose:false), or set PUNTOVIVO_ALLOW_VERBOSE_PROD=1 to override deliberately.'
+      );
+    }
+    createModuleLogger('server').warn(
+      { override: 'PUNTOVIVO_ALLOW_VERBOSE_PROD' },
+      'verbose logging is enabled in production via explicit override'
+    );
+  }
+
   // ENG-073 — track whether the operator explicitly supplied the
   // JWT secret. Auto-generated secrets reset on every restart, which
   // is fine on a single device_local cashier (the operator just logs

@@ -32,7 +32,7 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import Database from 'better-sqlite3';
 import JSZip from 'jszip';
 
@@ -42,6 +42,19 @@ export const ZIP_DB_ENTRY = 'local.db';
 export const ZIP_DEVICE_ID_ENTRY = 'device-id.txt';
 /** Path inside the ZIP for the backup manifest (metadata only). */
 export const ZIP_MANIFEST_ENTRY = 'manifest.json';
+
+/**
+ * ENG-169 — the only entries a legitimate Puntovivo backup ZIP may
+ * contain. `extractBackupBundle` refuses any bundle carrying an entry
+ * outside this allowlist (or one using a traversal / absolute path)
+ * instead of silently ignoring it, so a hand-crafted ZIP can never
+ * smuggle an unexpected file past the restore boundary.
+ */
+const ALLOWED_ZIP_ENTRIES: ReadonlySet<string> = new Set([
+  ZIP_DB_ENTRY,
+  ZIP_DEVICE_ID_ENTRY,
+  ZIP_MANIFEST_ENTRY,
+]);
 
 /** Schema version of the ZIP manifest layout. Bump on shape change. */
 export const BACKUP_BUNDLE_SCHEMA_VERSION = 1;
@@ -397,6 +410,46 @@ export async function extractBackupBundle(
   await mkdir(outDir, { recursive: true });
   const zipBuffer = await readFile(bundlePath);
   const zip = await JSZip.loadAsync(zipBuffer);
+
+  // ENG-169 — gate the whole archive against an allowlist BEFORE writing
+  // anything to disk. We only ever extract the three constant-named
+  // entries by name (so a `../evil` entry was already never written),
+  // but refusing the bundle outright turns a silent ignore into an
+  // explicit, testable rejection and stops a malformed/hostile ZIP from
+  // reaching the integrity check.
+  for (const [entryName, entry] of Object.entries(zip.files)) {
+    // JSZip sanitises zip-slip names during load (for example
+    // `../local.db` may appear as `local.db`) and preserves the raw
+    // archive name on `unsafeOriginalName`. Validate both names so a
+    // crafted archive cannot hide traversal behind an allowlisted
+    // sanitized key.
+    const originalName =
+      (entry as { unsafeOriginalName?: string }).unsafeOriginalName ??
+      entryName;
+    const candidateNames = new Set([entryName, originalName]);
+    for (const candidateName of candidateNames) {
+      if (
+        candidateName.includes('..') ||
+        candidateName.startsWith('/') ||
+        candidateName.includes('\\') ||
+        isAbsolute(candidateName)
+      ) {
+        throw new Error(
+          `Backup ZIP rejected: entry '${originalName}' uses a path-traversal or absolute path. The file is not a trusted Puntovivo backup.`
+        );
+      }
+    }
+    if (
+      !ALLOWED_ZIP_ENTRIES.has(entryName) ||
+      !ALLOWED_ZIP_ENTRIES.has(originalName)
+    ) {
+      throw new Error(
+        `Backup ZIP rejected: unexpected entry '${originalName}'. A Puntovivo backup may only contain ${[
+          ...ALLOWED_ZIP_ENTRIES,
+        ].join(', ')}.`
+      );
+    }
+  }
 
   const dbEntry = zip.file(ZIP_DB_ENTRY);
   if (!dbEntry) {

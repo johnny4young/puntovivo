@@ -8,6 +8,21 @@
 
 import { z } from 'zod';
 import { paginationInput } from './common.js';
+import { isUrlSchemeBlocked } from '../../lib/urlSafety.js';
+
+/**
+ * ENG-169 — product image: refine-only (no `.url()`) so existing
+ * relative paths and `data:image/...` values keep validating, while
+ * dangerous schemes (javascript:, data:text/html, …) are rejected at
+ * the schema boundary. Nullable/optional pass through untouched.
+ */
+const productImageUrl = z
+  .string()
+  .refine(value => !isUrlSchemeBlocked(value), {
+    message: 'URL scheme not permitted',
+  })
+  .nullable()
+  .optional();
 
 export const productUnitAssignmentInput = z.object({
   unitId: z.string().min(1, 'Unit is required'),
@@ -85,7 +100,7 @@ export const createProductInput = z
       .optional(),
     isActive: z.boolean().default(true),
     barcode: z.string().nullable().optional(),
-    imageUrl: z.string().nullable().optional(),
+    imageUrl: productImageUrl,
     unitAssignments: z
       .array(productUnitAssignmentInput)
       .min(1, 'At least one unit assignment is required')
@@ -138,7 +153,7 @@ export const updateProductInput = z
       .optional(),
     isActive: z.boolean().optional(),
     barcode: z.string().nullable().optional(),
-    imageUrl: z.string().nullable().optional(),
+    imageUrl: productImageUrl,
     unitAssignments: z
       .array(productUnitAssignmentInput)
       .min(1, 'At least one unit assignment is required')
