@@ -4646,10 +4646,17 @@ export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
 // tenant-scoped surface. This table is the global counterpart for maintenance
 // evidence only.
 
-export const systemAuditLogActionEnum = ['login_attempts.cleanup'] as const;
+// ENG-165 — `rate_limit.exceeded` records a tRPC bucket-rate-limit hit
+// (the offending tenant / user / ip live in `metadata`, since this table
+// has no tenant/actor columns). TS-level enum only; the column accepts
+// any text, so appending a value needs no migration.
+export const systemAuditLogActionEnum = [
+  'login_attempts.cleanup',
+  'rate_limit.exceeded',
+] as const;
 export type SystemAuditLogAction = (typeof systemAuditLogActionEnum)[number];
 
-export const systemAuditLogResourceTypeEnum = ['login_attempts'] as const;
+export const systemAuditLogResourceTypeEnum = ['login_attempts', 'rate_limit'] as const;
 export type SystemAuditLogResourceType =
   (typeof systemAuditLogResourceTypeEnum)[number];
 

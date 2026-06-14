@@ -26,9 +26,17 @@ import { throwServerError } from '../../lib/errorCodes.js';
 interface Bucket {
   count: number;
   expiresAt: number;
+  // ENG-165 — flips true once we have reported the FIRST denial of the
+  // current window, so a caller can audit a rate-limit hit exactly once
+  // per window instead of once per rejected request (avoids flooding the
+  // audit log under a sustained abuse burst).
+  deniedSignalled: boolean;
 }
 
 const buckets = new Map<string, Bucket>();
+
+/** ENG-165 — bucket key dimensions. `siteId` enables per-site sales buckets. */
+export type RateLimitKeyDimension = 'ip' | 'userId' | 'tenantId' | 'siteId';
 
 export interface ProcedureRateLimitOptions {
   /** Stable label folded into the bucket key — typically the procedure name. */
@@ -41,16 +49,35 @@ export interface ProcedureRateLimitOptions {
    * Which dimensions to fold into the bucket key. Order matters only
    * for cache locality; semantically the set is order-independent.
    */
-  keyBy?: ReadonlyArray<'ip' | 'userId'>;
+  keyBy?: ReadonlyArray<RateLimitKeyDimension>;
+}
+
+/**
+ * ENG-165 — outcome of consuming a token from a bucket.
+ *
+ * `firstDenial` is true only on the FIRST denial within the current
+ * window, so the caller can write a single auditable event per window.
+ */
+export interface RateLimitDecision {
+  outcome: 'allowed' | 'denied';
+  firstDenial: boolean;
 }
 
 function bucketKey(
   name: string,
   ip: string | null,
   userId: string | null,
-  keyBy: ReadonlyArray<'ip' | 'userId'>
+  tenantId: string | null,
+  siteId: string | null,
+  keyBy: ReadonlyArray<RateLimitKeyDimension>
 ): string {
   const parts: string[] = [name];
+  if (keyBy.includes('tenantId')) {
+    parts.push(`tenant=${tenantId ?? 'none'}`);
+  }
+  if (keyBy.includes('siteId')) {
+    parts.push(`site=${siteId ?? 'none'}`);
+  }
   if (keyBy.includes('ip')) {
     parts.push(`ip=${ip ?? 'unknown'}`);
   }
@@ -80,26 +107,29 @@ function isE2eBypassEnabled(): boolean {
   );
 }
 
+/** Options accepted by {@link consumeRateLimitBucket} / {@link checkProcedureRateLimit}. */
+export type RateLimitConsumeOptions = ProcedureRateLimitOptions & {
+  ip?: string | null;
+  userId?: string | null;
+  /** ENG-165 — tenant the request belongs to (for per-tenant buckets). */
+  tenantId?: string | null;
+  /** ENG-165 — active site for sales buckets. */
+  siteId?: string | null;
+  now?: number;
+  enforceInTest?: boolean;
+};
+
 /**
- * Pure bucket-check exported for unit tests. Returns:
- *   - `'allowed'` when the bucket has spare capacity (or the env bypass
- *     is active).
- *   - `'denied'` when the bucket is saturated.
- *
- * Mutates the in-memory bucket store as a side-effect on `'allowed'`.
+ * ENG-165 — consume one token from a bucket and report the outcome plus
+ * a once-per-window `firstDenial` signal. Returns `allowed` (with the
+ * bucket store mutated) when there is spare capacity or the env/test
+ * bypass is active, and `denied` when the bucket is saturated.
  */
-export function checkProcedureRateLimit(
-  options: ProcedureRateLimitOptions & {
-    ip?: string | null;
-    userId?: string | null;
-    now?: number;
-    enforceInTest?: boolean;
-  }
-): 'allowed' | 'denied' {
+export function consumeRateLimitBucket(options: RateLimitConsumeOptions): RateLimitDecision {
   const { name, max, windowMs, keyBy = ['ip'] } = options;
 
   if (isE2eBypassEnabled()) {
-    return 'allowed';
+    return { outcome: 'allowed', firstDenial: false };
   }
 
   const isTestRunner =
@@ -107,26 +137,40 @@ export function checkProcedureRateLimit(
     process.env.VITEST === 'true' ||
     process.env.VITEST_WORKER_ID !== undefined;
   if (isTestRunner && options.enforceInTest !== true) {
-    return 'allowed';
+    return { outcome: 'allowed', firstDenial: false };
   }
 
   const now = options.now ?? Date.now();
   const ip = options.ip ?? null;
   const userId = options.userId ?? null;
-  const key = bucketKey(name, ip, userId, keyBy);
+  const tenantId = options.tenantId ?? null;
+  const siteId = options.siteId ?? null;
+  const key = bucketKey(name, ip, userId, tenantId, siteId, keyBy);
 
   const existing = buckets.get(key);
   if (!existing || existing.expiresAt <= now) {
-    buckets.set(key, { count: 1, expiresAt: now + windowMs });
-    return 'allowed';
+    buckets.set(key, { count: 1, expiresAt: now + windowMs, deniedSignalled: false });
+    return { outcome: 'allowed', firstDenial: false };
   }
 
   if (existing.count >= max) {
-    return 'denied';
+    const firstDenial = !existing.deniedSignalled;
+    existing.deniedSignalled = true;
+    return { outcome: 'denied', firstDenial };
   }
 
   existing.count += 1;
-  return 'allowed';
+  return { outcome: 'allowed', firstDenial: false };
+}
+
+/**
+ * Pure bucket-check exported for unit tests + the auth-critical
+ * `rateLimitFor` middleware. Back-compat thin wrapper over
+ * {@link consumeRateLimitBucket} returning only the `'allowed'|'denied'`
+ * outcome.
+ */
+export function checkProcedureRateLimit(options: RateLimitConsumeOptions): 'allowed' | 'denied' {
+  return consumeRateLimitBucket(options).outcome;
 }
 
 /**
@@ -144,6 +188,8 @@ export function rateLimitFor(options: ProcedureRateLimitOptions) {
       ...options,
       ip: typeof ctx.req?.ip === 'string' ? ctx.req.ip : null,
       userId: ctx.user?.id ?? null,
+      tenantId: ctx.tenantId ?? null,
+      siteId: ctx.siteId ?? null,
     });
 
     if (decision === 'denied') {
