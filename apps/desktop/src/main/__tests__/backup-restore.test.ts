@@ -320,12 +320,46 @@ describe('extractBackupBundle (ENG-066)', () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-empty-zip-'));
     const path = join(dir, 'empty.zip');
     const zip = new JSZip();
-    zip.file('not-a-db.txt', 'wrong shape');
+    // ENG-169 — use an allowlisted entry so the archive clears the
+    // allowlist gate and reaches the missing-local.db check below.
+    zip.file(ZIP_MANIFEST_ENTRY, '{}');
     await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
 
     await assert.rejects(
       extractBackupBundle(path, join(dir, 'unused')),
       /missing the required.*local\.db/i
+    );
+  });
+
+  it('rejects a ZIP carrying a path-traversal entry (ENG-169)', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-traversal-'));
+    const path = join(dir, 'evil.zip');
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, 'x');
+    // JSZip stores the original unsafe name separately while exposing a
+    // sanitized key at load time; keep createFolders false so the test
+    // proves the extractor validates that unsafeOriginalName, not just a
+    // synthetic "/" directory entry.
+    zip.file('../local.db', 'pwned', { createFolders: false });
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
+
+    await assert.rejects(
+      extractBackupBundle(path, join(dir, 'out')),
+      /path-traversal/i
+    );
+  });
+
+  it('rejects a ZIP carrying an unexpected, non-allowlisted entry (ENG-169)', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-extra-'));
+    const path = join(dir, 'extra.zip');
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, 'x');
+    zip.file('notes.txt', 'extra payload');
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
+
+    await assert.rejects(
+      extractBackupBundle(path, join(dir, 'out')),
+      /unexpected entry/i
     );
   });
 });

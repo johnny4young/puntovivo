@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { paginationInput } from './common.js';
+import { emailField, paginationInput } from './common.js';
 
 // ============================================================================
 // Input Schemas
@@ -34,7 +34,8 @@ const creditLimitSchema = z
 
 export const createCustomerInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
-  email: z.string().email('Invalid email address').optional(),
+  // ENG-169 — normalise (trim + lowercase) at the boundary.
+  email: emailField('Invalid email address').optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -58,7 +59,7 @@ export const updateCustomerInput = z.object({
   // version it last read so a stale overwrite is rejected with STALE_VERSION.
   version: z.number().int().nonnegative(),
   name: z.string().min(1).max(255).optional(),
-  email: z.string().email().nullable().optional(),
+  email: emailField().nullable().optional(),
   phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
