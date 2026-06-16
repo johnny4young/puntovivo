@@ -13,13 +13,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock } = vi.hoisted(() => ({
+const { useAuthMock, useIsModuleActiveMock, useModulesSnapshotMock } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
+  useModulesSnapshotMock: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
-vi.mock('@/features/modules', () => ({ useIsModuleActive: useIsModuleActiveMock }));
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: useIsModuleActiveMock,
+  useModulesSnapshot: useModulesSnapshotMock,
+}));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
@@ -82,8 +86,14 @@ describe('ProductsPage default column set (ENG-132a)', () => {
   beforeEach(() => {
     useAuthMock.mockReset();
     useIsModuleActiveMock.mockReset();
+    useModulesSnapshotMock.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'manager' } });
     useIsModuleActiveMock.mockReturnValue(false); // semantic off → simplest table
+    useModulesSnapshotMock.mockReturnValue({
+      modules: { 'semantic-search': false },
+      isLoading: false,
+      isPlaceholder: false,
+    });
   });
 
   it('renders the smallest useful column set (provider / location / tier-2 / tier-3 trimmed)', () => {

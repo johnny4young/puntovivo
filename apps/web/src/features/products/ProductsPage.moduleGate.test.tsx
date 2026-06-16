@@ -12,14 +12,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   useAuthMock,
   useIsModuleActiveMock,
+  useModulesSnapshotMock,
   semanticSearchUseQueryMock,
+  embeddingHealthUseQueryMock,
   regenerateMutateMock,
   semanticSearchInvalidateMock,
   embeddingHealthInvalidateMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
+  useModulesSnapshotMock: vi.fn(),
   semanticSearchUseQueryMock: vi.fn(),
+  embeddingHealthUseQueryMock: vi.fn(),
   regenerateMutateMock: vi.fn(),
   semanticSearchInvalidateMock: vi.fn(),
   embeddingHealthInvalidateMock: vi.fn(),
@@ -31,6 +35,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
 
 vi.mock('@/features/modules', () => ({
   useIsModuleActive: useIsModuleActiveMock,
+  useModulesSnapshot: useModulesSnapshotMock,
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -77,7 +82,7 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: semanticSearchUseQueryMock,
       },
       embeddingHealth: {
-        useQuery: () => ({ data: null, isLoading: false }),
+        useQuery: embeddingHealthUseQueryMock,
       },
       regenerateEmbeddings: {
         useMutation: (options?: { onSuccess?: (data: { ok: true; embedded: number }) => void }) => ({
@@ -136,6 +141,8 @@ describe('ProductsPage semantic-search module gate', () => {
     useAuthMock.mockReset();
     useIsModuleActiveMock.mockReset();
     semanticSearchUseQueryMock.mockReset();
+    embeddingHealthUseQueryMock.mockReset();
+    useModulesSnapshotMock.mockReset();
     regenerateMutateMock.mockReset();
     semanticSearchInvalidateMock.mockReset();
     embeddingHealthInvalidateMock.mockReset();
@@ -145,6 +152,12 @@ describe('ProductsPage semantic-search module gate', () => {
     semanticSearchUseQueryMock.mockReturnValue({
       data: null,
       isFetching: false,
+    });
+    embeddingHealthUseQueryMock.mockReturnValue({ data: null, isLoading: false });
+    useModulesSnapshotMock.mockReturnValue({
+      modules: { 'semantic-search': true },
+      isLoading: false,
+      isPlaceholder: false,
     });
   });
 
@@ -156,6 +169,31 @@ describe('ProductsPage semantic-search module gate', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     expect(semanticSearchUseQueryMock).toHaveBeenCalledWith(
       expect.any(Object),
+      expect.objectContaining({ enabled: false })
+    );
+    expect(embeddingHealthUseQueryMock).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
+  it('keeps semantic queries disabled while the modules snapshot is still placeholder', () => {
+    useIsModuleActiveMock.mockReturnValue(true);
+    useModulesSnapshotMock.mockReturnValue({
+      modules: { 'semantic-search': true },
+      isLoading: true,
+      isPlaceholder: true,
+    });
+
+    render(<ProductsPage />);
+
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(semanticSearchUseQueryMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ enabled: false })
+    );
+    expect(embeddingHealthUseQueryMock).toHaveBeenCalledWith(
+      undefined,
       expect.objectContaining({ enabled: false })
     );
   });

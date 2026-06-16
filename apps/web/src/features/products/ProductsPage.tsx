@@ -22,7 +22,7 @@ import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadin
 import { productExportColumns } from '@/features/products/productExport';
 import { normalizeProductProviders } from '@/features/products/providerState';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useIsModuleActive } from '@/features/modules';
+import { useIsModuleActive, useModulesSnapshot } from '@/features/modules';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
@@ -214,7 +214,16 @@ export function ProductsPage() {
   const canDelete = user?.role === 'admin';
   const canRegenerate = user?.role === 'admin';
   const semanticModuleActive = useIsModuleActive('semantic-search');
-  const canUseSemantic = canManage && semanticModuleActive;
+  const modulesSnapshot = useModulesSnapshot();
+  // ENG-178 — do not trust manifest-default module state for server-gated
+  // semantic procedures. A cold modules snapshot is intentionally
+  // optimistic, but firing `products.embeddingHealth` before
+  // `modules.getEffective` resolves makes tenants with semantic-search
+  // disabled log a transient MODULE_NOT_ACTIVATED 403 in the browser
+  // console. Hold the semantic surface until the authoritative snapshot
+  // arrives; then the existing module flag decides visibility.
+  const semanticModuleResolved = !modulesSnapshot.isPlaceholder;
+  const canUseSemantic = canManage && semanticModuleResolved && semanticModuleActive;
 
   // ENG-048 — semantic search UI surface. The toggle flips between the
   // existing client-side text filter (DataTable's internal globalFilter
