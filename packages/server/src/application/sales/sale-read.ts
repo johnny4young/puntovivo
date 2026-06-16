@@ -153,6 +153,16 @@ export async function getSaleRecord(
   return { ...sale, items, payments, fiscalDocuments: fiscalDocumentsList };
 }
 
+/**
+ * Concrete shape of the sale record returned by `completeSale`. Lives
+ * next to `getSaleRecord` (its source) so the two sale paths can import
+ * it without depending on the `completeSale` orchestrator. The optional
+ * `change` is the cash overage stamped onto the returned record.
+ */
+export type CompleteSaleSaleRecord = Awaited<ReturnType<typeof getSaleRecord>> & {
+  change?: number;
+};
+
 export interface SaleFiscalDocumentRow {
   id: string;
   source: FiscalDocumentSource;
