@@ -149,7 +149,22 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
 
         await use(electronApp);
       } finally {
-        await electronApp?.close();
+        if (electronApp) {
+          // On macOS the default Electron contract keeps the app process
+          // alive after the last BrowserWindow closes. Playwright's
+          // ElectronApplication.close() closes the window, but that is not
+          // enough for Puntovivo's tray-aware main process to reach
+          // `will-quit`, so the smoke can hang after the assertion already
+          // passed. Ask the real app to quit first, then let Playwright wait
+          // for the process teardown.
+          await electronApp.evaluate(({ app }) => {
+            app.quit();
+            setTimeout(() => {
+              app.exit(0);
+            }, 1_000);
+          });
+          await electronApp.close();
+        }
         // Leave the checkout ready for Node-based server tests after a
         // local Electron smoke run.
         ensureNativeRuntime('node');
