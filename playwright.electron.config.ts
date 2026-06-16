@@ -52,7 +52,11 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev:web',
+    // Use the web workspace command directly instead of the root dev
+    // launcher. The launcher intentionally detaches its Vite child for
+    // interactive dev sessions, but Playwright needs to own the process tree
+    // so the Electron smoke can exit cleanly after the test.
+    command: 'pnpm --filter @puntovivo/web run dev',
     url: 'http://localhost:3000/login',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
