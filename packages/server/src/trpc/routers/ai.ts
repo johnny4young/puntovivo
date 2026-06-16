@@ -75,7 +75,7 @@ import {
   projectAiQuotas,
   requireAiQuotaAvailable,
 } from '../../services/ai/quotas.js';
-import { createOcrDraftPurchase } from './purchases.js';
+import { createOcrDraftPurchase } from '../../application/purchases/index.js';
 import {
   parseCartCommandInput,
   transcribeAudioInput,
