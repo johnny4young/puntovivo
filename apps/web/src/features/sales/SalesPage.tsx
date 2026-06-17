@@ -1,27 +1,23 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { History, PauseCircle } from 'lucide-react';
-import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Drawer } from '@/components/feedback/Drawer';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
-import {
-  CashSessionCloseModal,
-  type CashSessionCloseValues,
-} from '@/features/sales/CashSessionCloseModal';
-import {
-  CashSessionMovementModal,
-  type CashSessionMovementValues,
-} from '@/features/sales/CashSessionMovementModal';
-import {
-  CashSessionOpenModal,
-  type CashSessionOpenValues,
-} from '@/features/sales/CashSessionOpenModal';
+import { type CashSessionCloseValues } from '@/features/sales/CashSessionCloseModal';
+import { type CashSessionMovementValues } from '@/features/sales/CashSessionMovementModal';
+import { type CashSessionOpenValues } from '@/features/sales/CashSessionOpenModal';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
+import { CashSessionModals } from '@/features/sales/CashSessionModals';
+import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
+import { SalesModals } from '@/features/sales/SalesModals';
+import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
+import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
+import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
+import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
+import { useSalesMutations } from '@/features/sales/useSalesMutations';
 import {
   useCheckoutPreflight,
   type PreflightBlockerId,
@@ -29,21 +25,10 @@ import {
 } from '@/features/sales/useCheckoutPreflight';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { SaleDetailsModal } from '@/features/sales/SaleDetailsModal';
-import {
-  createEscposReceiptDispatcher,
-  printSaleReceipt,
-  type EscPosDispatchOutcome,
-  type HubReceiptBytesPayload,
-} from '@/features/sales/receiptPrinter';
 import { SalesHistoryTable } from '@/features/sales/SalesHistoryTable';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
-import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
-import {
-  SalePaymentModal,
-  type SalePaymentValues,
-} from '@/features/sales/SalePaymentModal';
+import { type SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import {
   getCartItemKey,
   getCartSummary,
@@ -61,7 +46,6 @@ import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRest
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import {
   DEFAULT_WEDGE_CONFIG,
-  useBarcodeWedgeListener,
   type WedgeConfig,
 } from '@/features/sales/useBarcodeWedgeListener';
 import {
@@ -69,17 +53,9 @@ import {
   useCartWorkspaceStore,
 } from '@/features/sales/useCartWorkspaceStore';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import {
-  dispatchDrawerKick,
-  type DrawerKickOutcome,
-  type HubDrawerBytesPayload,
-} from '@/features/sales/receiptPrinter';
 import { invalidateGroups } from '@/lib/invalidateGroups';
-import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { formatCurrency } from '@/lib/utils';
 import type {
   CashSession,
   Category,
@@ -87,21 +63,7 @@ import type {
   Provider,
   RegisterAssignment,
   Sale,
-  ProductSearchItem,
-  ProductSearchSelection,
 } from '@/types';
-
-const QuickCreateProductGate = lazy(() =>
-  import('@/features/sales/QuickCreateProductGate').then(module => ({
-    default: module.QuickCreateProductGate,
-  }))
-);
-
-const QuickCreateCustomerGate = lazy(() =>
-  import('@/features/sales/QuickCreateCustomerGate').then(module => ({
-    default: module.QuickCreateCustomerGate,
-  }))
-);
 
 export function SalesPage() {
   const { t } = useTranslation(['sales', 'errors', 'common']);
@@ -328,8 +290,6 @@ export function SalesPage() {
     { siteId: currentSite?.id ?? '' },
     { enabled: !!currentSite, staleTime: 5 * 60 * 1000 }
   );
-  const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
-  const printReceiptMutateAsync = printReceiptMutation.mutateAsync;
   const autoPrintEnabled = (() => {
     const rows = peripheralsForSiteQuery.data;
     if (!rows) return false;
@@ -338,219 +298,40 @@ export function SalesPage() {
     const config = printer.config as Record<string, unknown> | null;
     return config?.autoPrintOnComplete === true;
   })();
-  const handleAutoPrintFallback = useCallback(() => {
-    toast.warning({ title: t('sales:printer.escposFailedFallback') });
-  }, [t, toast]);
-  const maybeAutoPrint = useCallback(
-    async (sale: Sale) => {
-      if (!autoPrintEnabled || !currentSite) return;
-      const siteId = currentSite.id;
-      const dispatcher = createEscposReceiptDispatcher({
-        serverPrint: async () => {
-          const result = await printReceiptMutateAsync({
-            saleId: sale.id,
-            siteId,
-          });
-          return result as EscPosDispatchOutcome;
-        },
-        fetchHubReceiptBytes: async () => {
-          const result = await utils.peripherals.buildReceiptBytes.fetch({
-            saleId: sale.id,
-            siteId,
-          });
-          return result as HubReceiptBytesPayload;
-        },
-      });
-      try {
-        await printSaleReceipt(sale, {
-          escposDispatcher: dispatcher,
-          onEscposFallback: handleAutoPrintFallback,
-        });
-      } catch (err) {
-        // Receipt-print is best-effort post-sale — never block the
-        // cashier flow. Surface a one-line warning toast and let the
-        // operator reprint manually from the sale details modal.
-        console.warn('[sales] auto-print failed', err);
-        toast.warning({ title: t('sales:printer.autoPrintFailed') });
-      }
-    },
-    [
-      autoPrintEnabled,
-      currentSite,
-      handleAutoPrintFallback,
-      printReceiptMutateAsync,
-      t,
-      toast,
-      utils,
-    ]
-  );
+  // ENG-097 — auto-print on sale completion. The shell derives
+  // `autoPrintEnabled` from the SHARED `peripherals.activeForSite` query
+  // (single subscription for scanner + drawer + auto-print) and passes
+  // it into the hook; `maybeAutoPrint` fires from the mutation success
+  // paths below after the completion toast.
+  const maybeAutoPrint = useReceiptAutoPrint({ autoPrintEnabled });
 
-  // Shared epilogue for both "finish a sale" paths: sales.create for a
-  // fresh cart, and sales.completeDraft for a resumed draft. Both need
-  // to invalidate the same query set and both want the workspace to
-  // reset to a fresh blank draft.
-  const finishSaleEpilogue = useCallback(
-    async (itemCount: number) => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.movements,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-        u => u.sales.list,
-        u => u.sales.listDrafts,
-        u => u.sales.summary,
-        u => u.inventory.listMovements,
-        u => u.inventory.listStock,
-        u => u.products.list,
-        u => u.products.search,
-        // ENG-090 — credit sales mutate the ledger, so the cupo card
-        // inside SalePaymentModal must refetch on the next open.
-        u => u.customerLedger.getBalance,
-        u => u.customerLedger.list,
-      ]);
-      const storeState = useCartWorkspaceStore.getState();
-      if (storeState.activeId) {
-        storeState.removeWorkspace(storeState.activeId);
-      }
-      if (ownerKey) {
-        storeState.createDraft(ownerKey);
-      }
-      setProductSearchQuery('');
-      setSaleError(null);
-      setIsPaymentModalOpen(false);
-      toast.success({
-        title: t('toast.success'),
-        description: `${itemCount} ${t('toast.successDetail')}`,
-      });
-    },
-    [ownerKey, t, toast, utils, setIsPaymentModalOpen]
-  );
-
-  const createMutation = useCriticalMutation('sales.create', {
-    onSuccess: async (data, variables) => {
-      // Drafts created via the Suspend orchestration skip the epilogue
-      // — `handleSuspendConfirm` handles invalidation + workspace
-      // reset + the localized "Sale suspended" toast itself so the
-      // operator never sees the "Sale completed" message on a
-      // still-in-flight suspend.
-      if (variables.status !== 'completed') {
-        return;
-      }
-      await finishSaleEpilogue(variables.items.length);
-      // ENG-097 — best-effort auto-print after the epilogue toast so
-      // the cashier sees "Sale completed" before any printer fallback
-      // warning lands.
-      await maybeAutoPrint(data as Sale);
-    },
-    onError: onErrorToast(toast, t),
-  });
-
-  // ENG-018c — completing a resumed draft. `items` is locked server
-  // side so we do not send it; the cashier can only add payments /
-  // notes at this point.
-  const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
-    onSuccess: async result => {
-      await finishSaleEpilogue(result.items.length);
-      // ENG-097 — auto-print mirror of the fresh-create path.
-      await maybeAutoPrint(result as Sale);
-    },
-    onError: onErrorToast(toast, t),
-  });
-
-  // ENG-018b — server calls for the suspend / resume orchestration.
-  // Suspend is a two-step flow: persist the local cart as a server
-  // draft via `sales.create({ status: 'draft' })`, then mark it
-  // suspended via `sales.suspend`. The two mutations are chained
-  // inside `handleSuspendConfirm` below instead of individual
-  // onSuccess callbacks so the intermediate "draft created, but not
-  // yet suspended" state never surfaces in the UI.
-  const suspendMutation = useCriticalMutation('sales.suspend');
-  const resumeMutation = useCriticalMutation('sales.resume');
-  // ENG-018b — used both by the SuspendedSalesPanel (which has its own
-  // internal mutation) AND by the orphan-cleanup path inside
-  // `handleSuspendConfirm` below. Keeping a page-level handle lets us
-  // compensate if `sales.suspend` throws after `sales.create(draft)`
-  // already created + stock-debited the row.
-  const discardDraftMutation = useCriticalMutation('sales.discardDraft');
-  const openCashSessionMutation = useCriticalMutation('cashSessions.open', {
-    onSuccess: async cashSession => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-      ]);
-      setCashSessionError(null);
-      setIsCashSessionModalOpen(false);
-      toast.success({
-        title: t('cashSession.toast.openSuccessTitle'),
-        description: t('cashSession.toast.openSuccessDescription', {
-          registerName: cashSession.registerName,
-          amount: formatCurrency(cashSession.openingFloat),
-        }),
-      });
-    },
-    onError: onErrorToast(toast, t, {
-      extra: description => setCashSessionError(description),
-    }),
-  });
-  const closeCashSessionMutation = useCriticalMutation('cashSessions.close', {
-    onSuccess: async cashSession => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-      ]);
-      setCashSessionCloseError(null);
-      setIsCashSessionCloseModalOpen(false);
-
-      const overShort = cashSession.overShort ?? 0;
-      const absoluteOverShort = formatCurrency(Math.abs(overShort));
-      const description =
-        Math.abs(overShort) < 1e-6
-          ? t('cashSession.toast.closeBalancedDescription', {
-              registerName: cashSession.registerName,
-              amount: formatCurrency(cashSession.actualCount ?? 0),
-            })
-          : overShort > 0
-            ? t('cashSession.toast.closeOverDescription', {
-                registerName: cashSession.registerName,
-                amount: absoluteOverShort,
-              })
-            : t('cashSession.toast.closeShortDescription', {
-                registerName: cashSession.registerName,
-                amount: absoluteOverShort,
-              });
-
-      toast.success({
-        title: t('cashSession.toast.closeSuccessTitle'),
-        description,
-      });
-    },
-    onError: onErrorToast(toast, t, {
-      extra: description => setCashSessionCloseError(description),
-    }),
-  });
-  const recordCashMovementMutation = useCriticalMutation('cashSessions.recordMovement', {
-    onSuccess: async movement => {
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.movements,
-        u => u.cashSessions.report,
-        u => u.cashSessions.registerAssignments,
-      ]);
-      setCashSessionMovementError(null);
-      setIsCashSessionMovementModalOpen(false);
-      toast.success({
-        title: t('cashSession.toast.movementSuccessTitle'),
-        description: t('cashSession.toast.movementSuccessDescription', {
-          movementType: t(`cashSession.movementTypes.${movement.type}`),
-          amount: formatCurrency(movement.amount),
-        }),
-      });
-    },
-    onError: onErrorToast(toast, t, {
-      extra: description => setCashSessionMovementError(description),
-    }),
+  // ENG-178 slice 10 — the sales + cash-session mutation handles and the
+  // shared finish-sale epilogue live in `useSalesMutations`. ALL the
+  // state they mutate stays here in the shell; the setters are injected
+  // so the dependency direction is shell → hook → shell, never hook ↔
+  // hook. The flow handlers below (handleCheckout, handleSuspendConfirm,
+  // the cash-session handlers) call the returned mutation handles.
+  const {
+    createMutation,
+    completeDraftMutation,
+    suspendMutation,
+    resumeMutation,
+    discardDraftMutation,
+    openCashSessionMutation,
+    closeCashSessionMutation,
+    recordCashMovementMutation,
+  } = useSalesMutations({
+    ownerKey,
+    maybeAutoPrint,
+    setProductSearchQuery,
+    setSaleError,
+    setIsPaymentModalOpen,
+    setCashSessionError,
+    setIsCashSessionModalOpen,
+    setCashSessionCloseError,
+    setIsCashSessionCloseModalOpen,
+    setCashSessionMovementError,
+    setIsCashSessionMovementModalOpen,
   });
 
   const draftSummary = getCartSummary(cartItems);
@@ -1122,74 +903,18 @@ export function SalesPage() {
   // GS1 weight/price-embedded labels override quantity / unitPrice
   // server-side so the cart line reflects the weighed package.
 
-  // ENG-062 — manager-gated cash drawer kick. The button only renders
-  // when (a) the user role can kick (manager/admin), (b) an active
-  // cash drawer is registered for the site. Otherwise the prop is
-  // undefined and SalesCheckoutPanel hides the button entirely.
-  const isManagerOrAdmin = user?.role === 'manager' || user?.role === 'admin';
+  // ENG-062 — manager-gated cash drawer kick. `useCashDrawerController`
+  // owns the kick dispatch + the device_local / site_hub / hub_client
+  // routing + the outcome toasts; `hasRegisteredDrawer` is derived here
+  // from the shared peripherals query and passed in. `onKickCashDrawer`
+  // is undefined (SalesCheckoutPanel hides the button) unless the role
+  // can kick and a drawer is registered.
   const hasRegisteredDrawer = !!peripheralsForSiteQuery.data?.find(
     r => r.kind === 'cash_drawer' && r.driver === 'escpos'
   );
-  const kickCashDrawerMutation = trpc.peripherals.kickCashDrawer.useMutation();
-  // `useMutation()` returns a fresh object on every render, so depend
-  // only on the stable `mutateAsync` reference — keeps the kick
-  // handler identity stable without breaking exhaustive-deps.
-  const kickCashDrawerMutateAsync = kickCashDrawerMutation.mutateAsync;
-  const handleDrawerKickOutcome = useCallback(
-    (result: DrawerKickOutcome) => {
-      if (result.status === 'ok') {
-        toast.success({ title: t('sales:printer.kickDrawerSuccess') });
-      } else if (result.status === 'no-drawer-registered') {
-        toast.info({ title: t('sales:printer.noDrawerRegistered') });
-      } else {
-        toast.error({
-          title: t('sales:printer.kickDrawerFailed'),
-          description: result.errorMessage ?? result.error ?? '',
-        });
-      }
-    },
-    [t, toast]
-  );
-  // ENG-062 + ENG-074b — `dispatchDrawerKick` collapses the
-  // device_local / site_hub / hub_client decision into a single
-  // outcome the UI can toast on. In hub_client mode it asks the hub
-  // for `peripherals.buildDrawerKickBytes` and pipes the bytes
-  // through the local hardware bridge; otherwise it routes to the
-  // existing server-managed `kickCashDrawer` mutation.
-  const handleKickCashDrawer = useCallback(async () => {
-    if (!currentSite) return;
-    const siteId = currentSite.id;
-    try {
-      const result = await dispatchDrawerKick({
-        serverKick: async () => {
-          const r = await kickCashDrawerMutateAsync({ siteId });
-          return r as DrawerKickOutcome;
-        },
-        fetchHubDrawerBytes: async () => {
-          const r = await utils.peripherals.buildDrawerKickBytes.fetch({ siteId });
-          return r as HubDrawerBytesPayload;
-        },
-      });
-      handleDrawerKickOutcome(result);
-    } catch (err) {
-      const description = translateServerError(err, t, t('errors:server.unknown'));
-      toast.error({
-        title: t('sales:printer.kickDrawerFailed'),
-        description,
-      });
-    }
-  }, [
-    currentSite,
-    handleDrawerKickOutcome,
-    kickCashDrawerMutateAsync,
-    t,
-    toast,
-    utils,
-  ]);
-  const onKickCashDrawer =
-    isManagerOrAdmin && hasRegisteredDrawer && !!currentSite
-      ? handleKickCashDrawer
-      : undefined;
+  const { onKickCashDrawer, isKickingCashDrawer } = useCashDrawerController({
+    hasRegisteredDrawer,
+  });
   const scannerConfig: WedgeConfig = (() => {
     const row = peripheralsForSiteQuery.data?.find(
       r => r.kind === 'scanner' && r.driver === 'wedge'
@@ -1202,103 +927,24 @@ export function SalesPage() {
     };
   })();
 
-  const handleBarcodeScan = useCallback(
-    async (rawCode: string) => {
-      if (!currentSite) return;
-      if (isResumedCart) {
-        toast.info({ title: t('sales:scanner.resumedCartLocked') });
-        return;
-      }
-      try {
-        const result = await utils.products.lookupByBarcode.fetch({
-          barcode: rawCode,
-          gs1Scheme: scannerConfig.gs1Scheme ?? 'generic',
-        });
-        if (!result) {
-          toast.warning({ title: t('sales:scanner.notFound') });
-          return;
-        }
-        // The tRPC output carries SQLite-shaped nullable fields where the
-        // ProductSearchItem domain type expects non-null booleans. The
-        // `isActive=true` filter on the server makes the cast safe here;
-        // mirrors the projection ProductSearchDialog already does.
-        const product = result.product as unknown as ProductSearchItem;
-        const unitAssignments = product.unitAssignments ?? [];
-        const baseUnit =
-          unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
-        if (!baseUnit) {
-          toast.error({ title: t('sales:scanner.noBaseUnit') });
-          return;
-        }
-        const overridePrice =
-          typeof result.suggestedPrice === 'number'
-            ? result.suggestedPrice
-            : null;
-        const overrideQuantity =
-          typeof result.suggestedQuantity === 'number'
-            ? result.suggestedQuantity
-            : null;
-        const selection: ProductSearchSelection = {
-          product,
-          unit: baseUnit,
-          price: overridePrice ?? baseUnit.price ?? product.price,
-        };
-        const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
-        setCartItems(currentItems => {
-          const merged = mergeCartItem(currentItems, selection);
-          if (overrideQuantity !== null) {
-            return merged.map(item =>
-              item.key === itemKey
-                ? updateCartItem(item, { quantity: overrideQuantity })
-                : item
-            );
-          }
-          return merged;
-        });
-        setSelectedCartItemKey(itemKey);
-        setProductSearchQuery('');
-        setSaleError(null);
-        if (overrideQuantity !== null) {
-          toast.success({ title: t('sales:scanner.weightFromLabel') });
-        } else if (overridePrice !== null) {
-          toast.success({ title: t('sales:scanner.priceFromLabel') });
-        }
-      } catch (error) {
-        const fallback = t('sales:scanner.lookupFailed');
-        toast.error({
-          title: fallback,
-          description: translateServerError(error, t, fallback),
-        });
-      }
-    },
-    [
-      currentSite,
-      isResumedCart,
-      setCartItems,
-      setSelectedCartItemKey,
-      t,
-      toast,
-      utils,
-      scannerConfig.gs1Scheme,
-    ]
-  );
-
-  useBarcodeWedgeListener({
-    config: scannerConfig,
-    onScan: handleBarcodeScan,
+  // ENG-061 — barcode scanner pipeline. `useBarcodeProductScanner` owns
+  // the lookup + cart-merge + the wedge-listener mount; `scannerConfig`
+  // is derived above from the shared peripherals query and passed in, and
+  // the modal-open flags gate the listener so a scan never fires while a
+  // modal owns the keyboard.
+  useBarcodeProductScanner({
+    scannerConfig,
+    isResumedCart,
     isProductSearchOpen,
     isPaymentModalOpen,
-    isCashSessionModalOpen:
-      isCashSessionModalOpen ||
-      isCashSessionCloseModalOpen ||
-      isCashSessionMovementModalOpen,
-    enabled: !!currentSite,
-    // ENG-105f — Whitelist the page-level search input so the wedge
-    // continues to fire even when the cashier sees focus on it
-    // (autofocus on mount + restore after modal close). Manual
-    // typing still works because the >30ms inter-character gap
-    // resets the buffer before it reaches `minLength`.
-    scannerInputRef: productInputRef,
+    isCashSessionModalOpen,
+    isCashSessionCloseModalOpen,
+    isCashSessionMovementModalOpen,
+    productInputRef,
+    setCartItems,
+    setSelectedCartItemKey,
+    setProductSearchQuery,
+    setSaleError,
   });
 
   return (
@@ -1315,130 +961,23 @@ export function SalesPage() {
             `productInputRef` es el objetivo del scanner wedge
             (useBarcodeWedgeListener) y de Alt+P (useScannerFocusRestoration),
             así que permanece montado y visible siempre. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch xl:shrink-0">
-          <div className="min-w-0 flex-1">
-            <SalesQuickSearchBar
-              query={productSearchQuery}
-              onQueryChange={setProductSearchQuery}
-              onSubmit={() => handleOpenProductSearch(productSearchQuery)}
-              inputRef={productInputRef}
-            />
-          </div>
-          <div className="flex gap-2 sm:flex-col sm:justify-end">
-            <button
-              type="button"
-              className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
-              onClick={() => setIsHistoryDrawerOpen(true)}
-              data-testid="sales-open-history"
-            >
-              <History className="h-4 w-4" aria-hidden="true" />
-              {t('view.history')}
-            </button>
-            <button
-              type="button"
-              className="btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
-              onClick={() => setIsSuspendedPanelOpen(true)}
-              data-testid="sales-open-suspended"
-            >
-              <PauseCircle className="h-4 w-4" aria-hidden="true" />
-              {t('park.panelTitle')}
-              {suspendedDraftsCount > 0 && (
-                <span
-                  className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-semibold text-primary-700"
-                  data-testid="sales-suspended-count"
-                >
-                  {suspendedDraftsCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
+        <SalesHeaderSection
+          productSearchQuery={productSearchQuery}
+          onQueryChange={setProductSearchQuery}
+          onSubmitSearch={() => handleOpenProductSearch(productSearchQuery)}
+          productInputRef={productInputRef}
+          onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+          onOpenSuspended={() => setIsSuspendedPanelOpen(true)}
+          suspendedDraftsCount={suspendedDraftsCount}
+          isResumedCart={isResumedCart}
+          activeWorkspace={activeWorkspace ?? null}
+        />
 
-        {isResumedCart && activeWorkspace?.serverSaleNumber && (
-          <div
-            className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 xl:shrink-0"
-            role="status"
-            data-testid="resumed-cart-banner"
-          >
-            <p className="font-semibold">
-              {activeWorkspace.label
-                ? t('park.resumedBannerWithLabel', {
-                    saleNumber: activeWorkspace.serverSaleNumber,
-                    label: activeWorkspace.label,
-                  })
-                : t('park.resumedBanner', {
-                    saleNumber: activeWorkspace.serverSaleNumber,
-                  })}
-            </p>
-            <p className="mt-1 text-xs text-primary-800/80">
-              {t('park.resumedBannerHint')}
-            </p>
-          </div>
-        )}
-
-        {ownedWorkspaces.length > 1 && (
-          <section
-            className="rounded-2xl border border-line/80 bg-surface px-4 py-3 shadow-sm xl:shrink-0"
-            aria-label={t('park.localWorkspacesTitle')}
-            data-testid="cart-workspace-switcher"
-          >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-secondary-950">
-                  {t('park.localWorkspacesTitle')}
-                </p>
-                <p className="text-xs text-secondary-500">
-                  {t('park.localWorkspacesDescription')}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {ownedWorkspaces.map((workspace, index) => {
-                const workspaceSummary = getCartSummary(workspace.items);
-                const fallbackLabel = t('park.localWorkspaceFallback', {
-                  index: ownedWorkspaces.length - index,
-                });
-                const label =
-                  workspace.label ??
-                  (workspace.serverSaleNumber
-                    ? t('park.localWorkspaceServerDraft', {
-                        saleNumber: workspace.serverSaleNumber,
-                      })
-                    : fallbackLabel);
-                const isActive = workspace.id === activeWorkspace?.id;
-
-                return (
-                  <button
-                    key={workspace.id}
-                    type="button"
-                    className={
-                      isActive
-                        ? 'rounded-2xl border border-primary-300 bg-primary-50 px-3 py-2 text-left text-sm text-primary-900'
-                        : 'rounded-2xl border border-line bg-white px-3 py-2 text-left text-sm text-secondary-700 hover:border-primary-200 hover:bg-primary-50/60'
-                    }
-                    onClick={() => handleSelectWorkspace(workspace.id)}
-                    aria-pressed={isActive}
-                    aria-label={t('park.localWorkspaceSelect', { label })}
-                    data-testid="cart-workspace-switcher-item"
-                  >
-                    <span className="block whitespace-nowrap font-semibold">
-                      {label}
-                    </span>
-                    <span className="mt-1 block whitespace-nowrap text-xs opacity-75">
-                      {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
-                      {formatCurrency(workspaceSummary.total)}
-                    </span>
-                    {isActive && (
-                      <span className="mt-1 inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-[0.65rem] font-semibold text-primary-700">
-                        {t('park.localWorkspaceActive')}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-            )}
+        <WorkspaceTabsSection
+          ownedWorkspaces={ownedWorkspaces}
+          activeWorkspaceId={activeWorkspace?.id}
+          onSelectWorkspace={handleSelectWorkspace}
+        />
 
         <section className="grid gap-6 pos:min-h-0 pos:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)] pos:grid-rows-[minmax(0,1fr)]">
           <SalesCartWorkspace
@@ -1473,7 +1012,7 @@ export function SalesPage() {
             onCloseCashSession={handleOpenCloseCashSessionModal}
             onOpenMovement={handleOpenCashSessionMovementModal}
             onKickCashDrawer={onKickCashDrawer}
-            isKickingCashDrawer={kickCashDrawerMutation.isPending}
+            isKickingCashDrawer={isKickingCashDrawer}
             onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
             canSuspend={canCharge && !isResumedCart}
             onSuspend={handleOpenSuspendPrompt}
@@ -1552,194 +1091,66 @@ export function SalesPage() {
         />
       </Drawer>
 
-      {isProductSearchOpen && (
-        <ProductSearchDialog
-          key={productSearchDialogKey}
-          isOpen={isProductSearchOpen}
-          onClose={() => setIsProductSearchOpen(false)}
-          onSelect={handleProductSelect}
-          categories={categories}
-          providers={providers}
-          initialQuery={productSearchInitialQuery}
-          title={t('checkout.addProduct')}
-          confirmLabel={t('checkout.addToCart')}
-          // ENG-105c — surface the quick-create CTA in the empty
-          // state. The dialog closes itself before firing the
-          // callback so we just dispatch the request to the store;
-          // QuickCreateProductGate mounts the form modal.
-          onQuickCreateRequested={defaultName => {
-            useQuickCreateStore.getState().requestCreateProduct({ defaultName });
-          }}
-          canCreateProducts={
-            user?.role === 'admin' || user?.role === 'manager'
-          }
-        />
-      )}
-      {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
-        <Suspense fallback={null}>
-          {/* ENG-105c — Quick-create gates stay split out of the hot
-            * SalesPage route chunk and only mount when the store flags
-            * a request. On success they invoke onCreated so SalesPage
-            * can fold the new entity into the active cart / sale, then
-            * they consume the store slot. */}
-          {shouldRenderQuickCreateProductGate && (
-            <QuickCreateProductGate
-              onCreated={created => {
-                // Fetch the freshly created product with its full unit
-                // assignments + price so we can merge into the cart with
-                // the exact shape mergeCartItem expects.
-                // The mutation returns the eager shape with unitAssignments
-                // already populated by the server.
-                const defaultUnit =
-                  created.unitAssignments?.find(assignment => assignment.isBase) ??
-                  created.unitAssignments?.[0];
-                if (!defaultUnit) {
-                  return;
-                }
-                setCartItems(currentItems =>
-                  mergeCartItem(currentItems, {
-                    product: {
-                      id: created.id,
-                      name: created.name,
-                      sku: created.sku,
-                      stock: created.stock,
-                      baseUnitPrice: defaultUnit.price,
-                      baseUnitAbbreviation: defaultUnit.unitAbbreviation,
-                      taxRate: created.taxRate ?? 0,
-                      sellByFraction: created.sellByFraction,
-                      fractionStep: created.fractionStep,
-                      fractionMinimum: created.fractionMinimum,
-                    } as Parameters<typeof mergeCartItem>[1]['product'],
-                    unit: defaultUnit,
-                    price: defaultUnit.price,
-                  })
-                );
-              }}
-            />
-          )}
-          {shouldRenderQuickCreateCustomerGate && (
-            <QuickCreateCustomerGate />
-          )}
-        </Suspense>
-      )}
+      <SalesModals
+        isProductSearchOpen={isProductSearchOpen}
+        productSearchDialogKey={productSearchDialogKey}
+        onCloseProductSearch={() => setIsProductSearchOpen(false)}
+        onSelectProduct={handleProductSelect}
+        categories={categories}
+        providers={providers}
+        productSearchInitialQuery={productSearchInitialQuery}
+        setCartItems={setCartItems}
+        isPaymentModalOpen={isPaymentModalOpen}
+        paymentModalKey={paymentModalKey}
+        paymentTotal={draftSummary.total}
+        customers={customers}
+        isPaymentSaving={createMutation.isPending || completeDraftMutation.isPending}
+        saleError={saleError}
+        serviceChargeRate={serviceChargeRate}
+        fastCashTrigger={fastCashTrigger}
+        onClosePayment={() => {
+          setIsPaymentModalOpen(false);
+          setFastCashTrigger(0);
+        }}
+        onSubmitPayment={handleCheckout}
+        selectedSaleId={selectedSaleId}
+        onCloseSaleDetails={() => setSelectedSaleId(null)}
+        isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
+        isSuspending={isSuspending}
+        suspendLabelDraft={suspendLabelDraft}
+        onChangeSuspendLabel={setSuspendLabelDraft}
+        onCloseSuspendPrompt={() => {
+          if (isSuspending) return;
+          setIsSuspendLabelPromptOpen(false);
+        }}
+        onConfirmSuspend={() => {
+          void handleSuspendConfirm();
+        }}
+      />
 
-      {isPaymentModalOpen && (
-        <SalePaymentModal
-          key={paymentModalKey}
-          isOpen={isPaymentModalOpen}
-          total={draftSummary.total}
-          customers={customers}
-          isSaving={createMutation.isPending || completeDraftMutation.isPending}
-          error={saleError}
-          serviceChargeRate={serviceChargeRate}
-          // ENG-090 — role gates the credit method tile inside the
-          // modal. Cashier never sees it; manager + admin do; admin
-          // additionally sees the override checkbox when cupo is
-          // exceeded.
-          userRole={user?.role}
-          // ENG-105e — F2 fast-cash signal. Positive values apply
-          // at mount; later increments re-apply exact cash while open.
-          fastCashTrigger={fastCashTrigger}
-          onClose={() => {
-            setIsPaymentModalOpen(false);
-            setFastCashTrigger(0);
-          }}
-          onSubmit={handleCheckout}
-        />
-      )}
-
-      {isCashSessionModalOpen && (
-        <CashSessionOpenModal
-          key={`${cashSessionModalKey}-${selectedRegisterAssignment?.id ?? 'none'}`}
-          isOpen={isCashSessionModalOpen}
-          isSaving={openCashSessionMutation.isPending}
-          error={cashSessionError}
-          defaultRegisterAssignment={selectedRegisterAssignment}
-          onClose={() => setIsCashSessionModalOpen(false)}
-          onSubmit={handleCreateCashSession}
-        />
-      )}
-      {isCashSessionCloseModalOpen && (
-        <CashSessionCloseModal
-          key={cashSessionCloseModalKey}
-          cashSession={activeCashSession}
-          isOpen={isCashSessionCloseModalOpen}
-          isSaving={closeCashSessionMutation.isPending}
-          error={cashSessionCloseError}
-          onClose={() => setIsCashSessionCloseModalOpen(false)}
-          onSubmit={handleCloseCashSession}
-          suspendedDraftsCount={suspendedDraftsCount}
-        />
-      )}
-      {isCashSessionMovementModalOpen && (
-        <CashSessionMovementModal
-          key={cashSessionMovementModalKey}
-          isOpen={isCashSessionMovementModalOpen}
-          isSaving={recordCashMovementMutation.isPending}
-          error={cashSessionMovementError}
-          onClose={() => setIsCashSessionMovementModalOpen(false)}
-          onSubmit={handleRecordCashMovement}
-        />
-      )}
-
-      {selectedSaleId && (
-        <SaleDetailsModal
-          saleId={selectedSaleId}
-          isOpen={!!selectedSaleId}
-          onClose={() => setSelectedSaleId(null)}
-        />
-      )}
-
-      {isSuspendLabelPromptOpen && (
-        <Modal
-          isOpen={isSuspendLabelPromptOpen}
-          onClose={() => {
-            if (isSuspending) return;
-            setIsSuspendLabelPromptOpen(false);
-          }}
-          title={t('park.labelPromptTitle')}
-          size="sm"
-          footer={
-            <>
-              <ModalButton
-                onClick={() => {
-                  if (isSuspending) return;
-                  setIsSuspendLabelPromptOpen(false);
-                }}
-                disabled={isSuspending}
-              >
-                {t('common:actions.cancel')}
-              </ModalButton>
-              <ModalButton
-                variant="primary"
-                onClick={() => {
-                  void handleSuspendConfirm();
-                }}
-                disabled={isSuspending}
-              >
-                {isSuspending ? `${t('park.labelPromptConfirm')}…` : t('park.labelPromptConfirm')}
-              </ModalButton>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <p className="text-sm text-secondary-600">
-              {t('park.labelPromptDescription')}
-            </p>
-            <input
-              type="text"
-              value={suspendLabelDraft}
-              onChange={event => setSuspendLabelDraft(event.target.value)}
-              placeholder={t('park.labelPlaceholder')}
-              maxLength={80}
-              className="block w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm"
-              autoFocus
-              disabled={isSuspending}
-              data-testid="suspend-label-input"
-            />
-          </div>
-        </Modal>
-      )}
+      <CashSessionModals
+        isCashSessionModalOpen={isCashSessionModalOpen}
+        cashSessionModalKey={cashSessionModalKey}
+        isOpeningCashSession={openCashSessionMutation.isPending}
+        cashSessionError={cashSessionError}
+        selectedRegisterAssignment={selectedRegisterAssignment}
+        onCloseOpenModal={() => setIsCashSessionModalOpen(false)}
+        onSubmitOpen={handleCreateCashSession}
+        isCashSessionCloseModalOpen={isCashSessionCloseModalOpen}
+        cashSessionCloseModalKey={cashSessionCloseModalKey}
+        activeCashSession={activeCashSession}
+        isClosingCashSession={closeCashSessionMutation.isPending}
+        cashSessionCloseError={cashSessionCloseError}
+        onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
+        onSubmitClose={handleCloseCashSession}
+        suspendedDraftsCount={suspendedDraftsCount}
+        isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
+        cashSessionMovementModalKey={cashSessionMovementModalKey}
+        isRecordingMovement={recordCashMovementMutation.isPending}
+        cashSessionMovementError={cashSessionMovementError}
+        onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}
+        onSubmitMovement={handleRecordCashMovement}
+      />
     </>
   );
 }
