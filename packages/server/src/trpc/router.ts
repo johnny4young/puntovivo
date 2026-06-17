@@ -20,7 +20,7 @@ import { dashboardRouter } from './routers/dashboard.js';
 import { citiesRouter, countriesRouter, departmentsRouter } from './routers/geography.js';
 import { logosRouter } from './routers/logos.js';
 import { providersRouter } from './routers/providers.js';
-import { productsRouter } from './routers/products.js';
+import { productsRouter } from './routers/products/index.js';
 import { ordersRouter } from './routers/orders.js';
 import { purchasesRouter } from './routers/purchases.js';
 import { sequentialsRouter } from './routers/sequentials.js';
