@@ -16,7 +16,7 @@ import {
   APP_FOOTER_METADATA,
   buildPreviewData,
   renderReceipt,
-} from '../services/receipt-renderer.js';
+} from '../services/receipt-renderer/index.js';
 import { receiptLayoutSchema } from '../trpc/schemas/receiptTemplates.js';
 
 let server: PuntovivoServer;

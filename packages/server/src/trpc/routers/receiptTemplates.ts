@@ -39,7 +39,7 @@ import {
 import {
   buildPreviewData,
   renderReceipt,
-} from '../../services/receipt-renderer.js';
+} from '../../services/receipt-renderer/index.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import {
   createReceiptTemplateInput,
