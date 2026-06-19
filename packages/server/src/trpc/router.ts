@@ -17,7 +17,7 @@ import {
   regimeTypesRouter,
 } from './routers/customerCatalogs.js';
 import { dashboardRouter } from './routers/dashboard.js';
-import { citiesRouter, countriesRouter, departmentsRouter } from './routers/geography.js';
+import { citiesRouter, countriesRouter, departmentsRouter } from './routers/geography/index.js';
 import { logosRouter } from './routers/logos.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products/index.js';
