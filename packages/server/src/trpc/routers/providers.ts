@@ -33,7 +33,7 @@ import {
   searchProvidersInput,
   updateProviderInput,
 } from '../schemas/providers.js';
-import { ensureCityExists } from './geography.js';
+import { ensureCityExists } from './geography/index.js';
 
 async function ensureTenantProvider(db: DatabaseInstance, tenantId: string, providerId: string) {
   const provider = await db
