@@ -29,7 +29,7 @@ import { usersRouter } from './routers/users.js';
 import { vatRatesRouter } from './routers/vatRates.js';
 import { customersRouter } from './routers/customers.js';
 import { salesRouter } from './routers/sales/index.js';
-import { inventoryRouter } from './routers/inventory.js';
+import { inventoryRouter } from './routers/inventory/index.js';
 import { locationsRouter } from './routers/locations.js';
 import { sitesRouter } from './routers/sites.js';
 import { syncRouter } from './routers/sync/index.js';

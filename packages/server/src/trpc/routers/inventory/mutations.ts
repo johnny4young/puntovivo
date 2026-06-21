@@ -1,389 +1,51 @@
 /**
- * Inventory tRPC Router
+ * Inventory router — write procedures (ENG-178 split).
  *
- * Inventory movement tracking and stock management with tenant isolation.
+ * The four tenant-scoped mutations: `recordEntry` (initial / physical-count
+ * entry + atomic stock update), `createMovement` (typed movement + stock
+ * delta), `adjustStock` (absolute set, critical-command gated, per-site
+ * balance reconciliation + audit), and `reconcileBalances` (admin heal-up
+ * tool). Spread into the router barrel.
  *
- * Procedures:
- * - inventory.listMovements   (tenant) - List inventory movements
- * - inventory.getMovement     (tenant) - Get a single movement
- * - inventory.createMovement  (tenant) - Create movement + update product stock (transaction)
- * - inventory.adjustStock     (tenant, admin) - Set absolute stock level
- * - inventory.productStock    (tenant) - Get current stock for a product
- *
- * @module trpc/routers/inventory
+ * @module trpc/routers/inventory/mutations
  */
-
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, gte, lte, desc, like, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
-import { ensureTenantSite } from '../middleware/tenantSite.js';
-import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
+
+import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
+import { criticalCommandManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import {
-  categories,
   initialInventory,
   inventoryMovements,
-  operationEvents,
   products,
   sites,
-  unitXProduct,
   units,
-} from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
-import { updateOperationSummary } from '../../services/operation-journal/journal.js';
-import type { Context } from '../context.js';
-import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
-import {
-  listEntriesInput,
-  listMovementsInput,
-  listStockInput,
-  getMovementInput,
-  createMovementInput,
-  adjustStockInput,
-  productStockInput,
-  recordEntryInput,
-  listBalancesBySiteInput,
-} from '../schemas/inventory.js';
+} from '../../../db/schema.js';
+import { enqueueSync } from '../../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
-  ensureInventoryBalancesForSite,
   ensurePrimaryInventoryBalanceSnapshot,
   getPrimarySiteId,
-  listInventoryBalancesBySite,
   reconcileProductStockFromBalances,
-  summarizeInventoryBalances,
-} from '../../services/inventory-balances.js';
-import { writeAuditLog } from '../../services/audit-logs.js';
-import { roundMoney } from '../../lib/money.js';
+} from '../../../services/inventory-balances.js';
+import { writeAuditLog } from '../../../services/audit-logs.js';
+import { roundMoney } from '../../../lib/money.js';
+import {
+  adjustStockInput,
+  createMovementInput,
+  recordEntryInput,
+} from '../../schemas/inventory.js';
+import {
+  getNormalizedInventoryQuantity,
+  getProductForInventory,
+  getProductUnitAssignment,
+  lookupInventoryJournalEventId,
+  safeUpdateInventoryAdjustedSummary,
+} from './helpers.js';
 
-async function getProductForInventory(db: Context['db'], tenantId: string, productId: string) {
-  const product = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
-    .get();
-
-  if (!product || product.isActive === false) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found or inactive' });
-  }
-
-  return product;
-}
-
-async function lookupInventoryJournalEventId(
-  db: Context['db'],
-  tenantId: string,
-  operationId: string | undefined
-): Promise<string | null> {
-  if (!operationId) {
-    return null;
-  }
-  const row = await db
-    .select({ id: operationEvents.id })
-    .from(operationEvents)
-    .where(
-      and(
-        eq(operationEvents.tenantId, tenantId),
-        eq(operationEvents.operationId, operationId)
-      )
-    )
-    .get();
-  return row?.id ?? null;
-}
-
-async function safeUpdateInventoryAdjustedSummary(
-  ctx: Context,
-  journalEventId: string,
-  summary: {
-    productId: string;
-    siteId: string;
-    quantityBefore: number;
-    quantityAfter: number;
-    delta: number;
-    locationId: string | null;
-    reasonCode: string | null;
-  }
-): Promise<void> {
-  try {
-    await updateOperationSummary(ctx.db, journalEventId, summary);
-  } catch (err) {
-    ctx.req?.server?.log?.warn(
-      { err, journalEventId },
-      'operation summary update failed (non-blocking)'
-    );
-  }
-}
-
-async function getProductUnitAssignment(
-  db: Context['db'],
-  productId: string,
-  unitId: string
-) {
-  const assignment = await db
-    .select({
-      unitId: unitXProduct.unitId,
-      equivalence: unitXProduct.equivalence,
-      unitName: units.name,
-      unitAbbreviation: units.abbreviation,
-      isActive: units.isActive,
-    })
-    .from(unitXProduct)
-    .innerJoin(units, eq(unitXProduct.unitId, units.id))
-    .where(and(eq(unitXProduct.productId, productId), eq(unitXProduct.unitId, unitId)))
-    .get();
-
-  if (!assignment || assignment.isActive === false) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'Selected product unit was not found or is inactive',
-    });
-  }
-
-  return assignment;
-}
-
-function getNormalizedInventoryQuantity(quantity: number, equivalence: number) {
-  const normalizedQuantity = quantity * equivalence;
-  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'The normalized quantity must be greater than zero',
-    });
-  }
-
-  return normalizedQuantity;
-}
-
-export const inventoryRouter = router({
-  /**
-   * List persisted initial/physical inventory entries.
-   */
-  listEntries: managerOrAdminProcedure.input(listEntriesInput).query(async ({ ctx, input }) => {
-    const { page, perPage, productId, mode } = input;
-    const offset = (page - 1) * perPage;
-
-    const conditions = [eq(initialInventory.tenantId, ctx.tenantId)];
-    if (productId) conditions.push(eq(initialInventory.productId, productId));
-    if (mode) conditions.push(eq(initialInventory.mode, mode));
-
-    const where = and(...conditions);
-
-    const [items, countResult] = await Promise.all([
-      ctx.db
-        .select({
-          id: initialInventory.id,
-          tenantId: initialInventory.tenantId,
-          productId: initialInventory.productId,
-          unitId: initialInventory.unitId,
-          siteId: initialInventory.siteId,
-          mode: initialInventory.mode,
-          quantity: initialInventory.quantity,
-          unitEquivalence: initialInventory.unitEquivalence,
-          normalizedQuantity: initialInventory.normalizedQuantity,
-          cost: initialInventory.cost,
-          previousStock: initialInventory.previousStock,
-          newStock: initialInventory.newStock,
-          notes: initialInventory.notes,
-          createdBy: initialInventory.createdBy,
-          syncStatus: initialInventory.syncStatus,
-          syncVersion: initialInventory.syncVersion,
-          createdAt: initialInventory.createdAt,
-          productName: products.name,
-          productSku: products.sku,
-          unitName: units.name,
-          unitAbbreviation: units.abbreviation,
-          siteName: sites.name,
-        })
-        .from(initialInventory)
-        .innerJoin(products, eq(initialInventory.productId, products.id))
-        .innerJoin(units, eq(initialInventory.unitId, units.id))
-        .leftJoin(sites, eq(initialInventory.siteId, sites.id))
-        .where(where)
-        .orderBy(desc(initialInventory.createdAt))
-        .limit(perPage)
-        .offset(offset)
-        .all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(initialInventory)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
-  }),
-
-  /**
-   * List inventory movements for the current tenant
-   */
-  listMovements: managerOrAdminProcedure.input(listMovementsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, productId, type, fromDate, toDate } = input;
-    const offset = (page - 1) * perPage;
-
-    const conditions = [eq(inventoryMovements.tenantId, ctx.tenantId)];
-    if (productId) conditions.push(eq(inventoryMovements.productId, productId));
-    if (type) conditions.push(eq(inventoryMovements.type, type));
-    if (fromDate) conditions.push(gte(inventoryMovements.createdAt, fromDate));
-    if (toDate) conditions.push(lte(inventoryMovements.createdAt, toDate));
-
-    const where = and(...conditions);
-
-    const [items, countResult] = await Promise.all([
-      ctx.db
-        .select({
-          id: inventoryMovements.id,
-          tenantId: inventoryMovements.tenantId,
-          productId: inventoryMovements.productId,
-          type: inventoryMovements.type,
-          quantity: inventoryMovements.quantity,
-          previousStock: inventoryMovements.previousStock,
-          newStock: inventoryMovements.newStock,
-          reference: inventoryMovements.reference,
-          notes: inventoryMovements.notes,
-          createdBy: inventoryMovements.createdBy,
-          createdAt: inventoryMovements.createdAt,
-          syncStatus: inventoryMovements.syncStatus,
-          syncVersion: inventoryMovements.syncVersion,
-          productName: products.name,
-          productSku: products.sku,
-          categoryName: categories.name,
-        })
-        .from(inventoryMovements)
-        .innerJoin(products, eq(inventoryMovements.productId, products.id))
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(where)
-        .orderBy(desc(inventoryMovements.createdAt))
-        .limit(perPage)
-        .offset(offset)
-        .all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(inventoryMovements)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
-  }),
-
-  /**
-   * List current stock balances with valuation and low-stock metadata.
-   */
-  listStock: managerOrAdminProcedure.input(listStockInput).query(async ({ ctx, input }) => {
-    const { page, perPage, search, categoryId, lowStockOnly } = input;
-    const offset = (page - 1) * perPage;
-
-    const conditions = [eq(products.tenantId, ctx.tenantId), eq(products.isActive, true)];
-    if (search) {
-      conditions.push(
-        or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`), like(products.barcode, `%${search}%`))!
-      );
-    }
-    if (categoryId) {
-      conditions.push(eq(products.categoryId, categoryId));
-    }
-    if (lowStockOnly) {
-      conditions.push(sql`${products.stock} <= ${products.minStock}`);
-    }
-
-    const where = and(...conditions);
-
-    const [rawItems, countResult, summaryResult] = await Promise.all([
-      ctx.db
-        .select({
-          id: products.id,
-          tenantId: products.tenantId,
-          name: products.name,
-          sku: products.sku,
-          categoryId: products.categoryId,
-          categoryName: categories.name,
-          stock: products.stock,
-          minStock: products.minStock,
-          initialCost: products.initialCost,
-          price: products.price,
-          isLowStock: sql<boolean>`${products.stock} <= ${products.minStock}`,
-          inventoryValue: sql<number>`${products.stock} * ${products.initialCost}`,
-          updatedAt: products.updatedAt,
-        })
-        .from(products)
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(where)
-        .orderBy(products.name)
-        .limit(perPage)
-        .offset(offset)
-        .all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .where(where)
-        .get(),
-      ctx.db
-        .select({
-          totalUnits: sql<number>`coalesce(sum(${products.stock}), 0)`,
-          totalValue: sql<number>`coalesce(sum(${products.stock} * ${products.initialCost}), 0)`,
-          lowStockCount: sql<number>`coalesce(sum(case when ${products.stock} <= ${products.minStock} then 1 else 0 end), 0)`,
-        })
-        .from(products)
-        .where(where)
-        .get(),
-    ]);
-
-    const totalItems = countResult?.count ?? 0;
-    const items = rawItems.map(item => ({
-      ...item,
-      isLowStock: Boolean(item.isLowStock),
-    }));
-
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-      summary: {
-        totalUnits: summaryResult?.totalUnits ?? 0,
-        totalValue: summaryResult?.totalValue ?? 0,
-        lowStockCount: summaryResult?.lowStockCount ?? 0,
-      },
-    };
-  }),
-
-  /**
-   * Get a single inventory movement by ID
-   */
-  getMovement: managerOrAdminProcedure.input(getMovementInput).query(async ({ ctx, input }) => {
-    const movement = await ctx.db
-      .select()
-      .from(inventoryMovements)
-      .where(
-        and(eq(inventoryMovements.id, input.id), eq(inventoryMovements.tenantId, ctx.tenantId))
-      )
-      .get();
-
-    if (!movement) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Inventory movement not found' });
-    }
-
-    return movement;
-  }),
-
+export const inventoryMutationProcedures = {
   /**
    * Record an initial inventory or physical-count entry and update stock atomically.
    */
@@ -782,57 +444,6 @@ export const inventoryRouter = router({
   }),
 
   /**
-   * List on-hand balances attributed to a specific site (Phase 2 DB-101).
-   *
-   * Seeds the site on first access — primary site mirrors current
-   * `products.stock`, non-primary sites start at zero. Once transfers land the
-   * balances stop being a projection and become the source of truth.
-   */
-  listBalancesBySite: managerOrAdminProcedure
-    .input(listBalancesBySiteInput)
-    .query(async ({ ctx, input }) => {
-      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-
-      // Seed exactly once — both read helpers below are pure selects.
-      ensureInventoryBalancesForSite(ctx.db, ctx.tenantId, input.siteId);
-
-      const [items, summary] = await Promise.all([
-        listInventoryBalancesBySite(ctx.db, ctx.tenantId, input.siteId),
-        summarizeInventoryBalances(ctx.db, ctx.tenantId, input.siteId),
-      ]);
-
-      return { items, summary, siteId: input.siteId };
-    }),
-
-  /**
-   * Get current stock level for a product
-   */
-  productStock: managerOrAdminProcedure.input(productStockInput).query(async ({ ctx, input }) => {
-    const product = await ctx.db
-      .select({
-        id: products.id,
-        name: products.name,
-        stock: products.stock,
-        minStock: products.minStock,
-      })
-      .from(products)
-      .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
-      .get();
-
-    if (!product) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
-    }
-
-    return {
-      productId: product.id,
-      name: product.name,
-      stock: product.stock,
-      minStock: product.minStock,
-      isLowStock: product.stock <= product.minStock,
-    };
-  }),
-
-  /**
    * Phase 2 API-103 step 4 — Admin reconciliation.
    *
    * Recomputes `products.stock` as Σ(`inventory_balances.on_hand`) for every
@@ -845,4 +456,4 @@ export const inventoryRouter = router({
     const result = reconcileProductStockFromBalances(ctx.db, ctx.tenantId);
     return { ...result, reconciledAt: new Date().toISOString() };
   }),
-});
+};
