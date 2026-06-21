@@ -41,7 +41,7 @@ import { tenantLocaleRouter } from './routers/tenantLocale.js';
 import { reportsRouter } from './routers/reports/index.js';
 import { aiRouter } from './routers/ai/index.js';
 import { fiscalSettingsRouter } from './routers/fiscal-settings.js';
-import { peripheralsRouter } from './routers/peripherals.js';
+import { peripheralsRouter } from './routers/peripherals/index.js';
 import { modulesRouter } from './routers/modules.js';
 import { surfacesRouter } from './routers/surfaces.js';
 import { eventsRouter } from './routers/events.js';

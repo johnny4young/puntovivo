@@ -31,7 +31,7 @@ import {
   getQuotationById,
   listQuotations,
   updateQuotationStatus,
-} from '../../services/quotations.js';
+} from '../../services/quotations/index.js';
 import {
   createQuotationInput,
   deleteQuotationInput,
