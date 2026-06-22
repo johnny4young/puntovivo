@@ -5,7 +5,7 @@
  */
 
 import { router, publicProcedure } from './init.js';
-import { authRouter } from './routers/auth.js';
+import { authRouter } from './routers/auth/index.js';
 import { categoriesRouter } from './routers/categories.js';
 import { cashSessionsRouter } from './routers/cashSessions.js';
 import { companiesRouter } from './routers/companies.js';
@@ -21,7 +21,7 @@ import { citiesRouter, countriesRouter, departmentsRouter } from './routers/geog
 import { logosRouter } from './routers/logos.js';
 import { providersRouter } from './routers/providers.js';
 import { productsRouter } from './routers/products/index.js';
-import { ordersRouter } from './routers/orders.js';
+import { ordersRouter } from './routers/orders/index.js';
 import { purchasesRouter } from './routers/purchases.js';
 import { sequentialsRouter } from './routers/sequentials.js';
 import { unitsRouter } from './routers/units.js';

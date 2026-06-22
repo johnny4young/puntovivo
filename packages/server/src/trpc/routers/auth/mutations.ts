@@ -1,92 +1,32 @@
 /**
- * Auth tRPC Router
+ * Auth router — write procedures (ENG-178 split).
  *
- * Handles user authentication with JWT tokens.
- * Replaces REST routes/auth.ts with type-safe tRPC procedures.
+ * `login` / `refresh` (publicProcedure — pre-auth, rate-limited), `logout` /
+ * `changePassword` (protected / critical-command), `realtimeToken` /
+ * `registerDevice` (tenant). The public-vs-protected boundary is carried by
+ * each procedure's builder, preserved verbatim. ENG-008/025/052/074/166, ADR-0002.
  *
- * Procedures:
- * - auth.login    (public)    - Authenticate user with email/password
- * - auth.logout   (public)    - Logout (client-side token removal)
- * - auth.refresh  (public)    - Refresh access JWT using refresh cookie
- * - auth.me       (protected) - Get current user info
- * - auth.changePassword (protected) - Change password
- *
- * @module trpc/routers/auth
+ * @module trpc/routers/auth/mutations
  */
-
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
-import { router, publicProcedure } from '../init.js';
-import { protectedProcedure } from '../middleware/auth.js';
-import { tenantProcedure } from '../middleware/tenant.js';
-import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
-import { users, tenants } from '../../db/schema.js';
-import { loginInput, changePasswordInput, validatePasswordStrength } from '../schemas/auth.js';
-import { throwServerError } from '../../lib/errorCodes.js';
-import { registerDevice as registerDeviceService } from '../../services/devices/devicesService.js';
-import {
-  assertTenantSite,
-  claimPairingCodeForDevice,
-  inferAuthorityRole,
-} from '../../services/devices/authority.js';
-import { getCurrentSchemaVersion } from '../../lib/runtimeMetadata.js';
-import {
-  REALTIME_COOKIE_NAME,
-  REALTIME_TOKEN_MAX_AGE_SECONDS,
-  REFRESH_COOKIE_NAME,
-  clearRefreshCookie,
-  signAccessToken,
-  signRealtimeToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from '../../security/authTokens.js';
-import {
-  checkIp as checkLoginIp,
-  checkUsername as checkLoginUsername,
-  registerFailure as registerLoginFailure,
-  registerSuccess as registerLoginSuccess,
-} from '../../security/loginRateLimit.js';
-import { shouldUseSecureCookies } from '../../security/cookies.js';
-import {
-  getDummyPasswordHash,
-  hashPasswordSecurely,
-  needsRehash,
-  verifyPasswordSecurely,
-} from '../../security/passwords.js';
-import { rateLimitFor } from '../middleware/procedureRateLimit.js';
+import { publicProcedure } from '../../init.js';
+import { protectedProcedure } from '../../middleware/auth.js';
+import { tenantProcedure } from '../../middleware/tenant.js';
+import { criticalCommandProcedure } from '../../middleware/criticalCommand.js';
+import { users, tenants } from '../../../db/schema.js';
+import { loginInput, changePasswordInput, validatePasswordStrength } from '../../schemas/auth.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
+import { registerDevice as registerDeviceService } from '../../../services/devices/devicesService.js';
+import { assertTenantSite, claimPairingCodeForDevice, inferAuthorityRole } from '../../../services/devices/authority.js';
+import { getCurrentSchemaVersion } from '../../../lib/runtimeMetadata.js';
+import { REALTIME_TOKEN_MAX_AGE_SECONDS, clearRefreshCookie, signAccessToken, signRealtimeToken, signRefreshToken, verifyRefreshToken } from '../../../security/authTokens.js';
+import { checkIp as checkLoginIp, checkUsername as checkLoginUsername, registerFailure as registerLoginFailure, registerSuccess as registerLoginSuccess } from '../../../security/loginRateLimit.js';
+import { getDummyPasswordHash, hashPasswordSecurely, needsRehash, verifyPasswordSecurely } from '../../../security/passwords.js';
+import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
+import { setRefreshCookie, setRealtimeCookie } from './helpers.js';
 
-const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
-
-function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
-  if (typeof reply.setCookie !== 'function') {
-    return;
-  }
-
-  reply.setCookie(REFRESH_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: shouldUseSecureCookies(request),
-    path: '/',
-    maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
-  });
-}
-
-function setRealtimeCookie(request: FastifyRequest, reply: FastifyReply, token: string): void {
-  if (typeof reply.setCookie !== 'function') {
-    return;
-  }
-
-  reply.setCookie(REALTIME_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: shouldUseSecureCookies(request),
-    path: '/api/realtime',
-    maxAge: REALTIME_TOKEN_MAX_AGE_SECONDS,
-  });
-}
-
-export const authRouter = router({
+export const authMutationProcedures = {
   /**
    * Login with email and password.
    *
@@ -303,48 +243,6 @@ export const authRouter = router({
   }),
 
   /**
-   * Get current authenticated user info
-   */
-  me: protectedProcedure.query(async ({ ctx }) => {
-    // Get full user info
-    const user = await ctx.db.select().from(users).where(eq(users.id, ctx.user.id)).get();
-
-    if (!user) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'AUTH_USER_NOT_FOUND',
-        message: 'User not found',
-      });
-    }
-
-    // Get tenant info
-    const tenant = await ctx.db.select().from(tenants).where(eq(tenants.id, user.tenantId)).get();
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-      tenant: tenant
-        ? {
-            id: tenant.id,
-            name: tenant.name,
-            slug: tenant.slug,
-            settings: tenant.settings,
-            createdAt: tenant.createdAt,
-            updatedAt: tenant.updatedAt,
-          }
-        : null,
-    };
-  }),
-
-  /**
    * Change password for current user.
    *
    * ENG-052 — wrapped with `criticalCommandProcedure` (ADR-0002).
@@ -505,4 +403,4 @@ export const authRouter = router({
       }
       return result;
     }),
-});
+};
