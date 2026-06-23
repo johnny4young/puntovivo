@@ -51,6 +51,7 @@ pb_data
 # Test
 coverage
 *.test.js
+*.profraw
 
 # Build
 build
