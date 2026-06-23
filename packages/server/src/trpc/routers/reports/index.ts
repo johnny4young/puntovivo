@@ -19,7 +19,7 @@
 
 import { router } from '../../init.js';
 import { cashReportsRouter } from './cash.js';
-import { diagnosticsReportsRouter } from './diagnostics.js';
+import { diagnosticsReportsRouter } from './diagnostics/index.js';
 import { fiscalReportsRouter } from './fiscal.js';
 import { inventoryReportsRouter } from './inventory.js';
 

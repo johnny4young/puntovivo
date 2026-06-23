@@ -31,7 +31,7 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
-import { __TEST_ROW_LIMIT } from '../trpc/routers/reports/diagnostics.js';
+import { __TEST_ROW_LIMIT } from '../trpc/routers/reports/diagnostics/index.js';
 
 let server: PuntovivoServer;
 
