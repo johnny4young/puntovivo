@@ -35,10 +35,10 @@ export const SERVER_ERROR_CODES_B = {
   AUTHORITY_DEVICE_NOT_REVOKABLE: 'AUTHORITY_DEVICE_NOT_REVOKABLE',
   /**
    * ENG-181 — pairing-code generator exhausted its allocation retries
-   * without finding a unique value. `services/devices/authority.ts`
-   * picks a random 6-character code, and a saturated keyspace under
-   * heavy onboarding load could cause this. `details` carries
-   * `{ attempts, siteId }`.
+   * without finding a unique value. `services/devices/authority/pairing.ts`
+   * picks a random 8-character code (formatted as XXXX-XXXX), and a saturated
+   * keyspace under heavy onboarding load could cause this. `details` carries
+   * `{ tenantId, siteId, attempts }`.
    */
   DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED:
     'DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED',

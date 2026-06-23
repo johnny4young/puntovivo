@@ -205,7 +205,7 @@ export const auditLogActionEnum = [
   // last 4 chars of the code + the resolved siteId + kind so an
   // operator can reconcile a device handover after-the-fact without
   // re-running the pairing flow. Emitted by
-  // `services/devices/authority.ts:claimPairingCodeForDevice` only
+  // `services/devices/authority/pairing.ts:claimPairingCodeForDevice` only
   // when the caller passes an `actorUserId` (the tRPC routers always
   // do).
   'device.pairing.claimed',
