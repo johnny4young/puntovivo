@@ -21,30 +21,34 @@ function makeFakeT(map: Record<string, string>): TFunction {
 }
 
 function loadServerErrorCodesFromSource(): string[] {
-  const workspaceRelativePath = resolve(
-    process.cwd(),
-    '../../packages/server/src/lib/errorCodes.ts'
-  );
-  const rootRelativePath = resolve(process.cwd(), 'packages/server/src/lib/errorCodes.ts');
-  const path = existsSync(workspaceRelativePath) ? workspaceRelativePath : rootRelativePath;
-  const source = readFileSync(path, 'utf8');
-  const match = source.match(/export const SERVER_ERROR_CODES = \{([\s\S]*?)\n\} as const;/);
-  if (!match) {
-    throw new Error('Could not locate SERVER_ERROR_CODES in packages/server/src/lib/errorCodes.ts');
+  // ENG-178 — the server `SERVER_ERROR_CODES` map was split into two domain
+  // halves (`errorCodes/codes-a.ts` + `codes-b.ts`) re-assembled in
+  // `errorCodes/registry.ts` (`{ ...SERVER_ERROR_CODES_A, ...SERVER_ERROR_CODES_B }`).
+  // Read both halves so this web allowlist stays in sync with the full
+  // server enum.
+  const codes: string[] = [];
+  for (const half of ['codes-a', 'codes-b'] as const) {
+    const relativePath = `packages/server/src/lib/errorCodes/${half}.ts`;
+    const workspaceRelativePath = resolve(process.cwd(), `../../${relativePath}`);
+    const rootRelativePath = resolve(process.cwd(), relativePath);
+    const path = existsSync(workspaceRelativePath) ? workspaceRelativePath : rootRelativePath;
+    const source = readFileSync(path, 'utf8');
+    const match = source.match(/export const SERVER_ERROR_CODES_[AB] = \{([\s\S]*?)\n\} as const;/);
+    if (!match) {
+      throw new Error(`Could not locate SERVER_ERROR_CODES_* in ${relativePath}`);
+    }
+    // The `if (!match)` guard guarantees match is defined; group 1 is the
+    // object body (required by the regex). Each inner match has group 1 as
+    // the required `([A-Z0-9_]+)` code capture. `!` narrows for
+    // `noUncheckedIndexedAccess`. reason: required-capture invariant.
+    codes.push(...[...match[1]!.matchAll(/:\s*'([A-Z0-9_]+)'/g)].map(([, code]) => code!));
   }
-  // The outer `if (!match)` guard guarantees match is defined; group 1
-  // is required by the regex `\{([\s\S]*?)\n\} as const;` so `match[1]`
-  // is non-undefined when `match` is truthy. Each inner match has group
-  // 1 as the required `([A-Z0-9_]+)` capture. `!` narrows for
-  // `noUncheckedIndexedAccess`. reason: required-capture invariant.
-  return [...match[1]!.matchAll(/:\s*'([A-Z0-9_]+)'/g)].map(([, code]) => code!);
+  return codes;
 }
 
 describe('extractServerErrorCode', () => {
   it('keeps the duplicated web known-code allowlist in sync with the server enum', () => {
-    expect([...KNOWN_SERVER_ERROR_CODES].sort()).toEqual(
-      loadServerErrorCodesFromSource().sort()
-    );
+    expect([...KNOWN_SERVER_ERROR_CODES].sort()).toEqual(loadServerErrorCodesFromSource().sort());
   });
 
   it('returns the code from `data.errorCode` (typical tRPC client shape)', () => {
@@ -103,7 +107,10 @@ describe('translateServerError', () => {
       'errors:server.AUTH_INVALID_CREDENTIALS': 'Correo o contraseña incorrectos.',
     });
     const result = translateServerError(
-      { data: { errorCode: 'AUTH_INVALID_CREDENTIALS' }, message: 'Email or password is incorrect' },
+      {
+        data: { errorCode: 'AUTH_INVALID_CREDENTIALS' },
+        message: 'Email or password is incorrect',
+      },
       t,
       fallback
     );
@@ -115,7 +122,10 @@ describe('translateServerError', () => {
       'errors:server.TRANSFER_INSUFFICIENT_STOCK': 'La sede origen no tiene stock suficiente.',
     });
     const result = translateServerError(
-      { data: { errorCode: 'TRANSFER_INSUFFICIENT_STOCK' }, message: 'Insufficient stock at origin site for transfer' },
+      {
+        data: { errorCode: 'TRANSFER_INSUFFICIENT_STOCK' },
+        message: 'Insufficient stock at origin site for transfer',
+      },
       t,
       fallback
     );
@@ -178,9 +188,7 @@ describe('translateServerError', () => {
       data: { errorCode: 'AUTH_USER_DISABLED' },
       message: 'Your account has been disabled. Please contact an administrator.',
     };
-    expect(translateServerError(error, t, fallback)).toBe(
-      'Tu cuenta ha sido deshabilitada.'
-    );
+    expect(translateServerError(error, t, fallback)).toBe('Tu cuenta ha sido deshabilitada.');
   });
 
   it('translates the new auth rate-limit code instead of showing the raw server message', () => {
@@ -293,9 +301,7 @@ describe('translateServerError', () => {
     });
 
     it('does NOT misclassify a normal message that merely starts with "["', () => {
-      expect(
-        isZodValidationError({ message: '[Demo] Could not save the product' })
-      ).toBe(false);
+      expect(isZodValidationError({ message: '[Demo] Could not save the product' })).toBe(false);
       expect(isZodValidationError({ message: 'Sale is already voided' })).toBe(false);
     });
 
@@ -306,9 +312,7 @@ describe('translateServerError', () => {
       });
       const error = { data: { code: 'BAD_REQUEST' }, message: zodIssuesMessage };
       const result = translateServerError(error, t, fallback);
-      expect(result).toBe(
-        'Hay campos vacíos o con datos inválidos. Revisa los campos marcados.'
-      );
+      expect(result).toBe('Hay campos vacíos o con datos inválidos. Revisa los campos marcados.');
       expect(result).not.toContain('too_small');
       expect(result).not.toContain('unitAssignments');
     });
