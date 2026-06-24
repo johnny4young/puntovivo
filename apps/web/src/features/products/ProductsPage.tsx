@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18next from 'i18next';
-import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Plus, RefreshCw, Search, Sparkles, Tag, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
@@ -20,187 +18,18 @@ import { ProductDetailsDrawer } from '@/features/products/ProductDetailsDrawer';
 import { EmbeddingDriftBanner } from '@/features/products/EmbeddingDriftBanner';
 import { EmptyStateReadinessNudge } from '@/components/feedback/EmptyStateReadinessNudge';
 import { productExportColumns } from '@/features/products/productExport';
-import { normalizeProductProviders } from '@/features/products/providerState';
+import { productsColumns, type DisplayProduct } from '@/features/products/productsColumns';
+import { useProductsSemanticSearch } from '@/features/products/useProductsSemanticSearch';
+import { buildProductPayload } from '@/features/products/productPayload';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useIsModuleActive, useModulesSnapshot } from '@/features/modules';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
-import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import type { Product, UserRole } from '@/types';
 
 function canManageProducts(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
-
-// ENG-048 — when ProductsPage runs in semantic-search mode the rows
-// carry an extra optional `similarity` score. Using the loose row type
-// here keeps the literal-mode columns identical and lets the optional
-// "Match" column read the score from the semantic-mode rows without
-// changing the public `Product` type for unrelated callers.
-type DisplayProduct = Product & { similarity?: number };
-
-// ENG-132a — the default table renders the smallest useful column set for
-// an at-a-glance catalog scan (name+SKU, category, lead price, stock,
-// status). Provider, location, and the tier-2 / tier-3 prices are secondary
-// metadata moved behind the row-detail Drawer (`onViewDetails`) so the row
-// stays narrow. Every trimmed field is still exported (productExportColumns)
-// and still shown in the Drawer.
-const columns = (
-  onViewDetails: (product: Product) => void,
-  onEdit: (product: Product) => void,
-  onDelete: (product: Product) => void,
-  canEdit: boolean,
-  canDelete: boolean,
-  showSimilarity: boolean
-): ColumnDef<DisplayProduct>[] => [
-  {
-    accessorKey: 'name',
-    header: () => i18next.t('products:table.product'),
-    size: 240,
-    // Rediseño FASE 3 — celda ancla (.pv-table .prod/.pic/.pname/.sku):
-    // glifo tonal + nombre fuerte + SKU mono legible debajo.
-    cell: ({ row }) => (
-      <div className="prod">
-        <span className="pic">
-          <Tag className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="pname">{row.original.name}</p>
-          <p className="sku">{row.original.sku}</p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'categoryName',
-    header: () => i18next.t('products:table.category'),
-    size: 150,
-    cell: ({ row }) => row.original.categoryName ?? '-',
-  },
-  {
-    accessorKey: 'price',
-    header: () => i18next.t('products:table.tier1'),
-    size: 110,
-    // Rediseño FASE 3 — montos mono alineados a la derecha (`num`); el
-    // tier líder en negrita vía `.pv-tier .lead`.
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => (
-      <span className="pv-tier">
-        <span className="lead">{formatCurrency(row.original.price)}</span>
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'stock',
-    header: () => i18next.t('products:table.stock'),
-    size: 120,
-    // Rediseño FASE 3 — barra de stock proporcional; `low` la pinta en
-    // danger. La barra llena al 50% cuando stock == mínimo y crece hacia
-    // 100% (2x mínimo), con piso visible para que siempre se lea.
-    meta: { cellClassName: 'num', headerClassName: 'num' },
-    cell: ({ row }) => {
-      const { stock, minStock } = row.original;
-      const isLow = stock < minStock;
-      const fill =
-        minStock > 0
-          ? Math.max(6, Math.min(100, Math.round((stock / minStock) * 50)))
-          : stock > 0
-            ? 100
-            : 6;
-      return (
-        <span
-          className={cn('pv-stock', isLow && 'low')}
-          title={isLow ? i18next.t('products:table.low') : undefined}
-        >
-          <span>{stock.toLocaleString()}</span>
-          <span className="bar">
-            <i style={{ width: `${fill}%` }} />
-          </span>
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: 'isActive',
-    header: () => i18next.t('products:table.status'),
-    size: 110,
-    cell: ({ row }) => (
-      <span className={cn('pv-badge', row.original.isActive ? 'success' : 'neutral')}>
-        {row.original.isActive ? i18next.t('products:table.active') : i18next.t('products:table.inactive')}
-      </span>
-    ),
-  },
-  ...(showSimilarity
-    ? [
-        {
-          id: 'similarity',
-          header: () => i18next.t('products:table.match'),
-          size: 140,
-          cell: ({ row }: { row: { original: DisplayProduct } }) => {
-            const sim = row.original.similarity;
-            if (typeof sim !== 'number') return <span className="text-secondary-400">-</span>;
-            const pct = Math.max(0, Math.min(100, Math.round(sim * 100)));
-            const toneClass =
-              pct >= 80
-                ? 'bg-success-500'
-                : pct >= 60
-                  ? 'bg-primary'
-                  : 'bg-warning-500';
-            return (
-              <div
-                className="flex items-center gap-2"
-                title={i18next.t('semanticSearch:score.tooltip', { score: sim.toFixed(2) })}
-              >
-                <div className="h-2 w-20 overflow-hidden rounded-full bg-secondary-100">
-                  <div className={`h-full rounded-full ${toneClass}`} style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-[11px] font-mono tabular-nums text-secondary-700">{pct}%</span>
-              </div>
-            );
-          },
-        } satisfies ColumnDef<DisplayProduct>,
-      ]
-    : []),
-  {
-    id: 'actions',
-    size: 130,
-    cell: ({ row }) => (
-      <div className="flex items-center gap-1">
-        {/* ENG-132a — Details is the progressive-disclosure affordance for
-            the trimmed columns (provider / location / tier2 / tier3 …);
-            available to every role and focusable in tab order. */}
-        <button
-          className="btn-ghost btn-icon h-8 w-8"
-          onClick={() => onViewDetails(row.original)}
-          aria-label={i18next.t('products:details.viewAria')}
-          title={i18next.t('products:details.viewAria')}
-        >
-          <Eye className="h-4 w-4" />
-        </button>
-        <button
-          className="btn-ghost btn-icon h-8 w-8"
-          onClick={() => onEdit(row.original)}
-          disabled={!canEdit}
-          aria-label={i18next.t('common:actions.edit')}
-          title={i18next.t('common:actions.edit')}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        {canDelete && (
-          <button
-            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-            onClick={() => onDelete(row.original)}
-            aria-label={i18next.t('common:actions.delete')}
-            title={i18next.t('common:actions.delete')}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-    ),
-  },
-];
 
 export function ProductsPage() {
   // ENG-170b — `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
@@ -213,87 +42,18 @@ export function ProductsPage() {
   const canManage = canManageProducts(user?.role);
   const canDelete = user?.role === 'admin';
   const canRegenerate = user?.role === 'admin';
-  const semanticModuleActive = useIsModuleActive('semantic-search');
-  const modulesSnapshot = useModulesSnapshot();
-  // ENG-178 — do not trust manifest-default module state for server-gated
-  // semantic procedures. A cold modules snapshot is intentionally
-  // optimistic, but firing `products.embeddingHealth` before
-  // `modules.getEffective` resolves makes tenants with semantic-search
-  // disabled log a transient MODULE_NOT_ACTIVATED 403 in the browser
-  // console. Hold the semantic surface until the authoritative snapshot
-  // arrives; then the existing module flag decides visibility.
-  const semanticModuleResolved = !modulesSnapshot.isPlaceholder;
-  const canUseSemantic = canManage && semanticModuleResolved && semanticModuleActive;
 
-  // ENG-048 — semantic search UI surface. The toggle flips between the
-  // existing client-side text filter (DataTable's internal globalFilter
-  // on the "name" column) and the server-side cosine-similarity ranking
-  // exposed by `products.semanticSearch`. We debounce by 300ms so each
-  // keystroke does not trigger a network roundtrip + OpenAI embed call.
-  // The mutation `regenerateEmbeddings` is admin-only and is the way to
-  // bring a freshly seeded catalog (or one whose products have been
-  // edited heavily) up to date — the UI surfaces "X embedded" toast on
-  // success and a translated warning when AI is disabled / unconfigured.
-  const [semanticEnabled, setSemanticEnabled] = useState(false);
-  const [semanticQuery, setSemanticQuery] = useState('');
-  const [debouncedSemanticQuery, setDebouncedSemanticQuery] = useState('');
-  const semanticModeEnabled = canUseSemantic && semanticEnabled;
-  const literalFallbackSearch =
-    semanticModeEnabled && debouncedSemanticQuery.length > 0 ? debouncedSemanticQuery : undefined;
+  // ENG-048 — the semantic-search toggle/state machine + module gate lives in
+  // its own hook; the page keeps the literal `products.list` query (fed by the
+  // hook's debounced `literalFallbackSearch`) and the trivial displayProducts merge.
+  const semantic = useProductsSemanticSearch({ canManage, canRegenerate });
+
   const productsQuery = trpc.products.list.useQuery({
     page: 1,
     perPage: 50,
-    search: literalFallbackSearch,
+    search: semantic.literalFallbackSearch,
   });
 
-  useEffect(() => {
-    if (!semanticModeEnabled) {
-      // Only schedule the reset if there is something to clear, so the
-      // effect does not trigger an extra render on every disable cycle.
-      if (debouncedSemanticQuery !== '') {
-        const clearHandle = window.setTimeout(() => setDebouncedSemanticQuery(''), 0);
-        return () => window.clearTimeout(clearHandle);
-      }
-      return;
-    }
-    const handle = window.setTimeout(() => {
-      setDebouncedSemanticQuery(semanticQuery.trim());
-    }, 300);
-    return () => window.clearTimeout(handle);
-  }, [semanticModeEnabled, semanticQuery, debouncedSemanticQuery]);
-
-  const semanticSearchQuery = trpc.products.semanticSearch.useQuery(
-    { query: debouncedSemanticQuery, limit: 25 },
-    { enabled: semanticModeEnabled && debouncedSemanticQuery.length > 0 }
-  );
-
-  // ENG-040 — drift health drives the warning banner above the
-  // toolbar. Gated on the same module + role surface as the rest of
-  // the semantic toolbar so non-activated tenants don't fire the
-  // query at all; the server also rejects with MODULE_NOT_ACTIVATED
-  // if it ever sneaks through.
-  const embeddingHealthQuery = trpc.products.embeddingHealth.useQuery(undefined, {
-    enabled: canUseSemantic,
-  });
-
-  const regenerateMutation = trpc.products.regenerateEmbeddings.useMutation({
-    onSuccess: async data => {
-      if (!data.ok) {
-        toast.warning({ title: t('semantic.regenerateUnavailable') });
-        return;
-      }
-      toast.success({
-        title: t('semantic.regenerated', { count: data.embedded }),
-      });
-      // Refresh both semantic search results and the drift banner, so the
-      // existing toolbar CTA clears the same health signal as the banner CTA.
-      await Promise.all([
-        utils.products.embeddingHealth.invalidate(),
-        utils.products.semanticSearch.invalidate(),
-      ]);
-    },
-    onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
-  });
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
   const locationsQuery = trpc.locations.list.useQuery({ page: 1, perPage: 200 });
@@ -354,34 +114,10 @@ export function ProductsPage() {
     syncVersion: product.syncVersion ?? undefined,
   }));
 
-  // ENG-048 — when semantic mode is active and the server returned
-  // results, replace the rendered rows; the rest of the UI keeps
-  // working unchanged because the row shape matches the standard list
-  // selection plus an extra optional `similarity` field.
-  const semanticUnavailable =
-    semanticModeEnabled && semanticSearchQuery.data?.mode === 'unavailable';
-  const semanticIsActive =
-    semanticModeEnabled &&
-    debouncedSemanticQuery.length > 0 &&
-    semanticSearchQuery.data?.mode === 'semantic';
-  const semanticResults: Array<Product & { similarity?: number }> = useMemo(() => {
-    if (!semanticIsActive) return [];
-    const items = semanticSearchQuery.data?.mode === 'semantic'
-      ? semanticSearchQuery.data.results
-      : [];
-    return items.map(item => {
-      const normalized = {
-        ...item,
-        isActive: item.isActive ?? false,
-        syncStatus: item.syncStatus ?? undefined,
-        syncVersion: item.syncVersion ?? undefined,
-      } as Product;
-      return { ...normalized, similarity: item.similarity };
-    });
-  }, [semanticIsActive, semanticSearchQuery.data]);
-
-  const displayProducts: Array<Product & { similarity?: number }> = semanticIsActive
-    ? semanticResults
+  // ENG-048 — when semantic mode is active and the server returned results, the
+  // hook hands back the ranked + normalized rows; otherwise render the literal list.
+  const displayProducts: DisplayProduct[] = semantic.semanticIsActive
+    ? semantic.semanticResults
     : products;
   const categories: LookupOption[] = (categoriesQuery.data?.items ?? []).map(category => ({
     id: category.id,
@@ -449,56 +185,8 @@ export function ProductsPage() {
     handleOpenEdit(product);
   };
 
-  const buildProviderPayload = (values: ProductFormValues) => {
-    const normalizedProviders = normalizeProductProviders({
-      providerId: values.providerId,
-      providerAssignments: values.providerAssignments,
-    });
-
-    return {
-      providerId: normalizedProviders.primaryProviderId,
-      providerAssignments: normalizedProviders.providerAssignments,
-    };
-  };
-
   const handleSubmit = async (values: ProductFormValues) => {
-    const providerPayload = buildProviderPayload(values);
-    const payload = {
-      name: values.name,
-      sku: values.sku,
-      description: values.description || null,
-      categoryId: values.categoryId || null,
-      providerId: providerPayload.providerId,
-      vatRateId: values.vatRateId || null,
-      locationId: values.locationId || null,
-      barcode: values.barcode || null,
-      imageUrl: values.imageUrl || null,
-      cost: values.cost,
-      initialCost: values.initialCost,
-      price: values.price,
-      price2: values.price2,
-      price3: values.price3,
-      marginPercent1: values.marginPercent1,
-      marginPercent2: values.marginPercent2,
-      marginPercent3: values.marginPercent3,
-      marginAmount1: values.marginAmount1,
-      marginAmount2: values.marginAmount2,
-      marginAmount3: values.marginAmount3,
-      taxRate: values.taxRate,
-      stock: values.stock,
-      minStock: values.minStock,
-      sellByFraction: values.sellByFraction,
-      fractionStep: values.sellByFraction ? values.fractionStep : null,
-      fractionMinimum: values.sellByFraction ? values.fractionMinimum : null,
-      isActive: values.isActive,
-      unitAssignments: values.unitAssignments.map(assignment => ({
-        unitId: assignment.unitId,
-        equivalence: assignment.equivalence,
-        price: assignment.price,
-        isBase: assignment.isBase,
-      })),
-      providerAssignments: providerPayload.providerAssignments,
-    };
+    const payload = buildProductPayload(values);
 
     if (editingProduct) {
       await updateMutation.mutateAsync({
@@ -534,13 +222,13 @@ export function ProductsPage() {
         </div>
       )}
 
-      {canUseSemantic && <EmbeddingDriftBanner data={embeddingHealthQuery.data} />}
+      {semantic.canUseSemantic && <EmbeddingDriftBanner data={semantic.embeddingHealthData} />}
 
       {/* ENG-104 — when the tenant has no products yet, surface a
           nudge toward the readiness checklist for admins. */}
-      {!productsQuery.isLoading &&
-        !productsQuery.error &&
-        products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
+      {!productsQuery.isLoading && !productsQuery.error && products.length === 0 && (
+        <EmptyStateReadinessNudge scope="products" />
+      )}
 
       <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}
@@ -562,20 +250,20 @@ export function ProductsPage() {
               title={t('page.title')}
             />
 
-            {canUseSemantic && (
+            {semantic.canUseSemantic && (
               <>
                 {/* ENG-048 — semantic toolbar: toggle, dedicated input, regen button */}
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={semanticEnabled}
+                    aria-checked={semantic.semanticEnabled}
                     aria-label={t('semantic.toggleLabel')}
                     title={t('semantic.toggleHint')}
-                    onClick={() => setSemanticEnabled(current => !current)}
+                    onClick={() => semantic.setSemanticEnabled(current => !current)}
                     className={cn(
                       'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-                      semanticEnabled
+                      semantic.semanticEnabled
                         ? 'border-primary-200 bg-primary-50 text-primary-700'
                         : 'border-line bg-card text-secondary-600 hover:bg-secondary-50'
                     )}
@@ -584,51 +272,48 @@ export function ProductsPage() {
                     {t('semantic.toggleLabel')}
                   </button>
 
-                  {semanticModeEnabled && (
+                  {semantic.semanticModeEnabled && (
                     <div className="relative min-w-0 flex-1">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
                       <input
                         type="text"
                         className="input pl-10"
                         placeholder={t('table.searchSemantic')}
-                        value={semanticQuery}
-                        onChange={event => setSemanticQuery(event.target.value)}
+                        value={semantic.semanticQuery}
+                        onChange={event => semantic.setSemanticQuery(event.target.value)}
                         aria-label={t('table.searchSemantic')}
                       />
                     </div>
                   )}
 
-                  {canRegenerate && (
+                  {semantic.canRegenerate && (
                     <button
                       type="button"
-                      onClick={() => regenerateMutation.mutate()}
-                      disabled={regenerateMutation.isPending}
+                      onClick={() => semantic.regenerate()}
+                      disabled={semantic.isRegenerating}
                       className="btn-outline flex items-center gap-2"
                     >
                       <RefreshCw
-                        className={cn(
-                          'h-4 w-4',
-                          regenerateMutation.isPending && 'animate-spin'
-                        )}
+                        className={cn('h-4 w-4', semantic.isRegenerating && 'animate-spin')}
                       />
-                      {regenerateMutation.isPending
+                      {semantic.isRegenerating
                         ? t('semantic.regenerating')
                         : t('semantic.regenerate')}
                     </button>
                   )}
                 </div>
 
-                {semanticModeEnabled && (
+                {semantic.semanticModeEnabled && (
                   <p className="text-xs text-secondary-500">
-                    {semanticUnavailable
+                    {semantic.semanticUnavailable
                       ? t('semantic.unavailable')
-                      : semanticIsActive
+                      : semantic.semanticIsActive
                         ? t('semantic.modeBadge')
                         : t('semantic.toggleHint')}
                   </p>
                 )}
 
-                {semanticModeEnabled && semanticSearchQuery.isFetching && (
+                {semantic.semanticModeEnabled && semantic.isSearching && (
                   <p className="text-xs text-secondary-500">{t('semantic.searching')}</p>
                 )}
               </>
@@ -636,16 +321,16 @@ export function ProductsPage() {
 
             <DataTable
               variant="dense"
-              columns={columns(
+              columns={productsColumns(
                 handleOpenDetails,
                 handleOpenEdit,
                 product => setProductToDelete(product),
                 canManage,
                 canDelete,
-                semanticIsActive
+                semantic.semanticIsActive
               )}
               data={displayProducts}
-              searchKey={semanticModeEnabled ? undefined : 'name'}
+              searchKey={semantic.semanticModeEnabled ? undefined : 'name'}
               searchPlaceholder={t('table.search')}
               pageSize={10}
               // ENG-134f — keyboard row-activate mirrors the Pencil (edit)
@@ -656,7 +341,7 @@ export function ProductsPage() {
               onRowActivate={canManage ? handleOpenEdit : undefined}
             />
 
-            {semanticIsActive && displayProducts.length === 0 && !semanticSearchQuery.isFetching && (
+            {semantic.semanticIsActive && displayProducts.length === 0 && !semantic.isSearching && (
               <p className="text-sm text-secondary-500">{t('semantic.noResults')}</p>
             )}
           </div>
@@ -689,7 +374,9 @@ export function ProductsPage() {
         isOpen={!!productToDelete}
         title={t('deactivate.title')}
         message={t('deactivate.description')}
-        confirmText={deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')}
+        confirmText={
+          deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')
+        }
         onClose={() => setProductToDelete(null)}
         onConfirm={async () => {
           if (!productToDelete) {
