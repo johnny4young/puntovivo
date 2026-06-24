@@ -1,19 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
-import {
-  ArrowDownCircle,
-  Boxes,
-  ClipboardList,
-  RefreshCw,
-  Search,
-} from 'lucide-react';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
-import { KpiTile } from '@/components/ui';
-import { DataTable } from '@/components/tables/DataTable';
-import { TableErrorState } from '@/components/tables/TableErrorState';
-import { TableLoadingState } from '@/components/tables/TableLoadingState';
-import { TableExportActions } from '@/components/tables/TableExportActions';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -30,21 +18,15 @@ import { InventoryBalancesPanel } from '@/features/inventory/InventoryBalancesPa
 import { InventoryStockDetailsDrawer } from '@/features/inventory/InventoryStockDetailsDrawer';
 import { InventoryMovementDetailsDrawer } from '@/features/inventory/InventoryMovementDetailsDrawer';
 import { InventoryEntryDetailsDrawer } from '@/features/inventory/InventoryEntryDetailsDrawer';
-import { getStockColumns } from '@/features/inventory/inventoryStockColumns';
-import {
-  getMovementColumns,
-  getMovementDelta,
-} from '@/features/inventory/inventoryMovementColumns';
-import { getEntryColumns } from '@/features/inventory/inventoryEntryColumns';
-import {
-  inventoryEntryExportColumns,
-  inventoryMovementExportColumns,
-  inventoryStockExportColumns,
-} from '@/features/inventory/inventoryExport';
+import { InventoryHeader } from '@/features/inventory/InventoryHeader';
+import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCards';
+import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
+import { type InventoryView } from '@/features/inventory/inventoryViews';
+import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import type {
   Category,
   InitialInventoryEntry,
@@ -54,15 +36,7 @@ import type {
   UserRole,
 } from '@/types';
 
-type InventoryView = 'movements' | 'stock' | 'entries' | 'balances';
 type SearchMode = 'adjustment' | 'entry';
-
-const viewKeys: Record<InventoryView, string> = {
-  movements: 'page.tabs.movements',
-  stock: 'page.tabs.stockQuery',
-  entries: 'page.tabs.initialInventory',
-  balances: 'page.tabs.balances',
-};
 
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
@@ -112,278 +86,6 @@ function getSearchDialogCopy(
       : t('dialogs.selectProductAdjust'),
     confirmLabel: t('dialogs.adjustProduct'),
   };
-}
-
-interface InventoryHeaderProps {
-  activeView: InventoryView;
-  canManage: boolean;
-  onViewChange: (view: InventoryView) => void;
-  onNewEntry: () => void;
-  onNewAdjustment: () => void;
-}
-
-function InventoryHeader({
-  activeView,
-  canManage,
-  onViewChange,
-  onNewEntry,
-  onNewAdjustment,
-}: InventoryHeaderProps) {
-  const { t } = useTranslation('inventory');
-  return (
-    <div className="page-header-row">
-      <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
-
-      <div className="page-header-actions">
-        <div className="segmented-control">
-          {(Object.keys(viewKeys) as InventoryView[]).map(view => (
-            <button
-              key={view}
-              className={cn(
-                'segmented-tab',
-                activeView === view ? 'segmented-tab-active' : ''
-              )}
-              onClick={() => onViewChange(view)}
-            >
-              {t(viewKeys[view])}
-            </button>
-          ))}
-        </div>
-
-        <button
-          className="btn-secondary flex items-center gap-2"
-          onClick={onNewEntry}
-          disabled={!canManage}
-        >
-          <ClipboardList className="h-4 w-4" />
-          {t('newEntry')}
-        </button>
-        <button
-          className="btn-primary flex items-center gap-2"
-          onClick={onNewAdjustment}
-          disabled={!canManage}
-        >
-          <Search className="h-4 w-4" />
-          {t('newAdjustment')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-interface InventorySummaryProps {
-  isLoading: boolean;
-  totalUnits: number;
-  totalValue: number;
-  lowStockCount: number;
-  recentInbound: number;
-  recentOutbound: number;
-  entriesCount: number;
-  entriesLoading: boolean;
-}
-
-function InventorySummaryCards({
-  isLoading,
-  totalUnits,
-  totalValue,
-  lowStockCount,
-  recentInbound,
-  recentOutbound,
-  entriesCount,
-  entriesLoading,
-}: InventorySummaryProps) {
-  const { t } = useTranslation('inventory');
-  // Rediseño FASE 2 — receta KpiTile compartida (igual que Dashboard / POS):
-  // glifo tonal, microetiqueta, cifra alineada. `danger` para stock bajo,
-  // `mono` para el valor de inventario (dinero). La rejilla replica la del
-  // Dashboard para que los cuatro grupos de KPIs se lean idénticos.
-  return (
-    <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-      <KpiTile
-        icon={Boxes}
-        tone="primary"
-        label={t('stats.totalUnits')}
-        value={isLoading ? '—' : totalUnits.toLocaleString()}
-      />
-      <KpiTile
-        icon={ArrowDownCircle}
-        tone="success"
-        mono
-        label={t('stats.inventoryValue')}
-        value={isLoading ? '—' : formatCurrency(totalValue)}
-      />
-      <KpiTile
-        icon={RefreshCw}
-        tone="danger"
-        label={t('stats.lowStockItems')}
-        value={isLoading ? '—' : lowStockCount.toLocaleString()}
-      />
-      <KpiTile
-        icon={ClipboardList}
-        tone="ink"
-        label={t('stats.recentFlow')}
-        value={`+${recentInbound} / -${recentOutbound}`}
-        context={
-          entriesLoading
-            ? t('entries.loadingShort')
-            : t('stats.recentFlowDetail', { count: entriesCount })
-        }
-      />
-    </div>
-  );
-}
-
-interface InventoryDataPanelProps {
-  activeView: InventoryView;
-  movementsLoading: boolean;
-  movementsError: string | null;
-  onRetryMovements: () => void;
-  stockLoading: boolean;
-  stockError: string | null;
-  onRetryStock: () => void;
-  entriesLoading: boolean;
-  entriesError: string | null;
-  onRetryEntries: () => void;
-  movements: InventoryMovement[];
-  stockItems: InventoryStockItem[];
-  entries: InitialInventoryEntry[];
-  canManage: boolean;
-  onAdjust: (product: InventoryStockItem) => void;
-  onViewStockDetails: (product: InventoryStockItem) => void;
-  onViewMovementDetails: (movement: InventoryMovement) => void;
-  onViewEntryDetails: (entry: InitialInventoryEntry) => void;
-  stockFilters: ReactNode;
-}
-
-function InventoryDataPanel({
-  activeView,
-  movementsLoading,
-  movementsError,
-  onRetryMovements,
-  stockLoading,
-  stockError,
-  onRetryStock,
-  entriesLoading,
-  entriesError,
-  onRetryEntries,
-  movements,
-  stockItems,
-  entries,
-  canManage,
-  onAdjust,
-  onViewStockDetails,
-  onViewMovementDetails,
-  onViewEntryDetails,
-  stockFilters,
-}: InventoryDataPanelProps) {
-  const { t } = useTranslation('inventory');
-  return (
-    <div className="card p-6">
-      {activeView === 'movements' && (
-        <>
-          {movementsLoading && (
-            <TableLoadingState message={t('movements.loading')} rowCount={8} />
-          )}
-          {movementsError && (
-            <TableErrorState
-              title={t('movements.error')}
-              message={movementsError}
-              onRetry={onRetryMovements}
-            />
-          )}
-          {!movementsLoading && !movementsError && (
-            <div className="space-y-4">
-              <TableExportActions
-                key="inventory-movements-export"
-                data={movements}
-                columns={inventoryMovementExportColumns}
-                filename="inventory-movements"
-                title={t('movements.exportTitle')}
-              />
-              <DataTable
-                variant="dense"
-                columns={getMovementColumns(onViewMovementDetails)}
-                data={movements}
-                searchKey="productName"
-                searchPlaceholder={t('movements.search')}
-                pageSize={10}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {activeView === 'stock' && (
-        <div className="space-y-4">
-          {/* Rediseño §10 — los filtros propios de esta vista (categoría +
-              "solo stock bajo") viven dentro del card de stock, separados por
-              una línea, en vez de flotar como un card suelto encima. */}
-          <div className="border-b border-line/60 pb-4">{stockFilters}</div>
-          {stockLoading && <TableLoadingState message={t('stock.loading')} rowCount={8} />}
-          {stockError && (
-            <TableErrorState
-              title={t('stock.error')}
-              message={stockError}
-              onRetry={onRetryStock}
-            />
-          )}
-          {!stockLoading && !stockError && (
-            <div className="space-y-4">
-              <TableExportActions
-                key="inventory-stock-export"
-                data={stockItems}
-                columns={inventoryStockExportColumns}
-                filename="inventory-stock"
-                title={t('stock.exportTitle')}
-              />
-              <DataTable
-                variant="dense"
-                columns={getStockColumns(onViewStockDetails, onAdjust, canManage)}
-                data={stockItems}
-                searchKey="name"
-                searchPlaceholder={t('stock.search')}
-                pageSize={10}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeView === 'entries' && (
-        <>
-          {entriesLoading && (
-            <TableLoadingState message={t('entries.loading')} rowCount={8} />
-          )}
-          {entriesError && (
-            <TableErrorState
-              title={t('entries.error')}
-              message={entriesError}
-              onRetry={onRetryEntries}
-            />
-          )}
-          {!entriesLoading && !entriesError && (
-            <div className="space-y-4">
-              <TableExportActions
-                key="inventory-entries-export"
-                data={entries}
-                columns={inventoryEntryExportColumns}
-                filename="inventory-entries"
-                title={t('entries.exportTitle')}
-              />
-              <DataTable
-                variant="dense"
-                columns={getEntryColumns(onViewEntryDetails)}
-                data={entries}
-                searchKey="productName"
-                searchPlaceholder={t('entries.search')}
-                pageSize={10}
-              />
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
 }
 
 export function InventoryPage() {
@@ -589,33 +291,33 @@ export function InventoryPage() {
       )}
 
       {activeView !== 'balances' && (
-      <InventoryDataPanel
-        activeView={activeView}
-        movementsLoading={movementsQuery.isLoading}
-        movementsError={movementsQuery.error?.message ?? null}
-        onRetryMovements={() => {
-          void movementsQuery.refetch();
-        }}
-        stockLoading={stockQuery.isLoading}
-        stockError={stockQuery.error?.message ?? null}
-        onRetryStock={() => {
-          void stockQuery.refetch();
-        }}
-        entriesLoading={entriesQuery.isLoading}
-        entriesError={entriesQuery.error?.message ?? null}
-        onRetryEntries={() => {
-          void entriesQuery.refetch();
-        }}
-        movements={movements}
-        stockItems={stockItems}
-        entries={entries}
-        canManage={canManage}
-        onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
-        onViewStockDetails={setDetailsStockItem}
-        onViewMovementDetails={setDetailsMovement}
-        onViewEntryDetails={setDetailsEntry}
-        stockFilters={stockFilters}
-      />
+        <InventoryDataPanel
+          activeView={activeView}
+          movementsLoading={movementsQuery.isLoading}
+          movementsError={movementsQuery.error?.message ?? null}
+          onRetryMovements={() => {
+            void movementsQuery.refetch();
+          }}
+          stockLoading={stockQuery.isLoading}
+          stockError={stockQuery.error?.message ?? null}
+          onRetryStock={() => {
+            void stockQuery.refetch();
+          }}
+          entriesLoading={entriesQuery.isLoading}
+          entriesError={entriesQuery.error?.message ?? null}
+          onRetryEntries={() => {
+            void entriesQuery.refetch();
+          }}
+          movements={movements}
+          stockItems={stockItems}
+          entries={entries}
+          canManage={canManage}
+          onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+          onViewStockDetails={setDetailsStockItem}
+          onViewMovementDetails={setDetailsMovement}
+          onViewEntryDetails={setDetailsEntry}
+          stockFilters={stockFilters}
+        />
       )}
 
       <ProductSearchDialog
@@ -671,10 +373,7 @@ export function InventoryPage() {
         onClose={() => setDetailsMovement(null)}
       />
 
-      <InventoryEntryDetailsDrawer
-        item={detailsEntry}
-        onClose={() => setDetailsEntry(null)}
-      />
+      <InventoryEntryDetailsDrawer item={detailsEntry} onClose={() => setDetailsEntry(null)} />
 
       <InventoryEntryModal
         key={`${entrySelection?.product.id ?? 'inventory-entry'}-${entryModalKey}`}
@@ -691,9 +390,7 @@ export function InventoryPage() {
           el aviso de permisos (solo cuando el rol no puede gestionar) y la nota
           de sincronización de totales, en vez de dos paneles separados. */}
       <div className="surface-panel-muted space-y-2 text-sm text-secondary-600">
-        {!canManage && (
-          <p className="font-medium text-warning-700">{t('page.permissionNote')}</p>
-        )}
+        {!canManage && <p className="font-medium text-warning-700">{t('page.permissionNote')}</p>}
         <p>{t('page.stockNote')}</p>
       </div>
     </div>
