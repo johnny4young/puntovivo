@@ -23,7 +23,7 @@
     "ci:release": "pnpm run test:release-script",
     "ci:audit": "pnpm audit --prod --audit-level high",
     "ci:web": "pnpm run ci:audit && pnpm --filter @puntovivo/web run typecheck && pnpm --filter @puntovivo/web run lint && pnpm --filter @puntovivo/web run test:coverage -- --run && pnpm --filter @puntovivo/web run build && node --test scripts/check-bundle-size.test.mjs scripts/check-contrast.test.mjs scripts/check-lighthouse.test.mjs && node scripts/check-bundle-size.mjs && node scripts/check-contrast.mjs",
-    "ci:desktop": "pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/check-electron-memory.test.mjs && node scripts/check-electron-memory.mjs",
+    "ci:desktop": "pnpm run ci:audit && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run test && node --test scripts/check-electron-memory.test.mjs scripts/run-electron-memory-gate.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
     "perf:electron-memory": "node scripts/check-electron-memory.mjs",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server": "pnpm run ci:audit && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run test:coverage",

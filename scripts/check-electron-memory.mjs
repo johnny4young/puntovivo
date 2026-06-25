@@ -9,14 +9,12 @@
  * renderer footprint in MB, and compares it against the budget declared in
  * the repo's `perf-budget.json`.
  *
- * Phase 1 is intentionally WARN-FIRST (operator instruction): the report is
- * always printed, but the gate never fails the build unless `--strict`
- * (or `PUNTOVIVO_MEMORY_STRICT=1`) is set. It also SELF-SKIPS — printing a
- * warning and exiting 0 — when Electron cannot be launched (the
- * `.vite/build` main bundle is missing, the electron binary is absent, the
- * launch errors, or no metrics line comes back). That keeps `ci:desktop`
- * green on ubuntu, where launching Electron headlessly needs xvfb + the
- * desktop build step that the CI job does not run today.
+ * The local path is warn-first/self-skipping by default: the report is always
+ * printed, but the gate only fails on an over-budget process when `--strict`
+ * (or `PUNTOVIVO_MEMORY_STRICT=1`) is set. CI adds
+ * `--require-measurement` (or `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1`), so a
+ * missing Electron launch / renderer mount / metrics line fails instead of
+ * silently skipping.
  *
  * The pure helpers (`summarizeProcesses`, `compareToMemoryBudget`,
  * `renderReport`, `parseMetricsLine`) are exported and unit-tested by
@@ -24,9 +22,11 @@
  *
  * Exit codes:
  *   0 — measured within budget+threshold, OR warn-first over-ceiling, OR
- *       self-skipped because Electron could not be launched.
- *   1 — `--strict` and a process overshot budget, OR perf-budget.json is
- *       malformed.
+ *       local self-skip because Electron could not be launched.
+ *   1 — `--strict` and a process overshot budget,
+ *       `--require-measurement` and Electron could not be measured,
+ *       `--require-measurement` and a budgeted process is missing, OR
+ *       perf-budget.json is malformed.
  *
  * @module scripts/check-electron-memory
  */
@@ -98,7 +98,7 @@ export function compareToMemoryBudget({ measured, budget, thresholdPercent }) {
 export function renderReport({ regressions, ok, missing }, threshold) {
   const lines = [];
   if (regressions.length > 0) {
-    lines.push(`Electron memory over ${threshold}% threshold (warn-first unless --strict):`);
+    lines.push(`Electron memory over ${threshold}% threshold:`);
     lines.push('| process | budget (MB) | actual (MB) | delta % |');
     lines.push('| --- | ---: | ---: | ---: |');
     for (const r of regressions) {
@@ -120,6 +120,14 @@ export function renderReport({ regressions, ok, missing }, threshold) {
     }
   }
   return lines.join('\n');
+}
+
+/** Resolve CLI/env flags while keeping tests independent from process state. */
+export function resolveMemoryGateMode({ argv = process.argv.slice(2), env = process.env } = {}) {
+  return {
+    enforce: argv.includes('--strict') || env.PUNTOVIVO_MEMORY_STRICT === '1',
+    requireMeasurement: argv.includes('--require-measurement') || env.PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT === '1',
+  };
 }
 
 /**
@@ -241,10 +249,14 @@ export function launchAndMeasure() {
 /**
  * CLI entry. Reads `perf-budget.json::electronMemoryMb`, launches + measures,
  * compares, prints the report. Warn-first by default; `--strict` /
- * `PUNTOVIVO_MEMORY_STRICT=1` makes an over-ceiling process exit 1.
+ * `PUNTOVIVO_MEMORY_STRICT=1` makes an over-ceiling process exit 1, while
+ * `--require-measurement` / `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1` makes a
+ * missing measurement or missing budgeted process exit 1.
  */
-export function runCli({ measure = launchAndMeasure, strict } = {}) {
-  const enforce = strict ?? (process.argv.includes('--strict') || process.env.PUNTOVIVO_MEMORY_STRICT === '1');
+export function runCli({ measure = launchAndMeasure, strict, requireMeasurement } = {}) {
+  const mode = resolveMemoryGateMode();
+  const enforce = strict ?? mode.enforce;
+  const requireMeasured = requireMeasurement ?? mode.requireMeasurement;
   let budgetFile;
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
@@ -261,6 +273,10 @@ export function runCli({ measure = launchAndMeasure, strict } = {}) {
 
   const measured = measure();
   if (!measured) {
+    if (requireMeasured) {
+      console.error('check-electron-memory: FAIL (--require-measurement) — Electron did not produce memory metrics.');
+      return 1;
+    }
     // Self-skip: the warning was already printed by launchAndMeasure.
     return 0;
   }
@@ -269,6 +285,10 @@ export function runCli({ measure = launchAndMeasure, strict } = {}) {
   const report = renderReport(result, thresholdPercent);
   console.log(report);
 
+  if (result.missing.length > 0 && requireMeasured) {
+    console.error('check-electron-memory: FAIL (--require-measurement) — a budgeted process was not measured.');
+    return 1;
+  }
   if (result.regressions.length > 0 && enforce) {
     console.error('check-electron-memory: FAIL (--strict) — a process overshot its memory budget.');
     return 1;

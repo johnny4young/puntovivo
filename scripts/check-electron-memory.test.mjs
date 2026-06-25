@@ -5,7 +5,7 @@
  * Exercises the helpers in isolation with fixture `getAppMetrics` data — no
  * Electron launch — mirroring `scripts/check-bundle-size.test.mjs`. The
  * launch path (`launchAndMeasure`) is integration-only and proven by the
- * local functional run, not here.
+ * `ci:desktop` runner, not here.
  *
  * @module scripts/check-electron-memory.test
  */
@@ -16,6 +16,7 @@ import {
   compareToMemoryBudget,
   renderReport,
   parseMetricsLine,
+  resolveMemoryGateMode,
   runCli,
 } from './check-electron-memory.mjs';
 
@@ -90,9 +91,29 @@ test('parseMetricsLine returns null for a missing or malformed line', () => {
   assert.equal(parseMetricsLine(''), null);
 });
 
+test('resolveMemoryGateMode reads strict and require-measurement flags from argv/env', () => {
+  assert.deepEqual(resolveMemoryGateMode({ argv: ['--strict'], env: {} }), {
+    enforce: true,
+    requireMeasurement: false,
+  });
+  assert.deepEqual(resolveMemoryGateMode({ argv: ['--require-measurement'], env: {} }), {
+    enforce: false,
+    requireMeasurement: true,
+  });
+  assert.deepEqual(resolveMemoryGateMode({ argv: [], env: { PUNTOVIVO_MEMORY_STRICT: '1', PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT: '1' } }), {
+    enforce: true,
+    requireMeasurement: true,
+  });
+});
+
 test('runCli self-skips (exit 0) when Electron cannot be measured', () => {
   const code = runCli({ measure: () => null });
   assert.equal(code, 0);
+});
+
+test('runCli --require-measurement fails (exit 1) when Electron cannot be measured', () => {
+  const code = runCli({ measure: () => null, requireMeasurement: true });
+  assert.equal(code, 1);
 });
 
 test('runCli is warn-first by default: over-ceiling still exits 0', () => {
@@ -105,7 +126,12 @@ test('runCli --strict fails (exit 1) when a process overshoots', () => {
   assert.equal(code, 1);
 });
 
+test('runCli --require-measurement fails (exit 1) when a budgeted process is missing', () => {
+  const code = runCli({ measure: () => ({ main: 10 }), requireMeasurement: true });
+  assert.equal(code, 1);
+});
+
 test('runCli passes (exit 0) when the measurement is within budget', () => {
-  const code = runCli({ measure: () => ({ main: 10, renderer: 10 }), strict: true });
+  const code = runCli({ measure: () => ({ main: 10, renderer: 10 }), strict: true, requireMeasurement: true });
   assert.equal(code, 0);
 });

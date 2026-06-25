@@ -86,6 +86,10 @@ jobs:
             desktop:
               - 'apps/desktop/**'
               - 'packages/server/**'
+              - 'perf-budget.json'
+              - 'scripts/check-electron-memory*.mjs'
+              - 'scripts/run-electron-memory-gate*.mjs'
+              - 'scripts/build-electron-main.mjs'
             release:
               - 'scripts/**'
               - '.github/workflows/release.yml'
@@ -167,10 +171,10 @@ jobs:
   # ----------------------------------------------------------------------------
   # The desktop workspace hosts Electron-specific code (forge config, preload,
   # main process). The ubuntu-latest run gates the `ci:desktop` script
-  # (typecheck + lint + node --test window-config regression) — that catches
-  # main↔renderer boundary regressions, missing preload exports, and
-  # TypeScript breakage in the Electron sources without paying for cross-OS
-  # minutes.
+  # (typecheck + lint + node tests + a strict Electron memory launch under
+  # xvfb) — that catches main↔renderer boundary regressions, missing preload
+  # exports, TypeScript breakage, and main/renderer memory regressions without
+  # paying for cross-OS minutes.
   #
   # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
   # actually packaging via electron-forge make) lives in the manual
@@ -207,6 +211,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install Linux desktop runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: Run desktop validation
         run: pnpm run ci:desktop

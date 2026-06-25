@@ -15,17 +15,16 @@ documented in the same PR that produces it.
 | --- | --- | --- |
 | Per-chunk JavaScript gzipped bundle size | `ci:web` | `scripts/check-bundle-size.mjs` after `vite build` |
 | tRPC procedure p95 latency for a curated set of read routes | `ci:server` | `__tests__/perf-trpc-latency.test.ts` via vitest |
-| Electron main + renderer working-set memory (warn-first) | `ci:desktop` | `scripts/check-electron-memory.mjs` (launches the app in measure mode) |
+| Electron main + renderer working-set memory (strict in CI; warn-first locally) | `ci:desktop` | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (warn-first, LOCAL) | `pnpm run perf:lighthouse` (not push-CI) | `scripts/check-lighthouse.mjs` (launches Chromium, logs in, measures) |
 
-The remaining cells in `ENG-133` (turning the Electron memory gate
-into a hard-fail once the ubuntu desktop CI job is hardened to launch
-Electron under xvfb, and the Operations Center surface of the latest
-baseline — re-routed to `ENG-128`) ride in follow-ups so each slice
-stays shippable. The Lighthouse gate shipped in `ENG-133c` (local-only;
-see below).
+The remaining cells in `ENG-133` (promoting the Lighthouse gate into
+push-CI, and the Operations Center surface of the latest baseline —
+re-routed to `ENG-128`) ride in follow-ups so each slice stays
+shippable. The Lighthouse gate shipped in `ENG-133c` (local-only; see
+below).
 
-### Electron memory (warn-first)
+### Electron memory (strict in CI, warn-first locally)
 
 `scripts/check-electron-memory.mjs` launches the built Electron app
 with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
@@ -37,23 +36,36 @@ Electron process' working-set via `app.getAppMetrics()`, prints one
 against `perf-budget.json::electronMemoryMb.perProcessMb` with the
 shared `thresholdPercent`.
 
-Two deliberate tolerant paths keep it from breaking the build today:
+`ci:desktop` now builds the web bundle plus Electron main/preload
+bundle, starts a local Vite preview via
+`scripts/run-electron-memory-gate.mjs`, points `WEB_DEV_SERVER_URL` at
+that renderer, and runs the memory check with both `--strict` and
+`--require-measurement`. On ubuntu, the GitHub Actions desktop job
+installs `xvfb` and the launcher wraps Electron with `xvfb-run -a`, so
+the CI path measures the real Chromium renderer instead of the error
+page. Two failure classes break the build:
+
+- **Regression.** A main or renderer process above
+  `budget * (1 + thresholdPercent/100)` exits 1 under `--strict`.
+- **Missing proof.** A missing `.vite/build` main bundle, unresolvable
+  Electron binary, failed launch, unmounted renderer, missing metrics
+  line, or absent budgeted process exits 1 under `--require-measurement`.
+
+The local direct script remains tolerant for operator diagnostics:
 
 - **Warn-first.** An over-ceiling process prints a `WARN` and still
   exits 0. Pass `--strict` (or `PUNTOVIVO_MEMORY_STRICT=1`) to make a
-  regression exit 1 — that is the one-line flip for the hard-fail
-  phase, once the baseline is trusted.
+  regression exit 1.
 - **Self-skip.** If the `.vite/build` main bundle is absent, the
   electron binary is unresolvable, the launch errors, or no metrics
-  line comes back, the gate prints a `WARN: skipped` and exits 0. This
-  is why `ci:desktop` stays green on `ubuntu-latest`, which does not
-  build the desktop bundle or run a virtual display — the real
-  measurement happens locally (`pnpm run perf:electron-memory`) and in
-  CI once the xvfb + desktop-build hardening lands.
+  line comes back, the gate prints a `WARN: skipped` and exits 0 unless
+  `--require-measurement` (or `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1`)
+  is present.
 
 The pure comparison/parse helpers are unit-tested by
-`scripts/check-electron-memory.test.mjs` (wired into `ci:desktop`
-before the gate); the launch path is proven by the local run.
+`scripts/check-electron-memory.test.mjs`, and the portable preview
+runner is pinned by `scripts/run-electron-memory-gate.test.mjs`; both
+run before the live memory launch in `ci:desktop`.
 
 ### Lighthouse web vitals (warn-first, LOCAL)
 
@@ -263,6 +275,18 @@ pnpm --filter @puntovivo/server run test:coverage -- perf-trpc-latency
 When the test fails it prints the measured p95 in the error
 message. Use that number as the new baseline.
 
+For Electron memory:
+
+```
+pnpm --filter @puntovivo/server run build
+pnpm --filter @puntovivo/web run build
+pnpm --filter @puntovivo/desktop run build:main
+node scripts/run-electron-memory-gate.mjs --strict --require-measurement
+```
+
+The PASS table prints the measured main / renderer working-set MB.
+Use those values only after a stable run on the same target class.
+
 For Lighthouse web vitals:
 
 ```
@@ -281,9 +305,6 @@ production.
 
 ## Out-of-scope follow-ups
 
-- **Electron main + renderer memory hard-fail** in `ci:desktop` once the ubuntu
-  job is hardened to launch Electron under xvfb (the gate self-skips there
-  today).
 - **Lighthouse in push-CI** — today the gate is local-only; promoting it to CI
   needs a browser + the served stack in the runner (and the Actions-minute
   trade-off the repo deliberately avoids).
