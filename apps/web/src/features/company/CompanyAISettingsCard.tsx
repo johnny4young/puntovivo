@@ -11,7 +11,7 @@
  * providers are selectable; parked stubs keep a `(disponible con
  * ENG-NNN)` hint so the admin sees the roadmap.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, Mic, MicOff, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -22,26 +22,9 @@ import { cn, formatCurrency } from '@/lib/utils';
 
 import { useAiSettings } from '@/features/ai-shared';
 
-import { blobToBase64 } from '@/features/voice/blobToBase64';
-import {
-  MAX_TEST_RECORDING_MS,
-  VOICE_RECORDER_MIME_TYPES,
-  useVoiceRecorder,
-  type VoiceRecorderMimeType,
-} from '@/features/voice/useVoiceRecorder';
-
-interface TranscriptionResult {
-  transcript: string;
-  language: string | null;
-  audioDurationSeconds: number;
-  costUsd: number;
-}
-
-/** Server whitelist mirror — used to validate the MediaRecorder's
- *  chosen MIME before forwarding to the mutation. The hook already
- *  picks from this list, but the explicit narrow keeps the tRPC
- *  enum input typed. */
-const SERVER_MIME_LIST: ReadonlyArray<VoiceRecorderMimeType> = VOICE_RECORDER_MIME_TYPES;
+import { useAiTranscriptionTest } from './useAiTranscriptionTest';
+import { AiQuotaSection } from './AiQuotaSection';
+import { AiTranscriptResult } from './AiTranscriptResult';
 
 export function CompanyAISettingsCard() {
   const { t } = useTranslation(['aiSettings', 'errors', 'common']);
@@ -59,17 +42,16 @@ export function CompanyAISettingsCard() {
   // `react-hooks/no-cascading-renders` flags it) — instead the render
   // path reads `localValue ?? serverValue` everywhere.
   const [enabledLocal, setEnabledLocal] = useState<boolean | null>(null);
-  const [providerLocal, setProviderLocal] = useState<
-    'anthropic' | 'openai' | 'ollama' | null
-  >(null);
+  const [providerLocal, setProviderLocal] = useState<'anthropic' | 'openai' | 'ollama' | null>(
+    null
+  );
   const [modelLocal, setModelLocal] = useState<string | null>(null);
   const [budgetLocal, setBudgetLocal] = useState<string | null>(null);
 
   const enabled = enabledLocal ?? settingsQuery.data?.enabled ?? false;
   const providerId = providerLocal ?? settingsQuery.data?.providerId ?? 'anthropic';
   const modelOverride = modelLocal ?? settingsQuery.data?.modelId ?? '';
-  const budgetInput =
-    budgetLocal ?? String(settingsQuery.data?.monthlyBudgetUsd ?? 0);
+  const budgetInput = budgetLocal ?? String(settingsQuery.data?.monthlyBudgetUsd ?? 0);
 
   const testMutation = trpc.ai.completeTest.useMutation({
     onSuccess: result => {
@@ -88,106 +70,17 @@ export function CompanyAISettingsCard() {
     }),
   });
 
-  // ENG-040c slice 2 — transcription affordance state.
-  const [transcriptionResult, setTranscriptionResult] =
-    useState<TranscriptionResult | null>(null);
-  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+  const data = settingsQuery.data;
 
-  const transcribeMutation = trpc.ai.transcribeAudio.useMutation({
-    onSuccess: result => {
-      setTranscriptionResult({
-        transcript: result.transcript,
-        language: result.language,
-        audioDurationSeconds: result.audioDurationSeconds,
-        costUsd: result.costUsd,
-      });
-      toast.success({ title: t('aiSettings:toast.transcribeSuccessTitle') });
-      void utils.ai.settings.get.invalidate();
-    },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'aiSettings:toast.transcribeErrorTitle',
-    }),
+  // ENG-040c slice 2 — the voice-transcription test feature (recorder +
+  // transcribeAudio mutation + countdown + gating) lives in its own hook;
+  // the card keeps the transcribe button / hint / countdown JSX below.
+  const transcription = useAiTranscriptionTest({
+    enabled,
+    providerConfigured: data?.providerConfigured ?? false,
+    transcriptionAvailable: data?.transcriptionAvailable ?? false,
   });
 
-  const forwardBlob = useCallback(
-    async (blob: Blob): Promise<void> => {
-      try {
-        const { base64, mimeType } = await blobToBase64(blob);
-        const validatedMime = SERVER_MIME_LIST.find(m => m === mimeType);
-        if (!validatedMime) {
-          toast.error({
-            title: t('aiSettings:toast.transcribeErrorTitle'),
-            description: t('aiSettings:card.transcribeUnsupportedHint'),
-          });
-          return;
-        }
-        transcribeMutation.mutate({ audioBase64: base64, mimeType: validatedMime });
-      } catch (err) {
-        toast.error({
-          title: t('aiSettings:toast.transcribeErrorTitle'),
-          description: err instanceof Error ? err.message : String(err),
-        });
-      }
-    },
-    [t, toast, transcribeMutation]
-  );
-
-  const handleAutoStop = useCallback(
-    (blob: Blob) => {
-      setRecordingSeconds(0);
-      void forwardBlob(blob);
-    },
-    [forwardBlob]
-  );
-
-  const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop });
-
-  // Countdown ticker — runs only while recording, no cleanup state
-  // reset because the click handlers reset `recordingSeconds` to 0
-  // at the boundary transitions. Returning a no-op cleanup when
-  // recording=false keeps the effect free of cascading set-state
-  // calls.
-  useEffect(() => {
-    if (!recorder.recording) return;
-    const interval = window.setInterval(() => {
-      setRecordingSeconds(prev => Math.min(prev + 1, MAX_TEST_RECORDING_MS / 1000));
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [recorder.recording]);
-
-  function handleClearTranscript(): void {
-    setTranscriptionResult(null);
-    setRecordingSeconds(0);
-    recorder.reset();
-  }
-
-  async function handleTranscribeToggle(): Promise<void> {
-    if (recorder.recording) {
-      try {
-        const blob = await recorder.stop();
-        setRecordingSeconds(0);
-        await forwardBlob(blob);
-      } catch (err) {
-        setRecordingSeconds(0);
-        toast.error({
-          title: t('aiSettings:toast.transcribeErrorTitle'),
-          description: err instanceof Error ? err.message : String(err),
-        });
-      }
-      return;
-    }
-    setTranscriptionResult(null);
-    setRecordingSeconds(0);
-    try {
-      await recorder.start();
-    } catch {
-      // `recorder.error` already carries the classified failure; the
-      // hint UI renders it. Swallow the throw so the click handler
-      // doesn't surface a generic toast on top of the hint.
-    }
-  }
-
-  const data = settingsQuery.data;
   const availableProviders = useMemo(
     () => data?.availableProviders ?? [],
     [data?.availableProviders]
@@ -222,37 +115,7 @@ export function CompanyAISettingsCard() {
     updateMutation.isPending ||
     settingsQuery.isLoading ||
     selectedProviderEntry?.isImplemented === false;
-  const testDisabled =
-    testMutation.isPending ||
-    !data?.providerConfigured ||
-    !enabled;
-
-  // ENG-040c slice 2 — Test transcription gating. Disabled when AI is
-  // off, provider isn't configured, the active provider lacks the
-  // transcription capability, the browser lacks MediaRecorder
-  // support, or a transcription is already in flight.
-  const transcriptionAvailable = data?.transcriptionAvailable ?? false;
-  const transcriptionGateHint = (() => {
-    if (!recorder.supported) return t('aiSettings:card.transcribeUnsupportedHint');
-    if (!enabled) return t('aiSettings:card.transcribeAiDisabledHint');
-    if (!data?.providerConfigured) {
-      return t('aiSettings:card.transcribeProviderMissingHint');
-    }
-    if (!transcriptionAvailable) return t('aiSettings:card.transcribeUnavailableHint');
-    if (recorder.error?.kind === 'permission-denied') {
-      return t('aiSettings:card.transcribePermissionHint');
-    }
-    if (recorder.error?.kind === 'no-microphone') {
-      return t('aiSettings:card.transcribeNoMicHint');
-    }
-    return null;
-  })();
-  const transcribeDisabled =
-    !recorder.supported ||
-    !transcriptionAvailable ||
-    !data?.providerConfigured ||
-    !enabled ||
-    transcribeMutation.isPending;
+  const testDisabled = testMutation.isPending || !data?.providerConfigured || !enabled;
 
   function handleSave(): void {
     if (saveDisabled) return;
@@ -275,9 +138,7 @@ export function CompanyAISettingsCard() {
           <div className="space-y-1">
             <p className="pv-kicker">{t('aiSettings:card.kicker')}</p>
             <h2 className="pv-title text-xl">{t('aiSettings:card.title')}</h2>
-            <p className="max-w-prose text-sm text-fg3">
-              {t('aiSettings:card.description')}
-            </p>
+            <p className="max-w-prose text-sm text-fg3">{t('aiSettings:card.description')}</p>
           </div>
         </div>
 
@@ -322,11 +183,7 @@ export function CompanyAISettingsCard() {
               data-testid="ai-provider-select"
             >
               {availableProviders.map(provider => (
-                <option
-                  key={provider.id}
-                  value={provider.id}
-                  disabled={!provider.isImplemented}
-                >
+                <option key={provider.id} value={provider.id} disabled={!provider.isImplemented}>
                   {provider.id}
                   {!provider.isImplemented
                     ? ` (${t('aiSettings:card.providerComingIn')} ${provider.availableInTicket})`
@@ -433,101 +290,11 @@ export function CompanyAISettingsCard() {
         per-site; the panel always reflects the active site.
       */}
       {enabled && data?.quotas?.copilot && data.quotas.invoiceOcr && (
-        <div
-          className="space-y-3 rounded-2xl bg-surface-2 p-4"
-          data-testid="ai-quota-section"
-        >
-          <p className="text-sm font-medium text-fg2">
-            {t('aiSettings:card.quotas.title')}
-          </p>
-          {(['copilot', 'invoiceOcr'] as const).map(feature => {
-            const q = data.quotas[feature];
-            // Defensive guard — the outer condition already pins both
-            // keys, but future server-side shape evolution might drop
-            // a feature key. Skip the row instead of crashing the card.
-            if (!q) return null;
-            const ratio = q.limit > 0 ? q.used / q.limit : 0;
-            const tone =
-              ratio >= 1
-                ? 'danger'
-                : ratio >= 0.8
-                  ? 'warning'
-                  : 'success';
-            const barColor =
-              tone === 'danger'
-                ? 'bg-danger-600'
-                : tone === 'warning'
-                  ? 'bg-warning-500'
-                  : 'bg-success-600';
-            const labelColor =
-              tone === 'danger'
-                ? 'text-danger-700'
-                : tone === 'warning'
-                  ? 'text-warning-700'
-                  : 'text-fg2';
-            const width = Math.min(100, Math.round(ratio * 100));
-            const valueText = t('aiSettings:card.quotas.usedOfLimit', {
-              used: q.used,
-              limit: q.limit,
-            });
-            return (
-              <div
-                key={feature}
-                className="space-y-1.5"
-                data-testid={`ai-quota-${feature}`}
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm font-medium text-fg2">
-                    {t(`aiSettings:card.quotas.${feature}.label`)}
-                  </span>
-                  <span className={`font-mono text-xs tabular-nums ${labelColor}`}>
-                    {valueText}
-                  </span>
-                </div>
-                <div
-                  className="h-2 w-full overflow-hidden rounded-full bg-surface-3"
-                  role="progressbar"
-                  aria-valuenow={width}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  // aria-valuetext announces the raw count so screen
-                  // readers say "100 / 800" instead of "12%". The
-                  // progressbar's numeric meaning (percent) is not
-                  // self-describing without the count.
-                  aria-valuetext={valueText}
-                  aria-label={t(`aiSettings:card.quotas.${feature}.label`)}
-                  data-testid={`ai-quota-${feature}-bar`}
-                  data-tone={tone}
-                >
-                  <div
-                    className={`h-full rounded-full ${barColor}`}
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {/*
-            Reset date footer reads from the copilot quota because
-            v1 has all features reset on the same calendar boundary
-            (server-side `monthBounds` snapshot). If a future ticket
-            decouples per-feature windows, move this into each row.
-          */}
-          <p className="text-xs text-fg3">
-            {t('aiSettings:card.quotas.resetHint', {
-              date: data.quotas.copilot.resetsAt
-                ? data.quotas.copilot.resetsAt.slice(0, 10)
-                : '—',
-            })}
-          </p>
-        </div>
+        <AiQuotaSection quotas={data.quotas} />
       )}
 
       <span
-        className={cn(
-          'pv-badge',
-          data?.providerConfigured ? 'success' : 'neutral'
-        )}
+        className={cn('pv-badge', data?.providerConfigured ? 'success' : 'neutral')}
         data-testid="ai-provider-badge"
       >
         <span className="dot" aria-hidden="true" />
@@ -563,7 +330,7 @@ export function CompanyAISettingsCard() {
           type="button"
           className="pv-btn outline"
           onClick={() => {
-            void handleTranscribeToggle();
+            void transcription.onTranscribeToggle();
           }}
           // `transcribeDisabled` includes the in-flight pending guard,
           // but the recording branch needs the button enabled to allow
@@ -571,34 +338,31 @@ export function CompanyAISettingsCard() {
           // mutation is pending so a double-stop click doesn't fire a
           // second `transcribeAudio` call against the same blob.
           disabled={
-            (transcribeDisabled && !recorder.recording) ||
-            transcribeMutation.isPending
+            (transcription.transcribeDisabled && !transcription.recording) ||
+            transcription.isTranscribing
           }
-          aria-pressed={recorder.recording}
-          title={transcriptionGateHint ?? undefined}
+          aria-pressed={transcription.recording}
+          title={transcription.transcriptionGateHint ?? undefined}
           data-testid="ai-transcribe-button"
         >
-          {recorder.recording ? (
+          {transcription.recording ? (
             <MicOff className="h-4 w-4" aria-hidden="true" />
           ) : (
             <Mic className="h-4 w-4" aria-hidden="true" />
           )}
           <span>
-            {transcribeMutation.isPending
+            {transcription.isTranscribing
               ? t('aiSettings:card.transcribingAction')
-              : recorder.recording
+              : transcription.recording
                 ? t('aiSettings:card.transcribeStopAction')
                 : t('aiSettings:card.transcribeAction')}
           </span>
         </button>
       </div>
 
-      {transcriptionGateHint !== null && !recorder.recording && (
-        <p
-          className="text-xs text-warning-700"
-          data-testid="ai-transcribe-hint"
-        >
-          {transcriptionGateHint}
+      {transcription.transcriptionGateHint !== null && !transcription.recording && (
+        <p className="text-xs text-warning-700" data-testid="ai-transcribe-hint">
+          {transcription.transcriptionGateHint}
         </p>
       )}
 
@@ -612,75 +376,18 @@ export function CompanyAISettingsCard() {
         className="text-xs text-fg3"
         data-testid="ai-transcribe-countdown"
       >
-        {recorder.recording
+        {transcription.recording
           ? t('aiSettings:card.transcribeRecordingHint', {
-              seconds: recordingSeconds,
+              seconds: transcription.recordingSeconds,
             })
           : ''}
       </p>
 
-      {transcriptionResult !== null && (
-        <div
-          className="space-y-3 rounded-2xl bg-surface-2 p-4 text-sm text-fg2"
-          data-testid="ai-transcript-panel"
-        >
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-fg3">
-              {t('aiSettings:card.transcriptResultLabel')}
-            </p>
-            <p
-              className="mt-1 whitespace-pre-wrap break-words text-fg1"
-              data-testid="ai-transcript-text"
-            >
-              {transcriptionResult.transcript}
-            </p>
-          </div>
-          <dl className="grid grid-cols-1 gap-2 text-xs text-fg3 sm:grid-cols-3">
-            <div>
-              <dt className="font-medium text-fg3">
-                {t('aiSettings:card.transcriptLanguageLabel')}
-              </dt>
-              <dd
-                className="mt-0.5 text-fg2"
-                data-testid="ai-transcript-language"
-              >
-                {transcriptionResult.language ?? '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-fg3">
-                {t('aiSettings:card.transcriptDurationLabel')}
-              </dt>
-              <dd
-                className="mt-0.5 text-fg2"
-                data-testid="ai-transcript-duration"
-              >
-                {t('aiSettings:card.transcriptDurationValue', {
-                  seconds: transcriptionResult.audioDurationSeconds.toFixed(1),
-                })}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-fg3">
-                {t('aiSettings:card.transcriptCostLabel')}
-              </dt>
-              <dd
-                className="mt-0.5 text-fg2"
-                data-testid="ai-transcript-cost"
-              >
-                {formatCurrency(transcriptionResult.costUsd, 'USD')}
-              </dd>
-            </div>
-          </dl>
-          <button
-            type="button"
-            className="text-xs font-medium text-primary-700 hover:underline"
-            onClick={handleClearTranscript}
-            data-testid="ai-transcript-clear"
-          >
-            {t('aiSettings:card.transcribeClearAction')}
-          </button>
-        </div>
+      {transcription.transcriptionResult !== null && (
+        <AiTranscriptResult
+          result={transcription.transcriptionResult}
+          onClear={transcription.onClearTranscript}
+        />
       )}
     </section>
   );
