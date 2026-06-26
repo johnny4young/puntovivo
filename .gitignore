@@ -88,3 +88,9 @@ test-results/
 
 # Private strategy docs — kept local, never public (ENG release prep)
 docs/_private/
+
+# Agent instructions + config — local only, never public (release prep)
+AGENTS.md
+CLAUDE.md
+.claude/
+.agents/
