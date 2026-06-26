@@ -2,6 +2,11 @@
   "name": "puntovivo",
   "version": "1.0.0",
   "description": "Modern POS Solutions System - Desktop Application",
+  "author": {
+    "name": "johnny4young",
+    "email": "asesordeprogramacion@gmail.com"
+  },
+  "license": "MIT",
   "private": true,
   "packageManager": "pnpm@11.4.0",
   "workspaces": [

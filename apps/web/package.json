@@ -1,6 +1,11 @@
 {
   "name": "@puntovivo/web",
   "version": "1.0.0",
+  "author": {
+    "name": "johnny4young",
+    "email": "asesordeprogramacion@gmail.com"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

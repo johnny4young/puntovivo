@@ -93,6 +93,10 @@
     "sqlite",
     "electron"
   ],
-  "author": "Puntovivo",
-  "license": "MIT"
+  "author": {
+    "name": "johnny4young",
+    "email": "asesordeprogramacion@gmail.com"
+  },
+  "license": "MIT",
+  "private": true
 }
