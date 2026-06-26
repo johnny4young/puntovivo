@@ -8,17 +8,9 @@
  * the repo's `perf-budget.json` (`lighthouse` section).
  *
  * This is the FOURTH metric of the ENG-133 perf-budget engine, mirroring
- * `check-electron-memory.mjs`: WARN-FIRST + SELF-SKIPPING. The report is always
- * printed, but the gate never fails unless `--strict` (or
- * `PUNTOVIVO_LIGHTHOUSE_STRICT=1`). It SELF-SKIPS (warns + exits 0) when the
- * browser/lighthouse can't be loaded or the app isn't being served — so it can
- * be run anywhere without breaking a build.
- *
- * Unlike the other three gates this one is LOCAL/manual (`pnpm run
- * perf:lighthouse`) — a Chromium launch + a running dev:server/dev:web are too
- * heavy for push-CI (the repo took the same stance on the Playwright e2e
- * suite). Only the pure helpers below ride `ci:web` via the sibling
- * `check-lighthouse.test.mjs`.
+ * `check-electron-memory.mjs`: WARN-FIRST + SELF-SKIPPING for local operator
+ * diagnostics, and hard-fail in CI when `--strict --require-measurement` is
+ * passed by `run-lighthouse-gate.mjs`.
  *
  * Auth note: the web access token lives in-memory (`apps/web/src/lib/trpc.ts`),
  * but the refresh token is an httpOnly cookie (`auth.ts`). Lighthouse runs with
@@ -28,7 +20,8 @@
  *
  * Exit codes:
  *   0 — within budget, OR warn-first over-budget, OR self-skipped.
- *   1 — `--strict` and a metric regressed, OR perf-budget.json is malformed.
+ *   1 — `--strict` and a metric regressed, `--require-measurement` and a
+ *       measurement / metric is missing, OR perf-budget.json is malformed.
  *
  * @module scripts/check-lighthouse
  */
@@ -316,11 +309,16 @@ export async function launchAndMeasure() {
 /**
  * CLI entry. Reads `perf-budget.json::lighthouse`, measures, compares, prints
  * the report. Warn-first by default; `--strict` / `PUNTOVIVO_LIGHTHOUSE_STRICT=1`
- * makes an over-budget metric exit 1.
+ * makes an over-budget metric exit 1, while `--require-measurement` /
+ * `PUNTOVIVO_LIGHTHOUSE_REQUIRE_MEASUREMENT=1` makes missing proof exit 1.
  */
-export async function runCli({ measure = launchAndMeasure, strict } = {}) {
+export async function runCli({ measure = launchAndMeasure, strict, requireMeasurement } = {}) {
   const enforce =
     strict ?? (process.argv.includes('--strict') || process.env.PUNTOVIVO_LIGHTHOUSE_STRICT === '1');
+  const requireProof =
+    requireMeasurement ??
+    (process.argv.includes('--require-measurement') ||
+      process.env.PUNTOVIVO_LIGHTHOUSE_REQUIRE_MEASUREMENT === '1');
   let budgetFile;
   try {
     budgetFile = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
@@ -338,6 +336,10 @@ export async function runCli({ measure = launchAndMeasure, strict } = {}) {
   const measured = await measure();
   if (!measured) {
     // Self-skip: the warning was already printed by launchAndMeasure.
+    if (requireProof) {
+      console.error('check-lighthouse: FAIL (--require-measurement) — no Lighthouse measurement was produced.');
+      return 1;
+    }
     return 0;
   }
 
@@ -349,6 +351,12 @@ export async function runCli({ measure = launchAndMeasure, strict } = {}) {
   const report = renderReport(result, thresholdPercent);
   console.log(report);
 
+  if (result.missing.length > 0 && requireProof) {
+    console.error(
+      'check-lighthouse: FAIL (--require-measurement) — a budgeted route or metric was not measured.'
+    );
+    return 1;
+  }
   if (result.regressions.length > 0 && enforce) {
     console.error('check-lighthouse: FAIL (--strict) — a web-vital regressed past budget.');
     return 1;
@@ -367,9 +375,10 @@ if (isDirectInvocation) {
   runCli()
     .then(code => process.exit(code))
     .catch(err => {
-      // Any unexpected throw (e.g. mkdtemp failure) self-skips rather than
-      // crashing — this is a local-only gate and must never break a build.
+      const requireProof =
+        process.argv.includes('--require-measurement') ||
+        process.env.PUNTOVIVO_LIGHTHOUSE_REQUIRE_MEASUREMENT === '1';
       console.warn(`check-lighthouse: WARN skipped — unexpected error: ${err?.message ?? err}`);
-      process.exit(0);
+      process.exit(requireProof ? 1 : 0);
     });
 }

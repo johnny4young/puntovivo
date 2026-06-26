@@ -16,13 +16,13 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size | `ci:web` | `scripts/check-bundle-size.mjs` after `vite build` |
 | tRPC procedure p95 latency for a curated set of read routes | `ci:server` | `__tests__/perf-trpc-latency.test.ts` via vitest |
 | Electron main + renderer working-set memory (strict in CI; warn-first locally) | `ci:desktop` | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
-| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (warn-first, LOCAL) | `pnpm run perf:lighthouse` (not push-CI) | `scripts/check-lighthouse.mjs` (launches Chromium, logs in, measures) |
+| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs` |
 
-The remaining cells in `ENG-133` (promoting the Lighthouse gate into
-push-CI, and the Operations Center surface of the latest baseline —
-re-routed to `ENG-128`) ride in follow-ups so each slice stays
-shippable. The Lighthouse gate shipped in `ENG-133c` (local-only; see
-below).
+`ENG-133` is now closed: bundle size, tRPC p95 latency, Electron memory,
+and Lighthouse web vitals all fail CI when their enforced budgets regress.
+The Operations Center surface of the latest baseline was deliberately
+re-routed to `ENG-128` so readiness / supportability signals consolidate
+with the attention queue instead of growing a parallel panel.
 
 ### Electron memory (strict in CI, warn-first locally)
 
@@ -67,13 +67,17 @@ The pure comparison/parse helpers are unit-tested by
 runner is pinned by `scripts/run-electron-memory-gate.test.mjs`; both
 run before the live memory launch in `ci:desktop`.
 
-### Lighthouse web vitals (warn-first, LOCAL)
+### Lighthouse web vitals (strict in CI, warn-first locally)
 
-`scripts/check-lighthouse.mjs` (`pnpm run perf:lighthouse`) measures the
-front-end load experience — LCP, TTI, CLS, and the Lighthouse performance
-score — for the top user-facing routes (`/login`, `/dashboard`, `/sales`,
-`/products`), compared against `perf-budget.json::lighthouse.perRoute` with the
-section `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
+`scripts/run-lighthouse-gate.mjs` is the CI runner. After `ci:web` has
+built the web bundle, the runner ensures Playwright Chromium is present,
+seeds an isolated demo SQLite database, starts the standalone API server
+plus Vite preview, and invokes `scripts/check-lighthouse.mjs --strict
+--require-measurement`. The check measures the front-end load experience —
+LCP, TTI, CLS, and the Lighthouse performance score — for the top
+user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
+compared against `perf-budget.json::lighthouse.perRoute` with the section
+`thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
 regress past `budget * (1 + t/100)`; the `higher-is-better` score regresses
 below `budget * (1 - t/100)`.
 
@@ -88,20 +92,27 @@ How a run works:
    a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
 4. Run Lighthouse per route and compare.
 
-Two deliberate tolerant paths, same as the memory gate:
+The CI path hard-fails on two classes:
+
+- **Regression.** An over-budget metric exits 1 under `--strict`.
+- **Missing proof.** A missing browser, dead server / preview, failed
+  login that prevents authenticated route coverage, missing route, or
+  missing metric exits 1 under `--require-measurement`.
+
+The local direct script remains tolerant for operator diagnostics:
 
 - **Warn-first.** An over-budget metric prints a `WARN` and still exits 0. Pass
   `--strict` (or `PUNTOVIVO_LIGHTHOUSE_STRICT=1`) to make a regression exit 1.
 - **Self-skip.** If Playwright/Lighthouse is unavailable, the dev:web/dev:server
   stack is not up, or the browser fails to launch, the gate prints a
-  `WARN: skipped` and exits 0.
+  `WARN: skipped` and exits 0 unless `--require-measurement` (or
+  `PUNTOVIVO_LIGHTHOUSE_REQUIRE_MEASUREMENT=1`) is present.
 
-This gate is **LOCAL-only — it is NOT wired into push-CI**. A real Chromium
-launch plus a running `dev:server` + `dev:web` is too heavy for the Actions
-budget (the repo took the same stance on the Playwright e2e suite). Only the
-pure helpers ride `ci:web` via `scripts/check-lighthouse.test.mjs`. The measured
-numbers are DEV-build figures under Lighthouse's simulated throttle, not
-production values — the gate detects regressions from the local baseline.
+The pure helpers ride `ci:web` via `scripts/check-lighthouse.test.mjs` and
+`scripts/run-lighthouse-gate.test.mjs` before the live launch. The measured
+numbers are preview-build figures under Lighthouse's simulated throttle, not
+production telemetry — the gate detects regressions from the checked-in
+baseline.
 
 ## Why budgets matter
 
@@ -303,11 +314,18 @@ run-to-run variance). Re-run a couple of times — the warm numbers stabilise
 once Vite has compiled each route. Note these are DEV-build figures, not
 production.
 
+To reproduce the push-CI path locally after a web build:
+
+```
+pnpm --filter @puntovivo/web run build
+node scripts/run-lighthouse-gate.mjs --strict --require-measurement
+```
+
+The runner owns a temporary database by default, so the CI proof does not
+depend on the operator's local `packages/server/data/local.db`.
+
 ## Out-of-scope follow-ups
 
-- **Lighthouse in push-CI** — today the gate is local-only; promoting it to CI
-  needs a browser + the served stack in the runner (and the Actions-minute
-  trade-off the repo deliberately avoids).
 - **Operations Center surface** of the latest measured baseline so
   the operator can see the current state without opening the JSON
   file. Will land alongside `ENG-128` supportability so the surface

@@ -139,6 +139,14 @@ test('runCli self-skips (exit 0) when measurement is infeasible', async () => {
   assert.equal(code, 0);
 });
 
+test('runCli --require-measurement fails when measurement is infeasible', async () => {
+  const code = await runCli({
+    measure: async () => null,
+    requireMeasurement: true,
+  });
+  assert.equal(code, 1);
+});
+
 test('runCli is warn-first by default: over-budget still exits 0', async () => {
   const code = await runCli({
     measure: async () => ({ login: { lcpMs: 99_999 } }),
@@ -151,6 +159,14 @@ test('runCli --strict fails (exit 1) when a metric regresses', async () => {
   const code = await runCli({
     measure: async () => ({ login: { lcpMs: 99_999 } }),
     strict: true,
+  });
+  assert.equal(code, 1);
+});
+
+test('runCli --require-measurement fails when a budgeted route is missing', async () => {
+  const code = await runCli({
+    measure: async () => ({ login: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 } }),
+    requireMeasurement: true,
   });
   assert.equal(code, 1);
 });

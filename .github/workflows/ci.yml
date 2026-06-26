@@ -81,8 +81,13 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/server/**'
+              - 'perf-budget.json'
+              - 'scripts/check-lighthouse*.mjs'
+              - 'scripts/run-lighthouse-gate*.mjs'
+              - 'scripts/ensure-playwright-browser.mjs'
             server:
               - 'packages/server/**'
+              - 'perf-budget.json'
             desktop:
               - 'apps/desktop/**'
               - 'packages/server/**'
@@ -149,6 +154,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: .playwright-browsers
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-chromium-
 
       - name: Run web validation
         run: pnpm run ci:web
