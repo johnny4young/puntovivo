@@ -86,8 +86,11 @@ test-results/
 .claude/launch.json
 .claude/preview.json
 
-# Private strategy docs — kept local, never public (ENG release prep)
-docs/_private/
+# Private strategy docs — kept local in their normal path, never public (release prep)
+docs/PLAN.md
+docs/PLAN-V2.md
+docs/PLAN-V3.md
+docs/BACKLOG.md
 
 # Agent instructions + config — local only, never public (release prep)
 AGENTS.md
