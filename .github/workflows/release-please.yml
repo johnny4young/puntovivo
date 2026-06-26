@@ -1,0 +1,38 @@
+name: release-please
+
+# Automated versioning + changelog from Conventional Commits.
+#
+# On every push to main, release-please opens/updates a "Release PR" that
+# accumulates the commits since the last release, bumps the version (lock-step
+# across the 4 package.json files via release-please-config.json extra-files),
+# and prepends the generated notes to CHANGELOG.md. Merging the Release PR
+# creates the vX.Y.Z tag + a GitHub Release with notes.
+#
+# NEXT STEP (artifact build integration): when this job reports
+# release_created == true, the web + desktop build/publish pipeline (release.yml)
+# should run to attach the installers. That can be wired as a reusable
+# workflow_call from here (no PAT needed) or via on:release:published in
+# release.yml (requires a PAT so the bot-created release event triggers another
+# workflow). Kept out of this first slice to avoid touching the working
+# release.yml pipeline.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release PR / tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
