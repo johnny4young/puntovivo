@@ -52,8 +52,15 @@ jobs:
         with:
           node-version: '22'
 
+      # --ignore-workspace: this site installs standalone (it lives outside the
+      #   repo apps/* and packages/* workspace globs).
+      # --ignore-scripts: skip postinstall build scripts. esbuild ships its
+      #   platform binary as an optional dependency, so vite builds fine without
+      #   running them — and this avoids pnpm 11's ERR_PNPM_IGNORED_BUILDS, since
+      #   the allowBuilds approval in pnpm-workspace.yaml is itself ignored under
+      #   --ignore-workspace.
       - name: Install dependencies
-        run: pnpm install --ignore-workspace --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
 
       - name: Build
         run: pnpm run build
