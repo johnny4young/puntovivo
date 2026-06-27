@@ -1,6 +1,6 @@
 name: release-please
 
-# Automated versioning + changelog from Conventional Commits.
+# Automated versioning + changelog from Conventional Commits, with artifact build.
 #
 # On every push to main, release-please opens/updates a "Release PR" that
 # accumulates the commits since the last release, bumps the version (lock-step
@@ -8,13 +8,11 @@ name: release-please
 # and prepends the generated notes to CHANGELOG.md. Merging the Release PR
 # creates the vX.Y.Z tag + a GitHub Release with notes.
 #
-# NEXT STEP (artifact build integration): when this job reports
-# release_created == true, the web + desktop build/publish pipeline (release.yml)
-# should run to attach the installers. That can be wired as a reusable
-# workflow_call from here (no PAT needed) or via on:release:published in
-# release.yml (requires a PAT so the bot-created release event triggers another
-# workflow). Kept out of this first slice to avoid touching the working
-# release.yml pipeline.
+# When that release is created, the build-artifacts job invokes the reusable
+# release.yml (workflow_call) with the new tag to build and upload the web +
+# desktop installers onto the release. Running release.yml as a reusable
+# workflow in the same run means no PAT is needed — a bot-created release event
+# would not, by itself, trigger a separate workflow.
 
 on:
   push:
@@ -29,6 +27,9 @@ jobs:
   release-please:
     name: Release PR / tag
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run release-please
         id: release
@@ -36,3 +37,14 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build-artifacts:
+    name: Build & upload release artifacts
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit

@@ -1,10 +1,26 @@
-name: Release
+name: Release Artifacts
+
+# Builds and uploads the web + desktop artifacts for an EXISTING GitHub Release.
+#
+# The release itself (tag + GitHub Release + changelog notes) is created by
+# release-please (.github/workflows/release-please.yml) when its Release PR is
+# merged. This workflow is invoked as a reusable workflow_call from there with
+# the new tag, so no PAT is needed (it runs inside the same workflow run).
+#
+# It can also be dispatched manually to (re)build and re-upload artifacts for a
+# tag whose GitHub Release already exists.
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag whose GitHub Release receives the artifacts (e.g. v1.2.3)'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release version or tag to create and publish (for example 1.2.3 or v1.2.3)'
+        description: 'Existing release tag to (re)build and upload artifacts for (e.g. v1.2.3)'
         required: true
         type: string
 
@@ -13,108 +29,20 @@ env:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  # ============================================================================
-  # Create Tag
-  # ============================================================================
-  create-tag:
-    name: Create Tag
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.prepare.outputs.version }}
-      tag: ${{ steps.prepare.outputs.tag }}
-      release_name: ${{ steps.prepare.outputs.release_name }}
-      prerelease: ${{ steps.prepare.outputs.prerelease }}
-      target_commit: ${{ steps.prepare.outputs.target_commit }}
-      action: ${{ steps.prepare.outputs.action }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Prepare release tag
-        id: prepare
-        run: node ./scripts/prepare-release-tag.mjs "${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-
-      - name: Configure Git author
-        if: steps.prepare.outputs.action != 'reuse'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Create local tag
-        if: steps.prepare.outputs.action == 'create'
-        run: |
-          git tag -a "${{ steps.prepare.outputs.tag }}" -m "${{ steps.prepare.outputs.release_name }}"
-
-      - name: Push tag to origin
-        if: steps.prepare.outputs.action == 'create' || steps.prepare.outputs.action == 'push'
-        run: |
-          git push origin "refs/tags/${{ steps.prepare.outputs.tag }}"
-
-      - name: Release summary
-        run: |
-          echo "Release tag: ${{ steps.prepare.outputs.tag }}"
-          echo "Target commit: ${{ steps.prepare.outputs.target_commit }}"
-          echo "Tag action: ${{ steps.prepare.outputs.action }}"
-
-  # ============================================================================
-  # Create Release
-  # ============================================================================
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: create-tag
-    outputs:
-      version: ${{ needs.create-tag.outputs.version }}
-      tag: ${{ needs.create-tag.outputs.tag }}
-      release_name: ${{ needs.create-tag.outputs.release_name }}
-      prerelease: ${{ needs.create-tag.outputs.prerelease }}
-      target_commit: ${{ needs.create-tag.outputs.target_commit }}
-      action: ${{ needs.create-tag.outputs.action }}
-      release_action: ${{ steps.ensure_release.outputs.action }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          sparse-checkout: scripts/
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Ensure GitHub release exists
-        id: ensure_release
-        run: node ./scripts/ensure-github-release.mjs ensure "${{ needs.create-tag.outputs.tag }}" "${{ needs.create-tag.outputs.release_name }}" "${{ needs.create-tag.outputs.prerelease }}" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # ============================================================================
   # Build & Upload Web
   # ============================================================================
   release-web:
     name: Release Web
     runs-on: ubuntu-latest
-    needs: create-release
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -136,10 +64,10 @@ jobs:
       - name: Create web archive
         run: |
           cd apps/web/dist
-          zip -r ../../../puntovivo-web-${{ needs.create-release.outputs.tag }}.zip .
+          zip -r ../../../puntovivo-web-${{ inputs.tag }}.zip .
 
       - name: Upload web release asset
-        run: node ./scripts/upload-release-assets.mjs "${{ needs.create-release.outputs.tag }}" "./puntovivo-web-${{ needs.create-release.outputs.tag }}.zip"
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "./puntovivo-web-${{ inputs.tag }}.zip"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -149,7 +77,6 @@ jobs:
   release-desktop:
     name: Release Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -165,7 +92,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ needs.create-release.outputs.tag }}
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -198,31 +125,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ needs.create-release.outputs.tag }}" apps/desktop/out/make
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ============================================================================
-  # Publish Release
-  # ============================================================================
-  publish-release:
-    name: Publish Release
-    runs-on: ubuntu-latest
-    needs: [create-release, release-web, release-desktop]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          sparse-checkout: scripts/
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Publish GitHub release
-        run: node ./scripts/ensure-github-release.mjs publish "${{ needs.create-release.outputs.tag }}"
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
