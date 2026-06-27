@@ -231,6 +231,19 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
+      # Force a clean Electron binary fetch before validation. The pnpm store
+      # cache can skip electron's postinstall and a stale runner download cache
+      # makes install.js a no-op, leaving dist/ absent — which the desktop
+      # memory gate requires.
+      - name: Ensure Electron runtime
+        shell: bash
+        env:
+          force_no_cache: 'true'
+        run: |
+          rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
+          if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
+          pnpm --filter @puntovivo/desktop run electron:ensure:binary
+
       - name: Run desktop validation
         run: pnpm run ci:desktop
 
