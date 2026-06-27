@@ -83,23 +83,21 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
-      # Print the full state so we can see exactly why install.js no-ops, then try
-      # a forced fetch into the hoisted copy and verify.
+      # The GitHub runners carry a corrupt/partial electron zip in @electron/get's
+      # default cache, which install.js "extracts" into an incomplete dist/ (no
+      # binary) — so require('electron') throws. Point electron_config_cache at a
+      # FRESH empty dir so @electron/get can't reuse the bad zip and downloads the
+      # runtime clean, then hard-verify it resolves.
       - name: Ensure Electron runtime
         shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-fresh-cache
         run: |
           set +e
-          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
-          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
-          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
-          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
-          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
-          echo "DIAG --- forcing install into hoisted copy ---"
-          rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
-          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
-          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          rm -rf "$electron_config_cache" node_modules/electron/dist node_modules/electron/path.txt
+          ( cd node_modules/electron && node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | tr '\n' ' ' || echo MISSING)"
+          echo "DIAG path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
           set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
@@ -150,23 +148,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
-      # Print the full state so we can see exactly why install.js no-ops, then try
-      # a forced fetch into the hoisted copy and verify.
+      # The GitHub runners carry a corrupt/partial electron zip in @electron/get's
+      # default cache, which install.js "extracts" into an incomplete dist/ (no
+      # binary) — so require('electron') throws. Point electron_config_cache at a
+      # FRESH empty dir so @electron/get can't reuse the bad zip and downloads the
+      # runtime clean, then hard-verify it resolves.
       - name: Ensure Electron runtime
         shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-fresh-cache
         run: |
           set +e
-          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
-          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
-          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
-          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
-          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
-          echo "DIAG --- forcing install into hoisted copy ---"
-          rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
-          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
-          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          rm -rf "$electron_config_cache" node_modules/electron/dist node_modules/electron/path.txt
+          ( cd node_modules/electron && node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | tr '\n' ' ' || echo MISSING)"
+          echo "DIAG path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
           set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
@@ -217,23 +213,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
-      # Print the full state so we can see exactly why install.js no-ops, then try
-      # a forced fetch into the hoisted copy and verify.
+      # The GitHub runners carry a corrupt/partial electron zip in @electron/get's
+      # default cache, which install.js "extracts" into an incomplete dist/ (no
+      # binary) — so require('electron') throws. Point electron_config_cache at a
+      # FRESH empty dir so @electron/get can't reuse the bad zip and downloads the
+      # runtime clean, then hard-verify it resolves.
       - name: Ensure Electron runtime
         shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-fresh-cache
         run: |
           set +e
-          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
-          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
-          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
-          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
-          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
-          echo "DIAG --- forcing install into hoisted copy ---"
-          rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
-          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
-          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          rm -rf "$electron_config_cache" node_modules/electron/dist node_modules/electron/path.txt
+          ( cd node_modules/electron && node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | tr '\n' ' ' || echo MISSING)"
+          echo "DIAG path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
           set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
