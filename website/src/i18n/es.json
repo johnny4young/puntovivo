@@ -6,6 +6,9 @@
     "dashboard": "Dashboard",
     "flow": "Flujo",
     "pricing": "Planes",
+    "docs": "Docs",
+    "roadmap": "Roadmap",
+    "estado": "Estado",
     "login": "Ingresa",
     "demo": "Pide una demo",
     "themeToggle": "Cambiar tema",
@@ -484,5 +487,1018 @@
     "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
     "version": "{{version}} · MIT"
+  },
+  "sobre": {
+    "kicker": "Sobre Puntovivo",
+    "titleA": "Una caja hecha en Colombia,",
+    "titleEm": "cerrado caja",
+    "titleC": "por gente que ha ",
+    "titleD": ".",
+    "lead": "Somos un equipo pequeño construyendo el sistema de punto de venta que nos hubiera gustado tener cuando atendimos una caja en una cafetería, un minimarket o una franquicia.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbSobre": "Sobre nosotros",
+    "badgeMade": "Hecho en Medellín · Bogotá",
+    "badgeRemote": "Remoto · 6 personas",
+    "badgeFounded": "Fundado 2023",
+    "heroCardTitle": "Estado de la compañía",
+    "heroCardDate": "Junio 2026",
+    "heroStatSitesLabel": "Sedes activas",
+    "heroStatCountriesLabel": "Países",
+    "heroStatTeamLabel": "Equipo",
+    "heroStatOpenLabel": "Open-source",
+    "heroNote": "Bootstrapped · sin capital de riesgo. Crecemos con clientes, no con rondas.",
+    "manifestoKicker": "Manifiesto",
+    "manifestoTitleA": "Caja ",
+    "manifestoTitleEm": "tranquila",
+    "manifestoTitleB": ", no caja inteligente.",
+    "manifestoP1": "Hicimos Puntovivo porque vimos a demasiados cajeros pelear con su sistema un viernes a las 8 p.m. Pantallas saturadas, ventanas modales, contadores de stock que mienten. La caja es el corazón del negocio; merece respeto, no más fricción.",
+    "manifestoP2": "Nuestro compromiso es simple: <b>máximo cinco acciones por pantalla</b>, español colombiano de verdad, y un cierre del viernes que no sea un evento. El resto — IA, multi-sede, transferencias — se construye encima de eso, nunca encima del cajero.",
+    "valuesKicker": "Principios",
+    "valuesTitle": "Las seis cosas que nunca soltamos.",
+    "values": [
+      {
+        "t": "Calma sobre densidad",
+        "d": "Si un módulo necesita un tutorial, el módulo está mal. Quitamos botones antes que agregar leyendas."
+      },
+      {
+        "t": "Local primero, nube después",
+        "d": "La venta se cierra sin internet. La sincronización es un detalle de implementación, no una condición."
+      },
+      {
+        "t": "Español colombiano nativo",
+        "d": "No es traducción: cada copy lo lee primero un cajero de barrio. Si suena raro, sale."
+      },
+      {
+        "t": "Auditable de fábrica",
+        "d": "Cada cambio de turno, rol, sede o precio queda registrado. La confianza se gana mostrando la libreta."
+      },
+      {
+        "t": "Abierto donde importa",
+        "d": "El core es open-source MIT. Quien quiera revisar cómo se calcula el IVA o el cierre, puede hacerlo."
+      },
+      {
+        "t": "Cobramos por sede",
+        "d": "No por cajero, ni por feature. Si abres una sede, la mueves desde la consola — sin tickets de soporte."
+      }
+    ],
+    "timelineKicker": "Historia",
+    "timelineTitle": "De una cafetería a una cadena, sin perder el viernes.",
+    "timeline": [
+      {
+        "y": "2023",
+        "q": "Jul",
+        "t": "Primer ticket emitido en una cafetería de Envigado",
+        "d": "Versión 0.1 del POS, una sede, sin nube. Funciona el viernes; se queda."
+      },
+      {
+        "y": "2024",
+        "q": "Ene",
+        "t": "Multi-sede y transferencias entre bodegas",
+        "d": "Tres cafeterías de Daniela conectadas. Aparece el concepto de balance por sede como fuente de verdad."
+      },
+      {
+        "y": "2024",
+        "q": "Sep",
+        "t": "Multi-tenant y consecutivos por sede",
+        "d": "Primera cadena externa adopta Puntovivo: una franquicia con cuatro razones sociales."
+      },
+      {
+        "y": "2025",
+        "q": "Mar",
+        "t": "Cierre ciego por denominaciones",
+        "d": "Inspirado en una libreta amarilla del minimarket de una amiga. El cajero ya no adivina."
+      },
+      {
+        "y": "2025",
+        "q": "Oct",
+        "t": "Pagos divididos y devoluciones reales",
+        "d": "Efectivo + tarjeta + Nequi en un mismo cobro. Reembolso restaura stock, no solo dinero."
+      },
+      {
+        "y": "2026",
+        "q": "May",
+        "t": "Núcleo IA v1.0",
+        "d": "Co-pilot en español, búsqueda semántica de catálogo, OCR de factura. Todo opcional, todo auditable."
+      }
+    ],
+    "teamKicker": "Equipo",
+    "teamTitle": "Seis personas, dos ciudades, una caja.",
+    "teamDesc": "Trabajamos remoto entre Medellín y Bogotá. Cada quien tiene una sede aliada donde prueba cambios antes de que lleguen al resto del país.",
+    "team": [
+      {
+        "n": "Daniela Restrepo",
+        "r": "Cofundadora · Producto",
+        "b": "Llevó la operación de retail de 8 cafeterías en Medellín antes de cofundar Puntovivo. Diseña los flujos de caja y cierre."
+      },
+      {
+        "n": "Mateo Quintero",
+        "r": "Cofundador · Ingeniería",
+        "b": "12 años escribiendo software embebido para impresoras térmicas y lectores de barras. Cuida el motor local-first."
+      },
+      {
+        "n": "Lina Cárdenas",
+        "r": "Diseño & sistema",
+        "b": "Construyó el design system completo, la tipografía editorial y el lenguaje visual del POS y la web."
+      },
+      {
+        "n": "Camilo Vargas",
+        "r": "Núcleo IA",
+        "b": "Antes lingüista computacional en NLP para español de Colombia. Hoy se encarga del co-pilot, embeddings y OCR."
+      },
+      {
+        "n": "Andrea Pulido",
+        "r": "Operaciones · Soporte",
+        "b": "Trabajó 9 años en operaciones de minimarkets familiares en Bogotá. Resuelve cierres reales por WhatsApp."
+      },
+      {
+        "n": "Esteban Ríos",
+        "r": "Infraestructura",
+        "b": "Mantiene la sincronización, la nube, los backups por sede y los entornos multi-tenant aislados."
+      }
+    ],
+    "ctaKicker": "Hablemos",
+    "ctaTitle": "¿Quieres conocer a quién está al otro lado de la consola?",
+    "ctaDesc": "Escríbenos por WhatsApp o agenda una llamada de 20 minutos.",
+    "ctaContact": "Contáctanos",
+    "ctaRoadmap": "Ver roadmap"
+  },
+  "docs": {
+    "kicker": "Documentación · v1.0",
+    "titleA": "Cómo funciona Puntovivo,",
+    "titleB": "en ",
+    "titleEm": "español plano",
+    "titleC": ".",
+    "lead": "Una sola fuente para cajeros, gestores y desarrolladores. Cada artículo se valida con una sede real antes de publicarse.",
+    "crumbInicio": "Inicio",
+    "crumbRecursos": "Recursos",
+    "crumbDocs": "Documentación",
+    "badgeArticles": "154 artículos",
+    "badgeUpdated": "Actualizado semanalmente",
+    "badgeOpen": "Abierto · MIT",
+    "searchPre": "Busca",
+    "searchTerm1": "cierre ciego",
+    "searchTerm2": "transferencia",
+    "searchTerm3": "pago dividido",
+    "categories": [
+      {
+        "t": "Empieza aquí",
+        "d": "Instala el desktop, registra tu primera sede y cobra tu primera venta en menos de 20 minutos.",
+        "tag": "Primeros pasos"
+      },
+      {
+        "t": "Caja y ventas",
+        "d": "Cobrar, descontar, devolver, dividir pagos, imprimir recibo térmico y enviar el digital por WhatsApp.",
+        "tag": "Operación diaria"
+      },
+      {
+        "t": "Caja con cierre ciego",
+        "d": "Apertura por denominaciones, movimientos del turno, cierre ciego y reporte de control de caja.",
+        "tag": "Conciliación"
+      },
+      {
+        "t": "Inventario y stock",
+        "d": "Productos, variantes, costo histórico, conteos físicos, ajustes, mínimos y mermas.",
+        "tag": "Stock"
+      },
+      {
+        "t": "Transferencias entre sedes",
+        "d": "Enviar, recibir parcial, anular. Cómo se ve el balance por sede mientras está en tránsito.",
+        "tag": "Multi-sede"
+      },
+      {
+        "t": "Compras y proveedores",
+        "d": "Pedidos, recibo parcial, devoluciones a proveedor, cotizaciones y costos por lote.",
+        "tag": "Abastecimiento"
+      },
+      {
+        "t": "Roles, sedes y multi-tenant",
+        "d": "Cómo se aíslan los tenants, los roles disponibles y la auditoría por turno.",
+        "tag": "Administración"
+      },
+      {
+        "t": "Núcleo IA",
+        "d": "Co-pilot, búsqueda semántica, OCR de factura. Qué procesa local, qué viaja y cómo se audita.",
+        "tag": "IA"
+      },
+      {
+        "t": "API y webhooks",
+        "d": "Endpoints, autenticación por tenant, paginación, ejemplos en curl, Node, Python.",
+        "tag": "Desarrolladores"
+      }
+    ],
+    "categoryArticles": "{{count}} artículos",
+    "sidebarTitle": "Secciones",
+    "sidebarItems": [
+      "Empieza aquí",
+      "Caja y ventas",
+      "Caja con cierre ciego",
+      "Inventario y stock",
+      "Transferencias",
+      "Compras y proveedores",
+      "Multi-tenant y roles",
+      "Núcleo IA",
+      "API y webhooks",
+      "Cambios y versiones"
+    ],
+    "sidebarSub": ["Instalación", "Tu primera sede", "Primera venta", "Imprimir recibo"],
+    "mainKicker": "Por área",
+    "mainTitle": "Empieza por donde estás.",
+    "popularKicker": "Más leídos esta semana",
+    "popularTitle": "Lo que dueños y cajeros consultan más.",
+    "popular": [
+      { "t": "Configurar una impresora térmica de 58 mm", "time": "4 min", "tag": "Caja" },
+      { "t": "Hacer un cierre ciego con diferencia", "time": "6 min", "tag": "Caja" },
+      { "t": "Migrar el catálogo desde Loyverse", "time": "12 min", "tag": "Migración" },
+      { "t": "Crear roles personalizados por sede", "time": "5 min", "tag": "Multi-tenant" },
+      { "t": "Anular una venta sin afectar el inventario", "time": "3 min", "tag": "Caja" },
+      { "t": "Conectar el co-pilot a una sede", "time": "7 min", "tag": "IA" }
+    ],
+    "exampleKicker": "Así se ve una página",
+    "exampleTitle": "Un artículo, sin decoración extra.",
+    "exampleDesc": "Sidebar permanente a la izquierda, on-this-page a la derecha, contenido respirado en el medio. Cero ventanas modales, cero pop-ups de cookies en docs.",
+    "articleCrumb": "Caja con cierre ciego",
+    "onpage": [
+      "¿Qué es un cierre ciego?",
+      "Apertura por denominaciones",
+      "Movimientos durante el turno",
+      "Enviar el conteo final",
+      "Diferencia y reporte de control",
+      "FAQ y errores comunes"
+    ],
+    "onpageFoot": "Editado hace 4 días por Lina C.",
+    "artTag": "Caja con cierre ciego",
+    "artReadTime": "6 min de lectura",
+    "artUpdated": "Actualizado 14 may 2026",
+    "artTitle": "¿Qué es un cierre ciego y por qué importa?",
+    "artLead": "Un cierre ciego es la forma en la que la consola te pide contar el cajón sin mostrarte el saldo esperado. Eso evita que “acomodes” el conteo y deja la diferencia visible para el dueño.",
+    "calloutLabel": "En una línea",
+    "calloutText": "El cajero cuenta billete por billete, envía, y solo ahí ve si quedó cuadrado, sobrante o faltante.",
+    "artH2Flow": "El flujo paso a paso",
+    "artFlowP": "Cuando llega la hora de cerrar caja, la consola muestra una pantalla con los espacios para contar cada denominación. El saldo esperado — lo que el sistema calculó a partir de ventas, descuentos, devoluciones y movimientos del turno — permanece oculto.",
+    "artPreComment": "# Estructura de un cierre ciego",
+    "artH2Diff": "Qué pasa si hay diferencia",
+    "artDiffP1": "La diferencia queda registrada en el reporte de control de caja, no en una libreta aparte. El sistema marca",
+    "artDiffP2": "faltante",
+    "artDiffP3": "cuadrado",
+    "artDiffP4": "sobrante",
+    "artDiffP5": "y guarda el quien-cuándo en la bitácora.",
+    "tableState": "Estado",
+    "tableMeaning": "Significado",
+    "tableAction": "Acción sugerida",
+    "tableSquared": "Cuadrado",
+    "tableSquaredMeaning": "El conteo coincide con el saldo esperado.",
+    "tableSquaredAction": "— ninguna —",
+    "tableOver": "Sobrante",
+    "tableOverMeaning": "Hay más dinero del esperado.",
+    "tableOverAction": "Revisa si quedaron ventas sin registrar.",
+    "tableUnder": "Faltante",
+    "tableUnderMeaning": "Hay menos dinero del esperado.",
+    "tableUnderAction": "Revisa retiros sin nota o devoluciones recientes.",
+    "feedbackH2": "¿Te sirvió esta página?",
+    "feedbackYes": "Sí, gracias",
+    "feedbackNo": "Falta algo",
+    "feedbackLink": "Escríbenos por WhatsApp →"
+  },
+  "roadmap": {
+    "kicker": "Roadmap público",
+    "titleA": "Qué estamos construyendo,",
+    "titleB": "y por qué ",
+    "titleEm": "en ese orden",
+    "titleC": ".",
+    "lead": "Cada elemento se prioriza por el dolor real que vemos en sedes activas. Si una idea aún no está aquí, todavía estamos investigando — pero podemos hablar.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbRoadmap": "Roadmap",
+    "badgeUpdated": "Actualizado 18 may 2026",
+    "badgeIdeas": "12 ideas en curso",
+    "badgePublic": "Pública desde 2024",
+    "legendTitle": "Cómo leer este tablero",
+    "legendNow": "Ahora · 6 semanas",
+    "legendNext": "Siguiente · trimestre",
+    "legendLater": "Después · explorando",
+    "filtersTitle": "Filtrar por área",
+    "filterAreas": [
+      "Todo",
+      "Núcleo IA",
+      "Caja",
+      "Inventario",
+      "Compras",
+      "Móvil",
+      "Cumplimiento",
+      "Plataforma"
+    ],
+    "sizeWeek": "1 sem",
+    "sizeWeeks": "2-3 sem",
+    "sizeMonths": "1-2 m",
+    "sizeQuarter": "trim+",
+    "columns": {
+      "now": {
+        "label": "Ahora",
+        "kicker": "T2 · 2026",
+        "desc": "En desarrollo activo · llega en las próximas 6 semanas.",
+        "items": [
+          {
+            "t": "Co-pilot con respuestas accionables",
+            "d": "Sugerir transferencia entre sedes, pedido a proveedor o ajuste de precio — con un clic para ejecutar.",
+            "area": "Núcleo IA",
+            "size": "L",
+            "votes": 142,
+            "sede": "Sede Centro"
+          },
+          {
+            "t": "Cierre ciego con caja fuerte vinculada",
+            "d": "Conciliar el saldo del turno contra el saldo de la caja fuerte de la sede. Diferencia visible al gerente.",
+            "area": "Caja",
+            "size": "M",
+            "votes": 89,
+            "sede": "Mercado Las Aguas"
+          },
+          {
+            "t": "Importador de catálogo desde Loyverse",
+            "d": "Carga SKU, IVA, costo y stock con un solo XLSX. Detecta duplicados por código de barras.",
+            "area": "Migración",
+            "size": "S",
+            "votes": 67,
+            "sede": "—"
+          },
+          {
+            "t": "Recibo digital por WhatsApp",
+            "d": "Genera link corto al recibo, lo envía al cliente con un toque. Conserva el térmico para quien lo prefiera.",
+            "area": "Caja",
+            "size": "M",
+            "votes": 124,
+            "sede": "Café Andes"
+          }
+        ]
+      },
+      "next": {
+        "label": "Siguiente",
+        "kicker": "T3 · 2026",
+        "desc": "Próximo trimestre · alcance confirmado, diseño en curso.",
+        "items": [
+          {
+            "t": "Crédito a cliente con plan de pagos",
+            "d": "Venta a crédito con cuotas, recordatorios opcionales por WhatsApp y reporte de cartera por sede.",
+            "area": "Ventas",
+            "size": "L",
+            "votes": 198,
+            "sede": "—"
+          },
+          {
+            "t": "Balanza electrónica vinculada",
+            "d": "Soporte directo para básculas USB/serial. Producto por peso pasa al carrito sin modal.",
+            "area": "Caja",
+            "size": "M",
+            "votes": 76,
+            "sede": "Tienda Ñero"
+          },
+          {
+            "t": "App móvil de gestor",
+            "d": "Versión solo-lectura para revisar ventas y alertas en celular. Cierre y caja siguen en desktop.",
+            "area": "Móvil",
+            "size": "L",
+            "votes": 211,
+            "sede": "—"
+          },
+          {
+            "t": "Conciliación con Bancolombia + Nequi",
+            "d": "Cruza pagos electrónicos contra las ventas del día. Marca diferencias para revisión.",
+            "area": "Finanzas",
+            "size": "M",
+            "votes": 154,
+            "sede": "Mercado Las Aguas"
+          }
+        ]
+      },
+      "later": {
+        "label": "Después",
+        "kicker": "T4 · 2026 y más allá",
+        "desc": "En investigación · queremos hacerlo pero todavía no sabemos cómo.",
+        "items": [
+          {
+            "t": "Facturación electrónica DIAN nativa",
+            "d": "Emisión y consulta sin pasar por intermediario. Requiere certificación; explorando proveedor de firma.",
+            "area": "Cumplimiento",
+            "size": "XL",
+            "votes": 312,
+            "sede": "—"
+          },
+          {
+            "t": "Restaurante: mesas y comandas",
+            "d": "Modo restaurante con plano de salón, comanda a cocina, propinas y división de cuenta.",
+            "area": "Verticales",
+            "size": "XL",
+            "votes": 87,
+            "sede": "—"
+          },
+          {
+            "t": "Marketplace de extensiones",
+            "d": "Permitir que partners publiquen integraciones (contadores, e-commerce, fidelización).",
+            "area": "Plataforma",
+            "size": "L",
+            "votes": 49,
+            "sede": "—"
+          },
+          {
+            "t": "Modo kiosko / auto-cobro",
+            "d": "Pantalla táctil para que el cliente arme su pedido. Útil en panaderías y heladerías de alto flujo.",
+            "area": "Caja",
+            "size": "XL",
+            "votes": 41,
+            "sede": "—"
+          }
+        ]
+      }
+    },
+    "votesTitle": "Votos de clientes y prospectos",
+    "betaTitle": "Sede beta donde se prueba primero",
+    "shippedKicker": "Ya llegó · últimos 6 meses",
+    "shippedTitle": "Lo que ya está en tu caja.",
+    "shipped": [
+      { "when": "May 2026", "t": "Núcleo IA · v1.0", "area": "IA" },
+      { "when": "May 2026", "t": "Cierre ciego por denominaciones", "area": "Caja" },
+      { "when": "May 2026", "t": "Transferencias entre sedes", "area": "Inventario" },
+      { "when": "Abr 2026", "t": "Pagos divididos", "area": "Caja" },
+      { "when": "Abr 2026", "t": "Compras + devoluciones", "area": "Compras" },
+      { "when": "Mar 2026", "t": "Consecutivos por sede", "area": "Multi-tenant" },
+      { "when": "Feb 2026", "t": "Auditoría por turno", "area": "Seguridad" }
+    ],
+    "voteKicker": "Vota o propón",
+    "voteTitle": "¿Necesitas algo que no está aquí?",
+    "voteDesc": "El roadmap se ordena por dolor real, no por hype. Si tu sede pelea con algo todos los viernes, queremos saberlo. Cada propuesta entra al backlog y se discute en la junta quincenal.",
+    "votePlaceholder": "Describe la idea en una línea…",
+    "voteSend": "Enviar propuesta",
+    "voteIssues": "Ver issues en GitHub"
+  },
+  "contacto": {
+    "kicker": "Contacto",
+    "titleA": "Háblanos por donde mejor te ",
+    "titleEm": "quede",
+    "titleB": ".",
+    "lead": "WhatsApp, correo, una llamada, una visita. Cualquier camino llega a un humano del equipo en menos de 4 horas hábiles.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbContacto": "Contacto",
+    "badgeResponse": "Respuesta < 4 h hábiles",
+    "badgeWa": "Soporte por WhatsApp",
+    "badgeHours": "Lun-vie 8 a 18",
+    "asideOnline": "Estamos en línea",
+    "asideLastReply": "Última respuesta hace 6 min",
+    "asideAvgLabel": "Tiempo medio",
+    "asideCsatLabel": "CSAT 90 d",
+    "asideFoot": "Fuera de horario hábil contestamos a primera hora del siguiente día.",
+    "channelsKicker": "Canales directos",
+    "channelsTitle": "Sin formularios laberínticos.",
+    "channelsDesc": "Si prefieres no llenar nada, escríbenos directo. Estos son canales reales con humanos al otro lado.",
+    "channelWaTitle": "WhatsApp Business",
+    "channelWaDesc": "El medio que usan los cajeros para resolver dudas en caliente.",
+    "channelMailTitle": "Correo",
+    "channelMailDesc": "Para algo que necesite quedar por escrito.",
+    "channelDemoTitle": "Demo de 20 min",
+    "channelDemoDesc": "Te mostramos la consola con tus datos de muestra.",
+    "channelDemoValue": "Reserva en Cal.com",
+    "channelGithubTitle": "GitHub",
+    "channelGithubDesc": "Reporta bugs, propón mejoras, lee el código del POS.",
+    "channelGithubValue": "github.com/puntovivo",
+    "tracks": {
+      "ventas": {
+        "label": "Ventas",
+        "lead": "Probar Puntovivo en tu sede, pedir cotización, conocer planes.",
+        "sla": "Respondemos en menos de 4 horas hábiles.",
+        "who": "Daniela Restrepo · Cofundadora"
+      },
+      "soporte": {
+        "label": "Soporte",
+        "lead": "Ayuda con un cierre, un sync trabado, un cajero bloqueado.",
+        "sla": "Respondemos en menos de 30 minutos en horario hábil.",
+        "who": "Andrea Pulido · Operaciones"
+      },
+      "prensa": {
+        "label": "Prensa",
+        "lead": "Notas, entrevistas, datos del producto, kit de prensa.",
+        "sla": "Respondemos en 1 día hábil.",
+        "who": "Lina Cárdenas · Diseño & marca"
+      },
+      "alianzas": {
+        "label": "Alianzas",
+        "lead": "Integraciones, partners de implementación, distribución regional.",
+        "sla": "Respondemos en 1-2 días hábiles.",
+        "who": "Mateo Quintero · Cofundador"
+      }
+    },
+    "formSideKicker": "¿Sobre qué nos escribes?",
+    "fieldName": "Nombre y apellido",
+    "fieldNamePh": "María Restrepo",
+    "fieldCompany": "Empresa o sede",
+    "fieldCompanyPh": "Mercado Las Aguas",
+    "fieldEmail": "Correo",
+    "fieldEmailPh": "maria@mercadolasaguas.co",
+    "fieldWa": "WhatsApp",
+    "fieldWaOptional": "opcional",
+    "fieldWaPh": "+57 300 000 0000",
+    "fieldSedes": "¿Cuántas sedes?",
+    "fieldVertical": "Tipo de comercio",
+    "selectPlaceholder": "Selecciona…",
+    "verticalOptions": [
+      "Cafetería o panadería",
+      "Minimarket / tienda de barrio",
+      "Licorera",
+      "Papelería / variedades",
+      "Otro"
+    ],
+    "fieldFuente": "¿Cómo nos conociste?",
+    "fuenteOptions": ["Referido", "Búsqueda en Google", "Instagram / TikTok", "Evento o feria"],
+    "fieldTenant": "ID de tenant",
+    "fieldTenantPh": "tnt_pv_…",
+    "fieldSede": "Sede afectada",
+    "fieldSedePh": "Sede Centro · Bogotá",
+    "fieldConsola": "Versión de la consola",
+    "fieldConsolaPh": "v1.0.4 — visible en Ajustes",
+    "fieldMedio": "Medio",
+    "fieldMedioPh": "Bloomberg Línea",
+    "fieldDeadline": "Fecha de publicación",
+    "fieldEmpresaPress": "Empresa",
+    "fieldEmpresaPressPh": "Tu empresa",
+    "fieldTipo": "Tipo de alianza",
+    "tipoOptions": ["Integración técnica", "Partner de implementación", "Distribución regional"],
+    "fieldMessage": "Cuéntanos en una o dos líneas",
+    "fieldMessagePh": "Tenemos 3 sedes en Bogotá y queremos consolidar inventario…",
+    "formNote": "No compartimos tus datos. Política de privacidad disponible bajo demanda.",
+    "formSend": "Enviar mensaje",
+    "officeKicker": "Oficinas",
+    "officeTitle": "Dos ciudades, una zona horaria.",
+    "officeDesc": "No tenemos oficinas atendiendo público, pero te recibimos para café si avisas con un día de antelación.",
+    "officeMedellinCity": "Medellín",
+    "officeMedellinAddr1": "Cra 43A · El Poblado",
+    "officeMedellinAddr2": "Antioquia, Colombia",
+    "officeBogotaCity": "Bogotá",
+    "officeBogotaAddr1": "Cl 82 · Chicó Norte",
+    "officeBogotaAddr2": "Bogotá D.C., Colombia",
+    "officeTz": "GMT-5 · Horario 8:00–18:00",
+    "mapFoot": "Mapa estilizado · no a escala"
+  },
+  "atajos": {
+    "kicker": "Atajos de teclado",
+    "titleA": "Cinco acciones por pantalla,",
+    "titleEm": "cinco dedos en el teclado",
+    "titleB": ".",
+    "lead": "Puntovivo se opera con teclado primero. Esta página es la chuleta: filtra por módulo, pasa el cursor sobre un atajo y míralo iluminarse en el teclado.",
+    "crumbInicio": "Inicio",
+    "crumbRecursos": "Recursos",
+    "crumbAtajos": "Atajos de teclado",
+    "badgeCount": "{{count}} atajos",
+    "badgeOs": "macOS · Windows · Linux",
+    "badgePrintable": "Imprimible",
+    "platformLabel": "Plataforma",
+    "platformMac": "macOS",
+    "platformWin": "Windows/Linux",
+    "legendLabel": "Modificadores",
+    "legendOption": "opción / alt",
+    "legendCommand": "command / ctrl",
+    "legendShift": "shift",
+    "legendEnter": "enter",
+    "printButton": "Imprimir chuleta",
+    "keyboardFoot": "Pasa el cursor sobre cualquier atajo para iluminar las teclas correspondientes.",
+    "searchPlaceholder": "Buscar acción · cierre, descuento, transferencia…",
+    "areas": [
+      "Todos",
+      "Caja",
+      "Cierre",
+      "Inventario",
+      "Transferencias",
+      "Compras",
+      "Navegación",
+      "Sistema"
+    ],
+    "areaNames": {
+      "Caja": "Caja",
+      "Cierre": "Cierre",
+      "Inventario": "Inventario",
+      "Transferencias": "Transferencias",
+      "Compras": "Compras",
+      "Navegación": "Navegación",
+      "Sistema": "Sistema"
+    },
+    "actions": {
+      "cobrarVenta": "Cobrar venta",
+      "nuevaVenta": "Nueva venta",
+      "buscarProducto": "Buscar producto",
+      "abrirCatalogo": "Abrir catálogo",
+      "aplicarDescuento": "Aplicar descuento",
+      "pagoDividido": "Pago dividido",
+      "anularLinea": "Anular última línea",
+      "reimprimirRecibo": "Reimprimir recibo",
+      "abrirCaja": "Abrir caja",
+      "registrarMovimiento": "Registrar movimiento",
+      "cerrarCajaCiego": "Cerrar caja ciego",
+      "saltarDenominaciones": "Saltar a denominaciones",
+      "nuevoProducto": "Nuevo producto",
+      "buscarSku": "Buscar SKU",
+      "ajusteStock": "Ajuste de stock",
+      "conteoFisico": "Iniciar conteo físico",
+      "nuevaTransferencia": "Nueva transferencia",
+      "recibirTransferencia": "Recibir transferencia",
+      "nuevaOrden": "Nueva orden de compra",
+      "reciboParcial": "Recibo parcial",
+      "devolverProveedor": "Devolver al proveedor",
+      "abrirCopilot": "Abrir co-pilot",
+      "cambiarSede": "Cambiar sede",
+      "irDashboard": "Ir a dashboard",
+      "irVentas": "Ir a ventas",
+      "irInventario": "Ir a inventario",
+      "irCompras": "Ir a compras",
+      "mostrarAtajos": "Mostrar todos los atajos",
+      "bloquearCaja": "Bloquear caja",
+      "cerrarSesion": "Cerrar sesión",
+      "modoClaroOscuro": "Modo claro / oscuro"
+    },
+    "emptyText": "Ningún atajo coincide con esa búsqueda. Prueba con otra palabra o cambia el módulo."
+  },
+  "migracion": {
+    "kicker": "Guía de migración",
+    "titleA": "Cambia de sistema sin ",
+    "titleEm": "parar",
+    "titleB": " de vender.",
+    "lead": "Te acompañamos paso a paso desde la exportación de tu catálogo hasta la primera apertura de caja en Puntovivo. La mayoría de sedes completa el cambio en una tarde.",
+    "crumbInicio": "Inicio",
+    "crumbRecursos": "Recursos",
+    "crumbMigracion": "Guía de migración",
+    "badgeTime": "30 a 90 min por sede",
+    "badgeHuman": "Acompañamiento humano",
+    "badgeNoDowntime": "Sin downtime",
+    "pickerHead": "¿De dónde vienes?",
+    "levelAuto": "Automática",
+    "levelAsistida": "Asistida",
+    "levelManual": "Manual",
+    "sources": [
+      {
+        "id": "loyverse",
+        "t": "Loyverse",
+        "d": "POS popular en cafeterías y kioskos.",
+        "level": "auto"
+      },
+      {
+        "id": "alegra",
+        "t": "Alegra",
+        "d": "Contabilidad + POS para PYMES en Colombia.",
+        "level": "auto"
+      },
+      {
+        "id": "siigo",
+        "t": "Siigo",
+        "d": "Suite contable con módulo de inventario.",
+        "level": "asistida"
+      },
+      {
+        "id": "world",
+        "t": "World Office",
+        "d": "ERP usado por cadenas medianas.",
+        "level": "asistida"
+      },
+      {
+        "id": "excel",
+        "t": "Excel / CSV",
+        "d": "Catálogo en planilla, formato libre.",
+        "level": "manual"
+      },
+      {
+        "id": "otro",
+        "t": "Otro sistema",
+        "d": "Te ayudamos a mapear si tienes export.",
+        "level": "manual"
+      }
+    ],
+    "pickerFootA": "Desde",
+    "pickerFootB": "→ Puntovivo",
+    "pickerFootEm": "· tiempo estimado: 30 a 90 min · acompañamiento incluido",
+    "stepsKicker": "Plan en cinco pasos",
+    "stepsTitle": "Lo que toma migrar, paso por paso.",
+    "steps": [
+      {
+        "n": "01",
+        "t": "Exporta tu catálogo actual",
+        "time": "5 min",
+        "d": "Desde tu sistema actual, exporta el catálogo a CSV o XLSX. Debe incluir SKU o código de barras, descripción, costo, precio, IVA y stock por sede.",
+        "checks": [
+          { "t": "SKU único por producto", "ok": true },
+          { "t": "Precios sin IVA o con IVA marcado", "ok": true },
+          { "t": "Stock por sede en columnas separadas", "ok": true },
+          { "t": "Encoding UTF-8 (las tildes se ven bien)", "ok": false }
+        ]
+      },
+      {
+        "n": "02",
+        "t": "Limpia duplicados y unidades",
+        "time": "10-30 min",
+        "d": "Puntovivo deduplica por código de barras y luego por SKU. Si vendes por peso o por unidad, deja la columna correspondiente marcada. Borra productos descontinuados antes de importar.",
+        "checks": [
+          { "t": "Sin filas vacías o de subtotales", "ok": true },
+          { "t": "Códigos de barras de 13 dígitos sin guión", "ok": true },
+          { "t": "Unidad de venta: unidad, kg, libra o paquete", "ok": true }
+        ]
+      },
+      {
+        "n": "03",
+        "t": "Sube el archivo al asistente",
+        "time": "2 min",
+        "d": "Desde la consola, abre Ajustes → Migración. Suelta el archivo, escoge tu sistema de origen y deja que el asistente proponga el mapeo de columnas. Puedes ajustar campo por campo antes de continuar.",
+        "checks": [
+          { "t": "Mapa de columnas confirmado por ti", "ok": true },
+          { "t": "IVA por defecto seleccionado (0/5/19 %)", "ok": true },
+          { "t": "Sede de destino seleccionada", "ok": true }
+        ]
+      },
+      {
+        "n": "04",
+        "t": "Revisa el preview y confirma",
+        "time": "10 min",
+        "d": "Antes de aplicar, verás el resumen: cuántos productos nuevos, cuántos se actualizarán, cuántos requieren tu decisión. Aprueba por lotes — no se aplica nada hasta que confirmes.",
+        "checks": [
+          { "t": "Conflictos resueltos uno por uno", "ok": true },
+          { "t": "Preview de balance por sede revisado", "ok": true }
+        ]
+      },
+      {
+        "n": "05",
+        "t": "Concilia y abre caja",
+        "time": "1 turno",
+        "d": "Haz un conteo físico de la sede principal y compara contra el balance importado. La primera apertura de caja queda con la base que tú definas, no con el saldo importado. De ahí en adelante, el flujo es normal.",
+        "checks": [
+          { "t": "Conteo físico hecho en sede principal", "ok": true },
+          { "t": "Apertura con base definida por ti", "ok": true },
+          { "t": "Primera venta de prueba realizada", "ok": true }
+        ]
+      }
+    ],
+    "compatKicker": "Compatibilidad",
+    "compatTitle": "Lo que mapeamos automáticamente.",
+    "compatDesc": "Estas son las columnas que el asistente reconoce sin que tengas que renombrar nada. Lo que no mapea, te lo pregunta antes de aplicar.",
+    "mapColSystem": "Sistema",
+    "mapColFile": "Archivo esperado",
+    "mapColSku": "SKU",
+    "mapColName": "Nombre",
+    "mapColCost": "Costo",
+    "mapColPrice": "Precio",
+    "mapColIva": "IVA",
+    "mapColStock": "Stock",
+    "mapColLevel": "Nivel",
+    "mapping": [
+      {
+        "from": "Loyverse",
+        "csv": "items.csv",
+        "sku": "Barcode → barcode",
+        "desc": "Name → descripcion",
+        "cost": "Cost → costo",
+        "price": "Price → precio",
+        "iva": "Tax → iva",
+        "stock": "Stock at store X → balance.sedeX",
+        "level": "Automática"
+      },
+      {
+        "from": "Alegra",
+        "csv": "productos.csv",
+        "sku": "Código → sku",
+        "desc": "Nombre → descripcion",
+        "cost": "Precio costo → costo",
+        "price": "Precio venta → precio",
+        "iva": "Impuesto → iva",
+        "stock": "Inventario → balance",
+        "level": "Automática"
+      },
+      {
+        "from": "Siigo",
+        "csv": "inventario.xlsx",
+        "sku": "Código → sku",
+        "desc": "Descripción → descripcion",
+        "cost": "Costo promedio → costo",
+        "price": "Precio 1 → precio",
+        "iva": "IVA → iva",
+        "stock": "Saldo → balance",
+        "level": "Asistida"
+      },
+      {
+        "from": "World Office",
+        "csv": "maestro.csv",
+        "sku": "Referencia → sku",
+        "desc": "Descripción → descripcion",
+        "cost": "Costo → costo",
+        "price": "Lista 1 → precio",
+        "iva": "Impuesto → iva",
+        "stock": "Existencia → balance",
+        "level": "Asistida"
+      }
+    ],
+    "sampleKicker": "Formato propio",
+    "sampleTitle": "Si vienes de Excel, este es el formato.",
+    "sampleDesc": "Una hoja por sede, encabezados en la primera fila, UTF-8. Copia este ejemplo y reemplaza los datos.",
+    "sampleTab1": "catalogo.csv",
+    "sampleTab2": "stock-sede-centro.csv",
+    "sampleTab3": "stock-sede-norte.csv",
+    "sampleDownload": "Descargar plantilla",
+    "sampleFootA": "¿IVA cero? Deja la columna en",
+    "sampleFootB": ". Para exentos usa",
+    "faqKicker": "Preguntas frecuentes",
+    "faqTitle": "Lo que preguntan antes de empezar.",
+    "faq": [
+      {
+        "q": "¿Cuánto demora migrar una sola sede?",
+        "a": "Si tu archivo viene limpio, entre 30 y 90 minutos desde la exportación hasta la primera venta de prueba. Sumar más sedes agrega 10-15 minutos por sede."
+      },
+      {
+        "q": "¿Tengo que parar de vender mientras migro?",
+        "a": "No. Recomendamos migrar en horario cerrado y dejar la primera apertura de caja al día siguiente, pero el sistema anterior puede seguir activo. Solo deja claro al equipo cuál es el de verdad."
+      },
+      {
+        "q": "¿Y si mi catálogo tiene 20.000 SKUs?",
+        "a": "El importador procesa hasta 50.000 líneas por archivo. Catálogos muy grandes los partimos por categoría y los aplicamos en lotes — el asistente lo propone solo."
+      },
+      {
+        "q": "¿Qué pasa con el histórico de ventas?",
+        "a": "El histórico de ventas no se migra: arrancas limpio en Puntovivo. Conservas tus reportes del sistema anterior como archivo. Para la mayoría de PYMES esto es lo que recomiendan los contadores."
+      }
+    ],
+    "ctaKicker": "¿Lo hacemos juntos?",
+    "ctaTitle": "Reserva una sesión de migración guiada.",
+    "ctaDesc": "Una hora por videollamada con tu archivo abierto. Salimos con la primera venta de prueba lista.",
+    "ctaSchedule": "Agendar migración",
+    "ctaRead": "Leer guía completa"
+  },
+  "estado": {
+    "kicker": "Estado del servicio",
+    "titleA": "Lo que está prendido, lo que ",
+    "titleEm": "no",
+    "titleB": ",",
+    "titleC": "y por cuánto tiempo.",
+    "lead": "Esta página se actualiza cada 30 segundos contra los probes que corremos desde tres regiones. Si algo se rompe lo vas a ver aquí antes que en tu sede.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbEstado": "Estado del servicio",
+    "badgeProbes": "Probes cada 30 s",
+    "badgeRegions": "3 regiones de origen",
+    "badgeHistory": "Histórico desde 2024",
+    "statusOk": "Operativo",
+    "statusMinor": "Degradado",
+    "statusMajor": "Interrupción",
+    "statusMaint": "Mantenimiento",
+    "legendTitle": "Cómo leemos uptime",
+    "legendOkLabel": "Operativo",
+    "legendOkDesc": "sin incidentes registrados.",
+    "legendMinorLabel": "Degradado",
+    "legendMinorDesc": "algunos usuarios afectados.",
+    "legendMajorLabel": "Interrupción",
+    "legendMajorDesc": "servicio caído.",
+    "legendMaintLabel": "Mantenimiento",
+    "legendMaintDesc": "programado con aviso.",
+    "legendFoot": "Calculamos uptime sobre 90 días, ponderado por sedes afectadas.",
+    "bannerKicker": "Estado actual",
+    "bannerTitle": "Todos los sistemas operativos.",
+    "bannerDesc": "Última comprobación hace 38 segundos. Las sedes de Cali reportaron sincronización lenta más temprano hoy; ya está resuelto.",
+    "bannerUptimeLabel": "Uptime 90d",
+    "bannerIncidentsLabel": "Incidentes 30d",
+    "servicesKicker": "Servicios",
+    "servicesTitle": "Siete sistemas que mantienen tu caja en línea.",
+    "services": [
+      {
+        "id": "pos",
+        "name": "Consola de caja",
+        "desc": "App de escritorio para vender, cobrar, cerrar caja."
+      },
+      {
+        "id": "sync",
+        "name": "Sincronización en la nube",
+        "desc": "Envío y recepción de cambios entre sede y backend."
+      },
+      {
+        "id": "ai",
+        "name": "Núcleo IA · Co-pilot",
+        "desc": "Co-pilot, embeddings, OCR de factura."
+      },
+      {
+        "id": "auth",
+        "name": "Autenticación · cuentas",
+        "desc": "Inicio de sesión, roles, cambio de sede."
+      },
+      {
+        "id": "dian",
+        "name": "Pasarela DIAN",
+        "desc": "Emisión de documentos electrónicos vía partner."
+      },
+      {
+        "id": "web",
+        "name": "Sitio web & docs",
+        "desc": "puntovivo.co, docs y página de soporte."
+      },
+      {
+        "id": "wa",
+        "name": "Bot de WhatsApp",
+        "desc": "Recibos digitales y soporte por WhatsApp Business."
+      }
+    ],
+    "barsAria": "Estado de los últimos 90 días",
+    "servicesFootA": "Cada barra",
+    "servicesFootB": "es un día. Más a la izquierda, más antiguo.",
+    "servicesFootRange": "Hace 90 días → hoy",
+    "uptimeLabel": "90d",
+    "regionsKicker": "Por región",
+    "regionsTitle": "Sedes activas, agrupadas por ciudad.",
+    "regionsDesc": "Si una sede pierde conexión, la caja sigue vendiendo offline. Esta vista refleja el estado del backend de sincronización por región — no el estado individual de cada sede.",
+    "regions": [
+      { "id": "bog", "name": "Bogotá", "count": 64, "status": "ok" },
+      { "id": "med", "name": "Medellín", "count": 38, "status": "ok" },
+      { "id": "cli", "name": "Cali", "count": 18, "status": "minor" },
+      { "id": "bar", "name": "Barranquilla", "count": 12, "status": "ok" },
+      { "id": "otros", "name": "Otras", "count": 10, "status": "ok" }
+    ],
+    "regionCount": "{{count}} sedes",
+    "incidentsKicker": "Historial · últimos 30 días",
+    "incidentsTitle": "Tres incidentes, todos resueltos.",
+    "sevMajor": "Mayor",
+    "sevMinor": "Menor",
+    "sevInfo": "Info",
+    "stepDetectado": "Detectado",
+    "stepInvestigando": "Investigando",
+    "stepComunicado": "Comunicado",
+    "stepResuelto": "Resuelto",
+    "incidents": [
+      {
+        "sev": "minor",
+        "title": "Sincronización lenta en sede Cali Sur",
+        "started": "18 may · 14:32",
+        "resolved": "18 may · 15:47",
+        "elapsed": "1 h 15 min",
+        "steps": [
+          {
+            "at": "14:32",
+            "s": "Detectado",
+            "d": "Latencia de sync > 8s reportada por 3 sedes de Cali. Equipo de infra notificado."
+          },
+          {
+            "at": "14:55",
+            "s": "Investigando",
+            "d": "Aislamos un nodo de la región que respondía lento. Tráfico migrado al nodo vecino."
+          },
+          {
+            "at": "15:47",
+            "s": "Resuelto",
+            "d": "Latencia normalizada (< 1s). Ningún cambio pendiente, ningún ticket reabierto."
+          }
+        ]
+      },
+      {
+        "sev": "major",
+        "title": "Pasarela DIAN intermitente",
+        "started": "07 may · 09:14",
+        "resolved": "07 may · 11:02",
+        "elapsed": "1 h 48 min",
+        "steps": [
+          {
+            "at": "09:14",
+            "s": "Detectado",
+            "d": "Pasarela del partner DIAN devolviendo timeouts en ~30% de las solicitudes."
+          },
+          {
+            "at": "09:32",
+            "s": "Comunicado",
+            "d": "Notificamos a las 142 sedes activas vía banner en la consola. Las ventas siguen funcionando offline."
+          },
+          {
+            "at": "10:48",
+            "s": "Investigando",
+            "d": "Partner confirma incidente upstream. Los documentos quedan en cola para reenvío automático."
+          },
+          {
+            "at": "11:02",
+            "s": "Resuelto",
+            "d": "Pasarela recuperada. 412 documentos reencolados se enviaron correctamente."
+          }
+        ]
+      },
+      {
+        "sev": "minor",
+        "title": "WhatsApp lento para envío de recibos",
+        "started": "02 may · 18:11",
+        "resolved": "02 may · 18:39",
+        "elapsed": "28 min",
+        "steps": [
+          {
+            "at": "18:11",
+            "s": "Detectado",
+            "d": "Webhooks de WhatsApp tardando > 20s. Cola de envío saturada."
+          },
+          { "at": "18:39", "s": "Resuelto", "d": "Reescalado el worker; cola drenada en 6 min." }
+        ]
+      }
+    ],
+    "subscribeKicker": "Suscríbete",
+    "subscribeTitle": "Entérate antes que tus cajeros.",
+    "subscribeDesc": "Te avisamos por correo o WhatsApp cuando comience un incidente, cuando lo resolvamos y cuando programemos un mantenimiento.",
+    "subTabEmail": "Correo",
+    "subTabWa": "WhatsApp",
+    "subTabWebhook": "Webhook",
+    "subTabRss": "RSS",
+    "subInputPh": "tu@tienda.com",
+    "subButton": "Suscribir",
+    "subFoot": "Solo enviamos cuando hay novedad. Cancelas con un clic."
   }
 }

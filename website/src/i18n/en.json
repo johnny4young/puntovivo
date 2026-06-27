@@ -6,6 +6,9 @@
     "dashboard": "Dashboard",
     "flow": "Flow",
     "pricing": "Pricing",
+    "docs": "Docs",
+    "roadmap": "Roadmap",
+    "estado": "Status",
     "login": "Sign in",
     "demo": "Book a demo",
     "themeToggle": "Toggle theme",
@@ -480,5 +483,1006 @@
     "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
     "version": "{{version}} · MIT"
+  },
+  "sobre": {
+    "kicker": "About Puntovivo",
+    "titleA": "A register built in Colombia,",
+    "titleEm": "closed a register",
+    "titleC": "by people who have ",
+    "titleD": ".",
+    "lead": "We are a small team building the point-of-sale system we wish we'd had back when we ran a register at a coffee shop, a corner store or a franchise.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbSobre": "About us",
+    "badgeMade": "Built in Medellín · Bogotá",
+    "badgeRemote": "Remote · 6 people",
+    "badgeFounded": "Founded 2023",
+    "heroCardTitle": "Company status",
+    "heroCardDate": "June 2026",
+    "heroStatSitesLabel": "Active sites",
+    "heroStatCountriesLabel": "Countries",
+    "heroStatTeamLabel": "Team",
+    "heroStatOpenLabel": "Open-source",
+    "heroNote": "Bootstrapped · no venture capital. We grow with customers, not with funding rounds.",
+    "manifestoKicker": "Manifesto",
+    "manifestoTitleA": "A ",
+    "manifestoTitleEm": "calm register",
+    "manifestoTitleB": ", not a smart one.",
+    "manifestoP1": "We made Puntovivo because we watched too many cashiers fight their system on a Friday at 8 p.m. Cluttered screens, modal windows, stock counters that lie. The register is the heart of the business; it deserves respect, not more friction.",
+    "manifestoP2": "Our commitment is simple: <b>five actions per screen, max</b>, real Colombian Spanish, and a Friday close that isn't an event. Everything else — AI, multi-site, transfers — is built on top of that, never on top of the cashier.",
+    "valuesKicker": "Principles",
+    "valuesTitle": "The six things we never let go of.",
+    "values": [
+      {
+        "t": "Calm over density",
+        "d": "If a module needs a tutorial, the module is wrong. We remove buttons before we add captions."
+      },
+      {
+        "t": "Local first, cloud later",
+        "d": "The sale closes without internet. Syncing is an implementation detail, not a condition."
+      },
+      {
+        "t": "Native Colombian Spanish",
+        "d": "It's not translation: every line of copy is read first by a neighborhood cashier. If it sounds off, it's out."
+      },
+      {
+        "t": "Auditable by default",
+        "d": "Every shift, role, site or price change is logged. Trust is earned by showing the ledger."
+      },
+      {
+        "t": "Open where it counts",
+        "d": "The core is open-source MIT. Anyone who wants to review how VAT or the close is calculated, can."
+      },
+      {
+        "t": "We charge per site",
+        "d": "Not per cashier, not per feature. Open a new site and you move it from the console — no support tickets."
+      }
+    ],
+    "timelineKicker": "History",
+    "timelineTitle": "From one coffee shop to a chain, without losing Friday.",
+    "timeline": [
+      {
+        "y": "2023",
+        "q": "Jul",
+        "t": "First ticket issued at a coffee shop in Envigado",
+        "d": "POS version 0.1, one site, no cloud. It works on Friday; it stays."
+      },
+      {
+        "y": "2024",
+        "q": "Jan",
+        "t": "Multi-site and warehouse transfers",
+        "d": "Three of Daniela's coffee shops connected. The idea of per-site balance as the source of truth emerges."
+      },
+      {
+        "y": "2024",
+        "q": "Sep",
+        "t": "Multi-tenant and per-site sequentials",
+        "d": "First external chain adopts Puntovivo: a franchise with four legal entities."
+      },
+      {
+        "y": "2025",
+        "q": "Mar",
+        "t": "Blind close by denominations",
+        "d": "Inspired by a yellow notebook from a friend's corner store. The cashier no longer guesses."
+      },
+      {
+        "y": "2025",
+        "q": "Oct",
+        "t": "Split payments and real refunds",
+        "d": "Cash + card + Nequi in a single charge. A refund restores stock, not just money."
+      },
+      {
+        "y": "2026",
+        "q": "May",
+        "t": "AI Core v1.0",
+        "d": "Co-pilot in Spanish, semantic catalog search, invoice OCR. All optional, all auditable."
+      }
+    ],
+    "teamKicker": "Team",
+    "teamTitle": "Six people, two cities, one register.",
+    "teamDesc": "We work remotely between Medellín and Bogotá. Each of us has a partner site where we test changes before they reach the rest of the country.",
+    "team": [
+      {
+        "n": "Daniela Restrepo",
+        "r": "Co-founder · Product",
+        "b": "Ran retail operations for 8 coffee shops in Medellín before co-founding Puntovivo. Designs the register and close flows."
+      },
+      {
+        "n": "Mateo Quintero",
+        "r": "Co-founder · Engineering",
+        "b": "12 years writing embedded software for thermal printers and barcode scanners. Tends the local-first engine."
+      },
+      {
+        "n": "Lina Cárdenas",
+        "r": "Design & system",
+        "b": "Built the entire design system, the editorial typography and the visual language of the POS and the web."
+      },
+      {
+        "n": "Camilo Vargas",
+        "r": "AI Core",
+        "b": "Formerly a computational linguist in NLP for Colombian Spanish. Now owns the co-pilot, embeddings and OCR."
+      },
+      {
+        "n": "Andrea Pulido",
+        "r": "Operations · Support",
+        "b": "Worked 9 years in operations for family-run corner stores in Bogotá. Resolves real closes over WhatsApp."
+      },
+      {
+        "n": "Esteban Ríos",
+        "r": "Infrastructure",
+        "b": "Maintains syncing, the cloud, per-site backups and the isolated multi-tenant environments."
+      }
+    ],
+    "ctaKicker": "Let's talk",
+    "ctaTitle": "Want to meet who's on the other side of the console?",
+    "ctaDesc": "Message us on WhatsApp or schedule a 20-minute call.",
+    "ctaContact": "Contact us",
+    "ctaRoadmap": "See roadmap"
+  },
+  "docs": {
+    "kicker": "Documentation · v1.0",
+    "titleA": "How Puntovivo works,",
+    "titleB": "in ",
+    "titleEm": "plain Spanish",
+    "titleC": ".",
+    "lead": "A single source for cashiers, managers and developers. Every article is validated with a real site before it's published.",
+    "crumbInicio": "Home",
+    "crumbRecursos": "Resources",
+    "crumbDocs": "Documentation",
+    "badgeArticles": "154 articles",
+    "badgeUpdated": "Updated weekly",
+    "badgeOpen": "Open · MIT",
+    "searchPre": "Search",
+    "searchTerm1": "blind close",
+    "searchTerm2": "transfer",
+    "searchTerm3": "split payment",
+    "categories": [
+      {
+        "t": "Start here",
+        "d": "Install the desktop app, register your first site and ring up your first sale in under 20 minutes.",
+        "tag": "Getting started"
+      },
+      {
+        "t": "Register & sales",
+        "d": "Charge, discount, refund, split payments, print a thermal receipt and send the digital one over WhatsApp.",
+        "tag": "Daily operation"
+      },
+      {
+        "t": "Register with blind close",
+        "d": "Opening by denominations, shift movements, blind close and the cash-control report.",
+        "tag": "Reconciliation"
+      },
+      {
+        "t": "Inventory & stock",
+        "d": "Products, variants, cost history, physical counts, adjustments, minimums and shrinkage.",
+        "tag": "Stock"
+      },
+      {
+        "t": "Transfers between sites",
+        "d": "Send, receive partially, void. How per-site balance looks while it's in transit.",
+        "tag": "Multi-site"
+      },
+      {
+        "t": "Purchasing & suppliers",
+        "d": "Orders, partial receipt, supplier returns, quotes and per-batch costs.",
+        "tag": "Procurement"
+      },
+      {
+        "t": "Roles, sites & multi-tenant",
+        "d": "How tenants are isolated, the available roles and the per-shift audit log.",
+        "tag": "Administration"
+      },
+      {
+        "t": "AI Core",
+        "d": "Co-pilot, semantic search, invoice OCR. What runs locally, what travels and how it's audited.",
+        "tag": "AI"
+      },
+      {
+        "t": "API & webhooks",
+        "d": "Endpoints, per-tenant authentication, pagination, examples in curl, Node, Python.",
+        "tag": "Developers"
+      }
+    ],
+    "categoryArticles": "{{count}} articles",
+    "sidebarTitle": "Sections",
+    "sidebarItems": [
+      "Start here",
+      "Register & sales",
+      "Register with blind close",
+      "Inventory & stock",
+      "Transfers",
+      "Purchasing & suppliers",
+      "Multi-tenant & roles",
+      "AI Core",
+      "API & webhooks",
+      "Changes & versions"
+    ],
+    "sidebarSub": ["Installation", "Your first site", "First sale", "Print a receipt"],
+    "mainKicker": "By area",
+    "mainTitle": "Start where you are.",
+    "popularKicker": "Most read this week",
+    "popularTitle": "What owners and cashiers look up most.",
+    "popular": [
+      { "t": "Set up a 58 mm thermal printer", "time": "4 min", "tag": "Register" },
+      { "t": "Run a blind close with a difference", "time": "6 min", "tag": "Register" },
+      { "t": "Migrate your catalog from Loyverse", "time": "12 min", "tag": "Migration" },
+      { "t": "Create custom roles per site", "time": "5 min", "tag": "Multi-tenant" },
+      { "t": "Void a sale without affecting inventory", "time": "3 min", "tag": "Register" },
+      { "t": "Connect the co-pilot to a site", "time": "7 min", "tag": "AI" }
+    ],
+    "exampleKicker": "This is what a page looks like",
+    "exampleTitle": "An article, with no extra decoration.",
+    "exampleDesc": "Permanent sidebar on the left, on-this-page on the right, content given room to breathe in the middle. Zero modal windows, zero cookie pop-ups in the docs.",
+    "articleCrumb": "Register with blind close",
+    "onpage": [
+      "What is a blind close?",
+      "Opening by denominations",
+      "Movements during the shift",
+      "Submit the final count",
+      "Difference and control report",
+      "FAQ and common errors"
+    ],
+    "onpageFoot": "Edited 4 days ago by Lina C.",
+    "artTag": "Register with blind close",
+    "artReadTime": "6 min read",
+    "artUpdated": "Updated May 14, 2026",
+    "artTitle": "What is a blind close and why does it matter?",
+    "artLead": "A blind close is the way the console asks you to count the drawer without showing you the expected balance. That keeps you from “tidying up” the count and leaves the difference visible to the owner.",
+    "calloutLabel": "In one line",
+    "calloutText": "The cashier counts bill by bill, submits, and only then sees whether it came out balanced, over or short.",
+    "artH2Flow": "The step-by-step flow",
+    "artFlowP": "When it's time to close the register, the console shows a screen with slots to count each denomination. The expected balance — what the system computed from sales, discounts, refunds and shift movements — stays hidden.",
+    "artPreComment": "# Structure of a blind close",
+    "artH2Diff": "What happens if there's a difference",
+    "artDiffP1": "The difference is recorded in the cash-control report, not in a separate notebook. The system marks it",
+    "artDiffP2": "short",
+    "artDiffP3": "balanced",
+    "artDiffP4": "over",
+    "artDiffP5": "and stores the who-and-when in the log.",
+    "tableState": "State",
+    "tableMeaning": "Meaning",
+    "tableAction": "Suggested action",
+    "tableSquared": "Balanced",
+    "tableSquaredMeaning": "The count matches the expected balance.",
+    "tableSquaredAction": "— none —",
+    "tableOver": "Over",
+    "tableOverMeaning": "There's more money than expected.",
+    "tableOverAction": "Check for sales that weren't recorded.",
+    "tableUnder": "Short",
+    "tableUnderMeaning": "There's less money than expected.",
+    "tableUnderAction": "Check for withdrawals without a note or recent refunds.",
+    "feedbackH2": "Did this page help?",
+    "feedbackYes": "Yes, thanks",
+    "feedbackNo": "Something's missing",
+    "feedbackLink": "Message us on WhatsApp →"
+  },
+  "roadmap": {
+    "kicker": "Public roadmap",
+    "titleA": "What we're building,",
+    "titleB": "and why ",
+    "titleEm": "in that order",
+    "titleC": ".",
+    "lead": "Each item is prioritized by the real pain we see at active sites. If an idea isn't here yet, we're still researching it — but we can talk.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbRoadmap": "Roadmap",
+    "badgeUpdated": "Updated May 18, 2026",
+    "badgeIdeas": "12 ideas in progress",
+    "badgePublic": "Public since 2024",
+    "legendTitle": "How to read this board",
+    "legendNow": "Now · 6 weeks",
+    "legendNext": "Next · quarter",
+    "legendLater": "Later · exploring",
+    "filtersTitle": "Filter by area",
+    "filterAreas": [
+      "All",
+      "AI Core",
+      "Register",
+      "Inventory",
+      "Purchasing",
+      "Mobile",
+      "Compliance",
+      "Platform"
+    ],
+    "sizeWeek": "1 wk",
+    "sizeWeeks": "2-3 wks",
+    "sizeMonths": "1-2 mo",
+    "sizeQuarter": "1 qtr+",
+    "columns": {
+      "now": {
+        "label": "Now",
+        "kicker": "Q2 · 2026",
+        "desc": "In active development · arriving in the next 6 weeks.",
+        "items": [
+          {
+            "t": "Co-pilot with actionable answers",
+            "d": "Suggest a transfer between sites, a supplier order or a price adjustment — with one click to execute.",
+            "area": "AI Core",
+            "size": "L",
+            "votes": 142,
+            "sede": "Sede Centro"
+          },
+          {
+            "t": "Blind close with linked safe",
+            "d": "Reconcile the shift balance against the site's safe balance. Difference visible to the manager.",
+            "area": "Register",
+            "size": "M",
+            "votes": 89,
+            "sede": "Mercado Las Aguas"
+          },
+          {
+            "t": "Catalog importer from Loyverse",
+            "d": "Load SKU, VAT, cost and stock with a single XLSX. Detects duplicates by barcode.",
+            "area": "Migration",
+            "size": "S",
+            "votes": 67,
+            "sede": "—"
+          },
+          {
+            "t": "Digital receipt over WhatsApp",
+            "d": "Generates a short link to the receipt and sends it to the customer with one tap. Keeps the thermal one for whoever prefers it.",
+            "area": "Register",
+            "size": "M",
+            "votes": 124,
+            "sede": "Café Andes"
+          }
+        ]
+      },
+      "next": {
+        "label": "Next",
+        "kicker": "Q3 · 2026",
+        "desc": "Next quarter · scope confirmed, design in progress.",
+        "items": [
+          {
+            "t": "Customer credit with payment plan",
+            "d": "Credit sale with installments, optional WhatsApp reminders and a per-site receivables report.",
+            "area": "Sales",
+            "size": "L",
+            "votes": 198,
+            "sede": "—"
+          },
+          {
+            "t": "Linked electronic scale",
+            "d": "Direct support for USB/serial scales. Products sold by weight go into the cart without a modal.",
+            "area": "Register",
+            "size": "M",
+            "votes": 76,
+            "sede": "Tienda Ñero"
+          },
+          {
+            "t": "Manager mobile app",
+            "d": "Read-only version to review sales and alerts on a phone. Close and register stay on desktop.",
+            "area": "Mobile",
+            "size": "L",
+            "votes": 211,
+            "sede": "—"
+          },
+          {
+            "t": "Reconciliation with Bancolombia + Nequi",
+            "d": "Cross-checks electronic payments against the day's sales. Flags differences for review.",
+            "area": "Finance",
+            "size": "M",
+            "votes": 154,
+            "sede": "Mercado Las Aguas"
+          }
+        ]
+      },
+      "later": {
+        "label": "Later",
+        "kicker": "Q4 · 2026 and beyond",
+        "desc": "Under research · we want to do it but don't yet know how.",
+        "items": [
+          {
+            "t": "Native DIAN electronic invoicing",
+            "d": "Issue and look up documents without going through a middleman. Requires certification; exploring a signing provider.",
+            "area": "Compliance",
+            "size": "XL",
+            "votes": 312,
+            "sede": "—"
+          },
+          {
+            "t": "Restaurant: tables and orders",
+            "d": "Restaurant mode with a floor plan, kitchen tickets, tips and bill splitting.",
+            "area": "Verticals",
+            "size": "XL",
+            "votes": 87,
+            "sede": "—"
+          },
+          {
+            "t": "Extensions marketplace",
+            "d": "Let partners publish integrations (accountants, e-commerce, loyalty).",
+            "area": "Platform",
+            "size": "L",
+            "votes": 49,
+            "sede": "—"
+          },
+          {
+            "t": "Kiosk / self-checkout mode",
+            "d": "Touchscreen for customers to build their own order. Useful in high-traffic bakeries and ice-cream shops.",
+            "area": "Register",
+            "size": "XL",
+            "votes": 41,
+            "sede": "—"
+          }
+        ]
+      }
+    },
+    "votesTitle": "Votes from customers and prospects",
+    "betaTitle": "Beta site where it's tested first",
+    "shippedKicker": "Already here · last 6 months",
+    "shippedTitle": "What's already in your register.",
+    "shipped": [
+      { "when": "May 2026", "t": "AI Core · v1.0", "area": "AI" },
+      { "when": "May 2026", "t": "Blind close by denominations", "area": "Register" },
+      { "when": "May 2026", "t": "Transfers between sites", "area": "Inventory" },
+      { "when": "Apr 2026", "t": "Split payments", "area": "Register" },
+      { "when": "Apr 2026", "t": "Purchasing + returns", "area": "Purchasing" },
+      { "when": "Mar 2026", "t": "Per-site sequentials", "area": "Multi-tenant" },
+      { "when": "Feb 2026", "t": "Per-shift audit log", "area": "Security" }
+    ],
+    "voteKicker": "Vote or propose",
+    "voteTitle": "Need something that isn't here?",
+    "voteDesc": "The roadmap is ordered by real pain, not hype. If your site fights with something every Friday, we want to know. Every proposal enters the backlog and is discussed at the biweekly meeting.",
+    "votePlaceholder": "Describe the idea in one line…",
+    "voteSend": "Send proposal",
+    "voteIssues": "See issues on GitHub"
+  },
+  "contacto": {
+    "kicker": "Contact",
+    "titleA": "Reach us however works best ",
+    "titleEm": "for you",
+    "titleB": ".",
+    "lead": "WhatsApp, email, a call, a visit. Every path reaches a human on the team in under 4 business hours.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbContacto": "Contact",
+    "badgeResponse": "Reply < 4 business hours",
+    "badgeWa": "Support over WhatsApp",
+    "badgeHours": "Mon-Fri 8 to 18",
+    "asideOnline": "We're online",
+    "asideLastReply": "Last reply 6 min ago",
+    "asideAvgLabel": "Median time",
+    "asideCsatLabel": "CSAT 90 d",
+    "asideFoot": "Outside business hours we reply first thing the next day.",
+    "channelsKicker": "Direct channels",
+    "channelsTitle": "No maze-like forms.",
+    "channelsDesc": "If you'd rather not fill anything out, write us directly. These are real channels with humans on the other side.",
+    "channelWaTitle": "WhatsApp Business",
+    "channelWaDesc": "The channel cashiers use to resolve questions on the spot.",
+    "channelMailTitle": "Email",
+    "channelMailDesc": "For anything that needs to be in writing.",
+    "channelDemoTitle": "20-min demo",
+    "channelDemoDesc": "We show you the console with your sample data.",
+    "channelDemoValue": "Book on Cal.com",
+    "channelGithubTitle": "GitHub",
+    "channelGithubDesc": "Report bugs, propose improvements, read the POS code.",
+    "channelGithubValue": "github.com/puntovivo",
+    "tracks": {
+      "ventas": {
+        "label": "Sales",
+        "lead": "Try Puntovivo at your site, request a quote, learn about plans.",
+        "sla": "We reply in under 4 business hours.",
+        "who": "Daniela Restrepo · Co-founder"
+      },
+      "soporte": {
+        "label": "Support",
+        "lead": "Help with a close, a stuck sync, a locked-out cashier.",
+        "sla": "We reply in under 30 minutes during business hours.",
+        "who": "Andrea Pulido · Operations"
+      },
+      "prensa": {
+        "label": "Press",
+        "lead": "Stories, interviews, product data, press kit.",
+        "sla": "We reply within 1 business day.",
+        "who": "Lina Cárdenas · Design & brand"
+      },
+      "alianzas": {
+        "label": "Partnerships",
+        "lead": "Integrations, implementation partners, regional distribution.",
+        "sla": "We reply within 1-2 business days.",
+        "who": "Mateo Quintero · Co-founder"
+      }
+    },
+    "formSideKicker": "What are you writing about?",
+    "fieldName": "First and last name",
+    "fieldNamePh": "María Restrepo",
+    "fieldCompany": "Company or site",
+    "fieldCompanyPh": "Mercado Las Aguas",
+    "fieldEmail": "Email",
+    "fieldEmailPh": "maria@mercadolasaguas.co",
+    "fieldWa": "WhatsApp",
+    "fieldWaOptional": "optional",
+    "fieldWaPh": "+57 300 000 0000",
+    "fieldSedes": "How many sites?",
+    "fieldVertical": "Type of business",
+    "selectPlaceholder": "Select…",
+    "verticalOptions": [
+      "Coffee shop or bakery",
+      "Mini-market / corner store",
+      "Liquor store",
+      "Stationery / variety store",
+      "Other"
+    ],
+    "fieldFuente": "How did you hear about us?",
+    "fuenteOptions": ["Referral", "Google search", "Instagram / TikTok", "Event or fair"],
+    "fieldTenant": "Tenant ID",
+    "fieldTenantPh": "tnt_pv_…",
+    "fieldSede": "Affected site",
+    "fieldSedePh": "Sede Centro · Bogotá",
+    "fieldConsola": "Console version",
+    "fieldConsolaPh": "v1.0.4 — shown in Settings",
+    "fieldMedio": "Outlet",
+    "fieldMedioPh": "Bloomberg Línea",
+    "fieldDeadline": "Publication date",
+    "fieldEmpresaPress": "Company",
+    "fieldEmpresaPressPh": "Your company",
+    "fieldTipo": "Type of partnership",
+    "tipoOptions": ["Technical integration", "Implementation partner", "Regional distribution"],
+    "fieldMessage": "Tell us in one or two lines",
+    "fieldMessagePh": "We have 3 sites in Bogotá and want to consolidate inventory…",
+    "formNote": "We don't share your data. Privacy policy available on request.",
+    "formSend": "Send message",
+    "officeKicker": "Offices",
+    "officeTitle": "Two cities, one time zone.",
+    "officeDesc": "We don't have walk-in offices, but we'll welcome you for coffee if you give us a day's notice.",
+    "officeMedellinCity": "Medellín",
+    "officeMedellinAddr1": "Cra 43A · El Poblado",
+    "officeMedellinAddr2": "Antioquia, Colombia",
+    "officeBogotaCity": "Bogotá",
+    "officeBogotaAddr1": "Cl 82 · Chicó Norte",
+    "officeBogotaAddr2": "Bogotá D.C., Colombia",
+    "officeTz": "GMT-5 · Hours 8:00–18:00",
+    "mapFoot": "Stylized map · not to scale"
+  },
+  "atajos": {
+    "kicker": "Keyboard shortcuts",
+    "titleA": "Five actions per screen,",
+    "titleEm": "five fingers on the keyboard",
+    "titleB": ".",
+    "lead": "Puntovivo is operated keyboard-first. This page is the cheat sheet: filter by module, hover over a shortcut and watch it light up on the keyboard.",
+    "crumbInicio": "Home",
+    "crumbRecursos": "Resources",
+    "crumbAtajos": "Keyboard shortcuts",
+    "badgeCount": "{{count}} shortcuts",
+    "badgeOs": "macOS · Windows · Linux",
+    "badgePrintable": "Printable",
+    "platformLabel": "Platform",
+    "platformMac": "macOS",
+    "platformWin": "Windows/Linux",
+    "legendLabel": "Modifiers",
+    "legendOption": "option / alt",
+    "legendCommand": "command / ctrl",
+    "legendShift": "shift",
+    "legendEnter": "enter",
+    "printButton": "Print cheat sheet",
+    "keyboardFoot": "Hover over any shortcut to light up the matching keys.",
+    "searchPlaceholder": "Search action · close, discount, transfer…",
+    "areas": [
+      "All",
+      "Register",
+      "Close",
+      "Inventory",
+      "Transfers",
+      "Purchasing",
+      "Navigation",
+      "System"
+    ],
+    "areaNames": {
+      "Caja": "Register",
+      "Cierre": "Close",
+      "Inventario": "Inventory",
+      "Transferencias": "Transfers",
+      "Compras": "Purchasing",
+      "Navegación": "Navigation",
+      "Sistema": "System"
+    },
+    "actions": {
+      "cobrarVenta": "Charge sale",
+      "nuevaVenta": "New sale",
+      "buscarProducto": "Search product",
+      "abrirCatalogo": "Open catalog",
+      "aplicarDescuento": "Apply discount",
+      "pagoDividido": "Split payment",
+      "anularLinea": "Void last line",
+      "reimprimirRecibo": "Reprint receipt",
+      "abrirCaja": "Open register",
+      "registrarMovimiento": "Record movement",
+      "cerrarCajaCiego": "Blind-close register",
+      "saltarDenominaciones": "Jump to denominations",
+      "nuevoProducto": "New product",
+      "buscarSku": "Search SKU",
+      "ajusteStock": "Stock adjustment",
+      "conteoFisico": "Start physical count",
+      "nuevaTransferencia": "New transfer",
+      "recibirTransferencia": "Receive transfer",
+      "nuevaOrden": "New purchase order",
+      "reciboParcial": "Partial receipt",
+      "devolverProveedor": "Return to supplier",
+      "abrirCopilot": "Open co-pilot",
+      "cambiarSede": "Switch site",
+      "irDashboard": "Go to dashboard",
+      "irVentas": "Go to sales",
+      "irInventario": "Go to inventory",
+      "irCompras": "Go to purchasing",
+      "mostrarAtajos": "Show all shortcuts",
+      "bloquearCaja": "Lock register",
+      "cerrarSesion": "Sign out",
+      "modoClaroOscuro": "Light / dark mode"
+    },
+    "emptyText": "No shortcut matches that search. Try another word or change the module."
+  },
+  "migracion": {
+    "kicker": "Migration guide",
+    "titleA": "Switch systems without ",
+    "titleEm": "stopping",
+    "titleB": " sales.",
+    "lead": "We walk you through it step by step, from exporting your catalog to the first register opening in Puntovivo. Most sites finish the switch in an afternoon.",
+    "crumbInicio": "Home",
+    "crumbRecursos": "Resources",
+    "crumbMigracion": "Migration guide",
+    "badgeTime": "30 to 90 min per site",
+    "badgeHuman": "Human support",
+    "badgeNoDowntime": "No downtime",
+    "pickerHead": "Where are you coming from?",
+    "levelAuto": "Automatic",
+    "levelAsistida": "Assisted",
+    "levelManual": "Manual",
+    "sources": [
+      {
+        "id": "loyverse",
+        "t": "Loyverse",
+        "d": "Popular POS in coffee shops and kiosks.",
+        "level": "auto"
+      },
+      {
+        "id": "alegra",
+        "t": "Alegra",
+        "d": "Accounting + POS for small businesses in Colombia.",
+        "level": "auto"
+      },
+      {
+        "id": "siigo",
+        "t": "Siigo",
+        "d": "Accounting suite with an inventory module.",
+        "level": "asistida"
+      },
+      {
+        "id": "world",
+        "t": "World Office",
+        "d": "ERP used by mid-sized chains.",
+        "level": "asistida"
+      },
+      {
+        "id": "excel",
+        "t": "Excel / CSV",
+        "d": "Catalog in a spreadsheet, free-form.",
+        "level": "manual"
+      },
+      {
+        "id": "otro",
+        "t": "Other system",
+        "d": "We'll help you map it if you have an export.",
+        "level": "manual"
+      }
+    ],
+    "pickerFootA": "From",
+    "pickerFootB": "→ Puntovivo",
+    "pickerFootEm": "· estimated time: 30 to 90 min · support included",
+    "stepsKicker": "Plan in five steps",
+    "stepsTitle": "What migrating takes, step by step.",
+    "steps": [
+      {
+        "n": "01",
+        "t": "Export your current catalog",
+        "time": "5 min",
+        "d": "From your current system, export the catalog to CSV or XLSX. It must include SKU or barcode, description, cost, price, VAT and stock per site.",
+        "checks": [
+          { "t": "Unique SKU per product", "ok": true },
+          { "t": "Prices excluding VAT or with VAT marked", "ok": true },
+          { "t": "Stock per site in separate columns", "ok": true },
+          { "t": "UTF-8 encoding (accents render correctly)", "ok": false }
+        ]
+      },
+      {
+        "n": "02",
+        "t": "Clean up duplicates and units",
+        "time": "10-30 min",
+        "d": "Puntovivo deduplicates by barcode and then by SKU. If you sell by weight or by unit, leave the matching column marked. Delete discontinued products before importing.",
+        "checks": [
+          { "t": "No empty or subtotal rows", "ok": true },
+          { "t": "13-digit barcodes without a hyphen", "ok": true },
+          { "t": "Sale unit: unit, kg, pound or pack", "ok": true }
+        ]
+      },
+      {
+        "n": "03",
+        "t": "Upload the file to the wizard",
+        "time": "2 min",
+        "d": "From the console, open Settings → Migration. Drop the file, choose your source system and let the wizard propose the column mapping. You can adjust it field by field before continuing.",
+        "checks": [
+          { "t": "Column map confirmed by you", "ok": true },
+          { "t": "Default VAT selected (0/5/19 %)", "ok": true },
+          { "t": "Destination site selected", "ok": true }
+        ]
+      },
+      {
+        "n": "04",
+        "t": "Review the preview and confirm",
+        "time": "10 min",
+        "d": "Before applying, you'll see the summary: how many new products, how many will be updated, how many need your decision. Approve in batches — nothing is applied until you confirm.",
+        "checks": [
+          { "t": "Conflicts resolved one by one", "ok": true },
+          { "t": "Per-site balance preview reviewed", "ok": true }
+        ]
+      },
+      {
+        "n": "05",
+        "t": "Reconcile and open the register",
+        "time": "1 shift",
+        "d": "Do a physical count of the main site and compare it against the imported balance. The first register opening uses the base you define, not the imported balance. From there on, the flow is normal.",
+        "checks": [
+          { "t": "Physical count done at the main site", "ok": true },
+          { "t": "Opening with a base you define", "ok": true },
+          { "t": "First test sale completed", "ok": true }
+        ]
+      }
+    ],
+    "compatKicker": "Compatibility",
+    "compatTitle": "What we map automatically.",
+    "compatDesc": "These are the columns the wizard recognizes without you renaming anything. Whatever it can't map, it asks you about before applying.",
+    "mapColSystem": "System",
+    "mapColFile": "Expected file",
+    "mapColSku": "SKU",
+    "mapColName": "Name",
+    "mapColCost": "Cost",
+    "mapColPrice": "Price",
+    "mapColIva": "VAT",
+    "mapColStock": "Stock",
+    "mapColLevel": "Level",
+    "mapping": [
+      {
+        "from": "Loyverse",
+        "csv": "items.csv",
+        "sku": "Barcode → barcode",
+        "desc": "Name → descripcion",
+        "cost": "Cost → costo",
+        "price": "Price → precio",
+        "iva": "Tax → iva",
+        "stock": "Stock at store X → balance.sedeX",
+        "level": "Automática"
+      },
+      {
+        "from": "Alegra",
+        "csv": "productos.csv",
+        "sku": "Código → sku",
+        "desc": "Nombre → descripcion",
+        "cost": "Precio costo → costo",
+        "price": "Precio venta → precio",
+        "iva": "Impuesto → iva",
+        "stock": "Inventario → balance",
+        "level": "Automática"
+      },
+      {
+        "from": "Siigo",
+        "csv": "inventario.xlsx",
+        "sku": "Código → sku",
+        "desc": "Descripción → descripcion",
+        "cost": "Costo promedio → costo",
+        "price": "Precio 1 → precio",
+        "iva": "IVA → iva",
+        "stock": "Saldo → balance",
+        "level": "Asistida"
+      },
+      {
+        "from": "World Office",
+        "csv": "maestro.csv",
+        "sku": "Referencia → sku",
+        "desc": "Descripción → descripcion",
+        "cost": "Costo → costo",
+        "price": "Lista 1 → precio",
+        "iva": "Impuesto → iva",
+        "stock": "Existencia → balance",
+        "level": "Asistida"
+      }
+    ],
+    "sampleKicker": "Our own format",
+    "sampleTitle": "Coming from Excel? This is the format.",
+    "sampleDesc": "One sheet per site, headers in the first row, UTF-8. Copy this example and replace the data.",
+    "sampleTab1": "catalogo.csv",
+    "sampleTab2": "stock-sede-centro.csv",
+    "sampleTab3": "stock-sede-norte.csv",
+    "sampleDownload": "Download template",
+    "sampleFootA": "VAT zero? Leave the column at",
+    "sampleFootB": ". For exempt items use",
+    "faqKicker": "Frequently asked",
+    "faqTitle": "What people ask before starting.",
+    "faq": [
+      {
+        "q": "How long does it take to migrate a single site?",
+        "a": "If your file comes in clean, between 30 and 90 minutes from export to the first test sale. Adding more sites adds 10-15 minutes per site."
+      },
+      {
+        "q": "Do I have to stop selling while I migrate?",
+        "a": "No. We recommend migrating after hours and leaving the first register opening for the next day, but the old system can stay active. Just make it clear to the team which one is the real one."
+      },
+      {
+        "q": "And if my catalog has 20,000 SKUs?",
+        "a": "The importer processes up to 50,000 lines per file. Very large catalogs we split by category and apply in batches — the wizard proposes it on its own."
+      },
+      {
+        "q": "What happens to my sales history?",
+        "a": "Sales history isn't migrated: you start clean in Puntovivo. You keep your reports from the old system as an archive. For most small businesses, this is what accountants recommend."
+      }
+    ],
+    "ctaKicker": "Shall we do it together?",
+    "ctaTitle": "Book a guided migration session.",
+    "ctaDesc": "One hour over video call with your file open. We come out with the first test sale ready.",
+    "ctaSchedule": "Schedule migration",
+    "ctaRead": "Read the full guide"
+  },
+  "estado": {
+    "kicker": "Service status",
+    "titleA": "What's on, what's ",
+    "titleEm": "not",
+    "titleB": ",",
+    "titleC": "and for how long.",
+    "lead": "This page updates every 30 seconds against the probes we run from three regions. If something breaks you'll see it here before you see it at your site.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbEstado": "Service status",
+    "badgeProbes": "Probes every 30 s",
+    "badgeRegions": "3 origin regions",
+    "badgeHistory": "History since 2024",
+    "statusOk": "Operational",
+    "statusMinor": "Degraded",
+    "statusMajor": "Outage",
+    "statusMaint": "Maintenance",
+    "legendTitle": "How we read uptime",
+    "legendOkLabel": "Operational",
+    "legendOkDesc": "no incidents recorded.",
+    "legendMinorLabel": "Degraded",
+    "legendMinorDesc": "some users affected.",
+    "legendMajorLabel": "Outage",
+    "legendMajorDesc": "service down.",
+    "legendMaintLabel": "Maintenance",
+    "legendMaintDesc": "scheduled with notice.",
+    "legendFoot": "We compute uptime over 90 days, weighted by affected sites.",
+    "bannerKicker": "Current status",
+    "bannerTitle": "All systems operational.",
+    "bannerDesc": "Last check 38 seconds ago. The Cali sites reported slow syncing earlier today; it's already resolved.",
+    "bannerUptimeLabel": "Uptime 90d",
+    "bannerIncidentsLabel": "Incidents 30d",
+    "servicesKicker": "Services",
+    "servicesTitle": "Seven systems that keep your register online.",
+    "services": [
+      {
+        "id": "pos",
+        "name": "Register console",
+        "desc": "Desktop app to sell, charge, close the register."
+      },
+      {
+        "id": "sync",
+        "name": "Cloud syncing",
+        "desc": "Sending and receiving changes between site and backend."
+      },
+      { "id": "ai", "name": "AI Core · Co-pilot", "desc": "Co-pilot, embeddings, invoice OCR." },
+      {
+        "id": "auth",
+        "name": "Authentication · accounts",
+        "desc": "Sign-in, roles, site switching."
+      },
+      { "id": "dian", "name": "DIAN gateway", "desc": "Electronic document issuance via partner." },
+      { "id": "web", "name": "Website & docs", "desc": "puntovivo.co, docs and the support page." },
+      {
+        "id": "wa",
+        "name": "WhatsApp bot",
+        "desc": "Digital receipts and support over WhatsApp Business."
+      }
+    ],
+    "barsAria": "Status of the last 90 days",
+    "servicesFootA": "Each bar",
+    "servicesFootB": "is one day. Further left, older.",
+    "servicesFootRange": "90 days ago → today",
+    "uptimeLabel": "90d",
+    "regionsKicker": "By region",
+    "regionsTitle": "Active sites, grouped by city.",
+    "regionsDesc": "If a site loses connection, the register keeps selling offline. This view reflects the status of the sync backend per region — not the individual status of each site.",
+    "regions": [
+      { "id": "bog", "name": "Bogotá", "count": 64, "status": "ok" },
+      { "id": "med", "name": "Medellín", "count": 38, "status": "ok" },
+      { "id": "cli", "name": "Cali", "count": 18, "status": "minor" },
+      { "id": "bar", "name": "Barranquilla", "count": 12, "status": "ok" },
+      { "id": "otros", "name": "Other", "count": 10, "status": "ok" }
+    ],
+    "regionCount": "{{count}} sites",
+    "incidentsKicker": "History · last 30 days",
+    "incidentsTitle": "Three incidents, all resolved.",
+    "sevMajor": "Major",
+    "sevMinor": "Minor",
+    "sevInfo": "Info",
+    "stepDetectado": "Detected",
+    "stepInvestigando": "Investigating",
+    "stepComunicado": "Communicated",
+    "stepResuelto": "Resolved",
+    "incidents": [
+      {
+        "sev": "minor",
+        "title": "Slow syncing at Cali Sur site",
+        "started": "May 18 · 14:32",
+        "resolved": "May 18 · 15:47",
+        "elapsed": "1 h 15 min",
+        "steps": [
+          {
+            "at": "14:32",
+            "s": "Detectado",
+            "d": "Sync latency > 8s reported by 3 Cali sites. Infra team notified."
+          },
+          {
+            "at": "14:55",
+            "s": "Investigando",
+            "d": "We isolated a slow-responding node in the region. Traffic migrated to the neighboring node."
+          },
+          {
+            "at": "15:47",
+            "s": "Resuelto",
+            "d": "Latency back to normal (< 1s). No pending changes, no reopened tickets."
+          }
+        ]
+      },
+      {
+        "sev": "major",
+        "title": "Intermittent DIAN gateway",
+        "started": "May 07 · 09:14",
+        "resolved": "May 07 · 11:02",
+        "elapsed": "1 h 48 min",
+        "steps": [
+          {
+            "at": "09:14",
+            "s": "Detectado",
+            "d": "The DIAN partner gateway returning timeouts on ~30% of requests."
+          },
+          {
+            "at": "09:32",
+            "s": "Comunicado",
+            "d": "We notified the 142 active sites via a banner in the console. Sales keep working offline."
+          },
+          {
+            "at": "10:48",
+            "s": "Investigando",
+            "d": "Partner confirms an upstream incident. Documents are queued for automatic resend."
+          },
+          {
+            "at": "11:02",
+            "s": "Resuelto",
+            "d": "Gateway recovered. 412 requeued documents were sent successfully."
+          }
+        ]
+      },
+      {
+        "sev": "minor",
+        "title": "WhatsApp slow to send receipts",
+        "started": "May 02 · 18:11",
+        "resolved": "May 02 · 18:39",
+        "elapsed": "28 min",
+        "steps": [
+          {
+            "at": "18:11",
+            "s": "Detectado",
+            "d": "WhatsApp webhooks taking > 20s. Send queue saturated."
+          },
+          { "at": "18:39", "s": "Resuelto", "d": "Rescaled the worker; queue drained in 6 min." }
+        ]
+      }
+    ],
+    "subscribeKicker": "Subscribe",
+    "subscribeTitle": "Find out before your cashiers do.",
+    "subscribeDesc": "We notify you by email or WhatsApp when an incident starts, when we resolve it and when we schedule maintenance.",
+    "subTabEmail": "Email",
+    "subTabWa": "WhatsApp",
+    "subTabWebhook": "Webhook",
+    "subTabRss": "RSS",
+    "subInputPh": "you@store.com",
+    "subButton": "Subscribe",
+    "subFoot": "We only send when there's news. Cancel with one click."
   }
 }
