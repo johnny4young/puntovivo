@@ -2,7 +2,7 @@
  * ENG-008b acceptance — login rate-limit state persists across a
  * server restart.
  *
- * ROADMAP AC (docs/ROADMAP.md §3b, ENG-008b):
+ * Acceptance criteria (ENG-008b):
  *
  *   "Attacker tripping the username cap, server restart, next attempt
  *    still 429."

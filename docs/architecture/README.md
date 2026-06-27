@@ -5,18 +5,15 @@ documents that capture **the architectural decisions that gate work
 across multiple tickets**, the alternatives considered, and the impact
 on future implementation.
 
-ADRs differ from the strategic prose in `docs/PLAN.md` and the
-ticket index in `docs/ROADMAP.md`:
+ADRs differ from the strategic prose and the ticket queue tracked
+internally:
 
-- `PLAN.md` is broad market and architecture analysis (what, why, when).
-- `ROADMAP.md §3b` is the live ticket queue (`ENG-NNN` rows).
 - ADRs lock **how** we will build something, the constraints we accept,
   and the trade-offs we explicitly reject.
 
 When in doubt about which file wins, see
 [`docs/README.md §4 — Authority resolution`](../README.md). ADRs sit at
-the "Specialty docs" tier under `AGENTS.md` / `ROADMAP.md` /
-`SPRINT-PLAN.md` / `PLAN-V2.md` / `PLAN.md`.
+the "Specialty docs" tier.
 
 ---
 
@@ -25,7 +22,7 @@ the "Specialty docs" tier under `AGENTS.md` / `ROADMAP.md` /
 Open a new ADR only when **all** of the following are true:
 
 1. The decision spans more than one ticket (it gates two or more
-   `ENG-NNN` rows in `ROADMAP.md §3b`).
+   `ENG-NNN` rows).
 2. The decision constrains future code — a later ticket cannot
    silently violate it without a Superseder ADR.
 3. The decision has at least one rejected alternative worth recording
@@ -69,12 +66,12 @@ markdown link (`[ADR-0003](./0003-outbox-taxonomy.md)`) where useful.
 
 Every ADR carries a `Status` line in its frontmatter:
 
-| Status | Meaning |
-| --- | --- |
-| `Proposed` | Draft under discussion. Not binding on implementation. |
-| `Accepted` | Locked in. Implementation tickets must respect the decision. |
+| Status               | Meaning                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `Proposed`           | Draft under discussion. Not binding on implementation.                                              |
+| `Accepted`           | Locked in. Implementation tickets must respect the decision.                                        |
 | `Superseded by NNNN` | Replaced by a newer ADR. The text is preserved (do not delete) but new work follows the superseder. |
-| `Deprecated` | Explicitly retired without a successor (rare — usually only when a whole subsystem is removed). |
+| `Deprecated`         | Explicitly retired without a successor (rare — usually only when a whole subsystem is removed).     |
 
 ADRs **must** ship with `Status: Accepted`. Do not commit ADRs as
 `Proposed` — discussion happens in tickets and reviews, not as a
@@ -149,16 +146,16 @@ Updated: <list grows by appending here, never removing>.
 
 ## Active ADRs
 
-| ID | Title | Status | Owner ticket |
-| --- | --- | --- | --- |
-| [ADR-0001](./0001-local-store-authority.md) | Local Store Authority | Accepted | ENG-051 |
-| [ADR-0002](./0002-command-envelope.md) | Command Envelope | Accepted | ENG-051 |
-| [ADR-0003](./0003-outbox-taxonomy.md) | Outbox Taxonomy | Accepted | ENG-051 |
-| [ADR-0004](./0004-conflict-policy.md) | Conflict Policy | Accepted | ENG-051 |
-| [ADR-0005](./0005-sync-payload-contract.md) | Sync Payload Contract v1 | Accepted | ENG-064 |
-| [ADR-0006](./0006-local-data-security.md) | Local data security: backup, restore, and the "no PAN/CVV" invariant | Accepted | ENG-066 |
-| [ADR-0007](./0007-module-activation.md) | Module activation kernel | Accepted | ENG-068 |
-| [ADR-0008](./0008-authority-node-runtime-modes.md) | Authority Node runtime modes | Accepted | ENG-071 |
+| ID                                                 | Title                                                                | Status   | Owner ticket |
+| -------------------------------------------------- | -------------------------------------------------------------------- | -------- | ------------ |
+| [ADR-0001](./0001-local-store-authority.md)        | Local Store Authority                                                | Accepted | ENG-051      |
+| [ADR-0002](./0002-command-envelope.md)             | Command Envelope                                                     | Accepted | ENG-051      |
+| [ADR-0003](./0003-outbox-taxonomy.md)              | Outbox Taxonomy                                                      | Accepted | ENG-051      |
+| [ADR-0004](./0004-conflict-policy.md)              | Conflict Policy                                                      | Accepted | ENG-051      |
+| [ADR-0005](./0005-sync-payload-contract.md)        | Sync Payload Contract v1                                             | Accepted | ENG-064      |
+| [ADR-0006](./0006-local-data-security.md)          | Local data security: backup, restore, and the "no PAN/CVV" invariant | Accepted | ENG-066      |
+| [ADR-0007](./0007-module-activation.md)            | Module activation kernel                                             | Accepted | ENG-068      |
+| [ADR-0008](./0008-authority-node-runtime-modes.md) | Authority Node runtime modes                                         | Accepted | ENG-071      |
 
 When you ship an ADR, append a row here in the same commit. When an ADR
 is superseded, update the row's Status column to
@@ -187,23 +184,22 @@ Convention: patterns live at `architecture/patterns/<kebab-name>.md`
 The frontmatter cross-links the companion ADR(s) so readers can hop
 between the decision and the implementation guide.
 
-| Pattern | Owner ticket | Companion ADR(s) | Code |
-| --- | --- | --- | --- |
-| [Operation Journal](./patterns/operation-journal.md) | ENG-053 | [ADR-0001](./0001-local-store-authority.md), [ADR-0002](./0002-command-envelope.md), [ADR-0003](./0003-outbox-taxonomy.md) | `packages/server/src/services/operation-journal/` |
-| [Outbox Kernel](./patterns/outbox-kernel.md) | ENG-053 | [ADR-0003](./0003-outbox-taxonomy.md) | `packages/server/src/lib/outbox/` |
+| Pattern                                              | Owner ticket | Companion ADR(s)                                                                                                           | Code                                              |
+| ---------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [Operation Journal](./patterns/operation-journal.md) | ENG-053      | [ADR-0001](./0001-local-store-authority.md), [ADR-0002](./0002-command-envelope.md), [ADR-0003](./0003-outbox-taxonomy.md) | `packages/server/src/services/operation-journal/` |
+| [Outbox Kernel](./patterns/outbox-kernel.md)         | ENG-053      | [ADR-0003](./0003-outbox-taxonomy.md)                                                                                      | `packages/server/src/lib/outbox/`                 |
 
 ---
 
 ## Language
 
 ADRs are written in **English**, following the same convention as the
-top-level `PLAN.md`, `ARCHITECTURE.md`, `STACK-EVOLUTION.md`, and
+top-level `ARCHITECTURE.md`, `STACK-EVOLUTION.md`, and
 `SELLABILITY.md`.
 
 Sections that describe rules over `services/fiscal/**` (or any prose
 about Colombian / Mexican / Chilean fiscal pipelines) follow the
-**Spanish convention** documented in `AGENTS.md` (neutral LATAM `tú`,
-no voseo). When an ADR mixes general architecture and fiscal-specific
+**Spanish convention** (neutral LATAM `tú`, no voseo). When an ADR mixes general architecture and fiscal-specific
 rules, the general sections stay in English and the fiscal subsections
 switch to Spanish — this keeps each rule readable by the contributors
 who will execute it.

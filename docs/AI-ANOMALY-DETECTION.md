@@ -28,7 +28,7 @@ el tile y el endpoint cortan limpio sin error.
 
 En retail SMB —el target primario de Puntovivo—, el fraude interno
 por cajero es estadísticamente la fuente número uno de pérdidas
-operativas. Según el *ACFE Report to the Nations 2024* (sección
+operativas. Según el _ACFE Report to the Nations 2024_ (sección
 Latin America retail), las tiendas que no tienen detección activa
 pierden **entre 1.5% y 3% de las ventas brutas mensuales** por
 shrinkage interno.
@@ -46,13 +46,13 @@ puede haberse ido y la pérdida es prácticamente irrecuperable.
 
 ## Los cinco patrones de fraude más comunes
 
-| # | Patrón                          | Cómo se ejecuta                                                                                                | Cómo lo detectamos                                                                                                              |
-|---|---------------------------------|----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| 1 | **Sweethearting**               | El cajero pasa un producto al amigo o cliente cómplice sin escanearlo. Cobra menos, regala el resto.           | `ticketsPerHourSpike` invertido (no implementado en v1; capturado como follow-up). El v1 detecta picos altos, no caídas anormales. |
-| 2 | **Voids fantasma**              | El cajero anula una venta legítima ya cobrada y se queda con el efectivo.                                      | `voidRate`: proporción de anulaciones sobre ventas completadas, comparada contra los demás cajeros del tenant.                  |
-| 3 | **Devoluciones fraudulentas individuales** | El cajero "devuelve" un producto que nunca volvió y embolsa el efectivo equivalente.                | `refundAmount`: monto de la devolución comparado contra la distribución de devoluciones del tenant (top-K con z-score > 3).      |
-| 4 | **Aperturas sin venta (no-sale)** | El cajero abre la caja sin registrar venta y saca efectivo en silencio.                                       | `noSaleSessions`: sesiones de caja con cero ventas completadas y duración > 30 minutos, comparadas contra el equipo.            |
-| 5 | **Actividad en horas raras**    | El cajero solo, en madrugadas o turnos vacíos, hace muchas transacciones rápidas que cubren voids o refunds.   | `ticketsPerHourSpike` personal: la hora individual del cajero comparada contra su propia media de 30 días.                       |
+| #   | Patrón                                     | Cómo se ejecuta                                                                                              | Cómo lo detectamos                                                                                                                 |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Sweethearting**                          | El cajero pasa un producto al amigo o cliente cómplice sin escanearlo. Cobra menos, regala el resto.         | `ticketsPerHourSpike` invertido (no implementado en v1; capturado como follow-up). El v1 detecta picos altos, no caídas anormales. |
+| 2   | **Voids fantasma**                         | El cajero anula una venta legítima ya cobrada y se queda con el efectivo.                                    | `voidRate`: proporción de anulaciones sobre ventas completadas, comparada contra los demás cajeros del tenant.                     |
+| 3   | **Devoluciones fraudulentas individuales** | El cajero "devuelve" un producto que nunca volvió y embolsa el efectivo equivalente.                         | `refundAmount`: monto de la devolución comparado contra la distribución de devoluciones del tenant (top-K con z-score > 3).        |
+| 4   | **Aperturas sin venta (no-sale)**          | El cajero abre la caja sin registrar venta y saca efectivo en silencio.                                      | `noSaleSessions`: sesiones de caja con cero ventas completadas y duración > 30 minutos, comparadas contra el equipo.               |
+| 5   | **Actividad en horas raras**               | El cajero solo, en madrugadas o turnos vacíos, hace muchas transacciones rápidas que cubren voids o refunds. | `ticketsPerHourSpike` personal: la hora individual del cajero comparada contra su propia media de 30 días.                         |
 
 ## Diseño técnico
 
@@ -72,8 +72,8 @@ puede haberse ido y la pérdida es prácticamente irrecuperable.
      Personales en Posesión de los Particulares, 2010).
    - **Ley 19.628 en Chile** (Protección de la Vida Privada, en
      transición a la nueva ley aprobada en 2024).
-   El detector estadístico cumple por construcción: nada cruza la
-   frontera del proceso del servidor.
+     El detector estadístico cumple por construcción: nada cruza la
+     frontera del proceso del servidor.
 3. **Costo.** La detección corre cada cinco minutos en el dashboard
    sin consumir tokens. No escribe en `ai_audit_log` (no hay llamada
    generativa que registrar) y no compite con el budget mensual de
@@ -162,6 +162,7 @@ los parámetros opcionales `from`/`to` en `ai.anomalies.list`.
   una segunda opinión interna.
 
 ### Cuándo NO aplica (el detector se degrada con elegancia, no
+
 falla)
 
 - **Un solo cajero en todo el tenant.** Los detectores cross-cashier
@@ -205,18 +206,18 @@ En la versión v1 el flujo es read-only:
    `Configuración → Auditoría` (filtro por usuario y fecha) o con
    los reportes de ventas para confirmar la sospecha.
 
-En una v2 (capturado como follow-up `[ai][ux]` en `BACKLOG.md`), cada
+En una v2 (capturado como follow-up `[ai][ux]` interno), cada
 fila tendrá un botón **"Investigar cajero"** que pre-filtra
 `audit_logs` y `sales` por ese cajero en la ventana exacta de la
 alerta, ahorrando los pasos manuales.
 
 ### Cómo se asigna la severidad
 
-| Distancia (z-score absoluto)        | Severidad reportada                       |
-|-------------------------------------|-------------------------------------------|
-| < 3.0σ                              | Sin alerta (filtrado).                    |
-| 3.0σ ≤ distancia < 4.5σ             | **Media**.                                |
-| ≥ 4.5σ                              | **Alta**.                                 |
+| Distancia (z-score absoluto) | Severidad reportada    |
+| ---------------------------- | ---------------------- |
+| < 3.0σ                       | Sin alerta (filtrado). |
+| 3.0σ ≤ distancia < 4.5σ      | **Media**.             |
+| ≥ 4.5σ                       | **Alta**.              |
 
 El sentinel `LOO_EXTREME_DISTANCE = 99` se usa cuando la población
 "resto" tiene varianza cero y el candidato difiere; produce siempre
@@ -232,8 +233,8 @@ severidad alta.
 - El detector **no acusa** al cajero —marca un outlier estadístico.
   El operador es responsable de investigar antes de tomar acción
   disciplinaria. La copia del modal lo dice explícitamente:
-  *"Úsalo como punto de partida para una investigación, no como una
-  acusación definitiva."*
+  _"Úsalo como punto de partida para una investigación, no como una
+  acusación definitiva."_
 
 ## Tunables documentados
 
@@ -253,11 +254,9 @@ Constantes exportadas en
 
 ## Referencias
 
-- `docs/ROADMAP.md` §3b ENG-032.
-- `docs/PLAN-V2.md` §2 Phase 1 (AI Wave 1).
 - `docs/AI-ANOMALY-DETECTION.md` (este documento).
 - ACFE Report to the Nations 2024, capítulo Latin America retail.
-- Iglewicz & Hoaglin (1993), *How to Detect and Handle Outliers* —
+- Iglewicz & Hoaglin (1993), _How to Detect and Handle Outliers_ —
   referencia académica para leave-one-out z-score y modified z-score
   basado en MAD.
 

@@ -5,7 +5,7 @@
 > reports router, and architectural lint on `main`. **Fase B
 > (ENG-021) still gated** on the 6 external dependencies listed
 > below.
-> Phase 11 of [ROADMAP.md](./ROADMAP.md), re-prioritized to P0 (Tier-1 3a).
+> Phase 11 of the internal roadmap, re-prioritized to P0 (Tier-1 3a).
 > Created: April 21, 2026. Updated: April 24, 2026.
 
 ## Shipped in Fase A
@@ -111,11 +111,11 @@ valor estructural sin esperar las dependencias externas.
   ENG-035b — la emisión XML real shipa ahí.
 - **Validador RFC** (`packs/mx/rfc.ts`) — función pura que valida
   longitud (12 PM / 13 PF), estructura (3-4 letras + fecha AAMMDD
-  + 3 alfanuméricos), fecha embebida (calendario válido), checksum
-  de homoclave (algoritmo SAT módulo 11), lista negra de prefijos
-  altisonantes, y atajo para los RFCs genéricos extranjeros del
-  SAT (`XEXX010101000` PM, `XAXX010101000` PF). 17 tests cubren
-  los caminos felices y de fallo.
+  - 3 alfanuméricos), fecha embebida (calendario válido), checksum
+    de homoclave (algoritmo SAT módulo 11), lista negra de prefijos
+    altisonantes, y atajo para los RFCs genéricos extranjeros del
+    SAT (`XEXX010101000` PM, `XAXX010101000` PF). 17 tests cubren
+    los caminos felices y de fallo.
 - **Catálogos SAT** (`packs/mx/catalogs/`) como TS modules: 23
   regímenes fiscales (601 General PM, 612 PF Empresarial, 626
   RESICO, etc.), 24 usos CFDI (G03 Gastos, S01 Sin efectos
@@ -254,13 +254,13 @@ Rationale:
 
 ### Candidate providers
 
-| PT | Fit for Puntovivo | Notes |
-| --- | --- | --- |
-| **Facture S.A.S.** | High | Well-documented REST, competitive pricing |
-| **The Factory HKA Colombia** | High | Most used by CO retail PYMEs |
-| **Gosocket** | Medium | Multi-country LatAm (useful for expansion) |
-| **Alegra** | Low | Also a competitor (ERP/facturador) |
-| **Siigo / Carvajal** | Low | Enterprise pricing, heavier integration |
+| PT                           | Fit for Puntovivo | Notes                                      |
+| ---------------------------- | ----------------- | ------------------------------------------ |
+| **Facture S.A.S.**           | High              | Well-documented REST, competitive pricing  |
+| **The Factory HKA Colombia** | High              | Most used by CO retail PYMEs               |
+| **Gosocket**                 | Medium            | Multi-country LatAm (useful for expansion) |
+| **Alegra**                   | Low               | Also a competitor (ERP/facturador)         |
+| **Siigo / Carvajal**         | Low               | Enterprise pricing, heavier integration    |
 
 Initial target: **Facture** or **HKA**. Design is provider-neutral via
 the `FiscalAdapter` interface.

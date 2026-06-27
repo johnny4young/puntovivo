@@ -27,7 +27,7 @@ What landed:
   `fiscal_documents` shifts from single-column
   `buyer_tax_id_type_code → dian_identification_types.code` to
   composite `(buyer_country_code, buyer_tax_id_type_code) →
-  fiscal_identification_types(country_code, code)`. Legacy
+fiscal_identification_types(country_code, code)`. Legacy
   fiscal_documents rows back-fill `buyer_country_code = 'CO'`
   (single-country MVP era through ENG-176b).
 - **Multi-country seed** in
@@ -84,7 +84,7 @@ provider→canonical mapping inside their pack (`packs/co/`, `packs/mx/`,
 - **ENG-156 (multi-currency operations)** — actually using
   `settle_currency_code` and the per-row `currency_code` to sell in
   one currency and settle in another. The schema is ready; the UX
-  + FX-spread accounting + reporting belong to that ticket.
+  - FX-spread accounting + reporting belong to that ticket.
 - **ENG-161 (NFe Brazil)** — Brazil fiscal documents. The catalog
   now accepts BR-country rows; the adapter pack + fiscal seeds for
   Brazil belong to that ticket.
@@ -197,7 +197,7 @@ added:
   (`subtotal += lineBase; taxAmount += lineTax`) AFTER each iteration
   to defeat sub-cent stacking, and rounds the header
   `subtotal / taxAmount / discountAmount / tipAmount /
-  serviceChargeAmount / total` plus every line's
+serviceChargeAmount / total` plus every line's
   `unitPrice / discount / taxAmount / costAtSale / total` before the
   INSERT. `services/quotations.ts` mirrors the same shape. Cash
   sessions, purchases, orders, inventory, products, customer credit
@@ -282,14 +282,14 @@ The audit (`docs/AUDIT-2026-05-24.md §ENG-176`) accepts either path
 for the acceptance criterion "money columns pinned by a CHECK
 invariant". The trade-off the operator weighed:
 
-| Dimension | real + CHECK (chosen) | integer minor units |
-| --- | --- | --- |
-| Storage layer defense against negatives | ✅ enforced | ✅ enforced |
-| Storage layer defense against sub-cent drift | ✅ enforced on covered tables | ✅ enforced (type-system) |
-| Blast radius across the codebase | schema + migrations only | every formatter, Zod schema, receipt renderer, ~100+ files |
-| Backwards-compat with persisted data | trivial | requires lossless one-shot migration |
-| Risk of regression on existing flows | minimal (recreations preserve data) | high (every monetary write touched) |
-| Future path to the other approach | open — can migrate later if drift bugs surface | terminal |
+| Dimension                                    | real + CHECK (chosen)                          | integer minor units                                        |
+| -------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| Storage layer defense against negatives      | ✅ enforced                                    | ✅ enforced                                                |
+| Storage layer defense against sub-cent drift | ✅ enforced on covered tables                  | ✅ enforced (type-system)                                  |
+| Blast radius across the codebase             | schema + migrations only                       | every formatter, Zod schema, receipt renderer, ~100+ files |
+| Backwards-compat with persisted data         | trivial                                        | requires lossless one-shot migration                       |
+| Risk of regression on existing flows         | minimal (recreations preserve data)            | high (every monetary write touched)                        |
+| Future path to the other approach            | open — can migrate later if drift bugs surface | terminal                                                   |
 
 For a multi-tenant LATAM POS that already ships, the lower-blast
 choice ships ENG-176's storage-layer defenses without converting every
@@ -392,7 +392,6 @@ This is a multi-session ticket and not in scope for ENG-176 today.
 
 ## Forward References
 
-- `BACKLOG.md` → `ENG-176b` (currency_code + exchange_rate on
-  transactional tables).
-- `BACKLOG.md` → `ENG-176c` (fiscal_identification_types catalog rename
-  + `fiscal_documents.status` enum expansion).
+- `ENG-176b` (currency_code + exchange_rate on transactional tables).
+- `ENG-176c` (fiscal_identification_types catalog rename
+  - `fiscal_documents.status` enum expansion).

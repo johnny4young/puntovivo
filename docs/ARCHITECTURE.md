@@ -298,10 +298,10 @@ an explicit declaration, which produced confusing UX ("cannot delete
 provider; 3 products reference it") and made the intent of each FK
 opaque to a future maintainer.
 
-| Behaviour | When to apply | Examples |
-| --- | --- | --- |
-| **`cascade`** | Parent-of-child relations where the child row has no meaning without the parent. Deleting the parent must atomically delete the children. | `sale_items.sale_id → sales`, `quotation_items.quotation_id → quotations`, `purchase_items.purchase_id → purchases`, `transfer_order_items.transfer_order_id → transfer_orders`, `fiscal_document_items.fiscal_document_id → fiscal_documents`, `sale_payments.sale_id → sales` |
-| **`set null`** | Optional pointers to context that may legitimately disappear. The nullable column stores the historical link; clearing it preserves the parent row's audit value. | `sync_outbox.device_id → devices`, `*.operation_event_id → operation_events`, `sales.last_reprinted_by → users` |
+| Behaviour                | When to apply                                                                                                                                                                                                                 | Examples                                                                                                                                                                                                                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`cascade`**            | Parent-of-child relations where the child row has no meaning without the parent. Deleting the parent must atomically delete the children.                                                                                     | `sale_items.sale_id → sales`, `quotation_items.quotation_id → quotations`, `purchase_items.purchase_id → purchases`, `transfer_order_items.transfer_order_id → transfer_orders`, `fiscal_document_items.fiscal_document_id → fiscal_documents`, `sale_payments.sale_id → sales`                  |
+| **`set null`**           | Optional pointers to context that may legitimately disappear. The nullable column stores the historical link; clearing it preserves the parent row's audit value.                                                             | `sync_outbox.device_id → devices`, `*.operation_event_id → operation_events`, `sales.last_reprinted_by → users`                                                                                                                                                                                  |
 | **`restrict`** (default) | Cross-aggregate references where deleting the parent would orphan business-meaningful data. The default SQLite behaviour matches this policy; the absence of an explicit `onDelete` in `references()` means RESTRICT applies. | `sales.customer_id → customers`, `products.category_id → categories`, every `*.tenant_id → tenants` (multi-tenant invariant), every `*.site_id → sites`, every `audit_logs.*` (immutability invariant), every `*.created_by → users` (users are deactivated via `is_active`, never hard-deleted) |
 
 ### Operational notes
@@ -366,9 +366,9 @@ list/row on `STALE_VERSION` so the next edit loads the latest version.
   clients; the guard bites whenever a divergent explicit version is
   supplied. The version is surfaced on the resolved-locale DTO
   (`ResolvedLocale.version`) so the admin card can round-trip it.
-- **Layer distinction vs ADR-0004**: this is the *mutation-layer* guard
+- **Layer distinction vs ADR-0004**: this is the _mutation-layer_ guard
   for concurrent online edits against the same authoritative embedded
-  DB. It is complementary to — not a replacement for — the *sync-layer*
+  DB. It is complementary to — not a replacement for — the _sync-layer_
   conflict policy in
   [`architecture/0004-conflict-policy.md`](./architecture/0004-conflict-policy.md),
   which reconciles offline cross-device edits by `updatedAt` with an
@@ -403,7 +403,7 @@ read or write speaks to a keyed page cipher:
    `temp_store`, then (file-only) `mmap_size` and
    `wal_autocheckpoint`.
 5. **Drizzle handle + migrations** (ENG-002): `drizzle(sqlite,
-   { schema })` then `drizzleMigrate(...)` against the explicit
+{ schema })` then `drizzleMigrate(...)` against the explicit
    migrations folder. Legacy DB adoption seeds only the squashed
    baseline marker in `__drizzle_migrations`; newer migrations remain
    pending and still run on any adopted DB whose target tables exist.
@@ -412,15 +412,15 @@ read or write speaks to a keyed page cipher:
    nothing to rewrite. **FK-safe rebuild bracket (ENG-177c):** the
    migrate call is wrapped in connection-level `foreign_keys = OFF`
    → migrate → `foreign_keys = ON`. SQLite cannot `ALTER TABLE ADD
-   CHECK`, so a constraint change recreates the table (CREATE
+CHECK`, so a constraint change recreates the table (CREATE
    `__new_<t>` / INSERT…SELECT / DROP / RENAME); drizzle-orm runs every
    migration inside one `BEGIN`/`COMMIT`, and `PRAGMA foreign_keys` is a
    no-op inside a transaction, so an in-migration toggle cannot protect
    the `DROP TABLE` from firing ON DELETE CASCADE on child rows.
-   Disabling enforcement at the connection level *before* the
+   Disabling enforcement at the connection level _before_ the
    transaction is the only lever that preserves data (verified
    empirically). After restoring enforcement, a `PRAGMA
-   foreign_key_check` aborts the boot if any orphaned reference exists,
+foreign_key_check` aborts the boot if any orphaned reference exists,
    so a botched rebuild surfaces loudly instead of corrupting silently.
 6. **Catalogue seed** (ENG-002 Step 3): `seedCatalogs(db)`.
 
@@ -437,8 +437,7 @@ Drafts are exempt by design. It is purely additive — both `sales` INSERT
 sites already bind a session today (even for drafts), so no row violates
 it. Adding it is the motivating example for the FK-safe rebuild bracket
 above. Pinned by
-`packages/server/src/__tests__/sales-cash-session-constraint.test.ts`.
-7. **Optional default-data seed.**
+`packages/server/src/__tests__/sales-cash-session-constraint.test.ts`. 7. **Optional default-data seed.**
 
 **Where the key comes from.** Electron main
 (`apps/desktop/src/main/index.ts`) calls
@@ -479,10 +478,6 @@ The strongest forward path is:
 3. formalize a remote-authority sync contract
 4. support remote SQLite or PostgreSQL depending on deployment mode
 
-The active roadmap for this work lives in:
-
-- [ROADMAP.md](./ROADMAP.md)
-
 ## Error code policy (ENG-181)
 
 Every error that crosses the tRPC boundary toward the frontend carries
@@ -517,7 +512,7 @@ split:
   numbering TOCTOU loss, defensive post-INSERT reload that returned
   no row, credit ledger amount validation, pairing code allocation
   exhaustion. **→ Use `throwServerError({ trpcCode, errorCode,
-  message, details })`.**
+message, details })`.**
 
 - **Categoría B — programmer asserts in internal helpers.** A pure
   helper (XML serializer, byte builder, manifest type guard) detected
@@ -527,7 +522,7 @@ split:
   unsupported character set, surfaces / events manifest unknown
   module / event type, sync contract unknown entity type. **→ Use
   `new Error(message, { cause: { country, document, missing, …
-  tenantId } })`.** The structured `cause` flows through pino logs
+tenantId } })`.** The structured `cause` flows through pino logs
   for operational diagnosis; the orchestrator's try/catch is the
   funnel that translates the inner error into a customer-facing
   `errorCode` via `throwServerError`.
@@ -562,11 +557,11 @@ default strict profile leaves through. The floor is enforced in
 three landings (ENG-179a / b / c) so each flag's blast radius
 stays observable in a single staged commit:
 
-| Workspace | `strict` | `noUncheckedIndexedAccess` | `exactOptionalPropertyTypes` | `noImplicitOverride` |
-| --- | --- | --- | --- | --- |
-| `packages/server` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
-| `apps/web` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
-| `apps/desktop` | ✅ | ✅ (ENG-179a) | ✅ (ENG-179b) | ✅ (ENG-179b) |
+| Workspace         | `strict` | `noUncheckedIndexedAccess` | `exactOptionalPropertyTypes` | `noImplicitOverride` |
+| ----------------- | -------- | -------------------------- | ---------------------------- | -------------------- |
+| `packages/server` | ✅       | ✅ (ENG-179a)              | ✅ (ENG-179b)                | ✅ (ENG-179b)        |
+| `apps/web`        | ✅       | ✅ (ENG-179a)              | ✅ (ENG-179b)                | ✅ (ENG-179b)        |
+| `apps/desktop`    | ✅       | ✅ (ENG-179a)              | ✅ (ENG-179b)                | ✅ (ENG-179b)        |
 
 ### `noUncheckedIndexedAccess` (ENG-179a, 2026-05-27)
 
@@ -626,9 +621,7 @@ consumer genuinely needs an exact-shape distinction):
    target, omit the field instead of passing `undefined`:
    ```ts
    callback(
-     details.responseHeaders === undefined
-       ? {}
-       : { responseHeaders: details.responseHeaders }
+     details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
    );
    ```
    Lives at the call site only — the type stays narrow for everyone
@@ -663,14 +656,14 @@ from `'warn'` to `'error'` in all three ESLint configs
 - **Production `as any` floor**: under 5 in production code. The only
   remaining production exemption is the outbox kernel
   (`packages/server/src/lib/outbox/kernel.ts`): Drizzle's
-  `insert` / `select` / `update` builders reject a *parametric*
+  `insert` / `select` / `update` builders reject a _parametric_
   `SQLiteTable`, so the unavoidable cast is isolated to a single
   documented `type AnyBuilder = any` consumed by three boundary helpers
   (`insertInto` / `selectAll` / `updateOf`); every call site is otherwise
   fully typed. Seeds (`db/seed-mega/historical-*.ts`) and test fixtures
   are exempt **with a documented `-- reason:`** on the disable directive.
 - **Exemption convention**: every `eslint-disable-next-line
-  @typescript-eslint/no-explicit-any` carries a trailing
+@typescript-eslint/no-explicit-any` carries a trailing
   `-- reason: <why>`; a bare disable is a review reject.
 - **Typed critical-command context**: the nine
   `(ctx as unknown as { envelope?: ... })` double-casts that the
@@ -722,13 +715,13 @@ React routes, each tailored to a class of device. No code fork — the
 business logic sits behind the tRPC client and is consumed identically
 by every surface.
 
-| Surface | Route | Typical device | Interaction | Status |
-| --- | --- | --- | --- | --- |
-| POS Desktop | `/sales` (default) | PC + keyboard + mouse | Dense tables, hover, shortcuts | **Shipped** |
-| POS Touch | `/pos/touch` (planned) | All-in-one touch 15" (Elo, HP RP9) | Tiles ≥44px, on-screen keypad | Planned (Phase 6c — UI variants) |
-| KDS (Kitchen Display) | `/kds?station=<id>` (planned) | TV 32-50" in kitchen, Raspberry Pi kiosk | Click/touch to advance ticket state | Planned (Phase 6b — restaurant) |
-| Customer display | `/display/customer` (planned) | Second monitor facing the customer | Read-only live cart | Planned (Phase 6c) |
-| Mobile waiter | `/pos/mobile` (planned) | Android tablet 10" portrait | Finger-scale, portrait layout | Planned (Phase 6c) |
+| Surface               | Route                         | Typical device                           | Interaction                         | Status                           |
+| --------------------- | ----------------------------- | ---------------------------------------- | ----------------------------------- | -------------------------------- |
+| POS Desktop           | `/sales` (default)            | PC + keyboard + mouse                    | Dense tables, hover, shortcuts      | **Shipped**                      |
+| POS Touch             | `/pos/touch` (planned)        | All-in-one touch 15" (Elo, HP RP9)       | Tiles ≥44px, on-screen keypad       | Planned (Phase 6c — UI variants) |
+| KDS (Kitchen Display) | `/kds?station=<id>` (planned) | TV 32-50" in kitchen, Raspberry Pi kiosk | Click/touch to advance ticket state | Planned (Phase 6b — restaurant)  |
+| Customer display      | `/display/customer` (planned) | Second monitor facing the customer       | Read-only live cart                 | Planned (Phase 6c)               |
+| Mobile waiter         | `/pos/mobile` (planned)       | Android tablet 10" portrait              | Finger-scale, portrait layout       | Planned (Phase 6c)               |
 
 See [UI-SURFACES.md](./UI-SURFACES.md) for deployment and authentication
 details per surface.
@@ -739,11 +732,11 @@ Two deployment shapes are supported today; a third ("hybrid with central
 server") is planned as part of Phase 10 / Stack Evolution (see
 [STACK-EVOLUTION.md](./STACK-EVOLUTION.md)).
 
-| Topology | Runtime | DB | Use case | Status |
-| --- | --- | --- | --- | --- |
-| **Embedded desktop** | Electron main + embedded Fastify | Local SQLite via better-sqlite3 | Single-tenant per install; offline-first | **Shipped — primary** |
-| **Standalone server** | Node `packages/server` alone | Local SQLite or (future) libSQL | Dev, CI, test harness | **Shipped — secondary** |
-| **Hybrid with central server** | Electron desktop + central Postgres/libSQL | Local SQLite + replicated Postgres | Franchises, consolidated BI, public API, mobile companion | **Planned (Phase 10)** |
+| Topology                       | Runtime                                    | DB                                 | Use case                                                  | Status                  |
+| ------------------------------ | ------------------------------------------ | ---------------------------------- | --------------------------------------------------------- | ----------------------- |
+| **Embedded desktop**           | Electron main + embedded Fastify           | Local SQLite via better-sqlite3    | Single-tenant per install; offline-first                  | **Shipped — primary**   |
+| **Standalone server**          | Node `packages/server` alone               | Local SQLite or (future) libSQL    | Dev, CI, test harness                                     | **Shipped — secondary** |
+| **Hybrid with central server** | Electron desktop + central Postgres/libSQL | Local SQLite + replicated Postgres | Franchises, consolidated BI, public API, mobile companion | **Planned (Phase 10)**  |
 
 For the hybrid topology:
 
@@ -756,14 +749,14 @@ For the hybrid topology:
 
 ## External Integration Surface
 
-| Integration | Channel | Owner | Phase |
-| --- | --- | --- | --- |
-| DIAN Proveedor Tecnológico (HKA / Facture / Gosocket) | HTTPS REST from main process | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11 — P0 |
-| ESC/POS thermal printer + RJ11 cash drawer | USB / network / serial from main process | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P0 |
-| Barcode scanner | USB HID keydown capture in renderer | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P0 |
-| Payment terminal (Bold, Wompi, Mercado Pago Point) | HTTPS / Bluetooth SDK from main process | [HARDWARE-POS.md](./HARDWARE-POS.md) | Phase 12 — P1 |
-| GitHub Releases auto-updater | HTTPS from main process | Shipped | — |
-| S3-compatible XML retention | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11 |
+| Integration                                           | Channel                                   | Owner                                            | Phase         |
+| ----------------------------------------------------- | ----------------------------------------- | ------------------------------------------------ | ------------- |
+| DIAN Proveedor Tecnológico (HKA / Facture / Gosocket) | HTTPS REST from main process              | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11 — P0 |
+| ESC/POS thermal printer + RJ11 cash drawer            | USB / network / serial from main process  | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
+| Barcode scanner                                       | USB HID keydown capture in renderer       | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P0 |
+| Payment terminal (Bold, Wompi, Mercado Pago Point)    | HTTPS / Bluetooth SDK from main process   | [HARDWARE-POS.md](./HARDWARE-POS.md)             | Phase 12 — P1 |
+| GitHub Releases auto-updater                          | HTTPS from main process                   | Shipped                                          | —             |
+| S3-compatible XML retention                           | HTTPS from main process or central server | [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md) | Phase 11      |
 
 Every integration goes through an **adapter pattern** (Port/Adapter) so
 the domain layer stays vendor-neutral. New providers plug in without
@@ -771,8 +764,6 @@ changing sales, inventory, or audit code.
 
 ## Where To Look Next
 
-- Project status and roadmap:
-  [ROADMAP.md](./ROADMAP.md)
 - tRPC transport details:
   [TRPC_ARCHITECTURE.md](./TRPC_ARCHITECTURE.md)
 - Fiscal integration (DIAN): [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)

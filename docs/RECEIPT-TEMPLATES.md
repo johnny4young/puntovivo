@@ -45,16 +45,16 @@ Security:
 Each block is one entry in `ReceiptLayout.blocks` (max 50 per layout).
 The discriminator is `type`.
 
-| Block | Fields |
-|---|---|
-| `logo` | `align?`, `maxHeightMm?` |
-| `text` | `value` (≤ 500 chars), `style?` (`title` / `subtitle` / `normal` / `muted` / `monospace`), `align?`, `bold?` |
-| `itemsTable` | `columns` (1-6 of `name` / `qty` / `unitPrice` / `taxPercent` / `discount` / `total`), `showHeader?` |
-| `totalsBlock` | `show` (1-5 of `subtotal` / `discount` / `taxTotal` / `tip` / `grandTotal`) |
-| `tendersTable` | `showChange?` |
-| `qr` | `source` (whitelisted vars only, no JS schemes), `sizeMm?` (10-60) |
-| `separator` | `char?` (default `-`, max 4 chars) |
-| `barcode128` | `source` (whitelisted vars only), `heightMm?` (8-40) |
+| Block          | Fields                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------ |
+| `logo`         | `align?`, `maxHeightMm?`                                                                                     |
+| `text`         | `value` (≤ 500 chars), `style?` (`title` / `subtitle` / `normal` / `muted` / `monospace`), `align?`, `bold?` |
+| `itemsTable`   | `columns` (1-6 of `name` / `qty` / `unitPrice` / `taxPercent` / `discount` / `total`), `showHeader?`         |
+| `totalsBlock`  | `show` (1-5 of `subtotal` / `discount` / `taxTotal` / `tip` / `grandTotal`)                                  |
+| `tendersTable` | `showChange?`                                                                                                |
+| `qr`           | `source` (whitelisted vars only, no JS schemes), `sizeMm?` (10-60)                                           |
+| `separator`    | `char?` (default `-`, max 4 chars)                                                                           |
+| `barcode128`   | `source` (whitelisted vars only), `heightMm?` (8-40)                                                         |
 
 The QR and barcode blocks emit a placeholder element today; the actual
 rasterization lands with the ESC/POS driver in Iter 4 (the
@@ -153,10 +153,10 @@ the editor preview is stable across reloads.
 The page has two modes kept in local state:
 
 1. **List** — paginated table grouped by kind, with per-row actions:
-   *Edit* (opens the inline editor in mode 2), *Set as default*
+   _Edit_ (opens the inline editor in mode 2), _Set as default_
    (mutates the selected row to `isDefault=true` atomically),
-   *Duplicate* (creates a copy with " (copy)" suffix, never inheriting
-   the default flag), *Delete* (modal confirmation; refuses when the
+   _Duplicate_ (creates a copy with " (copy)" suffix, never inheriting
+   the default flag), _Delete_ (modal confirmation; refuses when the
    row is the last template for its kind).
 2. **Editor** — two-pane inline editor:
    - **Left**: list of blocks. Each block can be moved up/down and
@@ -205,7 +205,7 @@ source is implicit, not picked in the editor. The current contract is:
 - **UX gap**: the editor does not surface this binding explicitly
   today. An operator who expects a "pick an SKU list" or "filter by
   category" has to read the docs. Tracked in the follow-up list below
-  as *itemsTable binding caption*.
+  as _itemsTable binding caption_.
 
 ### `totalsBlock`
 
@@ -215,13 +215,13 @@ source is implicit, not picked in the editor. The current contract is:
   `editor.totalsLines.*` i18n namespace; each value comes from the
   corresponding scalar on the current sale snapshot:
 
-  | Line | Source field | Computed by |
-  |---|---|---|
-  | `subtotal` | `sale.subtotal` | Sum of `line.total` (gross per line minus per-line discount) converted to the pre-tax base (`line.total / (1 + taxRate/100)`) summed across lines. |
-  | `discount` | `sale.discount` | Sum of per-line discount amounts. |
-  | `taxTotal` | `sale.taxTotal` | `sale.subtotal` × effective VAT rate by line, summed. |
-  | `tip` | `sale.tip` | Tip captured at checkout (restaurants). |
-  | `grandTotal` | `sale.grandTotal` | `subtotal + taxTotal + tip − discount`. The value the customer pays. |
+  | Line         | Source field      | Computed by                                                                                                                                        |
+  | ------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `subtotal`   | `sale.subtotal`   | Sum of `line.total` (gross per line minus per-line discount) converted to the pre-tax base (`line.total / (1 + taxRate/100)`) summed across lines. |
+  | `discount`   | `sale.discount`   | Sum of per-line discount amounts.                                                                                                                  |
+  | `taxTotal`   | `sale.taxTotal`   | `sale.subtotal` × effective VAT rate by line, summed.                                                                                              |
+  | `tip`        | `sale.tip`        | Tip captured at checkout (restaurants).                                                                                                            |
+  | `grandTotal` | `sale.grandTotal` | `subtotal + taxTotal + tip − discount`. The value the customer pays.                                                                               |
 
   All of these values are pre-computed when the sale is built (see
   `computeQuotationTotals` for the equivalent quotation path and the
@@ -231,7 +231,7 @@ source is implicit, not picked in the editor. The current contract is:
 
 - **UX gap**: the editor shows "Subtotal / Tax / Total" checkboxes but
   does not explain where those numbers come from. Tracked as
-  *totalsBlock documentation caption* below.
+  _totalsBlock documentation caption_ below.
 
 ## Default presets
 
@@ -239,7 +239,7 @@ source is implicit, not picked in the editor. The current contract is:
 ready-to-use presets per kind so the editor never starts blank:
 
 - `sale` — 80mm thermal layout (logo + company header + items + totals
-  + tenders + thank-you footer).
+  - tenders + thank-you footer).
 - `quotation` — letter layout with discount column and itemized totals.
 - `fiscal_dee` — 80mm thermal with QR + CUFE footer for Colombia DIAN
   DEE (placeholder values until Iter 3 Fase A wires the snapshot).
@@ -338,13 +338,13 @@ Shipped as part of ENG-016 pass 2:
   same active styling so the user can clearly track what they're
   moving.
 - The `onDragEnd` handler routes through a new `moveBlockTo(fromIndex,
-  toIndex)` helper that mirrors the keyboard `moveBlock` semantics —
+toIndex)` helper that mirrors the keyboard `moveBlock` semantics —
   it captures a FLIP snapshot before the state mutation so pass-1's
   reusable `flipAnimate` helper plays the post-drop landing
   transition through the same `useLayoutEffect` path.
 - New i18n keys under `editor.dragAndDrop.*` (`gripAriaLabel`,
   `screenReaderInstructions`) in both `en/` and `es/` (neutral LATAM
-  Spanish per AGENTS.md).
+  Spanish).
 - Three new component tests in `ReceiptTemplateEditor.test.tsx` pin:
   grip aria-label presence on every row, `data-flip-key` survives the
   dnd-kit wrapping (regression gate for pass-1's FLIP), and the
@@ -368,8 +368,8 @@ Shipped as part of ENG-016 pass 4 via CodeMirror 6 adoption:
   `HighlightStyle` paints brackets purple, namespaces teal,
   function names blue, strings amber, numbers magenta, and stray
   characters red with a wavy underline. Default CM6 themes (light
-  + one-dark) inherit the same tag set so the palette stays
-  legible across themes.
+  - one-dark) inherit the same tag set so the palette stays
+    legible across themes.
 - **Autocomplete**: a `CompletionSource` in
   `templateAutocomplete.ts` inspects the cursor position via
   `getActiveSubstitution(text, cursor)` and emits suggestions:
@@ -446,7 +446,7 @@ Shipped as part of ENG-016 pass 3:
   `ReceiptRenderLocale`) or `yyyy-MM-dd` when absent.
 - `limit("hola mundo", 9)` returns `"hola m..."` per the canonical
   example the operator feedback called out. `default(empty, "Sin
-  CUFE")` lets templates fall back to a literal when an optional
+CUFE")` lets templates fall back to a literal when an optional
   field is unset (e.g. fiscal docs on a tenant without DIAN
   habilitation).
 - Zod refinement parses the AST and rejects unknown function names,
@@ -455,7 +455,7 @@ Shipped as part of ENG-016 pass 3:
   the `concat("javascript:", …)` bypass that the legacy regex-only
   literal-strip would have missed.
 - Defense-in-depth: the renderer's `lookupPath` swapped from `seg in
-  obj` to `Object.prototype.hasOwnProperty.call(obj, seg)` so
+obj` to `Object.prototype.hasOwnProperty.call(obj, seg)` so
   prototype-chain segments (`__proto__`, `constructor`,
   `toString`) cannot leak through. The evaluator also re-checks
   arity before dispatch — a future caller that bypasses
@@ -577,8 +577,7 @@ save time.
   flag and returns:
 
   ```ts
-  Record<'company' | 'sale' | 'item' | 'fiscal' | 'tender',
-    Record<string, boolean>>
+  Record<'company' | 'sale' | 'item' | 'fiscal' | 'tender', Record<string, boolean>>;
   ```
 
   Contract: `sale.*`, `item.*`, `tender.*` always return `true`
@@ -586,7 +585,7 @@ save time.
   per-row optional fields like `customer` are still surfaced
   because the editor cannot reason per-sale). `company.*` reflects
   actual column population (`name` always true, `taxId / address /
-  phone / email` reflect the row, `city` pinned to false until a
+phone / email` reflect the row, `city` pinned to false until a
   schema column lands). `fiscal.*` reflects the
   `fiscal_dian_enabled` flag.
 
@@ -595,7 +594,7 @@ save time.
   Walks the buffer per change, finds every `{{ namespace.field }}`
   path token, and adds a `cm-variable-unavailable` class to those
   whose availability map resolves false. Style: `opacity: 0.55;
-  font-style: italic; text-decoration: underline dotted #94a3b8`.
+font-style: italic; text-decoration: underline dotted #94a3b8`.
   Hover tooltip via CM6 `hoverTooltip` surfaces a translatable
   message (`editor.codeEditor.unavailableVariable`) with the
   offending path interpolated in.

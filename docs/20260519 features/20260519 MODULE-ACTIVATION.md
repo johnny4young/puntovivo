@@ -1,6 +1,6 @@
 # Module Activation System
 
-> Status: **Stub — design document.** Phase 0 Foundation item #13 in [ROADMAP.md](./ROADMAP.md).
+> Status: **Stub — design document.** Phase 0 Foundation item #13 on the internal roadmap.
 > Created: April 21, 2026.
 
 ## Goal

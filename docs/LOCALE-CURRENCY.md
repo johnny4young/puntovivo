@@ -1,7 +1,7 @@
 # Locale, Currency, and Country Configuration
 
 > Status: **Design document (follow-up captured April 23, 2026)**
-> Not yet implemented — tracked as `ENG-017` in `docs/ROADMAP.md`.
+> Not yet implemented — tracked internally as `ENG-017`.
 
 ## Why
 
@@ -71,32 +71,27 @@ table, because:
 **New table** `country_catalog`:
 
 ```ts
-export const countryCatalog = sqliteTable(
-  'country_catalog',
-  {
-    code: text('code').primaryKey(), // ISO 3166-1 alpha-2 ('CO', 'US')
-    nameEn: text('name_en').notNull(),
-    nameEs: text('name_es').notNull(),
-    defaultLocale: text('default_locale').notNull(), // BCP-47 'es-CO'
-    generalLocale: text('general_locale').notNull(), // 'es', 'en', 'pt'
-    defaultCurrencyCode: text('default_currency_code')
-      .notNull()
-      .references(() => currencyCatalog.code),
-    additionalCurrencyCodes: text('additional_currency_codes', {
-      mode: 'json',
-    }).$type<string[]>().default([]), // e.g. Panama: ['USD']
-    defaultTimezone: text('default_timezone').notNull(), // IANA
-    firstDayOfWeek: integer('first_day_of_week').notNull(), // 0=Sun, 1=Mon
-    dateFormatShort: text('date_format_short').notNull(), // 'dd/MM/yyyy'
-    dateFormatLong: text('date_format_long').notNull(),
-    taxIdTypesHint: text('tax_id_types_hint', { mode: 'json' })
-      .$type<string[]>()
-      .default([]), // which tax-id codes dominate
-    uiLocaleReady: integer('ui_locale_ready', { mode: 'boolean' })
-      .notNull()
-      .default(true), // false for BR until pt-BR ships
-  }
-);
+export const countryCatalog = sqliteTable('country_catalog', {
+  code: text('code').primaryKey(), // ISO 3166-1 alpha-2 ('CO', 'US')
+  nameEn: text('name_en').notNull(),
+  nameEs: text('name_es').notNull(),
+  defaultLocale: text('default_locale').notNull(), // BCP-47 'es-CO'
+  generalLocale: text('general_locale').notNull(), // 'es', 'en', 'pt'
+  defaultCurrencyCode: text('default_currency_code')
+    .notNull()
+    .references(() => currencyCatalog.code),
+  additionalCurrencyCodes: text('additional_currency_codes', {
+    mode: 'json',
+  })
+    .$type<string[]>()
+    .default([]), // e.g. Panama: ['USD']
+  defaultTimezone: text('default_timezone').notNull(), // IANA
+  firstDayOfWeek: integer('first_day_of_week').notNull(), // 0=Sun, 1=Mon
+  dateFormatShort: text('date_format_short').notNull(), // 'dd/MM/yyyy'
+  dateFormatLong: text('date_format_long').notNull(),
+  taxIdTypesHint: text('tax_id_types_hint', { mode: 'json' }).$type<string[]>().default([]), // which tax-id codes dominate
+  uiLocaleReady: integer('ui_locale_ready', { mode: 'boolean' }).notNull().default(true), // false for BR until pt-BR ships
+});
 ```
 
 ### Currency catalog (global, seeded, read-only)
@@ -127,25 +122,20 @@ export const currencyCatalog = sqliteTable('currency_catalog', {
 Add a 1:1 table to avoid mutating `companies`:
 
 ```ts
-export const tenantLocaleSettings = sqliteTable(
-  'tenant_locale_settings',
-  {
-    tenantId: text('tenant_id')
-      .primaryKey()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
-    countryCode: text('country_code')
-      .notNull()
-      .references(() => countryCatalog.code),
-    // Overrides — null means "inherit from country"
-    localeOverride: text('locale_override'),
-    currencyOverride: text('currency_override').references(
-      () => currencyCatalog.code
-    ),
-    timezoneOverride: text('timezone_override'),
-    firstDayOfWeekOverride: integer('first_day_of_week_override'),
-    updatedAt: text('updated_at').notNull(),
-  }
-);
+export const tenantLocaleSettings = sqliteTable('tenant_locale_settings', {
+  tenantId: text('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: 'cascade' }),
+  countryCode: text('country_code')
+    .notNull()
+    .references(() => countryCatalog.code),
+  // Overrides — null means "inherit from country"
+  localeOverride: text('locale_override'),
+  currencyOverride: text('currency_override').references(() => currencyCatalog.code),
+  timezoneOverride: text('timezone_override'),
+  firstDayOfWeekOverride: integer('first_day_of_week_override'),
+  updatedAt: text('updated_at').notNull(),
+});
 ```
 
 Resolution helper (server + client share one function):
@@ -170,31 +160,31 @@ Data compiled from ISO 3166-1, ISO 4217, CLDR common-locale-data, and
 IANA tzdata. All entries have `uiLocaleReady=true` except Brazil
 (pt-BR).
 
-| Code | Name (es) | Locale | General | Currency | Symbol | Legal dec. | Display dec. | Dec sep | Thou sep | Timezone | Week | Common tax-ID codes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **CO** | Colombia | es-CO | es | COP | $ | 2 | 0 | , | . | America/Bogota | Mon | CC, NIT, CE, TI, PA |
-| **US** | Estados Unidos | en-US | en | USD | $ | 2 | 2 | . | , | America/New_York | Sun | SSN, EIN |
-| **MX** | México | es-MX | es | MXN | $ | 2 | 2 | . | , | America/Mexico_City | Sun | RFC, CURP |
-| **AR** | Argentina | es-AR | es | ARS | $ | 2 | 2 | , | . | America/Argentina/Buenos_Aires | Mon | DNI, CUIT, CUIL |
-| **CL** | Chile | es-CL | es | CLP | $ | 0 | 0 | , | . | America/Santiago | Mon | RUT |
-| **PE** | Perú | es-PE | es | PEN | S/ | 2 | 2 | . | , | America/Lima | Mon | DNI, RUC |
-| **EC** | Ecuador | es-EC | es | USD | $ | 2 | 2 | . | , | America/Guayaquil | Mon | CI, RUC |
-| **VE** | Venezuela | es-VE | es | VES | Bs. S | 2 | 2 | , | . | America/Caracas | Mon | V, E, J, G |
-| **UY** | Uruguay | es-UY | es | UYU | $U | 2 | 2 | , | . | America/Montevideo | Mon | CI, RUT |
-| **PY** | Paraguay | es-PY | es | PYG | ₲ | 0 | 0 | , | . | America/Asuncion | Sun | CI, RUC |
-| **BO** | Bolivia | es-BO | es | BOB | Bs | 2 | 2 | , | . | America/La_Paz | Mon | CI, NIT |
-| **CR** | Costa Rica | es-CR | es | CRC | ₡ | 2 | 2 | , | . | America/Costa_Rica | Sun | cédula, cédula jurídica |
-| **PA** | Panamá | es-PA | es | PAB* | B/. | 2 | 2 | . | , | America/Panama | Sun | cédula, RUC |
-| **GT** | Guatemala | es-GT | es | GTQ | Q | 2 | 2 | . | , | America/Guatemala | Sun | DPI, NIT |
-| **SV** | El Salvador | es-SV | es | USD | $ | 2 | 2 | . | , | America/El_Salvador | Sun | DUI, NIT |
-| **HN** | Honduras | es-HN | es | HNL | L | 2 | 2 | . | , | America/Tegucigalpa | Sun | DNI, RTN |
-| **NI** | Nicaragua | es-NI | es | NIO | C$ | 2 | 2 | . | , | America/Managua | Sun | cédula, RUC |
-| **DO** | Rep. Dominicana | es-DO | es | DOP | RD$ | 2 | 2 | . | , | America/Santo_Domingo | Sun | cédula, RNC |
-| **CU** | Cuba | es-CU | es | CUP | $ | 2 | 2 | , | . | America/Havana | Mon | carné de identidad |
-| **PR** | Puerto Rico | es-PR | es | USD | $ | 2 | 2 | . | , | America/Puerto_Rico | Sun | SSN |
-| **BR** | Brasil | pt-BR | pt | BRL | R$ | 2 | 2 | , | . | America/Sao_Paulo | Sun | CPF, CNPJ |
+| Code   | Name (es)       | Locale | General | Currency | Symbol | Legal dec. | Display dec. | Dec sep | Thou sep | Timezone                       | Week | Common tax-ID codes     |
+| ------ | --------------- | ------ | ------- | -------- | ------ | ---------- | ------------ | ------- | -------- | ------------------------------ | ---- | ----------------------- |
+| **CO** | Colombia        | es-CO  | es      | COP      | $      | 2          | 0            | ,       | .        | America/Bogota                 | Mon  | CC, NIT, CE, TI, PA     |
+| **US** | Estados Unidos  | en-US  | en      | USD      | $      | 2          | 2            | .       | ,        | America/New_York               | Sun  | SSN, EIN                |
+| **MX** | México          | es-MX  | es      | MXN      | $      | 2          | 2            | .       | ,        | America/Mexico_City            | Sun  | RFC, CURP               |
+| **AR** | Argentina       | es-AR  | es      | ARS      | $      | 2          | 2            | ,       | .        | America/Argentina/Buenos_Aires | Mon  | DNI, CUIT, CUIL         |
+| **CL** | Chile           | es-CL  | es      | CLP      | $      | 0          | 0            | ,       | .        | America/Santiago               | Mon  | RUT                     |
+| **PE** | Perú            | es-PE  | es      | PEN      | S/     | 2          | 2            | .       | ,        | America/Lima                   | Mon  | DNI, RUC                |
+| **EC** | Ecuador         | es-EC  | es      | USD      | $      | 2          | 2            | .       | ,        | America/Guayaquil              | Mon  | CI, RUC                 |
+| **VE** | Venezuela       | es-VE  | es      | VES      | Bs. S  | 2          | 2            | ,       | .        | America/Caracas                | Mon  | V, E, J, G              |
+| **UY** | Uruguay         | es-UY  | es      | UYU      | $U     | 2          | 2            | ,       | .        | America/Montevideo             | Mon  | CI, RUT                 |
+| **PY** | Paraguay        | es-PY  | es      | PYG      | ₲      | 0          | 0            | ,       | .        | America/Asuncion               | Sun  | CI, RUC                 |
+| **BO** | Bolivia         | es-BO  | es      | BOB      | Bs     | 2          | 2            | ,       | .        | America/La_Paz                 | Mon  | CI, NIT                 |
+| **CR** | Costa Rica      | es-CR  | es      | CRC      | ₡      | 2          | 2            | ,       | .        | America/Costa_Rica             | Sun  | cédula, cédula jurídica |
+| **PA** | Panamá          | es-PA  | es      | PAB\*    | B/.    | 2          | 2            | .       | ,        | America/Panama                 | Sun  | cédula, RUC             |
+| **GT** | Guatemala       | es-GT  | es      | GTQ      | Q      | 2          | 2            | .       | ,        | America/Guatemala              | Sun  | DPI, NIT                |
+| **SV** | El Salvador     | es-SV  | es      | USD      | $      | 2          | 2            | .       | ,        | America/El_Salvador            | Sun  | DUI, NIT                |
+| **HN** | Honduras        | es-HN  | es      | HNL      | L      | 2          | 2            | .       | ,        | America/Tegucigalpa            | Sun  | DNI, RTN                |
+| **NI** | Nicaragua       | es-NI  | es      | NIO      | C$     | 2          | 2            | .       | ,        | America/Managua                | Sun  | cédula, RUC             |
+| **DO** | Rep. Dominicana | es-DO  | es      | DOP      | RD$    | 2          | 2            | .       | ,        | America/Santo_Domingo          | Sun  | cédula, RNC             |
+| **CU** | Cuba            | es-CU  | es      | CUP      | $      | 2          | 2            | ,       | .        | America/Havana                 | Mon  | carné de identidad      |
+| **PR** | Puerto Rico     | es-PR  | es      | USD      | $      | 2          | 2            | .       | ,        | America/Puerto_Rico            | Sun  | SSN                     |
+| **BR** | Brasil          | pt-BR  | pt      | BRL      | R$     | 2          | 2            | ,       | .        | America/Sao_Paulo              | Sun  | CPF, CNPJ               |
 
-*Panama's legal currency is the Balboa (PAB) but USD circulates at
+\*Panama's legal currency is the Balboa (PAB) but USD circulates at
 par — `additionalCurrencyCodes=['USD']`.
 
 Dual-currency / dollarized notes:
@@ -211,26 +201,26 @@ Dual-currency / dollarized notes:
 
 ## Currency matrix (derived)
 
-| Code | Name | Symbol | Legal dec. | Display dec. | Used by |
-|---|---|---|---|---|---|
-| COP | Peso colombiano | $ | 2 | 0 | CO |
-| USD | US Dollar | $ | 2 | 2 | US, EC, SV, PR (+ opt) PA, VE |
-| MXN | Peso mexicano | $ | 2 | 2 | MX |
-| ARS | Peso argentino | $ | 2 | 2 | AR |
-| CLP | Peso chileno | $ | 0 | 0 | CL |
-| PEN | Sol peruano | S/ | 2 | 2 | PE |
-| VES | Bolívar soberano | Bs. S | 2 | 2 | VE |
-| UYU | Peso uruguayo | $U | 2 | 2 | UY |
-| PYG | Guaraní | ₲ | 0 | 0 | PY |
-| BOB | Boliviano | Bs | 2 | 2 | BO |
-| CRC | Colón costarricense | ₡ | 2 | 2 | CR |
-| PAB | Balboa | B/. | 2 | 2 | PA |
-| GTQ | Quetzal | Q | 2 | 2 | GT |
-| HNL | Lempira | L | 2 | 2 | HN |
-| NIO | Córdoba | C$ | 2 | 2 | NI |
-| DOP | Peso dominicano | RD$ | 2 | 2 | DO |
-| CUP | Peso cubano | $ | 2 | 2 | CU |
-| BRL | Real | R$ | 2 | 2 | BR (pt-BR pending) |
+| Code | Name                | Symbol | Legal dec. | Display dec. | Used by                       |
+| ---- | ------------------- | ------ | ---------- | ------------ | ----------------------------- |
+| COP  | Peso colombiano     | $      | 2          | 0            | CO                            |
+| USD  | US Dollar           | $      | 2          | 2            | US, EC, SV, PR (+ opt) PA, VE |
+| MXN  | Peso mexicano       | $      | 2          | 2            | MX                            |
+| ARS  | Peso argentino      | $      | 2          | 2            | AR                            |
+| CLP  | Peso chileno        | $      | 0          | 0            | CL                            |
+| PEN  | Sol peruano         | S/     | 2          | 2            | PE                            |
+| VES  | Bolívar soberano    | Bs. S  | 2          | 2            | VE                            |
+| UYU  | Peso uruguayo       | $U     | 2          | 2            | UY                            |
+| PYG  | Guaraní             | ₲      | 0          | 0            | PY                            |
+| BOB  | Boliviano           | Bs     | 2          | 2            | BO                            |
+| CRC  | Colón costarricense | ₡      | 2          | 2            | CR                            |
+| PAB  | Balboa              | B/.    | 2          | 2            | PA                            |
+| GTQ  | Quetzal             | Q      | 2          | 2            | GT                            |
+| HNL  | Lempira             | L      | 2          | 2            | HN                            |
+| NIO  | Córdoba             | C$     | 2          | 2            | NI                            |
+| DOP  | Peso dominicano     | RD$    | 2          | 2            | DO                            |
+| CUP  | Peso cubano         | $      | 2          | 2            | CU                            |
+| BRL  | Real                | R$     | 2          | 2            | BR (pt-BR pending)            |
 
 ## Implementation plan
 
@@ -252,7 +242,7 @@ Dual-currency / dollarized notes:
    app boot).
 2. New tRPC query `tenantSettings.getLocale()` that returns the
    resolved `{ locale, currency, currencySymbol, decimals, timezone,
-   dateFormatShort, firstDayOfWeek }` for the active tenant.
+dateFormatShort, firstDayOfWeek }` for the active tenant.
 3. Client-side caching: the query is infinite-staleTime until the
    tenant's settings are invalidated by an update mutation.
 4. Server-side helper (`services/tenant-locale.ts`) that the fiscal
@@ -312,7 +302,7 @@ Dual-currency / dollarized notes:
 - **Multi-currency sales** — selling the same SKU in COP at one site
   and USD at another. Needs exchange rates, GL accounting, and fiscal
   implications; tracked separately under Phase 11c (multi-currency
-  sub-ticket) in `docs/ROADMAP.md`.
+  sub-ticket).
 - **Per-site locale** — a Colombian tenant with a USA site needs a
   country-per-site instead of country-per-tenant. V2.
 - **Portuguese (pt-BR)** — BR country row ships with

@@ -21,8 +21,7 @@ writers.
 
 The embedded Fastify server runs **in-process** inside the Electron
 main process (`apps/desktop/src/main/` imports `@puntovivo/server`
-directly — see `AGENTS.md → Architecture landmine: embedded backend`).
-This is not a deployment detail; it is the root of the authority
+directly). This is not a deployment detail; it is the root of the authority
 model. Every operational mutation has the same physical guarantee as
 a local SQLite transaction, even when the network is offline.
 
@@ -37,8 +36,7 @@ Three runtime shapes share this rule:
   Electron for tests. Tests treat the in-memory or tmpdir SQLite as
   the same kind of authority a real cashier device would have.
 
-The tenant-isolation invariant (see `AGENTS.md → Multi-tenant
-invariants`) sits on top of this: every operational mutation is
+The tenant-isolation invariant sits on top of this: every operational mutation is
 scoped by `ctx.tenantId`, derived server-side from the validated
 session — never from a renderer-supplied tenant id. ENG-025 already
 shipped this through the `desktopSession` singleton in
@@ -58,9 +56,8 @@ bridge consults before any DB call.
   every multi-writer SQLite-over-NFS deployment we know of corrupts
   under load and adds latency to the hot path of a sale.
 - **Migrate from Electron + SQLite to a fully cloud-native stack** —
-  invalidates the local-first moat (see `PLAN-V2.md §4 — Architectural
-  decisions`: "Local-first IS the moat. Moving to edge invalidates the
-  privacy + latency story.").
+  invalidates the local-first moat ("Local-first IS the moat. Moving
+  to edge invalidates the privacy + latency story.").
 
 ## Implementation Impact
 
@@ -84,7 +81,7 @@ bridge consults before any DB call.
   ENG-052 (see ADR-0002). The future central server reads these
   rows through a sync contract (ENG-064), not by direct write.
 - **Contract for the central server**: any Phase 3 sync architecture
-  (libSQL embedded replicas spike per `PLAN-V2.md §4`) MUST preserve
+  (libSQL embedded replicas spike) MUST preserve
   the local-write-first semantics. The replica may push into a cloud
   read replica, but the operational write always lands in the local
   Electron store first.

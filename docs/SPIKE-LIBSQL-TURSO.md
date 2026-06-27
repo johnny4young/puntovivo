@@ -4,14 +4,13 @@
 > Owner: ENG-037.
 > Date: 2026-05-08.
 > Related ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract), 0006 (Local Data Security), 0008 (Authority Node Runtime Modes).
-> Related plans: [PLAN.md §10 Hybrid Database Runtime](./PLAN.md), [PLAN-V2.md §2 Phase 3](./PLAN-V2.md).
 > Related code: [`packages/server/src/services/sync/contract.ts`](../packages/server/src/services/sync/contract.ts), [`packages/server/src/services/sync/enqueue.ts`](../packages/server/src/services/sync/enqueue.ts), [`packages/server/src/db/schema.ts`](../packages/server/src/db/schema.ts) (`sync_outbox` table).
 
 ## 1. Executive summary
 
 ENG-037 asks whether Puntovivo should adopt libSQL / Turso embedded
-replicas to close the multi-site sync gap referenced in PLAN.md §10
-without migrating off SQLite. The answer this spike returns is
+replicas to close the multi-site sync gap referenced in the hybrid
+database runtime plan without migrating off SQLite. The answer this spike returns is
 **Defer** — revisit after Phase 4 vertical work or after at least
 two pilot tenants are running production sales on the existing
 `sync_outbox` pipeline.
@@ -37,7 +36,7 @@ Three findings drive the recommendation:
    API-compatible with `better-sqlite3` but uses Rust-based native
    bindings tied to a specific Node ABI — it inherits the same
    Electron 41 (MODULE_VERSION 145) vs Node 24 (MODULE_VERSION 137)
-   dual-binary problem documented in `AGENTS.md`. A pure
+   dual-binary problem. A pure
    engine swap is a non-trivial migration with no immediate user
    benefit.
 
@@ -55,11 +54,11 @@ recommendation if reopened.
 
 **Defer (revisit after Phase 4).**
 
-| Outcome | Status |
-| --- | --- |
-| **Greenlit (proceed to implementation now)** | ❌ rejected — see §6 + §8. |
-| **Yellow (proceed with conditions)** | ❌ rejected — the conditions list (offline-writes GA + manual-resolution API + N-API libSQL) is not under Puntovivo's control. |
-| **Defer (revisit after Phase 4)** | ✅ recommended. |
+| Outcome                                      | Status                                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Greenlit (proceed to implementation now)** | ❌ rejected — see §6 + §8.                                                                                                     |
+| **Yellow (proceed with conditions)**         | ❌ rejected — the conditions list (offline-writes GA + manual-resolution API + N-API libSQL) is not under Puntovivo's control. |
+| **Defer (revisit after Phase 4)**            | ✅ recommended.                                                                                                                |
 
 **Triggers that would reopen this spike** (each is a sufficient
 condition; the operator does not need all of them):
@@ -94,10 +93,10 @@ foundation in May 2026. The relevant moving parts:
 - **`sync_outbox`** — the canonical outbox. Replaced the legacy
   `sync_queue` in migration `0017_drop_sync_queue.sql`. Row shape:
   `{tenant_id, status, entity_type, entity_id, operation, payload,
-  payload_version, conflict_policy, idempotency_key, device_id,
-  depends_on_operation_id, operation_event_id, attempts, priority,
-  created_at, updated_at}`. Status enum: `queued | submitting |
-  synced | retrying | dead_letter | conflict`.
+payload_version, conflict_policy, idempotency_key, device_id,
+depends_on_operation_id, operation_event_id, attempts, priority,
+created_at, updated_at}`. Status enum: `queued | submitting |
+synced | retrying | dead_letter | conflict`.
 - **`operation_events`** — one row per critical command (sale,
   return, void, etc.). Carries the command envelope from ADR-0002.
   `sync_outbox.operation_event_id` is a soft FK that lets
@@ -113,17 +112,17 @@ foundation in May 2026. The relevant moving parts:
 - **[`services/sync/contract.ts`](../packages/server/src/services/sync/contract.ts)** —
   manifest with `SYNC_ENTITY_TYPES` (~46 entries), per-entity
   `SYNC_CONFLICT_POLICY: Record<SyncEntityType, 'manual' |
-  'auto_lww'>`, and `SYNC_PAYLOAD_VERSION = 1`. The
+'auto_lww'>`, and `SYNC_PAYLOAD_VERSION = 1`. The
   exhaustiveness of the `Record<...>` type catches new entities
   that land without a deliberate policy decision.
 - **[`services/sync/enqueue.ts`](../packages/server/src/services/sync/enqueue.ts)** —
   single `enqueueSync(ctx, args)` entry point used by 19 routers
-  + 4 application services + 1 dev seed. Reads the envelope
-  context, looks up `operation_event_id`, populates the contract,
-  emits one `sync_outbox` row + one `operation_effects` row.
-  Idempotency via the partial unique index on `(tenant_id,
-  entity_type, entity_id, operation, idempotency_key) WHERE
-  idempotency_key IS NOT NULL`.
+  - 4 application services + 1 dev seed. Reads the envelope
+    context, looks up `operation_event_id`, populates the contract,
+    emits one `sync_outbox` row + one `operation_effects` row.
+    Idempotency via the partial unique index on `(tenant_id,
+entity_type, entity_id, operation, idempotency_key) WHERE
+idempotency_key IS NOT NULL`.
 - **`packages/server/src/trpc/routers/sync.ts`** — 11 tRPC
   procedures: `status`, `listQueue`, `addToQueue`, `removeFromQueue`,
   `listConflicts`, `push`, `pull`, `resolve`, `getContract`,
@@ -206,10 +205,10 @@ SQLite created and maintained by Turso. Key claims:
 - API surface: aims to be drop-in for `better-sqlite3`. Same
   `Database` and `Statement` classes, same synchronous query
   pattern. Async variant available via `import Database from
-  'libsql/promise'`.
+'libsql/promise'`.
 - Embedded-replica configuration: opt-in via
   `new Database('file:replica.db', { syncUrl: '...',
-  authToken: '...', syncInterval: 60 })`. When `syncUrl` is
+authToken: '...', syncInterval: 60 })`. When `syncUrl` is
   omitted, libSQL behaves as a regular local SQLite engine.
 
 ### 4.2 Distinction the spike must hold
@@ -266,6 +265,7 @@ surface. Lets the local file accept writes while offline. When the
 device reconnects, pending writes push to the cloud primary.
 
 Status timeline:
+
 - **Oct 2024**: private beta. Strategies offered:
   `FAIL_ON_CONFLICT` (default), `DISCARD_LOCAL`, `REBASE_LOCAL`,
   `MANUAL_RESOLUTION` (custom `conflictResolver` callback).
@@ -280,6 +280,7 @@ Status timeline:
   conflict API compatible with ADR-0004 was verified.
 
 Conflict resolution model in the current docs:
+
 - Row-level logical logging.
 - Default: Last-Push-Wins.
 - Pull rolls local unpushed changes back to the last synced state,
@@ -290,13 +291,13 @@ Conflict resolution model in the current docs:
 For multi-tenant scale projection in §9, the public pricing page
 returns:
 
-| Tier | Monthly | Storage | Rows R/W | Syncs | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Free | $0 | 5 GB | 500 M / 10 M | 3 GB | Community support |
-| Developer | $4.99 | 9 GB | 2.5 B / 25 M | 10 GB | Single user |
-| Scaler | $24.92 | 24 GB | 100 B / 100 M | 24 GB | Teams, DPA |
-| Pro | $416.58 | 50 GB | 250 B / 250 M | 100 GB | SSO, BYOK, HIPAA, SOC2 |
-| Enterprise | custom | unlimited | unlimited | unlimited | Dedicated infra |
+| Tier       | Monthly | Storage   | Rows R/W      | Syncs     | Notes                  |
+| ---------- | ------- | --------- | ------------- | --------- | ---------------------- |
+| Free       | $0      | 5 GB      | 500 M / 10 M  | 3 GB      | Community support      |
+| Developer  | $4.99   | 9 GB      | 2.5 B / 25 M  | 10 GB     | Single user            |
+| Scaler     | $24.92  | 24 GB     | 100 B / 100 M | 24 GB     | Teams, DPA             |
+| Pro        | $416.58 | 50 GB     | 250 B / 250 M | 100 GB    | SSO, BYOK, HIPAA, SOC2 |
+| Enterprise | custom  | unlimited | unlimited     | unlimited | Dedicated infra        |
 
 Overages: storage $0.50-0.75/GB, reads $0.75-1.00/B, writes
 $0.75-1.00/M, syncs $0.15-0.35/GB.
@@ -326,7 +327,7 @@ This is the inverse of "the device is authoritative".
 ### 6.1 Three reconciliation paths considered
 
 **Path A — adopt Turso cloud-primary AND amend ADR-0001.** This
-is a fundamental architectural pivot. PLAN-V2.md §4 explicitly
+is a fundamental architectural pivot. The architecture plan explicitly
 lists "Local-first IS the moat. Moving to edge invalidates the
 privacy + latency story." Adopting Path A would invalidate that
 claim. The spike rejects this path on §1's grounds.
@@ -373,6 +374,7 @@ design rather than replacing it:
   [`services/sync/contract.ts`](../packages/server/src/services/sync/contract.ts).
 
 Wrapping all of that inside a Turso resolver layer adds:
+
 - A second authority surface (Turso's row-level logical log)
   alongside the existing `sync_outbox`.
 - A dependency on a beta feature that may change before GA.
@@ -385,22 +387,22 @@ a less-mature substrate.
 
 ## 7. Side-by-side comparison
 
-| Concern | Bespoke `sync_outbox` (today) | Turso Embedded Replica + Sync |
-| --- | --- | --- |
-| Authoritative store | Local SQLite per device | **Cloud primary by default** in legacy Embedded Replicas **or** local file in Turso Sync (Turso Database beta) |
-| Offline writes | Native (every transaction is local-first) | Available through Turso Sync `push()` / `pull()`, but the surface is still beta |
-| Conflict resolution policy | Two lists per ADR-0004; `manual` for high-risk; mechanically enforced at compile time | Documented as Last-Push-Wins for concurrent pushes; no verified operator-mediated resolver API compatible with ADR-0004 |
-| Idempotency | Partial unique index on `(tenant, entity, id, op, idempotency_key)` collapses retries | Row-level logical logging; semantics depend on the strategy enum chosen |
-| Operations Center visibility | `sync.peekOutbox`, `sync.listConflicts`, `sync.retry`, `sync.resolve`; Operations Center renders all | Would require integration: Turso replication does not surface as `sync_outbox` rows |
-| Diagnostic export sanitization | `reports.diagnostics.export` redacts secrets per ADR-0006 | Turso replication is opaque — sanitization layer would have to wrap or re-implement on the replication channel |
-| Schema lifecycle | Drizzle migrations, single source of truth at `db/schema.ts` | libSQL accepts SQLite migrations natively; Turso Cloud accepts the same |
-| File format | SQLite (`better-sqlite3`) | SQLite-compatible (libSQL fork) |
-| Native binding burden | `better-sqlite3` C++ bindings; Electron 41 / Node 24 dual-binary cache via `scripts/ensure-native-runtime.mjs` | Native platform packages (`libsql` / `@tursodatabase/sync-*`); must be validated in Electron before claiming lower burden |
-| Vendor lock-in | Zero — SQLite is in the public domain, the central-server consumer is whatever Puntovivo writes | Turso Cloud lock-in for the cloud side; libSQL itself remains MIT |
-| Cost (incremental) | Engineering only (~$0 marginal) | $4.99-$416.58/month per shared DB or per tenant; see §9 |
-| Maintenance velocity | Owned by Puntovivo; full control | Tied to Turso's release cadence; beta features can change before GA |
-| Production readiness | Shipped + acceptance-tested in ENG-064 / ENG-064b (19 + 8 tests) | Embedded Replicas are now documented as legacy for new sync projects; Turso Sync is beta |
-| Data-loss risk | Defensible (transaction boundary + integrity check on backup) | Depends on Turso Sync beta semantics and LPW conflict handling; not acceptable for high-risk POS entities without a manual lane |
+| Concern                        | Bespoke `sync_outbox` (today)                                                                                  | Turso Embedded Replica + Sync                                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Authoritative store            | Local SQLite per device                                                                                        | **Cloud primary by default** in legacy Embedded Replicas **or** local file in Turso Sync (Turso Database beta)                  |
+| Offline writes                 | Native (every transaction is local-first)                                                                      | Available through Turso Sync `push()` / `pull()`, but the surface is still beta                                                 |
+| Conflict resolution policy     | Two lists per ADR-0004; `manual` for high-risk; mechanically enforced at compile time                          | Documented as Last-Push-Wins for concurrent pushes; no verified operator-mediated resolver API compatible with ADR-0004         |
+| Idempotency                    | Partial unique index on `(tenant, entity, id, op, idempotency_key)` collapses retries                          | Row-level logical logging; semantics depend on the strategy enum chosen                                                         |
+| Operations Center visibility   | `sync.peekOutbox`, `sync.listConflicts`, `sync.retry`, `sync.resolve`; Operations Center renders all           | Would require integration: Turso replication does not surface as `sync_outbox` rows                                             |
+| Diagnostic export sanitization | `reports.diagnostics.export` redacts secrets per ADR-0006                                                      | Turso replication is opaque — sanitization layer would have to wrap or re-implement on the replication channel                  |
+| Schema lifecycle               | Drizzle migrations, single source of truth at `db/schema.ts`                                                   | libSQL accepts SQLite migrations natively; Turso Cloud accepts the same                                                         |
+| File format                    | SQLite (`better-sqlite3`)                                                                                      | SQLite-compatible (libSQL fork)                                                                                                 |
+| Native binding burden          | `better-sqlite3` C++ bindings; Electron 41 / Node 24 dual-binary cache via `scripts/ensure-native-runtime.mjs` | Native platform packages (`libsql` / `@tursodatabase/sync-*`); must be validated in Electron before claiming lower burden       |
+| Vendor lock-in                 | Zero — SQLite is in the public domain, the central-server consumer is whatever Puntovivo writes                | Turso Cloud lock-in for the cloud side; libSQL itself remains MIT                                                               |
+| Cost (incremental)             | Engineering only (~$0 marginal)                                                                                | $4.99-$416.58/month per shared DB or per tenant; see §9                                                                         |
+| Maintenance velocity           | Owned by Puntovivo; full control                                                                               | Tied to Turso's release cadence; beta features can change before GA                                                             |
+| Production readiness           | Shipped + acceptance-tested in ENG-064 / ENG-064b (19 + 8 tests)                                               | Embedded Replicas are now documented as legacy for new sync projects; Turso Sync is beta                                        |
+| Data-loss risk                 | Defensible (transaction boundary + integrity check on backup)                                                  | Depends on Turso Sync beta semantics and LPW conflict handling; not acceptable for high-risk POS entities without a manual lane |
 
 The comparison resolves to: the bespoke pipeline is currently
 better aligned with ADR-0001 + ADR-0004 + ADR-0006, the
@@ -465,6 +467,7 @@ and "tenants are sending sync traffic to it". Assumes:
 Two topologies:
 
 **Topology X — bespoke central server (Phase 3+, Puntovivo-owned).**
+
 - Hosting: a small VPS (~$20/month) running Fastify + a SQLite
   or PostgreSQL DB sized to the aggregate traffic.
 - At 100 tenants: ~150 MB / day; ~4.5 GB / month before archival.
@@ -478,6 +481,7 @@ Two topologies:
   for v1.
 
 **Topology Y — Turso shared cloud DB.**
+
 - One shared Turso DB at the **Scaler** tier: $24.92/month base.
   At the row counts above (100 tenants × ~3000 rows × 30 days
   ≈ 9 M rows/month writes), Scaler covers up to 100 M writes
@@ -598,14 +602,14 @@ This is fixable (e.g. `restore` triggers a forced
 
 ### 10.6 Net effort to ship if adopted
 
-| Layer | Effort | Risk |
-| --- | --- | --- |
-| Engine swap | 3-5 days | Low (file-format compat) |
-| Sync substrate | 3-4 weeks | High (beta feature, ADR violation) |
-| Test harness validation | 1 week | Medium (edge cases) |
-| Operations Center rewrite | 1-2 weeks | Medium (UI surface change) |
-| Backup / restore semantic update | 2-3 days | Low |
-| **Total** | **~6-8 weeks** | **High aggregate** |
+| Layer                            | Effort         | Risk                               |
+| -------------------------------- | -------------- | ---------------------------------- |
+| Engine swap                      | 3-5 days       | Low (file-format compat)           |
+| Sync substrate                   | 3-4 weeks      | High (beta feature, ADR violation) |
+| Test harness validation          | 1 week         | Medium (edge cases)                |
+| Operations Center rewrite        | 1-2 weeks      | Medium (UI surface change)         |
+| Backup / restore semantic update | 2-3 days       | Low                                |
+| **Total**                        | **~6-8 weeks** | **High aggregate**                 |
 
 The estimate exceeds PLAN-V2 §2's "1-week investigation + 3-4
 week implementation" by ~2-4 weeks. The estimate also assumes
@@ -616,9 +620,9 @@ implementation completes, which is not under Puntovivo's control.
 
 - **Vendor lock-in.** Turso Cloud is a proprietary managed
   service. Migration off Turso requires a one-shot data export
-  + import into the replacement engine. The libSQL engine itself
-  is MIT, so the engine layer is portable; the cloud layer is
-  not.
+  - import into the replacement engine. The libSQL engine itself
+    is MIT, so the engine layer is portable; the cloud layer is
+    not.
 - **Beta-feature dependency.** Turso Sync is still documented
   under the Turso Database beta surface. Adopting it as the
   authority layer before a GA contract and manual conflict lane
@@ -717,9 +721,6 @@ with a status update on this report.
 - Internal: ADR-0005 Sync Payload Contract — `docs/architecture/0005-sync-payload-contract.md`
 - Internal: ADR-0006 Local Data Security — `docs/architecture/0006-local-data-security.md`
 - Internal: ADR-0008 Authority Node Runtime Modes — `docs/architecture/0008-authority-node-runtime-modes.md`
-- Internal: PLAN.md §10 Hybrid Database Runtime
-- Internal: PLAN-V2.md §2 Phase 3 Multi-channel + local-first sync
-- Internal: AGENTS.md "Native module rebuild" + "Architecture landmine: embedded backend"
 - Internal sync code: `packages/server/src/services/sync/contract.ts`,
   `packages/server/src/services/sync/enqueue.ts`,
   `packages/server/src/db/schema.ts` (`sync_outbox`).

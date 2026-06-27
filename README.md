@@ -20,11 +20,9 @@ As of 2026-06-01:
 | Private retail pilot | Not yet | Fiscal contingency, final fiscal receipt proof, and physical POS hardware need to close first.                                          |
 | Production sale      | No      | Requires a DIAN-authorized provider path, legal XML retention proof, hardware validation, and payment-terminal policy.                  |
 
-The go/no-go checklist lives in [docs/SELLABILITY.md](./docs/SELLABILITY.md);
-[docs/ROADMAP.md §0](./docs/ROADMAP.md#0-mvp-colombia--definition-of-done) holds the
-MVP Colombia definition of done and the rest of
-[docs/ROADMAP.md](./docs/ROADMAP.md) tracks ticket status. The commercial-readiness
-roadmap beyond the sellable core is [docs/PLAN-V3.md](./docs/PLAN-V3.md).
+The go/no-go checklist lives in [docs/SELLABILITY.md](./docs/SELLABILITY.md),
+which holds the MVP Colombia definition of done across the demo, pilot, and
+production gates.
 
 ![Puntovivo architecture](./docs/architecture.svg)
 
@@ -141,18 +139,10 @@ The current desktop runtime is Electron `41.7.1`. Keep manual
 Start at [docs/README.md](./docs/README.md). The short version:
 
 - [docs/SELLABILITY.md](./docs/SELLABILITY.md): demo, pilot, production go/no-go.
-- [docs/ROADMAP.md](./docs/ROADMAP.md): canonical ENG ticket status.
-- [docs/PLAN-V3.md](./docs/PLAN-V3.md): commercial-readiness roadmap beyond the sellable core.
-- [docs/SPRINT-PLAN.md](./docs/SPRINT-PLAN.md): active execution sequence only.
-- [docs/BACKLOG.md](./docs/BACKLOG.md): unsized ideas and follow-ups.
-- [docs/ARCHIVED.md](./docs/ARCHIVED.md): compact history for shipped or retired work.
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): current system shape.
 - [docs/ENVIRONMENT_CONFIGURATION.md](./docs/ENVIRONMENT_CONFIGURATION.md): env var reference.
 - [docs/DESKTOP_RUNTIME_GUIDE.md](./docs/DESKTOP_RUNTIME_GUIDE.md): Electron runtime details.
 - [docs/SECURITY.md](./docs/SECURITY.md): auth, hardening, and audit policy.
-
-When docs disagree, `AGENTS.md` wins for repo operations, then
-`ROADMAP.md` for ticket status.
 
 ## Verification Policy
 

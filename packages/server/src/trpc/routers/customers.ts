@@ -150,32 +150,43 @@ export const customersRouter = router({
       regimeTypeCode,
       clientTypeCode,
       commercialActivityCode,
-    ] =
-      await Promise.all([
-        validateCustomerCatalogCode(
-          ctx.db,
-          ctx.tenantId,
-          identificationTypes,
-          input.identificationTypeId,
-          'identification type'
-        ),
-        validateCustomerCatalogCode(
-          ctx.db,
-          ctx.tenantId,
-          personTypes,
-          input.personTypeId,
-          'person type'
-        ),
-        validateCustomerCatalogCode(ctx.db, ctx.tenantId, regimeTypes, input.regimeTypeId, 'regime type'),
-        validateCustomerCatalogCode(ctx.db, ctx.tenantId, clientTypes, input.clientTypeId, 'client type'),
-        validateCustomerCatalogCode(
-          ctx.db,
-          ctx.tenantId,
-          commercialActivities,
-          input.commercialActivityId,
-          'commercial activity'
-        ),
-      ]);
+    ] = await Promise.all([
+      validateCustomerCatalogCode(
+        ctx.db,
+        ctx.tenantId,
+        identificationTypes,
+        input.identificationTypeId,
+        'identification type'
+      ),
+      validateCustomerCatalogCode(
+        ctx.db,
+        ctx.tenantId,
+        personTypes,
+        input.personTypeId,
+        'person type'
+      ),
+      validateCustomerCatalogCode(
+        ctx.db,
+        ctx.tenantId,
+        regimeTypes,
+        input.regimeTypeId,
+        'regime type'
+      ),
+      validateCustomerCatalogCode(
+        ctx.db,
+        ctx.tenantId,
+        clientTypes,
+        input.clientTypeId,
+        'client type'
+      ),
+      validateCustomerCatalogCode(
+        ctx.db,
+        ctx.tenantId,
+        commercialActivities,
+        input.commercialActivityId,
+        'commercial activity'
+      ),
+    ]);
 
     // ENG-176b — stamp credit_limit_currency_code only when the
     // customer actually has a credit limit. `0 = sin cupo` is the
@@ -260,54 +271,53 @@ export const customersRouter = router({
       regimeTypeCode,
       clientTypeCode,
       commercialActivityCode,
-    ] =
-      await Promise.all([
-        updates.identificationTypeId !== undefined
-          ? validateCustomerCatalogCode(
-              ctx.db,
-              ctx.tenantId,
-              identificationTypes,
-              updates.identificationTypeId,
-              'identification type'
-            )
-          : Promise.resolve(undefined),
-        updates.personTypeId !== undefined
-          ? validateCustomerCatalogCode(
-              ctx.db,
-              ctx.tenantId,
-              personTypes,
-              updates.personTypeId,
-              'person type'
-            )
-          : Promise.resolve(undefined),
-        updates.regimeTypeId !== undefined
-          ? validateCustomerCatalogCode(
-              ctx.db,
-              ctx.tenantId,
-              regimeTypes,
-              updates.regimeTypeId,
-              'regime type'
-            )
-          : Promise.resolve(undefined),
-        updates.clientTypeId !== undefined
-          ? validateCustomerCatalogCode(
-              ctx.db,
-              ctx.tenantId,
-              clientTypes,
-              updates.clientTypeId,
-              'client type'
-            )
-          : Promise.resolve(undefined),
-        updates.commercialActivityId !== undefined
-          ? validateCustomerCatalogCode(
-              ctx.db,
-              ctx.tenantId,
-              commercialActivities,
-              updates.commercialActivityId,
-              'commercial activity'
-            )
-          : Promise.resolve(undefined),
-      ]);
+    ] = await Promise.all([
+      updates.identificationTypeId !== undefined
+        ? validateCustomerCatalogCode(
+            ctx.db,
+            ctx.tenantId,
+            identificationTypes,
+            updates.identificationTypeId,
+            'identification type'
+          )
+        : Promise.resolve(undefined),
+      updates.personTypeId !== undefined
+        ? validateCustomerCatalogCode(
+            ctx.db,
+            ctx.tenantId,
+            personTypes,
+            updates.personTypeId,
+            'person type'
+          )
+        : Promise.resolve(undefined),
+      updates.regimeTypeId !== undefined
+        ? validateCustomerCatalogCode(
+            ctx.db,
+            ctx.tenantId,
+            regimeTypes,
+            updates.regimeTypeId,
+            'regime type'
+          )
+        : Promise.resolve(undefined),
+      updates.clientTypeId !== undefined
+        ? validateCustomerCatalogCode(
+            ctx.db,
+            ctx.tenantId,
+            clientTypes,
+            updates.clientTypeId,
+            'client type'
+          )
+        : Promise.resolve(undefined),
+      updates.commercialActivityId !== undefined
+        ? validateCustomerCatalogCode(
+            ctx.db,
+            ctx.tenantId,
+            commercialActivities,
+            updates.commercialActivityId,
+            'commercial activity'
+          )
+        : Promise.resolve(undefined),
+    ]);
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.email !== undefined) updateData.email = updates.email;
@@ -318,7 +328,8 @@ export const customersRouter = router({
     if (updates.postalCode !== undefined) updateData.postalCode = updates.postalCode;
     if (updates.country !== undefined) updateData.country = updates.country;
     if (updates.taxId !== undefined) updateData.taxId = updates.taxId;
-    if (updates.identificationTypeId !== undefined) updateData.identificationTypeId = identificationTypeCode;
+    if (updates.identificationTypeId !== undefined)
+      updateData.identificationTypeId = identificationTypeCode;
     if (updates.personTypeId !== undefined) updateData.personTypeId = personTypeCode;
     if (updates.regimeTypeId !== undefined) updateData.regimeTypeId = regimeTypeCode;
     if (updates.clientTypeId !== undefined) updateData.clientTypeId = clientTypeCode;
@@ -393,7 +404,7 @@ export const customersRouter = router({
 
     // ENG-089 collateral — mirror the tenant-scoped pattern used by
     // `getById` / the pre-write guard. The nanoid collision risk is
-    // vanishingly small but the multi-tenant invariant in CLAUDE.md
+    // vanishingly small but the multi-tenant invariant
     // calls for every query to scope by tenantId; the re-fetch is
     // the one spot that was inconsistent.
     const updated = await ctx.db

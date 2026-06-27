@@ -63,8 +63,8 @@ export async function getOpenCashSessionForRegister(
  * Invariants:
  * - At most one open session per `(tenantId, siteId, cashierId)` is assumed;
  *   if more than one exists the most recently opened (`openedAt DESC`) wins.
- *   This is the canonical building block referenced in AGENTS.md — never
- *   re-implement the active-session lookup inline.
+ *   This is the canonical building block for the active-session lookup — never
+ *   re-implement it inline.
  * - Runs OUTSIDE any transaction as a UX fast-fail so the common no-session
  *   case never opens a BEGIN. It is NOT a TOCTOU guard — the in-transaction
  *   re-check is `assertCashSessionStillOpen`, which must still run before the

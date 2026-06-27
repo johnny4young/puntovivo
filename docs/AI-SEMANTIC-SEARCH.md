@@ -33,13 +33,13 @@ el nombre exacto y escribe por intención. Los siguientes ejemplos
 salen de pruebas con catálogos seed (`admin@demo.co`) y reflejan el
 input típico de un POS LATAM:
 
-| Lo que escribe | Lo que quiere ver | Por qué LIKE falla |
-|---|---|---|
-| `bebida fría` | Cocas, jugos, aguas | Ningún producto contiene la palabra "bebida" en el nombre |
-| `algo dulce` | Chocolates, caramelos, mermeladas | "Dulce" no aparece textual en el catálogo |
-| `para limpiar el baño` | Jabones, cloros, detergentes | La intención no se traduce a substring exacto |
-| `desayuno rápido` | Pan, leche, café, cereal | Conceptos compuestos sin palabra-clave compartida |
-| `lácteo light` | Leche descremada, yogur sin azúcar | Sinónimo regional ("light" ≈ "descremada") |
+| Lo que escribe         | Lo que quiere ver                  | Por qué LIKE falla                                        |
+| ---------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `bebida fría`          | Cocas, jugos, aguas                | Ningún producto contiene la palabra "bebida" en el nombre |
+| `algo dulce`           | Chocolates, caramelos, mermeladas  | "Dulce" no aparece textual en el catálogo                 |
+| `para limpiar el baño` | Jabones, cloros, detergentes       | La intención no se traduce a substring exacto             |
+| `desayuno rápido`      | Pan, leche, café, cereal           | Conceptos compuestos sin palabra-clave compartida         |
+| `lácteo light`         | Leche descremada, yogur sin azúcar | Sinónimo regional ("light" ≈ "descremada")                |
 
 Embeddings además resuelven gratis cuatro escenarios que LIKE
 tampoco maneja:
@@ -178,7 +178,6 @@ products.suggestCategory({ name, description? })
 - `packages/server/src/services/ai/embeddings.test.ts` — tests
   unitarios cosine + parse + canonical text.
 - `packages/server/src/db/migrations/0009_product_embeddings.sql`.
-- `docs/ROADMAP.md §3b ENG-033`.
 - ACFE / OpenAI pricing: `text-embedding-3-small` $0.02 / 1M
   tokens, `text-embedding-3-large` $0.13 / 1M tokens.
 

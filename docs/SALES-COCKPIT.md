@@ -3,10 +3,10 @@
 > Status: official design guide for operator-facing POS surfaces.
 > Created: May 20, 2026.
 > Updated: May 20, 2026.
-> Roadmap anchor: `ENG-105` plus related Plan V3 tickets in
-> [`PLAN-V3.md`](./PLAN-V3.md). Broader screen simplification and
-> navigation work lives in [UI-REFRACTOR-V3.md](./UI-REFRACTOR-V3.md)
-> under `ENG-131` and `ENG-132`.
+> Roadmap anchor: `ENG-105` plus related Plan V3 tickets. Broader
+> screen simplification and navigation work lives in
+> [UI-REFRACTOR-V3.md](./UI-REFRACTOR-V3.md) under `ENG-131` and
+> `ENG-132`.
 
 This document defines what "premium" means for Puntovivo's operator
 experience. For this product, premium does not mean decorative chrome,
@@ -41,16 +41,16 @@ the result.
 
 ### Keyboard and Scanner Flow
 
-| Action | Target behavior |
-| --- | --- |
-| `F2` | Focus the primary product/SKU/barcode search input. |
-| `Enter` in search | Add the highlighted product or open the exact-match row. |
-| Scanner input | Barcode wedge input is captured without stealing focus from payment or modal fields. |
-| `F8` | Open payment drawer. |
-| `F9` | Open customer attach/search. |
-| `Shift + E` | Exact-cash checkout when the cart is valid and the cash session is open. |
-| `Escape` | Close the top-most modal or clear the transient search state. |
-| `Cmd/Ctrl + K` | Open the global command palette for destinations and actions. |
+| Action            | Target behavior                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `F2`              | Focus the primary product/SKU/barcode search input.                                  |
+| `Enter` in search | Add the highlighted product or open the exact-match row.                             |
+| Scanner input     | Barcode wedge input is captured without stealing focus from payment or modal fields. |
+| `F8`              | Open payment drawer.                                                                 |
+| `F9`              | Open customer attach/search.                                                         |
+| `Shift + E`       | Exact-cash checkout when the cart is valid and the cash session is open.             |
+| `Escape`          | Close the top-most modal or clear the transient search state.                        |
+| `Cmd/Ctrl + K`    | Open the global command palette for destinations and actions.                        |
 
 Shortcuts must be discoverable through a command palette or help menu,
 but the screen should not rely on visible instructional copy.

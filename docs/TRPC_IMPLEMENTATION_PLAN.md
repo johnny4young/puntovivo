@@ -23,11 +23,9 @@ They are now things like:
 - how to expand deeper workflows such as returns and site-aware stock
 - how to reduce bundle size and operational risk
 
-Track those in:
-[ROADMAP.md](./ROADMAP.md)
+These are tracked internally.
 
 ## Current Recommended Reading Order
 
-1. [ROADMAP.md](./ROADMAP.md)
-2. [TRPC_ARCHITECTURE.md](./TRPC_ARCHITECTURE.md)
-3. [TRPC_TESTING_GUIDE.md](./TRPC_TESTING_GUIDE.md)
+1. [TRPC_ARCHITECTURE.md](./TRPC_ARCHITECTURE.md)
+2. [TRPC_TESTING_GUIDE.md](./TRPC_TESTING_GUIDE.md)

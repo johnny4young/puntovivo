@@ -77,7 +77,7 @@ export const customerLedgerRouter = router({
 
   addPayment: managerOrAdminProcedure.input(addPaymentInput).mutation(async ({ ctx, input }) => {
     // Validate the customer belongs to the caller's tenant — multi-tenant
-    // isolation invariant per CLAUDE.md.
+    // isolation invariant.
     const [existing] = await ctx.db
       .select({ id: customers.id })
       .from(customers)

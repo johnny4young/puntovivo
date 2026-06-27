@@ -18,7 +18,7 @@ The shared kernel exposes the same shape:
 ```
 {
   id: string                // local row id
-  tenantId: string          // multi-tenant scope (see AGENTS.md)
+  tenantId: string          // multi-tenant scope
   kind: string              // outbox-specific subtype
   status: enum              // outbox-specific lifecycle
   attempts: integer         // retry counter
@@ -38,18 +38,18 @@ The five outboxes — and why each gets its own physical home:
 
 1. **`sync_outbox`** — entity sync to a future central server.
    Replaced the legacy `sync_queue` in ENG-064 (table introduced)
-   + ENG-064b (writer cutover + drop of `sync_queue`). Lifecycle:
-   `queued → submitting → synced | conflict | retrying →
-   dead_letter`. Retry policy is defensive; conflicts route to
-   manual resolution per ADR-0004.
+   - ENG-064b (writer cutover + drop of `sync_queue`). Lifecycle:
+     `queued → submitting → synced | conflict | retrying →
+dead_letter`. Retry policy is defensive; conflicts route to
+     manual resolution per ADR-0004.
 2. **`payment_outbox`** — software payment rail effects
    (charge / refund / status check for Wompi, Bold, ePayco,
    Mercado Pago, Nequi and Daviplata) plus future terminal effects.
    ENG-038 slice 1 introduced the table and read-only reconciliation
    surface; real provider workers and terminal device handshakes land
    in later payment slices. Lifecycle: `queued → submitting →
-   approved | declined | timeout | retrying | settled |
-   dead_letter`. Failed payments do not roll back the sale; the
+approved | declined | timeout | retrying | settled |
+dead_letter`. Failed payments do not roll back the sale; the
    outbox surfaces them in the Operations Center (ENG-065d /
    ENG-038).
 3. **`webhook_outbox`** — public webhook delivery to integrators.
@@ -60,7 +60,7 @@ The five outboxes — and why each gets its own physical home:
 4. **`hardware_outbox`** — printer / cash drawer / scanner jobs
    that can wait without affecting the sale (e.g. queueing a
    reprint after a paper jam). Lifecycle: `queued → printing →
-   done | hardware_error | cancelled`. Lives device-local; never
+done | hardware_error | cancelled`. Lives device-local; never
    syncs upstream.
 5. **`fiscal_outbox`** — see Spanish section below.
 
@@ -73,18 +73,18 @@ operator sees independent health indicators.
 
 ---
 
-## Fiscal outbox *(en español por convención fiscal)*
+## Fiscal outbox _(en español por convención fiscal)_
 
 El `fiscal_outbox` es la cola más sensible — toca dinero, retención,
 DIAN / SAT / SII y trazabilidad legal. Por eso:
 
 - **Tabla dedicada**: `fiscal_outbox` con `kind` ∈ `{emit, cancel,
-  retry_contingency, fetch_status}`. Convive con
+retry_contingency, fetch_status}`. Convive con
   `fiscal_documents` que sigue siendo la fuente de verdad de cada
   comprobante; el outbox sólo orquesta el lifecycle de la
   comunicación con el proveedor.
 - **Lifecycle**: `queued → submitting → accepted | rejected |
-  contingency | retrying → dead_letter`. El estado `contingency`
+contingency | retrying → dead_letter`. El estado `contingency`
   es el clave — corresponde al modo offline DIAN / SAT donde la
   venta se cierra localmente pero el comprobante queda pendiente
   de timbrado. Al recuperarse el proveedor, el daemon retoma
@@ -105,7 +105,7 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   `fiscal_documents.status` como espejo derivado del último
   evento del outbox. Sin pérdida de información histórica.
 - **Convivencia con `services/fiscal/**`**: el adapter sigue
-  retornando el shape de `FiscalAdapterIssueResult` (ENG-020 +
+retornando el shape de `FiscalAdapterIssueResult` (ENG-020 +
   ENG-035b). El outbox lo persiste y orquesta el reintento;
   el adapter no conoce el outbox. Esto preserva la separación
   Strategy/Factory de ENG-034.
@@ -164,14 +164,14 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      `enqueueSync` helper, three new procedures
      `sync.{getContract, peekOutbox, retry}`). ENG-064b (Shipped
      2026-05-05) closed the cutover: the 19 router inline writers
-     + 4 application services + dev seed all route through
-     `enqueueSync`, the eight legacy `sync.*` procedures
-     (`status / listQueue / addToQueue / removeFromQueue /
-     listConflicts / push / pull / resolve`) read/write
-     `sync_outbox`, migration `0017_drop_sync_queue.sql` removes
-     the legacy table, and the web client
-     `services/storage/syncQueue.ts` is renamed to
-     `offlineQueue.ts` to clear the file-name collision.
+     - 4 application services + dev seed all route through
+       `enqueueSync`, the eight legacy `sync.*` procedures
+       (`status / listQueue / addToQueue / removeFromQueue /
+listConflicts / push / pull / resolve`) read/write
+       `sync_outbox`, migration `0017_drop_sync_queue.sql` removes
+       the legacy table, and the web client
+       `services/storage/syncQueue.ts` is renamed to
+       `offlineQueue.ts` to clear the file-name collision.
   4. ENG-038 slice 1 (Shipped 2026-05-11) introduced
      `payment_outbox` via migration `0022_payment_outbox.sql` with
      the kernel projection plus rail id, provider transaction id,
@@ -194,12 +194,12 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
      instead of the placeholder `0`.
   6. ENG-062 introduces `hardware_outbox` (migration
      `0015_hardware_outbox.sql`) together with the ESC/POS printer
-     + RJ11 cash drawer adapters — the first peripheral drivers
-     with real device I/O that can fail recoverably (USB unplug,
-     paper out, TCP-host unreachable). The hardware worker
-     (`services/peripherals/hardware-worker.ts`) mirrors the
-     fiscal worker structurally; the kernel + retry policy are
-     reused from `lib/outbox/`.
+     - RJ11 cash drawer adapters — the first peripheral drivers
+       with real device I/O that can fail recoverably (USB unplug,
+       paper out, TCP-host unreachable). The hardware worker
+       (`services/peripherals/hardware-worker.ts`) mirrors the
+       fiscal worker structurally; the kernel + retry policy are
+       reused from `lib/outbox/`.
 - **Backward compatibility**: the legacy `sync_queue` was retired
   in ENG-064b (migration `0017_drop_sync_queue.sql`); the
   `fiscal_documents.status` mirror is owned by `fiscal_outbox`
@@ -215,7 +215,7 @@ DIAN / SAT / SII y trazabilidad legal. Por eso:
   the Spanish section above.
 - `ENG-058` — Receipt fiscal finalization. Reads `fiscal_outbox`
   status to decide between `accepted | pending | contingency |
-  rejected` rendering on the receipt.
+rejected` rendering on the receipt.
 - `ENG-060` — Peripheral registry + hardware ports. Introduces
   `hardware_outbox`.
 - `ENG-038` (Partial 2026-05-11) — LATAM payment rails. Introduced
@@ -243,12 +243,13 @@ Updated: 2026-05-03 (ENG-053 — outbox kernel shipped at
 `packages/server/src/lib/outbox/`, exposing `createOutboxKernel`
 factory + `tickOutbox` worker base + `outbox_metadata` helpers.
 Operation journal triplet — `operation_events` + `operation_effects`
-+ `operation_errors` — also shipped at
-`packages/server/src/services/operation-journal/`. The five
-concrete outboxes (sync / fiscal / payment / webhook / hardware)
-remain parked behind their owner tickets (ENG-064 / ENG-057 /
-ENG-063 / ENG-070 / ENG-060). Pattern docs:
-`patterns/operation-journal.md` + `patterns/outbox-kernel.md`).
+
+- `operation_errors` — also shipped at
+  `packages/server/src/services/operation-journal/`. The five
+  concrete outboxes (sync / fiscal / payment / webhook / hardware)
+  remain parked behind their owner tickets (ENG-064 / ENG-057 /
+  ENG-063 / ENG-070 / ENG-060). Pattern docs:
+  `patterns/operation-journal.md` + `patterns/outbox-kernel.md`).
 
 Updated: 2026-05-06 (ENG-067b — `hardware_outbox` reaches
 idempotency parity with `sync_outbox`. Migration

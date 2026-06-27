@@ -116,7 +116,7 @@ Cash sessions:
 ## Free / Pro licensing
 
 There is **no Free / Pro licence tier in the Puntovivo codebase today**.
-The roadmap (`docs/ROADMAP.md` and `docs/PLAN.md`) does not mention any
+The roadmap does not mention any
 per-tenant feature flag or billing tier. The suite therefore does NOT
 model Free vs Pro scenarios — doing so without a real implementation
 would be speculative testing.
@@ -192,8 +192,8 @@ What happens:
    also repair a corrupt local Electron.app with a fresh install plus
    ad-hoc signing.
 3. `build:main --workspace=@puntovivo/desktop` rebuilds the Vite main
-   + preload bundles that Electron launches and copies Drizzle
-   migrations beside the bundled server.
+   - preload bundles that Electron launches and copies Drizzle
+     migrations beside the bundled server.
 4. `ensure-electron-main-build.mjs` verifies the rebuilt bundles are
    present.
 5. The Node ABI for `better-sqlite3` is restored so Playwright

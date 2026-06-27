@@ -58,10 +58,10 @@ The `auth.login` tRPC procedure (`packages/server/src/trpc/routers/auth.ts`) is
 gated by two independent in-memory TTL buckets declared in
 `packages/server/src/security/loginRateLimit.ts`.
 
-| Bucket   | Key                  | Cap | Window      | Purpose |
-| -------- | -------------------- | --- | ----------- | ------- |
-| IP       | client `request.ip`  | 10  | 60 seconds  | Stops brute-force from a single origin. |
-| Username | normalized email     | 5   | 15 minutes  | Stops distributed credential-stuffing that rotates IPs against one account. |
+| Bucket   | Key                 | Cap | Window     | Purpose                                                                     |
+| -------- | ------------------- | --- | ---------- | --------------------------------------------------------------------------- |
+| IP       | client `request.ip` | 10  | 60 seconds | Stops brute-force from a single origin.                                     |
+| Username | normalized email    | 5   | 15 minutes | Stops distributed credential-stuffing that rotates IPs against one account. |
 
 Every failed attempt — wrong password, unknown user, disabled user, disabled
 tenant — increments BOTH buckets. Counting attempts for unknown users is
@@ -204,23 +204,23 @@ process. `createModuleLogger(name)` returns a pino child tagged with
 time (before any serialization), so every call site is automatically
 safe:
 
-| Redacted field           | Reason |
-| ------------------------ | ------ |
-| `password`               | plaintext secret |
-| `passwordHash`           | argon2 output; reveals hash parameters |
-| `token`                  | JWT access token |
-| `refreshToken`           | rotated refresh token |
-| `jwtSecret`              | server-side signing secret |
-| `email`                  | PII / GDPR |
-| `authorization`          | bearer-token HTTP header |
-| `cookie`                 | session cookie (refresh, CSRF) |
-| `headers.authorization`  | nested in request logs |
-| `headers.cookie`         | nested in request logs |
-| `*.password`             | one-level-deep credential fields |
-| `*.passwordHash`         | one-level-deep hash fields |
-| `*.token`                | one-level-deep token fields |
-| `*.refreshToken`         | one-level-deep refresh fields |
-| `*.email`                | one-level-deep email fields |
+| Redacted field          | Reason                                 |
+| ----------------------- | -------------------------------------- |
+| `password`              | plaintext secret                       |
+| `passwordHash`          | argon2 output; reveals hash parameters |
+| `token`                 | JWT access token                       |
+| `refreshToken`          | rotated refresh token                  |
+| `jwtSecret`             | server-side signing secret             |
+| `email`                 | PII / GDPR                             |
+| `authorization`         | bearer-token HTTP header               |
+| `cookie`                | session cookie (refresh, CSRF)         |
+| `headers.authorization` | nested in request logs                 |
+| `headers.cookie`        | nested in request logs                 |
+| `*.password`            | one-level-deep credential fields       |
+| `*.passwordHash`        | one-level-deep hash fields             |
+| `*.token`               | one-level-deep token fields            |
+| `*.refreshToken`        | one-level-deep refresh fields          |
+| `*.email`               | one-level-deep email fields            |
 
 Every match is replaced with `[Redacted]` before pino emits the JSON
 line. Changing this list is a security-relevant edit and must come
@@ -248,11 +248,11 @@ convention, env-var controls, and the `| pino-pretty` dev ergonomics.
 Before the ticket landed, the three prod vulnerabilities flagged by
 `pnpm audit --prod --audit-level high` were:
 
-| Package      | Severity | Advisory |
-| ------------ | -------- | -------- |
-| `fast-jwt <=6.2.0`     | critical | GHSA-hm7r-c7qw-ghp6, GHSA-mvf2-f6gm-w987, GHSA-rp9m-7r4c-75qg, GHSA-cjw9-ghj4-fwxf, GHSA-3j8v-cgw4-2g6q |
-| `fastify 5.3.2-5.8.4`  | high     | GHSA-247c-9743-5963 |
-| `dompurify <=3.3.3`    | moderate | GHSA-39q2-94rc-95cp |
+| Package               | Severity | Advisory                                                                                                |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `fast-jwt <=6.2.0`    | critical | GHSA-hm7r-c7qw-ghp6, GHSA-mvf2-f6gm-w987, GHSA-rp9m-7r4c-75qg, GHSA-cjw9-ghj4-fwxf, GHSA-3j8v-cgw4-2g6q |
+| `fastify 5.3.2-5.8.4` | high     | GHSA-247c-9743-5963                                                                                     |
+| `dompurify <=3.3.3`   | moderate | GHSA-39q2-94rc-95cp                                                                                     |
 
 All three were cleared by pnpm lockfile dependency resolution updates
 (transitive-safe bumps that respect the existing version ranges): the
@@ -277,7 +277,7 @@ slice. Each item below is now pinned by a regression test under
   `'unsafe-eval'` only when `NODE_ENV !== 'production'` so Vite HMR
   works. `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy:
-  same-origin` round out the headers. Strict-Transport-Security stays
+same-origin` round out the headers. Strict-Transport-Security stays
   off because the embedded server runs on HTTP loopback; hosted
   deployments add HSTS at the CDN tier where TLS is terminated.
 - **`apps/web/index.html` carries a matching `<meta http-equiv>` CSP**
@@ -319,7 +319,7 @@ slice. Each item below is now pinned by a regression test under
   `Math.random()` recipe. Pinned in `realtime-sse.test.ts`.
 - **Login timing equalised on user-not-found**: the missing-user
   branch in `auth.login` calls `verifyPasswordSecurely(DUMMY_HASH,
-  input.password)` so the response cost matches the password-check
+input.password)` so the response cost matches the password-check
   branch. The dummy hash is pre-computed at boot
   (`warmUpPasswordSecurity()`) so the first not-found attempt pays no
   extra latency.
@@ -333,16 +333,17 @@ slice. Each item below is now pinned by a regression test under
 - **Per-procedure rate-limit caps** on the auth-critical subset live
   in `packages/server/src/trpc/middleware/procedureRateLimit.ts`:
 
-  | Procedure              | Cap          | Window | Key by  |
-  | ---------------------- | ------------ | ------ | ------- |
-  | `auth.refresh`         | 30           | 1 min  | IP      |
-  | `auth.changePassword`  | 5            | 15 min | userId  |
-  | `auth.registerDevice`  | 10           | 1 h    | IP      |
-  | `users.create`         | 20           | 1 h    | userId  |
-  | `users.resetPassword`  | 10           | 1 h    | userId  |
+  | Procedure             | Cap | Window | Key by |
+  | --------------------- | --- | ------ | ------ |
+  | `auth.refresh`        | 30  | 1 min  | IP     |
+  | `auth.changePassword` | 5   | 15 min | userId |
+  | `auth.registerDevice` | 10  | 1 h    | IP     |
+  | `users.create`        | 20  | 1 h    | userId |
+  | `users.resetPassword` | 10  | 1 h    | userId |
 
   The middleware bypasses entirely under `NODE_ENV === 'test'` so
   existing high-volume suites do not trip.
+
 - **tRPC-aware bucket rate limiting (ENG-165)** covers the rest of the
   surface. `bucketRateLimit` runs on the base `publicProcedure`, so every
   tRPC call is bucketed by its shape — replacing the uniform 100/min/IP
@@ -350,14 +351,14 @@ slice. Each item below is now pinned by a regression test under
   isolation for sales writes, so a busy store behind one NAT is never
   throttled by IP:
 
-  | Bucket        | Procedure shape                       | Key by         | Default     | Env override prefix                     |
-  | ------------- | ------------------------------------- | -------------- | ----------- | --------------------------------------- |
-  | (skipped)     | `auth.*`                              | —              | —           | (uses the strict auth caps above)       |
-  | `sales-write` | authed `sales.*` mutation             | tenant + site + user | 240 / min   | `PUNTOVIVO_RATE_LIMIT_SALES_WRITE_*`    |
-  | `write`       | other authed mutation                 | tenant + user  | 120 / min   | `PUNTOVIVO_RATE_LIMIT_WRITE_*`          |
-  | `read`        | authed query                          | tenant + user  | 600 / min   | `PUNTOVIVO_RATE_LIMIT_READ_*`           |
-  | `public`      | unauthenticated non-auth              | IP             | 60 / min    | `PUNTOVIVO_RATE_LIMIT_PUBLIC_*`         |
-  | `public-api`  | `publicApi.*` (ready for ENG-118)     | tenant + IP    | 120 / min   | `PUNTOVIVO_RATE_LIMIT_PUBLIC_API_*`     |
+  | Bucket        | Procedure shape                   | Key by               | Default   | Env override prefix                  |
+  | ------------- | --------------------------------- | -------------------- | --------- | ------------------------------------ |
+  | (skipped)     | `auth.*`                          | —                    | —         | (uses the strict auth caps above)    |
+  | `sales-write` | authed `sales.*` mutation         | tenant + site + user | 240 / min | `PUNTOVIVO_RATE_LIMIT_SALES_WRITE_*` |
+  | `write`       | other authed mutation             | tenant + user        | 120 / min | `PUNTOVIVO_RATE_LIMIT_WRITE_*`       |
+  | `read`        | authed query                      | tenant + user        | 600 / min | `PUNTOVIVO_RATE_LIMIT_READ_*`        |
+  | `public`      | unauthenticated non-auth          | IP                   | 60 / min  | `PUNTOVIVO_RATE_LIMIT_PUBLIC_*`      |
+  | `public-api`  | `publicApi.*` (ready for ENG-118) | tenant + IP          | 120 / min | `PUNTOVIVO_RATE_LIMIT_PUBLIC_API_*`  |
 
   Each prefix takes `_MAX` (cap) and `_WINDOW_MS` (window). A bucket hit
   writes ONE `system_audit_logs` row per window
@@ -391,9 +392,9 @@ slice. Each item below is now pinned by a regression test under
   `apps/desktop/src/main/print-html-sanitizer.ts` runs every
   `print-receipt` payload through `sanitize-html` with an allow-list
   tuned for receipt layout (block + inline + tables + inline `<style>`
-  + `data:`-only image srcs). The ephemeral print window already ran
-  `sandbox: true`; the sanitiser is defense-in-depth so a corrupted
-  template is inert even if it slipped past the renderer.
+  - `data:`-only image srcs). The ephemeral print window already ran
+    `sandbox: true`; the sanitiser is defense-in-depth so a corrupted
+    template is inert even if it slipped past the renderer.
 - **`PUNTOVIVO_OPEN_DEVTOOLS` env var is gated by `!app.isPackaged`**
   so a staging deploy with a stray env var leak cannot expose DevTools.
   The existing `isDev` gate inside `createWindow` stays as the second
@@ -421,13 +422,13 @@ gaps that the audit 2026-05-24 identified on the DB open path:
 `packages/server/src/db/index.ts` now applies a pinned PRAGMA cluster
 after `journal_mode = WAL` and `foreign_keys = ON`:
 
-| PRAGMA | Value | Why |
-| --- | --- | --- |
-| `busy_timeout` | `5000` default | 5s wait instead of immediate error on lock contention. Five workers (HTTP, SSE, sync, hardware, fiscal, payment) routinely contend for the writer slot on a busy POS. High-contention dev/test harnesses can raise it with `PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS`. |
-| `cache_size` | `-64000` | ~64 MiB page cache per connection. The negative `-N` convention means "N kibibytes". |
-| `mmap_size` | `268435456` (256 MiB) | Memory-mapped I/O for hot reads (audit_logs listing, fiscal_outbox + payment_outbox polling). Reduces syscalls under concurrent load. |
-| `temp_store` | `MEMORY` | Sort and intermediate index spills stay in RAM. |
-| `wal_autocheckpoint` | `1000` | Checkpoint every ~4 MiB of WAL; explicit pin documents intent against silent default drift. |
+| PRAGMA               | Value                 | Why                                                                                                                                                                                                                                                            |
+| -------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `busy_timeout`       | `5000` default        | 5s wait instead of immediate error on lock contention. Five workers (HTTP, SSE, sync, hardware, fiscal, payment) routinely contend for the writer slot on a busy POS. High-contention dev/test harnesses can raise it with `PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS`. |
+| `cache_size`         | `-64000`              | ~64 MiB page cache per connection. The negative `-N` convention means "N kibibytes".                                                                                                                                                                           |
+| `mmap_size`          | `268435456` (256 MiB) | Memory-mapped I/O for hot reads (audit_logs listing, fiscal_outbox + payment_outbox polling). Reduces syscalls under concurrent load.                                                                                                                          |
+| `temp_store`         | `MEMORY`              | Sort and intermediate index spills stay in RAM.                                                                                                                                                                                                                |
+| `wal_autocheckpoint` | `1000`                | Checkpoint every ~4 MiB of WAL; explicit pin documents intent against silent default drift.                                                                                                                                                                    |
 
 The `busy_timeout`, `cache_size`, and `temp_store` apply to every
 connection (including `:memory:` in tests). The `mmap_size` and
@@ -523,8 +524,7 @@ under the `better-sqlite3` alias declared in
 [`package.json`](../package.json) at root and in
 [`packages/server/package.json`](../packages/server/package.json). The
 fork preserves the synchronous better-sqlite3 API surface 1:1 and
-ships prebuilds for Node v137 (Node 24) and Electron v145 (Electron
-41) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
+ships prebuilds for Node v137 (Node 24) and Electron v145 (Electron 41) across `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
 `win32-x64`, and `win32-arm64`. `scripts/ensure-native-runtime.mjs`
 includes the package name in the cache key so the swap invalidates
 stale plain-better-sqlite3 binaries automatically.
@@ -647,7 +647,7 @@ with five lifecycle invariants:
   `device_pairing_codes` mutations, scoped to the claiming
   `actorUserId` (the tRPC routers always pass `ctx.user.id`).
   Metadata carries `{ pairingCodeMasked: code.slice(-4), siteId,
-  kind }` so device handovers leave a paper trail without leaking
+kind }` so device handovers leave a paper trail without leaking
   the full pairing secret.
 
 Regression coverage lives in
@@ -700,6 +700,3 @@ Manual auth flow checks now need to account for the hybrid model:
 3. send `Authorization: Bearer <accessToken>` on protected tRPC requests
 4. send both the refresh cookie and `x-csrf-token` header when calling `auth.refresh` or other unsafe cookie-backed auth endpoints
 5. after `auth.changePassword` or `users.resetPassword`, expect previously issued access and refresh tokens to stop working
-
-For current product gaps and roadmap, see:
-[ROADMAP.md](/Users/johnny4young/Personal/github/puntovivo/docs/ROADMAP.md)

@@ -14,28 +14,28 @@ provider integration, fiscal contingency, and physical POS hardware.
 
 ## Current Verdict
 
-| Stage | Verdict | Meaning |
-| --- | --- | --- |
-| Development demo | **Yes** | Demo tenant, sales, inventory, cash sessions, quotations, fiscal mock, AI, sync center, and receipt templates can be shown. |
+| Stage                | Verdict     | Meaning                                                                                                                             |
+| -------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo     | **Yes**     | Demo tenant, sales, inventory, cash sessions, quotations, fiscal mock, AI, sync center, and receipt templates can be shown.         |
 | Private retail pilot | **Not yet** | Needs at least fiscal contingency, hardware scanner/printer path, and clear operator recovery before a real store runs daily sales. |
-| Production sale | **No** | Requires DIAN-authorized Proveedor Tecnologico, legal XML retention, hardware validation, and payment-terminal policy. |
+| Production sale      | **No**      | Requires DIAN-authorized Proveedor Tecnologico, legal XML retention, hardware validation, and payment-terminal policy.              |
 
 ## Pilot-Ready Criteria
 
 A Colombian retail pilot is allowed only when all items below are true:
 
-| Area | Required condition | Current state | Next ticket |
-| --- | --- | --- | --- |
-| Sales and cash | Complete, return, void, split tender, cash sessions, suspended carts, and receipt reprint work end to end. | **Ready** | Keep covered by regression tests. |
-| Inventory | Site-owned stock, movements, transfers, and discrepancy reporting work. | **Ready** | Keep covered by regression tests. |
-| Fiscal core | Fiscal document model, immutable snapshots, adapter seam, and reports exist. | **Ready as foundation** | `ENG-057`, `ENG-058`, `ENG-059`. |
-| Fiscal contingency | Offline fiscal documents are queued, retried, visible, and recoverable. | **Not ready** | `ENG-057`. |
-| Receipt fiscal proof | Receipt can show CUFE/CUDE or provider UUID, QR, XML reference, and pending/contingency status. | **Partial** | `ENG-058`. |
-| Hardware scanner | USB HID barcode scanner adds products quickly and safely. | **Not ready** | `ENG-061`. |
-| Hardware printing | ESC/POS printer and RJ11 drawer work, with system-printer fallback. | **Not ready** | `ENG-060`, `ENG-062`. |
-| Payment terminal | Manual payment works; provider terminal has clear adapter and failure policy. | **Partial** | `ENG-063` when sandbox and hardware are available. |
-| Recovery | Operator can see sync/fiscal/cash/payment/device health and export diagnostics. | **Partial** | `ENG-065`, `ENG-067`. |
-| Multi-register LAN | One store can run several cashier terminals against a single local Authority Node. | **Ready as foundation** — `device_local`, `site_hub`, and `hub_client` modes exist; satellite offline writes remain deferred. | Keep covered by regression tests; revisit `ENG-076` only if a pilot proves the need. |
+| Area                 | Required condition                                                                                         | Current state                                                                                                                 | Next ticket                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Sales and cash       | Complete, return, void, split tender, cash sessions, suspended carts, and receipt reprint work end to end. | **Ready**                                                                                                                     | Keep covered by regression tests.                                                    |
+| Inventory            | Site-owned stock, movements, transfers, and discrepancy reporting work.                                    | **Ready**                                                                                                                     | Keep covered by regression tests.                                                    |
+| Fiscal core          | Fiscal document model, immutable snapshots, adapter seam, and reports exist.                               | **Ready as foundation**                                                                                                       | `ENG-057`, `ENG-058`, `ENG-059`.                                                     |
+| Fiscal contingency   | Offline fiscal documents are queued, retried, visible, and recoverable.                                    | **Not ready**                                                                                                                 | `ENG-057`.                                                                           |
+| Receipt fiscal proof | Receipt can show CUFE/CUDE or provider UUID, QR, XML reference, and pending/contingency status.            | **Partial**                                                                                                                   | `ENG-058`.                                                                           |
+| Hardware scanner     | USB HID barcode scanner adds products quickly and safely.                                                  | **Not ready**                                                                                                                 | `ENG-061`.                                                                           |
+| Hardware printing    | ESC/POS printer and RJ11 drawer work, with system-printer fallback.                                        | **Not ready**                                                                                                                 | `ENG-060`, `ENG-062`.                                                                |
+| Payment terminal     | Manual payment works; provider terminal has clear adapter and failure policy.                              | **Partial**                                                                                                                   | `ENG-063` when sandbox and hardware are available.                                   |
+| Recovery             | Operator can see sync/fiscal/cash/payment/device health and export diagnostics.                            | **Partial**                                                                                                                   | `ENG-065`, `ENG-067`.                                                                |
+| Multi-register LAN   | One store can run several cashier terminals against a single local Authority Node.                         | **Ready as foundation** — `device_local`, `site_hub`, and `hub_client` modes exist; satellite offline writes remain deferred. | Keep covered by regression tests; revisit `ENG-076` only if a pilot proves the need. |
 
 ## Production-Ready Criteria
 
@@ -55,16 +55,16 @@ Production sales require everything in Pilot-ready plus:
 
 ## Blockers
 
-| Blocker | Owner lane | Gate | Next ticket |
-| --- | --- | --- | --- |
-| Real DIAN provider | Fiscal | Signed PT contract, sandbox/prod credentials, certificate, resolution, error-code map. | `ENG-059` |
-| Fiscal contingency | Server + Fiscal | No external gate for mock/provider-agnostic retry engine. | `ENG-057` |
-| Fiscal receipt finalization | Server + Desktop/Web | No external gate for mock/provider-agnostic proof rendering. | `ENG-058` |
-| Hardware lab | Desktop + Hardware | Thermal printer, RJ11 drawer, USB HID scanner. | `ENG-060`, `ENG-061`, `ENG-062` |
-| Payment terminal | Payments | Provider choice, sandbox credentials, physical terminal. | `ENG-063` |
-| Store diagnostics | Operations | No external gate. | Keep extending Operations and recovery surfaces through active readiness tickets. |
-| Local security | Desktop + Security | SQLCipher groundwork shipped; cleartext-to-encrypted migration UX and cross-device restore key prompts remain. | `ENG-167b` |
-| Multi-register Store Hub | Runtime | Initial LAN hub/client support shipped; satellite offline fallback is deferred until a pilot proves it. | `ENG-076` if the gate clears |
+| Blocker                     | Owner lane           | Gate                                                                                                           | Next ticket                                                                       |
+| --------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Real DIAN provider          | Fiscal               | Signed PT contract, sandbox/prod credentials, certificate, resolution, error-code map.                         | `ENG-059`                                                                         |
+| Fiscal contingency          | Server + Fiscal      | No external gate for mock/provider-agnostic retry engine.                                                      | `ENG-057`                                                                         |
+| Fiscal receipt finalization | Server + Desktop/Web | No external gate for mock/provider-agnostic proof rendering.                                                   | `ENG-058`                                                                         |
+| Hardware lab                | Desktop + Hardware   | Thermal printer, RJ11 drawer, USB HID scanner.                                                                 | `ENG-060`, `ENG-061`, `ENG-062`                                                   |
+| Payment terminal            | Payments             | Provider choice, sandbox credentials, physical terminal.                                                       | `ENG-063`                                                                         |
+| Store diagnostics           | Operations           | No external gate.                                                                                              | Keep extending Operations and recovery surfaces through active readiness tickets. |
+| Local security              | Desktop + Security   | SQLCipher groundwork shipped; cleartext-to-encrypted migration UX and cross-device restore key prompts remain. | `ENG-167b`                                                                        |
+| Multi-register Store Hub    | Runtime              | Initial LAN hub/client support shipped; satellite offline fallback is deferred until a pilot proves it.        | `ENG-076` if the gate clears                                                      |
 
 ## Operational Store Checklist
 
@@ -87,12 +87,11 @@ Before a pilot day starts, the operator should be able to confirm:
 
 ## Roadmap Link
 
-This go/no-go checklist is anchored to
-[ROADMAP.md §0](./ROADMAP.md#0-mvp-colombia--definition-of-done) — the MVP Colombia
-definition of done, whose stage verdict mirrors the Current Verdict table above — and
-to [PLAN-V3.md](./PLAN-V3.md) for commercial-readiness work beyond the sellable core.
+This go/no-go checklist is anchored to the MVP Colombia definition of
+done, whose stage verdict mirrors the Current Verdict table above, plus
+commercial-readiness work beyond the sellable core.
 
-Sellability work is tracked in `ROADMAP.md` as:
+Sellability work is tracked internally as:
 
 - `ENG-050`: this index and roadmap truth sync.
 - `ENG-051..ENG-056`: foundation reset around commands, device identity,
