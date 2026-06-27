@@ -1,0 +1,13 @@
+# Standalone manifest for the marketing site. This project lives OUTSIDE the
+# repo apps/* and packages/* workspace globs, so it installs with
+# `pnpm install --ignore-workspace` and carries its own settings here.
+#
+# pnpm 11 blocks dependency build scripts by default; esbuild needs its
+# postinstall to link the platform binary that vite consumes.
+allowBuilds:
+  esbuild: true
+
+# pnpm 11 re-runs `install` before `pnpm run <script>` (deps-status check).
+# That check fails on the (intentionally) once-ignored esbuild build; the
+# binary is already linked, so skip the pre-run verification here.
+verifyDepsBeforeRun: false

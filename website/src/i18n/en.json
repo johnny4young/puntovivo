@@ -1,0 +1,484 @@
+{
+  "nav": {
+    "product": "Product",
+    "caja": "Register",
+    "ai": "AI",
+    "dashboard": "Dashboard",
+    "flow": "Flow",
+    "pricing": "Pricing",
+    "login": "Sign in",
+    "demo": "Book a demo",
+    "themeToggle": "Toggle theme",
+    "langToggle": "Switch language"
+  },
+  "hero": {
+    "badgePos": "Point of sale",
+    "badgeAi": "Native AI",
+    "badgeVersion": "{{version}} · May 2026",
+    "titleA": "A ",
+    "titleEm": "calm register",
+    "titleB": " for everyday retail.",
+    "lead": "Puntovivo brings sales, inventory and purchasing into a single desktop console. Fast scanning, blind close, inter-site transfers and split payment — all under one design language.",
+    "ctaDemo": "Book a guided demo",
+    "ctaFlow": "See the checkout flow",
+    "ctaAsk": "Ask the console",
+    "metaActions": "Actions per screen",
+    "metaCharge": "Charge a sale",
+    "metaOffline": "Offline-first",
+    "metaBilingual": "Natively bilingual",
+    "posTurn": "Shift open · 09:42",
+    "posSold": "Sold today",
+    "posCajaTitle": "Register · Centro",
+    "posCajaSub": "Cra 7 · Bogotá",
+    "posSale": "Sale",
+    "posCashier": "Cashier",
+    "posSearch": "cheese pack…",
+    "posCart": "Cart",
+    "posCartCount": "4 items · 6 units",
+    "posItem1": "Cheese arepa · Pack 12",
+    "posItem2": "Ground black coffee 500g",
+    "posItem3": "Medium recyclable bag",
+    "posDiscount": "Frequent-customer discount",
+    "posDiscountSub": "−3% · Applied by María",
+    "posSummary": "Summary",
+    "posSubtotal": "Subtotal",
+    "posDiscounts": "Discounts",
+    "posTax": "VAT 19%",
+    "posTotalLabel": "Total due",
+    "posTotalItems": "Four items",
+    "posCash": "Cash",
+    "posCard": "Card",
+    "posCharge": "Charge sale",
+    "posKeyDiscount": "discount",
+    "posKeyNewSale": "new sale"
+  },
+  "trust": {
+    "builtFor": "Built for",
+    "items": [
+      "Multi-site & multi-tenant",
+      "Blind close by denomination",
+      "Split cash + card payments",
+      "Cashier · manager · admin roles",
+      "Per-shift audit trail"
+    ]
+  },
+  "features": {
+    "kicker": "Product",
+    "title": "Six modules, one design language.",
+    "desc": "Every surface shares the same grid, the same editorial serif and the same calm blue. The register feels like a digital notebook, not a control panel.",
+    "items": [
+      {
+        "title": "Friction-free checkout",
+        "desc": "Scan, search by SKU or barcode and adjust quantities without opening modals. Checkout splits cash, card, transfer, credit and other methods on a single screen.",
+        "foot": "Alt+P · F5 catalog · F1 charge"
+      },
+      {
+        "title": "Register with blind close",
+        "desc": "Open with a count by denomination, log cash-in and cash-out movements during the shift, and close blind — the expected balance stays hidden until you submit the final count.",
+        "foot": "Open · movements · blind close"
+      },
+      {
+        "title": "Inventory per site",
+        "desc": "Per-site balances as the source of truth. Movements, physical counts, opening inventory and stock lookups stay in lockstep with the tenant aggregate.",
+        "foot": "Movements · stock · counts"
+      },
+      {
+        "title": "Inter-site transfers",
+        "desc": "Send now and receive later with an in-transit state. Receiving discrepancies are logged with a note, and a cancellation reverses balances instantly.",
+        "foot": "In transit · receive · cancel"
+      },
+      {
+        "title": "Purchasing, orders & quotes",
+        "desc": "Receive partially or fully against an order, return stock to the supplier, and issue quotes from the same catalog. Every movement updates the product's cost history.",
+        "foot": "PO · partial receipt · return"
+      },
+      {
+        "title": "Multi-tenant & audit",
+        "desc": "Per-tenant isolation, per-site sequentials and a per-shift audit log. Role or tenant changes invalidate the session without interrupting a sale in progress.",
+        "foot": "Sequentials · roles · audit logs"
+      }
+    ]
+  },
+  "caja": {
+    "kicker": "Register · Blind close",
+    "titleA": "The ",
+    "titleEm": "register",
+    "titleB": " reconciles itself — no guessing for the cashier.",
+    "desc": "Open the shift counting bill by bill, log every drawer cash-in or cash-out through the day, and close blind: the expected balance stays hidden until you submit the final count. Any difference lands in the recent-closes report — not a separate notebook.",
+    "chips": [
+      "Open by denomination",
+      "Cash-in · cash-out · drop to safe",
+      "Change replenishment",
+      "Balanced / over / short difference"
+    ],
+    "paneTitle": "Register PV-02 · María R.",
+    "paneSub": "Centro · Opened 08:14",
+    "paneLive": "On shift",
+    "openTitle": "Opening logged · $180,000",
+    "openDesc": "Base counted by denomination · <b>3×$50,000</b>, <b>3×$10,000</b>. Matches the register template.",
+    "openAction": "Audit",
+    "skimTitle": "Drop to safe · $400,000",
+    "skimDesc": "Drawer surplus sent to the safe. Note: <b>\"Skim 11:30 — partial cut\"</b>.",
+    "skimAction": "View line",
+    "blindTitle": "Blind close pending",
+    "blindDesc": "The expected balance stays hidden until you submit the final count by denomination. The difference is computed on save.",
+    "blindAction": "Close register",
+    "inputPlaceholder": "Log a cash movement…"
+  },
+  "ai": {
+    "kicker": "Core · AI",
+    "titleA": "An AI that ",
+    "titleEm": "knows your counter",
+    "titleB": " — not a chatbot bolted on the side.",
+    "desc": "Ask in plain language, let it watch your cashiers, search products by meaning, dictate a supplier invoice with the camera. All inside the same console — same design language, same offline-first, same per-shift audit.",
+    "corePill": "Puntovivo AI · core {{version}}",
+    "coreMeta": "openai · gpt-4.1-mini · run locally · 4 capabilities active",
+    "copilotBadge": "Co-pilot",
+    "copilotLabel": "Ask your data",
+    "copilotTitleA": "Talk to your business. ",
+    "copilotTitleEm": "It answers with data, not text.",
+    "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL, runs it on your tenant, and returns the answer, the table and the chart. The SQL stays visible so any manager can audit it.",
+    "responseLabel": "Puntovivo · answer",
+    "inputPlaceholder": "Ask your data…",
+    "scenarioAria": "Co-pilot scenarios",
+    "scenarioLabel": "Scenario {{n}}",
+    "askAgain": "Ask again",
+    "scenarios": {
+      "topProducts": {
+        "q": "What are the 10 best-selling products of the last month by quantity and amount?",
+        "ans": "At <b>Sede Norte</b> the top sellers last month are <pill>Ground beef 500g · 37</pill> <pill>Toilet paper x12 · 33</pill> <pill>Doria Spaghetti · 32</pill> and seven more. Combined they total <b>$5.73M</b> across 282 units.",
+        "chips": ["+ view executed SQL", "+ export CSV", "+ compare to last month"],
+        "headTitle": "total_quantity",
+        "headSub": "Top 10 · last 30 days"
+      },
+      "cashierTicket": {
+        "q": "Which cashier has the best average ticket this week across all sites?",
+        "ans": "<b>Carolina Cajera</b> (Sede Norte) leads with an average ticket of <pill>$48,200 · 84 tickets</pill> <pill>+23% vs team</pill> followed by <b>María R.</b> (Centro) at <b>$39,140</b>. Andrés (Centro) closes the pack at <b>$24,100</b>.",
+        "chips": ["+ view executed SQL", "+ open cashier report", "+ compare to last week"],
+        "headTitle": "avg_ticket",
+        "headSub": "Cashiers · current week"
+      },
+      "marginDairy": {
+        "q": "Which sites have low margin on dairy over the last 7 days?",
+        "ans": "<b>Sede Sur</b> has a margin of <pill>14% · dairy</pill> <pill>−8 pts vs average</pill> over the last 7 days. The most affected SKU is <b>Cream 250ml</b>, with cost raised last week. Norte and Centro stay healthy.",
+        "chips": ["+ view executed SQL", "+ adjust site prices", "+ view detail by SKU"],
+        "headTitle": "margin_pct",
+        "headSub": "Dairy · last 7 days"
+      }
+    },
+    "cards": {
+      "anomaliesTitle": "Detected anomalies",
+      "anomaliesLabel": "Statistical outliers per cashier",
+      "anomaliesDesc": "We cross each cashier against <b>their own 30-day average</b> and against the rest of the team. When something breaks the pattern — a ticket spike, an unusual return, suspicious discounts — it reaches your inbox with a severity and the raw context.",
+      "anomaliesFoot": "A starting point, not an accusation · mute 7 days · per-shift audit",
+      "sevHigh": "High",
+      "sevMed": "Medium",
+      "anomTypeTickets": "Tickets/hour spike",
+      "anomTypeReturn": "Atypical return amount",
+      "semanticTitle": "Semantic search",
+      "semanticLabelA": "Products by ",
+      "semanticLabelEm": "meaning",
+      "semanticDesc": "The catalog is indexed with embeddings on every sync. Search <b>\"low-fat dairy\"</b> and <b>Yogurt Alpina light</b> shows up even though the SKU says \"light\" nowhere. Handy for cashiers who know a product by its description, not its exact name.",
+      "semanticQuery": "low-fat dairy",
+      "semanticTag": "SEMANTIC · AI",
+      "semanticFoot": "Local embeddings · regenerated when you edit prices/descriptions",
+      "ocrTitle": "Invoice OCR",
+      "ocrLabel": "Photo → logged purchase",
+      "ocrDesc": "Upload a photo of the supplier invoice — crooked, smudged, handwritten where allowed. Puntovivo extracts <b>supplier, lines, quantities, VAT and total</b>, and pre-fills the purchase screen so you only confirm.",
+      "ocrFoot": "Upload file · take photo · 5 fields extracted · matched to SKUs",
+      "ocrFieldProvider": "Supplier",
+      "ocrFieldNit": "Tax ID",
+      "ocrFieldLines": "Lines",
+      "ocrFieldLinesValue": "3 · 96 units",
+      "ocrFieldSubtotal": "Subtotal",
+      "ocrFieldTotal": "Total"
+    },
+    "roadmap": {
+      "kicker": "AI roadmap",
+      "title": "More capabilities on the way.",
+      "desc": "AI in Puntovivo isn't a separate module — it's a cross-cutting layer. Every release touches at least one of these verbs: <b>predict</b>, <b>summarize</b>, <b>search</b> or <b>extract</b>.",
+      "tagNext": "Next",
+      "tagBeta": "Beta",
+      "items": [
+        "Demand forecast per SKU",
+        "Suggested auto-reorder to supplier",
+        "Spoken shift summary",
+        "Voice checkout for the customer",
+        "Physical-inventory assistant"
+      ]
+    }
+  },
+  "aiFaq": {
+    "kicker": "AI FAQ",
+    "title": "What owners and managers ask before turning the AI on.",
+    "desc": "Privacy, cost, what happens offline and how to turn it off. If these six answers don't convince you, leave it off — the register works just the same without it.",
+    "badge": "No hidden telemetry",
+    "items": [
+      {
+        "q": "Can the AI see my customers' sensitive data?",
+        "a": "No. Before any question reaches the model, Puntovivo redacts names, ID numbers, emails, phones and card numbers. The SQL runs on your local database with a read-only user — the model sees the question and the tabulated result, never the raw database or the PII. The redaction policy is recorded in the per-shift audit log."
+      },
+      {
+        "q": "Where does the model run? Does my data leave the country?",
+        "a": "The Co-pilot uses OpenAI gpt-4.1-mini by default, on US infrastructure accounts. Semantic search and catalog embeddings run locally — they never leave the site. For customers who need everything on-premise we have a profile with an open-source model (Llama or Mistral, depending on hardware) that lives on the same Puntovivo server. Anomalies are 100% classic statistics: no language model required."
+      },
+      {
+        "q": "What happens if the site loses internet?",
+        "a": "The register keeps charging — the AI never blocks sales. The Co-pilot and invoice OCR enter a \"paused\" state with an amber banner; semantic search uses the last synced embedding index, so it keeps finding products by meaning even offline. Anomalies are computed in batch the next time you sync."
+      },
+      {
+        "q": "How much does it cost? Will I get hit with a token bill?",
+        "a": "The Comercio plan includes 800 Co-pilot questions and 200 OCR invoices per site per month. Each question averages $0.00088 USD — the footer of every answer shows the real cost. If you go over, the next tier costs like a monthly lunch: $9 USD/site per additional block of 1,000 questions. Semantic search and anomalies don't consume tokens."
+      },
+      {
+        "q": "Can I trust the answers? What if it makes up numbers?",
+        "a": "That's why we always show you the executed SQL and the row count below. The narrative answer is a summary of the tabulated result — not of the model's knowledge. If you want to be strict: the manager role can enable \"hard audit\" mode, which hides the narrative answer and shows you only the table. The AI proposes; you decide."
+      },
+      {
+        "q": "How do I turn the AI off if I'm not ready to use it?",
+        "a": "From Settings › AI, with a switch per capability: Co-pilot, anomalies, semantic search and OCR turn on or off individually and per site. A tenant that turns everything off gets the same console as before — no chips, no sparkles, no chats. All four are ON by default since May 2026."
+      }
+    ]
+  },
+  "alerts": {
+    "kicker": "Command center · Alerts & updates",
+    "title": "What's happening across all your sites, in one view.",
+    "desc": "Low stock, closes with a difference, transfers in transit, refunds. Puntovivo cross-references data per site and only interrupts you when it's worth it.",
+    "badgeSites": "3 active sites",
+    "badgeAlerts": "4 alerts today",
+    "narrativeTitle": "Don't check three consoles. Check one.",
+    "narrativeDesc": "The dashboard gathers sales, inventory, shifts and syncs into one feed. Every alert takes you to the exact spot in the console — one click, not three tabs.",
+    "statSalesLabel": "Sales today",
+    "statSalesValue": "$3.21M",
+    "statSalesDelta": "+18%",
+    "statTicketsLabel": "Tickets",
+    "statPendingLabel": "To handle",
+    "feedTitle": "Updates inbox",
+    "feedSub": "Last update · 09:42",
+    "filterToday": "Today",
+    "filterWeek": "Week",
+    "filterMonth": "Month",
+    "items": [
+      {
+        "sede": "Sede Centro",
+        "t": "Low stock · 4 SKUs",
+        "d": "Coffee 500g, long-life milk, white corn flour, 80mm thermal paper — all below the configured minimum.",
+        "w": "4 min ago"
+      },
+      {
+        "sede": "Sede Norte",
+        "t": "Close with a shortage · −$14,200",
+        "d": "Camilo's shift closed <b>short</b> against the expected balance. The difference is logged in recent closes.",
+        "w": "yesterday 21:14"
+      },
+      {
+        "sede": "Sede Sur",
+        "t": "Transfer in transit · TR-0142",
+        "d": "Sede Centro sent <b>28 units</b> of coffee 500g. Pending receipt at Sede Sur.",
+        "w": "2 h ago"
+      },
+      {
+        "sede": "Sede Norte",
+        "t": "Partial receipt PO-0182",
+        "d": "Equimercado delivered <b>28 of 40</b> units. The remaining 12 stay pending on the order.",
+        "w": "6 h ago"
+      },
+      {
+        "sede": "Sede Centro",
+        "t": "Best day of the month",
+        "d": "$1.84M across 47 tickets · average ticket <b>$39,140</b> · 30-day revenue window.",
+        "w": "today"
+      },
+      {
+        "sede": "Sede Sur",
+        "t": "Sale refunded · PV-002714",
+        "d": "Lina refunded the sale. <b>Stock restored</b> across the 3 lines and excluded from completed revenue.",
+        "w": "2 d ago"
+      }
+    ]
+  },
+  "flow": {
+    "kicker": "How it works",
+    "title": "The cashier's loop, in four steps.",
+    "desc": "At most five actions per screen. The console doesn't teach — the cashier already knows how to charge. Puntovivo just gets out of the way.",
+    "steps": [
+      {
+        "t": "Open the register",
+        "p": "Count the opening base by denomination. The register is ready to charge right away.",
+        "k": ["denominations"]
+      },
+      {
+        "t": "Scan and build the sale",
+        "p": "SKU, barcode, quantities and discounts without opening unnecessary modals.",
+        "k": ["Alt+P", "F5"]
+      },
+      {
+        "t": "Charge",
+        "p": "Cash, card, transfer, credit — or a split payment that adds up to the total. The receipt prints at 58 or 80 mm.",
+        "k": ["F1"]
+      },
+      {
+        "t": "Close blind",
+        "p": "Count the drawer by denomination. The system hides the expected balance until you submit the final count.",
+        "k": ["blind close"]
+      }
+    ]
+  },
+  "modules": {
+    "kicker": "What's new",
+    "title": "Recent changes you already see when you open the console.",
+    "desc": "Every release that touches the register is tested first in a real store. If it can't survive a Friday close, it doesn't ship.",
+    "items": [
+      {
+        "when": "May 2026",
+        "h": "AI core · v1.0",
+        "bullets": [
+          "Co-pilot: plain-language questions about your data · auditable SQL · chart + table.",
+          "Anomalies detected per cashier against their own 30-day average.",
+          "Semantic catalog search with local embeddings — find by meaning, not exact SKU.",
+          "Invoice OCR: photo → supplier, lines, VAT and total pre-filled into purchasing."
+        ]
+      },
+      {
+        "when": "May 2026",
+        "h": "Register with blind close",
+        "bullets": [
+          "Opening with a count by denomination against the register template.",
+          "Shift movements: cash-in, cash-out, drop to safe, change replenishment.",
+          "Blind close — expected balance hidden until you submit the final count.",
+          "Cash-control report with active sessions and differences to review."
+        ]
+      },
+      {
+        "when": "May 2026",
+        "h": "Inter-site transfers",
+        "bullets": [
+          "In-transit mode: the origin site is debited now, the destination on receipt.",
+          "Partial receipt with discrepancy notes and a history badge.",
+          "Cancellation with immediate reversal of both balances."
+        ]
+      },
+      {
+        "when": "Apr 2026",
+        "h": "Split payments",
+        "bullets": [
+          "Combine cash, card, transfer, credit and other methods.",
+          "Optional reference per payment for reconciliation.",
+          "Exact-sum validation before confirming the charge."
+        ]
+      },
+      {
+        "when": "Apr 2026",
+        "h": "Purchasing + returns",
+        "bullets": [
+          "Staged receipt with per-line progress against the order.",
+          "Purchase returns with restock and an auditable reason.",
+          "Quotes from the same catalog and selling unit."
+        ]
+      }
+    ]
+  },
+  "pricing": {
+    "kicker": "Pricing",
+    "title": "Priced per site, no surprises at month's end.",
+    "desc": "You pay per site, not per cashier. Open a new site and you move it from the console — no support tickets.",
+    "recommended": "Recommended",
+    "customPrice": "Custom",
+    "plans": [
+      {
+        "name": "Mostrador",
+        "price": "0",
+        "per": "/site · first month",
+        "desc": "For one register, one site and one cashier. No card, no special shortcuts.",
+        "bullets": [
+          "1 active register",
+          "Local catalog and stock",
+          "58 mm thermal receipts",
+          "Email support"
+        ],
+        "cta": "Start free"
+      },
+      {
+        "name": "Comercio",
+        "price": "129k",
+        "per": "/site / month",
+        "desc": "For stores with several registers, a central warehouse and real reporting.",
+        "bullets": [
+          "Unlimited registers and users",
+          "Split payments and returns",
+          "Blind close + cash control",
+          "Inter-site transfers",
+          "Priority support"
+        ],
+        "cta": "Book a demo"
+      },
+      {
+        "name": "Cadena",
+        "price": "Custom",
+        "per": " ",
+        "desc": "Multi-tenant for franchises and neighborhood chains with several legal entities.",
+        "bullets": [
+          "Multi-tenant with strict isolation",
+          "Per-shift audit and per-site sequentials",
+          "Catalogs differentiated per customer",
+          "Assisted onboarding per site"
+        ],
+        "cta": "Let's talk"
+      }
+    ]
+  },
+  "quote": {
+    "textA": "\"The register stopped fighting the cashier. ",
+    "textEm": "Friday's close",
+    "textB": " is no longer an event — it's a button.\"",
+    "who": "Andrea Pulido",
+    "role": "Administrator · Mercado Las Aguas, Bogotá"
+  },
+  "faq": {
+    "kicker": "Questions",
+    "title": "What owners and cashiers ask before switching systems.",
+    "items": [
+      {
+        "q": "What does a site need to get started?",
+        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux, plus a 58 or 80 mm thermal printer. If the site has a USB scanner, we recognize it as a keyboard. The cloud isn't required to sell."
+      },
+      {
+        "q": "Does it work without internet?",
+        "a": "Yes. Changes made offline stay local and sync when the network returns. The app's status bar shows pending changes and conflicts to resolve — none of them blocks a sale in progress."
+      },
+      {
+        "q": "How do I handle several sites or registers?",
+        "a": "Puntovivo is multi-site and multi-tenant from day one. Each site has its own sale sequence, its own inventory and its own independent register. The selector in the top bar switches the active site without signing out."
+      },
+      {
+        "q": "What roles does the system have?",
+        "a": "Admin, manager, cashier (sales) and viewer. Every console route — dashboard, sales, purchasing, settings — explicitly declares which roles can see it, and changing roles invalidates the session instantly."
+      },
+      {
+        "q": "How does the blind close work?",
+        "a": "When closing the shift, the cashier counts the drawer by denomination. The system keeps the expected balance hidden until the counted total is submitted. The difference (balanced, over or short) is logged in the cash-control report — nobody fixes it by hand."
+      },
+      {
+        "q": "Can I migrate my catalog?",
+        "a": "Yes, via CSV / Excel export with SKU, description, cost, price, VAT and stock per warehouse. If your current system is Loyverse, Alegra, Siigo or World Office, we'll guide you through the migration."
+      }
+    ]
+  },
+  "cta": {
+    "title": "A register that respects your store's rhythm.",
+    "desc": "We help you migrate the catalog and run a first real close. If it doesn't convince the Friday cashier, we'll refund the month.",
+    "demo": "Schedule a demo",
+    "download": "Get the desktop app"
+  },
+  "footer": {
+    "tagline": "POS, inventory and purchasing for small businesses. Local-first, bilingual, calm.",
+    "productTitle": "Product",
+    "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
+    "companyTitle": "Company",
+    "companyLinks": ["About us", "Roadmap", "Service status", "Contact"],
+    "resourcesTitle": "Resources",
+    "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
+    "copyright": "© 2026 Puntovivo · Made in Colombia.",
+    "version": "{{version}} · MIT"
+  }
+}

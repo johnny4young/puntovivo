@@ -1,0 +1,488 @@
+{
+  "nav": {
+    "product": "Producto",
+    "caja": "Caja",
+    "ai": "IA",
+    "dashboard": "Dashboard",
+    "flow": "Flujo",
+    "pricing": "Planes",
+    "login": "Ingresa",
+    "demo": "Pide una demo",
+    "themeToggle": "Cambiar tema",
+    "langToggle": "Cambiar idioma"
+  },
+  "hero": {
+    "badgePos": "Punto de venta",
+    "badgeAi": "IA nativa",
+    "badgeVersion": "{{version}} · mayo 2026",
+    "titleA": "Una ",
+    "titleEm": "caja tranquila",
+    "titleB": " para el comercio colombiano.",
+    "lead": "Puntovivo une ventas, inventario y compras en una sola consola de escritorio. Escaneo rápido, cierre ciego, transferencias entre sedes y cobro dividido — todo bajo un mismo idioma de diseño, en español colombiano.",
+    "ctaDemo": "Pide una demo guiada",
+    "ctaFlow": "Mira el flujo de caja",
+    "ctaAsk": "Pregúntale a la consola",
+    "metaActions": "Acciones por pantalla",
+    "metaCharge": "Cobrar venta",
+    "metaOffline": "Offline-first",
+    "metaBilingual": "Bilingüe nativo",
+    "posTurn": "Turno abierto · 09:42",
+    "posSold": "Vendido hoy",
+    "posCajaTitle": "Caja · Sede Centro",
+    "posCajaSub": "Cra 7 · Bogotá",
+    "posSale": "Venta",
+    "posCashier": "Cajero",
+    "posSearch": "de queso pack…",
+    "posCart": "Carrito",
+    "posCartCount": "4 ítems · 6 unidades",
+    "posItem1": "Arepa de queso · Pack 12",
+    "posItem2": "Café tinto molido 500g",
+    "posItem3": "Bolsa reciclable mediana",
+    "posDiscount": "Descuento cliente frecuente",
+    "posDiscountSub": "−3 % · Aplicado por María",
+    "posSummary": "Resumen",
+    "posSubtotal": "Subtotal",
+    "posDiscounts": "Descuentos",
+    "posTax": "IVA 19 %",
+    "posTotalLabel": "Total a pagar",
+    "posTotalItems": "Cuatro ítems",
+    "posCash": "Efectivo",
+    "posCard": "Tarjeta",
+    "posCharge": "Cobra venta",
+    "posKeyDiscount": "descuento",
+    "posKeyNewSale": "nueva venta"
+  },
+  "trust": {
+    "builtFor": "Construido para",
+    "items": [
+      "Multi-sede & multi-tenant",
+      "Cierre ciego por denominaciones",
+      "Pagos divididos efectivo + tarjeta",
+      "Roles cajero · gestor · admin",
+      "Auditoría por turno"
+    ]
+  },
+  "features": {
+    "kicker": "Producto",
+    "title": "Seis módulos, un mismo idioma de diseño.",
+    "desc": "Cada superficie respeta la misma cuadrícula, el mismo serif editorial y el mismo azul calmo. La caja se siente como un cuaderno digital, no como un panel de control.",
+    "items": [
+      {
+        "title": "Caja sin fricción",
+        "desc": "Escaneo, búsqueda por SKU o código de barras y ajuste de cantidades sin abrir modales. El cobro divide efectivo, tarjeta, transferencia, crédito y otros medios en una sola pantalla.",
+        "foot": "Alt+P · F5 catálogo · F1 cobrar"
+      },
+      {
+        "title": "Caja con cierre ciego",
+        "desc": "Apertura con conteo por denominaciones, movimientos de ingreso y salida durante el turno, y cierre ciego que oculta el saldo esperado hasta que envías el conteo final.",
+        "foot": "Apertura · movimientos · cierre ciego"
+      },
+      {
+        "title": "Inventario por sede",
+        "desc": "Balances por sede como fuente de verdad. Movimientos, conteos físicos, inventario inicial y consulta de stock se mantienen en lockstep con el agregado del tenant.",
+        "foot": "Movimientos · stock · conteos"
+      },
+      {
+        "title": "Transferencias entre sedes",
+        "desc": "Envía ahora y recibe después con estado en tránsito. Las discrepancias en recepción quedan registradas con nota y la anulación revierte balances al instante.",
+        "foot": "En tránsito · recibir · anular"
+      },
+      {
+        "title": "Compras, pedidos y cotizaciones",
+        "desc": "Recibe parcial o totalmente sobre un pedido, devuelve stock al proveedor y emite cotizaciones desde el mismo catálogo. Cada movimiento actualiza el historial de costo del producto.",
+        "foot": "OC · recibo parcial · devolución"
+      },
+      {
+        "title": "Multi-tenant & auditoría",
+        "desc": "Aislamiento por tenant, consecutivos por sede y bitácora de auditoría por turno. Cambios de rol o de tenant invalidan la sesión sin interrumpir una venta en curso.",
+        "foot": "Consecutivos · roles · audit logs"
+      }
+    ]
+  },
+  "caja": {
+    "kicker": "Caja · Cierre ciego",
+    "titleA": "La ",
+    "titleEm": "caja",
+    "titleB": " se concilia sola, sin que el cajero adivine.",
+    "desc": "Abre el turno contando billete por billete, registra cada ingreso o salida del cajón durante la jornada, y cierra ciego: el saldo esperado permanece oculto hasta que envías el conteo final. Si hay diferencia, queda en el reporte de cierres recientes — no en una libreta aparte.",
+    "chips": [
+      "Apertura por denominaciones",
+      "Ingreso · salida · retiro a caja fuerte",
+      "Reposición de cambio",
+      "Diferencia cuadrada / sobrante / faltante"
+    ],
+    "paneTitle": "Caja PV-02 · María R.",
+    "paneSub": "Sede Centro · Abierta 08:14",
+    "paneLive": "En turno",
+    "openTitle": "Apertura registrada · $180.000",
+    "openDesc": "Base contada por denominaciones · <b>3×$50.000</b>, <b>3×$10.000</b>. Coincide con la plantilla del registro.",
+    "openAction": "Auditar",
+    "skimTitle": "Retiro a caja fuerte · $400.000",
+    "skimDesc": "Excedente del cajón enviado a caja fuerte. Nota: <b>\"Skim 11:30 — corte parcial\"</b>.",
+    "skimAction": "Ver línea",
+    "blindTitle": "Cierre ciego pendiente",
+    "blindDesc": "El saldo esperado queda oculto hasta que envíes el conteo final por denominaciones. Diferencia se calcula al guardar.",
+    "blindAction": "Cerrar caja",
+    "inputPlaceholder": "Registrar movimiento de caja…"
+  },
+  "ai": {
+    "kicker": "Núcleo · IA",
+    "titleA": "Una IA que ",
+    "titleEm": "conoce tu mostrador",
+    "titleB": ", no un chatbot pegado por fuera.",
+    "desc": "Pregunta en español, deja que vigile a tus cajeros, busca productos por significado, dicta una factura del proveedor con la cámara. Todo dentro de la misma consola — bajo el mismo idioma de diseño, con el mismo offline-first y la misma auditoría por turno.",
+    "corePill": "Puntovivo IA · núcleo {{version}}",
+    "coreMeta": "openai · gpt-4.1-mini · ejecutado local · 4 capacidades activas",
+    "copilotBadge": "Co-pilot",
+    "copilotLabel": "Pregúntale a tus datos",
+    "copilotTitleA": "Conversa con tu negocio. ",
+    "copilotTitleEm": "Te responde con datos, no con texto.",
+    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL, lo ejecuta sobre tu tenant, y devuelve la respuesta, la tabla y el gráfico. El SQL queda visible para que cualquier gerente lo audite.",
+    "responseLabel": "Puntovivo · respuesta",
+    "inputPlaceholder": "Pregúntale a tus datos…",
+    "scenarioAria": "Escenarios de Co-pilot",
+    "scenarioLabel": "Escenario {{n}}",
+    "askAgain": "Volver a preguntar",
+    "scenarios": {
+      "topProducts": {
+        "q": "¿Cuáles son los 10 productos más vendidos del último mes en cantidad y monto?",
+        "ans": "En <b>Sede Norte</b> los más vendidos del último mes son <pill>Carne de res molida 500g · 37</pill> <pill>Papel Higiénico x12 · 33</pill> <pill>Pasta Doria Espagueti · 32</pill> y siete más. El total combinado suma <b>$5,73M</b> en 282 unidades.",
+        "chips": ["+ ver SQL ejecutado", "+ exportar CSV", "+ comparar con mes anterior"],
+        "headTitle": "total_quantity",
+        "headSub": "Top 10 · últimos 30 días"
+      },
+      "cashierTicket": {
+        "q": "¿Qué cajero tiene el mejor ticket promedio esta semana en todas las sedes?",
+        "ans": "<b>Carolina Cajera</b> (Sede Norte) lidera con un ticket promedio de <pill>$48.200 · 84 tickets</pill> <pill>+23 % vs equipo</pill> seguida de <b>María R.</b> (Centro) con <b>$39.140</b>. La cola la cierra Andrés (Centro) con <b>$24.100</b>.",
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ abrir reporte de cajeros",
+          "+ comparar con semana anterior"
+        ],
+        "headTitle": "avg_ticket",
+        "headSub": "Cajeros · semana actual"
+      },
+      "marginDairy": {
+        "q": "¿Qué sedes tienen margen bajo en lácteos los últimos 7 días?",
+        "ans": "<b>Sede Sur</b> tiene un margen de <pill>14 % · lácteos</pill> <pill>−8 pts vs promedio</pill> los últimos 7 días. El SKU más impactado es <b>Crema 250ml</b>, con costo subido la semana pasada. Norte y Centro siguen en sano.",
+        "chips": ["+ ver SQL ejecutado", "+ ajustar precios de la sede", "+ ver detalle por SKU"],
+        "headTitle": "margin_pct",
+        "headSub": "Lácteos · últimos 7 días"
+      }
+    },
+    "cards": {
+      "anomaliesTitle": "Anomalías detectadas",
+      "anomaliesLabel": "Outliers estadísticos por cajero",
+      "anomaliesDesc": "Cruzamos cada cajero contra <b>su propio promedio de 30 días</b> y contra el resto del equipo. Cuando algo se sale del patrón — pico de tickets, devolución atípica, descuentos sospechosos — llega a tu bandeja con severidad y el contexto crudo.",
+      "anomaliesFoot": "Punto de partida, no acusación · silenciar 7 días · auditoría por turno",
+      "sevHigh": "Alta",
+      "sevMed": "Media",
+      "anomTypeTickets": "Pico tickets/hora",
+      "anomTypeReturn": "Monto devolución atípico",
+      "semanticTitle": "Búsqueda semántica",
+      "semanticLabelA": "Productos por ",
+      "semanticLabelEm": "significado",
+      "semanticDesc": "El catálogo se indexa con embeddings al sincronizar. Buscas <b>\"lácteo bajo en grasa\"</b> y aparece <b>Yogurt Alpina light</b> aunque el SKU no diga \"light\" por ningún lado. Útil para cajeros que conocen el producto por descripción, no por nombre exacto.",
+      "semanticQuery": "lácteo bajo en grasa",
+      "semanticTag": "SEMÁNTICA · IA",
+      "semanticFoot": "Embeddings locales · regenerables al editar precios/descripciones",
+      "ocrTitle": "OCR de factura",
+      "ocrLabel": "Foto → compra registrada",
+      "ocrDesc": "Subes una foto de la factura del proveedor — torcida, con manchas, escrita a mano lo permitido. Puntovivo extrae <b>proveedor, líneas, cantidades, IVA y total</b>, y los pre-llena en la pantalla de compra para que solo confirmes.",
+      "ocrFoot": "Subir archivo · tomar foto · 5 campos extraídos · cuadre con SKUs",
+      "ocrFieldProvider": "Proveedor",
+      "ocrFieldNit": "NIT",
+      "ocrFieldLines": "Líneas",
+      "ocrFieldLinesValue": "3 · 96 unidades",
+      "ocrFieldSubtotal": "Subtotal",
+      "ocrFieldTotal": "Total"
+    },
+    "roadmap": {
+      "kicker": "Roadmap IA",
+      "title": "Más capacidades en camino.",
+      "desc": "La IA en Puntovivo no es un módulo aparte — es una capa transversal. Cada release toca al menos uno de estos verbos: <b>predecir</b>, <b>resumir</b>, <b>buscar</b> o <b>extraer</b>.",
+      "tagNext": "Próx.",
+      "tagBeta": "Beta",
+      "items": [
+        "Predicción de demanda por SKU",
+        "Auto-pedido sugerido al proveedor",
+        "Resumen de turno hablado",
+        "Cobro por voz al cliente",
+        "Asistente de inventario físico"
+      ]
+    }
+  },
+  "aiFaq": {
+    "kicker": "FAQ IA",
+    "title": "Lo que preguntan dueños y gerentes antes de prender la IA.",
+    "desc": "Privacidad, costo, qué pasa offline y cómo apagarla. Si no convencen estas seis respuestas, no la prendas — la caja funciona igual sin ella.",
+    "badge": "Sin telemetría oculta",
+    "items": [
+      {
+        "q": "¿La IA ve los datos sensibles de mis clientes?",
+        "a": "No. Antes de mandar cualquier pregunta al modelo, Puntovivo redacta nombres, cédulas, correos, teléfonos y números de tarjeta. El SQL se ejecuta en tu base local con un usuario de solo-lectura — el modelo ve la pregunta y el resultado tabulado, nunca la base de datos cruda ni el PII. La política de redacción queda en el log de auditoría por turno."
+      },
+      {
+        "q": "¿Dónde corre el modelo? ¿Sale mi información del país?",
+        "a": "El Co-pilot usa OpenAI gpt-4.1-mini por defecto, con cuentas en infraestructura US. La búsqueda semántica y los embeddings del catálogo corren localmente — no salen de la sede. Para clientes que necesitan que todo quede on-premise tenemos un perfil con un modelo open-source (Llama o Mistral, según hardware) que vive en el mismo servidor de Puntovivo. Las anomalías son 100% estadística clásica: no requieren modelo de lenguaje."
+      },
+      {
+        "q": "¿Qué pasa si se cae internet en la sede?",
+        "a": "La caja sigue cobrando — la IA no bloquea ventas, nunca. El Co-pilot y el OCR de factura entran en estado \"pausado\" con un banner ámbar; la búsqueda semántica usa el último índice de embeddings sincronizado, así que sigue encontrando productos por significado aunque estés offline. Las anomalías se calculan en lote la próxima vez que sincronices."
+      },
+      {
+        "q": "¿Cuánto cuesta? ¿Me van a clavar una cuenta de tokens?",
+        "a": "El plan Comercio incluye 800 preguntas al Co-pilot y 200 facturas OCR por sede al mes. Cada pregunta promedia $0.00088 USD — el footer de cada respuesta te muestra el costo real. Si te pasas, el siguiente nivel cuesta como un almuerzo mensual: $9 USD/sede por cada bloque adicional de 1.000 preguntas. La búsqueda semántica y las anomalías no consumen tokens."
+      },
+      {
+        "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
+        "a": "Por eso siempre te mostramos el SQL ejecutado y el conteo de filas debajo. La respuesta narrativa es un resumen del resultado tabulado — no del conocimiento del modelo. Si quieres ser estricta: el rol gerente puede activar el modo \"auditoría dura\", que oculta la respuesta narrativa y solo te muestra la tabla. La IA propone; quien decide eres tú."
+      },
+      {
+        "q": "¿Cómo apago la IA si todavía no quiero usarla?",
+        "a": "Desde Configuración › IA, con un switch por capacidad: Co-pilot, anomalías, búsqueda semántica y OCR se prenden o apagan individualmente y por sede. Un tenant que apague todo recibe la misma consola que antes — sin chips, sin sparkles, sin chats. Las cuatro están en ON por defecto desde Mayo 2026."
+      }
+    ]
+  },
+  "alerts": {
+    "kicker": "Centro de mando · Alertas y novedades",
+    "title": "Lo que pasa en todas tus sedes, en una sola vista.",
+    "desc": "Stock al mínimo, cierres con diferencia, transferencias en tránsito, reembolsos. Puntovivo cruza datos por sede y te avisa solo cuando vale la pena interrumpir.",
+    "badgeSites": "3 sedes activas",
+    "badgeAlerts": "4 alertas hoy",
+    "narrativeTitle": "No revises tres consolas. Revisa una.",
+    "narrativeDesc": "El dashboard reúne ventas, inventario, turnos y syncs en un mismo feed. Cada alerta lleva al lugar exacto de la consola — un click, no tres pestañas.",
+    "statSalesLabel": "Ventas hoy",
+    "statSalesValue": "$3,21M",
+    "statSalesDelta": "+18 %",
+    "statTicketsLabel": "Tickets",
+    "statPendingLabel": "Por atender",
+    "feedTitle": "Bandeja de novedades",
+    "feedSub": "Última actualización · 09:42",
+    "filterToday": "Hoy",
+    "filterWeek": "Semana",
+    "filterMonth": "Mes",
+    "items": [
+      {
+        "sede": "Sede Centro",
+        "t": "Stock al mínimo · 4 SKUs",
+        "d": "Café 500g, leche larga vida, harina de maíz blanca, papel térmico 80mm — todos por debajo del mínimo configurado.",
+        "w": "hace 4 min"
+      },
+      {
+        "sede": "Sede Norte",
+        "t": "Cierre con faltante · −$14.200",
+        "d": "Turno de Camilo cerró con <b>faltante</b> frente al saldo esperado. Diferencia registrada en cierres recientes.",
+        "w": "ayer 21:14"
+      },
+      {
+        "sede": "Sede Sur",
+        "t": "Transferencia en tránsito · TR-0142",
+        "d": "Sede Centro envió <b>28 unidades</b> de café 500g. Pendiente de recibir en Sede Sur.",
+        "w": "hace 2 h"
+      },
+      {
+        "sede": "Sede Norte",
+        "t": "Recibo parcial OC-0182",
+        "d": "Equimercado entregó <b>28 de 40</b> unidades. Las 12 restantes quedan pendientes en el pedido.",
+        "w": "hace 6 h"
+      },
+      {
+        "sede": "Sede Centro",
+        "t": "Mejor día del mes",
+        "d": "$1,84M en 47 tickets · ticket promedio <b>$39.140</b> · ventana de ingresos 30 días.",
+        "w": "hoy"
+      },
+      {
+        "sede": "Sede Sur",
+        "t": "Venta reembolsada · PV-002714",
+        "d": "Lina reembolsó la venta. <b>Stock restaurado</b> en las 3 líneas y excluida de ingresos completados.",
+        "w": "hace 2 d"
+      }
+    ]
+  },
+  "flow": {
+    "kicker": "Cómo funciona",
+    "title": "El bucle del cajero, en cuatro pasos.",
+    "desc": "Máximo cinco acciones por pantalla. La consola no enseña — el cajero ya sabe cómo se cobra. Puntovivo solo se quita del medio.",
+    "steps": [
+      {
+        "t": "Abre la caja",
+        "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
+        "k": ["denominaciones"]
+      },
+      {
+        "t": "Escanea y arma la venta",
+        "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
+        "k": ["Alt+P", "F5"]
+      },
+      {
+        "t": "Cobra",
+        "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
+        "k": ["F1"]
+      },
+      {
+        "t": "Cierra ciego",
+        "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
+        "k": ["cierre ciego"]
+      }
+    ]
+  },
+  "modules": {
+    "kicker": "Lo nuevo",
+    "title": "Cambios recientes que ya ves al abrir la consola.",
+    "desc": "Cada release que toca la caja se prueba primero en una sede real. Si no aguanta un cierre de viernes, no entra.",
+    "items": [
+      {
+        "when": "May 2026",
+        "h": "Núcleo IA · v1.0",
+        "bullets": [
+          "Co-pilot: preguntas en español sobre tus datos · SQL auditable · gráfica + tabla.",
+          "Anomalías detectadas por cajero contra su propio promedio de 30 días.",
+          "Búsqueda semántica del catálogo con embeddings locales — encuentra por significado, no por SKU exacto.",
+          "OCR de factura: foto → proveedor, líneas, IVA y total prellenados en compras."
+        ]
+      },
+      {
+        "when": "May 2026",
+        "h": "Caja con cierre ciego",
+        "bullets": [
+          "Apertura con conteo por denominaciones contra plantilla del registro.",
+          "Movimientos del turno: ingreso, salida, retiro a caja fuerte, reposición de cambio.",
+          "Cierre ciego — saldo esperado oculto hasta enviar el conteo final.",
+          "Reporte de control de caja con sesiones activas y diferencias por revisar."
+        ]
+      },
+      {
+        "when": "May 2026",
+        "h": "Transferencias entre sedes",
+        "bullets": [
+          "Modo en tránsito: la sede origen se debita ya, la destino al recibir.",
+          "Recepción parcial con notas de discrepancia y badge en historial.",
+          "Anulación con reversión inmediata de ambos balances."
+        ]
+      },
+      {
+        "when": "Abr 2026",
+        "h": "Pagos divididos",
+        "bullets": [
+          "Combina efectivo, tarjeta, transferencia, crédito y otros medios.",
+          "Referencia opcional por pago para conciliación.",
+          "Validación de suma exacta antes de confirmar el cobro."
+        ]
+      },
+      {
+        "when": "Abr 2026",
+        "h": "Compras + devoluciones",
+        "bullets": [
+          "Recibo escalonado con progreso por línea sobre el pedido.",
+          "Devoluciones de compra con reposición y motivo auditable.",
+          "Cotizaciones desde el mismo catálogo y unidad de venta."
+        ]
+      }
+    ]
+  },
+  "pricing": {
+    "kicker": "Planes",
+    "title": "Precio por sede, sin sorpresas a fin de mes.",
+    "desc": "Pagas por la sede, no por el cajero. Si abres una sede nueva, la mueves desde la consola sin tickets de soporte.",
+    "recommended": "Recomendado",
+    "customPrice": "A medida",
+    "plans": [
+      {
+        "name": "Mostrador",
+        "price": "0",
+        "per": "/sede · primer mes",
+        "desc": "Para una caja, una sede y un cajero. Sin tarjeta, sin atajos especiales.",
+        "bullets": [
+          "1 caja activa",
+          "Catálogo y stock locales",
+          "Recibos térmicos 58 mm",
+          "Soporte por correo"
+        ],
+        "cta": "Empieza gratis"
+      },
+      {
+        "name": "Comercio",
+        "price": "129k",
+        "per": "/sede / mes",
+        "desc": "Para tiendas con varias cajas, bodega central y reportería real.",
+        "bullets": [
+          "Cajas y usuarios ilimitados",
+          "Pagos divididos y devoluciones",
+          "Cierre ciego + control de caja",
+          "Transferencias entre sedes",
+          "Soporte prioritario en español"
+        ],
+        "cta": "Pide una demo"
+      },
+      {
+        "name": "Cadena",
+        "price": "Custom",
+        "per": " ",
+        "desc": "Multi-tenant para franquicias y cadenas de barrio con varias razones sociales.",
+        "bullets": [
+          "Multi-tenant con aislamiento estricto",
+          "Auditoría por turno y consecutivos por sede",
+          "Catálogos diferenciados por cliente",
+          "Onboarding asistido por sede"
+        ],
+        "cta": "Hablemos"
+      }
+    ]
+  },
+  "quote": {
+    "textA": "\"La caja dejó de pelear con el cajero. ",
+    "textEm": "El cierre del viernes",
+    "textB": " ya no es un evento — es un botón.\"",
+    "who": "Andrea Pulido",
+    "role": "Administradora · Mercado Las Aguas, Bogotá"
+  },
+  "faq": {
+    "kicker": "Preguntas",
+    "title": "Lo que preguntan dueños y cajeros antes de cambiar de sistema.",
+    "items": [
+      {
+        "q": "¿Qué necesita una sede para empezar?",
+        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente y una impresora térmica de 58 u 80 mm. Si la sede tiene escáner USB, lo reconocemos como teclado. La nube no es requisito para vender."
+      },
+      {
+        "q": "¿Funciona sin internet?",
+        "a": "Sí. Los cambios hechos sin conexión se quedan locales y se sincronizan cuando regresa la red. La barra de estado de la app muestra los cambios pendientes y los conflictos por resolver — ninguno bloquea una venta en curso."
+      },
+      {
+        "q": "¿Cómo manejo varias sedes o cajas?",
+        "a": "Puntovivo es multi-sede y multi-tenant desde el primer día. Cada sede tiene su consecutivo de venta, su inventario y su caja independiente. El selector en la barra superior cambia la sede activa sin cerrar sesión."
+      },
+      {
+        "q": "¿Qué roles trae el sistema?",
+        "a": "Admin, gestor (manager), cajero (sales) y viewer. Cada ruta de la consola — dashboard, ventas, compras, configuración — declara explícitamente qué roles la pueden ver, y cambiar de rol invalida la sesión al instante."
+      },
+      {
+        "q": "¿Cómo es el cierre ciego?",
+        "a": "Al cerrar el turno, el cajero cuenta el cajón por denominaciones. El sistema mantiene oculto el saldo esperado hasta que el total contado se envía. La diferencia (cuadrada, sobrante o faltante) queda registrada en el reporte de control de caja — nadie la corrige a mano."
+      },
+      {
+        "q": "¿Puedo migrar mi catálogo?",
+        "a": "Sí, mediante exportación CSV / Excel con SKU, descripción, costo, precio, IVA y stock por bodega. Si tu sistema actual es Loyverse, Alegra, Siigo o World Office, te acompañamos en la migración."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Una caja que respeta el ritmo de tu sede.",
+    "desc": "Te acompañamos en la migración del catálogo y un primer cierre real. Si no convence al cajero del viernes, te devolvemos el mes.",
+    "demo": "Agenda una demo",
+    "download": "Baja el desktop"
+  },
+  "footer": {
+    "tagline": "POS, inventario y compras para PYMES colombianas. Local-first, bilingüe, calmo.",
+    "productTitle": "Producto",
+    "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
+    "companyTitle": "Empresa",
+    "companyLinks": ["Sobre nosotros", "Roadmap", "Estado del servicio", "Contacto"],
+    "resourcesTitle": "Recursos",
+    "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
+    "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
+    "version": "{{version}} · MIT"
+  }
+}
