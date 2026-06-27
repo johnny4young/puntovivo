@@ -112,7 +112,7 @@ vertical the wedge; an admin enables them per tenant via `/company?tab=modules`.
 - `experimental` — beta / unproven. Reserved for future AI Wave 2 and
   payment-terminal adapters; no module carries this class yet.
 
-**Rings** (see `MARKET-SEGMENTS.md`): `1` = generic retail MVP, `2` = restaurant +
+**Rings**: `1` = generic retail MVP, `2` = restaurant +
 pharmacy, `3` = service verticals.
 
 | Module id | Class | Ring | Default | Ring-1 retail | What it gates |

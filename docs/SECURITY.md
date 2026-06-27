@@ -20,11 +20,11 @@ The project already includes the main baseline controls expected for the current
 
 Key references:
 
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/index.ts)
-- [auth.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/routers/auth.ts)
-- [roles.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/middleware/roles.ts)
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
+- [index.ts](packages/server/src/index.ts)
+- [auth.ts](packages/server/src/trpc/routers/auth.ts)
+- [roles.ts](packages/server/src/trpc/middleware/roles.ts)
+- [index.ts](apps/desktop/src/main/index.ts)
+- [index.ts](apps/desktop/src/preload/index.ts)
 
 ## Strengths Already in Place
 
@@ -263,9 +263,8 @@ reported — proof the gate fires, not just passes.
 
 ## Critical security closure (ENG-166)
 
-Eleven findings from the 2026-05-24 cross-cutting audit
-([AUDIT-2026-05-24.md](./AUDIT-2026-05-24.md)) shipped as a single
-slice. Each item below is now pinned by a regression test under
+Eleven findings from the 2026-05-24 cross-cutting audit shipped as a
+single slice. Each item below is now pinned by a regression test under
 `packages/server/src/__tests__/` or `apps/desktop/src/main/__tests__/`.
 
 ### Transport + headers

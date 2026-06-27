@@ -54,7 +54,7 @@ Current route defaults:
 - everyone else defaults to `/dashboard`
 
 Source:
-[roleAccess.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/auth/roleAccess.ts)
+[roleAccess.ts](apps/web/src/features/auth/roleAccess.ts)
 
 ## Auth Flow
 
@@ -87,7 +87,7 @@ Source:
 - `auth.changePassword`
 
 Source:
-[auth.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/routers/auth.ts)
+[auth.ts](packages/server/src/trpc/routers/auth.ts)
 
 ## Running the App
 

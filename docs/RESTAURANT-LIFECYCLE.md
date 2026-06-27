@@ -165,7 +165,6 @@ Wire-up:
 
 - Course firing sequencing ("appetizers now, mains in 10 min")
 - Floor plan drag-and-drop editor (admin sets tables as rows first)
-- Delivery integrations (Rappi, Didi Food — separate module, see
-  [MARKET-SEGMENTS.md](./MARKET-SEGMENTS.md))
+- Delivery integrations (Rappi, Didi Food — separate module)
 - Auto-86'ing ingredients to hide menu items at runtime — arrives for
   free once product composition (6a) ships

@@ -11,8 +11,8 @@ Puntovivo reads configuration from two places:
 
 Examples live in:
 
-- [.env.example](/Users/johnny4young/Personal/github/puntovivo/.env.example)
-- [apps/web/.env.example](/Users/johnny4young/Personal/github/puntovivo/apps/web/.env.example)
+- [.env.example](.env.example)
+- [apps/web/.env.example](apps/web/.env.example)
 
 ## Root Environment Variables
 
@@ -37,9 +37,9 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 | `VERBOSE` | `false` unless explicitly enabled | Server logging |
 
 The standalone server reads these via the shared resolver in:
-[config/runtime.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/config/runtime.ts)
-and the boot sites in [standalone.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/standalone.ts) +
-[apps/desktop/src/main/index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts).
+[config/runtime.ts](packages/server/src/config/runtime.ts)
+and the boot sites in [standalone.ts](packages/server/src/standalone.ts) +
+[apps/desktop/src/main/index.ts](apps/desktop/src/main/index.ts).
 
 ### Desktop / Electron runtime
 
@@ -51,8 +51,8 @@ and the boot sites in [standalone.ts](/Users/johnny4young/Personal/github/puntov
 
 Relevant files:
 
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
-- [auto-updater.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/auto-updater.ts)
+- [index.ts](apps/desktop/src/main/index.ts)
+- [auto-updater.ts](apps/desktop/src/main/auto-updater.ts)
 
 ## Web Environment Variables
 
@@ -66,7 +66,7 @@ These are bundled by Vite and must be present as `VITE_*`.
 | `VITE_APP_NAME` | `Puntovivo` | Display label |
 
 Relevant file:
-[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
+[trpc.ts](apps/web/src/lib/trpc.ts)
 
 ## Common Setups
 

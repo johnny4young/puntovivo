@@ -74,7 +74,7 @@ In this project, lifecycle refers to the runtime sequence of the Electron deskto
 ### Actual boot flow in the project
 
 The main entry is:
-[index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+[index.ts](apps/desktop/src/main/index.ts)
 
 The key lifecycle path is:
 
@@ -90,7 +90,7 @@ The key lifecycle path is:
 
 Relevant source:
 
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+- [index.ts](apps/desktop/src/main/index.ts)
 
 ### Lifecycle sequence diagram
 
@@ -228,9 +228,9 @@ Renderer code
 
 Relevant files:
 
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
-- [index.d.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.d.ts)
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+- [index.ts](apps/desktop/src/preload/index.ts)
+- [index.d.ts](apps/desktop/src/preload/index.d.ts)
+- [index.ts](apps/desktop/src/main/index.ts)
 
 ### Why preload exists
 
@@ -394,8 +394,8 @@ Preferred process:
 
 Recommended pattern:
 
-1. add method to `ElectronAPI`, `DatabaseAPI`, or `SyncAPI` in [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
-2. mirror the typing in [index.d.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.d.ts)
+1. add method to `ElectronAPI`, `DatabaseAPI`, or `SyncAPI` in [index.ts](apps/desktop/src/preload/index.ts)
+2. mirror the typing in [index.d.ts](apps/desktop/src/preload/index.d.ts)
 3. expose it with `ipcRenderer.invoke(...)` in preload
 4. implement `ipcMain.handle(...)` in main
 5. keep the actual logic in a helper function instead of inlining large handlers
@@ -434,12 +434,12 @@ The most explicit "watch" API in the codebase is React Hook Form's `form.watch(.
 
 Examples:
 
-- [ProductFormModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/products/ProductFormModal.tsx)
-- [InventoryEntryModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/inventory/InventoryEntryModal.tsx)
-- [InventoryAdjustmentModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/inventory/InventoryAdjustmentModal.tsx)
-- [SalePaymentModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/sales/SalePaymentModal.tsx)
-- [SiteLocationAssignmentsModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/sites/SiteLocationAssignmentsModal.tsx)
-- [ProviderCategoryAssignmentsModal.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/features/providers/ProviderCategoryAssignmentsModal.tsx)
+- [ProductFormModal.tsx](apps/web/src/features/products/ProductFormModal.tsx)
+- [InventoryEntryModal.tsx](apps/web/src/features/inventory/InventoryEntryModal.tsx)
+- [InventoryAdjustmentModal.tsx](apps/web/src/features/inventory/InventoryAdjustmentModal.tsx)
+- [SalePaymentModal.tsx](apps/web/src/features/sales/SalePaymentModal.tsx)
+- [SiteLocationAssignmentsModal.tsx](apps/web/src/features/sites/SiteLocationAssignmentsModal.tsx)
+- [ProviderCategoryAssignmentsModal.tsx](apps/web/src/features/providers/ProviderCategoryAssignmentsModal.tsx)
 
 ### What `form.watch(...)` is doing
 
@@ -605,16 +605,16 @@ Use this path:
 ## Relevant Source Files
 
 - Main desktop runtime:
-  [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
+  [index.ts](apps/desktop/src/main/index.ts)
 - Auto updater:
-  [auto-updater.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/auto-updater.ts)
+  [auto-updater.ts](apps/desktop/src/main/auto-updater.ts)
 - Preload bridge:
-  [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
+  [index.ts](apps/desktop/src/preload/index.ts)
 - Preload typings:
-  [index.d.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.d.ts)
+  [index.d.ts](apps/desktop/src/preload/index.d.ts)
 - Renderer entry:
-  [main.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/main.tsx)
+  [main.tsx](apps/web/src/main.tsx)
 - Architecture summary:
-  [ARCHITECTURE.md](/Users/johnny4young/Personal/github/puntovivo/docs/ARCHITECTURE.md)
+  [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Debugging notes:
-  [DEBUGGING.md](/Users/johnny4young/Personal/github/puntovivo/docs/DEBUGGING.md)
+  [DEBUGGING.md](docs/DEBUGGING.md)

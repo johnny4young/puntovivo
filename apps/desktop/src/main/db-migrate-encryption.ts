@@ -7,7 +7,7 @@
  * Booting the upgraded build against it with a key would fail at the
  * first read (SQLITE_NOTADB), bricking the app — which is exactly
  * why the ROADMAP gated the production rollout of Step-1 on this
- * module. The migration is silent (AUDIT-2026-05-24 §ENG-167
+ * module. The migration is silent (ENG-167
  * prescription): detect → checkpoint → backup → rekey in place →
  * verify → drop the backup.
  *

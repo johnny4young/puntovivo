@@ -278,7 +278,7 @@ tables; at that point the precision invariant can refine to honour
 
 ## Why real + CHECK and not integer cents today
 
-The audit (`docs/AUDIT-2026-05-24.md §ENG-176`) accepts either path
+The audit (ENG-176) accepts either path
 for the acceptance criterion "money columns pinned by a CHECK
 invariant". The trade-off the operator weighed:
 

@@ -101,7 +101,7 @@ Check:
 - the tenant and user are active
 
 See:
-[LOGIN_GUIDE.md](/Users/johnny4young/Personal/github/puntovivo/docs/LOGIN_GUIDE.md)
+[LOGIN_GUIDE.md](docs/LOGIN_GUIDE.md)
 
 ## 9. Sync behavior looks stale
 

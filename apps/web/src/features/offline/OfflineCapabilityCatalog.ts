@@ -14,9 +14,8 @@ export interface OfflineCapabilityTile {
   /**
    * Stable, kebab-case identifier for the tile. Used as the i18n key
    * suffix under `common:offlineGrid.capabilities.<id>.{label,note}`
-   * and as the row key in `docs/WEBSITE-CAPABILITY-AUDIT.md §Tile
-   * Catalog`. Must not change once a tile ships — renaming would
-   * silently drop the matching i18n keys.
+   * and as the row key in the capability catalog. Must not change once
+   * a tile ships — renaming would silently drop the matching i18n keys.
    */
   id: string;
   icon: LucideIcon;
@@ -42,10 +41,10 @@ export interface OfflineCapabilityTile {
  *      backing feature. Do not soften `'blocked'` to `'limited'` to
  *      make the grid look nicer — operators rely on it.
  *   3. Any change to this catalog (adding a tile, renaming an id,
- *      flipping a status) MUST update `docs/WEBSITE-CAPABILITY-AUDIT.md
- *      §Tile Catalog` in the SAME commit. The website (when it ships)
- *      consumes that table as authoritative copy; drift between the
- *      array and the doc produces marketing overstatement.
+ *      flipping a status) MUST keep the capability catalog in sync in
+ *      the SAME commit. The website (when it ships) consumes that table
+ *      as authoritative copy; drift between the array and the catalog
+ *      produces marketing overstatement.
  *
  * The audit test pins this array's cardinality + id set + status enum
  * so a casual edit cannot land an overstatement silently.

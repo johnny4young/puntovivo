@@ -48,8 +48,8 @@ Use when debugging:
 
 Relevant files:
 
-- [index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/index.ts)
-- [auto-updater.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/main/auto-updater.ts)
+- [index.ts](apps/desktop/src/main/index.ts)
+- [auto-updater.ts](apps/desktop/src/main/auto-updater.ts)
 
 ### Preload bridge
 
@@ -61,7 +61,7 @@ Use when debugging:
 - desktop-only renderer integration bugs
 
 Relevant file:
-[index.ts](/Users/johnny4young/Personal/github/puntovivo/apps/desktop/src/preload/index.ts)
+[index.ts](apps/desktop/src/preload/index.ts)
 
 ### Web renderer
 
@@ -74,8 +74,8 @@ Use when debugging:
 
 Relevant files:
 
-- [main.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/main.tsx)
-- [App.tsx](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/App.tsx)
+- [main.tsx](apps/web/src/main.tsx)
+- [App.tsx](apps/web/src/App.tsx)
 
 ### Server
 

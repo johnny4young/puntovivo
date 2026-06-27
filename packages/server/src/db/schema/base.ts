@@ -21,7 +21,7 @@ import { sql } from 'drizzle-orm';
 // no defence against an unrounded write — a bug in a future feature, a raw
 // SQL CLI session, or a botched import could persist values like
 // `100.005000000001` or a negative `total = -50`. The audit
-// (`docs/AUDIT-2026-05-24.md §ENG-176`) names this as a data-integrity gap
+// (ENG-176) names this as a data-integrity gap
 // that blocks ENG-156 (multi-currency operations) and ENG-161 (NFe Brazil).
 //
 // ENG-176a closes the gap with table-level CHECK constraints. The

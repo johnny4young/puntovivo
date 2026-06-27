@@ -129,7 +129,7 @@ export interface ModuleDescriptor {
    */
   classification: ModuleClassification;
   /**
-   * Market ring this module serves (ENG-183 / MARKET-SEGMENTS.md):
+   * Market ring this module serves (ENG-183):
    * `1` = generic retail MVP (Ring-1), `2` = restaurant + pharmacy,
    * `3` = service verticals. A fresh retail tenant only enables Ring-1
    * `core` modules; Ring-2/3 surfaces are pulled forward when a pilot makes

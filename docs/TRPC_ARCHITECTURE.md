@@ -33,7 +33,7 @@ Two non-tRPC endpoints still exist intentionally:
 ## Client Configuration
 
 The web client is configured in:
-[trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
+[trpc.ts](apps/web/src/lib/trpc.ts)
 
 Current request headers:
 
@@ -85,7 +85,7 @@ Current root router modules:
 - `users`
 
 Source:
-[router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
+[router.ts](packages/server/src/trpc/router.ts)
 
 ## Why tRPC Matters in This Repo
 
@@ -659,12 +659,12 @@ typecheck.
 ## Reference Files
 
 - Server entry:
-  [index.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/index.ts)
+  [index.ts](packages/server/src/index.ts)
 - Root router:
-  [router.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/router.ts)
+  [router.ts](packages/server/src/trpc/router.ts)
 - Context:
-  [context.ts](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/context.ts)
+  [context.ts](packages/server/src/trpc/context.ts)
 - Middleware:
-  [middleware](/Users/johnny4young/Personal/github/puntovivo/packages/server/src/trpc/middleware)
+  [middleware](packages/server/src/trpc/middleware)
 - Client:
-  [trpc.ts](/Users/johnny4young/Personal/github/puntovivo/apps/web/src/lib/trpc.ts)
+  [trpc.ts](apps/web/src/lib/trpc.ts)

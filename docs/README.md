@@ -23,15 +23,12 @@ project. Read the right file for the question, not the whole directory.
 | File                                               | Use                                                                        |
 | -------------------------------------------------- | -------------------------------------------------------------------------- |
 | [`FISCAL-INTEGRATION.md`](./FISCAL-INTEGRATION.md) | DIAN-specific contract + gates + error map.                                |
-| [`LATAM-EXPANSION.md`](./LATAM-EXPANSION.md)       | Country-by-country fiscal effort.                                          |
 | [`LOCALE-CURRENCY.md`](./LOCALE-CURRENCY.md)       | `tenant_locale_settings` schema + per-tenant currency / format resolution. |
 
 ## Vertical scope
 
 | File                                                   | Use                                                      |
 | ------------------------------------------------------ | -------------------------------------------------------- |
-| [`MARKET-SEGMENTS.md`](./MARKET-SEGMENTS.md)           | Three-Rings retail / restaurant / services coverage.     |
-| [`FUTURE-VERTICALS.md`](./FUTURE-VERTICALS.md)         | Backlog of vertical adapters not yet scoped.             |
 | [`PRODUCT-COMPOSITION.md`](./PRODUCT-COMPOSITION.md)   | Product modeling for composite SKUs.                     |
 | [`RESTAURANT-LIFECYCLE.md`](./RESTAURANT-LIFECYCLE.md) | Tables, KDS, modifiers — design for the restaurant pack. |
 | [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md)       | Per-tenant module gating.                                |
@@ -46,16 +43,15 @@ project. Read the right file for the question, not the whole directory.
 
 ## UX & design system
 
-| File                                                           | Use                                                                                                                                  |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`UI-SURFACES.md`](./UI-SURFACES.md)                           | Inventory of admin surfaces + role gating.                                                                                           |
-| [`SALES-COCKPIT.md`](./SALES-COCKPIT.md)                       | Operator UX guide for cashier speed, touch ergonomics, KDS readability, fiscal setup, recipes/BOM, quotations, and owner dashboards. |
-| [`UI-REFRACTOR-V3.md`](./UI-REFRACTOR-V3.md)                   | Information architecture and progressive-disclosure plan for reducing visible options per screen.                                    |
-| [`WALKTHROUGH.md`](./WALKTHROUGH.md)                           | Design handoff alignment for Sales Cockpit, surfaces, and module activation.                                                         |
-| [`COMPONENTS.md`](./COMPONENTS.md)                             | Shared component catalog.                                                                                                            |
-| [`STYLING.md`](./STYLING.md)                                   | Design system tokens + Tailwind primitives.                                                                                          |
-| [`RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md)               | Receipt template editor + renderer.                                                                                                  |
-| [`WEBSITE-CAPABILITY-AUDIT.md`](./WEBSITE-CAPABILITY-AUDIT.md) | Public-website claim audit against shipped product support.                                                                          |
+| File                                             | Use                                                                                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [`UI-SURFACES.md`](./UI-SURFACES.md)             | Inventory of admin surfaces + role gating.                                                                                           |
+| [`SALES-COCKPIT.md`](./SALES-COCKPIT.md)         | Operator UX guide for cashier speed, touch ergonomics, KDS readability, fiscal setup, recipes/BOM, quotations, and owner dashboards. |
+| [`UI-REFRACTOR-V3.md`](./UI-REFRACTOR-V3.md)     | Information architecture and progressive-disclosure plan for reducing visible options per screen.                                    |
+| [`WALKTHROUGH.md`](./WALKTHROUGH.md)             | Design handoff alignment for Sales Cockpit, surfaces, and module activation.                                                         |
+| [`COMPONENTS.md`](./COMPONENTS.md)               | Shared component catalog.                                                                                                            |
+| [`STYLING.md`](./STYLING.md)                     | Design system tokens + Tailwind primitives.                                                                                          |
+| [`RECEIPT-TEMPLATES.md`](./RECEIPT-TEMPLATES.md) | Receipt template editor + renderer.                                                                                                  |
 
 ## Operations & runbooks
 
@@ -73,12 +69,6 @@ project. Read the right file for the question, not the whole directory.
 | [`A11Y.md`](./A11Y.md)                                           | Accessibility contract: axe-core component helper, contrast CI gate on theme tokens, ARIA conventions.                                                                   |
 | [`OBSERVABILITY.md`](./OBSERVABILITY.md)                         | Production observability rail: sink interface + captureException/withSpan helpers, tRPC tracing middleware, per-tenant opt-in + audit, renderer-side captureRenderError. |
 | [`SHORTCUTS.md`](./SHORTCUTS.md)                                 | Canonical keyboard-shortcut catalogue + global Command Palette UX.                                                                                                       |
-
-## Long-term vision
-
-| File                                           | Use                                                                               |
-| ---------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`LONG-TERM-VISION.md`](./LONG-TERM-VISION.md) | Platform-level themes (accounting integrations, WhatsApp, mobile, public API, …). |
 
 ---
 

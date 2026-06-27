@@ -5,9 +5,9 @@
  * cannot land a marketing overstatement silently:
  *
  *  - Catalog cardinality (exactly 6 tiles today). Adding a 7th
- *    requires updating `docs/WEBSITE-CAPABILITY-AUDIT.md §Tile
- *    Catalog` in the same commit (enforced by review).
- *  - Tile ids belong to the closed set known to the audit doc.
+ *    requires updating the capability catalog in the same commit
+ *    (enforced by review).
+ *  - Tile ids belong to the closed set known to the capability catalog.
  *  - Each tile uses a valid `status` from the closed enum.
  *  - Every `status='available'` tile maps to a documented backing
  *    feature (the test carries a hardcoded reference matrix that
@@ -87,11 +87,11 @@ function getCapabilityCopy(
 }
 
 describe('OfflineCapabilityGrid catalog audit (ENG-100)', () => {
-  it('exposes exactly 6 tiles — any change requires updating WEBSITE-CAPABILITY-AUDIT.md', () => {
+  it('exposes exactly 6 tiles — any change requires updating the capability catalog', () => {
     expect(OFFLINE_CAPABILITY_CATALOG).toHaveLength(6);
   });
 
-  it('every tile id is in the known set documented in WEBSITE-CAPABILITY-AUDIT.md', () => {
+  it('every tile id is in the known set documented in the capability catalog', () => {
     for (const tile of OFFLINE_CAPABILITY_CATALOG) {
       expect(KNOWN_TILE_IDS.has(tile.id)).toBe(true);
     }

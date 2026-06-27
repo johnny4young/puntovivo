@@ -11,7 +11,7 @@
  * Without housekeeping, a busy POS accumulates one row per distinct
  * (ip, email) pair seen over the lifetime of the install — easily
  * tens of thousands on a public-facing site over a year. The audit
- * (`docs/AUDIT-2026-05-24.md §ENG-168`) flagged this as the second
+ * (ENG-168) flagged this as the second
  * unbounded table on disk and asked for a 24 h cleanup sweep.
  *
  * Why a worker (not a TRIGGER): SQLite triggers fire per-write, which
