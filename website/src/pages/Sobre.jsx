@@ -15,8 +15,9 @@ const VALUE_ICONS = [
   'code-2',
   'heart-handshake',
 ];
-// Avatar initials per team member (order matches sobre.team).
-const TEAM_INITIALS = ['DR', 'MQ', 'LC', 'CV', 'AP', 'ER'];
+// Avatar initials per team member (order matches sobre.team). The project is a
+// solo effort, so this is a single entry.
+const TEAM_INITIALS = ['JY'];
 
 function Manifesto() {
   const { t } = useTranslation();
@@ -203,21 +204,21 @@ export default function Sobre() {
             <div className="sb-hero-grid">
               <div className="pv-stat-tile">
                 <span className="l">{t('sobre.heroStatSitesLabel')}</span>
-                <span className="v">142</span>
+                <span className="v">{t('sobre.heroStatSitesValue')}</span>
               </div>
               <div className="pv-stat-tile">
                 <span className="l">{t('sobre.heroStatCountriesLabel')}</span>
-                <span className="v">
-                  1<em> CO</em>
-                </span>
+                <span className="v">MIT</span>
               </div>
               <div className="pv-stat-tile">
                 <span className="l">{t('sobre.heroStatTeamLabel')}</span>
-                <span className="v">6</span>
+                <span className="v">1</span>
               </div>
               <div className="pv-stat-tile">
                 <span className="l">{t('sobre.heroStatOpenLabel')}</span>
-                <span className="v">MIT</span>
+                <span className="v">
+                  100<em> %</em>
+                </span>
               </div>
             </div>
             <p className="sb-hero-note">

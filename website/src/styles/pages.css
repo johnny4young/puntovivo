@@ -1525,13 +1525,74 @@
 
 .ct-channels {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 @media (max-width: 880px) {
   .ct-channels {
     grid-template-columns: 1fr;
   }
+}
+
+/* Open-source contribute block (replaces the old fabricated form + offices). */
+.ct-contribute {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 32px;
+  align-items: center;
+  padding: 36px 40px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in oklch, var(--line) 70%, transparent);
+  background: color-mix(in oklch, var(--card) 96%, white);
+  box-shadow: var(--shadow-card);
+}
+@media (max-width: 880px) {
+  .ct-contribute {
+    grid-template-columns: 1fr;
+    padding: 28px 22px;
+  }
+}
+.ct-contribute-l h2 {
+  margin: 8px 0 6px;
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1.1;
+  color: var(--secondary-950);
+}
+.ct-contribute-l p {
+  margin: 0;
+  color: var(--fg2);
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 34em;
+}
+.ct-contribute-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ct-contribute-steps li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  border: 1px solid color-mix(in oklch, var(--line) 60%, transparent);
+}
+.ct-contribute-steps .num {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--primary-700);
+  letter-spacing: -0.02em;
+}
+.ct-contribute-steps .d {
+  font-size: 14px;
+  color: var(--fg2);
+  line-height: 1.55;
 }
 .ct-channel {
   display: grid;

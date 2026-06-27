@@ -8,26 +8,30 @@
     "pricing": "Planes",
     "docs": "Docs",
     "roadmap": "Roadmap",
-    "estado": "Estado",
-    "login": "Ingresa",
-    "demo": "Pide una demo",
+    "github": "GitHub",
+    "demo": "Habla con nosotros",
     "themeToggle": "Cambiar tema",
     "langToggle": "Cambiar idioma"
   },
+  "download": {
+    "source": "Compila desde el código",
+    "release": "Descarga la app de escritorio"
+  },
   "hero": {
     "badgePos": "Punto de venta",
-    "badgeAi": "IA nativa",
-    "badgeVersion": "{{version}} · mayo 2026",
+    "badgeAi": "IA opcional",
+    "badgeVersionDev": "open source · en desarrollo",
+    "badgeVersionTagged": "{{version}} · open source",
     "titleA": "Una ",
     "titleEm": "caja tranquila",
     "titleB": " para el comercio colombiano.",
-    "lead": "Puntovivo une ventas, inventario y compras en una sola consola de escritorio. Escaneo rápido, cierre ciego, transferencias entre sedes y cobro dividido — todo bajo un mismo idioma de diseño, en español colombiano.",
+    "lead": "Puntovivo une ventas, inventario y compras en una sola consola de escritorio. Escaneo rápido, cierre ciego, transferencias entre sedes y cobro dividido — todo bajo un mismo idioma de diseño, en español neutro. Open source, en desarrollo activo, con demo disponible.",
     "ctaDemo": "Pide una demo guiada",
     "ctaFlow": "Mira el flujo de caja",
     "ctaAsk": "Pregúntale a la consola",
     "metaActions": "Acciones por pantalla",
     "metaCharge": "Cobrar venta",
-    "metaOffline": "Offline-first",
+    "metaOffline": "Offline-first con sincronización",
     "metaBilingual": "Bilingüe nativo",
     "posTurn": "Turno abierto · 09:42",
     "posSold": "Vendido hoy",
@@ -133,9 +137,10 @@
     "titleA": "Una IA que ",
     "titleEm": "conoce tu mostrador",
     "titleB": ", no un chatbot pegado por fuera.",
-    "desc": "Pregunta en español, deja que vigile a tus cajeros, busca productos por significado, dicta una factura del proveedor con la cámara. Todo dentro de la misma consola — bajo el mismo idioma de diseño, con el mismo offline-first y la misma auditoría por turno.",
-    "corePill": "Puntovivo IA · núcleo {{version}}",
-    "coreMeta": "openai · gpt-4.1-mini · ejecutado local · 4 capacidades activas",
+    "desc": "Pregunta en español, deja que vigile a tus cajeros, busca productos por significado, dicta una factura del proveedor con la cámara. Todo dentro de la misma consola, con la misma auditoría por turno. Las cuatro capacidades vienen apagadas: las activas desde Configuración › IA cuando quieras.",
+    "corePillDev": "Puntovivo IA · núcleo open source",
+    "corePillTagged": "Puntovivo IA · núcleo {{version}}",
+    "coreMeta": "co-pilot · anomalías · búsqueda semántica · OCR · 4 capacidades opcionales",
     "copilotBadge": "Co-pilot",
     "copilotLabel": "Pregúntale a tus datos",
     "copilotTitleA": "Conversa con tu negocio. ",
@@ -227,23 +232,23 @@
       },
       {
         "q": "¿Dónde corre el modelo? ¿Sale mi información del país?",
-        "a": "El Co-pilot usa OpenAI gpt-4.1-mini por defecto, con cuentas en infraestructura US. La búsqueda semántica y los embeddings del catálogo corren localmente — no salen de la sede. Para clientes que necesitan que todo quede on-premise tenemos un perfil con un modelo open-source (Llama o Mistral, según hardware) que vive en el mismo servidor de Puntovivo. Las anomalías son 100% estadística clásica: no requieren modelo de lenguaje."
+        "a": "El Co-pilot llama al proveedor de IA que tú configures en cada tenant (OpenAI, Anthropic u Ollama) — el modelo corre en la nube de ese proveedor, no dentro de Puntovivo. Lo que sí queda local es lo demás: el SQL se arma y se ejecuta sobre tu base, y los embeddings del catálogo se calculan y guardan en la sede, así que la búsqueda semántica no sale de tu red. Las anomalías son 100% estadística clásica: no requieren modelo de lenguaje."
       },
       {
         "q": "¿Qué pasa si se cae internet en la sede?",
-        "a": "La caja sigue cobrando — la IA no bloquea ventas, nunca. El Co-pilot y el OCR de factura entran en estado \"pausado\" con un banner ámbar; la búsqueda semántica usa el último índice de embeddings sincronizado, así que sigue encontrando productos por significado aunque estés offline. Las anomalías se calculan en lote la próxima vez que sincronices."
+        "a": "La caja sigue cobrando — la IA no bloquea ventas, nunca. El Co-pilot y el OCR de factura dependen del proveedor en la nube, así que sin conexión quedan en pausa con un banner ámbar; la búsqueda semántica usa el último índice de embeddings local, por lo que sigue encontrando productos por significado aunque estés offline. Las anomalías se calculan en lote la próxima vez que sincronices."
       },
       {
-        "q": "¿Cuánto cuesta? ¿Me van a clavar una cuenta de tokens?",
-        "a": "El plan Comercio incluye 800 preguntas al Co-pilot y 200 facturas OCR por sede al mes. Cada pregunta promedia $0.00088 USD — el footer de cada respuesta te muestra el costo real. Si te pasas, el siguiente nivel cuesta como un almuerzo mensual: $9 USD/sede por cada bloque adicional de 1.000 preguntas. La búsqueda semántica y las anomalías no consumen tokens."
+        "q": "¿Cuánto cuesta usar la IA?",
+        "a": "Puntovivo no te cobra por la IA: usas tu propia cuenta del proveedor que configures (OpenAI, Anthropic u Ollama) y pagas el consumo directamente a ese proveedor. Con Ollama puedes correr un modelo local y no pagar nada por token. Para que no te lleves sorpresas, cada tenant tiene cuotas de uso configurables que cortan el gasto — pero eso es un límite tuyo, no una factura nuestra. La búsqueda semántica y las anomalías no consumen tokens."
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
         "a": "Por eso siempre te mostramos el SQL ejecutado y el conteo de filas debajo. La respuesta narrativa es un resumen del resultado tabulado — no del conocimiento del modelo. Si quieres ser estricta: el rol gerente puede activar el modo \"auditoría dura\", que oculta la respuesta narrativa y solo te muestra la tabla. La IA propone; quien decide eres tú."
       },
       {
-        "q": "¿Cómo apago la IA si todavía no quiero usarla?",
-        "a": "Desde Configuración › IA, con un switch por capacidad: Co-pilot, anomalías, búsqueda semántica y OCR se prenden o apagan individualmente y por sede. Un tenant que apague todo recibe la misma consola que antes — sin chips, sin sparkles, sin chats. Las cuatro están en ON por defecto desde Mayo 2026."
+        "q": "¿Cómo prendo o apago la IA?",
+        "a": "Las cuatro capacidades vienen apagadas de fábrica. Desde Configuración › IA las activas con un switch por capacidad: Co-pilot, anomalías, búsqueda semántica y OCR se prenden o apagan individualmente y por sede. Un tenant que las deje apagadas recibe exactamente la misma consola — sin chips, sin sparkles, sin chats."
       }
     ]
   },
@@ -332,13 +337,13 @@
     ]
   },
   "modules": {
-    "kicker": "Lo nuevo",
-    "title": "Cambios recientes que ya ves al abrir la consola.",
-    "desc": "Cada release que toca la caja se prueba primero en una sede real. Si no aguanta un cierre de viernes, no entra.",
+    "kicker": "Lo construido",
+    "title": "Lo que ya está construido en la consola.",
+    "desc": "El núcleo de POS, caja, inventario y compras es código real que puedes correr hoy. La facturación electrónica DIAN y el hardware físico siguen en el roadmap.",
     "items": [
       {
-        "when": "May 2026",
-        "h": "Núcleo IA · v1.0",
+        "when": "Construido",
+        "h": "Núcleo IA (opcional)",
         "bullets": [
           "Co-pilot: preguntas en español sobre tus datos · SQL auditable · gráfica + tabla.",
           "Anomalías detectadas por cajero contra su propio promedio de 30 días.",
@@ -347,7 +352,7 @@
         ]
       },
       {
-        "when": "May 2026",
+        "when": "Construido",
         "h": "Caja con cierre ciego",
         "bullets": [
           "Apertura con conteo por denominaciones contra plantilla del registro.",
@@ -357,7 +362,7 @@
         ]
       },
       {
-        "when": "May 2026",
+        "when": "Construido",
         "h": "Transferencias entre sedes",
         "bullets": [
           "Modo en tránsito: la sede origen se debita ya, la destino al recibir.",
@@ -366,7 +371,7 @@
         ]
       },
       {
-        "when": "Abr 2026",
+        "when": "Construido",
         "h": "Pagos divididos",
         "bullets": [
           "Combina efectivo, tarjeta, transferencia, crédito y otros medios.",
@@ -375,7 +380,7 @@
         ]
       },
       {
-        "when": "Abr 2026",
+        "when": "Construido",
         "h": "Compras + devoluciones",
         "bullets": [
           "Recibo escalonado con progreso por línea sobre el pedido.",
@@ -386,60 +391,36 @@
     ]
   },
   "pricing": {
-    "kicker": "Planes",
-    "title": "Precio por sede, sin sorpresas a fin de mes.",
-    "desc": "Pagas por la sede, no por el cajero. Si abres una sede nueva, la mueves desde la consola sin tickets de soporte.",
-    "recommended": "Recomendado",
-    "customPrice": "A medida",
-    "plans": [
-      {
-        "name": "Mostrador",
-        "price": "0",
-        "per": "/sede · primer mes",
-        "desc": "Para una caja, una sede y un cajero. Sin tarjeta, sin atajos especiales.",
-        "bullets": [
-          "1 caja activa",
-          "Catálogo y stock locales",
-          "Recibos térmicos 58 mm",
-          "Soporte por correo"
-        ],
-        "cta": "Empieza gratis"
-      },
-      {
-        "name": "Comercio",
-        "price": "129k",
-        "per": "/sede / mes",
-        "desc": "Para tiendas con varias cajas, bodega central y reportería real.",
-        "bullets": [
-          "Cajas y usuarios ilimitados",
-          "Pagos divididos y devoluciones",
-          "Cierre ciego + control de caja",
-          "Transferencias entre sedes",
-          "Soporte prioritario en español"
-        ],
-        "cta": "Pide una demo"
-      },
-      {
-        "name": "Cadena",
-        "price": "Custom",
-        "per": " ",
-        "desc": "Multi-tenant para franquicias y cadenas de barrio con varias razones sociales.",
-        "bullets": [
-          "Multi-tenant con aislamiento estricto",
-          "Auditoría por turno y consecutivos por sede",
-          "Catálogos diferenciados por cliente",
-          "Onboarding asistido por sede"
-        ],
-        "cta": "Hablemos"
-      }
-    ]
-  },
-  "quote": {
-    "textA": "\"La caja dejó de pelear con el cajero. ",
-    "textEm": "El cierre del viernes",
-    "textB": " ya no es un evento — es un botón.\"",
-    "who": "Andrea Pulido",
-    "role": "Administradora · Mercado Las Aguas, Bogotá"
+    "kicker": "Cómo se usa",
+    "title": "Open source. Lo corres tú mismo, gratis.",
+    "desc": "Puntovivo es software libre con licencia MIT. La versión self-hosted es gratis para siempre: descargas la app de escritorio o la compilas desde el código. Una nube gestionada está en camino, sin precios todavía.",
+    "self": {
+      "name": "Self-hosted",
+      "badge": "Gratis · MIT",
+      "price": "Gratis",
+      "per": "open source",
+      "desc": "Corres Puntovivo en tu propio computador o servidor. POS, inventario, compras, multi-sede y multi-tenant — todo incluido, sin licencia que pagar.",
+      "bullets": [
+        "Cajas y usuarios sin límite de licencia",
+        "POS, inventario, compras y transferencias",
+        "Cierre ciego + control de caja",
+        "Multi-tenant con aislamiento por tenant",
+        "IA opcional con tu propio proveedor"
+      ]
+    },
+    "cloud": {
+      "name": "Nube gestionada",
+      "badge": "Próximamente",
+      "price": "Próximamente",
+      "desc": "Una versión hospedada para quien no quiere administrar su propio servidor: backups, actualizaciones y sincronización gestionadas. Aún no está lista y no tiene precio definido.",
+      "bullets": [
+        "Hosting y backups gestionados",
+        "Actualizaciones automáticas",
+        "Sincronización entre sedes",
+        "Sin servidor propio que administrar"
+      ],
+      "cta": "Avísame cuando salga"
+    }
   },
   "faq": {
     "kicker": "Preguntas",
@@ -447,7 +428,7 @@
     "items": [
       {
         "q": "¿Qué necesita una sede para empezar?",
-        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente y una impresora térmica de 58 u 80 mm. Si la sede tiene escáner USB, lo reconocemos como teclado. La nube no es requisito para vender."
+        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La app de escritorio corre ahí mismo y la nube no es requisito para vender. La impresión térmica, el cajón monedero y el escáner USB están en el roadmap — todavía no validamos hardware físico, así que hoy la prueba es sobre pantalla."
       },
       {
         "q": "¿Funciona sin internet?",
@@ -467,67 +448,68 @@
       },
       {
         "q": "¿Puedo migrar mi catálogo?",
-        "a": "Sí, mediante exportación CSV / Excel con SKU, descripción, costo, precio, IVA y stock por bodega. Si tu sistema actual es Loyverse, Alegra, Siigo o World Office, te acompañamos en la migración."
+        "a": "Sí, mediante una importación CSV / Excel con SKU, descripción, costo, precio, IVA y stock por bodega — ese es el camino que ya funciona. Los mapeadores automáticos por sistema (Loyverse, Alegra, Siigo, World Office) están en el roadmap; por ahora exportas a CSV y lo importas."
       }
     ]
   },
   "cta": {
     "title": "Una caja que respeta el ritmo de tu sede.",
-    "desc": "Te acompañamos en la migración del catálogo y un primer cierre real. Si no convence al cajero del viernes, te devolvemos el mes.",
-    "demo": "Agenda una demo",
-    "download": "Baja el desktop"
+    "desc": "Pruébala hoy: descarga la app de escritorio o compílala desde el código. Es open source, está en desarrollo activo y hay una demo lista para que la veas funcionando.",
+    "demo": "Pide una demo"
   },
   "footer": {
-    "tagline": "POS, inventario y compras para PYMES colombianas. Local-first, bilingüe, calmo.",
+    "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
     "productTitle": "Producto",
     "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
     "companyTitle": "Empresa",
-    "companyLinks": ["Sobre nosotros", "Roadmap", "Estado del servicio", "Contacto"],
+    "companyLinks": ["Sobre el proyecto", "Roadmap", "Contacto"],
     "resourcesTitle": "Recursos",
     "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
-    "version": "{{version}} · MIT"
+    "versionDev": "open source · MIT",
+    "versionTagged": "{{version}} · MIT"
   },
   "sobre": {
     "kicker": "Sobre Puntovivo",
-    "titleA": "Una caja hecha en Colombia,",
-    "titleEm": "cerrado caja",
-    "titleC": "por gente que ha ",
+    "titleA": "Un POS open source hecho en Colombia,",
+    "titleEm": "una sola persona",
+    "titleC": "construido por ",
     "titleD": ".",
-    "lead": "Somos un equipo pequeño construyendo el sistema de punto de venta que nos hubiera gustado tener cuando atendimos una caja en una cafetería, un minimarket o una franquicia.",
+    "lead": "Puntovivo es un proyecto personal de Johnny IV Young Ospino: el sistema de punto de venta que me hubiera gustado tener para el comercio colombiano y de LatAm. Código abierto, licencia MIT, en desarrollo activo.",
     "crumbInicio": "Inicio",
-    "crumbEmpresa": "Empresa",
-    "crumbSobre": "Sobre nosotros",
-    "badgeMade": "Hecho en Medellín · Bogotá",
-    "badgeRemote": "Remoto · 6 personas",
-    "badgeFounded": "Fundado 2023",
-    "heroCardTitle": "Estado de la compañía",
-    "heroCardDate": "Junio 2026",
-    "heroStatSitesLabel": "Sedes activas",
-    "heroStatCountriesLabel": "Países",
-    "heroStatTeamLabel": "Equipo",
-    "heroStatOpenLabel": "Open-source",
-    "heroNote": "Bootstrapped · sin capital de riesgo. Crecemos con clientes, no con rondas.",
-    "manifestoKicker": "Manifiesto",
+    "crumbEmpresa": "El proyecto",
+    "crumbSobre": "Sobre el proyecto",
+    "badgeMade": "Hecho en Colombia",
+    "badgeRemote": "Proyecto en solitario",
+    "badgeFounded": "Open source · MIT",
+    "heroCardTitle": "Estado del proyecto",
+    "heroCardDate": "En desarrollo activo",
+    "heroStatSitesLabel": "Madurez",
+    "heroStatSitesValue": "Demo",
+    "heroStatCountriesLabel": "Licencia",
+    "heroStatTeamLabel": "Autor",
+    "heroStatOpenLabel": "Código abierto",
+    "heroNote": "Sin capital de riesgo, sin equipo, sin clientes inventados. Un proyecto open source que avanza commit a commit.",
+    "manifestoKicker": "Por qué existe",
     "manifestoTitleA": "Caja ",
     "manifestoTitleEm": "tranquila",
     "manifestoTitleB": ", no caja inteligente.",
-    "manifestoP1": "Hicimos Puntovivo porque vimos a demasiados cajeros pelear con su sistema un viernes a las 8 p.m. Pantallas saturadas, ventanas modales, contadores de stock que mienten. La caja es el corazón del negocio; merece respeto, no más fricción.",
-    "manifestoP2": "Nuestro compromiso es simple: <b>máximo cinco acciones por pantalla</b>, español colombiano de verdad, y un cierre del viernes que no sea un evento. El resto — IA, multi-sede, transferencias — se construye encima de eso, nunca encima del cajero.",
+    "manifestoP1": "Hice Puntovivo porque vi a demasiados cajeros pelear con su sistema un viernes a las 8 p.m. Pantallas saturadas, ventanas modales, contadores de stock que mienten. La caja es el corazón del negocio; merece respeto, no más fricción.",
+    "manifestoP2": "El compromiso es simple: <b>máximo cinco acciones por pantalla</b>, español neutro de verdad, y un cierre del viernes que no sea un evento. El resto — IA opcional, multi-sede, transferencias — se construye encima de eso, nunca encima del cajero.",
     "valuesKicker": "Principios",
-    "valuesTitle": "Las seis cosas que nunca soltamos.",
+    "valuesTitle": "Las seis cosas que nunca suelto.",
     "values": [
       {
         "t": "Calma sobre densidad",
-        "d": "Si un módulo necesita un tutorial, el módulo está mal. Quitamos botones antes que agregar leyendas."
+        "d": "Si un módulo necesita un tutorial, el módulo está mal. Quito botones antes que agregar leyendas."
       },
       {
         "t": "Local primero, nube después",
         "d": "La venta se cierra sin internet. La sincronización es un detalle de implementación, no una condición."
       },
       {
-        "t": "Español colombiano nativo",
-        "d": "No es traducción: cada copy lo lee primero un cajero de barrio. Si suena raro, sale."
+        "t": "Español neutro de LatAm",
+        "d": "No es traducción: cada copy se escribe pensando en un cajero de barrio, sin voseo ni regionalismos forzados. Si suena raro, sale."
       },
       {
         "t": "Auditable de fábrica",
@@ -535,106 +517,75 @@
       },
       {
         "t": "Abierto donde importa",
-        "d": "El core es open-source MIT. Quien quiera revisar cómo se calcula el IVA o el cierre, puede hacerlo."
+        "d": "Todo el código es open-source MIT. Quien quiera revisar cómo se calcula el IVA o el cierre, puede hacerlo en GitHub."
       },
       {
-        "t": "Cobramos por sede",
-        "d": "No por cajero, ni por feature. Si abres una sede, la mueves desde la consola — sin tickets de soporte."
+        "t": "Honesto sobre su madurez",
+        "d": "Núcleo de POS sólido, pero no certificado para producción. La facturación DIAN es mock y el hardware no está validado — lo digo claro, no lo escondo."
       }
     ],
-    "timelineKicker": "Historia",
-    "timelineTitle": "De una cafetería a una cadena, sin perder el viernes.",
+    "timelineKicker": "Qué es y qué no es",
+    "timelineTitle": "Lo que ya hace, y lo que todavía no.",
     "timeline": [
       {
-        "y": "2023",
-        "q": "Jul",
-        "t": "Primer ticket emitido en una cafetería de Envigado",
-        "d": "Versión 0.1 del POS, una sede, sin nube. Funciona el viernes; se queda."
+        "y": "Hoy",
+        "q": "Listo",
+        "t": "Núcleo de POS funcional",
+        "d": "Caja con búsqueda por SKU y cobro dividido, cierre ciego por denominaciones, inventario por sede, transferencias, compras, cotizaciones y devoluciones. Multi-tenant con auditoría por turno."
       },
       {
-        "y": "2024",
-        "q": "Ene",
-        "t": "Multi-sede y transferencias entre bodegas",
-        "d": "Tres cafeterías de Daniela conectadas. Aparece el concepto de balance por sede como fuente de verdad."
+        "y": "Hoy",
+        "q": "Listo",
+        "t": "IA opcional",
+        "d": "Co-pilot lenguaje natural → SQL de solo lectura, detección de anomalías por cajero, búsqueda semántica y OCR de factura. Todo apagado por defecto; lo activas en Configuración › IA."
       },
       {
-        "y": "2024",
-        "q": "Sep",
-        "t": "Multi-tenant y consecutivos por sede",
-        "d": "Primera cadena externa adopta Puntovivo: una franquicia con cuatro razones sociales."
+        "y": "Roadmap",
+        "q": "Falta",
+        "t": "Facturación electrónica DIAN",
+        "d": "Hoy la emisión DIAN es solo un mock. La emisión real necesita un contrato con un Proveedor Tecnológico autorizado y certificados — está en el roadmap, no listo."
       },
       {
-        "y": "2025",
-        "q": "Mar",
-        "t": "Cierre ciego por denominaciones",
-        "d": "Inspirado en una libreta amarilla del minimarket de una amiga. El cajero ya no adivina."
+        "y": "Roadmap",
+        "q": "Falta",
+        "t": "Hardware físico",
+        "d": "Impresora térmica ESC/POS, cajón monedero y escáner USB no están validados. Las terminales de pago son manuales por ahora."
       },
       {
-        "y": "2025",
-        "q": "Oct",
-        "t": "Pagos divididos y devoluciones reales",
-        "d": "Efectivo + tarjeta + Nequi en un mismo cobro. Reembolso restaura stock, no solo dinero."
-      },
-      {
-        "y": "2026",
-        "q": "May",
-        "t": "Núcleo IA v1.0",
-        "d": "Co-pilot en español, búsqueda semántica de catálogo, OCR de factura. Todo opcional, todo auditable."
+        "y": "Roadmap",
+        "q": "Falta",
+        "t": "Nube gestionada",
+        "d": "Una versión hospedada con backups y actualizaciones gestionadas. Aún no existe; hoy Puntovivo es self-hosted."
       }
     ],
-    "teamKicker": "Equipo",
-    "teamTitle": "Seis personas, dos ciudades, una caja.",
-    "teamDesc": "Trabajamos remoto entre Medellín y Bogotá. Cada quien tiene una sede aliada donde prueba cambios antes de que lleguen al resto del país.",
+    "teamKicker": "Quién lo construye",
+    "teamTitle": "Una persona, un proyecto open source.",
+    "teamDesc": "Puntovivo lo desarrollo yo solo. No hay equipo, ni oficinas, ni inversionistas. Si quieres aportar, el código está en GitHub y se aceptan issues y pull requests.",
     "team": [
       {
-        "n": "Daniela Restrepo",
-        "r": "Cofundadora · Producto",
-        "b": "Llevó la operación de retail de 8 cafeterías en Medellín antes de cofundar Puntovivo. Diseña los flujos de caja y cierre."
-      },
-      {
-        "n": "Mateo Quintero",
-        "r": "Cofundador · Ingeniería",
-        "b": "12 años escribiendo software embebido para impresoras térmicas y lectores de barras. Cuida el motor local-first."
-      },
-      {
-        "n": "Lina Cárdenas",
-        "r": "Diseño & sistema",
-        "b": "Construyó el design system completo, la tipografía editorial y el lenguaje visual del POS y la web."
-      },
-      {
-        "n": "Camilo Vargas",
-        "r": "Núcleo IA",
-        "b": "Antes lingüista computacional en NLP para español de Colombia. Hoy se encarga del co-pilot, embeddings y OCR."
-      },
-      {
-        "n": "Andrea Pulido",
-        "r": "Operaciones · Soporte",
-        "b": "Trabajó 9 años en operaciones de minimarkets familiares en Bogotá. Resuelve cierres reales por WhatsApp."
-      },
-      {
-        "n": "Esteban Ríos",
-        "r": "Infraestructura",
-        "b": "Mantiene la sincronización, la nube, los backups por sede y los entornos multi-tenant aislados."
+        "n": "Johnny IV Young Ospino",
+        "r": "Autor · Desarrollador",
+        "b": "Desarrollador detrás de Puntovivo. Diseño, ingeniería, documentación y este sitio — todo el proyecto es trabajo de una sola persona, en abierto."
       }
     ],
     "ctaKicker": "Hablemos",
-    "ctaTitle": "¿Quieres conocer a quién está al otro lado de la consola?",
-    "ctaDesc": "Escríbenos por WhatsApp o agenda una llamada de 20 minutos.",
-    "ctaContact": "Contáctanos",
+    "ctaTitle": "¿Quieres aportar o probar el proyecto?",
+    "ctaDesc": "Abre un issue en GitHub, escribe a Discussions o mándame un correo. Toda contribución es bienvenida.",
+    "ctaContact": "Contáctame",
     "ctaRoadmap": "Ver roadmap"
   },
   "docs": {
-    "kicker": "Documentación · v1.0",
+    "kicker": "Documentación",
     "titleA": "Cómo funciona Puntovivo,",
     "titleB": "en ",
     "titleEm": "español plano",
     "titleC": ".",
-    "lead": "Una sola fuente para cajeros, gestores y desarrolladores. Cada artículo se valida con una sede real antes de publicarse.",
+    "lead": "Una sola fuente para cajeros, gestores y desarrolladores. La documentación crece junto con el proyecto, en abierto.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbDocs": "Documentación",
-    "badgeArticles": "154 artículos",
-    "badgeUpdated": "Actualizado semanalmente",
+    "badgeArticles": "En construcción",
+    "badgeUpdated": "Open source",
     "badgeOpen": "Abierto · MIT",
     "searchPre": "Busca",
     "searchTerm1": "cierre ciego",
@@ -648,7 +599,7 @@
       },
       {
         "t": "Caja y ventas",
-        "d": "Cobrar, descontar, devolver, dividir pagos, imprimir recibo térmico y enviar el digital por WhatsApp.",
+        "d": "Cobrar, descontar, devolver, dividir pagos, suspender y retomar una venta, y generar el recibo.",
         "tag": "Operación diaria"
       },
       {
@@ -726,7 +677,7 @@
       "Diferencia y reporte de control",
       "FAQ y errores comunes"
     ],
-    "onpageFoot": "Editado hace 4 días por Lina C.",
+    "onpageFoot": "Documentación open source · editable en GitHub",
     "artTag": "Caja con cierre ciego",
     "artReadTime": "6 min de lectura",
     "artUpdated": "Actualizado 14 may 2026",
@@ -758,7 +709,7 @@
     "feedbackH2": "¿Te sirvió esta página?",
     "feedbackYes": "Sí, gracias",
     "feedbackNo": "Falta algo",
-    "feedbackLink": "Escríbenos por WhatsApp →"
+    "feedbackLink": "Abre un issue en GitHub →"
   },
   "roadmap": {
     "kicker": "Roadmap público",
@@ -766,13 +717,13 @@
     "titleB": "y por qué ",
     "titleEm": "en ese orden",
     "titleC": ".",
-    "lead": "Cada elemento se prioriza por el dolor real que vemos en sedes activas. Si una idea aún no está aquí, todavía estamos investigando — pero podemos hablar.",
+    "lead": "Cada elemento se prioriza por el dolor real del comercio que conozco. Si una idea aún no está aquí, todavía la estoy investigando — y se puede proponer en GitHub.",
     "crumbInicio": "Inicio",
-    "crumbEmpresa": "Empresa",
+    "crumbEmpresa": "El proyecto",
     "crumbRoadmap": "Roadmap",
-    "badgeUpdated": "Actualizado 18 may 2026",
-    "badgeIdeas": "12 ideas en curso",
-    "badgePublic": "Pública desde 2024",
+    "badgeUpdated": "Roadmap público",
+    "badgeIdeas": "Ideas en curso",
+    "badgePublic": "Open source",
     "legendTitle": "Cómo leer este tablero",
     "legendNow": "Ahora · 6 semanas",
     "legendNext": "Siguiente · trimestre",
@@ -795,7 +746,7 @@
     "columns": {
       "now": {
         "label": "Ahora",
-        "kicker": "T2 · 2026",
+        "kicker": "Ahora",
         "desc": "En desarrollo activo · llega en las próximas 6 semanas.",
         "items": [
           {
@@ -834,7 +785,7 @@
       },
       "next": {
         "label": "Siguiente",
-        "kicker": "T3 · 2026",
+        "kicker": "Siguiente",
         "desc": "Próximo trimestre · alcance confirmado, diseño en curso.",
         "items": [
           {
@@ -873,7 +824,7 @@
       },
       "later": {
         "label": "Después",
-        "kicker": "T4 · 2026 y más allá",
+        "kicker": "Explorando",
         "desc": "En investigación · queremos hacerlo pero todavía no sabemos cómo.",
         "items": [
           {
@@ -911,132 +862,68 @@
         ]
       }
     },
-    "votesTitle": "Votos de clientes y prospectos",
-    "betaTitle": "Sede beta donde se prueba primero",
-    "shippedKicker": "Ya llegó · últimos 6 meses",
-    "shippedTitle": "Lo que ya está en tu caja.",
+    "shippedKicker": "Ya construido",
+    "shippedTitle": "Lo que ya funciona en la consola.",
     "shipped": [
-      { "when": "May 2026", "t": "Núcleo IA · v1.0", "area": "IA" },
-      { "when": "May 2026", "t": "Cierre ciego por denominaciones", "area": "Caja" },
-      { "when": "May 2026", "t": "Transferencias entre sedes", "area": "Inventario" },
-      { "when": "Abr 2026", "t": "Pagos divididos", "area": "Caja" },
-      { "when": "Abr 2026", "t": "Compras + devoluciones", "area": "Compras" },
-      { "when": "Mar 2026", "t": "Consecutivos por sede", "area": "Multi-tenant" },
-      { "when": "Feb 2026", "t": "Auditoría por turno", "area": "Seguridad" }
+      { "when": "Construido", "t": "Núcleo IA (opcional)", "area": "IA" },
+      { "when": "Construido", "t": "Cierre ciego por denominaciones", "area": "Caja" },
+      { "when": "Construido", "t": "Transferencias entre sedes", "area": "Inventario" },
+      { "when": "Construido", "t": "Pagos divididos", "area": "Caja" },
+      { "when": "Construido", "t": "Compras + devoluciones", "area": "Compras" },
+      { "when": "Construido", "t": "Consecutivos por sede", "area": "Multi-tenant" },
+      { "when": "Construido", "t": "Auditoría por turno", "area": "Seguridad" }
     ],
-    "voteKicker": "Vota o propón",
+    "voteKicker": "Propón una idea",
     "voteTitle": "¿Necesitas algo que no está aquí?",
-    "voteDesc": "El roadmap se ordena por dolor real, no por hype. Si tu sede pelea con algo todos los viernes, queremos saberlo. Cada propuesta entra al backlog y se discute en la junta quincenal.",
+    "voteDesc": "El roadmap se ordena por el dolor real del comercio, no por hype. Si algo te pelea todos los viernes, cuéntamelo: abre un issue en GitHub y entra al backlog del proyecto.",
     "votePlaceholder": "Describe la idea en una línea…",
-    "voteSend": "Enviar propuesta",
+    "voteSend": "Abrir issue en GitHub",
     "voteIssues": "Ver issues en GitHub"
   },
   "contacto": {
     "kicker": "Contacto",
-    "titleA": "Háblanos por donde mejor te ",
-    "titleEm": "quede",
+    "titleA": "Habla con el proyecto por ",
+    "titleEm": "GitHub o correo",
     "titleB": ".",
-    "lead": "WhatsApp, correo, una llamada, una visita. Cualquier camino llega a un humano del equipo en menos de 4 horas hábiles.",
+    "lead": "Puntovivo es open source y lo desarrolla una sola persona. No hay equipo de ventas ni soporte 24/7: los canales reales son GitHub y un correo directo.",
     "crumbInicio": "Inicio",
-    "crumbEmpresa": "Empresa",
+    "crumbEmpresa": "El proyecto",
     "crumbContacto": "Contacto",
-    "badgeResponse": "Respuesta < 4 h hábiles",
-    "badgeWa": "Soporte por WhatsApp",
-    "badgeHours": "Lun-vie 8 a 18",
-    "asideOnline": "Estamos en línea",
-    "asideLastReply": "Última respuesta hace 6 min",
-    "asideAvgLabel": "Tiempo medio",
-    "asideCsatLabel": "CSAT 90 d",
-    "asideFoot": "Fuera de horario hábil contestamos a primera hora del siguiente día.",
-    "channelsKicker": "Canales directos",
+    "badgeOpen": "Open source",
+    "badgeIssues": "Issues abiertos",
+    "badgeMit": "Licencia MIT",
+    "asideTitle": "Proyecto activo",
+    "asideSub": "Issues y PRs bienvenidos",
+    "asideFoot": "Al ser un proyecto en solitario, los tiempos de respuesta varían. Lo más rápido es abrir un issue en GitHub.",
+    "channelsKicker": "Canales reales",
     "channelsTitle": "Sin formularios laberínticos.",
-    "channelsDesc": "Si prefieres no llenar nada, escríbenos directo. Estos son canales reales con humanos al otro lado.",
-    "channelWaTitle": "WhatsApp Business",
-    "channelWaDesc": "El medio que usan los cajeros para resolver dudas en caliente.",
-    "channelMailTitle": "Correo",
-    "channelMailDesc": "Para algo que necesite quedar por escrito.",
-    "channelDemoTitle": "Demo de 20 min",
-    "channelDemoDesc": "Te mostramos la consola con tus datos de muestra.",
-    "channelDemoValue": "Reserva en Cal.com",
-    "channelGithubTitle": "GitHub",
-    "channelGithubDesc": "Reporta bugs, propón mejoras, lee el código del POS.",
-    "channelGithubValue": "github.com/puntovivo",
-    "tracks": {
-      "ventas": {
-        "label": "Ventas",
-        "lead": "Probar Puntovivo en tu sede, pedir cotización, conocer planes.",
-        "sla": "Respondemos en menos de 4 horas hábiles.",
-        "who": "Daniela Restrepo · Cofundadora"
+    "channelsDesc": "Estos son los canales reales del proyecto. Escribe directo: te responde la persona que escribe el código.",
+    "channels": {
+      "issues": {
+        "title": "GitHub Issues",
+        "desc": "Reporta un bug o pide una funcionalidad con contexto reproducible."
       },
-      "soporte": {
-        "label": "Soporte",
-        "lead": "Ayuda con un cierre, un sync trabado, un cajero bloqueado.",
-        "sla": "Respondemos en menos de 30 minutos en horario hábil.",
-        "who": "Andrea Pulido · Operaciones"
+      "discussions": {
+        "title": "GitHub Discussions",
+        "desc": "Preguntas abiertas, ideas y conversación sobre el proyecto."
       },
-      "prensa": {
-        "label": "Prensa",
-        "lead": "Notas, entrevistas, datos del producto, kit de prensa.",
-        "sla": "Respondemos en 1 día hábil.",
-        "who": "Lina Cárdenas · Diseño & marca"
-      },
-      "alianzas": {
-        "label": "Alianzas",
-        "lead": "Integraciones, partners de implementación, distribución regional.",
-        "sla": "Respondemos en 1-2 días hábiles.",
-        "who": "Mateo Quintero · Cofundador"
+      "email": {
+        "title": "Correo",
+        "desc": "Para algo que prefieras tratar en privado o por escrito."
       }
     },
-    "formSideKicker": "¿Sobre qué nos escribes?",
-    "fieldName": "Nombre y apellido",
-    "fieldNamePh": "María Restrepo",
-    "fieldCompany": "Empresa o sede",
-    "fieldCompanyPh": "Mercado Las Aguas",
-    "fieldEmail": "Correo",
-    "fieldEmailPh": "maria@mercadolasaguas.co",
-    "fieldWa": "WhatsApp",
-    "fieldWaOptional": "opcional",
-    "fieldWaPh": "+57 300 000 0000",
-    "fieldSedes": "¿Cuántas sedes?",
-    "fieldVertical": "Tipo de comercio",
-    "selectPlaceholder": "Selecciona…",
-    "verticalOptions": [
-      "Cafetería o panadería",
-      "Minimarket / tienda de barrio",
-      "Licorera",
-      "Papelería / variedades",
-      "Otro"
-    ],
-    "fieldFuente": "¿Cómo nos conociste?",
-    "fuenteOptions": ["Referido", "Búsqueda en Google", "Instagram / TikTok", "Evento o feria"],
-    "fieldTenant": "ID de tenant",
-    "fieldTenantPh": "tnt_pv_…",
-    "fieldSede": "Sede afectada",
-    "fieldSedePh": "Sede Centro · Bogotá",
-    "fieldConsola": "Versión de la consola",
-    "fieldConsolaPh": "v1.0.4 — visible en Ajustes",
-    "fieldMedio": "Medio",
-    "fieldMedioPh": "Bloomberg Línea",
-    "fieldDeadline": "Fecha de publicación",
-    "fieldEmpresaPress": "Empresa",
-    "fieldEmpresaPressPh": "Tu empresa",
-    "fieldTipo": "Tipo de alianza",
-    "tipoOptions": ["Integración técnica", "Partner de implementación", "Distribución regional"],
-    "fieldMessage": "Cuéntanos en una o dos líneas",
-    "fieldMessagePh": "Tenemos 3 sedes en Bogotá y queremos consolidar inventario…",
-    "formNote": "No compartimos tus datos. Política de privacidad disponible bajo demanda.",
-    "formSend": "Enviar mensaje",
-    "officeKicker": "Oficinas",
-    "officeTitle": "Dos ciudades, una zona horaria.",
-    "officeDesc": "No tenemos oficinas atendiendo público, pero te recibimos para café si avisas con un día de antelación.",
-    "officeMedellinCity": "Medellín",
-    "officeMedellinAddr1": "Cra 43A · El Poblado",
-    "officeMedellinAddr2": "Antioquia, Colombia",
-    "officeBogotaCity": "Bogotá",
-    "officeBogotaAddr1": "Cl 82 · Chicó Norte",
-    "officeBogotaAddr2": "Bogotá D.C., Colombia",
-    "officeTz": "GMT-5 · Horario 8:00–18:00",
-    "mapFoot": "Mapa estilizado · no a escala"
+    "contribute": {
+      "kicker": "Contribuye",
+      "title": "Es código abierto: puedes aportar.",
+      "desc": "Todo el código vive en GitHub bajo licencia MIT. Reportes, ideas y pull requests son bienvenidos, sin importar tu nivel.",
+      "ctaIssues": "Abrir un issue",
+      "ctaDiscussions": "Ir a Discussions",
+      "steps": [
+        "Clona el repositorio y sigue el README para correrlo en local.",
+        "Abre un issue describiendo el bug o la propuesta con su contexto.",
+        "Manda un pull request; se revisa y se discute en abierto."
+      ]
+    }
   },
   "atajos": {
     "kicker": "Atajos de teclado",
@@ -1117,20 +1004,20 @@
   },
   "migracion": {
     "kicker": "Guía de migración",
-    "titleA": "Cambia de sistema sin ",
-    "titleEm": "parar",
-    "titleB": " de vender.",
-    "lead": "Te acompañamos paso a paso desde la exportación de tu catálogo hasta la primera apertura de caja en Puntovivo. La mayoría de sedes completa el cambio en una tarde.",
+    "titleA": "Trae tu catálogo con una ",
+    "titleEm": "importación CSV",
+    "titleB": ".",
+    "lead": "El camino que funciona hoy es importar tu catálogo desde un archivo CSV o Excel. Los mapeadores automáticos por sistema (Loyverse, Alegra, Siigo, World Office) están en el roadmap; por ahora exportas a CSV desde tu sistema y lo importas en Puntovivo.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbMigracion": "Guía de migración",
     "badgeTime": "30 a 90 min por sede",
-    "badgeHuman": "Acompañamiento humano",
+    "badgeHuman": "Importación CSV / Excel",
     "badgeNoDowntime": "Sin downtime",
     "pickerHead": "¿De dónde vienes?",
-    "levelAuto": "Automática",
-    "levelAsistida": "Asistida",
-    "levelManual": "Manual",
+    "levelAuto": "Mapeador en roadmap",
+    "levelAsistida": "Mapeador en roadmap",
+    "levelManual": "Vía CSV disponible",
     "sources": [
       {
         "id": "loyverse",
@@ -1165,13 +1052,13 @@
       {
         "id": "otro",
         "t": "Otro sistema",
-        "d": "Te ayudamos a mapear si tienes export.",
+        "d": "Si exporta a CSV, lo importas igual.",
         "level": "manual"
       }
     ],
     "pickerFootA": "Desde",
     "pickerFootB": "→ Puntovivo",
-    "pickerFootEm": "· tiempo estimado: 30 a 90 min · acompañamiento incluido",
+    "pickerFootEm": "· vía CSV · tiempo estimado: 30 a 90 min",
     "stepsKicker": "Plan en cinco pasos",
     "stepsTitle": "Lo que toma migrar, paso por paso.",
     "steps": [
@@ -1200,9 +1087,9 @@
       },
       {
         "n": "03",
-        "t": "Sube el archivo al asistente",
+        "t": "Sube el CSV a la importación",
         "time": "2 min",
-        "d": "Desde la consola, abre Ajustes → Migración. Suelta el archivo, escoge tu sistema de origen y deja que el asistente proponga el mapeo de columnas. Puedes ajustar campo por campo antes de continuar.",
+        "d": "Desde la consola, abre Ajustes → Importar. Suelta el archivo CSV con los encabezados esperados y confirma el mapeo de columnas campo por campo antes de continuar.",
         "checks": [
           { "t": "Mapa de columnas confirmado por ti", "ok": true },
           { "t": "IVA por defecto seleccionado (0/5/19 %)", "ok": true },
@@ -1232,8 +1119,8 @@
       }
     ],
     "compatKicker": "Compatibilidad",
-    "compatTitle": "Lo que mapeamos automáticamente.",
-    "compatDesc": "Estas son las columnas que el asistente reconoce sin que tengas que renombrar nada. Lo que no mapea, te lo pregunta antes de aplicar.",
+    "compatTitle": "Mapeo de columnas por sistema (en roadmap).",
+    "compatDesc": "Así se verá el mapeo automático cuando llegue: el asistente reconocería estas columnas sin que renombres nada. Por ahora exportas a CSV y ajustas los encabezados al formato de abajo.",
     "mapColSystem": "Sistema",
     "mapColFile": "Archivo esperado",
     "mapColSku": "SKU",
@@ -1253,7 +1140,7 @@
         "price": "Price → precio",
         "iva": "Tax → iva",
         "stock": "Stock at store X → balance.sedeX",
-        "level": "Automática"
+        "level": "En roadmap"
       },
       {
         "from": "Alegra",
@@ -1264,7 +1151,7 @@
         "price": "Precio venta → precio",
         "iva": "Impuesto → iva",
         "stock": "Inventario → balance",
-        "level": "Automática"
+        "level": "En roadmap"
       },
       {
         "from": "Siigo",
@@ -1275,7 +1162,7 @@
         "price": "Precio 1 → precio",
         "iva": "IVA → iva",
         "stock": "Saldo → balance",
-        "level": "Asistida"
+        "level": "En roadmap"
       },
       {
         "from": "World Office",
@@ -1286,7 +1173,7 @@
         "price": "Lista 1 → precio",
         "iva": "Impuesto → iva",
         "stock": "Existencia → balance",
-        "level": "Asistida"
+        "level": "En roadmap"
       }
     ],
     "sampleKicker": "Formato propio",
@@ -1318,187 +1205,10 @@
         "a": "El histórico de ventas no se migra: arrancas limpio en Puntovivo. Conservas tus reportes del sistema anterior como archivo. Para la mayoría de PYMES esto es lo que recomiendan los contadores."
       }
     ],
-    "ctaKicker": "¿Lo hacemos juntos?",
-    "ctaTitle": "Reserva una sesión de migración guiada.",
-    "ctaDesc": "Una hora por videollamada con tu archivo abierto. Salimos con la primera venta de prueba lista.",
-    "ctaSchedule": "Agendar migración",
+    "ctaKicker": "¿Dudas con tu archivo?",
+    "ctaTitle": "¿Tu catálogo no encaja en el formato?",
+    "ctaDesc": "Si tu export tiene una estructura rara, abre un issue en GitHub con un ejemplo (sin datos sensibles) y lo revisamos en abierto.",
+    "ctaSchedule": "Preguntar en GitHub",
     "ctaRead": "Leer guía completa"
-  },
-  "estado": {
-    "kicker": "Estado del servicio",
-    "titleA": "Lo que está prendido, lo que ",
-    "titleEm": "no",
-    "titleB": ",",
-    "titleC": "y por cuánto tiempo.",
-    "lead": "Esta página se actualiza cada 30 segundos contra los probes que corremos desde tres regiones. Si algo se rompe lo vas a ver aquí antes que en tu sede.",
-    "crumbInicio": "Inicio",
-    "crumbEmpresa": "Empresa",
-    "crumbEstado": "Estado del servicio",
-    "badgeProbes": "Probes cada 30 s",
-    "badgeRegions": "3 regiones de origen",
-    "badgeHistory": "Histórico desde 2024",
-    "statusOk": "Operativo",
-    "statusMinor": "Degradado",
-    "statusMajor": "Interrupción",
-    "statusMaint": "Mantenimiento",
-    "legendTitle": "Cómo leemos uptime",
-    "legendOkLabel": "Operativo",
-    "legendOkDesc": "sin incidentes registrados.",
-    "legendMinorLabel": "Degradado",
-    "legendMinorDesc": "algunos usuarios afectados.",
-    "legendMajorLabel": "Interrupción",
-    "legendMajorDesc": "servicio caído.",
-    "legendMaintLabel": "Mantenimiento",
-    "legendMaintDesc": "programado con aviso.",
-    "legendFoot": "Calculamos uptime sobre 90 días, ponderado por sedes afectadas.",
-    "bannerKicker": "Estado actual",
-    "bannerTitle": "Todos los sistemas operativos.",
-    "bannerDesc": "Última comprobación hace 38 segundos. Las sedes de Cali reportaron sincronización lenta más temprano hoy; ya está resuelto.",
-    "bannerUptimeLabel": "Uptime 90d",
-    "bannerIncidentsLabel": "Incidentes 30d",
-    "servicesKicker": "Servicios",
-    "servicesTitle": "Siete sistemas que mantienen tu caja en línea.",
-    "services": [
-      {
-        "id": "pos",
-        "name": "Consola de caja",
-        "desc": "App de escritorio para vender, cobrar, cerrar caja."
-      },
-      {
-        "id": "sync",
-        "name": "Sincronización en la nube",
-        "desc": "Envío y recepción de cambios entre sede y backend."
-      },
-      {
-        "id": "ai",
-        "name": "Núcleo IA · Co-pilot",
-        "desc": "Co-pilot, embeddings, OCR de factura."
-      },
-      {
-        "id": "auth",
-        "name": "Autenticación · cuentas",
-        "desc": "Inicio de sesión, roles, cambio de sede."
-      },
-      {
-        "id": "dian",
-        "name": "Pasarela DIAN",
-        "desc": "Emisión de documentos electrónicos vía partner."
-      },
-      {
-        "id": "web",
-        "name": "Sitio web & docs",
-        "desc": "puntovivo.co, docs y página de soporte."
-      },
-      {
-        "id": "wa",
-        "name": "Bot de WhatsApp",
-        "desc": "Recibos digitales y soporte por WhatsApp Business."
-      }
-    ],
-    "barsAria": "Estado de los últimos 90 días",
-    "servicesFootA": "Cada barra",
-    "servicesFootB": "es un día. Más a la izquierda, más antiguo.",
-    "servicesFootRange": "Hace 90 días → hoy",
-    "uptimeLabel": "90d",
-    "regionsKicker": "Por región",
-    "regionsTitle": "Sedes activas, agrupadas por ciudad.",
-    "regionsDesc": "Si una sede pierde conexión, la caja sigue vendiendo offline. Esta vista refleja el estado del backend de sincronización por región — no el estado individual de cada sede.",
-    "regions": [
-      { "id": "bog", "name": "Bogotá", "count": 64, "status": "ok" },
-      { "id": "med", "name": "Medellín", "count": 38, "status": "ok" },
-      { "id": "cli", "name": "Cali", "count": 18, "status": "minor" },
-      { "id": "bar", "name": "Barranquilla", "count": 12, "status": "ok" },
-      { "id": "otros", "name": "Otras", "count": 10, "status": "ok" }
-    ],
-    "regionCount": "{{count}} sedes",
-    "incidentsKicker": "Historial · últimos 30 días",
-    "incidentsTitle": "Tres incidentes, todos resueltos.",
-    "sevMajor": "Mayor",
-    "sevMinor": "Menor",
-    "sevInfo": "Info",
-    "stepDetectado": "Detectado",
-    "stepInvestigando": "Investigando",
-    "stepComunicado": "Comunicado",
-    "stepResuelto": "Resuelto",
-    "incidents": [
-      {
-        "sev": "minor",
-        "title": "Sincronización lenta en sede Cali Sur",
-        "started": "18 may · 14:32",
-        "resolved": "18 may · 15:47",
-        "elapsed": "1 h 15 min",
-        "steps": [
-          {
-            "at": "14:32",
-            "s": "Detectado",
-            "d": "Latencia de sync > 8s reportada por 3 sedes de Cali. Equipo de infra notificado."
-          },
-          {
-            "at": "14:55",
-            "s": "Investigando",
-            "d": "Aislamos un nodo de la región que respondía lento. Tráfico migrado al nodo vecino."
-          },
-          {
-            "at": "15:47",
-            "s": "Resuelto",
-            "d": "Latencia normalizada (< 1s). Ningún cambio pendiente, ningún ticket reabierto."
-          }
-        ]
-      },
-      {
-        "sev": "major",
-        "title": "Pasarela DIAN intermitente",
-        "started": "07 may · 09:14",
-        "resolved": "07 may · 11:02",
-        "elapsed": "1 h 48 min",
-        "steps": [
-          {
-            "at": "09:14",
-            "s": "Detectado",
-            "d": "Pasarela del partner DIAN devolviendo timeouts en ~30% de las solicitudes."
-          },
-          {
-            "at": "09:32",
-            "s": "Comunicado",
-            "d": "Notificamos a las 142 sedes activas vía banner en la consola. Las ventas siguen funcionando offline."
-          },
-          {
-            "at": "10:48",
-            "s": "Investigando",
-            "d": "Partner confirma incidente upstream. Los documentos quedan en cola para reenvío automático."
-          },
-          {
-            "at": "11:02",
-            "s": "Resuelto",
-            "d": "Pasarela recuperada. 412 documentos reencolados se enviaron correctamente."
-          }
-        ]
-      },
-      {
-        "sev": "minor",
-        "title": "WhatsApp lento para envío de recibos",
-        "started": "02 may · 18:11",
-        "resolved": "02 may · 18:39",
-        "elapsed": "28 min",
-        "steps": [
-          {
-            "at": "18:11",
-            "s": "Detectado",
-            "d": "Webhooks de WhatsApp tardando > 20s. Cola de envío saturada."
-          },
-          { "at": "18:39", "s": "Resuelto", "d": "Reescalado el worker; cola drenada en 6 min." }
-        ]
-      }
-    ],
-    "subscribeKicker": "Suscríbete",
-    "subscribeTitle": "Entérate antes que tus cajeros.",
-    "subscribeDesc": "Te avisamos por correo o WhatsApp cuando comience un incidente, cuando lo resolvamos y cuando programemos un mantenimiento.",
-    "subTabEmail": "Correo",
-    "subTabWa": "WhatsApp",
-    "subTabWebhook": "Webhook",
-    "subTabRss": "RSS",
-    "subInputPh": "tu@tienda.com",
-    "subButton": "Suscribir",
-    "subFoot": "Solo enviamos cuando hay novedad. Cancelas con un clic."
   }
 }

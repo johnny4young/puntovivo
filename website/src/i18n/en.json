@@ -8,26 +8,30 @@
     "pricing": "Pricing",
     "docs": "Docs",
     "roadmap": "Roadmap",
-    "estado": "Status",
-    "login": "Sign in",
-    "demo": "Book a demo",
+    "github": "GitHub",
+    "demo": "Talk to us",
     "themeToggle": "Toggle theme",
     "langToggle": "Switch language"
   },
+  "download": {
+    "source": "Build from source",
+    "release": "Download the desktop app"
+  },
   "hero": {
     "badgePos": "Point of sale",
-    "badgeAi": "Native AI",
-    "badgeVersion": "{{version}} · May 2026",
+    "badgeAi": "Optional AI",
+    "badgeVersionDev": "open source · in development",
+    "badgeVersionTagged": "{{version}} · open source",
     "titleA": "A ",
     "titleEm": "calm register",
     "titleB": " for everyday retail.",
-    "lead": "Puntovivo brings sales, inventory and purchasing into a single desktop console. Fast scanning, blind close, inter-site transfers and split payment — all under one design language.",
+    "lead": "Puntovivo brings sales, inventory and purchasing into a single desktop console. Fast scanning, blind close, inter-site transfers and split payment — all under one design language. Open source, in active development, with a demo available.",
     "ctaDemo": "Book a guided demo",
     "ctaFlow": "See the checkout flow",
     "ctaAsk": "Ask the console",
     "metaActions": "Actions per screen",
     "metaCharge": "Charge a sale",
-    "metaOffline": "Offline-first",
+    "metaOffline": "Offline-first sync",
     "metaBilingual": "Natively bilingual",
     "posTurn": "Shift open · 09:42",
     "posSold": "Sold today",
@@ -133,9 +137,10 @@
     "titleA": "An AI that ",
     "titleEm": "knows your counter",
     "titleB": " — not a chatbot bolted on the side.",
-    "desc": "Ask in plain language, let it watch your cashiers, search products by meaning, dictate a supplier invoice with the camera. All inside the same console — same design language, same offline-first, same per-shift audit.",
-    "corePill": "Puntovivo AI · core {{version}}",
-    "coreMeta": "openai · gpt-4.1-mini · run locally · 4 capabilities active",
+    "desc": "Ask in plain language, let it watch your cashiers, search products by meaning, dictate a supplier invoice with the camera. All inside the same console, with the same per-shift audit. All four capabilities ship turned off: enable them from Settings › AI whenever you want.",
+    "corePillDev": "Puntovivo AI · open-source core",
+    "corePillTagged": "Puntovivo AI · core {{version}}",
+    "coreMeta": "co-pilot · anomalies · semantic search · OCR · 4 optional capabilities",
     "copilotBadge": "Co-pilot",
     "copilotLabel": "Ask your data",
     "copilotTitleA": "Talk to your business. ",
@@ -223,23 +228,23 @@
       },
       {
         "q": "Where does the model run? Does my data leave the country?",
-        "a": "The Co-pilot uses OpenAI gpt-4.1-mini by default, on US infrastructure accounts. Semantic search and catalog embeddings run locally — they never leave the site. For customers who need everything on-premise we have a profile with an open-source model (Llama or Mistral, depending on hardware) that lives on the same Puntovivo server. Anomalies are 100% classic statistics: no language model required."
+        "a": "The Co-pilot calls whichever AI provider you configure per tenant (OpenAI, Anthropic or Ollama) — the model runs in that provider's cloud, not inside Puntovivo. Everything else stays local: the SQL is built and executed against your own database, and the catalog embeddings are computed and stored at the site, so semantic search never leaves your network. Anomalies are 100% classic statistics: no language model required."
       },
       {
         "q": "What happens if the site loses internet?",
-        "a": "The register keeps charging — the AI never blocks sales. The Co-pilot and invoice OCR enter a \"paused\" state with an amber banner; semantic search uses the last synced embedding index, so it keeps finding products by meaning even offline. Anomalies are computed in batch the next time you sync."
+        "a": "The register keeps charging — the AI never blocks sales. The Co-pilot and invoice OCR rely on the cloud provider, so offline they pause with an amber banner; semantic search uses the last local embedding index, so it keeps finding products by meaning even offline. Anomalies are computed in batch the next time you sync."
       },
       {
-        "q": "How much does it cost? Will I get hit with a token bill?",
-        "a": "The Comercio plan includes 800 Co-pilot questions and 200 OCR invoices per site per month. Each question averages $0.00088 USD — the footer of every answer shows the real cost. If you go over, the next tier costs like a monthly lunch: $9 USD/site per additional block of 1,000 questions. Semantic search and anomalies don't consume tokens."
+        "q": "How much does the AI cost?",
+        "a": "Puntovivo doesn't charge you for the AI: you use your own account with the provider you configure (OpenAI, Anthropic or Ollama) and pay that provider directly for usage. With Ollama you can run a local model and pay nothing per token. To avoid surprises, every tenant has configurable usage quotas that cap spend — but that's a limit you set, not a bill from us. Semantic search and anomalies don't consume tokens."
       },
       {
         "q": "Can I trust the answers? What if it makes up numbers?",
         "a": "That's why we always show you the executed SQL and the row count below. The narrative answer is a summary of the tabulated result — not of the model's knowledge. If you want to be strict: the manager role can enable \"hard audit\" mode, which hides the narrative answer and shows you only the table. The AI proposes; you decide."
       },
       {
-        "q": "How do I turn the AI off if I'm not ready to use it?",
-        "a": "From Settings › AI, with a switch per capability: Co-pilot, anomalies, semantic search and OCR turn on or off individually and per site. A tenant that turns everything off gets the same console as before — no chips, no sparkles, no chats. All four are ON by default since May 2026."
+        "q": "How do I turn the AI on or off?",
+        "a": "All four capabilities ship turned off. From Settings › AI you enable them with a switch per capability: Co-pilot, anomalies, semantic search and OCR turn on or off individually and per site. A tenant that leaves them off gets the exact same console — no chips, no sparkles, no chats."
       }
     ]
   },
@@ -328,13 +333,13 @@
     ]
   },
   "modules": {
-    "kicker": "What's new",
-    "title": "Recent changes you already see when you open the console.",
-    "desc": "Every release that touches the register is tested first in a real store. If it can't survive a Friday close, it doesn't ship.",
+    "kicker": "What's built",
+    "title": "What's already built into the console.",
+    "desc": "The POS, cash, inventory and purchasing core is real code you can run today. DIAN electronic invoicing and physical hardware are still on the roadmap.",
     "items": [
       {
-        "when": "May 2026",
-        "h": "AI core · v1.0",
+        "when": "Built",
+        "h": "AI core (optional)",
         "bullets": [
           "Co-pilot: plain-language questions about your data · auditable SQL · chart + table.",
           "Anomalies detected per cashier against their own 30-day average.",
@@ -343,7 +348,7 @@
         ]
       },
       {
-        "when": "May 2026",
+        "when": "Built",
         "h": "Register with blind close",
         "bullets": [
           "Opening with a count by denomination against the register template.",
@@ -353,7 +358,7 @@
         ]
       },
       {
-        "when": "May 2026",
+        "when": "Built",
         "h": "Inter-site transfers",
         "bullets": [
           "In-transit mode: the origin site is debited now, the destination on receipt.",
@@ -362,7 +367,7 @@
         ]
       },
       {
-        "when": "Apr 2026",
+        "when": "Built",
         "h": "Split payments",
         "bullets": [
           "Combine cash, card, transfer, credit and other methods.",
@@ -371,7 +376,7 @@
         ]
       },
       {
-        "when": "Apr 2026",
+        "when": "Built",
         "h": "Purchasing + returns",
         "bullets": [
           "Staged receipt with per-line progress against the order.",
@@ -382,60 +387,36 @@
     ]
   },
   "pricing": {
-    "kicker": "Pricing",
-    "title": "Priced per site, no surprises at month's end.",
-    "desc": "You pay per site, not per cashier. Open a new site and you move it from the console — no support tickets.",
-    "recommended": "Recommended",
-    "customPrice": "Custom",
-    "plans": [
-      {
-        "name": "Mostrador",
-        "price": "0",
-        "per": "/site · first month",
-        "desc": "For one register, one site and one cashier. No card, no special shortcuts.",
-        "bullets": [
-          "1 active register",
-          "Local catalog and stock",
-          "58 mm thermal receipts",
-          "Email support"
-        ],
-        "cta": "Start free"
-      },
-      {
-        "name": "Comercio",
-        "price": "129k",
-        "per": "/site / month",
-        "desc": "For stores with several registers, a central warehouse and real reporting.",
-        "bullets": [
-          "Unlimited registers and users",
-          "Split payments and returns",
-          "Blind close + cash control",
-          "Inter-site transfers",
-          "Priority support"
-        ],
-        "cta": "Book a demo"
-      },
-      {
-        "name": "Cadena",
-        "price": "Custom",
-        "per": " ",
-        "desc": "Multi-tenant for franchises and neighborhood chains with several legal entities.",
-        "bullets": [
-          "Multi-tenant with strict isolation",
-          "Per-shift audit and per-site sequentials",
-          "Catalogs differentiated per customer",
-          "Assisted onboarding per site"
-        ],
-        "cta": "Let's talk"
-      }
-    ]
-  },
-  "quote": {
-    "textA": "\"The register stopped fighting the cashier. ",
-    "textEm": "Friday's close",
-    "textB": " is no longer an event — it's a button.\"",
-    "who": "Andrea Pulido",
-    "role": "Administrator · Mercado Las Aguas, Bogotá"
+    "kicker": "How you use it",
+    "title": "Open source. Self-host it yourself, for free.",
+    "desc": "Puntovivo is MIT-licensed open-source software. The self-hosted version is free forever: download the desktop app or build it from source. A managed cloud is on the way, with no pricing yet.",
+    "self": {
+      "name": "Self-hosted",
+      "badge": "Free · MIT",
+      "price": "Free",
+      "per": "open source",
+      "desc": "Run Puntovivo on your own computer or server. POS, inventory, purchasing, multi-site and multi-tenant — all included, no license to pay.",
+      "bullets": [
+        "Registers and users with no license cap",
+        "POS, inventory, purchasing and transfers",
+        "Blind close + cash control",
+        "Multi-tenant with per-tenant isolation",
+        "Optional AI with your own provider"
+      ]
+    },
+    "cloud": {
+      "name": "Managed cloud",
+      "badge": "Coming soon",
+      "price": "Coming soon",
+      "desc": "A hosted version for anyone who doesn't want to run their own server: managed backups, updates and syncing. It isn't ready yet and has no defined price.",
+      "bullets": [
+        "Managed hosting and backups",
+        "Automatic updates",
+        "Inter-site syncing",
+        "No server of your own to run"
+      ],
+      "cta": "Tell me when it ships"
+    }
   },
   "faq": {
     "kicker": "Questions",
@@ -443,7 +424,7 @@
     "items": [
       {
         "q": "What does a site need to get started?",
-        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux, plus a 58 or 80 mm thermal printer. If the site has a USB scanner, we recognize it as a keyboard. The cloud isn't required to sell."
+        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs right there and the cloud isn't required to sell. Thermal printing, a cash drawer and USB scanners are on the roadmap — we haven't validated physical hardware yet, so today the demo is on screen."
       },
       {
         "q": "Does it work without internet?",
@@ -463,67 +444,68 @@
       },
       {
         "q": "Can I migrate my catalog?",
-        "a": "Yes, via CSV / Excel export with SKU, description, cost, price, VAT and stock per warehouse. If your current system is Loyverse, Alegra, Siigo or World Office, we'll guide you through the migration."
+        "a": "Yes, via a CSV / Excel import with SKU, description, cost, price, VAT and stock per warehouse — that's the path that already works. Automatic per-system mappers (Loyverse, Alegra, Siigo, World Office) are on the roadmap; for now you export to CSV and import that."
       }
     ]
   },
   "cta": {
     "title": "A register that respects your store's rhythm.",
-    "desc": "We help you migrate the catalog and run a first real close. If it doesn't convince the Friday cashier, we'll refund the month.",
-    "demo": "Schedule a demo",
-    "download": "Get the desktop app"
+    "desc": "Try it today: download the desktop app or build it from source. It's open source, in active development, and there's a demo ready for you to see it running.",
+    "demo": "Book a demo"
   },
   "footer": {
-    "tagline": "POS, inventory and purchasing for small businesses. Local-first, bilingual, calm.",
+    "tagline": "POS, inventory and purchasing for LatAm retail. Open source, local-first, bilingual.",
     "productTitle": "Product",
     "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
     "companyTitle": "Company",
-    "companyLinks": ["About us", "Roadmap", "Service status", "Contact"],
+    "companyLinks": ["About the project", "Roadmap", "Contact"],
     "resourcesTitle": "Resources",
     "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
-    "version": "{{version}} · MIT"
+    "versionDev": "open source · MIT",
+    "versionTagged": "{{version}} · MIT"
   },
   "sobre": {
     "kicker": "About Puntovivo",
-    "titleA": "A register built in Colombia,",
-    "titleEm": "closed a register",
-    "titleC": "by people who have ",
+    "titleA": "An open-source POS built in Colombia,",
+    "titleEm": "one person",
+    "titleC": "built by ",
     "titleD": ".",
-    "lead": "We are a small team building the point-of-sale system we wish we'd had back when we ran a register at a coffee shop, a corner store or a franchise.",
+    "lead": "Puntovivo is a personal project by Johnny IV Young Ospino: the point-of-sale system I wish I'd had for Colombian and wider LatAm retail. Open source, MIT-licensed, in active development.",
     "crumbInicio": "Home",
-    "crumbEmpresa": "Company",
-    "crumbSobre": "About us",
-    "badgeMade": "Built in Medellín · Bogotá",
-    "badgeRemote": "Remote · 6 people",
-    "badgeFounded": "Founded 2023",
-    "heroCardTitle": "Company status",
-    "heroCardDate": "June 2026",
-    "heroStatSitesLabel": "Active sites",
-    "heroStatCountriesLabel": "Countries",
-    "heroStatTeamLabel": "Team",
-    "heroStatOpenLabel": "Open-source",
-    "heroNote": "Bootstrapped · no venture capital. We grow with customers, not with funding rounds.",
-    "manifestoKicker": "Manifesto",
+    "crumbEmpresa": "The project",
+    "crumbSobre": "About the project",
+    "badgeMade": "Built in Colombia",
+    "badgeRemote": "Solo project",
+    "badgeFounded": "Open source · MIT",
+    "heroCardTitle": "Project status",
+    "heroCardDate": "In active development",
+    "heroStatSitesLabel": "Maturity",
+    "heroStatSitesValue": "Demo",
+    "heroStatCountriesLabel": "License",
+    "heroStatTeamLabel": "Author",
+    "heroStatOpenLabel": "Open code",
+    "heroNote": "No venture capital, no team, no invented customers. An open-source project moving forward commit by commit.",
+    "manifestoKicker": "Why it exists",
     "manifestoTitleA": "A ",
     "manifestoTitleEm": "calm register",
     "manifestoTitleB": ", not a smart one.",
-    "manifestoP1": "We made Puntovivo because we watched too many cashiers fight their system on a Friday at 8 p.m. Cluttered screens, modal windows, stock counters that lie. The register is the heart of the business; it deserves respect, not more friction.",
-    "manifestoP2": "Our commitment is simple: <b>five actions per screen, max</b>, real Colombian Spanish, and a Friday close that isn't an event. Everything else — AI, multi-site, transfers — is built on top of that, never on top of the cashier.",
+    "manifestoP1": "I made Puntovivo because I watched too many cashiers fight their system on a Friday at 8 p.m. Cluttered screens, modal windows, stock counters that lie. The register is the heart of the business; it deserves respect, not more friction.",
+    "manifestoP2": "The commitment is simple: <b>five actions per screen, max</b>, real neutral Spanish, and a Friday close that isn't an event. Everything else — optional AI, multi-site, transfers — is built on top of that, never on top of the cashier.",
     "valuesKicker": "Principles",
-    "valuesTitle": "The six things we never let go of.",
+    "valuesTitle": "The six things I never let go of.",
     "values": [
       {
         "t": "Calm over density",
-        "d": "If a module needs a tutorial, the module is wrong. We remove buttons before we add captions."
+        "d": "If a module needs a tutorial, the module is wrong. I remove buttons before I add captions."
       },
       {
         "t": "Local first, cloud later",
         "d": "The sale closes without internet. Syncing is an implementation detail, not a condition."
       },
       {
-        "t": "Native Colombian Spanish",
-        "d": "It's not translation: every line of copy is read first by a neighborhood cashier. If it sounds off, it's out."
+        "t": "Neutral LatAm Spanish",
+        "d": "It's not translation: every line of copy is written for a neighborhood cashier, with no voseo and no forced regionalisms. If it sounds off, it's out."
       },
       {
         "t": "Auditable by default",
@@ -531,106 +513,75 @@
       },
       {
         "t": "Open where it counts",
-        "d": "The core is open-source MIT. Anyone who wants to review how VAT or the close is calculated, can."
+        "d": "All the code is open-source MIT. Anyone who wants to review how VAT or the close is calculated can do it on GitHub."
       },
       {
-        "t": "We charge per site",
-        "d": "Not per cashier, not per feature. Open a new site and you move it from the console — no support tickets."
+        "t": "Honest about its maturity",
+        "d": "Solid POS core, but not production-certified. DIAN invoicing is a mock and hardware isn't validated — I say it plainly, I don't hide it."
       }
     ],
-    "timelineKicker": "History",
-    "timelineTitle": "From one coffee shop to a chain, without losing Friday.",
+    "timelineKicker": "What it is and isn't",
+    "timelineTitle": "What it already does, and what it doesn't yet.",
     "timeline": [
       {
-        "y": "2023",
-        "q": "Jul",
-        "t": "First ticket issued at a coffee shop in Envigado",
-        "d": "POS version 0.1, one site, no cloud. It works on Friday; it stays."
+        "y": "Today",
+        "q": "Ready",
+        "t": "Working POS core",
+        "d": "Register with SKU search and split tender, blind close by denomination, per-site inventory, transfers, purchasing, quotes and returns. Multi-tenant with a per-shift audit log."
       },
       {
-        "y": "2024",
-        "q": "Jan",
-        "t": "Multi-site and warehouse transfers",
-        "d": "Three of Daniela's coffee shops connected. The idea of per-site balance as the source of truth emerges."
+        "y": "Today",
+        "q": "Ready",
+        "t": "Optional AI",
+        "d": "Co-pilot natural language → read-only SQL, anomaly detection per cashier, semantic search and invoice OCR. All off by default; you enable it in Settings › AI."
       },
       {
-        "y": "2024",
-        "q": "Sep",
-        "t": "Multi-tenant and per-site sequentials",
-        "d": "First external chain adopts Puntovivo: a franchise with four legal entities."
+        "y": "Roadmap",
+        "q": "Missing",
+        "t": "DIAN electronic invoicing",
+        "d": "Today DIAN issuance is only a mock. Real issuance needs a contract with an authorized Technology Provider plus certificates — it's on the roadmap, not ready."
       },
       {
-        "y": "2025",
-        "q": "Mar",
-        "t": "Blind close by denominations",
-        "d": "Inspired by a yellow notebook from a friend's corner store. The cashier no longer guesses."
+        "y": "Roadmap",
+        "q": "Missing",
+        "t": "Physical hardware",
+        "d": "ESC/POS thermal printer, cash drawer and USB scanner aren't validated. Payment terminals are manual for now."
       },
       {
-        "y": "2025",
-        "q": "Oct",
-        "t": "Split payments and real refunds",
-        "d": "Cash + card + Nequi in a single charge. A refund restores stock, not just money."
-      },
-      {
-        "y": "2026",
-        "q": "May",
-        "t": "AI Core v1.0",
-        "d": "Co-pilot in Spanish, semantic catalog search, invoice OCR. All optional, all auditable."
+        "y": "Roadmap",
+        "q": "Missing",
+        "t": "Managed cloud",
+        "d": "A hosted version with managed backups and updates. It doesn't exist yet; today Puntovivo is self-hosted."
       }
     ],
-    "teamKicker": "Team",
-    "teamTitle": "Six people, two cities, one register.",
-    "teamDesc": "We work remotely between Medellín and Bogotá. Each of us has a partner site where we test changes before they reach the rest of the country.",
+    "teamKicker": "Who builds it",
+    "teamTitle": "One person, one open-source project.",
+    "teamDesc": "Puntovivo is developed by me alone. There's no team, no offices, no investors. If you want to contribute, the code is on GitHub and issues and pull requests are welcome.",
     "team": [
       {
-        "n": "Daniela Restrepo",
-        "r": "Co-founder · Product",
-        "b": "Ran retail operations for 8 coffee shops in Medellín before co-founding Puntovivo. Designs the register and close flows."
-      },
-      {
-        "n": "Mateo Quintero",
-        "r": "Co-founder · Engineering",
-        "b": "12 years writing embedded software for thermal printers and barcode scanners. Tends the local-first engine."
-      },
-      {
-        "n": "Lina Cárdenas",
-        "r": "Design & system",
-        "b": "Built the entire design system, the editorial typography and the visual language of the POS and the web."
-      },
-      {
-        "n": "Camilo Vargas",
-        "r": "AI Core",
-        "b": "Formerly a computational linguist in NLP for Colombian Spanish. Now owns the co-pilot, embeddings and OCR."
-      },
-      {
-        "n": "Andrea Pulido",
-        "r": "Operations · Support",
-        "b": "Worked 9 years in operations for family-run corner stores in Bogotá. Resolves real closes over WhatsApp."
-      },
-      {
-        "n": "Esteban Ríos",
-        "r": "Infrastructure",
-        "b": "Maintains syncing, the cloud, per-site backups and the isolated multi-tenant environments."
+        "n": "Johnny IV Young Ospino",
+        "r": "Author · Developer",
+        "b": "The developer behind Puntovivo. Design, engineering, documentation and this site — the whole project is the work of a single person, in the open."
       }
     ],
     "ctaKicker": "Let's talk",
-    "ctaTitle": "Want to meet who's on the other side of the console?",
-    "ctaDesc": "Message us on WhatsApp or schedule a 20-minute call.",
-    "ctaContact": "Contact us",
+    "ctaTitle": "Want to contribute or try the project?",
+    "ctaDesc": "Open an issue on GitHub, post in Discussions or send me an email. Every contribution is welcome.",
+    "ctaContact": "Contact me",
     "ctaRoadmap": "See roadmap"
   },
   "docs": {
-    "kicker": "Documentation · v1.0",
+    "kicker": "Documentation",
     "titleA": "How Puntovivo works,",
     "titleB": "in ",
-    "titleEm": "plain Spanish",
+    "titleEm": "plain language",
     "titleC": ".",
-    "lead": "A single source for cashiers, managers and developers. Every article is validated with a real site before it's published.",
+    "lead": "A single source for cashiers, managers and developers. The docs grow alongside the project, in the open.",
     "crumbInicio": "Home",
     "crumbRecursos": "Resources",
     "crumbDocs": "Documentation",
-    "badgeArticles": "154 articles",
-    "badgeUpdated": "Updated weekly",
+    "badgeArticles": "Work in progress",
+    "badgeUpdated": "Open source",
     "badgeOpen": "Open · MIT",
     "searchPre": "Search",
     "searchTerm1": "blind close",
@@ -644,7 +595,7 @@
       },
       {
         "t": "Register & sales",
-        "d": "Charge, discount, refund, split payments, print a thermal receipt and send the digital one over WhatsApp.",
+        "d": "Charge, discount, refund, split payments, suspend and resume a sale, and generate the receipt.",
         "tag": "Daily operation"
       },
       {
@@ -722,7 +673,7 @@
       "Difference and control report",
       "FAQ and common errors"
     ],
-    "onpageFoot": "Edited 4 days ago by Lina C.",
+    "onpageFoot": "Open-source docs · editable on GitHub",
     "artTag": "Register with blind close",
     "artReadTime": "6 min read",
     "artUpdated": "Updated May 14, 2026",
@@ -754,7 +705,7 @@
     "feedbackH2": "Did this page help?",
     "feedbackYes": "Yes, thanks",
     "feedbackNo": "Something's missing",
-    "feedbackLink": "Message us on WhatsApp →"
+    "feedbackLink": "Open an issue on GitHub →"
   },
   "roadmap": {
     "kicker": "Public roadmap",
@@ -762,13 +713,13 @@
     "titleB": "and why ",
     "titleEm": "in that order",
     "titleC": ".",
-    "lead": "Each item is prioritized by the real pain we see at active sites. If an idea isn't here yet, we're still researching it — but we can talk.",
+    "lead": "Each item is prioritized by the real pain of the retail I know. If an idea isn't here yet, I'm still researching it — and you can propose it on GitHub.",
     "crumbInicio": "Home",
-    "crumbEmpresa": "Company",
+    "crumbEmpresa": "The project",
     "crumbRoadmap": "Roadmap",
-    "badgeUpdated": "Updated May 18, 2026",
-    "badgeIdeas": "12 ideas in progress",
-    "badgePublic": "Public since 2024",
+    "badgeUpdated": "Public roadmap",
+    "badgeIdeas": "Ideas in progress",
+    "badgePublic": "Open source",
     "legendTitle": "How to read this board",
     "legendNow": "Now · 6 weeks",
     "legendNext": "Next · quarter",
@@ -791,7 +742,7 @@
     "columns": {
       "now": {
         "label": "Now",
-        "kicker": "Q2 · 2026",
+        "kicker": "Now",
         "desc": "In active development · arriving in the next 6 weeks.",
         "items": [
           {
@@ -830,7 +781,7 @@
       },
       "next": {
         "label": "Next",
-        "kicker": "Q3 · 2026",
+        "kicker": "Next",
         "desc": "Next quarter · scope confirmed, design in progress.",
         "items": [
           {
@@ -869,7 +820,7 @@
       },
       "later": {
         "label": "Later",
-        "kicker": "Q4 · 2026 and beyond",
+        "kicker": "Exploring",
         "desc": "Under research · we want to do it but don't yet know how.",
         "items": [
           {
@@ -907,132 +858,68 @@
         ]
       }
     },
-    "votesTitle": "Votes from customers and prospects",
-    "betaTitle": "Beta site where it's tested first",
-    "shippedKicker": "Already here · last 6 months",
-    "shippedTitle": "What's already in your register.",
+    "shippedKicker": "Already built",
+    "shippedTitle": "What already works in the console.",
     "shipped": [
-      { "when": "May 2026", "t": "AI Core · v1.0", "area": "AI" },
-      { "when": "May 2026", "t": "Blind close by denominations", "area": "Register" },
-      { "when": "May 2026", "t": "Transfers between sites", "area": "Inventory" },
-      { "when": "Apr 2026", "t": "Split payments", "area": "Register" },
-      { "when": "Apr 2026", "t": "Purchasing + returns", "area": "Purchasing" },
-      { "when": "Mar 2026", "t": "Per-site sequentials", "area": "Multi-tenant" },
-      { "when": "Feb 2026", "t": "Per-shift audit log", "area": "Security" }
+      { "when": "Built", "t": "AI core (optional)", "area": "AI" },
+      { "when": "Built", "t": "Blind close by denominations", "area": "Register" },
+      { "when": "Built", "t": "Transfers between sites", "area": "Inventory" },
+      { "when": "Built", "t": "Split payments", "area": "Register" },
+      { "when": "Built", "t": "Purchasing + returns", "area": "Purchasing" },
+      { "when": "Built", "t": "Per-site sequentials", "area": "Multi-tenant" },
+      { "when": "Built", "t": "Per-shift audit log", "area": "Security" }
     ],
-    "voteKicker": "Vote or propose",
+    "voteKicker": "Propose an idea",
     "voteTitle": "Need something that isn't here?",
-    "voteDesc": "The roadmap is ordered by real pain, not hype. If your site fights with something every Friday, we want to know. Every proposal enters the backlog and is discussed at the biweekly meeting.",
+    "voteDesc": "The roadmap is ordered by real retail pain, not hype. If something fights you every Friday, tell me: open an issue on GitHub and it enters the project backlog.",
     "votePlaceholder": "Describe the idea in one line…",
-    "voteSend": "Send proposal",
+    "voteSend": "Open an issue on GitHub",
     "voteIssues": "See issues on GitHub"
   },
   "contacto": {
     "kicker": "Contact",
-    "titleA": "Reach us however works best ",
-    "titleEm": "for you",
+    "titleA": "Reach the project through ",
+    "titleEm": "GitHub or email",
     "titleB": ".",
-    "lead": "WhatsApp, email, a call, a visit. Every path reaches a human on the team in under 4 business hours.",
+    "lead": "Puntovivo is open source and built by a single person. There's no sales team and no 24/7 support: the real channels are GitHub and a direct email.",
     "crumbInicio": "Home",
-    "crumbEmpresa": "Company",
+    "crumbEmpresa": "The project",
     "crumbContacto": "Contact",
-    "badgeResponse": "Reply < 4 business hours",
-    "badgeWa": "Support over WhatsApp",
-    "badgeHours": "Mon-Fri 8 to 18",
-    "asideOnline": "We're online",
-    "asideLastReply": "Last reply 6 min ago",
-    "asideAvgLabel": "Median time",
-    "asideCsatLabel": "CSAT 90 d",
-    "asideFoot": "Outside business hours we reply first thing the next day.",
-    "channelsKicker": "Direct channels",
+    "badgeOpen": "Open source",
+    "badgeIssues": "Open issues",
+    "badgeMit": "MIT license",
+    "asideTitle": "Active project",
+    "asideSub": "Issues and PRs welcome",
+    "asideFoot": "As a solo project, response times vary. The fastest path is to open an issue on GitHub.",
+    "channelsKicker": "Real channels",
     "channelsTitle": "No maze-like forms.",
-    "channelsDesc": "If you'd rather not fill anything out, write us directly. These are real channels with humans on the other side.",
-    "channelWaTitle": "WhatsApp Business",
-    "channelWaDesc": "The channel cashiers use to resolve questions on the spot.",
-    "channelMailTitle": "Email",
-    "channelMailDesc": "For anything that needs to be in writing.",
-    "channelDemoTitle": "20-min demo",
-    "channelDemoDesc": "We show you the console with your sample data.",
-    "channelDemoValue": "Book on Cal.com",
-    "channelGithubTitle": "GitHub",
-    "channelGithubDesc": "Report bugs, propose improvements, read the POS code.",
-    "channelGithubValue": "github.com/puntovivo",
-    "tracks": {
-      "ventas": {
-        "label": "Sales",
-        "lead": "Try Puntovivo at your site, request a quote, learn about plans.",
-        "sla": "We reply in under 4 business hours.",
-        "who": "Daniela Restrepo · Co-founder"
+    "channelsDesc": "These are the project's real channels. Write directly: the person who answers is the one who writes the code.",
+    "channels": {
+      "issues": {
+        "title": "GitHub Issues",
+        "desc": "Report a bug or request a feature with reproducible context."
       },
-      "soporte": {
-        "label": "Support",
-        "lead": "Help with a close, a stuck sync, a locked-out cashier.",
-        "sla": "We reply in under 30 minutes during business hours.",
-        "who": "Andrea Pulido · Operations"
+      "discussions": {
+        "title": "GitHub Discussions",
+        "desc": "Open questions, ideas and conversation about the project."
       },
-      "prensa": {
-        "label": "Press",
-        "lead": "Stories, interviews, product data, press kit.",
-        "sla": "We reply within 1 business day.",
-        "who": "Lina Cárdenas · Design & brand"
-      },
-      "alianzas": {
-        "label": "Partnerships",
-        "lead": "Integrations, implementation partners, regional distribution.",
-        "sla": "We reply within 1-2 business days.",
-        "who": "Mateo Quintero · Co-founder"
+      "email": {
+        "title": "Email",
+        "desc": "For anything you'd rather keep private or in writing."
       }
     },
-    "formSideKicker": "What are you writing about?",
-    "fieldName": "First and last name",
-    "fieldNamePh": "María Restrepo",
-    "fieldCompany": "Company or site",
-    "fieldCompanyPh": "Mercado Las Aguas",
-    "fieldEmail": "Email",
-    "fieldEmailPh": "maria@mercadolasaguas.co",
-    "fieldWa": "WhatsApp",
-    "fieldWaOptional": "optional",
-    "fieldWaPh": "+57 300 000 0000",
-    "fieldSedes": "How many sites?",
-    "fieldVertical": "Type of business",
-    "selectPlaceholder": "Select…",
-    "verticalOptions": [
-      "Coffee shop or bakery",
-      "Mini-market / corner store",
-      "Liquor store",
-      "Stationery / variety store",
-      "Other"
-    ],
-    "fieldFuente": "How did you hear about us?",
-    "fuenteOptions": ["Referral", "Google search", "Instagram / TikTok", "Event or fair"],
-    "fieldTenant": "Tenant ID",
-    "fieldTenantPh": "tnt_pv_…",
-    "fieldSede": "Affected site",
-    "fieldSedePh": "Sede Centro · Bogotá",
-    "fieldConsola": "Console version",
-    "fieldConsolaPh": "v1.0.4 — shown in Settings",
-    "fieldMedio": "Outlet",
-    "fieldMedioPh": "Bloomberg Línea",
-    "fieldDeadline": "Publication date",
-    "fieldEmpresaPress": "Company",
-    "fieldEmpresaPressPh": "Your company",
-    "fieldTipo": "Type of partnership",
-    "tipoOptions": ["Technical integration", "Implementation partner", "Regional distribution"],
-    "fieldMessage": "Tell us in one or two lines",
-    "fieldMessagePh": "We have 3 sites in Bogotá and want to consolidate inventory…",
-    "formNote": "We don't share your data. Privacy policy available on request.",
-    "formSend": "Send message",
-    "officeKicker": "Offices",
-    "officeTitle": "Two cities, one time zone.",
-    "officeDesc": "We don't have walk-in offices, but we'll welcome you for coffee if you give us a day's notice.",
-    "officeMedellinCity": "Medellín",
-    "officeMedellinAddr1": "Cra 43A · El Poblado",
-    "officeMedellinAddr2": "Antioquia, Colombia",
-    "officeBogotaCity": "Bogotá",
-    "officeBogotaAddr1": "Cl 82 · Chicó Norte",
-    "officeBogotaAddr2": "Bogotá D.C., Colombia",
-    "officeTz": "GMT-5 · Hours 8:00–18:00",
-    "mapFoot": "Stylized map · not to scale"
+    "contribute": {
+      "kicker": "Contribute",
+      "title": "It's open source: you can help.",
+      "desc": "All the code lives on GitHub under an MIT license. Reports, ideas and pull requests are welcome, whatever your level.",
+      "ctaIssues": "Open an issue",
+      "ctaDiscussions": "Go to Discussions",
+      "steps": [
+        "Clone the repo and follow the README to run it locally.",
+        "Open an issue describing the bug or proposal with its context.",
+        "Send a pull request; it's reviewed and discussed in the open."
+      ]
+    }
   },
   "atajos": {
     "kicker": "Keyboard shortcuts",
@@ -1113,20 +1000,20 @@
   },
   "migracion": {
     "kicker": "Migration guide",
-    "titleA": "Switch systems without ",
-    "titleEm": "stopping",
-    "titleB": " sales.",
-    "lead": "We walk you through it step by step, from exporting your catalog to the first register opening in Puntovivo. Most sites finish the switch in an afternoon.",
+    "titleA": "Bring your catalog with a ",
+    "titleEm": "CSV import",
+    "titleB": ".",
+    "lead": "The path that works today is importing your catalog from a CSV or Excel file. Per-system automatic mappers (Loyverse, Alegra, Siigo, World Office) are on the roadmap; for now you export to CSV from your system and import that into Puntovivo.",
     "crumbInicio": "Home",
     "crumbRecursos": "Resources",
     "crumbMigracion": "Migration guide",
     "badgeTime": "30 to 90 min per site",
-    "badgeHuman": "Human support",
+    "badgeHuman": "CSV / Excel import",
     "badgeNoDowntime": "No downtime",
     "pickerHead": "Where are you coming from?",
-    "levelAuto": "Automatic",
-    "levelAsistida": "Assisted",
-    "levelManual": "Manual",
+    "levelAuto": "Mapper on roadmap",
+    "levelAsistida": "Mapper on roadmap",
+    "levelManual": "CSV path available",
     "sources": [
       {
         "id": "loyverse",
@@ -1161,13 +1048,13 @@
       {
         "id": "otro",
         "t": "Other system",
-        "d": "We'll help you map it if you have an export.",
+        "d": "If it exports to CSV, you import it the same way.",
         "level": "manual"
       }
     ],
     "pickerFootA": "From",
     "pickerFootB": "→ Puntovivo",
-    "pickerFootEm": "· estimated time: 30 to 90 min · support included",
+    "pickerFootEm": "· via CSV · estimated time: 30 to 90 min",
     "stepsKicker": "Plan in five steps",
     "stepsTitle": "What migrating takes, step by step.",
     "steps": [
@@ -1196,9 +1083,9 @@
       },
       {
         "n": "03",
-        "t": "Upload the file to the wizard",
+        "t": "Upload the CSV to the importer",
         "time": "2 min",
-        "d": "From the console, open Settings → Migration. Drop the file, choose your source system and let the wizard propose the column mapping. You can adjust it field by field before continuing.",
+        "d": "From the console, open Settings → Import. Drop the CSV with the expected headers and confirm the column mapping field by field before continuing.",
         "checks": [
           { "t": "Column map confirmed by you", "ok": true },
           { "t": "Default VAT selected (0/5/19 %)", "ok": true },
@@ -1228,8 +1115,8 @@
       }
     ],
     "compatKicker": "Compatibility",
-    "compatTitle": "What we map automatically.",
-    "compatDesc": "These are the columns the wizard recognizes without you renaming anything. Whatever it can't map, it asks you about before applying.",
+    "compatTitle": "Per-system column mapping (on roadmap).",
+    "compatDesc": "This is what automatic mapping will look like when it lands: the wizard would recognize these columns without you renaming anything. For now you export to CSV and match the headers to the format below.",
     "mapColSystem": "System",
     "mapColFile": "Expected file",
     "mapColSku": "SKU",
@@ -1249,7 +1136,7 @@
         "price": "Price → precio",
         "iva": "Tax → iva",
         "stock": "Stock at store X → balance.sedeX",
-        "level": "Automática"
+        "level": "On roadmap"
       },
       {
         "from": "Alegra",
@@ -1260,7 +1147,7 @@
         "price": "Precio venta → precio",
         "iva": "Impuesto → iva",
         "stock": "Inventario → balance",
-        "level": "Automática"
+        "level": "On roadmap"
       },
       {
         "from": "Siigo",
@@ -1271,7 +1158,7 @@
         "price": "Precio 1 → precio",
         "iva": "IVA → iva",
         "stock": "Saldo → balance",
-        "level": "Asistida"
+        "level": "On roadmap"
       },
       {
         "from": "World Office",
@@ -1282,7 +1169,7 @@
         "price": "Lista 1 → precio",
         "iva": "Impuesto → iva",
         "stock": "Existencia → balance",
-        "level": "Asistida"
+        "level": "On roadmap"
       }
     ],
     "sampleKicker": "Our own format",
@@ -1314,175 +1201,10 @@
         "a": "Sales history isn't migrated: you start clean in Puntovivo. You keep your reports from the old system as an archive. For most small businesses, this is what accountants recommend."
       }
     ],
-    "ctaKicker": "Shall we do it together?",
-    "ctaTitle": "Book a guided migration session.",
-    "ctaDesc": "One hour over video call with your file open. We come out with the first test sale ready.",
-    "ctaSchedule": "Schedule migration",
+    "ctaKicker": "Stuck on your file?",
+    "ctaTitle": "Catalog doesn't fit the format?",
+    "ctaDesc": "If your export has an odd structure, open an issue on GitHub with a sample (no sensitive data) and we'll work through it in the open.",
+    "ctaSchedule": "Ask on GitHub",
     "ctaRead": "Read the full guide"
-  },
-  "estado": {
-    "kicker": "Service status",
-    "titleA": "What's on, what's ",
-    "titleEm": "not",
-    "titleB": ",",
-    "titleC": "and for how long.",
-    "lead": "This page updates every 30 seconds against the probes we run from three regions. If something breaks you'll see it here before you see it at your site.",
-    "crumbInicio": "Home",
-    "crumbEmpresa": "Company",
-    "crumbEstado": "Service status",
-    "badgeProbes": "Probes every 30 s",
-    "badgeRegions": "3 origin regions",
-    "badgeHistory": "History since 2024",
-    "statusOk": "Operational",
-    "statusMinor": "Degraded",
-    "statusMajor": "Outage",
-    "statusMaint": "Maintenance",
-    "legendTitle": "How we read uptime",
-    "legendOkLabel": "Operational",
-    "legendOkDesc": "no incidents recorded.",
-    "legendMinorLabel": "Degraded",
-    "legendMinorDesc": "some users affected.",
-    "legendMajorLabel": "Outage",
-    "legendMajorDesc": "service down.",
-    "legendMaintLabel": "Maintenance",
-    "legendMaintDesc": "scheduled with notice.",
-    "legendFoot": "We compute uptime over 90 days, weighted by affected sites.",
-    "bannerKicker": "Current status",
-    "bannerTitle": "All systems operational.",
-    "bannerDesc": "Last check 38 seconds ago. The Cali sites reported slow syncing earlier today; it's already resolved.",
-    "bannerUptimeLabel": "Uptime 90d",
-    "bannerIncidentsLabel": "Incidents 30d",
-    "servicesKicker": "Services",
-    "servicesTitle": "Seven systems that keep your register online.",
-    "services": [
-      {
-        "id": "pos",
-        "name": "Register console",
-        "desc": "Desktop app to sell, charge, close the register."
-      },
-      {
-        "id": "sync",
-        "name": "Cloud syncing",
-        "desc": "Sending and receiving changes between site and backend."
-      },
-      { "id": "ai", "name": "AI Core · Co-pilot", "desc": "Co-pilot, embeddings, invoice OCR." },
-      {
-        "id": "auth",
-        "name": "Authentication · accounts",
-        "desc": "Sign-in, roles, site switching."
-      },
-      { "id": "dian", "name": "DIAN gateway", "desc": "Electronic document issuance via partner." },
-      { "id": "web", "name": "Website & docs", "desc": "puntovivo.co, docs and the support page." },
-      {
-        "id": "wa",
-        "name": "WhatsApp bot",
-        "desc": "Digital receipts and support over WhatsApp Business."
-      }
-    ],
-    "barsAria": "Status of the last 90 days",
-    "servicesFootA": "Each bar",
-    "servicesFootB": "is one day. Further left, older.",
-    "servicesFootRange": "90 days ago → today",
-    "uptimeLabel": "90d",
-    "regionsKicker": "By region",
-    "regionsTitle": "Active sites, grouped by city.",
-    "regionsDesc": "If a site loses connection, the register keeps selling offline. This view reflects the status of the sync backend per region — not the individual status of each site.",
-    "regions": [
-      { "id": "bog", "name": "Bogotá", "count": 64, "status": "ok" },
-      { "id": "med", "name": "Medellín", "count": 38, "status": "ok" },
-      { "id": "cli", "name": "Cali", "count": 18, "status": "minor" },
-      { "id": "bar", "name": "Barranquilla", "count": 12, "status": "ok" },
-      { "id": "otros", "name": "Other", "count": 10, "status": "ok" }
-    ],
-    "regionCount": "{{count}} sites",
-    "incidentsKicker": "History · last 30 days",
-    "incidentsTitle": "Three incidents, all resolved.",
-    "sevMajor": "Major",
-    "sevMinor": "Minor",
-    "sevInfo": "Info",
-    "stepDetectado": "Detected",
-    "stepInvestigando": "Investigating",
-    "stepComunicado": "Communicated",
-    "stepResuelto": "Resolved",
-    "incidents": [
-      {
-        "sev": "minor",
-        "title": "Slow syncing at Cali Sur site",
-        "started": "May 18 · 14:32",
-        "resolved": "May 18 · 15:47",
-        "elapsed": "1 h 15 min",
-        "steps": [
-          {
-            "at": "14:32",
-            "s": "Detectado",
-            "d": "Sync latency > 8s reported by 3 Cali sites. Infra team notified."
-          },
-          {
-            "at": "14:55",
-            "s": "Investigando",
-            "d": "We isolated a slow-responding node in the region. Traffic migrated to the neighboring node."
-          },
-          {
-            "at": "15:47",
-            "s": "Resuelto",
-            "d": "Latency back to normal (< 1s). No pending changes, no reopened tickets."
-          }
-        ]
-      },
-      {
-        "sev": "major",
-        "title": "Intermittent DIAN gateway",
-        "started": "May 07 · 09:14",
-        "resolved": "May 07 · 11:02",
-        "elapsed": "1 h 48 min",
-        "steps": [
-          {
-            "at": "09:14",
-            "s": "Detectado",
-            "d": "The DIAN partner gateway returning timeouts on ~30% of requests."
-          },
-          {
-            "at": "09:32",
-            "s": "Comunicado",
-            "d": "We notified the 142 active sites via a banner in the console. Sales keep working offline."
-          },
-          {
-            "at": "10:48",
-            "s": "Investigando",
-            "d": "Partner confirms an upstream incident. Documents are queued for automatic resend."
-          },
-          {
-            "at": "11:02",
-            "s": "Resuelto",
-            "d": "Gateway recovered. 412 requeued documents were sent successfully."
-          }
-        ]
-      },
-      {
-        "sev": "minor",
-        "title": "WhatsApp slow to send receipts",
-        "started": "May 02 · 18:11",
-        "resolved": "May 02 · 18:39",
-        "elapsed": "28 min",
-        "steps": [
-          {
-            "at": "18:11",
-            "s": "Detectado",
-            "d": "WhatsApp webhooks taking > 20s. Send queue saturated."
-          },
-          { "at": "18:39", "s": "Resuelto", "d": "Rescaled the worker; queue drained in 6 min." }
-        ]
-      }
-    ],
-    "subscribeKicker": "Subscribe",
-    "subscribeTitle": "Find out before your cashiers do.",
-    "subscribeDesc": "We notify you by email or WhatsApp when an incident starts, when we resolve it and when we schedule maintenance.",
-    "subTabEmail": "Email",
-    "subTabWa": "WhatsApp",
-    "subTabWebhook": "Webhook",
-    "subTabRss": "RSS",
-    "subInputPh": "you@store.com",
-    "subButton": "Subscribe",
-    "subFoot": "We only send when there's news. Cancel with one click."
   }
 }

@@ -25,16 +25,7 @@ const serverDir = join(distDir, 'server');
 // Keep this list in lockstep with the <Route> table in src/App.jsx. "/" maps to
 // dist/index.html; every other route maps to dist/<route>/index.html so that
 // GitHub Pages resolves /puntovivo/sobre/ → dist/sobre/index.html (200).
-const ROUTES = [
-  '/',
-  '/sobre',
-  '/docs',
-  '/roadmap',
-  '/contacto',
-  '/atajos',
-  '/migracion',
-  '/estado',
-];
+const ROUTES = ['/', '/sobre', '/docs', '/roadmap', '/contacto', '/atajos', '/migracion'];
 
 // The SSR-default language. The prerendered <html lang> must match the locale
 // the SSR tree renders in (i18n falls back to 'es' with no localStorage), so

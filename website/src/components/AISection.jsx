@@ -149,6 +149,9 @@ export function AISection({ version }) {
   const { t } = useTranslation();
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  // The core pill shows the real tag once a release exists, otherwise a neutral
+  // "open source" label — never a fabricated version.
+  const corePill = version ? t('ai.corePillTagged', { version }) : t('ai.corePillDev');
 
   useEffect(() => {
     if (paused) return undefined;
@@ -193,7 +196,7 @@ export function AISection({ version }) {
           <span className="sparkle">
             <Spark size={11} strokeWidth={2.4} />
           </span>
-          {t('ai.corePill', { version })}
+          {corePill}
         </span>
         <span className="meta">
           <span className="live-d" />

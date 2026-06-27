@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   ScanLine,
   TrendingUp,
@@ -24,12 +25,12 @@ import {
   ArrowRightLeft,
   EyeOff,
   Check,
-  Download,
 } from 'lucide-react';
 
 import { PMark } from '../components/Brand.jsx';
 import { RichText } from '../components/RichText.jsx';
 import { AISection, AIFaq } from '../components/AISection.jsx';
+import { DownloadButton } from '../components/DownloadButton.jsx';
 import { useLatestRelease } from '../hooks/useLatestRelease.js';
 
 // Maps the feature-grid index to its lucide icon (order matches es.json/features.items).
@@ -248,6 +249,11 @@ function POSMock() {
 // ---------- Hero ----------
 function Hero({ version }) {
   const { t } = useTranslation();
+  // No release today → neutral "open source · in development" badge; a real tag
+  // takes its place once the repo cuts a GitHub release.
+  const versionLabel = version
+    ? t('hero.badgeVersionTagged', { version })
+    : t('hero.badgeVersionDev');
   return (
     <section className="pv-shell" style={{ paddingTop: 8 }}>
       <div className="pv-hero-surface pv-hero">
@@ -268,7 +274,7 @@ function Hero({ version }) {
                   color: 'var(--secondary-700)',
                 }}
               >
-                {t('hero.badgeVersion', { version })}
+                {versionLabel}
               </span>
             </div>
             <h1 className="pv-display">
@@ -278,9 +284,7 @@ function Hero({ version }) {
             </h1>
             <p className="lead">{t('hero.lead')}</p>
             <div className="cta-row">
-              <a className="pv-btn pv-btn-primary" href="#demo">
-                <LogIn size={16} /> {t('hero.ctaDemo')}
-              </a>
+              <DownloadButton className="pv-btn pv-btn-primary" />
               <a className="pv-btn pv-btn-outline" href="#flow">
                 <Play size={16} /> {t('hero.ctaFlow')}
               </a>
@@ -307,7 +311,7 @@ function Hero({ version }) {
             </div>
             <div className="item">
               <span className="num">
-                100<span style={{ color: 'var(--primary-700)' }}>%</span>
+                local<span style={{ color: 'var(--primary-700)' }}>·</span>first
               </span>
               <span className="lbl">{t('hero.metaOffline')}</span>
             </div>
@@ -598,10 +602,14 @@ function Modules() {
   );
 }
 
-// ---------- Pricing ----------
+// ---------- Pricing (open-source framing) ----------
+// Two cards only: a real, free self-hosted plan whose CTA is the smart download
+// button, and a "managed cloud — coming soon" card with NO price and NO purchase
+// CTA. The invented COP tiers were removed per the project-truth reset.
 function Pricing() {
   const { t } = useTranslation();
-  const plans = t('pricing.plans', { returnObjects: true });
+  const selfBullets = t('pricing.self.bullets', { returnObjects: true });
+  const cloudBullets = t('pricing.cloud.bullets', { returnObjects: true });
   return (
     <section className="pv-shell pv-section" id="pricing">
       <div className="head">
@@ -610,70 +618,55 @@ function Pricing() {
         <p className="desc">{t('pricing.desc')}</p>
       </div>
       <div className="pv-pricing">
-        {plans.map((p, i) => {
-          const featured = i === 1;
-          return (
-            <div key={p.name} className={`pv-card pv-plan${featured ? ' is-featured' : ''}`}>
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <span className="name">{p.name}</span>
-                {featured && (
-                  <span className="pv-badge pv-badge-primary">{t('pricing.recommended')}</span>
-                )}
-              </div>
-              <div className="price">
-                {p.price === 'Custom' ? (
-                  <span className="num" style={{ fontSize: 36 }}>
-                    {t('pricing.customPrice')}
-                  </span>
-                ) : (
-                  <>
-                    <span className="num">${p.price}</span>
-                    <span className="per">{p.per}</span>
-                  </>
-                )}
-              </div>
-              <p className="desc">{p.desc}</p>
-              <ul>
-                {p.bullets.map(b => (
-                  <li key={b}>
-                    <span className="check">
-                      <Check size={12} />
-                    </span>
-                    {b}
-                  </li>
-                ))}
-              </ul>
-              <a
-                className={`pv-btn ${featured ? 'pv-btn-primary' : 'pv-btn-outline'} cta`}
-                href="#demo"
-              >
-                {p.cta}
-              </a>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+        <div className="pv-card pv-plan is-featured">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="name">{t('pricing.self.name')}</span>
+            <span className="pv-badge pv-badge-primary">{t('pricing.self.badge')}</span>
+          </div>
+          <div className="price">
+            <span className="num" style={{ fontSize: 36 }}>
+              {t('pricing.self.price')}
+            </span>
+            <span className="per">{t('pricing.self.per')}</span>
+          </div>
+          <p className="desc">{t('pricing.self.desc')}</p>
+          <ul>
+            {selfBullets.map(b => (
+              <li key={b}>
+                <span className="check">
+                  <Check size={12} />
+                </span>
+                {b}
+              </li>
+            ))}
+          </ul>
+          <DownloadButton className="pv-btn pv-btn-primary cta" />
+        </div>
 
-// ---------- Quote ----------
-function Quote() {
-  const { t } = useTranslation();
-  return (
-    <section className="pv-shell pv-section">
-      <div className="pv-hero-surface pv-quote">
-        <blockquote className="pv-display">
-          {t('quote.textA')}
-          <span>{t('quote.textEm')}</span>
-          {t('quote.textB')}
-        </blockquote>
-        <div className="by">
-          <div className="ava">A</div>
-          <span className="who">{t('quote.who')}</span>
-          <span className="role">{t('quote.role')}</span>
+        <div className="pv-card pv-plan">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="name">{t('pricing.cloud.name')}</span>
+            <span className="pv-badge pv-badge-neutral">{t('pricing.cloud.badge')}</span>
+          </div>
+          <div className="price">
+            <span className="num" style={{ fontSize: 36 }}>
+              {t('pricing.cloud.price')}
+            </span>
+          </div>
+          <p className="desc">{t('pricing.cloud.desc')}</p>
+          <ul>
+            {cloudBullets.map(b => (
+              <li key={b}>
+                <span className="check">
+                  <Check size={12} />
+                </span>
+                {b}
+              </li>
+            ))}
+          </ul>
+          <Link className="pv-btn pv-btn-outline cta" to="/contacto">
+            {t('pricing.cloud.cta')}
+          </Link>
         </div>
       </div>
     </section>
@@ -716,12 +709,10 @@ function CTA() {
           <p>{t('cta.desc')}</p>
         </div>
         <div className="actions">
-          <a className="pv-btn pv-btn-primary" href="#demo">
+          <Link className="pv-btn pv-btn-primary" to="/contacto">
             <LogIn size={16} /> {t('cta.demo')}
-          </a>
-          <a className="pv-btn pv-btn-outline" href="#download">
-            <Download size={16} /> {t('cta.download')}
-          </a>
+          </Link>
+          <DownloadButton className="pv-btn pv-btn-outline" />
         </div>
       </div>
     </section>
@@ -732,7 +723,7 @@ function CTA() {
 // The landing route renders only the marketing sections; Nav + Footer live in
 // the shared Layout that wraps every route.
 export default function Landing() {
-  const version = useLatestRelease();
+  const { version } = useLatestRelease();
 
   return (
     <>
@@ -746,7 +737,6 @@ export default function Landing() {
       <Flow />
       <Modules />
       <Pricing />
-      <Quote />
       <FAQ />
       <CTA />
     </>

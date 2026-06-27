@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import { Icon } from '../components/Icon.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
@@ -22,8 +21,9 @@ function SizeBadge({ size }) {
   );
 }
 
+// Cards no longer show fabricated vote counts or "beta site" social proof — the
+// roadmap is honest forward-looking work, not adoption signal.
 function Card({ item }) {
-  const { t } = useTranslation();
   return (
     <article className="rm-card">
       <header>
@@ -32,16 +32,6 @@ function Card({ item }) {
       </header>
       <h4>{item.t}</h4>
       <p>{item.d}</p>
-      <footer>
-        <span className="votes" title={t('roadmap.votesTitle')}>
-          <Icon name="arrow-up" size={11} /> {item.votes}
-        </span>
-        {item.sede !== '—' && (
-          <span className="beta" title={t('roadmap.betaTitle')}>
-            <Icon name="map-pin" size={11} /> {item.sede}
-          </span>
-        )}
-      </footer>
     </article>
   );
 }
@@ -104,10 +94,20 @@ function Vote() {
             </span>
           </div>
           <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="pv-btn pv-btn-primary pv-btn-sm" to="/contacto">
+            <a
+              className="pv-btn pv-btn-primary pv-btn-sm"
+              href="https://github.com/johnny4young/puntovivo/issues/new"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Icon name="send" size={14} /> {t('roadmap.voteSend')}
-            </Link>
-            <a className="pv-btn pv-btn-outline pv-btn-sm" href="#">
+            </a>
+            <a
+              className="pv-btn pv-btn-outline pv-btn-sm"
+              href="https://github.com/johnny4young/puntovivo/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Icon name="github" size={14} /> {t('roadmap.voteIssues')}
             </a>
           </div>

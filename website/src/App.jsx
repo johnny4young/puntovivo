@@ -9,7 +9,7 @@ import { ScrollToHash } from './components/ScrollToHash.jsx';
 // defeats the whole point of static pre-rendering. Eager imports render
 // synchronously on the server and hydrate cleanly on the client.
 //
-// The previous build code-split each page into its own chunk; for an 8-page
+// The previous build code-split each page into its own chunk; for a small
 // marketing brochure whose HTML is now prerendered (instant first paint), a
 // single hydration bundle is an acceptable — arguably better — trade than the
 // per-route round-trips, and it is what makes correct SSG possible here.
@@ -20,7 +20,6 @@ import Roadmap from './pages/Roadmap.jsx';
 import Contacto from './pages/Contacto.jsx';
 import Atajos from './pages/Atajos.jsx';
 import Migracion from './pages/Migracion.jsx';
-import Estado from './pages/Estado.jsx';
 
 export default function App() {
   return (
@@ -35,7 +34,6 @@ export default function App() {
           <Route path="/contacto" element={<Contacto />} />
           <Route path="/atajos" element={<Atajos />} />
           <Route path="/migracion" element={<Migracion />} />
-          <Route path="/estado" element={<Estado />} />
           {/* Unknown paths fall back to the landing (GitHub Pages 404.html
               re-enters here so the router can resolve deep links). */}
           <Route path="*" element={<Landing />} />

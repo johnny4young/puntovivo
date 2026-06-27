@@ -4,13 +4,13 @@ import { Sun, Moon } from 'lucide-react';
 
 import { PMark } from './Brand.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
-import { useLatestRelease } from '../hooks/useLatestRelease.js';
+import { useLatestRelease, REPO_URL } from '../hooks/useLatestRelease.js';
 
-// The header is shared by the landing and all 7 secondary pages. In-page anchor
+// The header is shared by the landing and all secondary pages. In-page anchor
 // links (#features, #ai, #pricing) only resolve on the landing; from a secondary
 // route we prefix them with "/" so the browser navigates home and then jumps to
-// the anchor. Route links (Docs / Roadmap / Estado) use <NavLink> so the active
-// page is highlighted via the same `.is-active` rule the design ships.
+// the anchor. Route links (Docs / Roadmap) use <NavLink> so the active page is
+// highlighted via the same `.is-active` rule the design ships.
 const ANCHOR_LINKS = [
   { key: 'nav.product', hash: '#features' },
   { key: 'nav.caja', hash: '#caja' },
@@ -22,7 +22,6 @@ const ANCHOR_LINKS = [
 const ROUTE_LINKS = [
   { key: 'nav.docs', to: '/docs' },
   { key: 'nav.roadmap', to: '/roadmap' },
-  { key: 'nav.estado', to: '/estado' },
 ];
 
 function Nav() {
@@ -81,8 +80,8 @@ function Nav() {
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <a className="pv-link" href={anchorHref('#login')}>
-              {t('nav.login')}
+            <a className="pv-link" href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              {t('nav.github')}
             </a>
             <Link className="pv-btn pv-btn-primary pv-btn-sm" to="/contacto">
               {t('nav.demo')}
@@ -96,22 +95,35 @@ function Nav() {
 
 function Footer() {
   const { t } = useTranslation();
-  const version = t('footer.version', { version: useLatestRelease() });
+  // No release exists today, so the footer shows a neutral "open source · MIT"
+  // tag rather than a fake version. When a real release is cut, the hook returns
+  // its tag and we surface "vX.Y.Z · MIT".
+  const { version } = useLatestRelease();
+  const versionLabel = version ? t('footer.versionTagged', { version }) : t('footer.versionDev');
   const productLinks = t('footer.productLinks', { returnObjects: true });
   const companyLinks = t('footer.companyLinks', { returnObjects: true });
   const resourcesLinks = t('footer.resourcesLinks', { returnObjects: true });
 
   // Footer columns now point at real routes (or in-page anchors on the landing).
+  // The GitHub link (last resource) points at the public repo.
   const productTo = ['/#features', '/#caja', '/#features', '/#features', '/#features'];
-  const companyTo = ['/sobre', '/roadmap', '/estado', '/contacto'];
-  const resourcesTo = ['/docs', '/atajos', '/migracion', '#'];
+  const companyTo = ['/sobre', '/roadmap', '/contacto'];
+  const resourcesTo = ['/docs', '/atajos', '/migracion', REPO_URL];
 
-  const renderLink = (label, target) =>
-    target.startsWith('/') && !target.startsWith('/#') ? (
+  const renderLink = (label, target) => {
+    if (target.startsWith('http')) {
+      return (
+        <a href={target} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      );
+    }
+    return target.startsWith('/') && !target.startsWith('/#') ? (
       <Link to={target}>{label}</Link>
     ) : (
       <a href={target}>{label}</a>
     );
+  };
 
   return (
     <footer className="pv-foot">
@@ -172,7 +184,7 @@ function Footer() {
         </div>
         <div className="meta">
           <span>{t('footer.copyright')}</span>
-          <span>{version}</span>
+          <span>{versionLabel}</span>
         </div>
       </div>
     </footer>
