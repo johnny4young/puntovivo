@@ -80,7 +80,7 @@ jobs:
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
+          sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev fakeroot rpm
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
@@ -102,11 +102,15 @@ jobs:
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
           mkdir -p node_modules/electron/dist
           curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
-          if [ "$PLAT" = "win32" ]; then
-            tar -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist
-          else
-            unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist
-          fi
+          case "$PLAT" in
+            # ditto preserves the .app bundle + symlinks so its signature stays
+            # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
+            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
+                    codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
+            # bsdtar reads the Windows drive colon as a host without --force-local.
+            win32)  tar --force-local -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist ;;
+            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
+          esac
           printf '%s' "$BIN" > node_modules/electron/path.txt
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
@@ -176,11 +180,15 @@ jobs:
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
           mkdir -p node_modules/electron/dist
           curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
-          if [ "$PLAT" = "win32" ]; then
-            tar -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist
-          else
-            unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist
-          fi
+          case "$PLAT" in
+            # ditto preserves the .app bundle + symlinks so its signature stays
+            # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
+            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
+                    codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
+            # bsdtar reads the Windows drive colon as a host without --force-local.
+            win32)  tar --force-local -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist ;;
+            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
+          esac
           printf '%s' "$BIN" > node_modules/electron/path.txt
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
@@ -250,11 +258,15 @@ jobs:
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
           mkdir -p node_modules/electron/dist
           curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
-          if [ "$PLAT" = "win32" ]; then
-            tar -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist
-          else
-            unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist
-          fi
+          case "$PLAT" in
+            # ditto preserves the .app bundle + symlinks so its signature stays
+            # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
+            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
+                    codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
+            # bsdtar reads the Windows drive colon as a host without --force-local.
+            win32)  tar --force-local -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist ;;
+            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
+          esac
           printf '%s' "$BIN" > node_modules/electron/path.txt
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
