@@ -231,11 +231,11 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # pnpm install can skip electron's postinstall under a warm store cache, and
-      # ensure:binary's bare install.js invocation no-ops without pnpm's env, so
-      # dist/ never materializes (the desktop memory gate needs it). Re-run
-      # electron's build script THROUGH pnpm (proper env + cleared download cache)
-      # to fetch the runtime, then hard-verify it resolves.
+      # require('electron') resolves the hoisted node_modules/electron, but a warm
+      # pnpm store cache restores dist/ only into the .pnpm copy — leaving the
+      # hoisted one empty, so the desktop memory gate fails with Electron failed
+      # to install correctly. Force a fresh download straight into the hoisted
+      # copy (clear caches + drop its stale dist), then hard-verify.
       - name: Ensure Electron runtime
         shell: bash
         env:
@@ -243,8 +243,9 @@ jobs:
         run: |
           rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
           if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
-          pnpm --filter @puntovivo/desktop rebuild electron
-          node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing after rebuild:',p);process.exit(1)}console.log('electron runtime OK:',p)"
+          rm -rf node_modules/electron/dist node_modules/electron/path.txt
+          ( cd node_modules/electron && node install.js )
+          node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Run desktop validation
         run: pnpm run ci:desktop
