@@ -73,7 +73,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -84,20 +83,24 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # require('electron') resolves the hoisted node_modules/electron, but a warm
-      # pnpm store cache restores dist/ only into the .pnpm copy — leaving the
-      # hoisted one empty, so make:desktop and the desktop memory gate fail with
-      # Electron failed to install correctly. Force a fresh download straight into
-      # the hoisted copy (clear caches + drop its stale dist), then hard-verify.
+      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
+      # Print the full state so we can see exactly why install.js no-ops, then try
+      # a forced fetch into the hoisted copy and verify.
       - name: Ensure Electron runtime
         shell: bash
-        env:
-          force_no_cache: 'true'
         run: |
-          rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
-          if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
+          set +e
+          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
+          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
+          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
+          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
+          echo "DIAG --- forcing install into hoisted copy ---"
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          ( cd node_modules/electron && node install.js )
+          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
+          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
@@ -143,25 +146,28 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # require('electron') resolves the hoisted node_modules/electron, but a warm
-      # pnpm store cache restores dist/ only into the .pnpm copy — leaving the
-      # hoisted one empty, so make:desktop and the desktop memory gate fail with
-      # Electron failed to install correctly. Force a fresh download straight into
-      # the hoisted copy (clear caches + drop its stale dist), then hard-verify.
+      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
+      # Print the full state so we can see exactly why install.js no-ops, then try
+      # a forced fetch into the hoisted copy and verify.
       - name: Ensure Electron runtime
         shell: bash
-        env:
-          force_no_cache: 'true'
         run: |
-          rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
-          if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
+          set +e
+          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
+          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
+          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
+          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
+          echo "DIAG --- forcing install into hoisted copy ---"
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          ( cd node_modules/electron && node install.js )
+          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
+          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
@@ -207,25 +213,28 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # require('electron') resolves the hoisted node_modules/electron, but a warm
-      # pnpm store cache restores dist/ only into the .pnpm copy — leaving the
-      # hoisted one empty, so make:desktop and the desktop memory gate fail with
-      # Electron failed to install correctly. Force a fresh download straight into
-      # the hoisted copy (clear caches + drop its stale dist), then hard-verify.
+      # DIAGNOSTIC (temporary): electron's binary keeps coming up missing in CI.
+      # Print the full state so we can see exactly why install.js no-ops, then try
+      # a forced fetch into the hoisted copy and verify.
       - name: Ensure Electron runtime
         shell: bash
-        env:
-          force_no_cache: 'true'
         run: |
-          rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
-          if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
+          set +e
+          echo "DIAG symlink=$(readlink node_modules/electron || echo no)"
+          echo "DIAG dist=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING) path.txt=$(cat node_modules/electron/path.txt 2>/dev/null || echo MISSING)"
+          echo "DIAG version-file=$(cat node_modules/electron/dist/version 2>/dev/null || echo MISSING)"
+          env | grep -iE 'ELECTRON|npm_config_platform|npm_config_arch|npm_config_disturl' || echo "DIAG no electron env"
+          node -e "try{const p=require('electron');console.log('DIAG require ->',p,'exists',require('fs').existsSync(p))}catch(e){console.log('DIAG require FAILED:',e.message)}"
+          echo "DIAG --- forcing install into hoisted copy ---"
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          ( cd node_modules/electron && node install.js )
+          echo "DIAG dist-after-rm=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo REMOVED)"
+          ( cd node_modules/electron && force_no_cache=true node install.js ); echo "DIAG install.js exit=$?"
+          echo "DIAG dist-after-install=$(ls node_modules/electron/dist 2>/dev/null | head -1 || echo MISSING)"
+          set -e
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
