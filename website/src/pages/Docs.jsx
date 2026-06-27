@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { Icon } from '../components/Icon.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { REPO_URL } from '../hooks/useLatestRelease.js';
 
 // Per-card icon (order matches docs.categories in the locale files).
 const CATEGORY_ICONS = [
@@ -111,7 +112,7 @@ function Categories() {
   return (
     <div className="dc-cats">
       {cats.map((c, i) => (
-        <a key={c.t} className="dc-cat" href="#">
+        <a key={c.t} className="dc-cat" href={REPO_URL} target="_blank" rel="noopener noreferrer">
           <div className="dc-cat-head">
             <span className="glyph">
               <Icon name={CATEGORY_ICONS[i]} size={18} />

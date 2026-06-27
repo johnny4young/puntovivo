@@ -144,7 +144,11 @@ function Sample() {
           <span className="tab">{t('migracion.sampleTab2')}</span>
           <span className="tab">{t('migracion.sampleTab3')}</span>
           <span className="spacer" />
-          <a className="dl" href="#">
+          <a
+            className="dl"
+            href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
+            download="plantilla-puntovivo.csv"
+          >
             <Icon name="download" size={13} /> {t('migracion.sampleDownload')}
           </a>
         </div>

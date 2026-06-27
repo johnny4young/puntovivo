@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon } from 'lucide-react';
 
@@ -6,11 +6,12 @@ import { PMark } from './Brand.jsx';
 import { useTheme } from '../theme/ThemeProvider.jsx';
 import { useLatestRelease, REPO_URL } from '../hooks/useLatestRelease.js';
 
-// The header is shared by the landing and all secondary pages. In-page anchor
-// links (#features, #ai, #pricing) only resolve on the landing; from a secondary
-// route we prefix them with "/" so the browser navigates home and then jumps to
-// the anchor. Route links (Docs / Roadmap) use <NavLink> so the active page is
-// highlighted via the same `.is-active` rule the design ships.
+// The header is shared by the landing and all secondary pages. The product/IA/
+// pricing items target landing sections via <Link to={{ pathname: '/', hash }}>:
+// react-router prefixes the GitHub Pages basename (/puntovivo) so the href is
+// /puntovivo/#features, and ScrollToHash scrolls the section into view. A bare
+// <a href="/#features"> would resolve to the domain root and 404. Route links
+// (Docs / Roadmap) use <NavLink> so the active page gets the `.is-active` rule.
 const ANCHOR_LINKS = [
   { key: 'nav.product', hash: '#features' },
   { key: 'nav.caja', hash: '#caja' },
@@ -27,13 +28,7 @@ const ROUTE_LINKS = [
 function Nav() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
-  const location = useLocation();
-  const onLanding = location.pathname === '/';
   const nextLang = i18n.language === 'es' ? 'en' : 'es';
-
-  // On the landing an anchor stays an in-page jump (#features); elsewhere it has
-  // to send the browser home first (/#features).
-  const anchorHref = hash => (onLanding ? hash : `/${hash}`);
 
   return (
     <nav className="pv-nav-wrap">
@@ -45,9 +40,9 @@ function Nav() {
           </Link>
           <div className="links">
             {ANCHOR_LINKS.map(l => (
-              <a key={l.hash} href={anchorHref(l.hash)}>
+              <Link key={l.hash} to={{ pathname: '/', hash: l.hash }}>
                 {t(l.key)}
-              </a>
+              </Link>
             ))}
             {ROUTE_LINKS.map(l => (
               <NavLink
@@ -104,26 +99,22 @@ function Footer() {
   const companyLinks = t('footer.companyLinks', { returnObjects: true });
   const resourcesLinks = t('footer.resourcesLinks', { returnObjects: true });
 
-  // Footer columns now point at real routes (or in-page anchors on the landing).
-  // The GitHub link (last resource) points at the public repo.
-  const productTo = ['/#features', '/#caja', '/#features', '/#features', '/#features'];
+  // Product links target landing sections (all ids exist on the landing); they
+  // render as <Link to={{ pathname: '/', hash }}> so react-router adds the
+  // /puntovivo basename — a bare "/#features" would hit the domain root and 404.
+  // Company/resources are real routes; the last resource is the public repo.
+  const productHash = ['#features', '#caja', '#features', '#features', '#features'];
   const companyTo = ['/sobre', '/roadmap', '/contacto'];
   const resourcesTo = ['/docs', '/atajos', '/migracion', REPO_URL];
 
-  const renderLink = (label, target) => {
-    if (target.startsWith('http')) {
-      return (
-        <a href={target} target="_blank" rel="noopener noreferrer">
-          {label}
-        </a>
-      );
-    }
-    return target.startsWith('/') && !target.startsWith('/#') ? (
-      <Link to={target}>{label}</Link>
+  const renderLink = (label, target) =>
+    target.startsWith('http') ? (
+      <a href={target} target="_blank" rel="noopener noreferrer">
+        {label}
+      </a>
     ) : (
-      <a href={target}>{label}</a>
+      <Link to={target}>{label}</Link>
     );
-  };
 
   return (
     <footer className="pv-foot">
@@ -161,7 +152,9 @@ function Footer() {
             <h5>{t('footer.productTitle')}</h5>
             <ul>
               {productLinks.map((l, i) => (
-                <li key={l}>{renderLink(l, productTo[i] || '/#features')}</li>
+                <li key={l}>
+                  <Link to={{ pathname: '/', hash: productHash[i] || '#features' }}>{l}</Link>
+                </li>
               ))}
             </ul>
           </div>

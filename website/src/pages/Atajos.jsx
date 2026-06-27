@@ -213,9 +213,13 @@ export default function Atajos() {
                 </span>
               </div>
             </div>
-            <a className="pv-btn pv-btn-outline pv-btn-sm" href="#">
+            <button
+              type="button"
+              className="pv-btn pv-btn-outline pv-btn-sm"
+              onClick={() => window.print()}
+            >
               <Icon name="printer" size={14} /> {t('atajos.printButton')}
-            </a>
+            </button>
           </div>
         }
       />
