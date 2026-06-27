@@ -4,6 +4,22 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.0](https://github.com/johnny4young/puntovivo/compare/v1.0.0...v1.1.0) (2026-06-27)
+
+
+### Features
+
+* **website:** add marketing site with i18n, theme and Pages deploy ([7b585cc](https://github.com/johnny4young/puntovivo/commit/7b585cca721b54e6d6cae5fdf92bd5a4a554df94))
+* **website:** add secondary pages with client-side routing ([67ba973](https://github.com/johnny4young/puntovivo/commit/67ba9734b729fbee8604635380574b5fc4ef55b3))
+* **website:** pre-render routes to static HTML for SEO ([ebafe37](https://github.com/johnny4young/puntovivo/commit/ebafe378c369dad9f8bec8b2c59c012cf3b6a35d))
+* **website:** rewrite content to reflect real project state ([fff7448](https://github.com/johnny4young/puntovivo/commit/fff74486228038985ffe6d187299937d8f63a66f))
+
+
+### Bug Fixes
+
+* **website:** add favicon so the browser tab shows the Puntovivo logo ([1002cdc](https://github.com/johnny4young/puntovivo/commit/1002cdc6ae2fe2f7c7e708677d5a56fc5193cce2))
+* **website:** resolve nav and footer anchor links 404 under the Pages base ([5af4793](https://github.com/johnny4young/puntovivo/commit/5af47932c16076ee5e455abc7bd4f1f28678d909))
+
 ## [2026-04-22]
 
 ### Added
