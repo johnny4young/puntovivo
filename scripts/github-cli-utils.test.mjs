@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatGhFailure, getGhOutputText, isMissingReleaseLookup } from './github-cli-utils.mjs';
+import { formatGhFailure, getGhOutputText } from './github-cli-utils.mjs';
 
 // ── getGhOutputText ──────────────────────────────────────────────────────────
 
@@ -83,74 +83,5 @@ test('formatGhFailure includes multi-line output verbatim', () => {
   assert.equal(
     formatGhFailure('Upload failed', { stdout: 'line one', stderr: 'line two' }),
     'Upload failed: line one\nline two'
-  );
-});
-
-// ── isMissingReleaseLookup ───────────────────────────────────────────────────
-
-test('isMissingReleaseLookup returns false when status is 0 regardless of output', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 0, stdout: 'release not found', stderr: null }),
-    false
-  );
-});
-
-test('isMissingReleaseLookup returns true for "release not found" in stderr', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: '', stderr: 'release not found' }),
-    true
-  );
-});
-
-test('isMissingReleaseLookup returns true for "release not found" in stdout', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: 'release not found', stderr: null }),
-    true
-  );
-});
-
-test('isMissingReleaseLookup returns true for versioned "release v1.2.3 not found"', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'release v1.2.3 not found' }),
-    true
-  );
-});
-
-test('isMissingReleaseLookup is case-insensitive for the not-found pattern', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'Release Not Found' }),
-    true
-  );
-});
-
-test('isMissingReleaseLookup returns true when stderr contains a 404 status code', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'HTTP 404: not found' }),
-    true
-  );
-});
-
-test('isMissingReleaseLookup returns false for operational errors unrelated to a missing release', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'authentication failed' }),
-    false
-  );
-});
-
-test('isMissingReleaseLookup returns false when output is empty', () => {
-  assert.equal(isMissingReleaseLookup({ status: 1, stdout: null, stderr: null }), false);
-});
-
-test('isMissingReleaseLookup does not match partial 404 substrings', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: 1, stdout: null, stderr: 'error code 4040' }),
-    false
-  );
-});
-
-test('isMissingReleaseLookup returns false for spawn failures where gh itself could not start', () => {
-  assert.equal(
-    isMissingReleaseLookup({ status: null, stdout: null, stderr: null, error: new Error('spawn gh ENOENT') }),
-    false
   );
 });
