@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Icon } from '../components/Icon.jsx';
@@ -90,9 +91,19 @@ function StatusPill({ kind, big }) {
 
 function GlobalBanner() {
   const { t } = useTranslation();
-  const today = new Date()
-    .toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
-    .replace(/\.$/, '');
+  // The current date is intentionally NOT computed during render: SSR would
+  // freeze it to the build date while the client would compute "today",
+  // producing a hydration text mismatch on every visit after the build. We
+  // render an empty placeholder on the server / first paint and fill the live
+  // date in a mount effect, so hydration stays clean and the date is fresh.
+  const [today, setToday] = useState('');
+  useEffect(() => {
+    setToday(
+      new Date()
+        .toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+        .replace(/\.$/, '')
+    );
+  }, []);
   return (
     <div className="st-banner">
       <div className="st-banner-glyph">
@@ -100,7 +111,8 @@ function GlobalBanner() {
       </div>
       <div className="st-banner-body">
         <span className="kicker">
-          {t('estado.bannerKicker')} · {today}
+          {t('estado.bannerKicker')}
+          {today ? ` · ${today}` : ''}
         </span>
         <h2 className="pv-display">{t('estado.bannerTitle')}</h2>
         <p>{t('estado.bannerDesc')}</p>

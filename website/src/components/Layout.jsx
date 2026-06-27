@@ -181,7 +181,7 @@ function Footer() {
 
 // Shared chrome for every route. The landing and the 7 secondary pages render
 // inside <Outlet />; the #app wrapper (z-index over the body texture) lives in
-// main.jsx so it wraps the router too.
+// AppShell.jsx so it wraps the router too.
 export function Layout() {
   return (
     <>

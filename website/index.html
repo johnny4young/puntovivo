@@ -8,9 +8,29 @@
       content="Puntovivo · POS, inventario y compras para PYMES. Caja sin friccion, cierre ciego, IA nativa y multi-sede. Local-first y bilingue."
     />
     <title>Puntovivo · Una caja tranquila para el comercio</title>
+    <script>
+      // Anti-FOUC: the prerendered HTML ships in light mode (the deterministic
+      // SSR default). Before React loads, restore the user's saved theme so a
+      // dark-mode visitor never sees a light flash. Dependency-free, runs
+      // synchronously in <head> so the .dark class is on <html> before paint.
+      // ThemeProvider's effect reconciles this on mount with the same logic.
+      (function () {
+        try {
+          var stored = localStorage.getItem('pv-theme');
+          var dark =
+            stored === 'dark' ||
+            (stored !== 'light' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* localStorage / matchMedia unavailable — stay on the light default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/entry-client.jsx"></script>
   </body>
 </html>

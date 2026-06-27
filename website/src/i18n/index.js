@@ -6,26 +6,20 @@ import en from './en.json';
 
 export const LANG_STORAGE_KEY = 'pv-lang';
 export const SUPPORTED_LANGS = ['es', 'en'];
-const DEFAULT_LANG = 'es';
+export const DEFAULT_LANG = 'es';
 
-function readStoredLang() {
-  try {
-    const stored = localStorage.getItem(LANG_STORAGE_KEY);
-    if (stored && SUPPORTED_LANGS.includes(stored)) return stored;
-  } catch {
-    /* localStorage may be unavailable (private mode / SSR-like envs) */
-  }
-  return DEFAULT_LANG;
-}
-
-const initialLang = readStoredLang();
-
+// i18n is initialised in the DEFAULT language unconditionally. This is the SSR
+// default, and the client's first paint must match it exactly to hydrate
+// without a text mismatch — so we deliberately do NOT read localStorage at
+// init time. The stored language is applied AFTER hydration via
+// restoreStoredLanguage() (called from a mount effect in AppShell), at which
+// point react-i18next re-renders the tree into the user's language.
 i18n.use(initReactI18next).init({
   resources: {
     es: { translation: es },
     en: { translation: en },
   },
-  lng: initialLang,
+  lng: DEFAULT_LANG,
   fallbackLng: DEFAULT_LANG,
   supportedLngs: SUPPORTED_LANGS,
   interpolation: {
@@ -37,9 +31,10 @@ i18n.use(initReactI18next).init({
   returnObjects: true,
 });
 
-// Keep <html lang> in sync with the active language for a11y / SEO.
+// Keep <html lang> in sync with the active language for a11y / SEO, and persist
+// language changes. Guarded for SSR (no document on the server).
 if (typeof document !== 'undefined') {
-  document.documentElement.lang = initialLang;
+  document.documentElement.lang = i18n.language;
   i18n.on('languageChanged', lng => {
     document.documentElement.lang = lng;
     try {
@@ -48,6 +43,25 @@ if (typeof document !== 'undefined') {
       /* ignore persistence failures */
     }
   });
+}
+
+/**
+ * Read the user's stored language preference and switch to it. Call this once
+ * on the client AFTER hydration (never during SSR or first paint) so the
+ * server-rendered Spanish markup hydrates cleanly before any language swap.
+ * No-op when the stored language is missing, unsupported, or already active.
+ */
+export function restoreStoredLanguage() {
+  let stored;
+  try {
+    stored = localStorage.getItem(LANG_STORAGE_KEY);
+  } catch {
+    /* localStorage may be unavailable (private mode) */
+    return;
+  }
+  if (stored && SUPPORTED_LANGS.includes(stored) && stored !== i18n.language) {
+    i18n.changeLanguage(stored);
+  }
 }
 
 export default i18n;

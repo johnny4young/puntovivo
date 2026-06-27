@@ -1,5 +1,4 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { hydrateRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 // Design CSS, loaded via JS imports (not a relative <link>) so Vite bundles
@@ -11,23 +10,17 @@ import './styles/ai-section.css';
 import './styles/pages.css';
 
 import './i18n/index.js';
-import App from './App.jsx';
-import { ThemeProvider } from './theme/ThemeProvider.jsx';
+import { AppShell } from './AppShell.jsx';
 
 // Vite's BASE_URL is "/puntovivo/" (the GitHub Pages subpath). react-router's
 // basename must not carry a trailing slash, so strip it.
 const basename = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <ThemeProvider>
-      {/* #app keeps the content above the body::before dotted-texture layer
-          (z-index: 1), mirroring the design's wrapper. */}
-      <div id="app">
-        <BrowserRouter basename={basename}>
-          <App />
-        </BrowserRouter>
-      </div>
-    </ThemeProvider>
-  </StrictMode>
+// The markup is now server-rendered (each route is prerendered to a real static
+// HTML file by scripts/prerender.mjs), so we HYDRATE rather than create a fresh
+// root. The SSR defaults (theme=light, lang=es, fallback version) are chosen to
+// match this first client paint exactly; effects then adjust the DOM afterward.
+hydrateRoot(
+  document.getElementById('root'),
+  <AppShell router={app => <BrowserRouter basename={basename}>{app}</BrowserRouter>} />
 );
