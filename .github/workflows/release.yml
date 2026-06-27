@@ -113,11 +113,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
 
-      # The pnpm store cache can leave electron's postinstall un-run, and a stale
-      # runner-side download cache makes install.js a no-op, so dist/ never
-      # materializes and make:desktop fails at its ensure:binary preflight. Clear
-      # the electron download caches and force a fresh fetch (force_no_cache) up
-      # front so the binary is guaranteed present for rebuild + packaging.
+      # pnpm install can skip electron's postinstall under a warm store cache, and
+      # ensure:binary's bare install.js invocation no-ops without pnpm's env, so
+      # dist/ never materializes and make:desktop fails at its preflight. Re-run
+      # electron's build script THROUGH pnpm (proper env + a cleared download
+      # cache) to fetch the runtime, then hard-verify it resolves.
       - name: Ensure Electron runtime
         shell: bash
         env:
@@ -125,7 +125,8 @@ jobs:
         run: |
           rm -rf "$HOME/.cache/electron" "$HOME/Library/Caches/electron" 2>/dev/null || true
           if [ -n "${LOCALAPPDATA:-}" ]; then rm -rf "$LOCALAPPDATA/electron/Cache" 2>/dev/null || true; fi
-          pnpm --filter @puntovivo/desktop run electron:ensure:binary
+          pnpm --filter @puntovivo/desktop rebuild electron
+          node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing after rebuild:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Build server package
         run: pnpm --filter @puntovivo/server run build
