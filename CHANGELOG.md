@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.2.0](https://github.com/johnny4young/puntovivo/compare/v1.1.13...v1.2.0) (2026-06-28)
+
+
+### Features
+
+* **desktop:** auto-update via electron-updater instead of update-electron-app ([61c9474](https://github.com/johnny4young/puntovivo/commit/61c9474c60aa4a4916ee25a088796b5a7c6100db))
+
 ## [1.1.13](https://github.com/johnny4young/puntovivo/compare/v1.1.12...v1.1.13) (2026-06-28)
 
 
