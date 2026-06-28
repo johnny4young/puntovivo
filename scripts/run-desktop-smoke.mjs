@@ -162,8 +162,12 @@ function checkStructure(binary) {
     maxBuffer: 256 * 1024 * 1024, // the asar listing easily exceeds the 1 MB default
   });
   if (listing.status !== 0) fail(`could not list ${asar}: ${listing.stderr}`);
+  // asar list prints OS-native separators, so normalize backslashes before the
+  // check - on Windows it emits node_modules\better-sqlite3\... which a
+  // forward-slash substring test would miss (false "native not bundled").
+  const entries = listing.stdout.replace(/\\/g, '/');
   for (const mod of ['better-sqlite3', 'argon2', 'bindings']) {
-    if (!listing.stdout.includes(`/node_modules/${mod}/`)) {
+    if (!entries.includes(`node_modules/${mod}/`)) {
       fail(`app.asar is missing node_modules/${mod} (vite-externalized native not bundled)`);
     }
   }
