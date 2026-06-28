@@ -140,8 +140,9 @@ jobs:
             # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
             darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
                     codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
-            # bsdtar reads the Windows drive colon as a host without --force-local.
-            win32)  tar --force-local -xf "${RUNNER_TEMP}/${ZIP}" -C node_modules/electron/dist ;;
+            # git-bash tar is GNU tar (no zip support); use PowerShell Expand-Archive.
+            win32)  ZW=$(cygpath -w "${RUNNER_TEMP}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
+                    powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZW' -DestinationPath '$DW' -Force" ;;
             *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
           esac
           printf '%s' "$BIN" > node_modules/electron/path.txt
