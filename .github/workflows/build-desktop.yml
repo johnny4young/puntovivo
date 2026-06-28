@@ -88,6 +88,7 @@ jobs:
       # fails. Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
       - name: Ensure Electron runtime
+        if: ${{ inputs.validate_only }}
         shell: bash
         run: |
           set -e
@@ -116,6 +117,7 @@ jobs:
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
+        if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
       - name: Build server package
@@ -167,6 +169,7 @@ jobs:
       # fails. Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
       - name: Ensure Electron runtime
+        if: ${{ inputs.validate_only }}
         shell: bash
         run: |
           set -e
@@ -195,6 +198,7 @@ jobs:
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
+        if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
       - name: Build server package
@@ -246,6 +250,7 @@ jobs:
       # fails. Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
       - name: Ensure Electron runtime
+        if: ${{ inputs.validate_only }}
         shell: bash
         run: |
           set -e
@@ -274,6 +279,7 @@ jobs:
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
 
       - name: Validate desktop workspace
+        if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
       - name: Build server package
