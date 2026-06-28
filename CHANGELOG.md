@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.7](https://github.com/johnny4young/puntovivo/compare/v1.1.6...v1.1.7) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** drop electronZipDir, let @electron/get fetch the packaging electron ([7ac0029](https://github.com/johnny4young/puntovivo/commit/7ac0029e7e6d72c06198d5d45fc16c27bb282eca))
+
 ## [1.1.6](https://github.com/johnny4young/puntovivo/compare/v1.1.5...v1.1.6) (2026-06-28)
 
 
