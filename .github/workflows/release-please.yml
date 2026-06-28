@@ -42,8 +42,13 @@ jobs:
     name: Build & upload release artifacts
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # The called release.yml uploads the installers (contents) AND publishes the
+    # auto-update feed to GitHub Pages; a reusable workflow's jobs cannot exceed
+    # the permissions the caller grants, so pages + id-token are granted here.
     permissions:
       contents: write
+      pages: write
+      id-token: write
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}

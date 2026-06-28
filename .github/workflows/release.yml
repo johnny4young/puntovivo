@@ -27,8 +27,13 @@ on:
 env:
   NODE_VERSION: '24'
 
+# contents: upload installers to the Release. pages + id-token: the publish-feed
+# job deploys the auto-update feed to GitHub Pages. Each job narrows to what it
+# needs via its own permissions block.
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   # ============================================================================
