@@ -147,6 +147,12 @@ jobs:
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
           mkdir -p node_modules/electron/dist
           curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
+          # Hand the zip's checksum to forge.config so @electron/get skips its
+          # SHASUMS256.txt download (which stalls on these runners). Same release
+          # as @electron/get's cache hit, so the hashes match.
+          SHA=$(node -e "const c=require('node:crypto'),fs=require('node:fs');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "${RUNNER_TEMP}/${ZIP}")
+          echo "PUNTOVIVO_ELECTRON_SHA256=${SHA}" >> "$GITHUB_ENV"
+          echo "electron zip sha256: ${SHA}"
           case "$PLAT" in
             # ditto preserves the .app bundle + symlinks so its signature stays
             # valid; ad-hoc re-sign so ensure:binary's codesign check passes.

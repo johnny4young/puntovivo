@@ -8,6 +8,10 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const electronVersion = require('electron/package.json').version;
 
 const config = {
   packagerConfig: {
@@ -17,6 +21,22 @@ const config = {
     appBundleId: 'com.puntovivo.pos',
     name: 'Puntovivo',
     executableName: 'puntovivo',
+    // @electron/get verifies a cache-hit electron by downloading SHASUMS256.txt,
+    // and that request stalls on the CI runners (Puntovivo's network hits it
+    // where Lingua's does not). The workflow computes the zip's SHA-256 from the
+    // same release and exports PUNTOVIVO_ELECTRON_SHA256; passing it as a known
+    // checksum makes @electron/get generate SHASUMS256.txt locally and skip the
+    // hanging download. Unset locally => normal verification.
+    ...(process.env.PUNTOVIVO_ELECTRON_SHA256
+      ? {
+          download: {
+            checksums: {
+              [`electron-v${electronVersion}-${process.platform}-${process.arch}.zip`]:
+                process.env.PUNTOVIVO_ELECTRON_SHA256,
+            },
+          },
+        }
+      : {}),
     extraResource: [
       // Include the built web app for production
       '../web/dist',
