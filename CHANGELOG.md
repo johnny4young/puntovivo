@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.4](https://github.com/johnny4young/puntovivo/compare/v1.1.3...v1.1.4) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** keep the event loop alive so CI packaging completes ([d1a1bf0](https://github.com/johnny4young/puntovivo/commit/d1a1bf04b15d9990588886119afa6c268e5d86f3))
+
 ## [1.1.3](https://github.com/johnny4young/puntovivo/compare/v1.1.2...v1.1.3) (2026-06-28)
 
 
