@@ -4,6 +4,16 @@ executableName: puntovivo
 # package.json pins electron with a caret range; electron-builder needs the exact
 # release to fetch its platform binaries. Keep in sync with the electron devDep.
 electronVersion: 41.7.1
+# A publish provider must be configured so electron-builder can resolve the
+# update channel and generate the per-OS update metadata. Without it the macOS
+# zip target dies with "Cannot read properties of null (reading 'channel')"
+# (linux/win do not hit this). The actual upload is always --publish never -
+# release.yml ships the zips via upload-release-assets - so nothing is pushed
+# from here; this block only feeds the metadata computation.
+publish:
+  provider: github
+  owner: johnny4young
+  repo: puntovivo
 directories:
   output: out-builder
   # default is build/, which the root .gitignore excludes; use a tracked dir so
