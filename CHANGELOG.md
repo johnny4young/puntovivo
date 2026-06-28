@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.11](https://github.com/johnny4young/puntovivo/compare/v1.1.10...v1.1.11) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** resolve the smoke repo root with fileURLToPath on Windows ([316d058](https://github.com/johnny4young/puntovivo/commit/316d058488d72b45f81fe6f483ca6cf2765caccb))
+
 ## [1.1.10](https://github.com/johnny4young/puntovivo/compare/v1.1.9...v1.1.10) (2026-06-28)
 
 
