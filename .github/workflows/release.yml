@@ -165,10 +165,23 @@ jobs:
       - name: Build server package
         run: pnpm --filter @puntovivo/server run build
 
-      # No native rebuild step here: forge.config's packageAfterCopy hook copies
-      # better-sqlite3 + argon2 into the bundle and pulls better-sqlite3's
-      # Electron-ABI prebuild (electron-v145) itself, so nothing compiles the
-      # SQLCipher amalgamation from source.
+      # Warm the better-sqlite3 Electron-ABI prebuild into the global
+      # prebuild-install cache here, in a VISIBLE step with its own timeout, so the
+      # forge.config packageAfterCopy hook (which re-runs prebuild-install inside
+      # the bundle) gets an instant cache hit. The hook runs inside api.make's
+      # listr context, where its stdout is buffered until the task ends — so an
+      # uncached network fetch there hangs invisibly. This step surfaces a broken
+      # download as a fast, readable failure instead.
+      - name: Warm the better-sqlite3 Electron prebuild cache
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          set -e
+          EV=$(node -p "require('./node_modules/electron/package.json').version")
+          ARCH=$(node -p "process.arch")
+          PBI="$PWD/node_modules/prebuild-install/bin.js"
+          echo "warming electron-${EV} prebuild for better-sqlite3 (${ARCH})"
+          ( cd node_modules/better-sqlite3 && node "$PBI" --runtime=electron --target="$EV" --arch="$ARCH" --verbose )
 
       # Two CI-only failures, two fixes, both invisible locally:
       #  1. @electron/packager downloads its own electron via @electron/get, whose
