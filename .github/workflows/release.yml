@@ -163,19 +163,41 @@ jobs:
       - name: Rebuild native modules
         run: pnpm --filter @puntovivo/desktop run rebuild
 
-      # @electron/packager (used by electron-forge) downloads its OWN electron via
-      # @electron/get, whose download arrives truncated on these runners, so the
-      # package came out empty and the makers had nothing to zip. ELECTRON_ZIP_DIR
-      # points packager (via forge.config electronZipDir) at the COMPLETE zip the
-      # Ensure Electron runtime step already fetched with curl --retry, bypassing
-      # @electron/get's broken download.
-      - name: Build and package desktop app
-        run: pnpm --filter @puntovivo/desktop run make:desktop
+      # Two CI-only failures, two fixes:
+      #  1. @electron/packager downloads its own electron via @electron/get, whose
+      #     download arrives truncated on these runners, so packaging produced no
+      #     output. ELECTRON_ZIP_DIR points packager (via forge.config
+      #     electronZipDir) at the COMPLETE zip the Ensure Electron runtime step
+      #     fetched with curl --retry, bypassing @electron/get.
+      #  2. The makers resolve zero targets on the Linux/macOS runners (they work
+      #     locally), so `make` writes no out/make. So we only `package` (now
+      #     reliable) and zip the app dir ourselves — a portable build per OS.
+      - name: Package desktop app
+        run: pnpm --filter @puntovivo/desktop run package:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_ZIP_DIR: ${{ runner.temp }}/electron-zips
 
+      - name: Zip the packaged app
+        shell: bash
+        run: |
+          set -e
+          echo "apps/desktop/out layout:"
+          find apps/desktop/out -maxdepth 2 2>/dev/null | head -40 || true
+          PKGDIR=$(find apps/desktop/out -maxdepth 1 -type d -name 'Puntovivo-*' 2>/dev/null | head -1)
+          if [ -z "$PKGDIR" ]; then echo "ERROR: packaged app dir not found under apps/desktop/out"; exit 1; fi
+          echo "packaged dir: $PKGDIR"
+          DEST="${RUNNER_TEMP}/release-zips"; mkdir -p "$DEST"
+          PKG=$(basename "$PKGDIR")
+          ZIP="${DEST}/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
+          case "$(node -p process.platform)" in
+            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKGDIR")' -DestinationPath '$(cygpath -w "$ZIP")' -Force" ;;
+            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKGDIR" "$ZIP" ;;
+            *)      ( cd "$(dirname "$PKGDIR")" && zip -r -q "$ZIP" "$PKG" ) ;;
+          esac
+          echo "zip: $(du -h "$ZIP" | cut -f1)  $ZIP"
+
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "${RUNNER_TEMP}/release-zips"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
