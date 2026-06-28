@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.2](https://github.com/johnny4young/puntovivo/compare/v1.1.1...v1.1.2) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** build a portable zip on every platform via MakerZIP ([a50ac14](https://github.com/johnny4young/puntovivo/commit/a50ac14afa3c1c594bfe167972e5efead123e140))
+
 ## [1.1.1](https://github.com/johnny4young/puntovivo/compare/v1.1.0...v1.1.1) (2026-06-28)
 
 
