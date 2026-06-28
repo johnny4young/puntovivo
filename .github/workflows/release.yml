@@ -177,15 +177,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_ZIP_DIR: ${{ runner.temp }}/electron-zips
+          # Temporary: trace why @electron/packager writes no out/ on these runners.
+          DEBUG: electron-forge:*,@electron/packager*
 
       - name: Zip the packaged app
         shell: bash
         run: |
           set -e
-          echo "apps/desktop/out layout:"
-          find apps/desktop/out -maxdepth 2 2>/dev/null | head -40 || true
-          PKGDIR=$(find apps/desktop/out -maxdepth 1 -type d -name 'Puntovivo-*' 2>/dev/null | head -1)
-          if [ -z "$PKGDIR" ]; then echo "ERROR: packaged app dir not found under apps/desktop/out"; exit 1; fi
+          echo "out dirs anywhere:"; find . -maxdepth 3 -type d -name out -not -path '*/node_modules/*' 2>/dev/null | head || true
+          echo "Puntovivo-* dirs anywhere:"; find . -maxdepth 4 -type d -name 'Puntovivo-*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head || true
+          echo "any .app/.exe under out:"; find . -maxdepth 5 \( -iname '*.app' -o -iname 'puntovivo*.exe' -o -iname 'puntovivo' \) -path '*/out/*' -not -path '*/node_modules/*' 2>/dev/null | head || true
+          PKGDIR=$(find . -maxdepth 4 -type d -name 'Puntovivo-*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -1)
+          if [ -z "$PKGDIR" ]; then echo "ERROR: no Puntovivo-* package dir found anywhere"; exit 1; fi
           echo "packaged dir: $PKGDIR"
           DEST="${RUNNER_TEMP}/release-zips"; mkdir -p "$DEST"
           PKG=$(basename "$PKGDIR")
