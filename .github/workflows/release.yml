@@ -136,18 +136,23 @@ jobs:
             darwin) ZIP="electron-v${EV}-darwin-${ARCH}.zip"; BIN="Electron.app/Contents/MacOS/Electron" ;;
             win32)  ZIP="electron-v${EV}-win32-${ARCH}.zip";  BIN="electron.exe" ;;
           esac
+          # Keep the COMPLETE zip in a dedicated dir so the packaging step can hand
+          # it to @electron/packager via electronZipDir (forge.config) and skip its
+          # own truncated @electron/get download. Also extract it here for the dev
+          # runtime that ensure:binary / the rebuild step need.
+          ZIPDIR="${RUNNER_TEMP}/electron-zips"; mkdir -p "$ZIPDIR"
           rm -rf node_modules/electron/dist node_modules/electron/path.txt
           mkdir -p node_modules/electron/dist
-          curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
+          curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${ZIPDIR}/${ZIP}"
           case "$PLAT" in
             # ditto preserves the .app bundle + symlinks so its signature stays
             # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
-            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
+            darwin) ditto -x -k "${ZIPDIR}/${ZIP}" node_modules/electron/dist
                     codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
             # git-bash tar is GNU tar (no zip support); use PowerShell Expand-Archive.
-            win32)  ZW=$(cygpath -w "${RUNNER_TEMP}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
+            win32)  ZW=$(cygpath -w "${ZIPDIR}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
                     powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZW' -DestinationPath '$DW' -Force" ;;
-            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
+            *)      unzip -q -o "${ZIPDIR}/${ZIP}" -d node_modules/electron/dist ;;
           esac
           printf '%s' "$BIN" > node_modules/electron/path.txt
           node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
@@ -158,37 +163,19 @@ jobs:
       - name: Rebuild native modules
         run: pnpm --filter @puntovivo/desktop run rebuild
 
-      # electron-forge's makers load empty on some CI runners (an undeclared maker
-      # dep pnpm doesn't hoist), so `make` emits nothing there. The `package` step
-      # is reliable, so package the app and zip the output ourselves — a portable
-      # build per OS that sidesteps the makers entirely.
-      - name: Package desktop app
-        run: pnpm --filter @puntovivo/desktop run package:desktop
+      # @electron/packager (used by electron-forge) downloads its OWN electron via
+      # @electron/get, whose download arrives truncated on these runners, so the
+      # package came out empty and the makers had nothing to zip. ELECTRON_ZIP_DIR
+      # points packager (via forge.config electronZipDir) at the COMPLETE zip the
+      # Ensure Electron runtime step already fetched with curl --retry, bypassing
+      # @electron/get's broken download.
+      - name: Build and package desktop app
+        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Zip the packaged app
-        shell: bash
-        run: |
-          set -e
-          PKGDIR=$(find . -maxdepth 4 -type d -iname 'Puntovivo-*' -not -path '*/node_modules/*' 2>/dev/null | head -1)
-          if [ -z "$PKGDIR" ]; then
-            echo "packaged app dir not found; layout under apps/desktop:"
-            find apps/desktop -maxdepth 3 -type d -not -path '*/node_modules/*' 2>/dev/null | head -30
-            exit 1
-          fi
-          echo "packaged dir: $PKGDIR"
-          DEST="${RUNNER_TEMP}/release-zips"; mkdir -p "$DEST"
-          PKG=$(basename "$PKGDIR")
-          ZIP="${DEST}/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
-          case "$(node -p process.platform)" in
-            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKGDIR")\\*' -DestinationPath '$(cygpath -w "$ZIP")' -Force" ;;
-            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKGDIR" "$ZIP" ;;
-            *)      ( cd "$(dirname "$PKGDIR")" && zip -r -q "$ZIP" "$PKG" ) ;;
-          esac
-          echo "zip: $(du -h "$ZIP" | cut -f1)  $ZIP"
+          ELECTRON_ZIP_DIR: ${{ runner.temp }}/electron-zips
 
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "${RUNNER_TEMP}/release-zips"
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
