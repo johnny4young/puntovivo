@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.6](https://github.com/johnny4young/puntovivo/compare/v1.1.5...v1.1.6) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** package the native modules vite externalizes ([1d3775f](https://github.com/johnny4young/puntovivo/commit/1d3775fb84fc7d17d2958150ce650e9a72a2748a))
+
 ## [1.1.5](https://github.com/johnny4young/puntovivo/compare/v1.1.4...v1.1.5) (2026-06-28)
 
 
