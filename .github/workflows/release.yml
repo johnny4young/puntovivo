@@ -199,6 +199,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_ZIP_DIR: ${{ runner.temp }}/electron-zips
 
+      # Gate the upload on the packaged app actually carrying its native modules.
+      # --structure-only asserts better-sqlite3 + argon2 are inside app.asar with
+      # their .node unpacked (no display or OS key store needed), so a regression
+      # that drops the vite-externalized natives fails here instead of shipping a
+      # desktop build that crashes on first launch.
+      - name: Smoke-test the packaged app
+        run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out --structure-only
+
       - name: Upload desktop release assets
         run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
         env:
