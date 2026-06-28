@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.8](https://github.com/johnny4young/puntovivo/compare/v1.1.7...v1.1.8) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** copy the native closure flat to stop the CI packaging hang ([3d06554](https://github.com/johnny4young/puntovivo/commit/3d065544207c8e1752ba0f5e17f7a3032c6286b3))
+
 ## [1.1.7](https://github.com/johnny4young/puntovivo/compare/v1.1.6...v1.1.7) (2026-06-28)
 
 
