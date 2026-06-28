@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.1](https://github.com/johnny4young/puntovivo/compare/v1.1.0...v1.1.1) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** load forge config from plain JS so make resolves makers in CI ([1924842](https://github.com/johnny4young/puntovivo/commit/1924842d8b3dbc8969bb4dddb69302d4be7ceca7))
+
 ## [1.1.0](https://github.com/johnny4young/puntovivo/compare/v1.0.0...v1.1.0) (2026-06-27)
 
 
