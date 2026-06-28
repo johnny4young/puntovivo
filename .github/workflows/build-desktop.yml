@@ -91,6 +91,9 @@ jobs:
         shell: bash
         run: |
           set -e
+          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
+          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
+          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
@@ -170,6 +173,9 @@ jobs:
         shell: bash
         run: |
           set -e
+          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
+          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
+          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
@@ -249,6 +255,9 @@ jobs:
         shell: bash
         run: |
           set -e
+          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
+          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
+          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
