@@ -1,42 +1,46 @@
-import { app, autoUpdater, type Event } from 'electron';
-import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
+import { app } from 'electron';
+import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 import { createModuleLogger } from '@puntovivo/server';
+import { mapReleaseFields } from './auto-update-status';
 import { t } from './i18n';
 import { isNewerVersion } from './version-compare';
 
 const log = createModuleLogger('auto-updater');
 
 const AUTO_UPDATE_ENABLED = process.env.AUTO_UPDATE !== 'false';
-const UPDATE_INTERVAL = process.env.AUTO_UPDATE_INTERVAL || '1 hour';
-const SUPPORTED_AUTO_UPDATE_PLATFORMS = new Set(['darwin', 'win32']);
+// electron-updater auto-installs on all three: mac (Squirrel.Mac zip), windows
+// (NSIS), linux (AppImage, when the app is launched as the .AppImage).
+const SUPPORTED_AUTO_UPDATE_PLATFORMS = new Set(['darwin', 'win32', 'linux']);
 
 // Release repository coordinates. The auto-updater runs in one of two modes,
 // chosen by REPO_IS_PRIVATE so the SAME code works whether the repo is closed
 // or open source:
 //
-//   - PRIVATE (default, today): GitHub's public update service
-//     (update.electronjs.org / Squirrel) cannot see a private repo's releases,
-//     so we run a NOTIFY-ONLY mode — poll the Releases API, surface the new
-//     version, and let the user download it from the release page. No binary is
-//     auto-downloaded, so no credentials are ever embedded in the client.
-//   - PUBLIC (PUNTOVIVO_UPDATE_REPO_PRIVATE=false): the existing Squirrel
-//     auto-download path takes over (update.electronjs.org), which only works on
-//     public repos. Flipping the env flag is the ONLY change needed when the
-//     source is released — no code edit.
+//   - PUBLIC (default, today): the repo is open source, so electron-updater
+//     reads the self-hosted feed (the latest-*.yml app-update.yml points at) and
+//     downloads + installs the platform-native package in the background. No
+//     credentials are embedded in the client — the feed and the release binaries
+//     are public.
+//   - PRIVATE (PUNTOVIVO_UPDATE_REPO_PRIVATE=true): a NOTIFY-ONLY fallback —
+//     poll the Releases API, surface the new version, and let the user download
+//     it from the release page. Used for internal / pre-public builds; flipping
+//     the env flag is the only change needed, no code edit.
 const REPO_OWNER = 'johnny4young';
 const REPO_NAME = 'puntovivo';
 const REPO_SLUG = `${REPO_OWNER}/${REPO_NAME}`;
-const REPO_IS_PRIVATE = process.env.PUNTOVIVO_UPDATE_REPO_PRIVATE !== 'false';
+const REPO_IS_PRIVATE = process.env.PUNTOVIVO_UPDATE_REPO_PRIVATE === 'true';
 
 // Optional read-only token so the notify-only check can reach a PRIVATE repo's
 // Releases API (internal / QA builds set it in the environment). It is NEVER
 // embedded in the bundle; a distributed private build without it simply reports
 // "requires repo access" rather than failing loudly. A public repo needs no
 // token at all.
-const UPDATE_READ_TOKEN =
-  process.env.PUNTOVIVO_UPDATE_TOKEN || process.env.GH_TOKEN || undefined;
+const UPDATE_READ_TOKEN = process.env.PUNTOVIVO_UPDATE_TOKEN || process.env.GH_TOKEN || undefined;
 
 const NOTIFY_POLL_INTERVAL_MS = 60 * 60 * 1000; // 1h, mirrors the prior '1 hour'
+// electron-updater has no built-in poll, so the auto mode drives its own check
+// loop on the same cadence the notify poll uses.
+const AUTO_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const RELEASE_FETCH_TIMEOUT_MS = 15_000;
 
 export type AutoUpdateState =
@@ -98,6 +102,7 @@ let autoUpdateStatus = createDefaultStatus();
 let listenersAttached = false;
 let initialized = false;
 let notifyPollHandle: ReturnType<typeof setInterval> | null = null;
+let autoCheckHandle: ReturnType<typeof setInterval> | null = null;
 
 function currentTimestamp(): string {
   return new Date().toISOString();
@@ -151,7 +156,14 @@ function getUnavailableReason(): string {
 // ---------------------------------------------------------------------------
 
 type LatestReleaseResult =
-  | { kind: 'ok'; version: string; name: string; notes: string | null; date: string | null; url: string }
+  | {
+      kind: 'ok';
+      version: string;
+      name: string;
+      notes: string | null;
+      date: string | null;
+      url: string;
+    }
   | { kind: 'inaccessible' }
   | { kind: 'error'; message: string };
 
@@ -257,7 +269,7 @@ async function runNotifyCheck(): Promise<AutoUpdateStatus> {
 }
 
 // ---------------------------------------------------------------------------
-// Auto mode (public repo): Squirrel background download + install
+// Auto mode: electron-updater background download + install
 // ---------------------------------------------------------------------------
 
 function attachListeners(): void {
@@ -277,13 +289,14 @@ function attachListeners(): void {
     });
   });
 
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
     updateStatus({
       isAvailable: true,
       state: 'available',
       error: null,
       reason: null,
       lastCheckedAt: currentTimestamp(),
+      ...mapReleaseFields(info, REPO_SLUG),
     });
   });
 
@@ -301,29 +314,24 @@ function attachListeners(): void {
     });
   });
 
-  autoUpdater.on(
-    'update-downloaded',
-    (
-      _event: Event,
-      releaseNotes: string,
-      releaseName: string,
-      releaseDate: Date | string,
-      updateURL: string
-    ) => {
-      updateStatus({
-        isAvailable: true,
-        state: 'downloaded',
-        error: null,
-        reason: null,
-        lastCheckedAt: currentTimestamp(),
-        releaseName,
-        releaseNotes,
-        releaseDate:
-          releaseDate instanceof Date ? releaseDate.toISOString() : new Date(releaseDate).toISOString(),
-        updateUrl: updateURL,
-      });
-    }
-  );
+  // autoDownload is on, so electron-updater pulls the package in the background
+  // after 'update-available'. Keep the 'available' state during the download
+  // (the prior update-electron-app path surfaced no progress either) and only
+  // flip to 'downloaded' once it is ready to install.
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    log.info({ percent: Math.round(progress.percent) }, 'auto-update downloading');
+  });
+
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    updateStatus({
+      isAvailable: true,
+      state: 'downloaded',
+      error: null,
+      reason: null,
+      lastCheckedAt: currentTimestamp(),
+      ...mapReleaseFields(info, REPO_SLUG),
+    });
+  });
 
   autoUpdater.on('error', error => {
     updateStatus({
@@ -347,27 +355,34 @@ function initAutoMode(): AutoUpdateStatus {
   });
 
   try {
-    updateElectronApp({
-      updateSource: {
-        type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: REPO_SLUG,
-      },
-      updateInterval: UPDATE_INTERVAL,
-      notifyUser: false,
-      // update-electron-app expects a subset of a console-like interface
-      // (log, warn, error, info). pino's child logger satisfies each of
-      // those signatures, so the module logger threads directly into the
-      // library's internal diagnostics and everything flows through the
-      // shared NDJSON stream with module="auto-updater".
-      logger: {
-        log: (...args: unknown[]) => log.info({ args }, 'auto-update log'),
-        warn: (...args: unknown[]) => log.warn({ args }, 'auto-update warn'),
-        error: (...args: unknown[]) => log.error({ args }, 'auto-update error'),
-        info: (...args: unknown[]) => log.info({ args }, 'auto-update info'),
-      },
-    });
+    // electron-updater reads the feed from the app-update.yml electron-builder
+    // embeds (the publish provider), so no repo coordinates are wired here. Its
+    // diagnostics thread through the shared NDJSON logger; pino's child logger
+    // satisfies the debug/info/warn/error shape electron-updater expects.
+    autoUpdater.logger = {
+      debug: (...args: unknown[]) => log.debug({ args }, 'auto-update debug'),
+      info: (...args: unknown[]) => log.info({ args }, 'auto-update info'),
+      warn: (...args: unknown[]) => log.warn({ args }, 'auto-update warn'),
+      error: (...args: unknown[]) => log.error({ args }, 'auto-update error'),
+    };
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
 
-    log.info({ updateInterval: UPDATE_INTERVAL }, 'auto-updater initialized (auto mode)');
+    // electron-updater has no built-in poll, so drive the initial check + the
+    // interval ourselves (this is what update-electron-app's updateInterval did).
+    void autoUpdater.checkForUpdates()?.catch(err => {
+      log.warn({ err }, 'initial auto-update check failed');
+    });
+    if (!autoCheckHandle) {
+      autoCheckHandle = setInterval(() => {
+        void autoUpdater.checkForUpdates()?.catch(err => {
+          log.warn({ err }, 'scheduled auto-update check failed');
+        });
+      }, AUTO_CHECK_INTERVAL_MS);
+      autoCheckHandle.unref?.();
+    }
+
+    log.info({ checkIntervalMs: AUTO_CHECK_INTERVAL_MS }, 'auto-updater initialized (auto mode)');
   } catch (error) {
     const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
     log.error({ err: error }, 'failed to initialize auto-updater');
@@ -410,7 +425,10 @@ function initNotifyMode(): AutoUpdateStatus {
     notifyPollHandle.unref?.();
   }
 
-  log.info({ pollIntervalMs: NOTIFY_POLL_INTERVAL_MS }, 'auto-updater initialized (notify-only mode)');
+  log.info(
+    { pollIntervalMs: NOTIFY_POLL_INTERVAL_MS },
+    'auto-updater initialized (notify-only mode)'
+  );
   return getAutoUpdateStatus();
 }
 
@@ -473,7 +491,9 @@ export function checkForAppUpdates(): AutoUpdateStatus | Promise<AutoUpdateStatu
     lastCheckedAt: currentTimestamp(),
   });
 
-  autoUpdater.checkForUpdates();
+  void autoUpdater.checkForUpdates()?.catch(err => {
+    log.warn({ err }, 'manual auto-update check failed');
+  });
   return getAutoUpdateStatus();
 }
 
@@ -499,10 +519,14 @@ export function restartToApplyAppUpdate(): AutoUpdateActionResult {
   return { success: true };
 }
 
-/** Clear the notify-only poll timer. Call on app shutdown. */
+/** Clear both update timers (notify poll + auto check). Call on app shutdown. */
 export function stopAutoUpdater(): void {
   if (notifyPollHandle) {
     clearInterval(notifyPollHandle);
     notifyPollHandle = null;
+  }
+  if (autoCheckHandle) {
+    clearInterval(autoCheckHandle);
+    autoCheckHandle = null;
   }
 }

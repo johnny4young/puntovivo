@@ -8,7 +8,17 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode !== 'production',
     minify: false, // Don't minify in dev builds for easier debugging
     rollupOptions: {
-      external: ['better-sqlite3', 'argon2', 'electron', 'electron-squirrel-startup'],
+      // electron-updater is externalized (not bundled): it lazy-requires its
+      // provider modules + reads app-update.yml at runtime, which a bundler can
+      // break. It ships via electron-builder's production-dependency collection
+      // into app.asar/node_modules, alongside the native addons.
+      external: [
+        'better-sqlite3',
+        'argon2',
+        'electron',
+        'electron-squirrel-startup',
+        'electron-updater',
+      ],
       output: {
         entryFileNames: '[name].cjs',
       },
