@@ -17,12 +17,6 @@ const config = {
     appBundleId: 'com.puntovivo.pos',
     name: 'Puntovivo',
     executableName: 'puntovivo',
-    // CI feeds @electron/packager the COMPLETE electron zip through this dir so it
-    // skips @electron/get — whose download arrives truncated on the GitHub runners,
-    // leaving the packaged app empty and the makers with nothing to zip. The
-    // workflow sets ELECTRON_ZIP_DIR after fetching the zip with curl --retry.
-    // Unset locally => undefined => packager downloads normally.
-    electronZipDir: process.env.ELECTRON_ZIP_DIR,
     extraResource: [
       // Include the built web app for production
       '../web/dist',
