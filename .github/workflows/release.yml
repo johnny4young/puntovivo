@@ -171,18 +171,24 @@ jobs:
         shell: bash
         run: |
           set -e
-          cd apps/desktop/out
-          for d in Puntovivo-*/; do PKG="${d%/}"; break; done
-          mkdir -p dist
-          ZIP="dist/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
+          PKGDIR=$(find . -maxdepth 4 -type d -iname 'Puntovivo-*' -not -path '*/node_modules/*' 2>/dev/null | head -1)
+          if [ -z "$PKGDIR" ]; then
+            echo "packaged app dir not found; layout under apps/desktop:"
+            find apps/desktop -maxdepth 3 -type d -not -path '*/node_modules/*' 2>/dev/null | head -30
+            exit 1
+          fi
+          echo "packaged dir: $PKGDIR"
+          DEST="${RUNNER_TEMP}/release-zips"; mkdir -p "$DEST"
+          PKG=$(basename "$PKGDIR")
+          ZIP="${DEST}/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
           case "$(node -p process.platform)" in
-            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKG")\\*' -DestinationPath '$(cygpath -w "$PWD/$ZIP")' -Force" ;;
-            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKG" "$ZIP" ;;
-            *)      zip -r -q "$ZIP" "$PKG" ;;
+            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKGDIR")\\*' -DestinationPath '$(cygpath -w "$ZIP")' -Force" ;;
+            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKGDIR" "$ZIP" ;;
+            *)      ( cd "$(dirname "$PKGDIR")" && zip -r -q "$ZIP" "$PKG" ) ;;
           esac
-          ls -la "$ZIP"
+          echo "zip: $(du -h "$ZIP" | cut -f1)  $ZIP"
 
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/dist
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "${RUNNER_TEMP}/release-zips"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
