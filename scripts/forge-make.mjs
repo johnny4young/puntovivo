@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Runs `electron-forge make` through the programmatic API while holding a
- * no-op interval that keeps the Node event loop alive.
+ * no-op interval that keeps the Node event loop alive, then forces an exit.
  *
  * Why this exists (non-obvious CI-only failure):
  * On the GitHub Actions runners the Node event loop momentarily drains while
@@ -12,14 +12,19 @@
  * makers have nothing to zip. Locally the loop never drains at that instant, so
  * the `electron-forge make` CLI works there and the bug is invisible.
  *
- * The fix is environment-agnostic: a setInterval keeps the loop alive until
- * api.make() resolves, defeating the race while preserving every forge step
- * (vite main/preload build, native rebuild, asar, fuses, MakerZIP). The CLI
- * cannot do this because the premature exit happens inside its own process.
+ * Two guards make it deterministic:
+ *  - a setInterval keeps the loop alive until api.make() resolves, so packaging
+ *    is never abandoned mid-flight;
+ *  - process.exit() at the end forces termination once make resolves, so a
+ *    lingering vite/esbuild handle can never wedge the step (the keep-alive
+ *    would otherwise hold the process open forever).
+ *
+ * Every forge step is preserved (vite main/preload build, native rebuild, asar,
+ * fuses, MakerZIP). The CLI cannot do either guard because the premature exit
+ * happens inside its own process.
  *
  * Root cause traced via DEBUG=electron-forge:* on the release runners:
  *   electron-forge:packager packaging with options { ... }
- *   electron-forge:packager targets: [ { platform: 'linux', arch: 'x64' } ]
  *   electron-forge:plugin:vite handling process exit with: { cleanup: true }
  *
  * @module scripts/forge-make
@@ -36,18 +41,31 @@ const dir = path.resolve(here, '..', 'apps', 'desktop');
 // `dir`, so run from the desktop package regardless of the caller's cwd.
 process.chdir(dir);
 
+const start = Date.now();
+const log = (message) =>
+  process.stdout.write(
+    `[forge-make +${Math.round((Date.now() - start) / 1000)}s] ${message}\n`
+  );
+
 const keepAlive = setInterval(() => {}, 250);
+let exitCode = 0;
 try {
+  log('starting api.make');
   const results = await api.make({ dir, interactive: false });
   const artifacts = results.flatMap((result) => result.artifacts ?? []);
-  process.stdout.write(`[forge-make] produced ${artifacts.length} artifact(s):\n`);
-  for (const artifact of artifacts) {
-    process.stdout.write(`  ${path.relative(dir, artifact)}\n`);
-  }
+  log(`api.make resolved with ${artifacts.length} artifact(s):`);
+  for (const artifact of artifacts) log(`  ${path.relative(dir, artifact)}`);
   if (artifacts.length === 0) {
-    process.stderr.write('[forge-make] no artifacts were produced\n');
-    process.exitCode = 1;
+    log('ERROR: no artifacts produced');
+    exitCode = 1;
   }
+} catch (error) {
+  log(`ERROR: api.make threw: ${error?.stack ?? error}`);
+  exitCode = 1;
 } finally {
   clearInterval(keepAlive);
 }
+log(`exiting with code ${exitCode}`);
+// Force termination: make has resolved, so any vite/esbuild handle still open
+// must not keep the step running. Without this the keep-alive could wedge it.
+process.exit(exitCode);

@@ -79,6 +79,9 @@ jobs:
   release-desktop:
     name: Release Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Safety net: a wedged electron-forge packaging step (see scripts/forge-make.mjs)
+    # must fail fast, not run out the default 6-hour job budget.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
