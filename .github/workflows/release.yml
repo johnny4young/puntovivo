@@ -185,3 +185,76 @@ jobs:
           gh release upload "${{ inputs.tag }}" "$ASSET" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Stash this platform's electron-updater feed (latest-mac.yml / latest.yml /
+      # latest-linux.yml) for the publish-feed job to collect. Only the small .yml
+      # travels here; the installer it points at is the Release asset above.
+      - name: Upload update feed metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-${{ matrix.platform }}
+          path: apps/desktop/out-builder/latest*.yml
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================================================
+  # Publish the auto-update feed (the appcast) to GitHub Pages
+  # ============================================================================
+  # The marketing site moved to Cloudflare Pages (deploy-web.yml), so GitHub Pages
+  # now serves only the electron-updater feed. The packaged app's app-update.yml
+  # points electron-updater at https://johnny4young.github.io/puntovivo/, and this
+  # job publishes the per-OS latest*.yml there with their binary URLs rewritten to
+  # the Release downloads (the installers are too large for Pages).
+  publish-feed:
+    name: Publish update feed to Pages
+    needs: release-desktop
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      - name: Collect the per-OS feeds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: feed-*
+          path: feed
+          merge-multiple: true
+
+      - name: Rewrite feed URLs to the Release downloads
+        run: node ./scripts/rewrite-update-feed.mjs feed "${{ inputs.tag }}"
+
+      # Keep the Pages root from being a bare 404; the marketing site is on
+      # Cloudflare, so redirect a browser there.
+      - name: Add a feed index
+        run: |
+          cat > feed/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Puntovivo update feed</title>
+          <meta http-equiv="refresh" content="0; url=https://puntovivo.pages.dev/">
+          <p>Puntovivo desktop auto-update feed. <a href="https://puntovivo.pages.dev/">Go to the site</a>.</p>
+          HTML
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: feed
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
