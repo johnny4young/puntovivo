@@ -11,7 +11,9 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config = {
   packagerConfig: {
-    asar: true,
+    // Unpack native addons: a .node cannot be dlopen'd from inside app.asar, and
+    // packageAfterCopy below adds better-sqlite3 + argon2 to the bundle.
+    asar: { unpack: '**/*.node' },
     appBundleId: 'com.puntovivo.pos',
     name: 'Puntovivo',
     executableName: 'puntovivo',
@@ -32,9 +34,65 @@ const config = {
       '../../packages/server/dist/db/migrations',
     ],
   },
-  rebuildConfig: {
-    force: true,
-    onlyModules: ['better-sqlite3', 'argon2'],
+  // No rebuildConfig: vite externalizes better-sqlite3 + argon2, so they live in
+  // node_modules, not the bundle. forge's plugin-vite ignores everything but
+  // /.vite (it assumes vite bundles all deps), so neither the modules nor a
+  // forge rebuild of them reaches the package — the packaged app could not
+  // require('better-sqlite3') at all. We instead copy their runtime closure into
+  // the bundle in packageAfterCopy and pull better-sqlite3's Electron-ABI binary
+  // from upstream's prebuild there (no ~15 min SQLCipher compile). argon2 ships
+  // N-API prebuilds (ABI-stable), so its as-installed binary already runs under
+  // Electron.
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath, electronVersion, _platform, arch) => {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const { createRequire } = await import('node:module');
+      const { execFileSync } = await import('node:child_process');
+      const require = createRequire(import.meta.url);
+
+      const destNodeModules = path.join(buildPath, 'node_modules');
+      const seen = new Set();
+      const copyClosure = name => {
+        if (seen.has(name)) return;
+        seen.add(name);
+        let pkgJsonPath;
+        try {
+          pkgJsonPath = require.resolve(`${name}/package.json`);
+        } catch {
+          return; // optional / platform-specific dep not installed here
+        }
+        fs.cpSync(path.dirname(pkgJsonPath), path.join(destNodeModules, name), {
+          recursive: true,
+          dereference: true,
+        });
+        const deps = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')).dependencies ?? {};
+        for (const dep of Object.keys(deps)) copyClosure(dep);
+      };
+      // electron is provided by the runtime; the other three vite externals
+      // (vite.main.config.ts) must travel with the app.
+      for (const ext of ['better-sqlite3', 'argon2', 'electron-squirrel-startup']) {
+        copyClosure(ext);
+      }
+
+      // Replace better-sqlite3's copied (Node-ABI) binary with the Electron-ABI
+      // prebuild (electron-v145 for Electron 41) so the app loads it natively.
+      const bs3 = path.join(destNodeModules, 'better-sqlite3');
+      fs.rmSync(path.join(bs3, 'build', 'Release'), {
+        recursive: true,
+        force: true,
+      });
+      execFileSync(
+        process.execPath,
+        [
+          require.resolve('prebuild-install/bin.js'),
+          '--runtime=electron',
+          `--target=${electronVersion}`,
+          `--arch=${arch}`,
+        ],
+        { cwd: bs3, stdio: 'inherit' }
+      );
+    },
   },
   // CI-portable build: only MakerZIP. The squirrel/deb/rpm makers pull
   // undeclared transitive deps that pnpm does not hoist on a clean CI install,

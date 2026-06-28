@@ -165,11 +165,10 @@ jobs:
       - name: Build server package
         run: pnpm --filter @puntovivo/server run build
 
-      # No standalone electron-rebuild step: forge's rebuildConfig (force) already
-      # recompiles better-sqlite3 + argon2 for Electron during make. Compiling the
-      # SQLCipher binding is slow (~8 min on a runner), and doing it twice pushed
-      # the macOS job toward the timeout. forge's afterCopy rebuild is the
-      # authoritative one for the packaged app, so we keep only that.
+      # No native rebuild step here: forge.config's packageAfterCopy hook copies
+      # better-sqlite3 + argon2 into the bundle and pulls better-sqlite3's
+      # Electron-ABI prebuild (electron-v145) itself, so nothing compiles the
+      # SQLCipher amalgamation from source.
 
       # Two CI-only failures, two fixes, both invisible locally:
       #  1. @electron/packager downloads its own electron via @electron/get, whose
