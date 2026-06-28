@@ -169,12 +169,18 @@ jobs:
       - name: Smoke-test the packaged app
         run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
 
-      # Upload only the top-level distributables (the zips). The glob is
-      # non-recursive on purpose: out-builder also holds the unpacked app dirs
-      # whose puntovivo.exe / nested files would otherwise match the uploader's
-      # extension filter.
+      # Upload the single top-level zip this OS produced. Resolve it with Node,
+      # not a shell glob: Git bash on the Windows runner does not expand
+      # out-builder/*.zip, so the asset silently never uploaded. gh is invoked
+      # straight from bash (resolves on all three runners) rather than through a
+      # node spawn('gh'), which needs gh.exe on Windows. Node also filters out the
+      # unpacked app dir (win-unpacked/puntovivo.exe etc.) by matching only *.zip.
       - name: Upload desktop release assets
         shell: bash
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out-builder/*.zip
+        run: |
+          set -euo pipefail
+          ZIP=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const z=fs.readdirSync(d).filter(f=>f.endsWith('.zip'));if(z.length!==1){console.error('expected exactly 1 zip in '+d+', got '+z.length+': '+z.join(', '));process.exit(1)}process.stdout.write(d+'/'+z[0])")
+          echo "uploading: $ZIP"
+          gh release upload "${{ inputs.tag }}" "$ZIP" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
