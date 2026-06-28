@@ -191,6 +191,10 @@ jobs:
         run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Temporary: trace where api.make hangs before the packageAfterCopy hook
+          # (vite build vs @electron/get extract). debug writes to stderr, which
+          # is visible in the CI log unlike listr's buffered stdout.
+          DEBUG: electron-forge:*,@electron/get:*
 
       # Gate the upload on the packaged app actually carrying its native modules.
       # --structure-only asserts better-sqlite3 + argon2 are inside app.asar with
