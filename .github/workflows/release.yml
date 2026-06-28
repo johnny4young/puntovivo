@@ -163,44 +163,23 @@ jobs:
       - name: Rebuild native modules
         run: pnpm --filter @puntovivo/desktop run rebuild
 
-      # Two CI-only failures, two fixes:
+      # Two CI-only failures, two fixes, both invisible locally:
       #  1. @electron/packager downloads its own electron via @electron/get, whose
-      #     download arrives truncated on these runners, so packaging produced no
-      #     output. ELECTRON_ZIP_DIR points packager (via forge.config
-      #     electronZipDir) at the COMPLETE zip the Ensure Electron runtime step
-      #     fetched with curl --retry, bypassing @electron/get.
-      #  2. The makers resolve zero targets on the Linux/macOS runners (they work
-      #     locally), so `make` writes no out/make. So we only `package` (now
-      #     reliable) and zip the app dir ourselves — a portable build per OS.
-      - name: Package desktop app
-        run: pnpm --filter @puntovivo/desktop run package:desktop
+      #     download arrives truncated on these runners. ELECTRON_ZIP_DIR points
+      #     packager (via forge.config electronZipDir) at the COMPLETE zip the
+      #     Ensure Electron runtime step fetched with curl --retry.
+      #  2. The Node event loop drains while @electron/packager is mid-copy, so the
+      #     process fires 'exit' and plugin-vite's exit handler abandons packaging
+      #     (exit 0, empty out/, makers with nothing to zip). make:desktop runs
+      #     make through forge-make.mjs, which holds the loop alive with a keep
+      #     alive timer until packaging resolves. See scripts/forge-make.mjs.
+      - name: Build and package desktop app
+        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_ZIP_DIR: ${{ runner.temp }}/electron-zips
-          # Temporary: trace why @electron/packager writes no out/ on these runners.
-          DEBUG: electron-forge:*,@electron/packager*
-
-      - name: Zip the packaged app
-        shell: bash
-        run: |
-          set -e
-          echo "out dirs anywhere:"; find . -maxdepth 3 -type d -name out -not -path '*/node_modules/*' 2>/dev/null | head || true
-          echo "Puntovivo-* dirs anywhere:"; find . -maxdepth 4 -type d -name 'Puntovivo-*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head || true
-          echo "any .app/.exe under out:"; find . -maxdepth 5 \( -iname '*.app' -o -iname 'puntovivo*.exe' -o -iname 'puntovivo' \) -path '*/out/*' -not -path '*/node_modules/*' 2>/dev/null | head || true
-          PKGDIR=$(find . -maxdepth 4 -type d -name 'Puntovivo-*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -1)
-          if [ -z "$PKGDIR" ]; then echo "ERROR: no Puntovivo-* package dir found anywhere"; exit 1; fi
-          echo "packaged dir: $PKGDIR"
-          DEST="${RUNNER_TEMP}/release-zips"; mkdir -p "$DEST"
-          PKG=$(basename "$PKGDIR")
-          ZIP="${DEST}/puntovivo-desktop-${PKG#Puntovivo-}-${{ inputs.tag }}.zip"
-          case "$(node -p process.platform)" in
-            win32)  powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/$PKGDIR")' -DestinationPath '$(cygpath -w "$ZIP")' -Force" ;;
-            darwin) ditto -c -k --sequesterRsrc --keepParent "$PKGDIR" "$ZIP" ;;
-            *)      ( cd "$(dirname "$PKGDIR")" && zip -r -q "$ZIP" "$PKG" ) ;;
-          esac
-          echo "zip: $(du -h "$ZIP" | cut -f1)  $ZIP"
 
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" "${RUNNER_TEMP}/release-zips"
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

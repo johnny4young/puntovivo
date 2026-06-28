@@ -19,7 +19,7 @@
     "dev:desktop:server-logs": "DEBUG=fastify:* pnpm run dev:desktop",
     "rebuild": "electron-rebuild -f",
     "package:desktop": "pnpm run prepare:server && pnpm run electron:ensure:migrations && pnpm run electron:ensure:binary && pnpm --filter @puntovivo/web run build && electron-forge package",
-    "make:desktop": "pnpm run prepare:server && pnpm run electron:ensure:migrations && pnpm run electron:ensure:binary && pnpm --filter @puntovivo/web run build && electron-forge make",
+    "make:desktop": "pnpm run prepare:server && pnpm run electron:ensure:migrations && pnpm run electron:ensure:binary && pnpm --filter @puntovivo/web run build && node ../../scripts/forge-make.mjs",
     "publish:desktop": "electron-forge publish",
     "lint": "eslint .",
     "test": "pnpm run native:ensure:node && node --test --experimental-strip-types \"src/main/**/*.test.ts\"",
