@@ -75,7 +75,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
+        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
+        # install and the electron-forge makers' undeclared transitive deps stay
+        # un-hoisted — make:desktop then emits zero installers. Force it here.
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       - name: Install Linux system dependencies
         run: |
@@ -163,7 +167,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
+        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
+        # install and the electron-forge makers' undeclared transitive deps stay
+        # un-hoisted — make:desktop then emits zero installers. Force it here.
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
       # (only locales/, no binary), so electron never installs and make:desktop
@@ -245,7 +253,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
+        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
+        # install and the electron-forge makers' undeclared transitive deps stay
+        # un-hoisted — make:desktop then emits zero installers. Force it here.
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
       # (only locales/, no binary), so electron never installs and make:desktop

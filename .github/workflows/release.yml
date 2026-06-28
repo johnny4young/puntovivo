@@ -56,7 +56,11 @@ jobs:
           # installers. A clean install hoists them — matches build-desktop.yml.
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
+        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
+        # install and the electron-forge makers' undeclared transitive deps stay
+        # un-hoisted — make:desktop then emits zero installers. Force it here.
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       - name: Build web app
         run: pnpm --filter @puntovivo/web run build
@@ -108,7 +112,11 @@ jobs:
           # installers. A clean install hoists them — matches build-desktop.yml.
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
+        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
+        # install and the electron-forge makers' undeclared transitive deps stay
+        # un-hoisted — make:desktop then emits zero installers. Force it here.
+        run: pnpm install --frozen-lockfile --shamefully-hoist
 
       # Install native dependencies on Linux
       - name: Install Linux dependencies
