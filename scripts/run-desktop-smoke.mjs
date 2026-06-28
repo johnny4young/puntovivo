@@ -63,14 +63,18 @@ function findInput() {
 function resolveBinary(input) {
   if (!existsSync(input)) fail(`path does not exist: ${input}`);
 
-  // macOS: a .app bundle (directly, or the newest one found under input)
+  // macOS: a .app bundle (directly, or the app bundle found under input). forge
+  // names it Puntovivo.app, electron-builder puntovivo.app, so match any .app
+  // that carries our executable.
   if (process.platform === 'darwin') {
-    const app = input.endsWith('.app') ? input : findUnder(input, (n) => n === `${APP_NAME}.app`);
+    const app = input.endsWith('.app')
+      ? input
+      : findUnder(input, (n) => n.endsWith('.app') && /puntovivo/i.test(n));
     if (app) {
       const bin = path.join(app, 'Contents', 'MacOS', EXECUTABLE);
       if (existsSync(bin)) return bin;
     }
-    fail(`no ${APP_NAME}.app with Contents/MacOS/${EXECUTABLE} under ${input}`);
+    fail(`no *.app with Contents/MacOS/${EXECUTABLE} under ${input}`);
   }
 
   // Linux / Windows: the executable inside the packaged dir
@@ -152,6 +156,7 @@ function checkStructure(binary) {
   const asarCli = path.join(repoRoot, 'node_modules', '@electron', 'asar', 'bin', 'asar.js');
   const listing = spawnSync(process.execPath, [asarCli, 'list', asar], {
     encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024, // the asar listing easily exceeds the 1 MB default
   });
   if (listing.status !== 0) fail(`could not list ${asar}: ${listing.stderr}`);
   for (const mod of ['better-sqlite3', 'argon2', 'bindings']) {

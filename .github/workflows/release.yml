@@ -77,13 +77,12 @@ jobs:
   # Build & Upload Desktop
   # ============================================================================
   release-desktop:
-    name: Release Desktop (${{ matrix.os }})
+    name: Release Desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
-    # Safety net against a wedged packaging step (see scripts/forge-make.mjs)
-    # without starving the legitimately slow path: compiling better-sqlite3's
-    # SQLCipher binding for Electron's ABI has no prebuilt and runs ~18-20 min
-    # from source, so the job needs ~25-28 min of real headroom.
-    timeout-minutes: 45
+    # electron-builder downloads its own Electron and fetches better-sqlite3's
+    # Electron-ABI prebuild (no SQLCipher compile from source), so packaging is
+    # fast. The headroom covers macOS notarization (a few minutes round-trip).
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -108,99 +107,59 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # No pnpm store cache: a warm cache leaves the electron-forge makers'
-          # transitive deps (e.g. lodash) unresolvable, so make:desktop emits no
-          # installers. A clean install hoists them — matches build-desktop.yml.
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Install native dependencies on Linux
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Linux desktop dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
-          # fakeroot (MakerDeb) + rpm/rpmbuild (MakerRpm) — without them
-          # electron-forge resolves zero make targets and produces no installers.
-          sudo apt-get install -y fakeroot rpm
 
-      # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
-      # (only locales/, no binary), so electron never installs and make:desktop
-      # fails. Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on linux/macOS, bsdtar on Windows), set path.txt, then verify.
-      - name: Ensure Electron runtime
+      # Build the web + server + electron main/preload bundles that
+      # electron-builder packages (electron-builder only packages; it does not
+      # run vite). prebuild:desktop chains prepare:server + ensure:migrations +
+      # web build + build:main.
+      - name: Build desktop bundles
+        run: pnpm --filter @puntovivo/desktop run prebuild:desktop
+
+      # macOS: sign with the Developer ID + notarize when the Apple secrets are
+      # present; otherwise ad-hoc sign so the build still completes and the
+      # structure smoke can validate the packaging (an ad-hoc build is not
+      # distributable — Gatekeeper blocks it — but it proves the bundle is sound).
+      # electron-builder imports the p12 into its own throwaway keychain, so the
+      # operator's local duplicate Developer ID certs cannot create ambiguity.
+      - name: Package desktop app (macOS)
+        if: matrix.platform == 'mac'
         shell: bash
-        run: |
-          set -e
-          EV=$(node -p "require('./node_modules/electron/package.json').version")
-          PLAT=$(node -p "process.platform")
-          ARCH=$(node -p "process.arch")
-          case "$PLAT" in
-            linux)  ZIP="electron-v${EV}-linux-${ARCH}.zip";  BIN="electron" ;;
-            darwin) ZIP="electron-v${EV}-darwin-${ARCH}.zip"; BIN="Electron.app/Contents/MacOS/Electron" ;;
-            win32)  ZIP="electron-v${EV}-win32-${ARCH}.zip";  BIN="electron.exe" ;;
-          esac
-          # Re-extract the dev runtime that ensure:binary needs. @electron/packager
-          # downloads its OWN electron via @electron/get for packaging (like Lingua,
-          # which builds cleanly that way) — no electronZipDir hand-off.
-          rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          mkdir -p node_modules/electron/dist
-          curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
-          # Hand the zip's checksum to forge.config so @electron/get skips its
-          # SHASUMS256.txt download (which stalls on these runners). Same release
-          # as @electron/get's cache hit, so the hashes match.
-          SHA=$(node -e "const c=require('node:crypto'),fs=require('node:fs');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "${RUNNER_TEMP}/${ZIP}")
-          echo "PUNTOVIVO_ELECTRON_SHA256=${SHA}" >> "$GITHUB_ENV"
-          echo "electron zip sha256: ${SHA}"
-          case "$PLAT" in
-            # ditto preserves the .app bundle + symlinks so its signature stays
-            # valid; ad-hoc re-sign so ensure:binary's codesign check passes.
-            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
-                    codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
-            # git-bash tar is GNU tar (no zip support); use PowerShell Expand-Archive.
-            win32)  ZW=$(cygpath -w "${RUNNER_TEMP}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
-                    powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZW' -DestinationPath '$DW' -Force" ;;
-            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
-          esac
-          printf '%s' "$BIN" > node_modules/electron/path.txt
-          node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
-
-      - name: Build server package
-        run: pnpm --filter @puntovivo/server run build
-
-      # Warm the better-sqlite3 Electron-ABI prebuild into the global
-      # prebuild-install cache here, in a VISIBLE step with its own timeout, so the
-      # forge.config packageAfterCopy hook (which re-runs prebuild-install inside
-      # the bundle) gets an instant cache hit. The hook runs inside api.make's
-      # listr context, where its stdout is buffered until the task ends — so an
-      # uncached network fetch there hangs invisibly. This step surfaces a broken
-      # download as a fast, readable failure instead.
-      - name: Warm the better-sqlite3 Electron prebuild cache
-        shell: bash
-        timeout-minutes: 5
-        run: |
-          set -e
-          EV=$(node -p "require('./node_modules/electron/package.json').version")
-          ARCH=$(node -p "process.arch")
-          PBI="$PWD/node_modules/prebuild-install/bin.js"
-          echo "warming electron-${EV} prebuild for better-sqlite3 (${ARCH})"
-          ( cd node_modules/better-sqlite3 && node "$PBI" --runtime=electron --target="$EV" --arch="$ARCH" --verbose )
-
-      # plugin-vite has no renderer here (renderer: []), so once the main/preload
-      # build finishes the Node event loop can drain while @electron/packager is
-      # mid-copy; the process then fires 'exit' and plugin-vite's exit handler
-      # abandons packaging (exit 0, empty out/). make:desktop runs make through
-      # forge-make.mjs, which holds the loop alive with a keep-alive timer until
-      # packaging resolves. See scripts/forge-make.mjs.
-      - name: Build and package desktop app
-        run: pnpm --filter @puntovivo/desktop run make:desktop
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Temporary: trace where api.make hangs before the packageAfterCopy hook
-          # (vite build vs @electron/get extract). debug writes to stderr, which
-          # is visible in the CI log unlike listr's buffered stdout.
-          DEBUG: electron-forge:*,@electron/get:*
+          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cd apps/desktop
+          if [[ -n "${APPLE_CERT_P12_BASE64:-}" && -n "${APPLE_CERT_PASSWORD:-}" ]]; then
+            echo "macOS packaging: Developer ID signing + notarization"
+            echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/puntovivo-cert.p12"
+            export CSC_LINK="$RUNNER_TEMP/puntovivo-cert.p12"
+            export CSC_KEY_PASSWORD="$APPLE_CERT_PASSWORD"
+            npx electron-builder --mac -c.mac.notarize=true
+          else
+            echo "macOS packaging: no Apple secrets — ad-hoc signing (validation only, not distributable)"
+            npx electron-builder --mac -c.mac.identity=-
+          fi
+
+      - name: Package desktop app (Linux / Windows)
+        if: matrix.platform != 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/desktop
+          npx electron-builder --${{ matrix.platform }}
 
       # Gate the upload on the packaged app actually carrying its native modules.
       # --structure-only asserts better-sqlite3 + argon2 are inside app.asar with
@@ -208,9 +167,14 @@ jobs:
       # that drops the vite-externalized natives fails here instead of shipping a
       # desktop build that crashes on first launch.
       - name: Smoke-test the packaged app
-        run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out --structure-only
+        run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
 
+      # Upload only the top-level distributables (the zips). The glob is
+      # non-recursive on purpose: out-builder also holds the unpacked app dirs
+      # whose puntovivo.exe / nested files would otherwise match the uploader's
+      # extension filter.
       - name: Upload desktop release assets
-        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out/make
+        shell: bash
+        run: node ./scripts/upload-release-assets.mjs "${{ inputs.tag }}" apps/desktop/out-builder/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

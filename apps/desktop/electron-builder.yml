@@ -1,0 +1,50 @@
+appId: com.puntovivo.pos
+productName: Puntovivo
+executableName: puntovivo
+# package.json pins electron with a caret range; electron-builder needs the exact
+# release to fetch its platform binaries. Keep in sync with the electron devDep.
+electronVersion: 41.7.1
+directories:
+  output: out-builder
+  # default is build/, which the root .gitignore excludes; use a tracked dir so
+  # the macOS entitlements plist ships in the repo.
+  buildResources: build-resources
+# main/preload are built separately by scripts/build-electron-main.mjs into
+# .vite/build (package.json "main" points there); electron-builder only packages.
+files:
+  - .vite/build/**
+  - package.json
+asar: true
+# .node addons cannot be dlopen'd from inside app.asar.
+asarUnpack:
+  - '**/*.node'
+extraResources:
+  - from: ../web/dist
+    to: dist
+  - from: ../../packages/server/dist/db/migrations
+    to: migrations
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+mac:
+  target:
+    - zip
+  category: public.app-category.business
+  hardenedRuntime: true
+  entitlements: build-resources/entitlements.mac.plist
+  entitlementsInherit: build-resources/entitlements.mac.plist
+  # Notarization is opt-in at the workflow level: the release job enables it via
+  # -c.mac.notarize=true only when the Apple secrets are present (electron-builder
+  # reads APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID from the env).
+  notarize: false
+linux:
+  target:
+    - zip
+win:
+  target:
+    - zip
