@@ -78,10 +78,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          # The puntovivo-web Pages project (custom domain puntovivo.app) already
-          # exists; create is a tolerated no-op so a fresh account still bootstraps.
-          npx --yes wrangler@4 pages project create puntovivo-web \
-            --production-branch=main 2>/dev/null \
-            || echo "pages project 'puntovivo-web' already exists, continuing"
+          # Deploy to the pre-existing puntovivo-web project (custom domain
+          # puntovivo.app). We deliberately do NOT auto-create the project: if the
+          # name is wrong or missing, fail loudly here rather than spin up a stray
+          # Pages project (the operator owns project creation in the dashboard).
           npx --yes wrangler@4 pages deploy dist \
             --project-name=puntovivo-web --branch=main
