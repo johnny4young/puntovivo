@@ -4,6 +4,15 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.10](https://github.com/johnny4young/puntovivo/compare/v1.1.9...v1.1.10) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** configure the github publish provider for electron-builder ([03fdf3f](https://github.com/johnny4young/puntovivo/commit/03fdf3f0bf29da7f9816e00cf7fcef34fecce85b))
+* **desktop:** pin a flat electron-builder artifactName ([29b3025](https://github.com/johnny4young/puntovivo/commit/29b3025ecb118f3324c4287b73eae6cc12171a07))
+* **desktop:** stop electron-builder from auto-publishing on CI ([2de712f](https://github.com/johnny4young/puntovivo/commit/2de712f306ed2e5652886373ff4c9d19a3466685))
+
 ## [1.1.9](https://github.com/johnny4young/puntovivo/compare/v1.1.8...v1.1.9) (2026-06-28)
 
 
