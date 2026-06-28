@@ -26,6 +26,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const EXECUTABLE = 'puntovivo';
 const APP_NAME = 'Puntovivo';
@@ -152,7 +153,9 @@ function checkStructure(binary) {
   const unpacked = path.join(resources, 'app.asar.unpacked');
   if (!existsSync(asar)) fail(`app.asar not found at ${asar}`);
 
-  const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  // fileURLToPath (not new URL(...).pathname) so the Windows drive letter is
+  // handled - .pathname yields /D:/... which resolves to a bogus D:\D:\... path.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const asarCli = path.join(repoRoot, 'node_modules', '@electron', 'asar', 'bin', 'asar.js');
   const listing = spawnSync(process.execPath, [asarCli, 'list', asar], {
     encoding: 'utf8',
