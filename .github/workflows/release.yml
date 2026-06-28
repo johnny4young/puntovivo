@@ -79,9 +79,11 @@ jobs:
   release-desktop:
     name: Release Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Safety net: a wedged electron-forge packaging step (see scripts/forge-make.mjs)
-    # must fail fast, not run out the default 6-hour job budget.
-    timeout-minutes: 30
+    # Safety net against a wedged packaging step (see scripts/forge-make.mjs)
+    # without starving the legitimately slow path: compiling better-sqlite3's
+    # SQLCipher binding for Electron's ABI has no prebuilt and runs ~18-20 min
+    # from source, so the job needs ~25-28 min of real headroom.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
