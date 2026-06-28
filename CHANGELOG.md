@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.3](https://github.com/johnny4young/puntovivo/compare/v1.1.2...v1.1.3) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** build packaged app in CI via electronZipDir ([57910a0](https://github.com/johnny4young/puntovivo/commit/57910a013e24e5d1d4ee75f4db95b9cc09e642e3))
+
 ## [1.1.2](https://github.com/johnny4young/puntovivo/compare/v1.1.1...v1.1.2) (2026-06-28)
 
 
