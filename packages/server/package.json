@@ -1,6 +1,6 @@
 {
   "name": "@puntovivo/server",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "description": "Puntovivo Backend Server - Fastify + Drizzle + SQLite",
   "type": "module",
   "main": "./dist/index.js",
