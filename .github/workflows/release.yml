@@ -169,18 +169,19 @@ jobs:
       - name: Smoke-test the packaged app
         run: node ./scripts/run-desktop-smoke.mjs --against-packaged apps/desktop/out-builder --structure-only
 
-      # Upload the single top-level zip this OS produced. Resolve it with Node,
-      # not a shell glob: Git bash on the Windows runner does not expand
-      # out-builder/*.zip, so the asset silently never uploaded. gh is invoked
-      # straight from bash (resolves on all three runners) rather than through a
-      # node spawn('gh'), which needs gh.exe on Windows. Node also filters out the
-      # unpacked app dir (win-unpacked/puntovivo.exe etc.) by matching only *.zip.
+      # Upload the single top-level installer this OS produced (mac .zip, windows
+      # NSIS .exe, linux .AppImage). Resolve it with Node, not a shell glob: Git
+      # bash on the Windows runner does not expand out-builder/*, so the asset
+      # silently never uploaded. The extension filter excludes the .blockmap /
+      # latest*.yml sidecars and the unpacked app dir (win-unpacked/puntovivo.exe),
+      # leaving exactly one installer. gh is invoked straight from bash (resolves
+      # on all three runners) rather than a node spawn('gh'), which needs gh.exe.
       - name: Upload desktop release assets
         shell: bash
         run: |
           set -euo pipefail
-          ZIP=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const z=fs.readdirSync(d).filter(f=>f.endsWith('.zip'));if(z.length!==1){console.error('expected exactly 1 zip in '+d+', got '+z.length+': '+z.join(', '));process.exit(1)}process.stdout.write(d+'/'+z[0])")
-          echo "uploading: $ZIP"
-          gh release upload "${{ inputs.tag }}" "$ZIP" --clobber
+          ASSET=$(node -e "const fs=require('node:fs');const d='apps/desktop/out-builder';const ext=['.zip','.exe','.AppImage'];const a=fs.readdirSync(d).filter(f=>ext.some(e=>f.endsWith(e)));if(a.length!==1){console.error('expected exactly 1 installer in '+d+', got '+a.length+': '+a.join(', '));process.exit(1)}process.stdout.write(d+'/'+a[0])")
+          echo "uploading: $ASSET"
+          gh release upload "${{ inputs.tag }}" "$ASSET" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

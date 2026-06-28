@@ -139,7 +139,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-linux-${{ github.run_id }}
-          path: apps/desktop/out-builder/*.zip
+          path: apps/desktop/out-builder/Puntovivo-*
           if-no-files-found: warn
           retention-days: 7
 
@@ -220,7 +220,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-mac-${{ github.run_id }}
-          path: apps/desktop/out-builder/*.zip
+          path: apps/desktop/out-builder/Puntovivo-*
           if-no-files-found: warn
           retention-days: 7
 
@@ -301,6 +301,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-win-${{ github.run_id }}
-          path: apps/desktop/out-builder/*.zip
+          path: apps/desktop/out-builder/Puntovivo-*
           if-no-files-found: warn
           retention-days: 7

@@ -57,9 +57,19 @@ mac:
   # -c.mac.notarize=true only when the Apple secrets are present (electron-builder
   # reads APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID from the env).
   notarize: false
+# Target formats are dictated by electron-updater's auto-install support: mac
+# updates from a zip (Squirrel.Mac), windows needs an NSIS installer, linux needs
+# an AppImage. A plain zip cannot auto-install on windows/linux, so those two
+# ship their updater-native format and the zip stays mac-only.
 linux:
   target:
-    - zip
+    - AppImage
 win:
   target:
-    - zip
+    - nsis
+nsis:
+  # Per-user install (no UAC elevation) so the silent electron-updater install
+  # works without a prompt; one-click keeps the manual download a simple
+  # double-click-and-go installer too.
+  oneClick: true
+  perMachine: false
