@@ -51,7 +51,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          # No pnpm store cache: a warm cache leaves the electron-forge makers'
+          # transitive deps (e.g. lodash) unresolvable, so make:desktop emits no
+          # installers. A clean install hoists them — matches build-desktop.yml.
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -101,7 +103,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          # No pnpm store cache: a warm cache leaves the electron-forge makers'
+          # transitive deps (e.g. lodash) unresolvable, so make:desktop emits no
+          # installers. A clean install hoists them — matches build-desktop.yml.
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
