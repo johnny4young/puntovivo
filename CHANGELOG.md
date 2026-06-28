@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.12](https://github.com/johnny4young/puntovivo/compare/v1.1.11...v1.1.12) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** make the smoke asar check slash-agnostic on Windows ([98d8e27](https://github.com/johnny4young/puntovivo/commit/98d8e278a3c727425d12c9ca12ae70d8ae1d120b))
+
 ## [1.1.11](https://github.com/johnny4young/puntovivo/compare/v1.1.10...v1.1.11) (2026-06-28)
 
 
