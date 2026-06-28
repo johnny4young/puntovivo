@@ -12,9 +12,13 @@ import { StaticRouter } from 'react-router-dom';
 import './i18n/index.js';
 import { AppShell } from './AppShell.jsx';
 
-// Mirror the client's basename ("/puntovivo") so router-generated <Link> hrefs
-// in the prerendered HTML already carry the GitHub Pages subpath.
-const BASENAME = '/puntovivo';
+// Mirror the client's basename derivation EXACTLY (entry-client.jsx reads the
+// same import.meta.env.BASE_URL and strips the trailing slash) so the
+// prerendered <Link> hrefs match the host the bundle was built for: "/puntovivo"
+// under the GitHub Pages subpath, "" at the Cloudflare Pages root. Vite injects
+// BASE_URL into the SSR bundle from the `base` config, so this tracks
+// VITE_BASE_PATH automatically and keeps SSR/hydration parity.
+const BASENAME = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 /**
  * Render a single route to its HTML string. Called once per route by

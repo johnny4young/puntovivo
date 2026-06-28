@@ -1,0 +1,86 @@
+name: Deploy Website (Cloudflare Pages)
+
+# Builds the marketing site (website/) and deploys it to Cloudflare Pages at the
+# domain root. This replaces the GitHub Pages site deploy: pages.yml is being
+# repurposed to publish the desktop auto-update feed (the appcast) instead.
+#
+# The site reads the latest GitHub release at runtime for its version badge +
+# download CTA, so a published release also re-deploys to keep that fresh.
+#
+# Requires repo secrets:
+#   - CLOUDFLARE_API_TOKEN  (token with the Cloudflare Pages:Edit permission)
+#   - CLOUDFLARE_ACCOUNT_ID
+# The custom domain is attached to the "puntovivo" Pages project in the
+# Cloudflare dashboard, independent of this workflow.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-web.yml'
+  release:
+    types: [published]
+
+# Build + deploy only read the repo; the deploy uses Cloudflare secrets, no
+# GitHub write scope is needed.
+permissions:
+  contents: read
+
+# Serialize deploys (push + release + manual share this group); never cancel an
+# in-flight publish.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # pnpm version comes from the root package.json "packageManager" field.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # Standalone install: the site lives outside the apps/* + packages/*
+      # workspace globs. --ignore-scripts skips postinstall builds (esbuild ships
+      # its platform binary as an optional dep, so vite builds without them) and
+      # avoids pnpm 11's ERR_PNPM_IGNORED_BUILDS under --ignore-workspace. Mirrors
+      # pages.yml.
+      - name: Install dependencies
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        # Cloudflare Pages serves at the domain root, not the /puntovivo/ subpath
+        # GitHub Pages used; VITE_BASE_PATH drives vite's `base` + the SSR/client
+        # router basename.
+        env:
+          VITE_BASE_PATH: /
+        run: pnpm run build
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          # Create the Pages project on first run; tolerate "already exists" so
+          # later deploys are no-ops on this line.
+          npx --yes wrangler@4 pages project create puntovivo \
+            --production-branch=main 2>/dev/null \
+            || echo "pages project 'puntovivo' already exists, continuing"
+          npx --yes wrangler@4 pages deploy dist \
+            --project-name=puntovivo --branch=main

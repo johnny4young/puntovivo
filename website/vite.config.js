@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages project site: https://johnny4young.github.io/puntovivo/
-// `base` must match the repo name so asset URLs resolve under the subpath.
+// `base` controls the prefix every asset URL resolves under, and it differs by
+// host: GitHub Pages serves the project site under the repo subpath
+// (https://johnny4young.github.io/puntovivo/) while Cloudflare Pages serves at
+// the domain root (/). VITE_BASE_PATH lets each deploy pick the right one; it
+// defaults to the GitHub Pages subpath so a bare `pnpm run build` stays
+// backward-compatible, and the Cloudflare deploy sets VITE_BASE_PATH=/.
 //
 // SSG note: the build is a two-pass Vite build (client → dist, SSR entry →
 // dist/server) followed by scripts/prerender.mjs, which emits a real static
@@ -11,7 +15,7 @@ import react from '@vitejs/plugin-react';
 // spaFallback404 closeBundle plugin was removed — see scripts/prerender.mjs and
 // the "build" script in package.json.
 export default defineConfig({
-  base: '/puntovivo/',
+  base: process.env.VITE_BASE_PATH || '/puntovivo/',
   plugins: [react()],
   build: {
     outDir: 'dist',
