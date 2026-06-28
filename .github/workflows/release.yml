@@ -248,8 +248,8 @@ jobs:
           <!doctype html>
           <meta charset="utf-8">
           <title>Puntovivo update feed</title>
-          <meta http-equiv="refresh" content="0; url=https://puntovivo.pages.dev/">
-          <p>Puntovivo desktop auto-update feed. <a href="https://puntovivo.pages.dev/">Go to the site</a>.</p>
+          <meta http-equiv="refresh" content="0; url=https://puntovivo.app/">
+          <p>Puntovivo desktop auto-update feed. <a href="https://puntovivo.app/">Go to the site</a>.</p>
           HTML
 
       - name: Configure Pages

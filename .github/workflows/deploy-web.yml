@@ -10,8 +10,9 @@ name: Deploy Website (Cloudflare Pages)
 # Requires repo secrets:
 #   - CLOUDFLARE_API_TOKEN  (token with the Cloudflare Pages:Edit permission)
 #   - CLOUDFLARE_ACCOUNT_ID
-# The custom domain is attached to the "puntovivo" Pages project in the
-# Cloudflare dashboard, independent of this workflow.
+# Deploys to the "puntovivo-web" Pages project; its custom domain puntovivo.app
+# (and puntovivo-web.pages.dev) is configured in the Cloudflare dashboard,
+# independent of this workflow.
 
 on:
   workflow_dispatch:
@@ -77,10 +78,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          # Create the Pages project on first run; tolerate "already exists" so
-          # later deploys are no-ops on this line.
-          npx --yes wrangler@4 pages project create puntovivo \
+          # The puntovivo-web Pages project (custom domain puntovivo.app) already
+          # exists; create is a tolerated no-op so a fresh account still bootstraps.
+          npx --yes wrangler@4 pages project create puntovivo-web \
             --production-branch=main 2>/dev/null \
-            || echo "pages project 'puntovivo' already exists, continuing"
+            || echo "pages project 'puntovivo-web' already exists, continuing"
           npx --yes wrangler@4 pages deploy dist \
-            --project-name=puntovivo --branch=main
+            --project-name=puntovivo-web --branch=main
