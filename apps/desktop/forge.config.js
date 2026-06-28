@@ -4,10 +4,7 @@
 // installers) on the CI runners while working locally. Keeping this as .js makes
 // `electron-forge make` resolve the makers identically everywhere. Edit this
 // file (not a .ts) for desktop packaging changes.
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -33,29 +30,12 @@ const config = {
     force: true,
     onlyModules: ['better-sqlite3', 'argon2'],
   },
-  makers: [
-    new MakerSquirrel({
-      name: 'Puntovivo',
-    }),
-    new MakerZIP({}, ['darwin']),
-    new MakerDeb({
-      options: {
-        name: 'puntovivo',
-        bin: 'puntovivo',
-        maintainer: 'Puntovivo',
-        homepage: 'https://github.com/johnny4young/puntovivo',
-        categories: ['Office'],
-      },
-    }),
-    new MakerRpm({
-      options: {
-        name: 'puntovivo',
-        bin: 'puntovivo',
-        homepage: 'https://github.com/johnny4young/puntovivo',
-        categories: ['Office'],
-      },
-    }),
-  ],
+  // CI-portable build: only MakerZIP. The squirrel/deb/rpm makers pull
+  // undeclared transitive deps that pnpm does not hoist on a clean CI install,
+  // so they fail to load there (they work locally). A zip of the packaged app is
+  // a working portable build for all three OS; native installers can return once
+  // the maker-dep hoisting is solved.
+  makers: [new MakerZIP({}, ['darwin', 'linux', 'win32'])],
   publishers: [
     {
       name: '@electron-forge/publisher-github',
