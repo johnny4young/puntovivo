@@ -45,6 +45,11 @@ const config = {
       const { execFileSync } = await import('node:child_process');
       const require = createRequire(import.meta.url);
 
+      // Timestamped progress to stderr — visible in the CI log even while api.make
+      // buffers stdout through listr, so a hang here is locatable.
+      const log = message =>
+        process.stderr.write(`[pkg-hook] ${message} @ ${new Date().toISOString()}\n`);
+
       const destNodeModules = path.join(buildPath, 'node_modules');
       const seen = new Set();
       const copyClosure = name => {
@@ -56,18 +61,26 @@ const config = {
         } catch {
           return; // optional / platform-specific dep not installed here
         }
-        fs.cpSync(path.dirname(pkgJsonPath), path.join(destNodeModules, name), {
+        const srcDir = path.dirname(pkgJsonPath);
+        fs.cpSync(srcDir, path.join(destNodeModules, name), {
           recursive: true,
           dereference: true,
+          // Skip nested node_modules: pnpm fills them with symlinks into .pnpm and
+          // dereference would walk that graph deeply (and can cycle), which hangs
+          // the copy on a fresh CI install. We resolve and copy every dependency
+          // flat ourselves below, so only the package's own files are needed here.
+          filter: src => !path.relative(srcDir, src).split(path.sep).includes('node_modules'),
         });
         const deps = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')).dependencies ?? {};
         for (const dep of Object.keys(deps)) copyClosure(dep);
       };
       // electron is provided by the runtime; the other three vite externals
       // (vite.main.config.ts) must travel with the app.
+      log('copying native runtime closure');
       for (const ext of ['better-sqlite3', 'argon2', 'electron-squirrel-startup']) {
         copyClosure(ext);
       }
+      log(`closure copied (${seen.size} packages); fetching better-sqlite3 prebuild`);
 
       // Replace better-sqlite3's copied (Node-ABI) binary with the Electron-ABI
       // prebuild (electron-v145 for Electron 41) so the app loads it natively.
@@ -86,6 +99,7 @@ const config = {
         ],
         { cwd: bs3, stdio: 'inherit' }
       );
+      log('better-sqlite3 electron prebuild ready; hook done');
     },
   },
   // CI-portable build: only MakerZIP. The squirrel/deb/rpm makers pull
