@@ -147,10 +147,10 @@ jobs:
             echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/puntovivo-cert.p12"
             export CSC_LINK="$RUNNER_TEMP/puntovivo-cert.p12"
             export CSC_KEY_PASSWORD="$APPLE_CERT_PASSWORD"
-            npx electron-builder --mac -c.mac.notarize=true
+            npx electron-builder --mac --publish never -c.mac.notarize=true
           else
             echo "macOS packaging: no Apple secrets — ad-hoc signing (validation only, not distributable)"
-            npx electron-builder --mac -c.mac.identity=-
+            npx electron-builder --mac --publish never -c.mac.identity=-
           fi
 
       - name: Package desktop app (Linux / Windows)
@@ -159,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/desktop
-          npx electron-builder --${{ matrix.platform }}
+          npx electron-builder --${{ matrix.platform }} --publish never
 
       # Gate the upload on the packaged app actually carrying its native modules.
       # --structure-only asserts better-sqlite3 + argon2 are inside app.asar with
