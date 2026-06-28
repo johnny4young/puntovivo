@@ -4,6 +4,13 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.1.9](https://github.com/johnny4young/puntovivo/compare/v1.1.8...v1.1.9) (2026-06-28)
+
+
+### Bug Fixes
+
+* **desktop:** skip @electron/get's hanging SHASUMS download in CI ([705f265](https://github.com/johnny4young/puntovivo/commit/705f265f3e2c8754c979f3d71d0dfbeb34bb2d08))
+
 ## [1.1.8](https://github.com/johnny4young/puntovivo/compare/v1.1.7...v1.1.8) (2026-06-28)
 
 
