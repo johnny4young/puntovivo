@@ -75,11 +75,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
-        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
-        # install and the electron-forge makers' undeclared transitive deps stay
-        # un-hoisted — make:desktop then emits zero installers. Force it here.
-        run: pnpm install --frozen-lockfile --shamefully-hoist
+        run: pnpm install --frozen-lockfile
 
       - name: Install Linux system dependencies
         run: |
@@ -95,9 +91,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
-          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
-          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
@@ -167,11 +160,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
-        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
-        # install and the electron-forge makers' undeclared transitive deps stay
-        # un-hoisted — make:desktop then emits zero installers. Force it here.
-        run: pnpm install --frozen-lockfile --shamefully-hoist
+        run: pnpm install --frozen-lockfile
 
       # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
       # (only locales/, no binary), so electron never installs and make:desktop
@@ -181,9 +170,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
-          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
-          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
@@ -253,11 +239,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        # --shamefully-hoist: pnpm 11 reads hoist settings from pnpm-workspace.yaml,
-        # not .npmrc, so the repo's shamefully-hoist=true is ignored on a clean CI
-        # install and the electron-forge makers' undeclared transitive deps stay
-        # un-hoisted — make:desktop then emits zero installers. Force it here.
-        run: pnpm install --frozen-lockfile --shamefully-hoist
+        run: pnpm install --frozen-lockfile
 
       # @electron/get + extract-zip leave a partial dist/ on the GitHub runners
       # (only locales/, no binary), so electron never installs and make:desktop
@@ -267,9 +249,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "DIAG lodash-at-root=$([ -d node_modules/lodash ] && echo yes || echo NO) in-pnpm=$(ls -d node_modules/.pnpm/lodash@* 2>/dev/null | wc -l | tr -d ' ')"
-          echo "DIAG hoist=$(pnpm config get shamefully-hoist 2>/dev/null) linker=$(pnpm config get node-linker 2>/dev/null)"
-          node -e "try{require.resolve('lodash');console.log('DIAG require-lodash OK')}catch(e){console.log('DIAG require-lodash FAIL')}" || true
           EV=$(node -p "require('./node_modules/electron/package.json').version")
           PLAT=$(node -p "process.platform")
           ARCH=$(node -p "process.arch")
